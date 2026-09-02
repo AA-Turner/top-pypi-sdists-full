@@ -1,0 +1,297 @@
+Metadata-Version: 2.3
+Name: deno-sandbox
+Version: 0.16.0
+Summary: Deno Sandbox Python SDK
+Author: The Deno Team
+Author-email: The Deno Team <support@deno.com>
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: typing-extensions>=4.15.0
+Requires-Dist: websockets>=15.0.1
+Requires-Python: >=3.10
+Project-URL: Repository, https://github.com/denoland/sandbox-py
+Project-URL: Homepage, https://deno.com/deploy/sandbox
+Description-Content-Type: text/markdown
+
+# Deno Sandbox Python SDK
+
+The official Python SDK for [Deno Sandboxes](https://deno.com/deploy/sandboxes) - isolated, secure environments running in lightweight Linux microVMs. Create on-demand sandboxes to execute untrusted code, run shell commands, build AI agents with code execution capabilities, or provide interactive development environments.
+
+## Key Features
+
+- **Secure Isolation** - Each sandbox runs in its own microVM with full process and filesystem isolation
+- **Sync & Async APIs** - First-class support for both synchronous and asynchronous Python code
+- **Process Management** - Spawn and manage shell processes with full stdin/stdout/stderr control
+- **Deno Runtime** - Execute TypeScript/JavaScript code, run Deno scripts, or interact with a REPL
+- **Filesystem Operations** - Read, write, copy, and traverse files with a comprehensive filesystem API
+- **Persistent Storage** - Create volumes and snapshots to persist data across sandbox sessions
+- **App Management** - Create and manage Deno Deploy apps, revisions, and deployment timelines
+- **HTTP & SSH Exposure** - Expose sandbox services to the internet via HTTP or SSH
+- **Network Controls** - Fine-grained control over outbound network access with allowlists
+- **File Transfers** - Upload files from your local machine or download from the sandbox
+- **Configurable Resources** - Adjust memory limits, timeouts, and select deployment regions
+
+## Installation
+
+```sh
+pip install deno-sandbox
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```sh
+uv add deno-sandbox
+```
+
+## Requirements
+
+- Python 3.10+
+- A Deno Deploy access token (set as `DENO_DEPLOY_TOKEN` environment variable)
+
+## Quick Start
+
+### Synchronous API
+
+```py
+from deno_sandbox import DenoDeploy
+
+sdk = DenoDeploy()
+
+with sdk.sandbox.create() as sb:
+    # Run a shell command
+    process = sb.spawn("echo", args=["Hello from the sandbox!"])
+    process.wait()
+
+    # Write and read files
+    sb.fs.write_text_file("/tmp/example.txt", "Hello, World!")
+    content = sb.fs.read_text_file("/tmp/example.txt")
+    print(content)
+```
+
+### Asynchronous API
+
+```py
+import asyncio
+from deno_sandbox import AsyncDenoDeploy
+
+async def main():
+    sdk = AsyncDenoDeploy()
+
+    async with sdk.sandbox.create() as sb:
+        # Run a shell command
+        process = await sb.spawn("echo", args=["Hello from the sandbox!"])
+        await process.wait()
+
+        # Write and read files
+        await sb.fs.write_text_file("/tmp/example.txt", "Hello, World!")
+        content = await sb.fs.read_text_file("/tmp/example.txt")
+        print(content)
+
+asyncio.run(main())
+```
+
+## Usage Examples
+
+### Execute TypeScript/JavaScript with Deno
+
+```py
+with sdk.sandbox.create() as sb:
+    # Run inline TypeScript code
+    result = sb.deno.eval("console.log('Hello from Deno!')")
+
+    # Or run a script file
+    sb.fs.write_text_file("/app/server.ts", '''
+        Deno.serve({ port: 8000 }, () => new Response("Hello!"));
+    ''')
+    process = sb.deno.run(entrypoint="/app/server.ts")
+```
+
+### Interactive Deno REPL
+
+```py
+with sdk.sandbox.create() as sb:
+    repl = sb.deno.repl()
+
+    # Evaluate expressions and get results
+    result = repl.eval("1 + 1")
+    print(result)  # 2
+
+    result = repl.eval("const x = [1, 2, 3]; x.map(n => n * 2)")
+    print(result)  # [2, 4, 6]
+
+    repl.close()
+```
+
+### Filesystem Operations
+
+```py
+with sdk.sandbox.create() as sb:
+    # Create directories
+    sb.fs.mkdir("/app/data", recursive=True)
+
+    # Write files
+    sb.fs.write_text_file("/app/data/config.json", '{"key": "value"}')
+    sb.fs.write_file("/app/data/binary.bin", b"\x00\x01\x02\x03")
+
+    # Read files
+    text = sb.fs.read_text_file("/app/data/config.json")
+    binary = sb.fs.read_file("/app/data/binary.bin")
+
+    # List directory contents
+    entries = sb.fs.read_dir("/app/data")
+    for entry in entries:
+        print(f"{entry['name']} - is_file: {entry['is_file']}")
+
+    # Walk directory tree
+    for entry in sb.fs.walk("/app"):
+        print(entry["path"])
+
+    # Glob pattern matching
+    matches = sb.fs.expand_glob("**/*.json", root="/app")
+```
+
+### Upload and Download Files
+
+```py
+with sdk.sandbox.create() as sb:
+    # Upload a local file or directory to the sandbox
+    sb.fs.upload("./local/project", "/app/project")
+
+    # Run a build process
+    process = sb.spawn("npm", args=["run", "build"], cwd="/app/project")
+    process.wait()
+
+    # Download results
+    sb.fs.download("./output", "/app/project/dist")
+```
+
+### Persistent Volumes
+
+```py
+# Create a volume for persistent storage
+volume = sdk.volumes.create(
+    slug="my-data",
+    region="us-east-1",
+    capacity="1GB"
+)
+
+# Use the volume in a sandbox
+with sdk.sandbox.create(volumes={"/data": volume["id"]}) as sb:
+    sb.fs.write_text_file("/data/persistent.txt", "This data persists!")
+
+# Create a snapshot of the volume
+snapshot = sdk.volumes.snapshot(volume["id"], slug="my-snapshot")
+```
+
+### Expose HTTP Services
+
+```py
+with sdk.sandbox.create() as sb:
+    # Start a web server
+    sb.fs.write_text_file("/app/server.ts", '''
+        Deno.serve({ port: 8000 }, (req) => {
+            return new Response("Hello from sandbox!");
+        });
+    ''')
+    process = sb.deno.run(entrypoint="/app/server.ts")
+    process.wait_http_ready()
+
+    # Expose it publicly
+    url = sb.expose_http(port=8000)
+    print(f"Server available at: {url}")
+```
+
+### Configure Sandbox Options
+
+```py
+with sdk.sandbox.create(
+    region="us-east-1",              # Deploy region
+    memory_mb=2048,                  # Memory limit (default: 1280 MB)
+    timeout="5m",                    # Auto-shutdown timeout
+    env={"NODE_ENV": "production"},  # Environment variables
+    allow_net=["api.example.com"],   # Network allowlist
+) as sb:
+    process = sb.spawn("node", args=["app.js"])
+    process.wait()
+```
+
+### Manage Apps and Deployments
+
+```py
+# Create a new app
+app = sdk.apps.create(slug="my-app")
+print(f"Created app: {app['slug']}")
+
+# List all apps
+for app in sdk.apps.list():
+    print(f"App: {app['slug']} (created: {app['created_at']})")
+
+# Get revisions for an app
+revisions = sdk.revisions.list("my-app")
+for rev in revisions:
+    print(f"Revision: {rev['id']} - Status: {rev['status']}")
+
+# List timelines (deployment targets) for an app
+timelines = sdk.timelines.list("my-app")
+for timeline in timelines:
+    print(f"Timeline: {timeline['slug']}")
+    for domain in timeline["domains"]:
+        print(f"  Domain: {domain['domain']}")
+
+# Update or delete an app
+sdk.apps.update("my-app", slug="renamed-app")
+sdk.apps.delete("renamed-app")
+```
+
+## API Reference
+
+### DenoDeploy / AsyncDenoDeploy
+
+The main entry point for the SDK. Provides access to:
+
+- `sandbox` - Create and manage sandbox instances
+- `volumes` - Create and manage persistent volumes
+- `snapshots` - List and manage volume snapshots
+- `apps` - Create and manage Deno Deploy applications
+- `revisions` - List and inspect app revisions
+- `timelines` - List deployment timelines and domains
+
+### Sandbox
+
+A running sandbox instance with:
+
+- `spawn(command, args, ...)` - Spawn a child process
+- `fs` - Filesystem operations (read, write, mkdir, walk, etc.)
+- `deno` - Deno runtime (run scripts, REPL, eval)
+- `env` - Environment variable management
+- `expose_http(port)` - Expose HTTP service publicly
+- `expose_ssh()` - Expose SSH access
+- `fetch(url)` - Make HTTP requests from within the sandbox
+- `extend_timeout(seconds)` - Extend the sandbox timeout
+- `kill()` - Terminate the sandbox
+
+### Apps
+
+Manage Deno Deploy applications:
+
+- `create(slug)` - Create a new app
+- `get(id_or_slug)` - Get app by ID or slug
+- `list()` - List all apps
+- `update(app, slug)` - Update an app
+- `delete(app)` - Delete an app
+
+### Revisions
+
+Track deployment revisions:
+
+- `get(app, id)` - Get a specific revision
+- `list(app)` - List revisions for an app
+
+### Timelines
+
+Manage deployment timelines:
+
+- `list(app)` - List timelines for an app (includes domains)
+
+## License
+
+MIT - see the [LICENSE](./LICENSE) file for details.

@@ -25,35 +25,33 @@ class ExternalBaselineValidationInfo(APIObject):
     Attributes
     ----------
     baseline_validation_job_id : str
-        the identifier of the baseline validation job
+        The identifier of the baseline validation job.
     project_id : str
-        the identifier of the project
+        The identifier of the project.
     catalog_version_id : str
-        the identifier of the catalog version used in the validation job
+        The identifier of the catalog version used in the validation job.
     target : str
-        the name of the target feature
+        The name of the target feature.
     datetime_partition_column : str
-        the name of the column whose values as dates are used to assign a row
-        to a particular partition
+        The name of the column whose values as dates are used to assign a row to a particular partition.
     is_external_baseline_dataset_valid : bool
-        whether the external baseline dataset passes the validation check
+        Whether the external baseline dataset passes the validation check.
     multiseries_id_columns : List[str] or null
-        a list of the names of multiseries id columns to define series
-        within the training data.  Currently only one multiseries id column is supported.
+        A list of the names of multiseries ID columns to define series within the training data. Currently only one
+        multiseries ID column is supported.
     holdout_start_date : str or None
-        the start date of holdout scoring data
+        The start date of holdout scoring data.
     holdout_end_date : str or None
-        the end date of holdout scoring data
+        The end date of holdout scoring data.
     backtests : list of dicts containing validation_start_date and validation_end_date or None
-        the configured backtests of the time series project
+        The configured backtests of the time series project.
     forecast_window_start : int
-        offset into the future to define how far forward relative to the forecast point the
-        forecast window should start.
+        Offset into the future to define how far forward relative to the forecast point the forecast window should
+        start.
     forecast_window_end : int
-        offset into the future to define how far forward relative to the forecast point the
-        forecast window should end.
+        Offset into the future to define how far forward relative to the forecast point the forecast window should end.
     message : str or None
-        the description of the issue with external baseline validation job
+        The description of the issue with the external baseline validation job.
 
     """
 
@@ -113,19 +111,19 @@ class ExternalBaselineValidationInfo(APIObject):
     @classmethod
     def get(cls, project_id: str, validation_job_id: str) -> ExternalBaselineValidationInfo:
         """
-        Get information about external baseline validation job
+        Returns the information about the external baseline validation job.
 
         Parameters
         ----------
         project_id : string
-            the identifier of the project
+            The identifier of the project.
         validation_job_id : string
-            the identifier of the external baseline validation job
+            The identifier of the external baseline validation job.
 
         Returns
         -------
         info: ExternalBaselineValidationInfo
-            information about external baseline validation job
+            Information about the external baseline validation job.
 
         """
         server_data = cls._client.get(cls._get_url.format(pid=project_id, job_id=validation_job_id))

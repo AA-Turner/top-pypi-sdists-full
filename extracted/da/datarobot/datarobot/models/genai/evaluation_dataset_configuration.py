@@ -43,7 +43,7 @@ evaluation_dataset_configuration_trafaret = t.Dict({
 
 class EvaluationDatasetConfiguration(APIObject):
     """
-    An evaluation dataset configuration used to evaluate the performance of LLMs.
+    An evaluation dataset configuration used to evaluate the performance of ``LLMs``.
 
     Attributes
     ----------
@@ -167,7 +167,7 @@ class EvaluationDatasetConfiguration(APIObject):
         correctness_only: Optional[bool] = False,
         completed_only: Optional[bool] = False,
     ) -> List[EvaluationDatasetConfiguration]:
-        """List all evaluation dataset configurations for a Use Case.
+        """Returns a list of all evaluation dataset configurations for a Use Case.
 
         Parameters
         ----------

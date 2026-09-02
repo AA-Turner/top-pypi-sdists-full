@@ -40,7 +40,7 @@ class OtelMetricAggValue(APIObject):
     Attributes
     ----------
     otel_name: str
-      The OTel key of the metric.
+        The ``OTel`` key of the metric.
     aggregation: Optional[str]
       The aggregation method used for metric display.
     display_name: Optional[str]
@@ -93,11 +93,11 @@ class OtelMetricAggregatedValues(APIObject):
     Attributes
     ----------
     metric_aggregations: List[OtelMetricAggValue]
-      description: A list of OTel metric value periods.
+        A list of ``OTel`` metric value periods.
     start_time: Optional[datetime]
-      description: The start time of the metric value period.
+        The start time of the metric value period.
     end_time: Optional[datetime]
-      description: The end time of the metric value period.
+        The end time of the metric value period.
     """
 
     _path = "otel/{}/{}/metrics/values/"
@@ -149,7 +149,7 @@ class OtelMetricAggregatedValues(APIObject):
         end_time: Optional[datetime | date | str]
             The end time of the metric list.
         histogram_buckets: bool
-            Return histograms as buckets instead of percentile values, default is False.
+            When True, returns histograms as buckets instead of percentile values. The default is False.
 
         Returns
         -------

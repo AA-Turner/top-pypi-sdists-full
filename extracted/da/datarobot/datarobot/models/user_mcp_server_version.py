@@ -61,7 +61,7 @@ class TypeOfResourceInUserMCPServerVersion(EnumAPIRepresentationConverter):
 
 class ToolInUserMCPServerVersion(APIObject):
     """A tool registered in one MCP server version. It is used to:
-    - List tools registered in one MCP server version.
+    - Returns a list of tools registered in one MCP server version.
 
     Attributes
     ----------
@@ -70,10 +70,10 @@ class ToolInUserMCPServerVersion(APIObject):
     name: str
         The tool name.
     type: str
-        The tool type. It is a camelized string representation of TypeOfToolInUserMCPServerVersion
+        The tool type. It is a camelized string representation of TypeOfToolInUserMCPServerVersion.
     created_at: str
         Datetime when the tool is created.
-        It is formatted as RFC3339 UTC, e.g. 2026-02-24T19:12:48.285320Z
+        It is formatted as RFC3339 UTC, e.g., 2026-02-24T19:12:48.285320Z.
     user_id: bool
         The identifier of user who created the tool.
     user_name: str
@@ -155,7 +155,7 @@ class ToolInUserMCPServerVersion(APIObject):
 
 class PromptInUserMCPServerVersion(APIObject):
     """A prompt registered in one MCP server version. It is used to:
-    - List prompts registered in one MCP server version.
+    - Returns a list of prompts registered in one MCP server version.
 
     Attributes
     ----------
@@ -167,7 +167,7 @@ class PromptInUserMCPServerVersion(APIObject):
         The prompt type. It is a camelized string representation of TypeOfPromptInUserMCPServerVersion.
     created_at: str
         Datetime when the prompt is created.
-        It is formatted as RFC3339 UTC, e.g. 2026-02-24T19:12:48.285320Z
+        It is formatted as RFC3339 UTC, e.g., 2026-02-24T19:12:48.285320Z.
     user_id: bool
         The identifier of user who created the prompt.
     user_name: str
@@ -249,7 +249,7 @@ class PromptInUserMCPServerVersion(APIObject):
 
 class ResourceInUserMCPServerVersion(APIObject):
     """A resource registered in one MCP server version. It is used to:
-    - List resources registered in one MCP server version.
+    - Returns a list of resources registered in one MCP server version.
 
     Attributes
     ----------
@@ -263,7 +263,7 @@ class ResourceInUserMCPServerVersion(APIObject):
         The resource URI.
     created_at: str
         Datetime when the resource is created.
-        It is formatted as RFC3339 UTC, e.g. 2026-02-24T19:12:48.285320Z
+        It is formatted as RFC3339 UTC, e.g., 2026-02-24T19:12:48.285320Z.
     user_id: bool
         The identifier of user who created the resource.
     user_name: str

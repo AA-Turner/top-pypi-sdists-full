@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: antsibull-docutils
-Version: 1.4.0
+Version: 1.4.1
 Summary: Antsibull docutils helpers
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docutils/
 Project-URL: Code of Conduct, https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html

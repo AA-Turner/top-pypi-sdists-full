@@ -93,7 +93,7 @@ class Job(APIObject):
     name: str
         The name of the job.
     created_at: str
-        ISO-8601 formatted timestamp of when the version was created
+        ISO-8601 formatted timestamp of when the version was created.
     items: List[JobFileItem]
         A list of file items attached to the job.
     description: Optional[str]
@@ -172,7 +172,7 @@ class Job(APIObject):
         file_data: Optional[Dict[str, str]] = None,
         runtime_parameter_values: Optional[List[RuntimeParameterValue]] = None,
     ) -> Job:
-        """Create a job.
+        """Creates a job.
 
         .. versionadded:: v3.4
 
@@ -193,30 +193,30 @@ class Job(APIObject):
         files: Optional[Union[List[Tuple[str, str]], List[str]]]
             The files to be uploaded to the job.
             The files can be defined in 2 ways:
-            1. List of tuples where 1st element is the local path of the file to be uploaded
-            and the 2nd element is the file path in the job file system.
-            2. List of local paths of the files to be uploaded.
+            1. A list of tuples where the first element is the local path of the file to be uploaded
+            and the second element is the file path in the job file system.
+            2. A list of local paths of the files to be uploaded.
             In this case files are added to the root of the model file system.
         file_data: Optional[Dict[str, str]]
             The files content to be uploaded to the job.
-            Defined as a dictionary where keys are the file paths in the job file system.
+            Defined as a dictionary where keys are the file paths in the job file system
             and values are the files content.
         runtime_parameter_values: Optional[List[RuntimeParameterValue]]
-            Additional parameters to be injected into a job at runtime. The fieldName
-            must match a fieldName that is listed in the runtimeParameterDefinitions section
-            of the model-metadata.yaml file.
+            Additional parameters to be injected into a job at runtime. The `fieldName`
+            must match a `fieldName` that is listed in the `runtimeParameterDefinitions` section
+            of the model-metadata.YAML file.
 
         Returns
         -------
         Job
-            created job
+            The created job.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         upload_data: List[Tuple[str, Any]] = [
             ("name", name),
@@ -302,28 +302,28 @@ class Job(APIObject):
 
     @classmethod
     def list(cls) -> List[Job]:
-        """List jobs.
+        """Returns a list of jobs.
 
         .. versionadded:: v3.4
 
         Returns
         -------
         List[Job]
-            a list of jobs
+            A list of jobs.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         data = unpaginate(cls._path, None, cls._client)
         return [cls.from_server_data(item) for item in data]
 
     @classmethod
     def get(cls, job_id: str) -> Job:
-        """Get job by id.
+        """Returns the job by ID.
 
         .. versionadded:: v3.4
 
@@ -335,14 +335,14 @@ class Job(APIObject):
         Returns
         -------
         Job
-            retrieved job
+            The retrieved job.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = cls._job_path(job_id)
         return cls.from_location(path)
@@ -360,7 +360,7 @@ class Job(APIObject):
         runtime_parameter_values: Optional[List[RuntimeParameterValue]] = None,
         runtime_parameters: Optional[List[RuntimeParameter]] = None,
     ) -> None:
-        """Update job properties.
+        """Updates the job properties.
 
         .. versionadded:: v3.4
 
@@ -385,18 +385,18 @@ class Job(APIObject):
         files: Optional[Union[List[Tuple[str, str]], List[str]]]
             The files to be uploaded to the job.
             The files can be defined in 2 ways:
-            1. List of tuples where 1st element is the local path of the file to be uploaded
-            and the 2nd element is the file path in the job file system.
-            2. List of local paths of the files to be uploaded.
+            1. A list of tuples where the first element is the local path of the file to be uploaded
+            and the second element is the file path in the job file system.
+            2. A list of local paths of the files to be uploaded.
             In this case files are added to the root of the job file system.
         file_data: Optional[Dict[str, str]]
             The files content to be uploaded to the job.
-            Defined as a dictionary where keys are the file paths in the job file system.
+            Defined as a dictionary where keys are the file paths in the job file system
             and values are the files content.
         runtime_parameter_values: Optional[List[RuntimeParameterValue]]
-            Additional parameters to be injected into a job at runtime. The fieldName
-            must match a fieldName that is listed in the runtimeParameterDefinitions section
-            of the model-metadata.yaml file.
+            Additional parameters to be injected into a job at runtime. The `fieldName`
+            must match a `fieldName` that is listed in the `runtimeParameterDefinitions` section
+            of the model-metadata.YAML file.
             Mutually exclusive with ``runtime_parameters``.
         runtime_parameters: Optional[List[RuntimeParameter]]
             Full parameter definitions to create or replace on this job. Unlike
@@ -410,9 +410,9 @@ class Job(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         if runtime_parameters is not None and runtime_parameter_values is not None:
             raise InvalidUsageError(
@@ -459,7 +459,7 @@ class Job(APIObject):
         self._update_values(new_version)
 
     def delete(self) -> None:
-        """Delete job.
+        """Deletes the job.
 
         .. versionadded:: v3.4
 
@@ -474,16 +474,16 @@ class Job(APIObject):
         self._client.delete(url)
 
     def refresh(self) -> None:
-        """Update job with the latest data from server.
+        """Updates the job with the latest data from the server.
 
         .. versionadded:: v3.4
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         new_object = self.get(self.id)
@@ -497,30 +497,30 @@ class Job(APIObject):
         description: Optional[str] = None,
         sidecar_deployment_id: Optional[str] = None,
     ) -> Job:
-        """Create a job from a custom metric gallery template.
+        """Creates a job from a custom metric gallery template.
 
         Parameters
         ----------
         template_id: str
-            ID of the template.
+            The ID of the template.
         name: str
-            Name of the job.
+            The name of the job.
         description: Optional[str]
-            Description of the job.
+            The description of the job.
         sidecar_deployment_id: Optional[str]
-            ID of the sidecar deployment. Only relevant for templates that use sidecar deployments.
+            The ID of the sidecar deployment. Only relevant for templates that use sidecar deployments.
 
         Returns
         -------
         Job
-            retrieved job
+            The created job.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         payload = {"name": name, "templateId": template_id}
         if description:
@@ -531,12 +531,12 @@ class Job(APIObject):
         return cls.from_server_data(response.json())
 
     def list_schedules(self) -> List[JobSchedule]:
-        """List schedules for the job.
+        """Returns a list of schedules for the job.
 
         Returns
         -------
         List[JobSchedule]
-            a list of schedules for the job.
+            A list of schedules for the job.
         """
         url = f"customJobs/{self.id}/schedules/"
         data = unpaginate(url, None, self._client)

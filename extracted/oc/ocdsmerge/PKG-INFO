@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: ocdsmerge
+Version: 0.8.0
+Summary: A library and reference implementation for merging OCDS releases
+Author-email: Open Contracting Partnership <data@open-contracting.org>
+License: BSD
+Project-URL: Homepage, https://github.com/open-contracting/ocds-merge
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: jsonref
+Requires-Dist: requests
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: jsonschema; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
+
+|PyPI Version| |Build Status| |Coverage Status| |Python Version|
+
+This Python package creates records that conform to the `Open Contracting Data Standard <https://standard.open-contracting.org>`__. Specifically, it provides classes for merging OCDS releases with the same OCID into either a compiled release or a versioned release (collectively called "merged releases"), as described in the `OCDS documentation <https://standard.open-contracting.org/latest/en/schema/merging/>`__.
+
+Instead of using this library directly, it is easier to create merged releases using either:
+
+-  `OCDS Kit <https://ocdskit.readthedocs.io/>`__'s `compile <https://ocdskit.readthedocs.io/en/latest/cli/ocds.html#compile>`__ command-line tool
+-  OCDS Kit's `merge <https://ocdskit.readthedocs.io/en/latest/api/combine.html#ocdskit.combine.merge>`__ Python function
+
+If you are viewing this on GitHub or PyPI, open the `full documentation <https://ocds-merge.readthedocs.io/>`__ for additional details.
+
+.. |PyPI Version| image:: https://img.shields.io/pypi/v/ocdsmerge.svg
+   :target: https://pypi.org/project/ocdsmerge/
+.. |Build Status| image:: https://github.com/open-contracting/ocds-merge/actions/workflows/ci.yml/badge.svg
+   :target: https://github.com/open-contracting/ocds-merge/actions/workflows/ci.yml
+.. |Coverage Status| image:: https://coveralls.io/repos/github/open-contracting/ocds-merge/badge.svg?branch=main
+   :target: https://coveralls.io/github/open-contracting/ocds-merge?branch=main
+.. |Python Version| image:: https://img.shields.io/pypi/pyversions/ocdsmerge.svg
+   :target: https://pypi.org/project/ocdsmerge/

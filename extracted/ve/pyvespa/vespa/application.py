@@ -15,6 +15,7 @@ from requests import Session
 from requests.models import Response
 from requests.exceptions import ConnectionError, HTTPError, JSONDecodeError
 from tenacity import (
+    AsyncRetrying,
     retry,
     wait_exponential,
     wait_random_exponential,
@@ -204,21 +205,13 @@ def raise_for_status(
         VespaError: If the response JSON contains an error message.
     """
 
-    # Check if response has raise_for_status method (requests/httpx)
-    # or if we need to check manually (httpr)
     has_error = False
     http_error = None
 
-    if hasattr(response, "raise_for_status"):
-        # requests/httpx Response - use built-in method
-        try:
-            response.raise_for_status()
-            return  # No error, return early
-        except HTTPError as e:
-            has_error = True
-            http_error = e
-    else:
-        # httpr Response - check status code manually
+    if isinstance(response, httpr.Response):
+        # httpr Response - check status code manually. httpr >= 0.6.0 does provide a
+        # raise_for_status(), but it raises httpr.HTTPStatusError, which is not a
+        # requests HTTPError, so it must not be used to detect the error here.
         if 400 <= response.status_code < 600:
             has_error = True
             # Try to format error message with JSON if available
@@ -230,6 +223,14 @@ def raise_for_status(
             except Exception:
                 # Fall back to text if JSON parsing fails
                 http_error = HTTPError(f"HTTP {response.status_code}: {response.text}")
+    else:
+        # requests/httpx Response - use built-in method
+        try:
+            response.raise_for_status()
+            return  # No error, return early
+        except HTTPError as e:
+            has_error = True
+            http_error = e
 
     if has_error:
         # Handle 404 special case
@@ -245,11 +246,20 @@ def raise_for_status(
                 raise VespaError(errors) from http_error
             if error_message:
                 raise VespaError(error_message) from http_error
-        except JSONDecodeError:
-            # If we can't parse JSON, just raise the HTTP error
+        except (JSONDecodeError, ValueError, RuntimeError):
+            # If we can't parse JSON, just raise the HTTP error.
+            # httpr raises RuntimeError, not JSONDecodeError, on a non-JSON body.
             pass
 
         raise http_error
+
+
+def _response_json(response: Response) -> Dict:
+    """Return the parsed JSON body, falling back to the raw text on a non-JSON body."""
+    try:
+        return response.json()
+    except (JSONDecodeError, ValueError, RuntimeError):
+        return {"message": response.text}
 
 
 class Vespa(object):
@@ -323,7 +333,7 @@ class Vespa(object):
         connections: Optional[int] = 1,
         total_timeout: Optional[int] = None,
         timeout: Union[httpx.Timeout, int, float] = 30.0,
-        client: Optional[httpx.AsyncClient] = None,
+        client: Optional[Union[httpx.AsyncClient, httpr.AsyncClient]] = None,
         **kwargs,
     ) -> "VespaAsync":
         """
@@ -347,7 +357,7 @@ class Vespa(object):
             total_timeout (int, optional): Deprecated. Will be ignored. Use timeout instead.
             timeout (float | int | httpx.Timeout, optional): Timeout in seconds. Defaults to 30.0.
                 httpx.Timeout is deprecated but still supported for backward compatibility.
-            client (httpx.AsyncClient, optional): Reusable httpx.AsyncClient to use instead of creating a new
+            client (httpx.AsyncClient | httpr.AsyncClient, optional): Reusable httpx.AsyncClient to use instead of creating a new
                 one. When provided, the caller is responsible for closing the client.
             **kwargs (dict, optional): Additional arguments to be passed to the httpx.AsyncClient.
 
@@ -579,7 +589,7 @@ class Vespa(object):
     def query(
         self,
         body: Optional[Dict] = None,
-        groupname: str = None,
+        groupname: Optional[str] = None,
         streaming: bool = False,
         profile: bool = False,
         **kwargs,
@@ -615,8 +625,8 @@ class Vespa(object):
         schema: str,
         data_id: str,
         fields: Dict,
-        namespace: str = None,
-        groupname: str = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
         compress: Union[str, bool] = "auto",
         **kwargs,
     ) -> VespaResponse:
@@ -984,40 +994,42 @@ class Vespa(object):
                             callback(response, id)
                         continue
 
-                    async with semaphore:
-                        if operation_type == "feed":
-                            task = async_session.feed_data_point(
-                                schema=schema,
-                                namespace=namespace,
-                                groupname=groupname,
-                                data_id=id,
-                                fields=fields,
-                                **kwargs,
-                            )
-                        elif operation_type == "update":
-                            task = async_session.update_data(
-                                schema=schema,
-                                namespace=namespace,
-                                groupname=groupname,
-                                data_id=id,
-                                fields=fields,
-                                **kwargs,
-                            )
-                        elif operation_type == "delete":
-                            task = async_session.delete_data(
-                                schema=schema,
-                                namespace=namespace,
-                                data_id=id,
-                                groupname=groupname,
-                                **kwargs,
-                            )
+                    if operation_type == "feed":
+                        task = async_session.feed_data_point(
+                            schema=schema,
+                            namespace=namespace,
+                            groupname=groupname,
+                            data_id=id,
+                            fields=fields,
+                            semaphore=semaphore,
+                            **kwargs,
+                        )
+                    elif operation_type == "update":
+                        task = async_session.update_data(
+                            schema=schema,
+                            namespace=namespace,
+                            groupname=groupname,
+                            data_id=id,
+                            fields=fields,
+                            semaphore=semaphore,
+                            **kwargs,
+                        )
+                    elif operation_type == "delete":
+                        task = async_session.delete_data(
+                            schema=schema,
+                            namespace=namespace,
+                            data_id=id,
+                            groupname=groupname,
+                            semaphore=semaphore,
+                            **kwargs,
+                        )
 
-                        tasks.append(handle_result(asyncio.create_task(task), id))
+                    tasks.append(handle_result(asyncio.create_task(task), id))
 
-                        # Control the number of in-flight tasks
-                        if len(tasks) >= max_queue_size:
-                            await asyncio.gather(*tasks)
-                            tasks = []
+                    # Control the number of in-flight tasks
+                    if len(tasks) >= max_queue_size:
+                        await asyncio.gather(*tasks)
+                        tasks = []
 
                 if tasks:
                     await asyncio.gather(*tasks)
@@ -1124,8 +1136,8 @@ class Vespa(object):
         self,
         schema: str,
         data_id: str,
-        namespace: str = None,
-        groupname: str = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
         **kwargs,
     ) -> VespaResponse:
         """
@@ -1163,7 +1175,7 @@ class Vespa(object):
         self,
         content_cluster_name: str,
         schema: str,
-        namespace: str = None,
+        namespace: Optional[str] = None,
         slices: int = 1,
         **kwargs,
     ) -> Response:
@@ -1249,8 +1261,8 @@ class Vespa(object):
         self,
         schema: str,
         data_id: str,
-        namespace: str = None,
-        groupname: str = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
         raise_on_not_found: Optional[bool] = False,
         **kwargs,
     ) -> VespaResponse:
@@ -1286,8 +1298,8 @@ class Vespa(object):
         data_id: str,
         fields: Dict,
         create: bool = False,
-        namespace: str = None,
-        groupname: str = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
         compress: Union[str, bool] = "auto",
         **kwargs,
     ) -> VespaResponse:
@@ -1641,8 +1653,8 @@ class VespaSync(object):
         schema: str,
         data_id: str,
         fields: Dict,
-        namespace: str = None,
-        groupname: str = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
         **kwargs,
     ) -> VespaResponse:
         """
@@ -1683,7 +1695,7 @@ class VespaSync(object):
     def query(
         self,
         body: Optional[Dict] = None,
-        groupname: str = None,
+        groupname: Optional[str] = None,
         streaming: bool = False,
         profile: bool = False,
         **kwargs,
@@ -1757,8 +1769,8 @@ class VespaSync(object):
         self,
         schema: str,
         data_id: str,
-        namespace: str = None,
-        groupname: str = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
         **kwargs,
     ) -> VespaResponse:
         """
@@ -1794,7 +1806,7 @@ class VespaSync(object):
         self,
         content_cluster_name: str,
         schema: str,
-        namespace: str = None,
+        namespace: Optional[str] = None,
         slices: int = 1,
         **kwargs,
     ) -> None:
@@ -1949,8 +1961,8 @@ class VespaSync(object):
         self,
         schema: str,
         data_id: str,
-        namespace: str = None,
-        groupname: str = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
         raise_on_not_found: Optional[bool] = False,
         **kwargs,
     ) -> VespaResponse:
@@ -1993,8 +2005,8 @@ class VespaSync(object):
         fields: Dict,
         create: bool = False,
         auto_assign: bool = True,
-        namespace: str = None,
-        groupname: str = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
         **kwargs,
     ) -> VespaResponse:
         """
@@ -2273,14 +2285,12 @@ class VespaAsync(object):
             raise state.outcome.exception()
         return state.outcome.result()
 
-    @retry(
-        wait=wait_random_exponential(multiplier=1.5, max=60), stop=stop_after_attempt(5)
-    )
     async def query(
         self,
         body: Optional[Dict] = None,
-        groupname: str = None,
+        groupname: Optional[str] = None,
         profile: bool = False,
+        retry_policy: Optional[AsyncRetrying] = None,
         **kwargs,
     ) -> VespaQueryResponse:
         """
@@ -2290,27 +2300,44 @@ class VespaAsync(object):
             body (dict): Dict containing all the request parameters.
             groupname (str, optional): The groupname used in streaming search.
             profile (bool, optional): Add profiling parameters to the query (response may be large). Defaults to False.
+            retry_policy (AsyncRetrying, optional): Custom tenacity retry policy. Defaults to five attempts with random exponential wait time.
             **kwargs (dict, optional): Additional valid Vespa HTTP Query API parameters.
 
         Returns:
             VespaQueryResponse: The response from the query.
+
+        Raises:
+            RetryError: When all retries have failed, unless a custom policy with reraise is passed.
         """
         if groupname:
             kwargs["streaming.groupname"] = groupname
         if profile:
             kwargs.update(get_profiling_params())
 
-        r = await self._make_request(
-            "POST",
-            self.app.search_end_point,
-            json_data=body,
-            params=kwargs,
-            headers={"Accept": "application/cbor"},
+        retry_policy = (
+            retry_policy.copy()
+            if retry_policy
+            else AsyncRetrying(
+                wait=wait_random_exponential(multiplier=1.5, max=60),
+                stop=stop_after_attempt(5),
+            )
         )
 
-        return VespaQueryResponse(
-            json=r.json(), status_code=r.status_code, url=str(r.url)
-        )
+        async def _do_query() -> VespaQueryResponse:
+            response = await self._make_request(
+                "POST",
+                self.app.search_end_point,
+                json_data=body,
+                params=kwargs,
+                headers={"Accept": "application/cbor"},
+            )
+            return VespaQueryResponse(
+                json=_response_json(response),
+                status_code=response.status_code,
+                url=str(response.url),
+            )
+
+        return await retry_policy(_do_query)
 
     @retry(
         wait=wait_exponential(multiplier=1),
@@ -2350,7 +2377,7 @@ class VespaAsync(object):
         )
 
         return VespaResponse(
-            json=response.json(),
+            json=_response_json(response),
             status_code=response.status_code,
             url=str(response.url),
             operation_type="feed",
@@ -2373,22 +2400,25 @@ class VespaAsync(object):
         self,
         schema: str,
         data_id: str,
-        namespace: str = None,
-        groupname: str = None,
-        semaphore: asyncio.Semaphore = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
+        semaphore: Optional[asyncio.Semaphore] = None,
         **kwargs,
     ) -> VespaResponse:
         path = self.app.get_document_v1_path(
             id=data_id, schema=schema, namespace=namespace, group=groupname
         )
         end_point = "{}{}".format(self.app.end_point, path)
-        if semaphore:
-            async with semaphore:
-                response = await self.httpr_client.delete(end_point, params=kwargs)
-        else:
-            response = await self.httpr_client.delete(end_point, params=kwargs)
+
+        response = await self._make_request(
+            "DELETE",
+            end_point,
+            semaphore=semaphore,
+            params=kwargs,
+        )
+
         return VespaResponse(
-            json=response.json(),
+            json=_response_json(response),
             status_code=response.status_code,
             url=str(response.url),
             operation_type="delete",
@@ -2411,22 +2441,25 @@ class VespaAsync(object):
         self,
         schema: str,
         data_id: str,
-        namespace: str = None,
-        groupname: str = None,
-        semaphore: asyncio.Semaphore = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
+        semaphore: Optional[asyncio.Semaphore] = None,
         **kwargs,
     ) -> VespaResponse:
         path = self.app.get_document_v1_path(
             id=data_id, schema=schema, namespace=namespace, group=groupname
         )
         end_point = "{}{}".format(self.app.end_point, path)
-        if semaphore:
-            async with semaphore:
-                response = await self.httpr_client.get(end_point, params=kwargs)
-        else:
-            response = await self.httpr_client.get(end_point, params=kwargs)
+
+        response = await self._make_request(
+            "GET",
+            end_point,
+            semaphore=semaphore,
+            params=kwargs,
+        )
+
         return VespaResponse(
-            json=response.json(),
+            json=_response_json(response),
             status_code=response.status_code,
             url=str(response.url),
             operation_type="get",
@@ -2452,9 +2485,9 @@ class VespaAsync(object):
         fields: Dict,
         create: bool = False,
         auto_assign: bool = True,
-        namespace: str = None,
-        groupname: str = None,
-        semaphore: asyncio.Semaphore = None,
+        namespace: Optional[str] = None,
+        groupname: Optional[str] = None,
+        semaphore: Optional[asyncio.Semaphore] = None,
         **kwargs,
     ) -> VespaResponse:
         path = self.app.get_document_v1_path(
@@ -2476,8 +2509,9 @@ class VespaAsync(object):
             semaphore=semaphore,
             params=kwargs,
         )
+
         return VespaResponse(
-            json=response.json(),
+            json=_response_json(response),
             status_code=response.status_code,
             url=str(response.url),
             operation_type="update",

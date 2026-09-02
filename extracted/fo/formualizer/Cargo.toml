@@ -1,0 +1,48 @@
+[workspace]
+resolver = "2"
+
+members = ["bindings/python"]
+
+[workspace.package]
+homepage = "https://github.com/psu3d0/formualizer"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/psu3d0/formualizer"
+documentation = "https://docs.rs/formualizer"
+
+
+[workspace.dependencies]
+
+formualizer-common = { version = "3.0.0", path = "crates/formualizer-common" }
+formualizer-macros = { version = "0.8.4", path = "crates/formualizer-macros" }
+formualizer-parse = { version = "3.0.0", path = "crates/formualizer-parse" }
+formualizer-eval = { version = "0.8.4", path = "crates/formualizer-eval" }
+formualizer-workbook = { version = "0.8.4", path = "crates/formualizer-workbook" }
+
+chrono = { version = "0.4.41", default-features = false, features = ["std"] }
+serde = "1.0.228"
+serde_json = "1.0.142"
+serde_yaml = "0.9.34"
+schemars = "1.0.4"
+semver = "1.0.26"
+regex = "1.11.1"
+clap = "4.5.48"
+anyhow = "1.0.100"
+thiserror = "2.0.17"
+once_cell = "1.21.3"
+smallvec = "1.13"
+rustc-hash = "1.1"
+tempfile = "3.10"
+web-time = "1.1.0"
+pyo3 = "0.29.0"
+wasm-bindgen = "0.2.95"
+wasm-bindgen-futures = "0.4.45"
+js-sys = "0.3.72"
+web-sys = "0.3.72"
+syn = "2.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[patch.crates-io]
+umya-spreadsheet = { git = "https://github.com/PSU3D0/umya-spreadsheet.git", rev = "4b64d65daf19bba79800951cd38920d7eb95320c" }

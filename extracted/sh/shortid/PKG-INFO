@@ -1,0 +1,12 @@
+Metadata-Version: 1.1
+Name: shortid
+Version: 0.1.2
+Summary: Short id generator
+Home-page: https://github.com/corpix/shortid
+Author: Dmitry Moskowski
+Author-email: me@corpix.ru
+License: MIT
+Download-URL: https://github.com/corpix/shortid/archive/0.1.2.tar.gz
+Description: UNKNOWN
+Keywords: short,id,uuid,shortid,tinyid
+Platform: UNKNOWN

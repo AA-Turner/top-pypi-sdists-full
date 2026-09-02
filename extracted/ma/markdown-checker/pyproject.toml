@@ -1,0 +1,215 @@
+[project]
+name = "markdown-checker"
+description= "A markdown link validation reporting tool."
+dynamic = ["version"]
+authors = [{ name = "John Aziz", email = "johnaziz269@gmail.com" }]
+maintainers = [{ name = "John Aziz", email = "johnaziz269@gmail.com" }]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.3.1",
+    "httpx2>=2.0.0",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/john0isaac/markdown-checker"
+Documentation = "https://markdown-checker.readthedocs.io/en/latest/"
+Issues = "https://github.com/john0isaac/markdown-checker/issues"
+Contributing = "https://github.com/john0isaac/markdown-checker/pulls"
+Releases = "https://github.com/john0isaac/markdown-checker/releases"
+
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "tox",
+    "tox-uv",
+]
+docs = [
+    "pallets-sphinx-themes",
+    "sphinx",
+    "sphinxcontrib-log-cabinet",
+    "sphinx-tabs",
+    "sphinx-copybutton",
+]
+docs-auto = [
+    "sphinx-autobuild",
+]
+gha-update = [
+    "gha-update ; python_full_version >= '3.12'",
+]
+pre-commit = [
+    "pre-commit",
+    "pre-commit-uv",
+]
+tests = [
+    "pytest",
+    "pytest-cov"
+]
+typing = [
+    "mypy"
+]
+
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"
+
+[project.scripts]
+markdown-checker = "markdown_checker:main"
+
+[tool.flit.sdist]
+include = [
+    "docs/",
+    "tests/",
+    "uv.lock"
+]
+exclude = [
+    "docs/_build/",
+]
+
+[tool.uv]
+default-groups = ["dev", "pre-commit", "tests", "typing"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src"]
+fix = true
+show-fixes = true
+output-format = "full"
+
+[tool.ruff.lint]
+select = [
+    "B",  # flake8-bugbear
+    "E",  # pycodestyle error
+    "F",  # pyflakes
+    "I",  # isort
+    "UP",  # pyupgrade
+    "W",  # pycodestyle warning
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+order-by-type = false
+known-first-party = ["markdown_checker"]
+
+[tool.mypy]
+python_version = '3.11'
+files = ["src"]
+show_error_codes = true
+pretty = true
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+markers = [
+    "smoke: end-to-end smoke tests that run the CLI against sample files",
+]
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ['src']
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["markdown_checker", "tests"]
+
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if t.TYPE_CHECKING",
+    "raise NotImplementedError",
+    ": \\.{3}",
+]
+
+[tool.tox]
+env_list = [
+    "py3.14", "py3.13", "py3.12", "py3.11",
+    "style",
+    "typing",
+    "docs",
+]
+
+[tool.tox.env_run_base]
+description = "pytest on latest dependency versions"
+runner = "uv-venv-lock-runner"
+package = "wheel"
+wheel_build_env = ".pkg"
+constrain_package_deps = true
+use_frozen_constraints = true
+dependency_groups = ["tests"]
+set_env = { TMPDIR = "{env_tmp_dir}" }
+commands = [
+    [
+        "pytest", "-v", "-rs", "--tb=short",
+        "--capture=tee-sys", "--basetemp={env_tmp_dir}",
+        { replace = "posargs", default = [], extend = true },
+    ],
+]
+
+[tool.tox.env.style]
+description = "run all pre-commit hooks on all files"
+dependency_groups = ["pre-commit"]
+skip_install = true
+commands = [["pre-commit", "run", "--all-files"]]
+
+[tool.tox.env.typing]
+description = "run static type checkers"
+dependency_groups = ["tests", "typing"]
+commands = [
+    ["mypy"],
+]
+
+[tool.tox.env.docs]
+description = "build docs"
+dependency_groups = ["docs"]
+commands = [["sphinx-build", "-E", "-W", "-b", "dirhtml", "docs", "docs/_build/dirhtml"]]
+
+[tool.tox.env.docs-auto]
+description = "continuously rebuild docs and start a local server"
+dependency_groups = ["docs", "docs-auto"]
+commands = [["sphinx-autobuild", "-W", "-b", "dirhtml", "--watch", "src", "docs", "docs/_build/dirhtml"]]
+
+[tool.tox.env.update-actions]
+description = "update GitHub Actions pins"
+labels = ["update"]
+dependency_groups = ["gha-update"]
+skip_install = true
+commands = [["gha-update"]]
+
+[tool.tox.env.update-pre_commit]
+description = "update pre-commit pins"
+labels = ["update"]
+dependency_groups = ["pre-commit"]
+skip_install = true
+commands = [["pre-commit", "autoupdate", "--freeze", "-j4"]]
+
+[tool.tox.env.update-requirements]
+description = "update uv lock"
+labels = ["update"]
+dependency_groups = []
+no_default_groups = true
+skip_install = true
+commands = [["uv", "lock", {replace = "posargs", default = ["-U"], extend = true}]]

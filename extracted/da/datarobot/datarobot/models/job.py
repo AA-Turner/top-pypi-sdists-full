@@ -135,7 +135,7 @@ class AbstractJob:
 
     def refresh(self) -> None:
         """
-        Update this object with the latest job data from the server.
+        Updates the job object with the latest job data from the server.
         """
         data, completed_url = self._data_and_completed_url_for_job(self._this_job_path())
         self.__init__(  # pylint: disable=unnecessary-dunder-call
@@ -151,30 +151,30 @@ class AbstractJob:
 
         Notes
         -----
-        For featureEffects, source param is required to define source,
+        For ``featureEffects`` jobs, the ``source`` param is required to define source,
         otherwise the default is `training`.
 
         Returns
         -------
         result : object
-            Return type depends on the job type
+            The return type depends on the job type:
                 - for model jobs, a `Model` is returned
                 - for predict jobs, a `pandas.DataFrame` (with predictions) is returned
-                - for featureImpact jobs, a list of dicts by default (see ``with_metadata``
+                - for ``featureImpact`` jobs, a list of dicts by default (see ``with_metadata``
                   parameter of the ``FeatureImpactJob`` class and its ``get()`` method).
-                - for primeRulesets jobs, a list of `Rulesets`
-                - for primeModel jobs, a `PrimeModel`
+                - for ``primeRulesets`` jobs, a list of `Rulesets`
+                - for ``primeModel`` jobs, a `PrimeModel`
                 - for primeDownloadValidation jobs, a `PrimeFile`
                 - for predictionExplanationInitialization jobs, a `PredictionExplanationsInitialization`
-                - for predictionExplanations jobs, a `PredictionExplanations`
-                - for featureEffects, a `FeatureEffects`.
+                - for ``predictionExplanations`` jobs, a `PredictionExplanations`
+                - for ``featureEffects`` jobs, a `FeatureEffects`.
 
         Raises
         ------
         JobNotFinished
             If the job is not finished, the result is not available.
         AsyncProcessUnsuccessfulError
-            If the job errored or was aborted
+            If the job errored or was aborted.
 
         """
         self.refresh()
@@ -248,19 +248,19 @@ class AbstractJob:
             How long to wait for the job to finish.
 
         params : dict, optional
-            Query parameters to be added to request.
+            Query parameters to be added to the request.
 
         Returns
         -------
         result: object
-            Return type is the same as would be returned by `Job.get_result`.
+            The return type is the same as would be returned by `Job.get_result`.
 
         Raises
         ------
         AsyncTimeoutError
-            If the job does not finish in time
+            If the job does not finish in time.
         AsyncProcessUnsuccessfulError
-            If the job errored or was aborted
+            If the job errored or was aborted.
         """
         if self.job_type == JOB_TYPE.MODEL_EXPORT:
             # checking this here instead of in _make_result to avoid waiting for the response
@@ -295,20 +295,20 @@ class AbstractJob:
 
 
 class Job(AbstractJob):
-    """Tracks asynchronous work being done within a project
+    """Tracks asynchronous work being done within a project.
 
     Attributes
     ----------
     id : int
-        The ID of the job
+        The ID of the job.
     project_id : str
-        The ID of the project the job belongs to
+        The ID of the project the job belongs to.
     status : str
-        The status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``
+        The status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``.
     job_type : str
-        What kind of work the job is doing - will be one of ``datarobot.enums.JOB_TYPE``
+        What kind of work the job is doing - will be one of ``datarobot.enums.JOB_TYPE``.
     is_blocked : bool
-        If true, the job is blocked (cannot be executed) until its dependencies are resolved
+        If true, the job is blocked (cannot be executed) until its dependencies are resolved.
     """
 
     _converter_extra = t.Dict({t.Key("job_type", optional=True) >> "job_type": String, t.Key("url") >> "url": String})
@@ -335,19 +335,19 @@ class Job(AbstractJob):
         Parameters
         ----------
         project_id : str
-            The identifier of the project in which the job resides
+            The identifier of the project in which the job resides.
         job_id : str
-            The job id
+            The job ID.
 
         Returns
         -------
         job : Job
-            The job
+            The job.
 
         Raises
         ------
         AsyncFailureError
-            Querying this resource gave a status code other than 200 or 303
+            Querying this resource gave a status code other than 200 or 303.
         """
         url = cls._job_path(project_id, job_id)
         data, completed_url = cls._data_and_completed_url_for_job(url)
@@ -417,18 +417,18 @@ class TrainingPredictionsJob(Job):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         project_id : str
-            The identifier of the project in which the job resides
+            The identifier of the project in which the job resides.
         job_id : str
-            The job id
+            The job ID.
         model_id : str
-            The identifier of the model used for computing training predictions
+            The identifier of the model used for computing training predictions.
         data_subset : dr.enums.DATA_SUBSET, optional
-            Data subset used for computing training predictions
+            Data subset used for computing training predictions.
 
         Returns
         -------
         job : TrainingPredictionsJob
-            The job
+            The job.
         """
         url = cls._job_path(project_id, job_id)
         data, completed_url = cls._data_and_completed_url_for_job(url)
@@ -448,7 +448,7 @@ class TrainingPredictionsJob(Job):  # pylint: disable=missing-class-docstring
 
     def refresh(self) -> None:
         """
-        Update this object with the latest job data from the server.
+        Updates the job object with the latest job data from the server.
         """
         data, completed_url = self._data_and_completed_url_for_job(self._this_job_path())
         self.__init__(  # pylint: disable=unnecessary-dunder-call
@@ -492,22 +492,22 @@ class FeatureImpactJob(Job):
         Parameters
         ----------
         project_id : str
-            The identifier of the project in which the job resides
+            The identifier of the project in which the job resides.
         job_id : str
-            The job id
+            The job ID.
         with_metadata : bool
-            To make this job return the metadata (i.e., the full object of the completed resource)
+            To make this job return the metadata (i.e., the full object of the completed resource),
             set the `with_metadata` flag to True.
 
         Returns
         -------
         job : Job
-            The job
+            The job.
 
         Raises
         ------
         AsyncFailureError
-            Querying this resource gave a status code other than 200 or 303
+            Querying this resource gave a status code other than 200 or 303.
         """
         url = cls._job_path(project_id, job_id)
         data, completed_url = cls._data_and_completed_url_for_job(url)

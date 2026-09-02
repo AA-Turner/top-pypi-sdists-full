@@ -262,6 +262,7 @@ from .type_defs import (
     GetOperationsForResourceResultTypeDef,
     GetOperationsRequestTypeDef,
     GetOperationsResultTypeDef,
+    GetProfileResultTypeDef,
     GetRegionsRequestTypeDef,
     GetRegionsResultTypeDef,
     GetRelationalDatabaseBlueprintsRequestTypeDef,
@@ -1521,6 +1522,15 @@ class LightsailClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/get_operations_for_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#get_operations_for_resource)
+        """
+
+    def get_profile(self) -> GetProfileResultTypeDef:
+        """
+        Returns information about the profile of the Amazon Lightsail account that
+        makes the request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lightsail/client/get_profile.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lightsail/client/#get_profile)
         """
 
     def get_regions(self, **kwargs: Unpack[GetRegionsRequestTypeDef]) -> GetRegionsResultTypeDef:

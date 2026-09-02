@@ -5,6 +5,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from spec_kitty_tracker.models import ExternalRef
 from spec_kitty_tracker.policy import FieldOwner
 
 
@@ -23,6 +24,9 @@ class ConflictRecord:
     resolved_value: Any
     strategy: ConflictStrategy
     manual_review_required: bool = False
+    # A9 (TRK-M1-03): appended field so a conflict can be attributed to the
+    # issue it was raised on. Populated by SyncEngine._merge_issues.
+    issue_ref: ExternalRef | None = None
 
 
 @dataclass(frozen=True, slots=True)

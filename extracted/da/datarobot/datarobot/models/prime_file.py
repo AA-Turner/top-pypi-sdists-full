@@ -20,24 +20,24 @@ from datarobot.models.api_object import APIObject
 
 
 class PrimeFile(APIObject):
-    """Represents an executable file available for download of the code for a DataRobot Prime model
+    """Represents an executable file available for download of the code for a DataRobot Prime model.
 
     Attributes
     ----------
     id : str
-        the ID of the PrimeFile
+        The ID of the PrimeFile.
     project_id : str
-        the ID of the project this PrimeFile belongs to
+        The ID of the project this PrimeFile belongs to.
     parent_model_id : str
-        the model being approximated by this PrimeFile
+        The model this PrimeFile approximates.
     model_id : str
-        the prime model this file represents
+        The Prime model this file represents.
     ruleset_id : int
-        the ruleset being used in this PrimeFile
+        The ruleset used in this PrimeFile.
     language : str
-        the language of the code in this file - see enums.LANGUAGE for possibilities
+        The language of the code in this file. See enums.LANGUAGE for possibilities.
     is_valid : bool
-        whether the code passed basic validation
+        Whether the code passed basic validation.
     """
 
     _converter = t.Dict({
@@ -74,12 +74,12 @@ class PrimeFile(APIObject):
         return cls.from_location(url)
 
     def download(self, filepath: str) -> None:
-        """Download the code and save it to a file
+        """Download the code and save it to a file.
 
         Parameters
         ----------
         filepath: string
-            the location to save the file to
+            The location to save the file to.
         """
         url = f"projects/{self.project_id}/primeFiles/{self.id}/download/"
         response = self._client.get(url)

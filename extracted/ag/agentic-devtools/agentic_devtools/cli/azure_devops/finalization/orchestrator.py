@@ -1,0 +1,342 @@
+"""Top-level orchestrator for the finalization pass.
+
+Sequences phases 0–9: identity resolution, thread fetch, classification,
+convergence computation, batch repair, verification, targeted fallback,
+retry, and reporting.
+"""
+
+from __future__ import annotations
+
+import sys
+import time
+from typing import Any
+
+from ..config import AzureDevOpsConfig
+from ..consolidated_review import is_review_complete
+from ..review_state import ReviewState, complete_active_session, save_review_state
+from .classification import classify_eligible_comments
+from .convergence import check_convergence, compute_expected_content
+from .identity import resolve_pat_identity
+from .models import CommentKey, EligibleComments, FinalizationReport, comment_key
+from .repair import batch_repair_pass, complete_activity_log, targeted_repair
+from .reporting import build_finalization_report, emit_report_summary, persist_report
+from .verification import verify_convergence
+
+# Maximum total duration for the finalization pass (seconds)
+_TIMEOUT_SECONDS = 60
+# Maximum number of retry rounds for targeted fallback
+_MAX_RETRY_ROUNDS = 2
+# Delay between retry rounds (seconds)
+_RETRY_DELAY_SECONDS = 5
+
+
+def run_finalization_pass(
+    review_state: ReviewState,
+    pr_id: int,
+    config: AzureDevOpsConfig,
+    headers: dict[str, str],
+    dry_run: bool = False,
+) -> FinalizationReport:
+    """Run the full finalization pass on AGDT-generated PR comments.
+
+    Orchestrates: identity resolution → thread fetch → classification →
+    convergence check → batch repair → verification → targeted fallback →
+    retry → reporting.
+
+    This function is designed to be **non-blocking**: any exception is caught
+    and reported rather than propagated.  If an unhandled error occurs,
+    it is caught and a failure report is returned.
+
+    Args:
+        review_state: Current review state (source of truth, may be mutated).
+        pr_id: Pull request ID.
+        config: Azure DevOps configuration.
+        headers: Auth headers for API calls.
+        dry_run: If True, run classification + convergence check without
+            mutations.
+
+    Returns:
+        FinalizationReport with counts and details.
+    """
+    start_time = time.monotonic()
+    details: list[str] = []
+
+    try:
+        # Keep session lifecycle progression independent of remote repair phases:
+        # if the review is already complete, close the active local session before
+        # any early-return path can short-circuit batch repair.
+        if not dry_run:
+            if is_review_complete(review_state):
+                completed_session = complete_active_session(review_state)
+                if completed_session is not None:
+                    try:
+                        save_review_state(review_state)
+                    except Exception as exc:
+                        details.append(f"Could not persist session completion: {exc}")
+
+        # Phase 0: Resolve PAT identity
+        organization = config.organization
+        pat_user_id = resolve_pat_identity(organization, headers)
+        if pat_user_id is None:
+            details.append("PAT identity resolution failed — no mutations performed")
+            return _build_report("skipped", 0, 0, 0, 0, details, start_time, review_state)
+
+        # Phase 1: Fetch current threads from API
+        threads = _fetch_threads(config, headers, review_state.repoId, pr_id)
+        if threads is None:
+            details.append("Could not fetch PR threads")
+            return _build_report("skipped", 0, 0, 0, 0, details, start_time, review_state)
+
+        # Phase 2: Classify eligible comments
+        eligible = classify_eligible_comments(threads, pat_user_id, review_state)
+        total_eligible = _count_eligible(eligible)
+        if total_eligible == 0:
+            details.append("No eligible AGDT comments found")
+            if eligible.skipped:
+                for skip in eligible.skipped:
+                    details.append(f"Skipped: thread {skip.get('thread_id', '?')}: {skip.get('reason', 'unknown')}")
+            if not dry_run and is_review_complete(review_state):
+                try:
+                    complete_activity_log(review_state, config, headers, pr_id)
+                except Exception as exc:
+                    details.append(f"activity-log completion: {exc}")
+            return _build_report("no-op", 0, len(eligible.skipped), 0, 0, details, start_time, review_state)
+
+        # Phase 3: Compute expected terminal content
+        from ..review_scaffold import build_pr_base_url
+
+        base_url = build_pr_base_url(config, pr_id)
+        expected_map: dict[CommentKey, str] = {}
+        all_comments = _collect_all_comments(eligible)
+        skipped_empty: list[dict[str, str]] = []
+        for comment in all_comments:
+            expected = compute_expected_content(comment, review_state, base_url)
+            if not expected:
+                skipped_empty.append({"thread_id": str(comment.thread_id), "reason": "empty expected content"})
+                continue
+            expected_map[comment_key(comment)] = expected
+
+        # Remove comments with empty expected content from the working set
+        all_comments = [c for c in all_comments if comment_key(c) in expected_map]
+
+        # Record skipped-empty comments
+        if skipped_empty:
+            for skip in skipped_empty:
+                details.append(f"Skipped: thread {skip['thread_id']}: {skip['reason']}")
+            eligible = EligibleComments(
+                file_summaries=[c for c in eligible.file_summaries if comment_key(c) in expected_map],
+                overall_summary=(
+                    eligible.overall_summary
+                    if eligible.overall_summary is not None and comment_key(eligible.overall_summary) in expected_map
+                    else None
+                ),
+                activity_log_entries=[c for c in eligible.activity_log_entries if comment_key(c) in expected_map],
+                skipped=eligible.skipped + skipped_empty,
+            )
+            total_eligible = _count_eligible(eligible)
+            if total_eligible == 0:
+                details.append("All eligible comments had empty expected content")
+                return _build_report("no-op", 0, len(eligible.skipped), 0, 0, details, start_time, review_state)
+
+        # Phase 4: Check initial convergence
+        unchanged = 0
+        non_converged = []
+        for comment in all_comments:
+            expected = expected_map.get(comment_key(comment), "")
+            if check_convergence(comment, expected):
+                unchanged += 1
+            else:
+                non_converged.append(comment)
+
+        if not non_converged:
+            details.append("All comments already in terminal state")
+            if eligible.skipped:
+                for skip in eligible.skipped:
+                    details.append(f"Skipped: thread {skip.get('thread_id', '?')}: {skip.get('reason', 'unknown')}")
+            return _build_report("no-op", 0, len(eligible.skipped), unchanged, 0, details, start_time, review_state)
+
+        # Phase 5: Batch-first repair
+        if not dry_run:
+            batch_result = batch_repair_pass(
+                eligible,
+                review_state,
+                config,
+                headers,
+                pr_id,
+                base_url,
+                dry_run=False,
+            )
+            details.append(f"Batch repair: {batch_result.succeeded}/{batch_result.attempted} succeeded")
+            if batch_result.errors:
+                for err in batch_result.errors:
+                    details.append(f"Batch error: {err}")
+        else:
+            details.append(f"Dry run: {len(non_converged)} comments would be repaired")
+            return _build_report(
+                "success",
+                len(non_converged),
+                len(eligible.skipped),
+                unchanged,
+                0,
+                details,
+                start_time,
+                review_state,
+            )
+
+        # Phase 6-8: Verification and retry
+        all_keys: set[CommentKey] = {comment_key(c) for c in all_comments}
+        # Seed converged_keys with initially-converged comments so that
+        # the repaired count is never negative even if verification misses them.
+        converged_keys: set[CommentKey] = set()
+        for comment in all_comments:
+            expected = expected_map.get(comment_key(comment), "")
+            if check_convergence(comment, expected):
+                converged_keys.add(comment_key(comment))
+        failed = 0
+        for round_num in range(_MAX_RETRY_ROUNDS + 1):
+            if _check_timeout(start_time):
+                details.append(f"Timeout reached after {_TIMEOUT_SECONDS}s")
+                # Mark remaining non-converged as failed
+                still_pending = all_keys - converged_keys
+                if still_pending:
+                    failed = len(still_pending)
+                    details.append(f"Timeout: {failed} comments still non-converged")
+                break
+
+            # Verify convergence
+            convergence_results = verify_convergence(
+                eligible,
+                expected_map,
+                config,
+                headers,
+                pr_id,
+                review_state.repoId,
+            )
+
+            still_non_converged = [cr.comment for cr in convergence_results if not cr.converged]
+            for cr in convergence_results:
+                if cr.converged:
+                    converged_keys.add(comment_key(cr.comment))
+
+            if not still_non_converged:
+                details.append("All comments converged after verification")
+                break
+
+            if round_num < _MAX_RETRY_ROUNDS:
+                # Targeted fallback
+                details.append(
+                    f"Round {round_num + 1}: {len(still_non_converged)} "
+                    "comments non-converged, applying targeted repair"
+                )
+                targeted_result = targeted_repair(
+                    still_non_converged,
+                    expected_map,
+                    config,
+                    headers,
+                    pr_id,
+                    review_state,
+                )
+                if targeted_result.errors:
+                    for err in targeted_result.errors:
+                        details.append(f"Targeted repair error: {err}")
+
+                time.sleep(_RETRY_DELAY_SECONDS)
+            else:
+                failed = len(still_non_converged)
+                details.append(f"Max retries reached: {failed} comments still non-converged")
+
+        # Add skipped info
+        if eligible.skipped:
+            for skip in eligible.skipped:
+                details.append(f"Skipped: thread {skip.get('thread_id', '?')}: {skip.get('reason', 'unknown')}")
+
+        # Determine final status
+        repaired = max(0, len(converged_keys) - unchanged)
+        if failed > 0:
+            status = "partial" if repaired > 0 else "failure"
+        else:
+            status = "success"
+
+        return _build_report(
+            status, repaired, len(eligible.skipped), unchanged, failed, details, start_time, review_state
+        )
+
+    except Exception as exc:
+        details.append(f"Finalization error: {exc}")
+        print(f"Warning: Finalization pass failed: {exc}", file=sys.stderr)
+        return _build_report("failure", 0, 0, 0, 0, details, start_time, review_state)
+
+
+def _build_report(
+    status: str,
+    repaired: int,
+    skipped: int,
+    unchanged: int,
+    failed: int,
+    details: list[str],
+    start_time: float,
+    review_state: ReviewState | None = None,
+) -> FinalizationReport:
+    """Build a finalization report with duration calculation."""
+    duration_ms = int((time.monotonic() - start_time) * 1000)
+    report = build_finalization_report(status, repaired, skipped, unchanged, failed, details, duration_ms)
+
+    # Persist and emit
+    try:
+        from ....state import get_state_dir, get_value
+
+        state_dir = get_state_dir()
+        commit_hash_short = (
+            (review_state.commitHash or "")[:12]
+            if review_state and review_state.commitHash
+            else get_value("review.commit_hash_short") or "unknown"
+        )
+        persist_report(report, state_dir, commit_hash_short)
+    except Exception:
+        pass  # Non-critical
+
+    emit_report_summary(report)
+    return report
+
+
+def _fetch_threads(
+    config: AzureDevOpsConfig,
+    headers: dict[str, str],
+    repo_id: str,
+    pr_id: int,
+) -> list[dict] | None:
+    """Fetch all threads for a PR from the Azure DevOps API."""
+    try:
+        from ..helpers import require_requests
+
+        requests_module: Any = require_requests()
+        url = config.build_api_url(repo_id, "pullRequests", pr_id, "threads")
+        response = requests_module.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("value", [])
+    except Exception as exc:
+        print(f"Warning: Could not fetch PR threads: {exc}", file=sys.stderr)
+        return None
+
+
+def _count_eligible(eligible: EligibleComments) -> int:
+    """Count total eligible comments."""
+    count = len(eligible.file_summaries)
+    if eligible.overall_summary is not None:
+        count += 1
+    count += len(eligible.activity_log_entries)
+    return count
+
+
+def _collect_all_comments(eligible: EligibleComments) -> list:
+    """Collect all eligible comments into a flat list."""
+    from .verification import _collect_all_comments as _collect
+
+    return _collect(eligible)
+
+
+def _check_timeout(start_time: float) -> bool:
+    """Check if the finalization pass has exceeded the timeout."""
+    elapsed = time.monotonic() - start_time
+    return elapsed >= _TIMEOUT_SECONDS

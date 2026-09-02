@@ -32,7 +32,7 @@ class MetricInsights(InsightsConfiguration):
         production_only: bool = False,
         completed_only: bool = False,
     ) -> list[InsightsConfiguration]:
-        """Get metric insights for playground.
+        """Returns the metric insights for a playground.
 
         Parameters
         ----------

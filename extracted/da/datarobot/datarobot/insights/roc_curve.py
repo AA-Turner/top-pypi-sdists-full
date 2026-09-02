@@ -78,15 +78,15 @@ class RocCurve(BaseInsight):
 
     @property
     def positive_class_predictions(self) -> List[float]:
-        """List of positive class prediction values for the ROC curve"""
+        """A list of positive class prediction values for the ROC curve."""
         return cast(List[float], self.data["positive_class_predictions"])
 
     @property
     def negative_class_predictions(self) -> List[float]:
-        """List of negative class prediction values for the ROC curve"""
+        """A list of negative class prediction values for the ROC curve."""
         return cast(List[float], self.data["negative_class_predictions"])
 
     @property
     def roc_points(self) -> List[Dict[str, Union[int, float]]]:
-        """List of ROC values for the ROC curve"""
+        """A list of ROC values for the ROC curve."""
         return cast(List[Dict[str, Union[int, float]]], self.data["roc_points"])

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -71,7 +71,12 @@ class LocalSource(BaseSource):
         use_relative_path = info.context.get('use_relative_path', False) if info.context else False
 
         if use_relative_path and lock_path:
-            d['path'] = os.path.relpath(d['path'], str(lock_path)).replace('\\', '/')
+            try:
+                d['path'] = os.path.relpath(d['path'], str(lock_path)).replace('\\', '/')
+            except ValueError:
+                # Windows cannot make a relative path between different drives.
+                # Keep the resolved absolute path in the lock file instead.
+                pass
 
         return d
 
@@ -155,27 +160,7 @@ class LocalSource(BaseSource):
 
     def download(self, component: 'SolvedComponent', download_path: str) -> str:  # noqa: ARG002
         directory_name = os.path.basename(str(self._path))
-        component_with_namespace = component.name.replace('/', '__')
-        namespace_and_component = component.name.split('/')
-        component_without_namespace = namespace_and_component[-1]
-        if (
-            component_without_namespace != directory_name
-            and component_with_namespace != directory_name
-        ):
-            alternative_name = (
-                f' or "{component_with_namespace}"' if len(namespace_and_component) == 2 else ''
-            )
-            warn(
-                'Component name "{component_name}" doesn\'t match the '
-                'directory name "{directory_name}".\n'.format(
-                    component_name=component.name,
-                    directory_name=directory_name,
-                )
-                + 'ESP-IDF CMake build system uses directory names as names '
-                + 'of components, so different names may break '
-                + 'requirements resolution. To avoid the problem rename the component directory to '
-                + f'"{component_without_namespace}"{alternative_name}'
-            )
+        self._warn_if_component_name_mismatch(component.name, directory_name)
         return str(self._path)
 
     def versions(self, name, spec='*', target=None):  # noqa: ARG002

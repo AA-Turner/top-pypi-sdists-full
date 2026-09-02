@@ -1,20 +1,20 @@
-import codecs
-import distutils.command.build_py
-import distutils.command.sdist
-import distutils.core
 import os
 import os.path
 import re
+import setuptools
+import setuptools.command.build_py
+import setuptools.command.sdist
+import setuptools.errors
 import shutil
+import stat
 import subprocess
 import sys
-import stat
 import tempfile
 
 import version
 
 
-class BuildDocCommand(distutils.core.Command):
+class BuildDocCommand(setuptools.Command):
     description = 'build Sphinx documentation'
     user_options = []
 
@@ -29,8 +29,10 @@ class BuildDocCommand(distutils.core.Command):
         version = '.'.join(release.split('.', 2)[0:2])
         outdir = tempfile.mkdtemp() if self.dry_run else 'html'
         try:
-            subprocess.check_call(('sphinx-build', '-Drelease=' + release,
-                                   '-n', '-Dversion=' + version, '.', outdir))
+            cmd = ('sphinx-build', '-Drelease=' + release,
+                   '-n', '-Dversion=' + version, '.', outdir)
+            print(' '.join(cmd), file=sys.stderr)
+            subprocess.check_call(cmd)
         finally:
             if self.dry_run:
                 shutil.rmtree(outdir)
@@ -39,35 +41,32 @@ class BuildDocCommand(distutils.core.Command):
 class CommandMixin:
     @classmethod
     def _read_and_stat(cls, src):
-        from distutils.errors import DistutilsFileError
         try:
-            with codecs.open(src, 'r', 'utf-8') as fd:
+            with open(src, encoding='utf-8') as fd:
                 return fd.read(), os.fstat(fd.fileno())
         except OSError as e:
-            raise DistutilsFileError(
-                  "could not read from '%s': %s" % (src, e.strerror))
+            raise setuptools.errors.FileError(
+                "could not read from '{}': {}".format(src, e.strerror))
 
     @classmethod
     def _write(cls, dst, *data):
-        from distutils.errors import DistutilsFileError
-
         if os.path.exists(dst):
             try:
                 os.unlink(dst)
             except OSError as e:
-                raise DistutilsFileError(
-                      "could not delete '%s': %s" % (dst, e.strerror))
+                raise setuptools.errors.FileError(
+                    "could not delete '{}': {}".format(dst, e.strerror))
 
         try:
-            with codecs.open(dst, 'w', 'utf-8') as fd:
+            with open(dst, 'w', encoding='utf-8') as fd:
                 for datum in data:
                     fd.write(datum)
         except OSError as e:
-            raise DistutilsFileError(
-                  "could not write to '%s': %s" % (dst, e.strerror))
+            raise FileError(
+                "could not write to '{}': {}".format(dst, e.strerror))
 
-    def copy_file(self, src, dst, preserve_mode=1, preserve_times=1, link=None,
-                  level=1):
+    def copy_file(self, src, dst, preserve_mode=1, preserve_times=1,
+                  link=None, level=1):
         m = None
         if src.endswith('.py'):
             data, st = self._read_and_stat(src)
@@ -75,22 +74,28 @@ class CommandMixin:
                           data, re.MULTILINE)
 
         if not m:
-            # Not using super() for better Python 2.x compatibility (distutils
-            # uses old-style classes).
-            return distutils.core.Command.copy_file(
-                    self, src, dst, preserve_mode=preserve_mode,
+            return super().copy_file(
+                    src, dst, preserve_mode=preserve_mode,
                     preserve_times=preserve_times, link=link)
 
         if os.path.isdir(dst):
-            dir = dst
+            directory = dst
             dst = os.path.join(dst, os.path.basename(src))
         else:
-            dir = os.path.dirname(dst)
+            directory = os.path.dirname(dst)
 
         if self.verbose:
-            from distutils import log
-            snd = dir if os.path.basename(dst) == os.path.basename(src) else dst
-            log.info("generating %s -> %s", src, snd)
+            try:
+                import distutils.log
+                if os.path.basename(dst) != os.path.basename(src):
+                    directory = dst
+                distutils.log.info("generating %s -> %s", src, directory)
+            except ImportError:
+                # Python packaging is a mess, distuitils is deprecated or
+                # something so just be prepared for the time it’s no longer
+                # around.  We don’t want to fail just because we cannot output
+                # log message.
+                pass
 
         if not self.dry_run:
             self._write(dst,
@@ -106,15 +111,16 @@ class CommandMixin:
         return (dst, 1)
 
 
-class SDistCommand(CommandMixin, distutils.command.sdist.sdist):
+class SDistCommand(CommandMixin, setuptools.command.sdist.sdist):
     pass
 
-class BuildPyCommand(CommandMixin, distutils.command.build_py.build_py):
-    pass
+class BuildPyCommand(CommandMixin, setuptools.command.build_py.build_py):
+    def get_data_files_without_manifest(self):
+        return super().get_data_files_without_manifest()
 
 
 def get_readme_lines():
-    with codecs.open('README.rst', 'r', 'utf-8') as fd:
+    with open('README.rst', encoding='utf-8') as fd:
         skip = False
         skip_start = re.compile(r'^\.\. image:: https://'
                                 r'(?:readthedocs\.org|api\.travis-ci\.com)/')
@@ -128,15 +134,14 @@ def get_readme_lines():
 
     yield '\n'
 
-    with codecs.open('version-history.rst', 'r', 'utf-8') as fd:
+    with open('version-history.rst', encoding='utf-8') as fd:
         version_re = re.compile(r'^([0-9]+)\.([0-9]+):')
         cleanup_re = re.compile(r':(?:class|func|const):`([^`]*)`')
         for line in fd:
             m = version_re.search(line)
-            if m and (int(m.group(1)), int(m.group(2))) < (2, 3):
+            if m and (int(m.group(1)), int(m.group(2))) < (2, 4):
                 break
-            line, _ = cleanup_re.subn(r'``\1``', line)
-            yield line
+            yield cleanup_re.sub(r'``\1``', line)
 
 readme = ''.join(get_readme_lines()).rstrip()
 release = version.get_version()
@@ -145,9 +150,11 @@ release = version.get_version()
 kwargs = {
     'name': 'pygtrie',
     'version': release,
+    'python_requires': '>=3.11',
     'description': 'A pure Python trie data structure implementation.',
     'long_description': readme,
-    'author': 'Michal Nazarewicz',
+    'long_description_content_type': 'text/x-rst',
+    'author': 'Michał Nazarewicz',
     'author_email': 'mina86@mina86.com',
     'url': 'https://github.com/mina86/pygtrie',
     'py_modules': ['pygtrie'],
@@ -157,11 +164,8 @@ kwargs = {
     'classifiers': [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
@@ -175,4 +179,4 @@ kwargs = {
 if re.search(r'(?:\d+\.)*\d+', release):
     kwargs['download_url'] = kwargs['url'] + '/tarball/v' + release
 
-distutils.core.setup(**kwargs)
+setuptools.setup(**kwargs)

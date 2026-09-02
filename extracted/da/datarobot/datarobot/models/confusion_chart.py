@@ -103,18 +103,18 @@ class ConfusionChart(APIObject):
     Attributes
     ----------
     source : str
-        Confusion Chart data source. Can be 'validation', 'crossValidation' or 'holdout'.
+        Confusion Chart data source. Can be ``validation``, ``crossValidation``, or ``holdout``.
     raw_data : dict
-        All of the raw data for the Confusion Chart
+        All of the raw data for the Confusion Chart.
     confusion_matrix : list of list
-        The N x N confusion matrix
+        The N x N confusion matrix.
     classes : list
-        The names of each of the classes
+        The names of each of the classes.
     class_metrics : list of dicts
-        List of dicts with schema described as ``ClassMetrics`` above.
+        A list of dicts with schema described as ``ClassMetrics`` above.
     source_model_id : str
         ID of the model this Confusion chart represents; in some cases,
-        insights from the parent of a frozen model may be used
+        insights from the parent of a frozen model may be used.
 
     """
 

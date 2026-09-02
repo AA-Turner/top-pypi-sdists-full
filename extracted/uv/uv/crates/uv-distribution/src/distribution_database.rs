@@ -1,5 +1,4 @@
 use std::cmp::Reverse;
-use std::fmt::Display;
 use std::future::Future;
 use std::io;
 use std::path::Path;
@@ -7,7 +6,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use either::Either;
 use futures::{FutureExt, TryStreamExt};
 use rayon::in_place_scope;
 use rayon::prelude::*;
@@ -29,11 +27,10 @@ use uv_distribution_types::{
     BuildInfo, BuildableSource, BuiltDist, Dist, DistRef, HashPolicy, Hashed, IndexUrl,
     InstalledDist, Name, SourceDist,
 };
-use uv_extract::dirhash::{DirectoryDigest, DirhashTree, HashedFile, UnhashedFile, dirhash_path};
+use uv_extract::dirhash::{DirectoryDigest, HashedFile};
 use uv_extract::hash::Hasher;
-use uv_fs::{LockedFile, PortablePath, write_atomic};
+use uv_fs::{LockedFile, write_atomic};
 use uv_git::{GIT_LFS, GitError};
-use uv_install_wheel::validate_and_heal_record;
 use uv_platform_tags::Tags;
 use uv_preview::PreviewFeature;
 use uv_pypi_types::{HashDigest, HashDigests, PyProjectToml};
@@ -43,6 +40,7 @@ use uv_types::{BuildContext, BuildStack};
 
 use crate::archive::Archive;
 use crate::error::PythonVersion;
+use crate::extracted_wheel::{ExtractedWheel, HashedWheel, WheelExtractor};
 use crate::hash::http_hash_algorithms;
 use crate::metadata::{ArchiveMetadata, Metadata};
 use crate::source::SourceDistributionBuilder;
@@ -123,15 +121,15 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         }
     }
 
-    /// Acquire an advisory lock for a remote wheel cache entry.
+    /// Acquire an advisory lock for a wheel cache entry.
     ///
-    /// The wheel's content hash is not always available until after the download, so concurrent
-    /// cache fills coordinate on the wheel cache entry instead. The entry is already scoped by
-    /// the index or direct URL, package name, version, and wheel tags.
+    /// A remote wheel's content hash is not always available until after the download, so
+    /// concurrent cache fills coordinate on the wheel cache entry instead. The entry is already
+    /// scoped to the distribution's source and wheel filename.
     ///
-    /// Callers hold the returned lock across cache lookup, download, and publication. A process
-    /// that waited for another download therefore rechecks and reuses the completed cache entry.
-    async fn lock_remote_wheel(
+    /// Callers hold the returned lock across cache lookup, download or extraction, and publication.
+    /// A process that waited for another cache fill therefore rechecks and reuses the completed entry.
+    async fn lock_wheel(
         wheel_entry: &CacheEntry,
         filename: &WheelFilename,
     ) -> Result<LockedFile, Error> {
@@ -497,17 +495,8 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         }
 
         // Acquire the advisory lock.
-        #[cfg(windows)]
-        let _lock = {
-            let lock_entry = CacheEntry::new(
-                built_wheel.target.parent().unwrap(),
-                format!(
-                    "{}.lock",
-                    built_wheel.target.file_name().unwrap().to_str().unwrap()
-                ),
-            );
-            lock_entry.lock().await.map_err(Error::CacheLock)?
-        };
+        let wheel_entry = CacheEntry::from_path(built_wheel.target.as_ref());
+        let _lock = Self::lock_wheel(&wheel_entry, &built_wheel.filename).await?;
 
         // If the wheel was unzipped previously, respect it. Source distributions are
         // cached under a unique revision ID, so unzipped directories are never stale.
@@ -700,7 +689,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         };
 
         // Acquire an advisory lock, to guard against concurrent writes.
-        let _lock = Self::lock_remote_wheel(wheel_entry, filename).await?;
+        let _lock = Self::lock_wheel(wheel_entry, filename).await?;
 
         // Create an entry for the HTTP cache.
         let http_entry = wheel_entry.with_file(format!("{}.http", filename.cache_key()));
@@ -727,27 +716,24 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                 let mut hasher = uv_extract::hash::HashReader::new(reader.compat(), &mut hashers);
 
                 // Download and unzip the wheel to a temporary directory.
-                let temp_dir = tempfile::tempdir_in(self.build_context.cache().root())
-                    .map_err(Error::CacheWrite)?;
+                let extractor = WheelExtractor::new(
+                    self.build_context.cache().root(),
+                    self.content_addressed_cache,
+                )
+                .map_err(Error::CacheWrite)?;
 
                 let mut extracted = match progress {
                     Some((reporter, progress)) => {
                         let mut reader = ProgressReader::new(&mut hasher, progress, &**reporter);
-                        ExtractedWheel::extract_streaming(
-                            &mut reader,
-                            temp_dir.path(),
-                            self.content_addressed_cache,
-                        )
-                        .await
-                        .map_err(|err| Error::Extract(filename.to_string(), err))?
+                        extractor
+                            .extract_streaming(&mut reader)
+                            .await
+                            .map_err(|err| Error::Extract(filename.to_string(), err))?
                     }
-                    None => ExtractedWheel::extract_streaming(
-                        &mut hasher,
-                        temp_dir.path(),
-                        self.content_addressed_cache,
-                    )
-                    .await
-                    .map_err(|err| Error::Extract(filename.to_string(), err))?,
+                    None => extractor
+                        .extract_streaming(&mut hasher)
+                        .await
+                        .map_err(|err| Error::Extract(filename.to_string(), err))?,
                 };
                 // Exhaust the reader to compute the hashes.
                 hasher.finish().await.map_err(Error::HashExhaustion)?;
@@ -764,11 +750,11 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
                 // Before we make the wheel accessible by persisting it, ensure that the RECORD is
                 // valid.
-                extracted.validate_and_heal_record(temp_dir.path(), dist)?;
+                extracted.validate_and_heal_record(dist)?;
 
                 // Persist the temporary directory to the directory store.
                 let id = self
-                    .persist_extracted_wheel(temp_dir, wheel_entry.path(), extracted.into_hashed())
+                    .persist_extracted_wheel(extracted, wheel_entry.path())
                     .await?;
 
                 if let Some((reporter, progress)) = progress {
@@ -885,7 +871,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         let content_addressed_cache = self.content_addressed_cache;
 
         // Acquire an advisory lock, to guard against concurrent writes.
-        let _lock = Self::lock_remote_wheel(wheel_entry, filename).await?;
+        let _lock = Self::lock_wheel(wheel_entry, filename).await?;
 
         // Create an entry for the HTTP cache.
         let http_entry = wheel_entry.with_file(format!("{}.http", filename.cache_key()));
@@ -947,29 +933,28 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                 let actual_size = hasher.bytes_read();
 
                 // Unzip the wheel to a temporary directory.
-                let temp_dir = tempfile::tempdir_in(self.build_context.cache().root())
-                    .map_err(Error::CacheWrite)?;
+                let extractor =
+                    WheelExtractor::new(self.build_context.cache().root(), content_addressed_cache)
+                        .map_err(Error::CacheWrite)?;
                 let mut file = writer.into_inner();
                 file.seek(io::SeekFrom::Start(0))
                     .await
                     .map_err(Error::CacheWrite)?;
 
-                let target = temp_dir.path().to_owned();
                 let file = file.into_std().await;
-                let mut extracted = tokio::task::spawn_blocking(move || {
-                    ExtractedWheel::extract_seekable(file, &target, content_addressed_cache)
-                })
-                .await?
-                .map_err(|err| Error::Extract(filename.to_string(), err))?;
+                let mut extracted =
+                    tokio::task::spawn_blocking(move || extractor.extract_seekable(file))
+                        .await?
+                        .map_err(|err| Error::Extract(filename.to_string(), err))?;
                 let hashes = hashers.into_iter().map(HashDigest::from).collect();
 
                 // Before we make the wheel accessible by persisting it, ensure that the RECORD is
                 // valid.
-                extracted.validate_and_heal_record(temp_dir.path(), dist)?;
+                extracted.validate_and_heal_record(dist)?;
 
                 // Persist the temporary directory to the directory store.
                 let id = self
-                    .persist_extracted_wheel(temp_dir, wheel_entry.path(), extracted.into_hashed())
+                    .persist_extracted_wheel(extracted, wheel_entry.path())
                     .await?;
 
                 if let Some((reporter, progress)) = progress {
@@ -1075,11 +1060,8 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         dist: &BuiltDist,
         hashes: HashPolicy<'_>,
     ) -> Result<LocalWheel, Error> {
-        #[cfg(windows)]
-        let _lock = {
-            let lock_entry = wheel_entry.with_file(format!("{}.lock", filename.stem()));
-            lock_entry.lock().await.map_err(Error::CacheLock)?
-        };
+        // Acquire an advisory lock, to guard against concurrent writes.
+        let _lock = Self::lock_wheel(&wheel_entry, filename).await?;
 
         // Determine the last-modified time of the wheel.
         let modified = Timestamp::from_path(path).map_err(Error::CacheRead)?;
@@ -1142,8 +1124,11 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             let file = fs_err::tokio::File::open(path)
                 .await
                 .map_err(Error::CacheRead)?;
-            let temp_dir = tempfile::tempdir_in(self.build_context.cache().root())
-                .map_err(Error::CacheWrite)?;
+            let extractor = WheelExtractor::new(
+                self.build_context.cache().root(),
+                self.content_addressed_cache,
+            )
+            .map_err(Error::CacheWrite)?;
 
             // Create a hasher for each hash algorithm.
             let algorithms = hashes.algorithms();
@@ -1151,13 +1136,10 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             let mut hasher = uv_extract::hash::HashReader::new(file, &mut hashers);
 
             // Unzip the wheel to a temporary directory.
-            let mut extracted = ExtractedWheel::extract_streaming(
-                &mut hasher,
-                temp_dir.path(),
-                self.content_addressed_cache,
-            )
-            .await
-            .map_err(|err| Error::Extract(filename.to_string(), err))?;
+            let mut extracted = extractor
+                .extract_streaming(&mut hasher)
+                .await
+                .map_err(|err| Error::Extract(filename.to_string(), err))?;
 
             // Exhaust the reader to compute the hash.
             hasher.finish().await.map_err(Error::HashExhaustion)?;
@@ -1166,11 +1148,11 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
             // Before we make the wheel accessible by persisting it, ensure that the RECORD is
             // valid.
-            extracted.validate_and_heal_record(temp_dir.path(), dist)?;
+            extracted.validate_and_heal_record(dist)?;
 
             // Persist the temporary directory to the directory store.
             let id = self
-                .persist_extracted_wheel(temp_dir, wheel_entry.path(), extracted.into_hashed())
+                .persist_extracted_wheel(extracted, wheel_entry.path())
                 .await?;
 
             // Create an archive.
@@ -1207,31 +1189,26 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
     ) -> Result<ArchiveId, Error> {
         let content_addressed_cache = self.content_addressed_cache;
 
-        let (temp_dir, mut extracted) = tokio::task::spawn_blocking({
+        let mut extracted = tokio::task::spawn_blocking({
             let path = path.to_owned();
             let root = self.build_context.cache().root().to_path_buf();
             move || -> Result<_, Error> {
                 // Unzip the wheel into a temporary directory.
-                let temp_dir = tempfile::tempdir_in(root).map_err(Error::CacheWrite)?;
+                let extractor = WheelExtractor::new(&root, content_addressed_cache)
+                    .map_err(Error::CacheWrite)?;
                 let reader = fs_err::File::open(&path).map_err(Error::CacheWrite)?;
-                let extracted = ExtractedWheel::extract_seekable(
-                    reader,
-                    temp_dir.path(),
-                    content_addressed_cache,
-                )
-                .map_err(|err| Error::Extract(path.to_string_lossy().into_owned(), err))?;
-                Ok((temp_dir, extracted))
+                extractor
+                    .extract_seekable(reader)
+                    .map_err(|err| Error::Extract(path.to_string_lossy().into_owned(), err))
             }
         })
         .await??;
 
         // Before we make the wheel accessible by persisting it, ensure that the RECORD is valid.
-        extracted.validate_and_heal_record(temp_dir.path(), dist)?;
+        extracted.validate_and_heal_record(dist)?;
 
         // Persist the temporary directory to the directory store.
-        let id = self
-            .persist_extracted_wheel(temp_dir, target, extracted.into_hashed())
-            .await?;
+        let id = self.persist_extracted_wheel(extracted, target).await?;
 
         Ok(id)
     }
@@ -1242,10 +1219,10 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
     /// persistence retains the existing behavior of assigning a unique archive ID.
     async fn persist_extracted_wheel(
         &self,
-        temp_dir: tempfile::TempDir,
+        extracted: ExtractedWheel,
         target: &Path,
-        hashed_wheel: Option<HashedWheel>,
     ) -> Result<ArchiveId, Error> {
+        let (temp_dir, hashed_wheel) = extracted.into_parts();
         let cache = self.build_context.cache();
         let (temp_dir, id) = if let Some(HashedWheel { files, tree }) = hashed_wheel {
             let digest = DirectoryDigest::from(tree.hash());
@@ -1287,93 +1264,6 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
     /// Return the [`ManagedClient`] used by this resolver.
     pub fn client(&self) -> &ManagedClient<'a> {
         &self.client
-    }
-}
-
-/// Per-file digests and the hash tree of an extracted wheel.
-struct HashedWheel {
-    files: Vec<HashedFile>,
-    tree: DirhashTree,
-}
-
-/// Files extracted from a wheel, with or without content-addressing metadata.
-enum ExtractedWheel {
-    Unhashed(Vec<UnhashedFile>),
-    Hashed(HashedWheel),
-}
-
-impl ExtractedWheel {
-    /// Extract a wheel from a streaming reader, optionally retaining its per-file digests.
-    async fn extract_streaming<R>(
-        reader: R,
-        target: &Path,
-        content_addressed: bool,
-    ) -> Result<Self, uv_extract::Error>
-    where
-        R: AsyncRead + Unpin,
-    {
-        if content_addressed {
-            let (files, tree) = uv_extract::stream::unzip_and_hash(reader, target).await?;
-            Ok(Self::Hashed(HashedWheel { files, tree }))
-        } else {
-            let files = uv_extract::stream::unzip(reader, target).await?;
-            Ok(Self::Unhashed(files))
-        }
-    }
-
-    /// Extract a wheel from a seekable file, optionally retaining its per-file digests.
-    fn extract_seekable(
-        reader: fs_err::File,
-        target: &Path,
-        content_addressed: bool,
-    ) -> Result<Self, uv_extract::Error> {
-        if content_addressed {
-            let (files, tree) = uv_extract::unzip_and_hash(reader, target)?;
-            Ok(Self::Hashed(HashedWheel { files, tree }))
-        } else {
-            let files = uv_extract::unzip(reader, target)?;
-            Ok(Self::Unhashed(files))
-        }
-    }
-
-    /// Return the hashed wheel if content hashing was enabled.
-    fn into_hashed(self) -> Option<HashedWheel> {
-        match self {
-            Self::Unhashed(_) => None,
-            Self::Hashed(wheel) => Some(wheel),
-        }
-    }
-
-    /// Heal the wheel's `RECORD` and keep its hash tree consistent with the repaired contents.
-    fn validate_and_heal_record(&mut self, root: &Path, dist: impl Display) -> Result<(), Error> {
-        let files = match self {
-            Self::Unhashed(files) => {
-                Either::Left(files.iter().map(|file| (file.path(), file.size())))
-            }
-            Self::Hashed(wheel) => {
-                Either::Right(wheel.files.iter().map(|file| (file.path(), file.size())))
-            }
-        };
-        let Some(record_path) =
-            validate_and_heal_record(root, files, dist).map_err(Error::InstallWheelError)?
-        else {
-            return Ok(());
-        };
-        let Self::Hashed(hashed_wheel) = self else {
-            return Ok(());
-        };
-
-        let hash = dirhash_path(&root.join(&record_path)).map_err(|err| {
-            Error::Extract(
-                record_path.display().to_string(),
-                uv_extract::Error::from(err),
-            )
-        })?;
-        let record_path = PortablePath::from(record_path.as_path()).to_string();
-        hashed_wheel
-            .tree
-            .update_file(&record_path, hash)
-            .map_err(|err| Error::Extract(record_path, uv_extract::Error::from(err)))
     }
 }
 

@@ -1,0 +1,210 @@
+name: lint-and-test
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  lint-style:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff==0.15.22
+      - name: Lint style
+        run: |
+          ruff check .
+          ruff format --check .
+
+  test-mock:
+    runs-on: ubuntu-latest
+    name: "Test (mock-only) py${{ matrix.python-version }}"
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Set up NodeJS
+        uses: actions/setup-node@v6
+        with:
+          node-version: 18
+
+      - name: Install hatch
+        run: pip install hatch
+
+      - name: Run tests (mock-only)
+        run: hatch test -py=${{ matrix.python-version }} --cover
+        env:
+          NO_LOCAL_MONGO: "1"
+
+      - name: Disambiguate coverage filename
+        run: mv .coverage ".coverage.mock.${{ matrix.os }}.${{ matrix.python-version }}"
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: coverage-mock-${{ matrix.os }}-${{ matrix.python-version }}
+          path: .coverage*
+
+  test-mongodb:
+    runs-on: ubuntu-latest
+    name: "Test (mongodb) py${{ matrix.python-version }}"
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Set up NodeJS
+        uses: actions/setup-node@v6
+        with:
+          node-version: 18
+
+      - name: Start MongoDB with Replica Set
+        run: |
+          docker run -d --name mongodb -p 27017:27017 mongo:7.0.34 mongod --replSet rs0
+          sleep 5
+          docker exec mongodb mongosh --eval "
+            rs.initiate({
+              _id: 'rs0',
+              members: [{ _id: 0, host: 'localhost:27017' }]
+            })
+          "
+          sleep 5
+
+      - name: Install hatch
+        run: pip install hatch
+
+      - name: Run tests (with MongoDB)
+        run: hatch test -py=${{ matrix.python-version }} --cover
+
+      - name: Disambiguate coverage filename
+        run: mv .coverage ".coverage.mongodb.${{ matrix.os }}.${{ matrix.python-version }}"
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: coverage-mongodb-${{ matrix.os }}-${{ matrix.python-version }}
+          path: .coverage*
+
+  coverage:
+    runs-on: ubuntu-latest
+    name: Report coverage
+    needs:
+      - test-mock
+      - test-mongodb
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install coverage
+        run: pip install coverage
+
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          path: /tmp/cov-all
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: ls -la /tmp/cov-all/
+
+      - name: Combine mock-only + generate XML
+        run: |
+          cd /tmp/cov-all
+          ls -la .coverage.mock*
+          coverage combine --data-file=.coverage.mock .coverage.mock.*
+          coverage xml --data-file=.coverage.mock -o coverage-mock.xml
+          ls -la coverage-mock.xml
+          cd -
+
+      - name: Combine mongodb + generate XML
+        run: |
+          cd /tmp/cov-all
+          ls -la .coverage.mongodb*
+          coverage combine --data-file=.coverage.mongodb .coverage.mongodb.*
+          coverage xml --data-file=.coverage.mongodb -o coverage-mongodb.xml
+          ls -la coverage-mongodb.xml
+          cd -
+
+      - name: Combine all + generate XML
+        run: |
+          cd /tmp/cov-all
+          coverage combine --data-file=.coverage.all .coverage.mock .coverage.mongodb
+          coverage xml --data-file=.coverage.all -o coverage-all.xml
+          ls -la coverage-all.xml
+          cd -
+
+      - name: Upload coverage (total)
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: total
+          files: /tmp/cov-all/coverage-all.xml
+          fail_ci_if_error: false
+
+      - name: Upload coverage (mock-only)
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: mock-only
+          files: /tmp/cov-all/coverage-mock.xml
+          fail_ci_if_error: false
+
+      - name: Upload coverage (mongodb)
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: mongodb
+          files: /tmp/cov-all/coverage-mongodb.xml
+          fail_ci_if_error: false
+
+  check-version:
+    name: Check version tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(python3 -c "exec(open('mongomock_ng/__version__.py').read()); print(__version__)")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Check if tag v${{ steps.version.outputs.version }} exists
+        run: |
+          if git tag -l "v${{ steps.version.outputs.version }}" | grep -q .; then
+            echo "::warning title=Version already released::v${{ steps.version.outputs.version }} already exists. Bump the version in mongomock_ng/__version__.py before merging."
+          else
+            echo "Tag v${{ steps.version.outputs.version }} does not exist yet."
+          fi
+
+  package:
+    name: Build & verify package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hynek/build-and-inspect-python-package@v2

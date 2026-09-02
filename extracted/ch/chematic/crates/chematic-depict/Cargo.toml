@@ -1,0 +1,33 @@
+[package]
+name = "chematic-depict"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "2D molecular structure depiction as SVG: ring templates, wedge/dash stereo bonds, CPK coloring, grid layout — pure-Rust, no C/C++ dependencies"
+keywords = ["svg", "depiction", "2d", "cheminformatics", "chemistry"]
+categories = ["science", "science::computational-chemistry::cheminformatics", "visualization", "rendering::data-formats"]
+readme = "README.md"
+homepage.workspace = true
+documentation = "https://docs.rs/chematic-depict"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["png"]
+# PNG rasterization via tiny-skia. Disable for WASM to save ~200 KB.
+png = ["dep:tiny-skia"]
+pdf = ["dep:svg2pdf"]
+
+[dependencies]
+chematic-core = { path = "../chematic-core", version = "0.49.0" }
+chematic-perception = { path = "../chematic-perception", version = "0.49.0" }
+chematic-rxn = { path = "../chematic-rxn", version = "0.49.0" }
+chematic-smiles = { path = "../chematic-smiles", version = "0.49.0" }
+tiny-skia = { version = "0.12", optional = true }
+svg2pdf = { version = "0.13", optional = true }
+
+[dev-dependencies]

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from importlib.metadata import entry_points
-from typing import Iterable
 
 from spec_kitty_tracker.errors import ConnectorConfigError
 from spec_kitty_tracker.protocols import TaskTrackerConnector
@@ -33,6 +33,17 @@ class ConnectorRegistry:
         return self._connectors.values()
 
     def load_entrypoints(self, group: str = "spec_kitty_tracker.connectors") -> None:
+        """Discover and register connectors via an importlib.metadata entry-point group.
+
+        Retained for compatibility (TRK-M1-01 draft A16) but **not used by
+        any M1 host**: entry-point loading executes arbitrary code from
+        whatever is installed in the environment with no allowlist, which
+        is an untrusted-code path M1 hosts (spec-kitty, spec-kitty-saas)
+        deliberately avoid — TRK-M1-04/05 register their connectors
+        explicitly instead. Removal condition: none identified; kept for
+        any future consumer that wants plugin-style discovery and accepts
+        that trust model.
+        """
         for ep in entry_points(group=group):
             obj = ep.load()
             connector = obj() if callable(obj) else obj

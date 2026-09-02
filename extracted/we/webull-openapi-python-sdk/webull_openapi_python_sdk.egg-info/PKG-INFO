@@ -1,0 +1,35 @@
+Metadata-Version: 2.4
+Name: webull-openapi-python-sdk
+Version: 2.0.19
+Summary: Webull Python SDK.
+Home-page: 
+Author: Webull
+Author-email: 
+License: Apache License 2.0
+Platform: any
+Requires-Python: >=3.8,<3.15
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: jmespath<1.0.0,>=0.9.3
+Requires-Dist: cachetools<6,>=5.2.0
+Requires-Dist: paho-mqtt<2,>=1.6.1
+Requires-Dist: urllib3>=2.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: six>=1.16.0
+Requires-Dist: cryptography<42,>=3.4; python_version < "3.12"
+Requires-Dist: cryptography<43,>=41.0; python_version >= "3.12" and python_version < "3.14"
+Requires-Dist: cryptography<55,>=43.0; python_version >= "3.14"
+Requires-Dist: protobuf<5,>=4.21.12; python_version < "3.12"
+Requires-Dist: protobuf<6,>=4.25.0; python_version >= "3.12"
+Requires-Dist: grpcio<1.60,>=1.51.1; python_version < "3.12"
+Requires-Dist: grpcio<1.70,>=1.60.0; python_version >= "3.12" and python_version < "3.14"
+Requires-Dist: grpcio<2,>=1.75.1; python_version >= "3.14"
+Dynamic: author
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

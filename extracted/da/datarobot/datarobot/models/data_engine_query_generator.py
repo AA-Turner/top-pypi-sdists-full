@@ -37,15 +37,15 @@ class DataEngineQueryGenerator(APIObject):
     Attributes
     ----------
     id: str
-        ID of the query generator
+        ID of the query generator.
     query: str
-        Text of the generated Spark SQL query
+        Text of the generated Spark SQL query.
     datasets: list(QueryGeneratorDataset)
-        Datasets associated with the query generator
+        Datasets associated with the query generator.
     generator_settings: QueryGeneratorSettings
-        The settings used to define the query
+        The settings used to define the query.
     generator_type: str
-        "TimeSeries" is the only supported type
+        ``TimeSeries`` is the only supported type.
     """
 
     _path = "dataEngineQueryGenerators/"
@@ -102,7 +102,7 @@ class DataEngineQueryGenerator(APIObject):
         Parameters
         ----------
         generator_type : str
-            Type of data engine query generator
+            Type of data engine query generator.
         datasets : List[QueryGeneratorDataset]
             Source datasets in the Data Engine workspace.
         generator_settings : QueryGeneratorSettings
@@ -111,7 +111,7 @@ class DataEngineQueryGenerator(APIObject):
         Returns
         -------
         query_generator : DataEngineQueryGenerator
-            The created generator
+            The created generator.
 
         Examples
         --------
@@ -157,7 +157,7 @@ class DataEngineQueryGenerator(APIObject):
 
     @classmethod
     def get(cls, generator_id: str) -> DataEngineQueryGenerator:
-        """Gets information about a query generator.
+        """Returns the information about a query generator.
 
         Parameters
         ----------
@@ -167,7 +167,7 @@ class DataEngineQueryGenerator(APIObject):
         Returns
         -------
         query_generator : DataEngineQueryGenerator
-            The queried generator
+            The queried generator.
 
         Examples
         --------
@@ -191,23 +191,23 @@ class DataEngineQueryGenerator(APIObject):
     ) -> Dataset:
         """
         A blocking call that creates a new Dataset from the query generator.
-        Returns when the dataset has been successfully processed. If optional
-        parameters are not specified the query is applied to the dataset_id
-        and dataset_version_id stored in the query generator. If specified they
-        will override the stored dataset_id/dataset_version_id, i.e., to prep a
+        Returns the Dataset after it has been successfully processed. If optional
+        parameters are not specified the query is applied to the ``dataset_id``
+        and ``dataset_version_id`` stored in the query generator. If specified they
+        will override the stored ``dataset_id``/``dataset_version_id``, i.e., to prep a
         prediction dataset.
 
         Parameters
         ----------
         dataset_id: Optional[str]
-            The ID of the unprepped dataset to apply the query to
+            The ID of the unprepped dataset to apply the query to.
         dataset_version_id: Optional[str]
-            The version_id of the unprepped dataset to apply the query to
+            The ``version_id`` of the unprepped dataset to apply the query to.
 
         Returns
         -------
         response: Dataset
-            The Dataset created from the query generator
+            The Dataset created from the query generator.
         """
         return Dataset.create_from_query_generator(self.id, dataset_id, dataset_version_id, max_wait)
 
@@ -227,11 +227,11 @@ class DataEngineQueryGenerator(APIObject):
         Parameters
         ----------
         project_id : str
-            The id of the project to which you upload the prediction dataset.
+            The ID of the project to which you upload the prediction dataset.
         dataset_id : str
             The identifier of the dataset.
         dataset_version_id : Optional[str]
-            The version id of the dataset to use.
+            The version ID of the dataset to use.
         max_wait : Optional[int]
             Optional, the maximum number of seconds to wait before giving up.
         relax_known_in_advance_features_check : Optional[bool]
@@ -272,7 +272,7 @@ class DataEngineQueryGenerator(APIObject):
             or raw file content. If using a file on disk, the filename must consist of ASCII
             characters only.
         project_id : str
-            The id of the project to which you upload the prediction dataset.
+            The ID of the project to which you upload the prediction dataset.
         max_wait : Optional[int]
             The maximum number of seconds to wait for the uploaded dataset to be processed before
             raising an error.
@@ -344,10 +344,10 @@ class QueryGeneratorSettings:
     default_text_aggregation_method : Optional[str]
         Default aggregation method used for text feature.
     start_from_series_min_datetime : Optional[bool]
-        A boolean value indicating whether post-aggregated series starts from series minimum
+        A ``boolean`` value indicating whether post-aggregated series starts from series minimum
         datetime or global minimum datetime.
     end_to_series_max_datetime : Optional[bool]
-        A boolean value indicating whether generates post-aggregated series up to series
+        A ``boolean`` value indicating whether generates post-aggregated series up to series
         maximum datetime or global maximum datetime.
     Examples
     --------

@@ -1,13 +1,14 @@
 Metadata-Version: 2.5
 Name: uipath-langchain-client
-Version: 1.18.0
+Version: 1.18.2
 Summary: LangChain-compatible chat models and embeddings for UiPath's LLM services
 Requires-Python: >=3.11
 Requires-Dist: langchain<2.0.0,>=1.2.15
 Requires-Dist: uipath-llm-client<2.0.0,>=1.18.0
 Provides-Extra: all
 Requires-Dist: anthropic[bedrock,vertex]<1.0.0,>=0.96.0; extra == 'all'
-Requires-Dist: langchain-anthropic<2.0.0,>=1.4.1; extra == 'all'
+Requires-Dist: anthropic[bedrock]<1.0.0,>=0.96.0; extra == 'all'
+Requires-Dist: langchain-anthropic<1.7.0,>=1.4.1; extra == 'all'
 Requires-Dist: langchain-aws[anthropic]<2.0.0,>=1.4.5; extra == 'all'
 Requires-Dist: langchain-azure-ai<2.0.0,>=1.2.2; extra == 'all'
 Requires-Dist: langchain-fireworks<2.0.0,>=1.1.0; extra == 'all'
@@ -17,10 +18,12 @@ Requires-Dist: langchain-litellm==0.6.4; extra == 'all'
 Requires-Dist: langchain-openai<2.0.0,>=1.2.0; extra == 'all'
 Provides-Extra: anthropic
 Requires-Dist: anthropic[bedrock,vertex]<1.0.0,>=0.96.0; extra == 'anthropic'
-Requires-Dist: langchain-anthropic<2.0.0,>=1.4.1; extra == 'anthropic'
+Requires-Dist: langchain-anthropic<1.7.0,>=1.4.1; extra == 'anthropic'
 Provides-Extra: azure
 Requires-Dist: langchain-azure-ai<2.0.0,>=1.2.2; extra == 'azure'
 Provides-Extra: bedrock
+Requires-Dist: anthropic[bedrock]<1.0.0,>=0.96.0; extra == 'bedrock'
+Requires-Dist: langchain-anthropic<1.7.0,>=1.4.1; extra == 'bedrock'
 Requires-Dist: langchain-aws[anthropic]<2.0.0,>=1.4.5; extra == 'bedrock'
 Provides-Extra: fireworks
 Requires-Dist: langchain-fireworks<2.0.0,>=1.1.0; extra == 'fireworks'

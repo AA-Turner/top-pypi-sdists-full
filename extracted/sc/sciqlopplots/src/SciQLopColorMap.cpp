@@ -1,0 +1,307 @@
+/*------------------------------------------------------------------------------
+-- This file is a part of the SciQLop Software
+-- Copyright (C) 2023, Plasma Physics Laboratory - CNRS
+--
+-- This program is free software; you can redistribute it and/or modify
+-- it under the terms of the GNU General Public License as published by
+-- the Free Software Foundation; either version 2 of the License, or
+-- (at your option) any later version.
+--
+-- This program is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+-- GNU General Public License for more details.
+--
+-- You should have received a copy of the GNU General Public License
+-- along with this program; if not, write to the Free Software
+-- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+-------------------------------------------------------------------------------*/
+/*-- Author : Alexis Jeandet
+-- Mail : alexis.jeandet@member.fsf.org
+----------------------------------------------------------------------------*/
+#include "SciQLopPlots/Plotables/SciQLopColorMap.hpp"
+#include "SciQLopPlots/PercentileMath.hpp"
+#include "SciQLopPlots/Profiling.hpp"
+#include "SciQLopPlots/Tracing.hpp"
+#include "SciQLopPlots/constants.hpp"
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <vector>
+
+void SciQLopColorMap::_cmap_got_destroyed()
+{
+    _cmap = nullptr;
+}
+
+SciQLopColorMap::SciQLopColorMap(QCustomPlot* parent, SciQLopPlotAxis* xAxis,
+                                 SciQLopPlotAxis* yAxis, SciQLopPlotColorScaleAxis* zAxis,
+                                 const QString& name, QVariantMap metaData)
+    : SciQLopColorMapBase(xAxis, yAxis, zAxis, std::move(metaData), parent)
+{
+    _cmap = new QCPColorMap2(_keyAxis->qcp_axis(), _valueAxis->qcp_axis());
+    _cmap->setLayer(Constants::LayersNames::ColorMap);
+    connect(_cmap, &QCPColorMap2::destroyed, this, &SciQLopColorMap::_cmap_got_destroyed);
+    connect(_cmap, &QCPAbstractPlottable::busyChanged,
+            this, &SciQLopPlottableInterface::busy_changed);
+    SciQLopColorMap::set_gradient(ColorGradient::Jet);
+    // Not set_name(): that would mark this auto-named ("ColorMap") instance
+    // as user-named, same as SciQLopGraphInterface's ctor avoids it for its
+    // own auto-generated placeholder ("Line0", "Curve1", ...).
+    this->setObjectName(name);
+    _cmap->setName(name);
+
+    install_rescale_provider();
+
+    if (auto legend_item = _legend_item(); legend_item)
+    {
+        connect(legend_item, &QCPAbstractLegendItem::selectionChanged, this,
+                &SciQLopColorMap::set_selected);
+    }
+}
+
+SciQLopColorMap::~SciQLopColorMap()
+{
+    if (_cmap)
+    {
+        auto* plot = _plot();
+        auto* cmap = _cmap.data();
+        _cmap = nullptr;
+        if (plot && plot->hasPlottable(cmap))
+            (void)plot->removePlottable(cmap);
+    }
+}
+
+void SciQLopColorMap::set_data(SciQLopPyBuffer x, SciQLopPyBuffer y, SciQLopPyBuffer z)
+{
+    PROFILE_HERE_N("setdata.colormap");
+    ::SciQLopPlots::tracing::ScopedZone _sz("setdata.colormap", "setdata");
+    _sz.add_arg("nx", static_cast<int64_t>(x.flat_size()));
+    _sz.add_arg("ny", static_cast<int64_t>(y.flat_size()));
+    _sz.add_arg("nz", static_cast<int64_t>(z.flat_size()));
+    if (!_cmap || !x.is_valid() || !y.is_valid() || !z.is_valid())
+        return;
+
+    if (x.format_code() != 'd')
+        throw std::runtime_error("Keys (x) must be float64");
+
+    const std::size_t nx_sz = x.flat_size();
+    const std::size_t ny_sz = y.flat_size();
+    const std::size_t nz_sz = z.flat_size();
+    // No data to plot ⇒ clear and bail. Speasy returns a "well-formed
+    // empty" spectrogram (time=0, freq=N, values=(0,N)) for windows
+    // with no samples; QCPSoADataSource2D asserts nx > 0 && nz > 0 so
+    // we must not construct it on any empty input.
+    if (nx_sz == 0 || nz_sz == 0)
+    {
+        _dataHolder.reset();
+        _cmap->setDataSource(std::shared_ptr<QCPAbstractDataSource2D>{});
+        m_data_range = SciQLopPlotRange();
+        Q_EMIT data_changed(x, y, z);
+        Q_EMIT data_changed();
+        return;
+    }
+
+    // QCPSoADataSource2D accepts both 1D and 2D y axes:
+    //   1D y:  ny == nz / nx   (one y value per row)
+    //   2D y:  ny == nz        (per-cell y, e.g. a spectrogram whose
+    //                           frequency axis varies per timestamp)
+    if (nz_sz % nx_sz != 0)
+        throw std::runtime_error(
+            "ColorMap.set_data: z size must be a multiple of x size");
+
+    const std::size_t y_size_per_row = nz_sz / nx_sz;
+    const bool valid_1d_y = (ny_sz == y_size_per_row);
+    const bool valid_2d_y = (ny_sz == nz_sz);
+    if (!valid_1d_y && !valid_2d_y)
+        throw std::runtime_error(
+            "ColorMap.set_data: y size must equal len(z)/len(x) (1D y) "
+            "or len(z) (2D y)");
+
+    // PyObject_GetBuffer is requested with PyBUF_ANY_CONTIGUOUS, so a
+    // transposed/np.asfortranarray 2D y or z is silently accepted here — but
+    // QCPSoADataSource2D indexes the raw buffer as row-major, so every cell
+    // would be wrong with no warning. Reject rather than misrender.
+    if ((y.ndim() >= 2 && !y.row_major()) || (z.ndim() >= 2 && !z.row_major()))
+        throw std::runtime_error(
+            "ColorMap.set_data: y/z must be row-major (C-order); pass "
+            "np.ascontiguousarray(arr) for a transposed/Fortran-order array");
+
+    // QCPSoADataSource2D (and every downstream key/z-range consumer) indexes
+    // with int. nx_sz/ny_sz/nz_sz are validated above in full size_t
+    // precision; truncating one that exceeds INT_MAX to int below would wrap
+    // to a negative size instead of throwing, so reject here first.
+    constexpr auto max_dim = static_cast<std::size_t>(std::numeric_limits<int>::max());
+    if (nx_sz > max_dim || ny_sz > max_dim || nz_sz > max_dim)
+        throw std::runtime_error(
+            "ColorMap.set_data: buffer size exceeds INT_MAX (2^31-1) elements per dimension");
+
+    // A single key sample can't define a cell span: QCPColorMap2's
+    // ViewportDependent resample transform needs at least two x positions
+    // to rasterize a column and silently returns no data otherwise, so the
+    // plot area stays blank with no exception and no warning (see NeoQCP's
+    // plottable-colormap2.cpp `if (src.xSize() < 2) return nullptr;`).
+    // Reject here instead of shipping a data source that renders nothing.
+    if (nx_sz == 1)
+        throw std::runtime_error(
+            "ColorMap.set_data: needs at least 2 time/key samples to render, got 1");
+
+    const auto* x_ptr = static_cast<const double*>(x.raw_data());
+    const int nx = static_cast<int>(nx_sz);
+
+    m_data_range = SciQLopPlotRange(x_ptr[0], x_ptr[nx - 1]);
+
+    dispatch_dtype(y.format_code(), [&](auto y_tag) {
+        dispatch_dtype(z.format_code(), [&](auto z_tag) {
+            using Y = typename decltype(y_tag)::type;
+            using Z = typename decltype(z_tag)::type;
+            const auto* y_ptr = static_cast<const Y*>(y.raw_data());
+            const auto* z_ptr = static_cast<const Z*>(z.raw_data());
+            const int ny = static_cast<int>(y.flat_size());
+            const int nz = static_cast<int>(z.flat_size());
+
+            auto source = std::make_shared<QCPSoADataSource2D<
+                std::span<const double>, std::span<const Y>, std::span<const Z>>>(
+                std::span<const double>(x_ptr, nx),
+                std::span<const Y>(y_ptr, ny),
+                std::span<const Z>(z_ptr, nz));
+
+            _dataHolder = std::make_shared<DataSourceWithBuffers>(
+                DataSourceWithBuffers{x, y, z, source});
+            auto aliased = std::shared_ptr<QCPAbstractDataSource2D>(_dataHolder, source.get());
+            _cmap->setDataSource(std::move(aliased));
+        });
+    });
+
+    check_first_data(nx);
+
+    if (_auto_scale_y && _dataHolder && _dataHolder->source && _valueAxis)
+    {
+        bool found = false;
+        auto yRange = _dataHolder->source->yRange(found);
+        // Route through set_range (not QCPAxis::setRange directly) so clamp_range
+        // and m_last_valid_range stay consistent: with a max/min range-size limit
+        // configured, a direct setRange makes the rangeChanged handler see
+        // clamped != requested and revert to the old range, so auto-scale-y
+        // silently does nothing. Mirrors the rescale() fix in SciQLopPlotAxis.cpp.
+        if (found && yRange.lower != yRange.upper)
+            _valueAxis->set_range(SciQLopPlotRange(yRange.lower, yRange.upper));
+    }
+
+    Q_EMIT data_changed(x, y, z);
+    Q_EMIT data_changed();
+}
+
+QList<SciQLopPyBuffer> SciQLopColorMap::data() const noexcept
+{
+    if (_dataHolder)
+        return {_dataHolder->x, _dataHolder->y, _dataHolder->z};
+    return {};
+}
+
+void SciQLopColorMap::set_auto_scale_y(bool auto_scale_y)
+{
+    _auto_scale_y = auto_scale_y;
+    Q_EMIT auto_scale_y_changed(auto_scale_y);
+}
+
+SciQLopPlotRange SciQLopColorMap::z_percentile_range(const SciQLopPlotRange& x_range,
+                                                     const SciQLopPlotRange& y_range, double low,
+                                                     double high) const noexcept
+{
+    if (!_dataHolder)
+        return SciQLopPlotRange();
+    const SciQLopPyBuffer& xb = _dataHolder->x;
+    const SciQLopPyBuffer& yb = _dataHolder->y;
+    const SciQLopPyBuffer& zb = _dataHolder->z;
+    if (!xb.is_valid() || !yb.is_valid() || !zb.is_valid())
+        return SciQLopPlotRange();
+
+    const std::size_t nx = xb.flat_size();
+    const std::size_t nz = zb.flat_size();
+    if (nx == 0 || nz == 0 || nz % nx != 0)
+        return SciQLopPlotRange();
+    const std::size_t y_per_row = nz / nx;
+    const bool y_is_2d = (yb.flat_size() == nz);
+
+    const double x_lo = std::min(x_range.start(), x_range.stop());
+    const double x_hi = std::max(x_range.start(), x_range.stop());
+    const double y_lo = std::min(y_range.start(), y_range.stop());
+    const double y_hi = std::max(y_range.start(), y_range.stop());
+
+    const auto* x_ptr = static_cast<const double*>(xb.raw_data());
+
+    // x (time) is sorted: bound the row scan to the visible window and size
+    // the gather for it — reserving the whole z plane allocated hundreds of
+    // MB on large spectrograms zoomed far in.
+    const std::size_t row0 = std::lower_bound(x_ptr, x_ptr + nx, x_lo) - x_ptr;
+    const std::size_t row1 = std::upper_bound(x_ptr + row0, x_ptr + nx, x_hi) - x_ptr;
+    if (row0 >= row1)
+        return SciQLopPlotRange();
+
+    std::vector<double> values;
+    // noexcept gather: dispatch_dtype throws std::invalid_argument on
+    // unsupported codes. _dataHolder is only assigned after set_data's own
+    // dispatch succeeds, so reaching here with an unknown dtype is
+    // unreachable today — catch it anyway to keep the noexcept contract
+    // honest for any future dtype that lands in set_data before this fn.
+    // reserve() can also throw std::bad_alloc/std::length_error on a huge
+    // zoomed-out span; it must stay inside the try so this noexcept function
+    // doesn't std::terminate under memory pressure.
+    try
+    {
+        values.reserve((row1 - row0) * y_per_row);
+        dispatch_dtype(yb.format_code(),
+                       [&](auto y_tag)
+                       {
+                           dispatch_dtype(zb.format_code(),
+                                          [&](auto z_tag)
+                                          {
+                                              using Y = typename decltype(y_tag)::type;
+                                              using Z = typename decltype(z_tag)::type;
+                                              const auto* y_ptr = static_cast<const Y*>(yb.raw_data());
+                                              const auto* z_ptr = static_cast<const Z*>(zb.raw_data());
+                                              for (std::size_t i = row0; i < row1; ++i)
+                                              {
+                                                  for (std::size_t j = 0; j < y_per_row; ++j)
+                                                  {
+                                                      const std::size_t idx = i * y_per_row + j;
+                                                      const double yj = static_cast<double>(
+                                                          y_is_2d ? y_ptr[idx] : y_ptr[j]);
+                                                      if (yj < y_lo || yj > y_hi)
+                                                          continue;
+                                                      const double zv = static_cast<double>(z_ptr[idx]);
+                                                      if (std::isfinite(zv))
+                                                          values.push_back(zv);
+                                                  }
+                                              }
+                                          });
+                       });
+    }
+    catch (const std::exception&)
+    {
+        return SciQLopPlotRange();
+    }
+
+    return sciqlop::percentile::percentile_range(values, low, high);
+}
+
+SciQLopColorMapFunction::SciQLopColorMapFunction(QCustomPlot* parent, SciQLopPlotAxis* xAxis,
+                                                 SciQLopPlotAxis* yAxis,
+                                                 SciQLopPlotColorScaleAxis* zAxis,
+                                                 GetDataPyCallable&& callable, const QString& name)
+    : SciQLopColorMap{parent, xAxis, yAxis, zAxis, name}
+    , SciQLopFunctionGraph(std::move(callable), this, 3)
+{
+    this->set_range({parent->xAxis->range().lower, parent->xAxis->range().upper});
+}
+
+SciQLopColorMapRemote::SciQLopColorMapRemote(QCustomPlot* parent, SciQLopPlotAxis* xAxis,
+                                             SciQLopPlotAxis* yAxis,
+                                             SciQLopPlotColorScaleAxis* zAxis,
+                                             const QString& name, QVariantMap metaData)
+    : SciQLopColorMap{parent, xAxis, yAxis, zAxis, name, std::move(metaData)}
+    , SciQLopRemoteGraph(this, 3)
+{
+    this->set_range({parent->xAxis->range().lower, parent->xAxis->range().upper});
+}

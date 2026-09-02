@@ -1,0 +1,295 @@
+"""Read Device Identification PDU.
+
+cfr. section 6.21 of the Modbus Application Protocol Specification V1.1b3
+"""
+
+import struct
+from dataclasses import dataclass
+from enum import IntEnum
+from typing import Literal, Self
+
+from tmodbus.const import FunctionCode
+from tmodbus.exceptions import FunctionCodeError, InvalidRequestError, InvalidResponseError
+
+from .base import BaseSubFunctionPDU
+
+
+class ObjectName(IntEnum):
+    """Object ID to Object Name mapping."""
+
+    VENDOR_NAME = 0x00  # Basic, Mandatory
+    PRODUCT_CODE = 0x01  # Basic, Mandatory
+    MAJOR_MINOR_REVISION = 0x02  # Basic, Mandatory
+    VENDOR_URL = 0x03  # Regular, Optional
+    PRODUCT_NAME = 0x04  # Regular, Optional
+    MODEL_NAME = 0x05  # Regular, Optional
+    USER_APPLICATION_NAME = 0x06  # Regular, Optional
+
+    # 0x07 to 0x7F: Reserved for regular, optional objects
+    # 0x80 to 0xFF: Reserved for extended (manufacturer-specific), optional objects
+
+
+class ConformityLevel(IntEnum):
+    """Conformity Level."""
+
+    BASIC = 0x01
+    """Basic identification (stream access only)"""
+    REGULAR = 0x02
+    """Regular identification (stream access only)"""
+    EXTENDED = 0x03
+    """Extended identification (stream access only)"""
+    BASIC_PLUS = 0x81
+    """Basic identification (stream access and individual access)"""
+    REGULAR_PLUS = 0x82
+    """Regular identification (stream access and individual access)"""
+    EXTENDED_PLUS = 0x83
+    """Extended identification (stream access and individual access)"""
+
+
+@dataclass(frozen=True)
+class ReadDeviceIdentificationResponse:
+    """Contents of the ReadDeviceInfo response."""
+
+    device_id_code: Literal[0x01, 0x02, 0x03, 0x04]
+    conformity_level: ConformityLevel
+    more: bool
+    next_object_id: int
+    number_of_objects: int
+
+    objects: dict[int, bytes]
+
+
+@dataclass(frozen=True)
+class ReadDeviceIdentificationPDU(BaseSubFunctionPDU[ReadDeviceIdentificationResponse]):
+    """Modbus Request to read a device identifier."""
+
+    function_code = FunctionCode.ENCAPSULATED_INTERFACE_TRANSPORT
+    rtu_request_data_length = 3  # MEI Type (1) + Read Device ID code (1) + Object ID (1)
+
+    sub_function_code = 0x0E
+    read_device_id_code: Literal[0x01, 0x02, 0x03, 0x04]
+    object_id: int
+
+    def __post_init__(self) -> None:
+        """Validate ReadDeviceIdentificationPDU."""
+        if not (0x00 <= self.object_id <= 0xFF):
+            msg = "Object ID must be between 0x00 and 0xFF."
+            raise ValueError(msg)
+
+    def encode_request(self) -> bytes:
+        """Encode ReadDeviceIdentifierPDU."""
+        return struct.pack(
+            ">BBBB",
+            self.function_code,
+            self.sub_function_code,
+            self.read_device_id_code,
+            self.object_id,
+        )
+
+    @classmethod
+    def decode_request(cls, request: bytes) -> Self:
+        """Decode Read Device Identification Request PDU.
+
+        Args:
+            request: The request bytes.
+
+        Returns:
+            ReadDeviceIdentificationPDU instance created from the request.
+
+        """
+        try:
+            function_code, sub_function_code, read_device_id_code, object_id = struct.unpack(">BBBB", request)
+        except struct.error as e:
+            msg = "Expected request to start with function code, sub-function code, device ID code, and object ID"
+            raise InvalidRequestError(msg, request_bytes=request) from e
+
+        if function_code != cls.function_code:
+            msg = f"Invalid function code: expected {cls.function_code:#04x}, received {function_code:#04x}"
+            raise InvalidRequestError(msg, request_bytes=request)
+
+        if sub_function_code != cls.sub_function_code:
+            msg = f"Invalid sub function code: expected {cls.sub_function_code:#04x}, received {sub_function_code:#04x}"
+            raise InvalidRequestError(msg, request_bytes=request)
+
+        if read_device_id_code not in (0x01, 0x02, 0x03, 0x04):
+            msg = f"Invalid read device ID code: {read_device_id_code:#04x}"
+            raise InvalidRequestError(msg, request_bytes=request)
+
+        try:
+            return cls(
+                read_device_id_code=read_device_id_code,
+                object_id=object_id,
+            )
+        except ValueError as e:
+            raise InvalidRequestError(str(e), request_bytes=request) from e
+
+    def encode_response(self, value: ReadDeviceIdentificationResponse) -> bytes:
+        """Convert the response value to bytes.
+
+        Args:
+            value: The value to encode in the response
+
+        Returns:
+            Bytes representation of the response PDU
+
+        Raises:
+            ValueError: If a field is out of range or the object count does not match
+
+        """
+        if value.device_id_code not in (0x01, 0x02, 0x03, 0x04):
+            msg = f"Invalid device ID code: {value.device_id_code:#04x}"
+            raise ValueError(msg)
+
+        if value.conformity_level not in ConformityLevel:
+            msg = f"Invalid conformity level: {value.conformity_level:#04x}"
+            raise ValueError(msg)
+
+        if not (0x00 <= value.next_object_id <= 0xFF):
+            msg = "Next object ID must be between 0x00 and 0xFF."
+            raise ValueError(msg)
+
+        if value.number_of_objects != len(value.objects):
+            msg = f"Expected {value.number_of_objects} objects, got {len(value.objects)}"
+            raise ValueError(msg)
+
+        if not (0x00 <= value.number_of_objects <= 0xFF):
+            msg = "Number of objects must be between 0 and 255."
+            raise ValueError(msg)
+
+        for obj_id, obj_bytes in value.objects.items():
+            if not (0x00 <= obj_id <= 0xFF):
+                msg = "Object ID must be between 0x00 and 0xFF."
+                raise ValueError(msg)
+            if len(obj_bytes) > 0xFF:
+                msg = f"Object {obj_id:#04x} value length {len(obj_bytes)} exceeds the maximum of 255."
+                raise ValueError(msg)
+
+        header = struct.pack(
+            ">BBBBBBB",
+            self.function_code,
+            self.sub_function_code,
+            value.device_id_code,
+            int(value.conformity_level),
+            0xFF if value.more else 0x00,
+            value.next_object_id,
+            value.number_of_objects,
+        )
+        body = bytearray()
+        for obj_id, obj_bytes in value.objects.items():
+            body.extend(struct.pack(">BB", obj_id, len(obj_bytes)))
+            body.extend(obj_bytes)
+        return header + bytes(body)
+
+    def decode_response(self, response: bytes) -> ReadDeviceIdentificationResponse:
+        """Decode Device Identifier PDU response."""
+        response_header_struct = struct.Struct(">BBBBBBB")
+        try:
+            (
+                function_code,
+                sub_function_code,
+                device_id_code,
+                conformity_level,
+                more,
+                next_object_id,
+                number_of_objects,
+            ) = response_header_struct.unpack_from(response, 0)
+        except struct.error as e:
+            msg = "Response too short for a Read Device Identification header"
+            raise InvalidResponseError(msg, response_bytes=response) from e
+
+        if function_code != self.function_code:
+            msg = f"Invalid function code: expected {self.function_code:#04x}, received {function_code:#04x}"
+            raise FunctionCodeError(msg, response_bytes=response)
+
+        if sub_function_code != self.sub_function_code:
+            msg = (
+                f"Invalid sub function code: expected {self.sub_function_code:#04x}, received {sub_function_code:#04x}"
+            )
+            raise FunctionCodeError(msg, response_bytes=response)
+
+        if more not in (0x00, 0xFF):
+            msg = f"Invalid 'more' value: {more:#04x}"
+            raise InvalidResponseError(msg, response_bytes=response)
+
+        try:
+            conformity = ConformityLevel(conformity_level)
+        except ValueError as e:
+            msg = f"Invalid conformity level: {conformity_level:#04x}"
+            raise InvalidResponseError(msg, response_bytes=response) from e
+
+        objects: dict[int, bytes] = {}
+        parsed_objects = 0
+        offset = response_header_struct.size
+        while offset < len(response):
+            try:
+                obj_id, obj_length = struct.unpack_from(">BB", response, offset)
+            except struct.error as e:
+                msg = "Truncated object header in Read Device Identification response"
+                raise InvalidResponseError(msg, response_bytes=response) from e
+            offset += 2
+            if offset + obj_length > len(response):
+                msg = "Truncated object value in Read Device Identification response"
+                raise InvalidResponseError(msg, response_bytes=response)
+            objects[obj_id] = response[offset : offset + obj_length]
+            parsed_objects += 1
+            offset += obj_length
+
+        if parsed_objects != number_of_objects:
+            msg = f"Expected {number_of_objects} objects, received {parsed_objects}"
+            raise InvalidResponseError(msg, response_bytes=response)
+
+        return ReadDeviceIdentificationResponse(
+            device_id_code=device_id_code,
+            conformity_level=conformity,
+            more=bool(more),
+            next_object_id=next_object_id,
+            number_of_objects=number_of_objects,
+            objects=objects,
+        )
+
+    @classmethod
+    def get_expected_response_data_length(cls, data: bytes) -> int | None:
+        """Get the expected number of bytes for the data part of the response PDU.
+
+        Returns:
+            Expected length of the response PDU in bytes, or None if it cannot be determined yet.
+
+        """
+        # the first two bytes with the slave address and function code are not passed
+        # into this function.
+        response_header_struct = struct.Struct(">BBBBBB")
+
+        if len(data) < response_header_struct.size:
+            # we currently have insufficient data to determine the frame length
+            return None
+
+        (
+            sub_function_code,
+            _device_id_code,
+            _conformity_level,
+            _more,
+            _next_object_id,
+            number_of_objects,
+        ) = response_header_struct.unpack_from(data, 0)
+
+        # the first byte should thus contain the sub_function_code:
+
+        if sub_function_code != cls.sub_function_code:
+            msg = f"Expected sub-function code {cls.sub_function_code}, got {data[0]}"
+            raise FunctionCodeError(msg, response_bytes=data)
+
+        offset = response_header_struct.size
+
+        object_header_struct = struct.Struct(">BB")
+
+        for _ in range(number_of_objects):
+            if len(data) < offset + object_header_struct.size:
+                # we currently have insufficient data to determine the frame length
+                return None
+
+            _obj_id, obj_length = object_header_struct.unpack_from(data, offset)
+            offset += object_header_struct.size + obj_length
+
+        # the offset contains the index just past the last object
+        # this is conveniently also the result we are looking for here.
+        return offset

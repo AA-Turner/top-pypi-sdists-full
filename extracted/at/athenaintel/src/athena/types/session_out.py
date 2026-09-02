@@ -37,6 +37,11 @@ class SessionOut(UniversalBaseModel):
     Application identifier the session belongs to, when set
     """
 
+    collab_agent_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Asset ID of the collab agent the session was created with, when one was bound; null for stock-agent sessions
+    """
+
     created_at: dt.datetime = pydantic.Field()
     """
     Timestamp when the session was created (ISO 8601)

@@ -294,7 +294,7 @@ class LLMTestResult(APIObject):
         llm_blueprint: Optional[Union[LLMBlueprint, str]] = None,
     ) -> List[LLMTestResult]:
         """
-        List all LLM test results available to the user. If the LLM test configuration or LLM
+        Returns a list of all LLM test results available to the user. If the LLM test configuration or LLM
         blueprint is specified, results are restricted to only those LLM test results associated
         with the LLM test configuration or LLM blueprint.
 

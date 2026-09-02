@@ -30,6 +30,7 @@ from .literals import (
     CapacityProviderScalingModeType,
     CapacityProviderStateType,
     CodeSigningPolicyType,
+    DirectS3ReadType,
     EventSourceMappingMetricType,
     EventSourceMappingSystemLogLevelType,
     EventSourcePositionType,
@@ -352,6 +353,7 @@ __all__ = (
     "RetryDetailsTypeDef",
     "RuntimeVersionConfigTypeDef",
     "RuntimeVersionErrorTypeDef",
+    "S3FilesConfigTypeDef",
     "ScalingConfigTypeDef",
     "SelfManagedEventSourceOutputTypeDef",
     "SelfManagedEventSourceTypeDef",
@@ -619,11 +621,6 @@ class EphemeralStorageTypeDef(TypedDict):
     Size: int
 
 
-class FileSystemConfigTypeDef(TypedDict):
-    Arn: str
-    LocalMountPath: str
-
-
 class LoggingConfigTypeDef(TypedDict):
     LogFormat: NotRequired[LogFormatType]
     ApplicationLogLevel: NotRequired[ApplicationLogLevelType]
@@ -762,6 +759,10 @@ class ExecutionTypeDef(TypedDict):
     StartTimestamp: datetime
     EndTimestamp: NotRequired[datetime]
     KMSKeyArn: NotRequired[str]
+
+
+class S3FilesConfigTypeDef(TypedDict):
+    DirectS3Read: NotRequired[DirectS3ReadType]
 
 
 class FilterTypeDef(TypedDict):
@@ -1606,6 +1607,12 @@ class ListDurableExecutionsByFunctionResponseTypeDef(TypedDict):
     DurableExecutions: list[ExecutionTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class FileSystemConfigTypeDef(TypedDict):
+    Arn: str
+    LocalMountPath: str
+    S3FilesConfig: NotRequired[S3FilesConfigTypeDef]
 
 
 class FilterCriteriaOutputTypeDef(TypedDict):

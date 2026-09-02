@@ -4320,11 +4320,11 @@ class CreateConfigurationBundleRequestTypeDef(TypedDict):
 
 class UpdateConfigurationBundleRequestTypeDef(TypedDict):
     bundleId: str
+    parentVersionIds: Sequence[str]
     clientToken: NotRequired[str]
     bundleName: NotRequired[str]
     description: NotRequired[str]
     components: NotRequired[Mapping[str, ComponentConfigurationUnionTypeDef]]
-    parentVersionIds: NotRequired[Sequence[str]]
     branchName: NotRequired[str]
     commitMessage: NotRequired[str]
     createdBy: NotRequired[VersionCreatedBySourceTypeDef]

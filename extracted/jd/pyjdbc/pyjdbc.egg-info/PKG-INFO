@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: pyjdbc
+Version: 0.2.2
+Summary: Use JDBC drivers to provide DB API 2.0 python database interface
+Home-page: https://github.com/OpenBigDataPlatform/pyjdbc
+Author: OpenBigDataPlatform
+License: Apache-2.0
+Description: # PyJdbc
+        `pyjdbc` provides a `db api 2.0` compliant interface around any `JDBC` driver.
+        
+        `pyjdbc` is used by various other projects as the basis for their jdbc compatibility interface.
+        
+        ## Features
+        - wrap jdbc `DriverManager` functionality
+        - custom exception handlers to deliver better python-like exceptions and avoiding `java`
+          stack traces whenever possible.
+        - provide basic `Cursor`, `DictoCursor`, `Connection` classes
+        - provide basic `TypeConversion` classes for common `jdbc` to `python` cases.
+        - interface for handling and validating `jdbc` arguments and formatting connection strings
+        - registry to support downloading and managing drivers locally.
+Keywords: dbapi jdbc
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Java
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development :: Libraries :: Java Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown

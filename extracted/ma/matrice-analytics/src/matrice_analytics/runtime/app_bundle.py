@@ -90,6 +90,12 @@ APP_DEPLOYMENT_ID_KEYS: Tuple[str, ...] = ("app_deployment_id", "appDeploymentId
 ENV_BUNDLE_REF = "MATRICE_APP_BUNDLE_REF"
 ENV_SELF_MINT = "MATRICE_APP_BUNDLE_SELF_MINT"
 ENV_ACTION_ID = "MATRICE_ACTION_ID"
+#: The bare name the Go services and the ENV_ID_ACTIONS images read. py_compute's
+#: k8s lane has always emitted both; its docker lane emitted only the MATRICE_ one
+#: for the ACTION_SCRIPTS class, so the id was reachable under one name in one lane
+#: and the other name in the other. Accepting both here fixes every already-running
+#: pod on its next SDK pull, without waiting on a py_compute redeploy.
+ENV_ACTION_ID_BARE = "ACTION_ID"
 ENV_API_BASE = "MATRICE_APP_BUNDLE_API_BASE"
 ENV_LICENSE_KEY = "MATRICE_LICENSE_KEY"
 
@@ -105,7 +111,9 @@ LICENSE_KEY_HEADER = "X-License-Key"
 
 #: Routes. Paths, not URLs: ``matrice_common``'s RPC prepends the gateway base URL and signs the
 #: request, so every call here rides the session the container is already authenticated with.
-USECASE_DOWNLOAD_PATH = "/v1/applications/{application_id}/versions/{application_version}/usecase/download"
+USECASE_DOWNLOAD_PATH = (
+    "/v1/applications/{application_id}/versions/{application_version}/usecase/download"
+)
 
 #: The same controller behind a license guard instead of a user-JWT guard
 #: (``be-application/cmd/router.go:282-291``, PR #143). This is the one a deployed container can
@@ -135,7 +143,9 @@ APPLICATION_VERSION_PATH = "/v1/applications/{application_id}"
 #: **because importing it costs the whole legacy chain**: ~3,525 modules and ~49 seconds including
 #: torch, which is precisely what routing at the runner exists to avoid, and what
 #: ``test_an_engine_backed_runner_imports_no_legacy_module`` enforces.
-POST_PROCESSING_CONFIGS_PATH = "/v1/inference/post_processing_configs/by_app_deployment/{app_deployment_id}"
+POST_PROCESSING_CONFIGS_PATH = (
+    "/v1/inference/post_processing_configs/by_app_deployment/{app_deployment_id}"
+)
 
 #: The **same document**, found the way the streaming UI finds it: by camera and application.
 #:
@@ -191,7 +201,9 @@ class BundleRef:
         if self.reference:
             return self.reference
         if self.mint is None:  # pragma: no cover - constructed with neither; guarded at build time
-            raise AppBundleError(f"Bundle candidate {self.via} has neither a reference nor a way to mint one.")
+            raise AppBundleError(
+                f"Bundle candidate {self.via} has neither a reference nor a way to mint one."
+            )
         minted = self.mint()
         if not isinstance(minted, str) or not minted.strip():
             raise AppBundleError(f"Bundle candidate {self.via} produced no usable download URL.")
@@ -212,6 +224,115 @@ def config_get(config: Any, keys: Sequence[str]) -> Optional[str]:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
+
+
+def _append_self_mint_candidate(
+    candidates: list,
+    post_processing_config: Any,
+    extra: Any,
+    environ: Mapping[str, str],
+    argv: Optional[Sequence[str]],
+    session: Any,
+    minter: Any,
+    action_params_fetcher: Any,
+    deployment_version_fetcher: Any,
+) -> None:
+    """Append the speculative "download it from the platform" candidate, if eligible.
+
+    A pure move out of `resolve_app_bundle_refs` so that function stays inside
+    the org complexity cap: it was already close to it, and `ruff format`
+    reflowing this file's pre-existing long lines pushed it over. Same block at
+    the same indent, appending to the caller's list exactly as before.
+    """
+    if (environ.get(ENV_SELF_MINT) or "").strip() not in {"0", "false", "no"}:
+        have_locally = bool(
+            config_get(post_processing_config, APPLICATION_ID_KEYS)
+            or config_get(extra, APPLICATION_ID_KEYS)
+        )
+        can_look_up = bool(
+            resolve_action_id(env=environ, argv=argv)
+            or config_get(post_processing_config, APP_DEPLOYMENT_ID_KEYS)
+            or config_get(extra, APP_DEPLOYMENT_ID_KEYS)
+        )
+        if have_locally or can_look_up:
+            # The session has to reach the minter too, not just the identity lookups -- otherwise it
+            # resolves the version over the caller's session and then tries to open a second one from
+            # env credentials to mint the URL.
+            call = minter or (
+                lambda app_id, app_ver: mint_usecase_download_url(
+                    app_id, app_ver, session=session, env=environ
+                )
+            )
+
+            def _mint_via_platform() -> str:
+                # Resolution happens HERE, not at discovery: an app already present under
+                # $MATRICE_APPS_ROOT must never cost an API round trip. `identity` in the worker
+                # path is `stream_info`, which is where the yolo worker puts both ids
+                # (workers.py:1072-1073).
+                app_id, app_ver = resolve_application_identity(
+                    post_processing_config,
+                    identity=extra,
+                    env=environ,
+                    argv=argv,
+                    session=session,
+                    action_params_fetcher=action_params_fetcher,
+                    deployment_version_fetcher=deployment_version_fetcher,
+                )
+                if app_id and not app_ver and _published_version_allowed(environ):
+                    # Last resort. Deliberately NOT a fourth source inside
+                    # `resolve_application_identity`: that function is public and its
+                    # documented contract is the *deployed* version, so widening it would
+                    # silently re-point every future caller at something weaker.
+                    #
+                    # Why fall back at all, given `fetch_deployment_app_version` documents
+                    # a refusal to do exactly this: refusing leaves no bundle, which means
+                    # the legacy path, which for a manifest-only app means
+                    # `ConfigValidationError: Unknown use case` and an app that produces
+                    # nothing whatsoever. That was the live state of X-Ray Detection. A
+                    # possibly-wrong version's bundle is a worse answer than the right one
+                    # and a better answer than no app -- but it IS a guess, so it is
+                    # logged at WARNING every time and can be switched off fleet-wide.
+                    app_ver = fetch_application_published_version(
+                        app_id, session=session, env=environ
+                    )
+                    if app_ver:
+                        logger.warning(
+                            "app bundle: no record knows which version application %s is deployed "
+                            "on, so falling back to its PUBLISHED version %r. That is routinely "
+                            "ahead of what a deployment runs, so this may load a different "
+                            "version's bundle; the alternative is no bundle at all, which for a "
+                            "manifest-only app means the legacy path and no output. Set $%s=0 to "
+                            "restore the strict refusal.",
+                            app_id,
+                            app_ver,
+                            ENV_ALLOW_PUBLISHED_VERSION,
+                        )
+                if not app_id or not app_ver:
+                    raise AppBundleError(
+                        f"Could not determine the deployed application version "
+                        f"(application_id={app_id!r}, application_version={app_ver!r}). Tried the "
+                        f"config, the caller's identity, this worker's action record, the "
+                        f"app-deployment record and the application's published version."
+                    )
+                return call(app_id, app_ver)
+
+            candidates.append(
+                BundleRef(
+                    reference=None,
+                    # Names both routes, because the mint closure may take either and
+                    # `backends.py` logs this string as the explanation of what happened.
+                    # A `via` that named only the strict route would be a lie in the one
+                    # log line a future investigator reads first.
+                    via=(
+                        "usecase-download API (identity from action/deployment record, else the "
+                        "application's PUBLISHED version -- which is not verified as the version "
+                        "this deployment runs)"
+                    ),
+                    trusted=True,
+                    mint=_mint_via_platform,
+                    speculative=True,
+                )
+            )
 
 
 def resolve_app_bundle_refs(
@@ -253,7 +374,9 @@ def resolve_app_bundle_refs(
     )
     local = _local_app_folder(usecase, environ)
     if local is not None:
-        candidates.append(BundleRef(reference=local, via=f"$MATRICE_APPS_ROOT/{usecase}", trusted=True))
+        candidates.append(
+            BundleRef(reference=local, via=f"$MATRICE_APPS_ROOT/{usecase}", trusted=True)
+        )
 
     url = config_get(post_processing_config, BUNDLE_URL_KEYS) or config_get(extra, BUNDLE_URL_KEYS)
     if url:
@@ -261,90 +384,17 @@ def resolve_app_bundle_refs(
         # mint candidate below, which is what recovers a 403 five hours into a deployment.
         candidates.append(BundleRef(reference=url, via="post_processing_config bundle url"))
 
-    if (environ.get(ENV_SELF_MINT) or "").strip() not in {"0", "false", "no"}:
-        have_locally = bool(
-            config_get(post_processing_config, APPLICATION_ID_KEYS) or config_get(extra, APPLICATION_ID_KEYS)
-        )
-        can_look_up = bool(
-            resolve_action_id(env=environ, argv=argv)
-            or config_get(post_processing_config, APP_DEPLOYMENT_ID_KEYS)
-            or config_get(extra, APP_DEPLOYMENT_ID_KEYS)
-        )
-        if have_locally or can_look_up:
-            # The session has to reach the minter too, not just the identity lookups -- otherwise it
-            # resolves the version over the caller's session and then tries to open a second one from
-            # env credentials to mint the URL.
-            call = minter or (
-                lambda app_id, app_ver: mint_usecase_download_url(app_id, app_ver, session=session, env=environ)
-            )
-
-            def _mint_via_platform() -> str:
-                # Resolution happens HERE, not at discovery: an app already present under
-                # $MATRICE_APPS_ROOT must never cost an API round trip. `identity` in the worker
-                # path is `stream_info`, which is where the yolo worker puts both ids
-                # (workers.py:1072-1073).
-                app_id, app_ver = resolve_application_identity(
-                    post_processing_config,
-                    identity=extra,
-                    env=environ,
-                    argv=argv,
-                    session=session,
-                    action_params_fetcher=action_params_fetcher,
-                    deployment_version_fetcher=deployment_version_fetcher,
-                )
-                if app_id and not app_ver and _published_version_allowed(environ):
-                    # Last resort. Deliberately NOT a fourth source inside
-                    # `resolve_application_identity`: that function is public and its
-                    # documented contract is the *deployed* version, so widening it would
-                    # silently re-point every future caller at something weaker.
-                    #
-                    # Why fall back at all, given `fetch_deployment_app_version` documents
-                    # a refusal to do exactly this: refusing leaves no bundle, which means
-                    # the legacy path, which for a manifest-only app means
-                    # `ConfigValidationError: Unknown use case` and an app that produces
-                    # nothing whatsoever. That was the live state of X-Ray Detection. A
-                    # possibly-wrong version's bundle is a worse answer than the right one
-                    # and a better answer than no app -- but it IS a guess, so it is
-                    # logged at WARNING every time and can be switched off fleet-wide.
-                    app_ver = fetch_application_published_version(app_id, session=session, env=environ)
-                    if app_ver:
-                        logger.warning(
-                            "app bundle: no record knows which version application %s is deployed "
-                            "on, so falling back to its PUBLISHED version %r. That is routinely "
-                            "ahead of what a deployment runs, so this may load a different "
-                            "version's bundle; the alternative is no bundle at all, which for a "
-                            "manifest-only app means the legacy path and no output. Set $%s=0 to "
-                            "restore the strict refusal.",
-                            app_id,
-                            app_ver,
-                            ENV_ALLOW_PUBLISHED_VERSION,
-                        )
-                if not app_id or not app_ver:
-                    raise AppBundleError(
-                        f"Could not determine the deployed application version "
-                        f"(application_id={app_id!r}, application_version={app_ver!r}). Tried the "
-                        f"config, the caller's identity, this worker's action record, the "
-                        f"app-deployment record and the application's published version."
-                    )
-                return call(app_id, app_ver)
-
-            candidates.append(
-                BundleRef(
-                    reference=None,
-                    # Names both routes, because the mint closure may take either and
-                    # `backends.py` logs this string as the explanation of what happened.
-                    # A `via` that named only the strict route would be a lie in the one
-                    # log line a future investigator reads first.
-                    via=(
-                        "usecase-download API (identity from action/deployment record, else the "
-                        "application's PUBLISHED version -- which is not verified as the version "
-                        "this deployment runs)"
-                    ),
-                    trusted=True,
-                    mint=_mint_via_platform,
-                    speculative=True,
-                )
-            )
+    _append_self_mint_candidate(
+        candidates,
+        post_processing_config,
+        extra,
+        environ,
+        argv,
+        session,
+        minter,
+        action_params_fetcher,
+        deployment_version_fetcher,
+    )
 
     return tuple(candidates)
 
@@ -380,7 +430,9 @@ def _local_app_folder(usecase: Optional[str], environ: Mapping[str, str]) -> Opt
     if (exact / "app.yaml").is_file():
         return str(exact)
 
-    versioned = sorted(candidate for candidate in base.glob(f"{usecase}-v*") if (candidate / "app.yaml").is_file())
+    versioned = sorted(
+        candidate for candidate in base.glob(f"{usecase}-v*") if (candidate / "app.yaml").is_file()
+    )
     if len(versioned) == 1:
         return str(versioned[0])
     if versioned:
@@ -395,19 +447,26 @@ def _local_app_folder(usecase: Optional[str], environ: Mapping[str, str]) -> Opt
     return None
 
 
-def resolve_action_id(env: Optional[Mapping[str, str]] = None, argv: Optional[Sequence[str]] = None) -> Optional[str]:
+def resolve_action_id(
+    env: Optional[Mapping[str, str]] = None, argv: Optional[Sequence[str]] = None
+) -> Optional[str]:
     """The action record id for this worker, if it can be determined locally.
 
-    Two sources, no I/O. ``$MATRICE_ACTION_ID`` first, because an operator setting it means it. Then
-    ``sys.argv``: py_compute launches every action container as
-    ``python3 <entrypoint>.py <action_record_id> <port>`` (``action_instance.py:2660``, ``:2703``),
-    so the id is the first argument that looks like an ObjectId. Matching on shape rather than
-    position keeps this from mistaking a port or a flag for an id.
+    Three sources, no I/O. ``$MATRICE_ACTION_ID`` first, because an operator setting it means it,
+    then ``$ACTION_ID`` -- the bare name the Go services and the ENV_ID_ACTIONS images read, and the
+    only one some py_compute launch paths emitted. Then ``sys.argv``: py_compute launches every
+    action container as ``python3 <entrypoint>.py <action_record_id> <port>``, so the id is the
+    first argument that looks like an ObjectId. Matching on shape rather than position keeps this
+    from mistaking a port or a flag for an id.
+
+    A malformed value in either env var falls through rather than erroring, so a truncated id does
+    not mask a good one in argv.
     """
     environ = os.environ if env is None else env
-    explicit = (environ.get(ENV_ACTION_ID) or "").strip()
-    if _OBJECT_ID_RE.match(explicit.lower()):
-        return explicit.lower()
+    for name in (ENV_ACTION_ID, ENV_ACTION_ID_BARE):
+        explicit = (environ.get(name) or "").strip()
+        if _OBJECT_ID_RE.match(explicit.lower()):
+            return explicit.lower()
 
     for arg in list(argv if argv is not None else sys.argv)[1:]:
         candidate = str(arg).strip().lower()
@@ -475,7 +534,7 @@ def _rpc_data(
             # with no usable rpc fails the same way twice, which is fine -- the cause is in the list.
             attempts.append(f"{base or 'session base url'}: {exc}")
             continue
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - every transport error is one failed attempt
             attempts.append(f"{base or 'session base url'}: {type(exc).__name__}: {exc}")
             continue
 
@@ -523,7 +582,9 @@ def fetch_action_job_params(action_id: str, *, session: Any = None) -> Dict[str,
     re-derivation that could disagree.
     """
     session = session if session is not None else _open_session(f"action {action_id}")
-    data = _rpc_data(session, ACTION_DETAILS_PATH.format(action_id=action_id), what="action jobParams")
+    data = _rpc_data(
+        session, ACTION_DETAILS_PATH.format(action_id=action_id), what="action jobParams"
+    )
     params = data.get("jobParams")
     return params if isinstance(params, dict) else {}
 
@@ -554,7 +615,9 @@ def fetch_deployment_app_identity(
         APP_DEPLOYMENT_PATH.format(app_deployment_id=app_deployment_id),
         what="deployment appVersion",
     )
-    return _first_str(data, APPLICATION_ID_KEYS), _first_str(data, ("appVersion", "applicationVersion", "app_version"))
+    return _first_str(data, APPLICATION_ID_KEYS), _first_str(
+        data, ("appVersion", "applicationVersion", "app_version")
+    )
 
 
 def fetch_deployment_app_version(app_deployment_id: str, *, session: Any = None) -> Optional[str]:
@@ -608,7 +671,9 @@ def fetch_application_published_version(
             env=env,
         )
     except AppBundleError as exc:
-        logger.debug("app bundle: application %s gave no published version (%s)", application_id, exc)
+        logger.debug(
+            "app bundle: application %s gave no published version (%s)", application_id, exc
+        )
         return None
     for key in ("publishedVersion", "latestVersion", "currentVersion", "version"):
         value = data.get(key)
@@ -699,7 +764,11 @@ def fetch_post_processing_config_by_camera_and_app(
     for base in (None, backend_base_url(env)):
         try:
             rpc = _rpc(session)
-            response = rpc.get(path, params=params) if base is None else rpc.get(path, params=params, base_url=base)
+            response = (
+                rpc.get(path, params=params)
+                if base is None
+                else rpc.get(path, params=params, base_url=base)
+            )
         except AppBundleError as exc:
             attempts.append(f"{base or 'session base url'}: {exc}")
             continue
@@ -735,7 +804,9 @@ def _open_session(what: str) -> Any:
     try:
         from matrice_common.session import Session
     except Exception as exc:
-        raise AppBundleError(f"Cannot resolve {what}: matrice_common is not importable ({exc}).") from exc
+        raise AppBundleError(
+            f"Cannot resolve {what}: matrice_common is not importable ({exc})."
+        ) from exc
     try:
         return Session(
             access_key=access_key,
@@ -775,10 +846,12 @@ def resolve_application_identity(
     """
     extra: Any = identity or {}
 
-    application_id = config_get(post_processing_config, APPLICATION_ID_KEYS) or config_get(extra, APPLICATION_ID_KEYS)
-    application_version = config_get(post_processing_config, APPLICATION_VERSION_KEYS) or config_get(
-        extra, APPLICATION_VERSION_KEYS
+    application_id = config_get(post_processing_config, APPLICATION_ID_KEYS) or config_get(
+        extra, APPLICATION_ID_KEYS
     )
+    application_version = config_get(
+        post_processing_config, APPLICATION_VERSION_KEYS
+    ) or config_get(extra, APPLICATION_VERSION_KEYS)
     if application_id and application_version:
         return application_id, application_version
 
@@ -803,9 +876,13 @@ def resolve_application_identity(
             if deployment_version_fetcher is not None:
                 # An injected fetcher answers for the version only -- that is its published
                 # signature, and widening it would break every existing caller.
-                application_version = application_version or deployment_version_fetcher(deployment_id)
+                application_version = application_version or deployment_version_fetcher(
+                    deployment_id
+                )
             else:
-                found_id, found_version = fetch_deployment_app_identity(deployment_id, session=session)
+                found_id, found_version = fetch_deployment_app_identity(
+                    deployment_id, session=session
+                )
                 application_id = application_id or found_id
                 application_version = application_version or found_version
         except AppBundleError as exc:
@@ -821,13 +898,19 @@ def resolve_application_identity(
         try:
             documents = fetch_post_processing_configs(deployment_id, session=session, env=env)
         except AppBundleError as exc:
-            logger.debug("app bundle: deployment %s served no post-processing configs (%s)", deployment_id, exc)
+            logger.debug(
+                "app bundle: deployment %s served no post-processing configs (%s)",
+                deployment_id,
+                exc,
+            )
             documents = []
         for document in documents:
             if not isinstance(document, Mapping):
                 continue
             application_id = application_id or _first_str(document, APPLICATION_ID_KEYS)
-            application_version = application_version or _first_str(document, APPLICATION_VERSION_KEYS)
+            application_version = application_version or _first_str(
+                document, APPLICATION_VERSION_KEYS
+            )
             if application_id and application_version:
                 break
         if application_id or application_version:
@@ -870,7 +953,9 @@ def _mint_via_license(
     if not license_key:
         return None
 
-    path = USECASE_DOWNLOAD_LICENSE_PATH.format(application_id=application_id, application_version=application_version)
+    path = USECASE_DOWNLOAD_LICENSE_PATH.format(
+        application_id=application_id, application_version=application_version
+    )
     base = backend_base_url(env)
     try:
         response = _rpc(session).send_request(
@@ -918,7 +1003,9 @@ def mint_usecase_download_url(
     session = (
         session
         if session is not None
-        else _open_session(f"the bundle URL for application {application_id} version {application_version}")
+        else _open_session(
+            f"the bundle URL for application {application_id} version {application_version}"
+        )
     )
 
     what = f"the bundle URL for application {application_id} version {application_version}"
@@ -927,11 +1014,15 @@ def mint_usecase_download_url(
     # can actually use: the user-JWT route answers 404 unauthenticated (auth lost on the gateway's
     # cross-origin redirect) and 401 with the container's own token. Same controller, different
     # guard -- be-application PR #143.
-    licensed = _mint_via_license(application_id, application_version, session=session, env=env, what=what)
+    licensed = _mint_via_license(
+        application_id, application_version, session=session, env=env, what=what
+    )
     if licensed is not None:
         return licensed
 
-    path = USECASE_DOWNLOAD_PATH.format(application_id=application_id, application_version=application_version)
+    path = USECASE_DOWNLOAD_PATH.format(
+        application_id=application_id, application_version=application_version
+    )
     # Through _rpc_data, not session.rpc.get directly: this route lives on be-application, which the
     # local gateway does not proxy, so it needs the same direct-base-url retry the identity lookups
     # get. 0.1.429 shipped that retry for the lookups only and left this call on the plain handle,

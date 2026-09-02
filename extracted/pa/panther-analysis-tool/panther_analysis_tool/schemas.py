@@ -1,0 +1,420 @@
+import json
+import pkgutil
+from typing import Any, Dict, Set
+
+from schema import And, Optional, Or, Regex, Schema, SchemaError
+
+
+class QueryScheduleSchema(Schema):
+    # pylint: disable=arguments-differ
+    def validate(  # type: ignore
+        self, data: Dict[str, Any], _is_query_schedule_schema: bool = True
+    ) -> Dict[str, Any]:
+        super().validate(data, _is_query_schedule_schema=False)  # type: ignore
+        if _is_query_schedule_schema:
+            rate, timeout = data.get("RateMinutes"), data.get("TimeoutMinutes")
+            if rate is not None:
+                # validate rate minutes >1m
+                if rate <= 1:
+                    raise SchemaError("RateMinutes must be > 1")
+                # validate rate minutes >= timeout
+                if rate < timeout:
+                    raise SchemaError("RateMinutes must be >= TimeoutMinutes")
+        return data
+
+
+NAME_ID_VALIDATION_REGEX = Regex(r"^[^<>&\"%]+$")
+
+# TODO: Implement dynamic resource type validation when a Panther API endpoint
+# becomes available for fetching supported resource types. Currently hardcoded
+# because there is no API to query resource types dynamically.
+# See log_type_validator.py for how log types are validated dynamically.
+RESOURCE_TYPE_REGEX = Regex(
+    r"^AWS\.(ACM\.Certificate|CloudFormation\.Stack|CloudTrail\.Meta|CloudTrail|CloudWatch"
+    r"\.LogGroup|Config\.Recorder\.Meta|Config\.Recorder|DynamoDB\.Table|EC2\.AMI|EC2\.Instance"
+    r"|EC2\.NetworkACL|EC2\.SecurityGroup|EC2\.Volume|EC2\.VPC|ECS\.Cluster|EKS\.Cluster|ELBV2"
+    r"\.ApplicationLoadBalancer|GuardDuty\.Detector\.Meta|GuardDuty\.Detector|IAM\.Group|IAM"
+    r"\.Policy|IAM\.Role|IAM\.RootUser|IAM\.User|KMS\.Key|Lambda\.Function|PasswordPolicy|RDS"
+    r"\.Instance|Redshift\.Cluster|Route53\.HostedZone|Route53Domains|S3\.Bucket|WAF\.Regional"
+    r"\.WebACL|WAF\.WebACL)$"
+)
+
+TYPE_SCHEMA = Schema(
+    {
+        "AnalysisType": Or(
+            "correlation_rule",
+            "datamodel",
+            "global",
+            "pack",
+            "policy",
+            "rule",
+            "saved_query",
+            "scheduled_rule",
+            "scheduled_query",
+            "lookup_table",
+            "scheduled_prompt",
+        ),
+    },
+    ignore_extra_keys=True,
+)
+
+MOCK_SCHEMA = Schema(
+    {
+        "objectName": str,
+        # best effort to detect str: because of the ruamel bool constructor, boolean strings are converted to bools
+        "returnValue": Or(str, bool),
+    }
+)
+
+DATA_MODEL_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("datamodel"),
+        "DataModelID": And(str, NAME_ID_VALIDATION_REGEX),
+        "Enabled": bool,
+        "LogTypes": [str],  # Log type validation happens at upload time, not schema validation
+        "Mappings": [
+            {
+                "Name": str,
+                Or("Method", "Path", only_one=True): str,
+            }
+        ],
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Filename"): str,
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)
+
+GLOBAL_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("global"),
+        "Filename": str,
+        "GlobalID": And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Description"): str,
+        Optional("Tags"): [str],
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)
+
+PACK_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("pack"),
+        "PackID": And(str, NAME_ID_VALIDATION_REGEX),
+        "PackDefinition": {
+            "IDs": [str],
+        },
+        Optional("Description"): str,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+    }
+)
+
+POLICY_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("policy"),
+        "Enabled": bool,
+        "Filename": str,
+        "PolicyID": And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("ResourceTypes"): And([str], [RESOURCE_TYPE_REGEX]),
+        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("ActionDelaySeconds"): int,
+        Optional("AutoRemediationID"): str,
+        Optional("AutoRemediationParameters"): object,
+        Optional("Description"): str,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
+        Optional("OutputIds"): [str],
+        Optional("CreatedBy"): str,
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("Status"): str,
+        Optional("Suppressions"): [str],
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("Tests"): [
+            {
+                "Name": str,
+                Optional(
+                    "ResourceType"
+                ): str,  # Not needed anymore, optional for backwards compatibility
+                "ExpectedResult": bool,
+                "Resource": object,
+                Optional("Mocks"): [MOCK_SCHEMA],
+            }
+        ],
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
+
+RULE_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("rule", "scheduled_rule"),
+        "Enabled": bool,
+        Or("Filename", "Detection", only_one=True): Or(str, object),
+        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+        Or("LogTypes", "ScheduledQueries", only_one=True): [
+            str
+        ],  # Log type validation at upload time
+        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("Description"): str,
+        Optional("DedupPeriodMinutes"): int,
+        Optional("InlineFilters"): object,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
+        Optional("OutputIds"): [str],
+        Optional("CreatedBy"): str,
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("Status"): str,
+        Optional("SummaryAttributes"): [str],
+        Optional("Threshold"): int,
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("Tests"): [
+            {
+                "Name": str,
+                Optional(
+                    "LogType"
+                ): str,  # Not needed anymore, optional for backwards compatibility
+                "ExpectedResult": bool,
+                "Log": object,
+                Optional("Mocks"): [MOCK_SCHEMA],
+            }
+        ],
+        Optional("DynamicSeverities"): object,
+        Optional("AlertTitle"): str,
+        Optional("AlertContext"): object,
+        Optional("GroupBy"): object,
+        Optional("CreateAlert"): bool,
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
+
+DERIVED_SCHEMA = Schema(
+    {
+        "AnalysisType": "rule",
+        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+        "BaseDetection": And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("Enabled"): bool,
+        Optional("Severity"): Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("Description"): str,
+        Optional("DedupPeriodMinutes"): int,
+        Optional("InlineFilters"): object,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
+        Optional("OutputIds"): [str],
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("Status"): str,
+        Optional("SummaryAttributes"): [str],
+        Optional("Threshold"): int,
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("DynamicSeverities"): object,
+        Optional("AlertTitle"): str,
+        Optional("AlertContext"): object,
+        Optional("GroupBy"): object,
+        Optional("Tests"): object,
+        Optional("CreateAlert"): bool,
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)
+
+CORRELATION_RULE_SCHEMA = Schema(
+    {
+        "AnalysisType": "correlation_rule",
+        "RuleID": And(str, NAME_ID_VALIDATION_REGEX),
+        "Enabled": bool,
+        "Detection": object,
+        "Severity": Or("Info", "Low", "Medium", "High", "Critical"),
+        Optional("Description"): str,
+        Optional("DisplayName"): And(str, NAME_ID_VALIDATION_REGEX),
+        Optional("OnlyUseBaseRiskScore"): bool,
+        Optional("OutputIds"): [str],
+        Optional("CreatedBy"): str,
+        Optional("Reference"): str,
+        Optional("Runbook"): str,
+        Optional("Status"): str,
+        Optional("SummaryAttributes"): [str],
+        Optional("Tags"): [str],
+        Optional("Reports"): {str: list},
+        Optional("CreateAlert"): bool,
+        Optional("Tests"): [
+            {
+                "Name": str,
+                "ExpectedResult": bool,
+                "RuleOutputs": [
+                    {
+                        "ID": str,
+                        Optional("Matches"): object,
+                    }
+                ],
+            }
+        ],
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)
+
+SAVED_QUERY_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("saved_query"),
+        "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
+        Or("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery"): str,
+        Optional("Description"): str,
+        Optional("Tags"): [str],
+        Optional("Lookback"): bool,
+        Optional("LookbackWindowSeconds"): int,
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
+
+SCHEDULED_QUERY_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("scheduled_query"),
+        "QueryName": And(str, NAME_ID_VALIDATION_REGEX),
+        "Enabled": bool,
+        Or("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery"): str,
+        "Schedule": QueryScheduleSchema(
+            {
+                Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
+                "TimeoutMinutes": int,
+            }
+        ),
+        Optional("Description"): str,
+        Optional("Tags"): [str],
+        Optional("Lookback"): bool,
+        Optional("LookbackWindowSeconds"): int,
+        Optional("EmailConfig"): {
+            "Recipients": [str],
+            Optional("SendEmpty"): bool,
+            Optional("PreferAttachment"): bool,
+        },
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+    # Prevent user typos on optional fields
+)
+
+SCHEDULED_PROMPT_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("scheduled_prompt"),
+        "PromptName": And(str, Regex(r"^[a-z][a-z0-9_]*\Z")),
+        "DisplayName": str,
+        "PromptText": str,
+        # Required, and polymorphic — a user email OR an API-token id (po_...), matching the
+        # backend, which resolves it server-side. Format/existence is validated at validate/upload,
+        # so locally we only require a non-empty string (a strict email regex would wrongly reject
+        # a valid token id).
+        "RunAsUser": And(str, len),
+        "Schedule": QueryScheduleSchema(
+            {
+                Or("CronExpression", "RateMinutes", only_one=True): Or(str, int),
+                "TimeoutMinutes": int,
+            }
+        ),
+        Optional("Description"): str,
+        Optional("OutputLength"): Or("small", "medium", "largest"),
+        Optional("Enabled"): bool,
+        # Bulk upload is shared-only: `Private: false`/omitted is accepted; `Private: true` is
+        # rejected — mirrors the backend, which keeps the field but parse-rejects `true` so a
+        # downloaded private prompt fails loudly instead of silently flipping to shared.
+        Optional("Private"): False,
+    },
+    ignore_extra_keys=False,
+)
+
+LOOKUP_TABLE_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("lookup_table"),
+        "LookupName": str,
+        "Enabled": bool,
+        Or("Filename", "Refresh"): Or(
+            str,
+            {
+                "ObjectPath": str,
+                Optional("PeriodMinutes"): int,
+                Optional("AlarmPeriodMinutes"): int,
+                Optional("RoleARN"): str,
+                Optional("ObjectKMSKey"): str,
+                Optional("GCSCredentials"): str,
+                Optional("StorageProvider"): str,
+            },
+        ),
+        "Schema": str,
+        "LogTypeMap": {
+            "PrimaryKey": str,
+            Optional("AssociatedLogTypes"): [{"LogType": str, Optional("Selectors"): [str]}],
+        },
+        Optional("Description"): str,
+        Optional("Reference"): str,
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)  # Prevent user typos on optional fields
+
+SQL_LOOKUP_TABLE_SCHEMA = Schema(
+    {
+        "AnalysisType": Or("lookup_table"),
+        "LookupName": str,
+        "Enabled": bool,
+        Or("Query", "AthenaQuery", "SnowflakeQuery", "DatabricksQuery"): str,
+        "LogTypeMap": {
+            "PrimaryKey": str,
+            Optional("AssociatedLogTypes"): [{"LogType": str, Optional("Selectors"): [str]}],
+        },
+        "Refresh": Or(
+            {"PeriodMinutes": int},
+            {"CronExpression": str},
+        ),
+        Optional("Indicators"): [{"Field": str, "Indicators": [str]}],
+        Optional("Validations"): [{"Field": str, "Validations": [str]}],
+        Optional("Description"): str,
+        Optional("Reference"): str,
+        Optional("BaseVersion"): int,
+    },
+    ignore_extra_keys=False,
+)
+
+# load jsonschema files
+raw_simple_detection_schema = pkgutil.get_data(
+    __name__, "detection_schemas/analysis_config_schema.json"
+)
+ANALYSIS_CONFIG_SCHEMA = (
+    json.loads(raw_simple_detection_schema) if raw_simple_detection_schema else {}
+)
+
+
+# pylint: disable=too-many-return-statements
+def extract_keys_schema(val: Any) -> Set[str]:
+    if isinstance(val, Schema):
+        return extract_keys_schema(val.schema)
+    if isinstance(val, dict):
+        keys = set()
+        for key in val.keys():
+            keys.update(extract_keys_schema(key))
+        return keys
+    if isinstance(val, list):
+        keys = set()
+        for item in val:
+            keys.update(extract_keys_schema(item))
+        return keys
+    if isinstance(val, And):
+        keys = set()
+        for item in val.args:
+            keys.update(extract_keys_schema(item))
+        return keys
+    if isinstance(val, Or):
+        keys = set()
+        for item in val.args:
+            keys.update(extract_keys_schema(item))
+        return keys
+    if isinstance(val, Optional):
+        return extract_keys_schema(val.key)
+    if isinstance(val, str):
+        return {val}
+    raise ValueError(f"Unknown schema type: {type(val)}")

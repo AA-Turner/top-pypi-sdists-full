@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esp-coredump
-Version: 1.16.0
+Version: 1.17.1
 Summary: Generate core dumps on unrecoverable software errors
 Author: Espressif Systems
 License: Apache 2.0
@@ -25,6 +25,10 @@ License-File: LICENSE
 Requires-Dist: construct~=2.10
 Requires-Dist: pygdbmi>=0.9.0.2
 Requires-Dist: esptool
+Requires-Dist: esp-pylib[cli]>=1.1.4
+Requires-Dist: click<9
+Requires-Dist: rich-click
+Requires-Dist: rich
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: commitizen; extra == "dev"

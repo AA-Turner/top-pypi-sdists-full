@@ -41,11 +41,6 @@ common_setup_kwargs.update(
     packages=packages,
     long_description=description,
     classifiers=DEFAULT_CLASSIFIERS,
-    entry_points={
-        "console_scripts": [
-            "drdev = datarobot.core.dev:cli_main",
-        ],
-    },
 )
 
 setup(**common_setup_kwargs)

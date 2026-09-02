@@ -88,8 +88,7 @@ class GitHubWorkspaceDiscovery:
                 )
             except httpx.HTTPStatusError as exc:
                 logger.warning(
-                    "Failed to fetch GitHub user identity (status %s), "
-                    "omitting personal workspace",
+                    "Failed to fetch GitHub user identity (status %s), omitting personal workspace",
                     exc.response.status_code,
                 )
 
@@ -102,14 +101,10 @@ class GitHubResourceDiscovery:
     def __init__(self, nango_ctx: NangoConnectionContext) -> None:
         self._nango_ctx = nango_ctx
 
-    async def discover(
-        self, workspace: DiscoveredWorkspace
-    ) -> DiscoveryResult[DiscoveredResource]:
+    async def discover(self, workspace: DiscoveredWorkspace) -> DiscoveryResult[DiscoveredResource]:
         transport = NangoProxyTransport(self._nango_ctx)
         async with httpx.AsyncClient(transport=transport) as client:
-            workspace_type = (workspace.provider_context or {}).get(
-                "workspace_type", "org"
-            )
+            workspace_type = (workspace.provider_context or {}).get("workspace_type", "org")
             if workspace_type == "user":
                 url: str | None = (
                     "https://api.github.com/user/repos"

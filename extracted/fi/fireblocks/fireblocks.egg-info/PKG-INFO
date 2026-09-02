@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 28.0.0
+Version: 29.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -346,6 +346,7 @@ Class | Method | HTTP request | Description
 *ConnectedAccountsBetaApi* | [**sync_connected_account_allowlist**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#sync_connected_account_allowlist) | **POST** /connected_accounts/{accountId}/allowlist/sync | Sync allowlist for connected account
 *ConsoleUserApi* | [**create_console_user**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConsoleUserApi.md#create_console_user) | **POST** /management/users | Create console user
 *ConsoleUserApi* | [**get_console_users**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConsoleUserApi.md#get_console_users) | **GET** /management/users | Get console users
+*ContactsApi* | [**get_contacts**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContactsApi.md#get_contacts) | **GET** /contacts | List contacts
 *ContractInteractionsApi* | [**decode_contract_data**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractInteractionsApi.md#decode_contract_data) | **POST** /contract_interactions/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/decode | Decode a function call data, error, or event log
 *ContractInteractionsApi* | [**get_contract_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractInteractionsApi.md#get_contract_address) | **GET** /contract_interactions/base_asset_id/{baseAssetId}/tx_hash/{txHash} | Get contract address by transaction hash
 *ContractInteractionsApi* | [**get_deployed_contract_abi**](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractInteractionsApi.md#get_deployed_contract_abi) | **GET** /contract_interactions/base_asset_id/{baseAssetId}/contract_address/{contractAddress}/functions | Return deployed contract&#39;s ABI
@@ -949,6 +950,11 @@ Class | Method | HTTP request | Description
  - [ConnectedSingleAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedSingleAccount.md)
  - [ConnectedSingleAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedSingleAccountResponse.md)
  - [ConsoleUser](https://github.com/fireblocks/py-sdk/tree/master/docs/ConsoleUser.md)
+ - [Contact](https://github.com/fireblocks/py-sdk/tree/master/docs/Contact.md)
+ - [ContactApprovalRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ContactApprovalRequest.md)
+ - [ContactTag](https://github.com/fireblocks/py-sdk/tree/master/docs/ContactTag.md)
+ - [ContactTagAttachmentPending](https://github.com/fireblocks/py-sdk/tree/master/docs/ContactTagAttachmentPending.md)
+ - [ContactsPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ContactsPagedResponse.md)
  - [ContractAbiResponseDto](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractAbiResponseDto.md)
  - [ContractAbiResponseDtoAbiInner](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractAbiResponseDtoAbiInner.md)
  - [ContractAddressResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ContractAddressResponse.md)

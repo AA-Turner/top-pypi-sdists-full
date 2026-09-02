@@ -1,0 +1,2441 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+"""SLURM executor implementation for nemo-evaluator-launcher.
+
+Handles submitting evaluation jobs to a SLURM cluster via SSH and sbatch scripts.
+"""
+
+import os
+import re
+import shlex
+import subprocess
+import tempfile
+import time
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import yaml
+from jinja2 import Environment, FileSystemLoader
+from omegaconf import DictConfig, OmegaConf
+
+from nemo_evaluator_launcher.common.auxiliary_deployments import (
+    AuxDeploymentState,
+    build_aux_deployment_states,
+    resolve_deployment_command,
+    validate_auxiliary_deployments,
+)
+from nemo_evaluator_launcher.common.env_vars import (
+    SecretsEnvResult,
+    build_reexport_commands,
+    collect_deployment_env_vars,
+    collect_eval_env_vars,
+    collect_exporters_env_vars,
+    generate_secrets_env,
+    redact_secrets_env_content,
+)
+from nemo_evaluator_launcher.common.execdb import (
+    ExecutionDB,
+    JobData,
+    generate_invocation_id,
+    generate_job_id,
+)
+from nemo_evaluator_launcher.common.helpers import (
+    CmdAndReadableComment,
+    _str_to_echo_command,
+    check_unlisted_tasks_safeguard,
+    get_api_key_name,
+    get_eval_factory_command,
+    get_timestamp_string,
+    get_unique_task_name,
+    is_local_image_path,
+    resolve_endpoint_readiness_timeout,
+)
+from nemo_evaluator_launcher.common.logging_utils import logger
+from nemo_evaluator_launcher.common.mapping import (
+    get_task_definition_for_job,
+    load_tasks_mapping,
+)
+from nemo_evaluator_launcher.common.printing_utils import bold, cyan, grey, red
+from nemo_evaluator_launcher.common.ssh_utils import (
+    master_connection,
+    rsync_upload,
+    run_remote_command,
+)
+from nemo_evaluator_launcher.executors.base import (
+    BaseExecutor,
+    ExecutionState,
+    ExecutionStatus,
+)
+from nemo_evaluator_launcher.executors.registry import register_executor
+
+
+@register_executor("slurm")
+class SlurmExecutor(BaseExecutor):
+    @staticmethod
+    def execute_eval(cfg: DictConfig, dry_run: bool = False) -> str:
+        """Submit evaluation jobs to a SLURM cluster using the provided configuration.
+
+        Args:
+            cfg: The configuration object for the evaluation run.
+            dry_run: If True, prepare scripts and save them without submission.
+
+        Returns:
+            str: The invocation ID for the evaluation run.
+
+        Raises:
+            AssertionError: If deployment type is 'none'.
+            RuntimeError: If remote directory creation or sbatch submission fails.
+        """
+
+        # Generate invocation ID
+        invocation_id = generate_invocation_id()
+
+        local_runsub_paths = []
+        remote_runsub_paths = []
+        task_literal_names: list[frozenset[str]] = []
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            timestamp = get_timestamp_string(include_microseconds=False)
+            rundir_name = timestamp + "-" + invocation_id
+            remote_rundir = Path(cfg.execution.output_dir) / rundir_name
+            local_rundir = Path(tmpdirname) / rundir_name
+            local_rundir.mkdir()
+
+            # Preload mapping for image resolution
+            tasks_mapping = load_tasks_mapping()
+            eval_images: list[str] = []
+            unlisted_task_names: list[str] = []
+
+            is_potentially_unsafe = False
+            for idx, task in enumerate(cfg.evaluation.tasks):
+                # calculate job_id
+                job_id = f"{invocation_id}.{idx}"
+
+                # prepare locally
+                uname = get_unique_task_name(task.name, idx)
+                remote_task_subdir = remote_rundir / uname
+                local_task_subdir = local_rundir / uname
+                local_task_subdir.mkdir()  # this ensures the task dir name is unique
+                (local_task_subdir / "logs").mkdir()
+                (local_task_subdir / "artifacts").mkdir()
+
+                # resolve eval image and pass directly via task override
+                task_definition = get_task_definition_for_job(
+                    task_query=task.name,
+                    base_mapping=tasks_mapping,
+                    container=task.get("container"),
+                    endpoint_type=task.get("endpoint_type"),
+                )
+                eval_image = task_definition["container"]
+                if "container" in task:
+                    eval_image = task["container"]
+
+                eval_images.append(eval_image)
+
+                # Track unlisted tasks for safeguard check
+                # Skip the safeguard for local image paths (e.g. .sqsh files) since
+                # the user has explicitly provided the container to run.
+                if task_definition.get(
+                    "is_unlisted", False
+                ) and not is_local_image_path(eval_image):
+                    unlisted_task_names.append(task.name)
+
+                # generate and write down sbatch script
+                sbatch_script_content_struct = _create_slurm_sbatch_script(
+                    cfg=cfg,
+                    task=task,
+                    eval_image=eval_image,
+                    remote_task_subdir=remote_task_subdir,
+                    invocation_id=invocation_id,
+                    job_id=job_id,
+                    task_idx=idx,
+                )
+
+                # Create proxy config file with placeholder IPs for multi-instance deployments
+                if cfg.execution.get("num_instances", 1) > 1:
+                    proxy_type = cfg.execution.get("proxy", {}).get("type", "haproxy")
+                    if proxy_type == "haproxy":
+                        proxy_config = _generate_haproxy_config_with_placeholders(cfg)
+                    else:
+                        raise ValueError(
+                            f"Unsupported proxy type: {proxy_type}. Currently only 'haproxy' is supported."
+                        )
+
+                    # Save both template and working config
+                    proxy_template_path = local_task_subdir / "proxy.cfg.template"
+                    proxy_config_path = local_task_subdir / "proxy.cfg"
+                    with open(proxy_template_path, "w") as f:
+                        f.write(proxy_config)
+                    with open(proxy_config_path, "w") as f:
+                        f.write(proxy_config)
+
+                sbatch_script_content_str = sbatch_script_content_struct.cmd
+
+                # We accumulate if any task contains unsafe commands
+                is_potentially_unsafe = (
+                    is_potentially_unsafe
+                    or sbatch_script_content_struct.is_potentially_unsafe
+                )
+                local_runsub_path = local_task_subdir / "run.sub"
+                remote_runsub_path = remote_task_subdir / "run.sub"
+                with open(local_runsub_path, "w") as f:
+                    f.write(sbatch_script_content_str.rstrip("\n") + "\n")
+
+                # Write .secrets.env alongside run.sub (will be rsynced together)
+                if sbatch_script_content_struct.secrets_env_result:
+                    secrets_env_path = local_task_subdir / ".secrets.env"
+                    with open(secrets_env_path, "w") as f:
+                        f.write(
+                            sbatch_script_content_struct.secrets_env_result.secrets_content
+                        )
+
+                local_runsub_paths.append(local_runsub_path)
+                remote_runsub_paths.append(remote_runsub_path)
+                task_literal_names.append(
+                    sbatch_script_content_struct.secrets_env_result.literal_disambiguated_names
+                    if sbatch_script_content_struct.secrets_env_result
+                    else set()
+                )
+
+            if dry_run:
+                print(bold("\n\n=============================================\n\n"))
+                print(bold(cyan("DRY RUN: SLURM scripts prepared")))
+                for idx, local_runsub_path in enumerate(local_runsub_paths):
+                    print(cyan(f"\n\n=========== Task {idx} =====================\n\n"))
+                    with open(local_runsub_path, "r") as f:
+                        print(grey(f.read()))
+
+                    secrets_env_path = local_runsub_path.parent / ".secrets.env"
+                    if secrets_env_path.exists():
+                        print(
+                            cyan(
+                                f"\n----------- Secrets (redacted) | Task {idx} / .secrets.env -----------\n"
+                            )
+                        )
+                        print(
+                            grey(
+                                redact_secrets_env_content(
+                                    secrets_env_path.read_text(),
+                                    task_literal_names[idx],
+                                )
+                            )
+                        )
+
+                print(bold("To submit jobs") + ", run the executor without --dry-run")
+                if is_potentially_unsafe:
+                    print(
+                        red(
+                            "\nFound `pre_cmd` (evaluation or deployment) which carries security risk. When running without --dry-run "
+                            "make sure you trust the command and set NEMO_EVALUATOR_TRUST_PRE_CMD=1"
+                        )
+                    )
+
+                # Check unlisted tasks safeguard (prints warning in dry-run)
+                check_unlisted_tasks_safeguard(unlisted_task_names, dry_run=True)
+
+                return invocation_id
+
+            # Check unlisted tasks safeguard (raises error if flag not set)
+            check_unlisted_tasks_safeguard(unlisted_task_names, dry_run=False)
+
+            if is_potentially_unsafe:
+                if os.environ.get("NEMO_EVALUATOR_TRUST_PRE_CMD", "") == "1":
+                    logger.warning(
+                        "Found non-empty commands (e.g. `pre_cmd` in evaluation or deployment) and NEMO_EVALUATOR_TRUST_PRE_CMD "
+                        "is set, proceeding with caution."
+                    )
+
+                else:
+                    logger.error(
+                        "Found non-empty commands (e.g. `pre_cmd` in evaluation or deployment) and NEMO_EVALUATOR_TRUST_PRE_CMD "
+                        "is not set. This might carry security risk and unstable environments. "
+                        "To continue, make sure you trust the command and set NEMO_EVALUATOR_TRUST_PRE_CMD=1.",
+                    )
+                    raise AttributeError(
+                        "Untrusted command found in config, make sure you trust and "
+                        "set NEMO_EVALUATOR_TRUST_PRE_CMD=1."
+                    )
+
+            with master_connection(
+                username=cfg.execution.username,
+                hostname=cfg.execution.hostname,
+            ) as socket:
+                # Validate that all mount paths exist on the remote host
+                mount_paths = _collect_mount_paths(cfg)
+                _validate_remote_paths_exist(
+                    paths=mount_paths,
+                    username=cfg.execution.username,
+                    hostname=cfg.execution.hostname,
+                    socket=socket,
+                )
+
+                _make_remote_execution_output_dir(
+                    dirpath=cfg.execution.output_dir,
+                    username=cfg.execution.username,
+                    hostname=cfg.execution.hostname,
+                    socket=socket,
+                )
+                _rsync_upload_rundirs(
+                    local_sources=[local_rundir],
+                    remote_target=cfg.execution.output_dir,
+                    username=cfg.execution.username,
+                    hostname=cfg.execution.hostname,
+                )
+                slurm_job_ids = _sbatch_remote_runsubs(
+                    remote_runsub_paths=remote_runsub_paths,
+                    username=cfg.execution.username,
+                    hostname=cfg.execution.hostname,
+                    socket=socket,
+                )
+
+            # save launched jobs metadata
+            db = ExecutionDB()
+            for idx, (slurm_job_id, remote_runsub_path) in enumerate(
+                zip(slurm_job_ids, remote_runsub_paths)
+            ):
+                job_id = generate_job_id(invocation_id, idx)
+                db.write_job(
+                    job=JobData(
+                        invocation_id=invocation_id,
+                        job_id=job_id,
+                        timestamp=time.time(),
+                        executor="slurm",
+                        data={
+                            "slurm_job_id": slurm_job_id,
+                            "remote_rundir_path": str(remote_runsub_path.parent),
+                            "hostname": cfg.execution.hostname,
+                            "username": cfg.execution.username,
+                            "eval_image": eval_images[idx],
+                        },
+                        config=OmegaConf.to_object(cfg),
+                    )
+                )
+            return invocation_id
+
+    @staticmethod
+    def get_status(id: str) -> List[ExecutionStatus]:
+        """Get the status of a specific SLURM job or all jobs in an invocation group.
+
+        Args:
+            id: Unique job identifier or invocation identifier.
+
+        Returns:
+            List containing the execution status for the job(s).
+        """
+        db = ExecutionDB()
+
+        # If id looks like an invocation_id
+        if "." not in id:
+            jobs = db.get_jobs(id)
+            if not jobs:
+                return []
+            return SlurmExecutor._get_status_for_invocation(jobs)
+
+        # Otherwise, treat as job_id
+        else:
+            job_data = db.get_job(id)
+            if job_data is None or job_data.executor != "slurm":
+                return []
+            return [SlurmExecutor._get_status_for_job(id, job_data)]
+
+    @staticmethod
+    def _get_status_for_job(id: str, job_data: JobData) -> ExecutionStatus:
+        slurm_job_id = job_data.data.get("slurm_job_id")
+        if not slurm_job_id:
+            return ExecutionStatus(id=id, state=ExecutionState.FAILED)
+
+        try:
+            return SlurmExecutor._query_slurm_for_status_and_progress(
+                slurm_job_ids=[slurm_job_id],
+                remote_rundir_paths=[Path(job_data.data.get("remote_rundir_path"))],
+                username=job_data.data["username"],
+                hostname=job_data.data["hostname"],
+                job_id_to_execdb_id={slurm_job_id: id},
+            )[0]
+        except Exception:
+            return ExecutionStatus(id=id, state=ExecutionState.FAILED)
+
+    @staticmethod
+    def _get_status_for_invocation(jobs: dict) -> List[ExecutionStatus]:
+        slurm_job_ids = []
+        remote_rundir_paths = []
+        job_id_to_execdb_id = {}
+        username = None
+        hostname = None
+
+        for job_id, job_data in jobs.items():
+            if job_data.executor != "slurm":
+                continue
+            slurm_job_id = job_data.data.get("slurm_job_id")
+            if slurm_job_id:
+                slurm_job_ids.append(slurm_job_id)
+                remote_rundir_paths.append(
+                    Path(job_data.data.get("remote_rundir_path"))
+                )
+                job_id_to_execdb_id[slurm_job_id] = job_id
+                username = job_data.data.get("username")
+                hostname = job_data.data.get("hostname")
+
+        if not slurm_job_ids or not remote_rundir_paths or not username or not hostname:
+            return [
+                ExecutionStatus(id=job_id, state=ExecutionState.FAILED)
+                for job_id in jobs.keys()
+            ]
+
+        try:
+            return SlurmExecutor._query_slurm_for_status_and_progress(
+                slurm_job_ids=slurm_job_ids,
+                remote_rundir_paths=remote_rundir_paths,
+                username=username,
+                hostname=hostname,
+                job_id_to_execdb_id=job_id_to_execdb_id,
+            )
+        except Exception:
+            return [
+                ExecutionStatus(id=job_id, state=ExecutionState.FAILED)
+                for job_id in jobs.keys()
+            ]
+
+    @staticmethod
+    def _query_slurm_for_status_and_progress(
+        slurm_job_ids: List[str],
+        remote_rundir_paths: List[Path],
+        username: str,
+        hostname: str,
+        job_id_to_execdb_id: dict,
+    ) -> List[ExecutionStatus]:
+        with master_connection(username=username, hostname=hostname) as socket:
+            # get slurm job status for initial jobs:
+            slurm_jobs_status = _query_slurm_jobs_status(
+                slurm_job_ids=slurm_job_ids,
+                username=username,
+                hostname=hostname,
+                socket=socket,
+            )
+            # handle slurm status for autoresumed jobs:
+            autoresumed_slurm_job_ids = _read_autoresumed_slurm_job_ids(
+                slurm_job_ids=slurm_job_ids,
+                remote_rundir_paths=remote_rundir_paths,
+                username=username,
+                hostname=hostname,
+                socket=socket,
+            )
+            latest_slurm_job_ids = {
+                slurm_job_id: slurm_job_id_list[-1]
+                for slurm_job_id, slurm_job_id_list in autoresumed_slurm_job_ids.items()
+                if len(slurm_job_id_list) > 0 and slurm_job_id_list[-1] != slurm_job_id
+            }
+            latest_slurm_jobs_status = _query_slurm_jobs_status(
+                slurm_job_ids=list(latest_slurm_job_ids.values()),
+                username=username,
+                hostname=hostname,
+                socket=socket,
+            )
+            # get progress:
+            progress_list = _get_progress(
+                remote_rundir_paths=remote_rundir_paths,
+                username=username,
+                hostname=hostname,
+                socket=socket,
+            )
+        statuses = []
+        for i, slurm_job_id in enumerate(slurm_job_ids):
+            slurm_status = slurm_jobs_status[slurm_job_id][0]
+            if slurm_job_id in latest_slurm_job_ids:
+                latest_slurm_job_id = latest_slurm_job_ids[slurm_job_id]
+                slurm_status = latest_slurm_jobs_status[latest_slurm_job_id][0]
+            progress = progress_list[i]
+            progress = progress if progress is not None else "unknown"
+            execution_state = SlurmExecutor._map_slurm_state_to_execution_state(
+                slurm_status
+            )
+            execdb_job_id = job_id_to_execdb_id.get(slurm_job_id)
+            if execdb_job_id:
+                statuses.append(
+                    ExecutionStatus(
+                        id=execdb_job_id,
+                        state=execution_state,
+                        progress=progress,
+                    )
+                )
+        return statuses
+
+    @staticmethod
+    def _map_slurm_state_to_execution_state(slurm_status: str) -> ExecutionState:
+        """Map SLURM state to ExecutionState.
+
+        Args:
+            slurm_status: SLURM status string.
+
+        Returns:
+            Corresponding ExecutionState.
+        """
+        if slurm_status in ["COMPLETED"]:
+            return ExecutionState.SUCCESS
+        elif slurm_status in [
+            "PENDING",
+            "RESV_DEL_HOLD",
+            "REQUEUE_FED",
+            "REQUEUE_HOLD",
+            "REQUEUED",
+            "REVOKED",
+        ]:
+            return ExecutionState.PENDING
+        elif slurm_status in ["RUNNING", "CONFIGURING", "SUSPENDED", "COMPLETING"]:
+            return ExecutionState.RUNNING
+        elif slurm_status in ["PREEMPTED", "TIMEOUT", "NODE_FAIL"]:
+            return ExecutionState.PENDING  # autoresume
+        elif slurm_status in ["CANCELLED"]:
+            return ExecutionState.KILLED
+        elif slurm_status in ["FAILED"]:
+            return ExecutionState.FAILED
+        else:
+            return ExecutionState.FAILED
+
+    @staticmethod
+    def resume_job(job_id: str) -> None:
+        """Resume a SLURM job by resubmitting its sbatch script via SSH.
+
+        Cleans up stale auto-resume state (.slurm_job_id.list and
+        .accumulated_walltime) before resubmitting so that ``nel status``
+        tracks the new job chain rather than the old one.
+
+        Args:
+            job_id: The job ID (e.g., abc123.0) to resume.
+
+        Raises:
+            ValueError: If job is not found or not a slurm job.
+            RuntimeError: If sbatch submission fails.
+        """
+        db = ExecutionDB()
+        job = db.get_job(job_id)
+
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+        if job.executor != "slurm":
+            raise ValueError(
+                f"Job {job_id} is not a slurm job (executor: {job.executor})"
+            )
+
+        hostname = job.data["hostname"]
+        username = job.data["username"]
+        remote_dir = job.data["remote_rundir_path"]
+
+        # Clean up stale auto-resume state before resubmitting
+        sbatch_cmd = (
+            f"cd {remote_dir}"
+            f" && rm -f .slurm_job_id.list .accumulated_walltime"
+            f" && sbatch run.sub"
+        )
+        ssh_command = f"ssh {username}@{hostname} {shlex.quote(sbatch_cmd)}"
+
+        logger.info(f"Submitting sbatch for {remote_dir}", cmd=ssh_command)
+        completed = subprocess.run(
+            shlex.split(ssh_command),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        if completed.returncode != 0:
+            error_msg = (
+                completed.stderr.decode("utf-8")
+                if completed.stderr
+                else "Unknown error"
+            )
+            raise RuntimeError(f"sbatch failed for {remote_dir}: {error_msg}")
+
+        stdout = completed.stdout.decode("utf-8")
+        match = re.search(r"Submitted batch job (\d+)", stdout)
+        if not match:
+            raise RuntimeError(
+                f"Could not parse SLURM job ID from sbatch output: {stdout}"
+            )
+
+        new_slurm_job_id = match.group(1)
+        logger.info(f"Submitted {job.job_id} as SLURM job {new_slurm_job_id}")
+
+        # Update ExecDB so nel status/kill target the new SLURM job
+        job.data["slurm_job_id"] = new_slurm_job_id
+        job.data["resumed_at"] = time.time()
+        db.write_job(job)
+
+    @staticmethod
+    def kill_job(job_id: str) -> None:
+        """Kill a SLURM job.
+
+        Args:
+            job_id: The job ID (e.g., abc123.0) to kill.
+        """
+        db = ExecutionDB()
+        job_data = db.get_job(job_id)
+
+        if job_data is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        if job_data.executor != "slurm":
+            raise ValueError(
+                f"Job {job_id} is not a slurm job (executor: {job_data.executor})"
+            )
+
+        # OPTIMIZATION: Query status AND kill in ONE SSH call
+        slurm_status, result = _kill_slurm_job(
+            slurm_job_ids=[job_data.data.get("slurm_job_id")],
+            username=job_data.data.get("username"),
+            hostname=job_data.data.get("hostname"),
+            socket=job_data.data.get("socket"),
+        )
+
+        # Mark job as killed in database if kill succeeded
+        if result.returncode == 0:
+            job_data.data["killed"] = True
+            db.write_job(job_data)
+        else:
+            # Use the pre-fetched status for better error message
+            current_status = None
+            if slurm_status:
+                current_status = SlurmExecutor._map_slurm_state_to_execution_state(
+                    slurm_status
+                )
+            error_msg = SlurmExecutor.get_kill_failure_message(
+                job_id,
+                f"slurm_job_id: {job_data.data.get('slurm_job_id')}",
+                current_status,
+            )
+            raise RuntimeError(error_msg)
+
+
+def _create_slurm_sbatch_script(
+    cfg: DictConfig,
+    task: DictConfig,
+    eval_image: str,
+    remote_task_subdir: Path,
+    invocation_id: str,
+    job_id: str,
+    task_idx: int,
+) -> CmdAndReadableComment:
+    """Generate the contents of a SLURM sbatch script for a given evaluation task.
+
+    Args:
+        cfg: The configuration object for the evaluation run.
+        task: The evaluation task configuration.
+        remote_task_subdir: The remote directory path for the `run.sub` file.
+        invocation_id: The invocation ID for this evaluation run.
+        job_id: The complete job ID string.
+        task_idx: The task's positional index (used for ``get_unique_task_name``).
+
+    Returns:
+        CmdAndReadableComment: The sbatch script content.
+    """
+    uname = get_unique_task_name(task.name, task_idx)
+
+    # deployment.multiple_instances is deprecated — use execution.num_instances and execution.num_nodes
+    if cfg.deployment.get("multiple_instances") is not None:
+        raise ValueError(
+            "deployment.multiple_instances is deprecated and no longer supported. "
+            "Use execution.num_instances (number of instances) and execution.num_nodes "
+            "(total nodes) instead — num_nodes must be divisible by num_instances, so "
+            "one instance uses num_nodes // num_instances nodes."
+        )
+
+    # Validate topology: num_nodes must be divisible by num_instances
+    if cfg.execution.num_nodes % cfg.execution.get("num_instances", 1) != 0:
+        raise ValueError(
+            f"execution.num_nodes ({cfg.execution.num_nodes}) must be divisible by "
+            f"execution.num_instances ({cfg.execution.get('num_instances', 1)})"
+        )
+
+    # get task from mapping, overrides, urls
+    tasks_mapping = load_tasks_mapping()
+    task_definition = get_task_definition_for_job(
+        task_query=task.name,
+        base_mapping=tasks_mapping,
+        container=task.get("container"),
+        endpoint_type=task.get("endpoint_type"),
+    )
+
+    aux_deployments = build_aux_deployment_states(cfg)
+    validate_auxiliary_deployments(aux_deployments)
+
+    has_aux_deployments = len(aux_deployments) > 0
+    total_aux_nodes = sum(a.num_nodes for a in aux_deployments)
+    total_num_nodes = cfg.execution.num_nodes + total_aux_nodes
+
+    s = "#!/bin/bash\n"
+
+    # SBATCH headers
+    s += "#SBATCH --time {}\n".format(cfg.execution.walltime)
+    s += "#SBATCH --account {}\n".format(cfg.execution.account)
+    s += "#SBATCH --partition {}\n".format(cfg.execution.partition)
+    s += "#SBATCH --nodes {}\n".format(total_num_nodes)
+    s += "#SBATCH --ntasks-per-node {}\n".format(cfg.execution.ntasks_per_node)
+    if cfg.execution.get("gpus_per_node", None) is not None:
+        s += "#SBATCH --gpus-per-node {}\n".format(cfg.execution.gpus_per_node)
+    if hasattr(cfg.execution, "gres") and cfg.execution.gres:
+        s += "#SBATCH --gres {}\n".format(cfg.execution.gres)
+    if cfg.execution.get("sbatch_comment"):
+        s += "#SBATCH --comment='{}'\n".format(cfg.execution.sbatch_comment)
+    for flag_name, flag_value in cfg.execution.get("sbatch_extra_flags", {}).items():
+        if isinstance(flag_value, bool) and flag_value:
+            s += "#SBATCH --{}\n".format(flag_name)
+        elif not isinstance(flag_value, bool) and flag_value is not None:
+            s += "#SBATCH --{} {}\n".format(flag_name, shlex.quote(str(flag_value)))
+    job_name = "{account}-{subproject}.{details}".format(
+        account=cfg.execution.account,
+        subproject=cfg.execution.subproject,
+        details=remote_task_subdir.name,
+    )
+    s += "#SBATCH --job-name {}\n".format(job_name)
+    s += "#SBATCH --no-requeue\n"  # We have our own auto-resume logic
+    s += "#SBATCH --output {}\n".format(remote_task_subdir / "logs" / "slurm-%A.log")
+    s += "\n"
+    s += f'TASK_DIR="{str(remote_task_subdir)}"\n'
+    s += f'NEL_INVOCATION_ID="{invocation_id}"\n'
+    s += "\n"
+
+    # Collect env vars using unified pipeline
+    api_key_name = get_api_key_name(cfg)
+    eval_env_vars = collect_eval_env_vars(cfg, task, api_key_name)
+    deployment_env_vars = collect_deployment_env_vars(cfg)
+    export_env_vars = collect_exporters_env_vars(cfg)
+
+    # Merge all into groups for secrets file generation
+    env_groups = {}
+    # Evaluation vars for this task (merged: top-level -> eval -> task -> exec eval -> api_key)
+    if eval_env_vars:
+        env_groups[uname] = eval_env_vars
+    # Deployment vars (merged: top-level -> exec deployment -> deployment.env_vars)
+    if deployment_env_vars:
+        env_groups["deployment"] = deployment_env_vars
+    # Auxiliary deployment vars (each aux collects its own env vars)
+    for aux in aux_deployments:
+        if aux.env_vars:
+            env_groups[aux.name] = aux.env_vars
+    # Export vars (merged: top-level -> export.env_vars)
+    if export_env_vars:
+        env_groups["export"] = export_env_vars
+
+    secrets_result = None
+    eval_reexport_cmd = ""
+    deploy_reexport_cmd = ""
+
+    if env_groups:
+        secrets_result = generate_secrets_env(env_groups)
+
+        # Source .secrets.env at runtime (file lives alongside run.sub).
+        # Reexports are emitted later, right before each respective srun,
+        # so that eval and deployment vars don't overwrite each other.
+        secrets_env_path = remote_task_subdir / ".secrets.env"
+        s += f'source "{secrets_env_path}"\n'
+        s += "\n"
+
+        eval_reexport_cmd = build_reexport_commands(uname, secrets_result)
+        deploy_reexport_cmd = build_reexport_commands("deployment", secrets_result)
+        for aux in aux_deployments:
+            aux.reexport_cmd = (
+                build_reexport_commands(aux.name, secrets_result)
+                if secrets_result
+                else ""
+            )
+
+    # auto resume after timeout (with optional max_walltime enforcement)
+    max_walltime = cfg.execution.get("max_walltime", "120:00:00")
+    s += _generate_autoresume_handler(remote_task_subdir, max_walltime)
+    s += "\n\n"
+
+    # echo the current SLURM_JOB_ID
+    s += "# save the current job id\n"
+    s += "echo $SLURM_JOB_ID >> {}\n\n".format(
+        remote_task_subdir / ".slurm_job_id.list"
+    )
+
+    # shell options
+    s += "set -e  # exit immediately if any command exits with a non-zero status\n"
+    s += "set -u  # treat unset variables as an error when substituting\n"
+    s += "set -x  # print commands and their arguments as they are executed\n"
+    s += "\n"
+
+    if has_aux_deployments:
+        # Resolve all allocated nodes and split between model and auxiliary deployments
+        s += "# Resolve all allocated nodes\n"
+        s += 'NODELIST="${SLURM_JOB_NODELIST:-${SLURM_NODELIST:-}}"\n'
+        s += 'if command -v scontrol >/dev/null 2>&1 && [[ -n "${NODELIST}" ]]; then\n'
+        s += '  ALL_NODES=( $(scontrol show hostnames "${NODELIST}") )\n'
+        s += "else\n"
+        s += '  ALL_NODES=( "$(hostname)" )\n'
+        s += "fi\n"
+        s += "if [[ ${#ALL_NODES[@]} -eq 0 ]]; then\n"
+        s += '  ALL_NODES=( "$(hostname)" )\n'
+        s += "fi\n"
+        s += 'echo "ALL_NODES (${#ALL_NODES[@]}): ${ALL_NODES[*]}"\n'
+        s += "\n"
+        # Split nodes: model first, then each auxiliary deployment
+        s += "# Split nodes between model deployment and auxiliary deployments\n"
+        s += f"MODEL_NUM_NODES={cfg.execution.num_nodes}\n"
+        for aux in aux_deployments:
+            s += f"{aux.env_prefix}_NUM_NODES={aux.num_nodes}\n"
+        s += 'MODEL_NODES=("${ALL_NODES[@]:0:$((MODEL_NUM_NODES))}")\n'
+        offset_expr = "MODEL_NUM_NODES"
+        for aux in aux_deployments:
+            s += f'{aux.nodes_var}=("${{ALL_NODES[@]:$(({offset_expr})):$(({aux.env_prefix}_NUM_NODES))}}")\n'
+            offset_expr = f"{offset_expr}+{aux.env_prefix}_NUM_NODES"
+        s += 'MODEL_NODELIST=$(IFS=,; echo "${MODEL_NODES[*]}")\n'
+        for aux in aux_deployments:
+            s += f'{aux.nodelist_var}=$(IFS=,; echo "${{{aux.nodes_var}[*]}}")\n'
+        s += 'export PRIMARY_NODE="${MODEL_NODES[0]}"\n'
+        for aux in aux_deployments:
+            s += f'export {aux.primary_node_var}="${{{aux.nodes_var}[0]}}"\n'
+        s += 'echo "MODEL_NODES ($MODEL_NUM_NODES): ${MODEL_NODES[*]}"\n'
+        for aux in aux_deployments:
+            s += f'echo "{aux.nodes_var} (${aux.env_prefix}_NUM_NODES): ${{{aux.nodes_var}[*]}}"\n'
+        s += 'echo "PRIMARY_NODE: ${PRIMARY_NODE}"\n'
+        for aux in aux_deployments:
+            s += f'echo "{aux.primary_node_var}: ${{{aux.primary_node_var}}}"\n'
+    else:
+        # Resolve a primary node for single-node sruns (client/proxy/export).
+        # This must be safe under `set -u` and work for deployment.type == "none".
+        # Prefer SLURM_JOB_NODELIST but fall back to SLURM_NODELIST; if neither exists,
+        # fall back to the local hostname.
+        s += "# Resolve PRIMARY_NODE for single-node sruns\n"
+        s += 'NODELIST="${SLURM_JOB_NODELIST:-${SLURM_NODELIST:-}}"\n'
+        s += 'if command -v scontrol >/dev/null 2>&1 && [[ -n "${NODELIST}" ]]; then\n'
+        s += '  nodes=( $(scontrol show hostnames "${NODELIST}") )\n'
+        s += "else\n"
+        s += '  nodes=( "$(hostname)" )\n'
+        s += "fi\n"
+        s += 'nodes_array=("${nodes[@]}")\n'
+        s += "if [[ ${#nodes_array[@]} -eq 0 ]]; then\n"
+        s += '  nodes_array=( "$(hostname)" )\n'
+        s += "fi\n"
+        s += 'export PRIMARY_NODE="${nodes_array[0]}"\n'
+        s += 'echo "PRIMARY_NODE: ${PRIMARY_NODE}"\n'
+    s += "\n"
+
+    # prepare deployment mounts
+    deployment_mounts_list = [
+        "{}:/results".format(remote_task_subdir / "artifacts"),
+    ]
+    deployment_is_unsafe = False
+    if cfg.deployment.type != "none":
+        if checkpoint_path := cfg.deployment.get("checkpoint_path"):
+            deployment_mounts_list.append(f"{checkpoint_path}:/checkpoint:ro")
+        if cache_path := cfg.deployment.get("cache_path"):
+            deployment_mounts_list.append(f"{cache_path}:/cache")
+        for source_mnt, target_mnt in (
+            cfg.execution.get("mounts", {}).get("deployment", {}).items()
+        ):
+            deployment_mounts_list.append(f"{source_mnt}:{target_mnt}")
+
+        # Re-export deployment vars right before deployment srun.
+        # Bracket with `set +x`/`set -x` so xtrace doesn't expand
+        # `${HF_TOKEN_xxx}` (and similar) into the slurm log.
+        if deploy_reexport_cmd:
+            s += "set +x\n"
+            s += f"{deploy_reexport_cmd}\n"
+            s += "set -x\n"
+
+        # add deployment srun command
+        deployment_srun_cmd, deployment_is_unsafe, deployment_debug = (
+            _generate_deployment_srun_command(
+                cfg,
+                deployment_mounts_list,
+                remote_task_subdir,
+                deployment_env_var_names=list(deployment_env_vars.keys()),
+                nodelist_var="MODEL_NODES" if has_aux_deployments else None,
+            )
+        )
+
+        s += "# Debug contents of the deployment srun command\n"
+        s += deployment_debug
+        s += "\n"
+        s += deployment_srun_cmd
+
+        # wait for the server to initialize
+        health_path = cfg.deployment.endpoints.get("health", "/health")
+        # HEAD_NODE_IPS is always set: subset of heads when NPI > 1, all nodes otherwise
+        if cfg.execution.get("num_instances", 1) > 1:
+            ip_list = '"${HEAD_NODE_IPS[@]}"'
+        else:
+            ip_list = '"127.0.0.1"'
+        health_check_timeout = resolve_endpoint_readiness_timeout(cfg)
+        s += _get_wait_for_server_handler(
+            ip_list=ip_list,
+            port=cfg.deployment.port,
+            health_check_path=health_path,
+            timeout=health_check_timeout,
+            service_name="server",
+            check_pid=True,
+        )
+        s += "\n\n"
+
+        # add proxy load balancer for multi-instance deployments
+        if cfg.execution.get("num_instances", 1) > 1:
+            s += _get_proxy_server_srun_command(cfg, remote_task_subdir)
+
+    # --- Auxiliary deployments (judge, user, or any custom) ---
+    aux_is_unsafe = {}
+    for aux in aux_deployments:
+        aux_mounts_list = []
+        if checkpoint_path := aux.cfg.get("checkpoint_path"):
+            aux_mounts_list.append(f"{checkpoint_path}:/checkpoint:ro")
+        if cache_path := aux.cfg.get("cache_path"):
+            aux_mounts_list.append(f"{cache_path}:/cache")
+        for source_mnt, target_mnt in (
+            cfg.execution.get("mounts", {})
+            .get("auxiliary", {})
+            .get(aux.name, {})
+            .items()
+        ):
+            aux_mounts_list.append(f"{source_mnt}:{target_mnt}")
+
+        # Re-export aux deployment vars right before aux deployment srun
+        if aux.reexport_cmd:
+            s += "set +x\n"
+            s += f"{aux.reexport_cmd}\n"
+            s += "set -x\n"
+
+        # Add auxiliary deployment srun command
+        aux_srun_cmd, aux_unsafe, aux_debug = (
+            _generate_auxiliary_deployment_srun_command(
+                aux,
+                aux_mounts_list,
+                remote_task_subdir,
+                cfg,
+            )
+        )
+        s += aux_srun_cmd
+        aux_is_unsafe[aux.name] = aux_unsafe
+
+        # Wait for auxiliary server to initialize
+        aux_health_path = aux.cfg.endpoints.get("health", "/health")
+        aux_health_timeout = resolve_endpoint_readiness_timeout(cfg)
+        if aux.num_instances > 1:
+            ip_list = f'"${{{aux.env_prefix}_HEAD_NODE_IPS[@]}}"'
+            pid_var = aux.pids_var
+            s += _get_wait_for_server_handler(
+                ip_list=ip_list,
+                port=aux.cfg.port,
+                health_check_path=aux_health_path,
+                timeout=aux_health_timeout,
+                service_name=f"{aux.name} server",
+                check_pid=True,
+                pid_var=pid_var,
+            )
+        else:
+            s += _get_wait_for_server_handler(
+                ip_list=f'"${{{aux.primary_node_var}}}"',
+                port=aux.cfg.port,
+                health_check_path=aux_health_path,
+                timeout=aux_health_timeout,
+                service_name=f"{aux.name} server",
+                check_pid=True,
+                pid_var=aux.pid_var,
+            )
+        s += "\n\n"
+
+        # Add proxy load balancer for multi-instance auxiliary deployments
+        if aux.num_instances > 1:
+            s += _generate_aux_haproxy_srun_command(aux, remote_task_subdir, cfg)
+            s += "\n"
+
+    # prepare evaluation mounts
+    evaluation_mounts_list = [
+        "{}:/results".format(remote_task_subdir / "artifacts"),
+    ]
+    for source_mnt, target_mnt in (
+        cfg.execution.get("mounts", {}).get("evaluation", {}).items()
+    ):
+        evaluation_mounts_list.append(f"{source_mnt}:{target_mnt}")
+
+    # Handle dataset directory mounting if dataset_dir is specified in the task config
+    if "dataset_dir" in task:
+        dataset_mount_host = task["dataset_dir"]
+        # Get container mount path (default to /datasets if not specified)
+        dataset_mount_container = task.get("dataset_mount_path", "/datasets")
+        # Add dataset mount to evaluation mounts list
+        evaluation_mounts_list.append(f"{dataset_mount_host}:{dataset_mount_container}")
+        # Export NEMO_EVALUATOR_DATASET_DIR environment variable
+        s += f"export NEMO_EVALUATOR_DATASET_DIR={dataset_mount_container}\n\n"
+
+    eval_factory_command_struct = get_eval_factory_command(
+        cfg,
+        task,
+        task_definition,
+    )
+
+    eval_factory_command = eval_factory_command_struct.cmd
+    # The debug comment for placing into the script and easy debug. Reason
+    # (see `CmdAndReadableComment`) is the current way of passing the command
+    # is base64-encoded config `echo`-ed into file.
+    # TODO(agronskiy): cleaner way is to encode everything with base64, not
+    # some parts (like ef_config.yaml) and just output as logs somewhere.
+    eval_factory_command_debug_comment = eval_factory_command_struct.debug
+
+    # add evaluation srun command
+    s += "# Debug contents of the eval factory command's config\n"
+    s += eval_factory_command_debug_comment
+    s += "\n\n"
+
+    # Re-export eval vars right before eval srun
+    if eval_reexport_cmd:
+        s += "set +x\n"
+        s += f"{eval_reexport_cmd}\n"
+        s += "set -x\n"
+
+    # Export auxiliary endpoint information for evaluation containers
+    aux_extra_env_names = []
+    for aux in aux_deployments:
+        endpoint_vars = []
+        if aux.num_instances > 1:
+            host_expr = "${PRIMARY_NODE}"
+            port = aux.proxy_port
+        else:
+            host_expr = f"${{{aux.primary_node_var}}}"
+            port = aux.cfg.port
+
+        s += f"# {aux.name} endpoints for evaluation tasks\n"
+        for ep_name, ep_path in aux.cfg.endpoints.items():
+            if ep_name == "health":
+                continue
+            var_name = f"{aux.env_prefix}_{ep_name.upper()}_URL"
+            s += f'export {var_name}="http://{host_expr}:{port}{ep_path}"\n'
+            s += f'echo "{var_name}: ${{{var_name}}}"\n'
+            endpoint_vars.append(var_name)
+
+        model_id_var = f"{aux.env_prefix}_MODEL_ID"
+        s += f'export {model_id_var}="{aux.cfg.served_model_name}"\n'
+        s += f'echo "{model_id_var}: ${{{model_id_var}}}"\n'
+        s += "\n"
+        endpoint_vars.append(model_id_var)
+        aux_extra_env_names.extend(endpoint_vars)
+
+    s += "# evaluation client\n"
+    # `evaluation_gpu_visible` controls NVIDIA_VISIBLE_DEVICES for the eval container.
+    # Required for benchmarks that compile/execute CUDA code (e.g. compute-eval).
+    # Accepts:
+    #   - false / unset (default): don't export — eval container has no GPU access
+    #   - true                   : export NVIDIA_VISIBLE_DEVICES=all
+    #   - str (e.g. "all", "0", "0,1"): export NVIDIA_VISIBLE_DEVICES=<str> verbatim
+    eval_gpu_visible = cfg.execution.get("evaluation_gpu_visible", False)
+    extra_eval_env_names: list[str] = []
+    if eval_gpu_visible is True:
+        gpu_devices = "all"
+    elif isinstance(eval_gpu_visible, str) and eval_gpu_visible:
+        gpu_devices = eval_gpu_visible
+    else:
+        gpu_devices = None
+    if gpu_devices is not None:
+        s += f"export NVIDIA_VISIBLE_DEVICES={gpu_devices}\n"
+        extra_eval_env_names.append("NVIDIA_VISIBLE_DEVICES")
+    s += "srun --mpi pmix --overlap "
+    s += '--nodelist "${PRIMARY_NODE}" --nodes 1 --ntasks 1 '
+    s += "--container-image {} ".format(eval_image)
+    # Combine eval env vars with auxiliary endpoint env vars
+    all_eval_env_names = sorted(
+        set(list(eval_env_vars.keys()) + aux_extra_env_names + extra_eval_env_names)
+    )
+    if all_eval_env_names:
+        s += "--container-env {} ".format(",".join(all_eval_env_names))
+    if not cfg.execution.get("mounts", {}).get("mount_home", True):
+        s += "--no-container-mount-home "
+
+    s += "--container-mounts {} ".format(",".join(evaluation_mounts_list))
+    s += "--output {} ".format(remote_task_subdir / "logs" / "client-%A.log")
+    s += "bash -c '\n"
+    s += eval_factory_command
+    s += "'\n\n"
+
+    # terminate the server after all evaluation clients finish
+    if cfg.deployment.type != "none":
+        s += 'for _pid in "${SERVER_PIDS[@]}"; do kill "$_pid" 2>/dev/null || true; done  # terminate servers\n'
+        if cfg.execution.get("num_instances", 1) > 1:
+            s += "kill $PROXY_PID  # terminate proxy to finish gracefully\n"
+        s += "\n"
+
+    # terminate auxiliary servers if deployed
+    for aux in aux_deployments:
+        if aux.num_instances > 1:
+            s += f'for _pid in "${{{aux.pids_var}[@]}}"; do kill "$_pid" 2>/dev/null || true; done  # terminate {aux.name} servers\n'
+            s += f"kill ${aux.proxy_pid_var} 2>/dev/null || true  # terminate {aux.name} proxy\n"
+        else:
+            s += f"kill ${aux.pid_var}  # terminate the {aux.name} server to finish gracefully\n"
+        s += "\n"
+
+    # auto-export
+    ae_cfg = cfg.execution.get("auto_export")
+    destinations: list = []
+    if isinstance(ae_cfg, list):
+        destinations = list(ae_cfg)
+    elif isinstance(ae_cfg, dict) or isinstance(ae_cfg, DictConfig):
+        destinations = list(ae_cfg.get("destinations", []) or [])
+
+    if destinations:
+        s += _generate_auto_export_section(
+            cfg=cfg,
+            job_id=job_id,
+            destinations=destinations,
+            env_var_names=list(export_env_vars),
+            secrets=secrets_result,
+            remote_task_subdir=remote_task_subdir,
+        )
+
+    # Keep in sync with nemo_evaluator.core.evaluate.INTERRUPTED_MARKER_FILENAME
+    interrupted_marker = (
+        remote_task_subdir / "artifacts" / ".nemo_evaluator_interrupted"
+    )
+    s += "\n# Propagate interrupted status so SLURM marks the job as FAILED\n"
+    s += f'if [ -f "{interrupted_marker}" ]; then\n'
+    s += '    echo "Evaluation was interrupted (SIGTERM). Exiting with code 143."\n'
+    s += "    exit 143\n"
+    s += "fi\n"
+
+    debug_str = "\n".join(["# " + line for line in s.splitlines()])
+
+    # Combine unsafe flags from deployment, auxiliary deployments, and evaluation
+    is_potentially_unsafe = (
+        eval_factory_command_struct.is_potentially_unsafe
+        or deployment_is_unsafe
+        or any(aux_is_unsafe.values())
+    )
+
+    return CmdAndReadableComment(
+        cmd=s,
+        debug=debug_str,
+        is_potentially_unsafe=is_potentially_unsafe,
+        secrets_env_result=secrets_result,
+    )
+
+
+def _generate_auto_export_section(
+    *,
+    cfg: DictConfig,
+    job_id: str,
+    destinations: list,
+    env_var_names: list,
+    secrets: SecretsEnvResult,
+    remote_task_subdir: Path,
+    export_image: str = "python:3.12.7-slim",
+) -> str:
+    """Generate simple auto-export section for sbatch script."""
+    if not destinations:
+        return ""
+
+    # Keep in sync with nemo_evaluator.core.evaluate.INTERRUPTED_MARKER_FILENAME
+    interrupted_marker = (
+        remote_task_subdir / "artifacts" / ".nemo_evaluator_interrupted"
+    )
+
+    s = "\n# Auto-export on success\n"
+    s += "EVAL_EXIT_CODE=$?\n"
+    s += f'EVAL_INTERRUPTED_MARKER="{interrupted_marker}"\n'
+    s += 'if [ $EVAL_EXIT_CODE -eq 0 ] && [ -f "$EVAL_INTERRUPTED_MARKER" ]; then\n'
+    s += "    echo 'Evaluation exited 0 after SIGTERM. Skipping auto-export.'\n"
+    s += "    EVAL_EXIT_CODE=143\n"
+    s += "fi\n"
+    s += "if [ $EVAL_EXIT_CODE -eq 0 ]; then\n"
+    s += "    echo 'Evaluation completed successfully. Starting auto-export...'\n"
+    s += f'    cd "{remote_task_subdir}/artifacts"\n'
+
+    if secrets:
+        reexport_cmd = build_reexport_commands("export", secrets)
+        s += "    set +x\n"
+        s += f"    {reexport_cmd}\n"
+        s += "    set -x\n"
+
+    export_config = {"export": cfg.get("export", {})}
+
+    # Final YAML (single conversion at the end)
+    payload_clean = OmegaConf.to_container(
+        OmegaConf.create(export_config), resolve=True
+    )
+    yaml_str = yaml.safe_dump(payload_clean, sort_keys=False)
+    s += "    cat > export_config.yml << 'EOF'\n"
+    s += yaml_str
+    s += "EOF\n"
+
+    # write launcher config as config.yml for exporters (no core command)
+    submitted_yaml = yaml.safe_dump(
+        OmegaConf.to_container(cfg, resolve=True), sort_keys=False
+    )
+    s += "    cat > config.yml << 'EOF'\n"
+    s += submitted_yaml
+    s += "EOF\n"
+
+    # Export host only env before running auto export
+
+    # Get launcher install command - allows full customization of how to install the launcher.
+    # Supports multi-line YAML strings. Example config:
+    #
+    #   auto_export:
+    #     destinations: ["mlflow"]
+    #     launcher_install_cmd: |
+    #       apt-get update -qq && apt-get install -qq -y git
+    #       pip install "nemo-evaluator-launcher[all] @ git+https://github.com/NVIDIA-NeMo/Evaluator.git@branch#subdirectory=packages/nemo-evaluator-launcher"
+    #
+    auto_export_cfg = cfg.execution.get("auto_export", {}) or {}
+    launcher_install_cmd = None
+    export_mounts = {}
+    if isinstance(auto_export_cfg, dict) or OmegaConf.is_config(auto_export_cfg):
+        launcher_install_cmd = auto_export_cfg.get("launcher_install_cmd")
+        export_mounts = auto_export_cfg.get("export_mounts") or {}
+        configured_image = auto_export_cfg.get("export_image")
+        if configured_image:
+            export_image = configured_image
+
+    if not launcher_install_cmd:
+        launcher_install_cmd = "pip install nemo-evaluator-launcher[all]"
+
+    cpu_partition = cfg.execution.get("cpu_partition")
+    export_partition = cpu_partition or cfg.execution.partition
+    output_dir = cfg.execution.output_dir
+    invocation_dir = remote_task_subdir.parent
+
+    # --- Build export sbatch script (CPU-only, no GPUs) ---
+    export_sbatch = "#!/bin/bash\n"
+    export_sbatch += f"#SBATCH --job-name=nel-export-{remote_task_subdir.name}\n"
+    export_sbatch += "#SBATCH --nodes=1\n"
+    export_sbatch += "#SBATCH --ntasks=1\n"
+    export_sbatch += "#SBATCH --time=00:30:00\n"
+    export_sbatch += f"#SBATCH --account {cfg.execution.account}\n"
+    export_sbatch += f"#SBATCH --partition {export_partition}\n"
+    export_sbatch += "#SBATCH --no-requeue\n"
+    export_sbatch += (
+        f"#SBATCH --output {remote_task_subdir / 'logs' / 'export-%A.log'}\n"
+    )
+    export_sbatch += "\nset -uo pipefail\n"
+    secrets_path = remote_task_subdir / ".secrets.env"
+    export_sbatch += f'[ -f "{secrets_path}" ] && source "{secrets_path}"\n'
+    if secrets:
+        export_sbatch += f"{build_reexport_commands('export', secrets)}\n"
+
+    mounts = [
+        f"{invocation_dir}:{invocation_dir}",
+        f"{output_dir}:{output_dir}",
+    ]
+    for host_path, container_path in export_mounts.items():
+        mounts.append(f"{host_path}:{container_path}")
+
+    export_sbatch += (
+        f"\nsrun --nodes 1 --ntasks 1 --gpus 0 --container-image {export_image} "
+    )
+    if env_var_names:
+        export_sbatch += "--container-env {} ".format(",".join(env_var_names))
+    # never mount home directory for export jobs - this is error prone
+    # and there's no use-case for mounting it
+    export_sbatch += "--no-container-mount-home "
+    export_sbatch += "--container-mounts {} ".format(",".join(mounts))
+    export_sbatch += "bash -c '\n"
+    export_sbatch += f"    {launcher_install_cmd}\n"
+    export_sbatch += f"    cd {remote_task_subdir}/artifacts\n"
+    for dest in destinations:
+        export_sbatch += f'    echo "Exporting to {dest}..."\n'
+        export_sbatch += f'    nemo-evaluator-launcher export {job_id} --dest {dest} --config {remote_task_subdir}/artifacts/export_config.yml --job-dirs {output_dir} || echo "Export to {dest} failed"\n'
+    export_sbatch += "'\n"
+
+    # --- Write and submit the export sbatch script ---
+    export_script_path = remote_task_subdir / "export.sbatch"
+    s += f"    cat > {export_script_path} << 'EXPORT_EOF'\n"
+    s += export_sbatch
+    s += "EXPORT_EOF\n"
+    s += f'    _export_out=$(sbatch "{export_script_path}" 2>&1)\n'
+    s += "    _export_id=$(echo \"$_export_out\" | grep -oE '[0-9]+')\n"
+    s += '    if [ -n "$_export_id" ]; then\n'
+    s += '        echo "Export job submitted: $_export_id"\n'
+    s += "    else\n"
+    s += '        echo "WARNING: Failed to submit export job: $_export_out"\n'
+    s += "    fi\n"
+    s += "else\n"
+    s += "    echo 'Evaluation failed with exit code $EVAL_EXIT_CODE. Skipping auto-export.'\n"
+    s += "fi\n"
+
+    return s
+
+
+def _make_remote_execution_output_dir(
+    dirpath: str,
+    username: str,
+    hostname: str,
+    socket: str | None,
+) -> None:
+    run_remote_command(
+        command=f"mkdir -p {dirpath}",
+        username=username,
+        hostname=hostname,
+        socket=socket,
+    )
+
+
+def _rsync_upload_rundirs(
+    local_sources: List[Path],
+    remote_target: str,
+    username: str,
+    hostname: str,
+) -> None:
+    rsync_upload(
+        local_sources=local_sources,
+        remote_target=remote_target,
+        username=username,
+        hostname=hostname,
+    )
+
+
+def _sbatch_remote_runsubs(
+    remote_runsub_paths: List[Path],
+    username: str,
+    hostname: str,
+    socket: str | None,
+) -> List[str]:
+    sbatch_commands = [
+        "sbatch {}".format(remote_runsub_path)
+        for remote_runsub_path in remote_runsub_paths
+    ]
+    sbatch_commands = " ; ".join(sbatch_commands)
+
+    ssh_command = ["ssh"]
+    if socket is not None:
+        ssh_command.append(f"-S {socket}")
+    ssh_command.append(f"{username}@{hostname}")
+    ssh_command.append(sbatch_commands)
+    ssh_command = " ".join(ssh_command)
+    logger.info("Running sbatch", cmd=ssh_command)
+    completed_process = subprocess.run(
+        args=shlex.split(ssh_command),
+        # NOTE(agronskiy): look out for hangs and deadlocks
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if completed_process.returncode != 0:
+        error_msg = completed_process.stderr.decode("utf-8")
+        raise RuntimeError(
+            "failed to submit sbatch scripts for execution\n{}".format(error_msg)
+        )
+
+    sbatch_output = completed_process.stdout.decode("utf-8")
+    slurm_job_ids = re.findall(r"(?<=Submitted batch job )\d+", sbatch_output)
+    logger.info("Started sbatch successfully", slurm_job_ids=slurm_job_ids)
+    return slurm_job_ids
+
+
+def _query_slurm_jobs_status(
+    slurm_job_ids: List[str],
+    username: str,
+    hostname: str,
+    socket: str | None,
+) -> Dict[str, tuple[str, str]]:
+    """Query SLURM for job statuses using squeue (for active jobs) and sacct (fallback).
+
+    This function first tries squeue which is more accurate for currently running jobs,
+    then falls back to sacct for completed/historical jobs that squeue doesn't show.
+    It also finds follow-up jobs (from autoresume) that depend on our known jobs.
+
+    Args:
+        slurm_job_ids: List of SLURM job IDs to query.
+        username: SSH username.
+        hostname: SSH hostname.
+        socket: control socket location or None
+
+    Returns:
+        Dict mapping from slurm_job_id to tuple of status, current_job_id.
+    """
+    if len(slurm_job_ids) == 0:
+        return {}
+
+    # First, try squeue for active jobs (more accurate for running jobs)
+    squeue_statuses = _query_squeue_for_jobs(slurm_job_ids, username, hostname, socket)
+
+    # For jobs not found in squeue, fall back to sacct
+    missing_jobs = [job_id for job_id in slurm_job_ids if job_id not in squeue_statuses]
+    sacct_statuses = {}
+
+    if missing_jobs:
+        sacct_statuses = _query_sacct_for_jobs(missing_jobs, username, hostname, socket)
+
+    # Combine results, preferring squeue data
+    combined_statuses = {**sacct_statuses, **squeue_statuses}
+
+    return combined_statuses
+
+
+def _query_squeue_for_jobs(
+    slurm_job_ids: List[str],
+    username: str,
+    hostname: str,
+    socket: str | None,
+) -> Dict[str, tuple[str, str]]:
+    """Query SLURM for active job statuses using squeue command.
+
+    This function finds:
+    1. Jobs that directly match our known job IDs
+    2. Follow-up jobs that depend on our known job IDs (from autoresume mechanism)
+
+    For follow-up jobs, returns the status mapped to the original job ID, along with
+    the actual current SLURM job ID.
+
+    Args:
+        slurm_job_ids: List of SLURM job IDs to query.
+        username: SSH username.
+        hostname: SSH hostname.
+        socket: control socket location or None
+
+    Returns:
+        Dict mapping from original slurm_job_id to tuple of status, current_job_id.
+    """
+    if len(slurm_job_ids) == 0:
+        return {}
+
+    # Use squeue to get active jobs - more accurate than sacct for running jobs
+    squeue_command = "squeue -u {} -h -o '%i|%T|%E'".format(username)
+
+    ssh_command = ["ssh"]
+    if socket is not None:
+        ssh_command.append(f"-S {socket}")
+    ssh_command.append(f"{username}@{hostname}")
+    ssh_command.append(squeue_command)
+    ssh_command = " ".join(ssh_command)
+
+    completed_process = subprocess.run(
+        args=shlex.split(ssh_command),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    squeue_statuses = {}
+    dependent_jobs = []
+    if completed_process.returncode == 0:
+        squeue_output = completed_process.stdout.decode("utf-8")
+        squeue_output_lines = squeue_output.strip().split("\n")
+
+        for line in squeue_output_lines:
+            if not line.strip():
+                continue
+            parts = line.split("|")
+            if len(parts) >= 3:
+                job_id = parts[0].strip()
+                status = parts[1].strip()
+                dependency = parts[2].strip()
+                # Extract base job ID (handle array jobs like 123456_0 -> 123456)
+                base_job_id = job_id.split("_")[0].split("[")[0]
+                if base_job_id in slurm_job_ids:
+                    squeue_statuses[base_job_id] = status, base_job_id
+                elif dependency and dependency != "(null)":
+                    dependent_jobs.append((base_job_id, status, dependency))
+
+        for dep_job_id, dep_status, dependency in dependent_jobs:
+            for known_job_id in slurm_job_ids:
+                if known_job_id in dependency and known_job_id not in squeue_statuses:
+                    squeue_statuses[known_job_id] = dep_status, dep_job_id
+                    break
+
+    return squeue_statuses
+
+
+def _query_sacct_for_jobs(
+    slurm_job_ids: List[str],
+    username: str,
+    hostname: str,
+    socket: str | None,
+) -> Dict[str, tuple[str, str]]:
+    """Query SLURM for job statuses using sacct command (for completed/historical jobs).
+
+    Args:
+        slurm_job_ids: List of SLURM job IDs to query.
+        username: SSH username.
+        hostname: SSH hostname.
+        socket: control socket location or None
+
+    Returns:
+        Dict mapping from slurm_job_id to tuple of status, job_id.
+    """
+    if len(slurm_job_ids) == 0:
+        return {}
+
+    sacct_command = "sacct -j {} --format='JobID,State%32' --noheader -P".format(
+        ",".join(slurm_job_ids)
+    )
+    ssh_command = ["ssh"]
+    if socket is not None:
+        ssh_command.append(f"-S {socket}")
+    ssh_command.append(f"{username}@{hostname}")
+    ssh_command.append(sacct_command)
+    ssh_command = " ".join(ssh_command)
+    completed_process = subprocess.run(
+        args=shlex.split(ssh_command),
+        # NOTE(agronskiy): look out for hangs and deadlocks
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if completed_process.returncode != 0:
+        raise RuntimeError(
+            "failed to query slurm job status\n{}".format(
+                completed_process.stderr.decode("utf-8")
+            )
+        )
+    sacct_output = completed_process.stdout.decode("utf-8")
+    sacct_output_lines = sacct_output.strip().split("\n")
+    slurm_jobs_status = {}
+    for slurm_job_id in slurm_job_ids:
+        slurm_job_status = _parse_slurm_job_status(slurm_job_id, sacct_output_lines)
+        slurm_jobs_status[slurm_job_id] = slurm_job_status, slurm_job_id
+    return slurm_jobs_status
+
+
+def _kill_slurm_job(
+    slurm_job_ids: List[str], username: str, hostname: str, socket: str | None
+) -> tuple[str | None, subprocess.CompletedProcess]:
+    """Kill a SLURM job, querying status first in one SSH call for efficiency.
+
+    Args:
+        slurm_job_ids: List of SLURM job IDs to kill.
+        username: SSH username.
+        hostname: SSH hostname.
+        socket: control socket location or None
+
+    Returns:
+        Tuple of (status_string, completed_process) where status_string is the SLURM status or None
+    """
+    if len(slurm_job_ids) == 0:
+        return None, subprocess.CompletedProcess(args=[], returncode=0)
+
+    jobs_str = ",".join(slurm_job_ids)
+    # Combine both commands in one SSH call: query THEN kill
+    combined_command = (
+        f"sacct -j {jobs_str} --format='JobID,State%32' --noheader -P 2>/dev/null; "
+        f"scancel {jobs_str}"
+    )
+
+    ssh_command = ["ssh"]
+    if socket is not None:
+        ssh_command.append(f"-S {socket}")
+    ssh_command.append(f"{username}@{hostname}")
+    ssh_command.append(combined_command)
+    ssh_command = " ".join(ssh_command)
+
+    completed_process = subprocess.run(
+        args=shlex.split(ssh_command),
+        # NOTE(agronskiy): look out for hangs and deadlocks
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    # Parse the sacct output (before scancel runs)
+    sacct_output = completed_process.stdout.decode("utf-8")
+    sacct_output_lines = sacct_output.strip().split("\n")
+    slurm_status = None
+    if sacct_output_lines and len(slurm_job_ids) == 1:
+        slurm_status = _parse_slurm_job_status(slurm_job_ids[0], sacct_output_lines)
+
+    return slurm_status, completed_process
+
+
+def _parse_slurm_job_status(slurm_job_id: str, sacct_output_lines: List[str]) -> str:
+    """Parse SLURM job status from sacct output for a specific job.
+
+    Args:
+        slurm_job_id: The SLURM job ID to parse.
+        sacct_output_lines: Lines from sacct output.
+
+    Returns:
+        SLURM status string.
+    """
+    for line in sacct_output_lines:
+        if line.startswith(f"{slurm_job_id}|"):
+            state = line.split("|")[1]
+            state = state.strip()
+            if state:
+                state_split = state.split()
+                if len(state_split) > 0:
+                    return state_split[0]
+    return "UNKNOWN"
+
+
+def _read_autoresumed_slurm_job_ids(
+    slurm_job_ids: List[str],
+    remote_rundir_paths: List[Path],
+    username: str,
+    hostname: str,
+    socket: str | None,
+) -> Dict[str, List[str]]:
+    assert len(slurm_job_ids) == len(remote_rundir_paths)
+    slurm_job_id_list_paths = [
+        str(remote_rundir_path / ".slurm_job_id.list")
+        for remote_rundir_path in remote_rundir_paths
+    ]
+    slurm_job_id_list_strs = _read_files_from_remote(
+        slurm_job_id_list_paths, username, hostname, socket
+    )
+    assert len(slurm_job_id_list_strs) == len(slurm_job_ids)
+    autoresumed_slurm_job_ids = {}
+    for i, slurm_job_id_list_str in enumerate(slurm_job_id_list_strs):
+        slurm_job_id = slurm_job_ids[i]
+        slurm_job_id_list = slurm_job_id_list_str.split()
+        autoresumed_slurm_job_ids[slurm_job_id] = slurm_job_id_list
+    return autoresumed_slurm_job_ids
+
+
+def _read_files_from_remote(
+    filepaths: List[Path],
+    username: str,
+    hostname: str,
+    socket: str | None,
+) -> List[str]:
+    cat_commands = [
+        "echo _START_OF_FILE_ ; cat {} 2>/dev/null ; echo _END_OF_FILE_ ".format(
+            filepath
+        )
+        for filepath in filepaths
+    ]
+    cat_commands = " ; ".join(cat_commands)
+    ssh_command = ["ssh"]
+    if socket is not None:
+        ssh_command.append(f"-S {socket}")
+    ssh_command.append(f"{username}@{hostname}")
+    ssh_command.append(cat_commands)
+    ssh_command = " ".join(ssh_command)
+    completed_process = subprocess.run(
+        args=shlex.split(ssh_command),
+        # NOTE(agronskiy): look out for hangs and deadlocks
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if completed_process.returncode != 0:
+        raise RuntimeError(
+            "failed to read files from remote\n{}".format(
+                completed_process.stderr.decode("utf-8")
+            )
+        )
+    cat_outputs = completed_process.stdout.decode("utf-8")
+    cat_outputs = cat_outputs.replace("\n", " ")
+    matches = re.findall(r"(?<=_START_OF_FILE_)(.*?)(?=_END_OF_FILE_)", cat_outputs)
+    outputs = [match.strip() for match in matches]
+    return outputs
+
+
+def _get_progress(
+    remote_rundir_paths: List[Path],
+    username: str,
+    hostname: str,
+    socket: str | None,
+) -> List[Optional[int]]:
+    """Read progress (number of completed requests) from remote run directories.
+
+    Returns the raw request count from each task's artifacts/progress file.
+    The count reflects unique successful, non-cached API requests processed
+    by the evaluation framework.
+    """
+    remote_progress_paths = [
+        remote_rundir_path / "artifacts" / "progress"
+        for remote_rundir_path in remote_rundir_paths
+    ]
+    progress_strs = _read_files_from_remote(
+        remote_progress_paths, username, hostname, socket
+    )
+    progress_list = []
+    for progress_str in progress_strs:
+        if not progress_str:
+            progress_list.append(None)
+            continue
+        try:
+            progress_list.append(int(progress_str))
+        except ValueError:
+            progress_list.append(None)
+    return progress_list
+
+
+def _generate_autoresume_handler(
+    remote_task_subdir: Path, max_walltime: Optional[str] = None
+) -> str:
+    """Generate the autoresume handler script with optional max walltime enforcement.
+
+    Args:
+        remote_task_subdir: The remote directory path for storing timing files.
+        max_walltime: Maximum total wall-clock time (e.g., "24:00:00"). None means unlimited.
+
+    Returns:
+        The autoresume handler script as a string.
+    """
+    start_time_file = remote_task_subdir / ".job_start_time"
+
+    accumulated_walltime_file = remote_task_subdir / ".accumulated_walltime"
+
+    # Generate max walltime check logic if max_walltime is specified
+    if max_walltime:
+        max_walltime_check = f'''
+# Check if max_walltime has been exceeded
+_max_walltime="{max_walltime}"
+_start_time_file="{start_time_file}"
+_accumulated_walltime_file="{accumulated_walltime_file}"
+
+# Convert HH:MM:SS or D-HH:MM:SS to seconds
+_walltime_to_seconds() {{
+    local time_str=$1
+    local days=0 hours=0 minutes=0 seconds=0
+
+    # Handle format with days: D-HH:MM:SS (sacct output format)
+    if [[ "$time_str" =~ ^([0-9]+)-([0-9]+):([0-9]+):([0-9]+)$ ]]; then
+        days=${{BASH_REMATCH[1]}}
+        hours=${{BASH_REMATCH[2]}}
+        minutes=${{BASH_REMATCH[3]}}
+        seconds=${{BASH_REMATCH[4]}}
+    # Handle different formats: HH:MM:SS, MM:SS, or just seconds
+    elif [[ "$time_str" =~ ^([0-9]+):([0-9]+):([0-9]+)$ ]]; then
+        hours=${{BASH_REMATCH[1]}}
+        minutes=${{BASH_REMATCH[2]}}
+        seconds=${{BASH_REMATCH[3]}}
+    elif [[ "$time_str" =~ ^([0-9]+):([0-9]+)$ ]]; then
+        minutes=${{BASH_REMATCH[1]}}
+        seconds=${{BASH_REMATCH[2]}}
+    elif [[ "$time_str" =~ ^([0-9]+)$ ]]; then
+        seconds=${{BASH_REMATCH[1]}}
+    fi
+
+    echo $((10#$days * 86400 + 10#$hours * 3600 + 10#$minutes * 60 + 10#$seconds))
+}}
+
+_max_walltime_seconds=$(_walltime_to_seconds "$_max_walltime")
+
+# Initialize accumulated walltime file on first run or on manual resume
+if [[ ! -f "$_accumulated_walltime_file" || ! -n "$_prev_slurm_job_id" ]]; then
+    echo "0" > "$_accumulated_walltime_file"
+    echo "Job chain started at $(date). Max total walltime: $_max_walltime"
+fi
+
+# Read accumulated walltime from previous jobs
+_accumulated_seconds=$(cat "$_accumulated_walltime_file")
+
+# If there's a previous job, add its actual elapsed time (from sacct) to the accumulated walltime
+# This must happen BEFORE the max walltime check to ensure accurate tracking
+if [[ -n "$_prev_slurm_job_id" ]]; then
+    _prev_elapsed=$(sacct -j $_prev_slurm_job_id -P -n -o Elapsed | head -n 1)
+    if [[ -n "$_prev_elapsed" ]]; then
+        _prev_elapsed_seconds=$(_walltime_to_seconds "$_prev_elapsed")
+        _accumulated_seconds=$((_accumulated_seconds + _prev_elapsed_seconds))
+        echo "$_accumulated_seconds" > "$_accumulated_walltime_file"
+        echo "Previous job $_prev_slurm_job_id ran for $_prev_elapsed"
+    fi
+fi
+
+_elapsed_formatted=$(printf '%02d:%02d:%02d' $((_accumulated_seconds/3600)) $(((_accumulated_seconds%3600)/60)) $((_accumulated_seconds%60)))
+
+echo "Total accumulated walltime: $_elapsed_formatted (max: $_max_walltime)"
+
+# Check if we've exceeded max walltime - if so, don't schedule next job and exit
+if [[ $_accumulated_seconds -ge $_max_walltime_seconds ]]; then
+    echo "ERROR: Maximum total walltime ($_max_walltime) exceeded. Accumulated: $_elapsed_formatted"
+    echo "Stopping job chain to prevent infinite resuming."
+    exit 1
+fi
+
+# Record job start time for this job (for debugging/logging purposes)
+date +%s > "$_start_time_file"
+'''
+    else:
+        max_walltime_check = ""
+
+    handler = f"""
+_this_script=$0
+_prev_slurm_job_id=$1
+{max_walltime_check}
+# Handle automatic resumption after some failed state.
+if [[ "$_prev_slurm_job_id" != "" ]]; then
+    _prev_state=`sacct -j $_prev_slurm_job_id -P -n -o State | head -n 1`
+    _prev_info="previous SLURM_JOB_ID $_prev_slurm_job_id finished with '$_prev_state' state."
+    if [[ $_prev_state == 'TIMEOUT' || $_prev_state == 'PREEMPTED' || $_prev_state == 'NODE_FAIL' ]]; then
+        echo "$_prev_info RESUMING..."
+    else
+        echo "$_prev_info EXIT!"
+        if [[ $_prev_state == 'COMPLETED' ]]; then
+            exit 0
+        else
+            exit 1
+        fi
+    fi
+fi
+# Schedule next execution of this script  with the current $SLURM_JOB_ID as an argument.
+# "afternotok" means next execution will be invoked only if the current execution terminates in some failed state.
+sbatch --dependency=afternotok:$SLURM_JOB_ID $_this_script $SLURM_JOB_ID
+"""
+    return handler.strip()
+
+
+def _generate_haproxy_config_with_placeholders(cfg):
+    """Generate HAProxy configuration with placeholder IPs using Jinja template."""
+    # Set up Jinja environment
+    template_dir = Path(__file__).parent
+    template_path = template_dir / "proxy.cfg.template"
+
+    if not template_path.exists():
+        raise FileNotFoundError(f"Proxy template not found: {template_path}")
+
+    env = Environment(loader=FileSystemLoader(template_dir))
+    template = env.get_template("proxy.cfg.template")
+
+    # Prepare template data with placeholder IPs - one backend per instance head node
+    nodes = []
+    for i in range(cfg.execution.get("num_instances", 1)):
+        head_idx = i * cfg.execution.num_nodes // cfg.execution.get("num_instances", 1)
+        nodes.append({"ip": f"{{IP_{head_idx}}}", "port": cfg.deployment.port})
+
+    # Get health check parameters - prefer proxy config, fallback to deployment.endpoints.health
+    proxy_config = cfg.execution.get("proxy", {}).get("config", {})
+    health_check_path = proxy_config.get(
+        "health_check_path", cfg.deployment.endpoints.get("health", "/health")
+    )
+    health_check_status = proxy_config.get("health_check_status", 200)
+    haproxy_port = proxy_config.get("haproxy_port", 5009)
+
+    # Render template
+    config = template.render(
+        haproxy_port=haproxy_port,
+        health_check_path=health_check_path,
+        health_check_status=health_check_status,
+        nodes=nodes,
+    )
+
+    return config
+
+
+def _generate_haproxy_config(cfg, nodes_ips):
+    """Generate HAProxy configuration using Jinja template."""
+    # Set up Jinja environment
+    template_dir = Path(__file__).parent
+    template_path = template_dir / "proxy.cfg.template"
+
+    if not template_path.exists():
+        raise FileNotFoundError(f"Proxy template not found: {template_path}")
+
+    env = Environment(loader=FileSystemLoader(template_dir))
+    template = env.get_template("proxy.cfg.template")
+
+    # Prepare template data
+    nodes = []
+    for i, ip in enumerate(nodes_ips, 1):
+        nodes.append(
+            {"ip": ip, "port": cfg.deployment.port}  # All nodes use the same port
+        )
+
+    # Get health check parameters from deployment config
+    health_check_path = cfg.deployment.endpoints.get("health", "/health")
+    health_check_status = cfg.deployment.get("health_check_status", 200)
+    haproxy_port = cfg.deployment.get("haproxy_port", 5009)
+
+    # Render template
+    config = template.render(
+        haproxy_port=haproxy_port,
+        health_check_path=health_check_path,
+        health_check_status=health_check_status,
+        nodes=nodes,
+    )
+
+    return config
+
+
+def _generate_deployment_srun_command(
+    cfg,
+    deployment_mounts_list,
+    remote_task_subdir,
+    deployment_env_var_names: list[str] | None = None,
+    nodelist_var: str | None = None,
+):
+    """Generate per-instance deployment srun commands.
+
+    Loops over num_instances and launches a dedicated srun for each instance on
+    its own node subset.  Multi-instance partitioning lives here; the deployment
+    command receives PROC_ID (rank within the instance) and MASTER_IP (head of
+    the instance) and only needs to handle single-instance setup.
+
+    Args:
+        cfg: The configuration object.
+        deployment_mounts_list: List of mount strings for the deployment container.
+        remote_task_subdir: Remote directory for this task.
+        deployment_env_var_names: Names of env vars to pass to the container.
+        nodelist_var: Shell variable name containing the comma-separated nodelist
+            to use for this deployment. When set, the srun uses --nodelist to
+            restrict to specific nodes (e.g. when judge deployment occupies other
+            nodes in the same allocation). If None, uses all allocated nodes.
+
+    Returns:
+        tuple: (script_string, is_potentially_unsafe, debug_comment)
+    """
+    s = ""
+    debug_comment = ""
+    is_potentially_unsafe = False
+
+    s += "# deployment server\n"
+
+    # Extract pre_cmd for later use inside container
+    pre_cmd: str = cfg.deployment.get("pre_cmd") or ""
+    if pre_cmd:
+        is_potentially_unsafe = True
+        create_pre_script_cmd = _str_to_echo_command(
+            pre_cmd, filename="deployment_pre_cmd.sh"
+        )
+        debug_comment += create_pre_script_cmd.debug + "\n\n"
+
+    # Get node IPs — use explicit node list if provided (when judge deployment
+    # occupies other nodes in the same SLURM allocation).
+    if nodelist_var:
+        s += "# Get model deployment node IPs (restricted to model nodes)\n"
+        s += f'DEPLOY_NODES_ARRAY=("${{{nodelist_var}[@]}}")\n'
+    else:
+        s += "# Get node IPs\n"
+        s += 'NODELIST="${SLURM_JOB_NODELIST:-${SLURM_NODELIST:-}}"\n'
+        s += 'if command -v scontrol >/dev/null 2>&1 && [[ -n "${NODELIST}" ]]; then\n'
+        s += '  nodes=( $(scontrol show hostnames "${NODELIST}") )\n'
+        s += "else\n"
+        s += '  nodes=( "$(hostname)" )\n'
+        s += "fi\n"
+        s += 'DEPLOY_NODES_ARRAY=("${nodes[@]}")\n'
+        s += 'if [[ ${#DEPLOY_NODES_ARRAY[@]} -eq 0 ]]; then DEPLOY_NODES_ARRAY=( "$(hostname)" ); fi\n'
+
+    s += 'export NODES_IPS_ARRAY=($(for node in "${DEPLOY_NODES_ARRAY[@]}"; do srun --nodelist="$node" --ntasks=1 --nodes=1 hostname --ip-address; done))\n'
+    s += 'echo "Node IPs: ${NODES_IPS_ARRAY[@]}"\n'
+    s += 'export ALL_NODE_IPS=$(IFS=,; echo "${NODES_IPS_ARRAY[*]}")\n'
+
+    num_instances = cfg.execution.get("num_instances", 1)
+    nodes_per_instance = cfg.execution.num_nodes // num_instances
+    # n_tasks is total tasks across all instances (= num_nodes by default via slurm/default.yaml).
+    # Executor divides by num_instances to get per-instance ntasks for each srun.
+    # Falls back to num_nodes in case the YAML default isn't loaded (e.g. tests).
+    total_ntasks = (
+        cfg.execution.get("deployment", {}).get("n_tasks") or cfg.execution.num_nodes
+    )
+    per_instance_ntasks = total_ntasks // num_instances
+
+    s += "HEAD_NODE_IPS=()\n"
+    s += "SERVER_PIDS=()\n"
+
+    # Add debug comment for deployment pre_cmd before the loop
+    if debug_comment:
+        s += "# Debug contents of deployment pre_cmd\n"
+        s += debug_comment
+        s += "\n"
+
+    if deployment_env_var_names is None:
+        deployment_env_var_names = []
+
+    # Always pass MASTER_IP and ALL_NODE_IPS into each instance container
+    if "MASTER_IP" not in deployment_env_var_names:
+        deployment_env_var_names.append("MASTER_IP")
+    if "ALL_NODE_IPS" not in deployment_env_var_names:
+        deployment_env_var_names.append("ALL_NODE_IPS")
+
+    # Build the command that runs inside each instance container:
+    # 1. Export scheduler-agnostic env vars (PROC_ID, NODES_PER_INSTANCE)
+    # 2. Optionally write + source deployment_pre_cmd.sh
+    # 3. Write deployment_cmd.sh and execute it
+    create_script_cmd = _str_to_echo_command(
+        cfg.deployment.command, filename="deployment_cmd.sh"
+    )
+    debug_comment += create_script_cmd.debug + "\n\n"
+
+    env_setup = (
+        f"export PROC_ID=${{SLURM_PROCID:-0}} NODES_PER_INSTANCE={nodes_per_instance}"
+    )
+    script = f"{env_setup} && {create_script_cmd.cmd} && bash deployment_cmd.sh"
+
+    if pre_cmd:
+        create_pre_script_cmd = _str_to_echo_command(
+            pre_cmd, filename="deployment_pre_cmd.sh"
+        )
+        script = (
+            f"{env_setup} && "
+            f"{create_pre_script_cmd.cmd} && "
+            f"source deployment_pre_cmd.sh && "
+            f"{create_script_cmd.cmd} && bash deployment_cmd.sh"
+        )
+
+    # Per-instance loop: launch one srun per instance on its dedicated nodes.
+    # MASTER_IP is exported before each srun so the container inherits the
+    # correct per-instance head IP via --container-env.
+    s += f"for ((g=0; g<{num_instances}; g++)); do\n"
+    s += f"    START_IDX=$((g * {nodes_per_instance}))\n"
+    s += f'    INSTANCE_NODES_ARR=("${{DEPLOY_NODES_ARRAY[@]:$START_IDX:{nodes_per_instance}}}")\n'
+    s += '    INSTANCE_NODELIST=$(IFS=,; echo "${INSTANCE_NODES_ARR[*]}")\n'
+    s += '    MASTER_IP="${NODES_IPS_ARRAY[$START_IDX]}"\n'
+    s += '    HEAD_NODE_IPS+=("$MASTER_IP")\n'
+    s += "    export MASTER_IP\n"
+    s += '    echo "Instance $g: MASTER_IP=$MASTER_IP, nodes: ${INSTANCE_NODES_ARR[*]}"\n'
+    s += "    srun --mpi pmix --overlap "
+    s += f'--nodelist "$INSTANCE_NODELIST" --nodes {nodes_per_instance} --ntasks {per_instance_ntasks} '
+    s += "--container-image {} ".format(cfg.deployment.image)
+    if deployment_mounts_list:
+        s += "--container-mounts {} ".format(",".join(deployment_mounts_list))
+    if not cfg.execution.get("mounts", {}).get("mount_home", True):
+        s += "--no-container-mount-home "
+    s += "--output {} ".format(remote_task_subdir / "logs" / "server-${g}-%A-%t.log")
+    if deployment_env_var_names:
+        s += f"--container-env {','.join(sorted(deployment_env_var_names))} "
+    s += "bash -c '{}' &\n".format(script)
+    s += "    SERVER_PIDS+=($!)\n"
+    s += "done\n\n"
+
+    s += 'echo "HEAD_NODE_IPS: ${HEAD_NODE_IPS[@]}"\n'
+    s += "SERVER_PID=${SERVER_PIDS[0]}  # reference to first instance PID for health check\n\n"
+
+    return s, is_potentially_unsafe, debug_comment
+
+
+def _generate_auxiliary_deployment_srun_command(
+    aux: AuxDeploymentState,
+    aux_mounts_list: list[str],
+    remote_task_subdir: Path,
+    cfg: DictConfig,
+):
+    """Generate the srun command for an auxiliary deployment.
+
+    Supports both single-instance (one srun, single PID) and multi-instance
+    (loop of sruns, PID array, haproxy) modes.
+
+    Args:
+        aux: The auxiliary deployment state.
+        aux_mounts_list: List of mount strings for the deployment container.
+        remote_task_subdir: Remote directory for this task.
+        cfg: The full configuration object (for execution-level settings).
+
+    Returns:
+        tuple: (script_string, is_potentially_unsafe, debug_comment)
+    """
+    s = ""
+    debug_comment = ""
+    is_potentially_unsafe = False
+
+    prefix = aux.env_prefix
+    name = aux.name
+
+    s += f"# {name} deployment server\n"
+
+    # Extract pre_cmd for later use inside container
+    pre_cmd: str = aux.cfg.get("pre_cmd") or ""
+    if pre_cmd:
+        is_potentially_unsafe = True
+        create_pre_script_cmd = _str_to_echo_command(
+            pre_cmd, filename=f"{name}_deployment_pre_cmd.sh"
+        )
+        debug_comment += create_pre_script_cmd.debug + "\n\n"
+
+    # Resolve deployment command
+    deploy_command = resolve_deployment_command(aux.cfg)
+
+    # Resolve node IPs
+    s += f"# Get {name} deployment node IPs\n"
+    s += f'export {prefix}_NODES_IPS_ARRAY=($(for node in "${{{aux.nodes_var}[@]}}"; do srun --nodelist="$node" --ntasks=1 --nodes=1 hostname --ip-address; done))\n'
+    s += f'echo "{name} Node IPs: ${{{prefix}_NODES_IPS_ARRAY[@]}}"\n'
+    s += f"export {prefix}_MASTER_IP=${{{prefix}_NODES_IPS_ARRAY[0]}}\n"
+    s += f'echo "{prefix}_MASTER_IP: ${prefix}_MASTER_IP"\n'
+
+    # Add debug comment for pre_cmd before srun command
+    if debug_comment:
+        s += f"# Debug contents of {name} deployment pre_cmd\n"
+        s += debug_comment
+        s += "\n"
+
+    env_var_names = list(aux.env_vars.keys()) if aux.env_vars else []
+    # Always add MASTER_IP to the environment variables
+    master_ip_var = f"{prefix}_MASTER_IP"
+    if master_ip_var not in env_var_names:
+        env_var_names.append(master_ip_var)
+
+    if aux.num_instances > 1:
+        # Multi-instance mode: loop over instances, collect PIDs
+        nodes_per_instance = aux.num_nodes // aux.num_instances
+        n_tasks = aux.cfg.get("n_tasks", aux.num_nodes)
+        per_instance_ntasks = n_tasks // aux.num_instances
+
+        s += f"{prefix}_HEAD_NODE_IPS=()\n"
+        s += f"{aux.pids_var}=()\n"
+
+        # Build the command that runs inside each instance container
+        create_script_cmd = _str_to_echo_command(
+            deploy_command, filename=f"{name}_deployment_cmd.sh"
+        )
+        debug_comment += create_script_cmd.debug + "\n\n"
+
+        all_node_ips_var = f"{prefix}_ALL_NODE_IPS"
+        s += f'export {all_node_ips_var}=$(IFS=,; echo "${{{prefix}_NODES_IPS_ARRAY[*]}}")\n'
+        if all_node_ips_var not in env_var_names:
+            env_var_names.append(all_node_ips_var)
+
+        env_setup = f"export PROC_ID=${{SLURM_PROCID:-0}} NODES_PER_INSTANCE={nodes_per_instance}"
+        script = (
+            f"{env_setup} && {create_script_cmd.cmd} && bash {name}_deployment_cmd.sh"
+        )
+
+        if pre_cmd:
+            script = (
+                f"{env_setup} && "
+                f"{create_pre_script_cmd.cmd} && "
+                f"source {name}_deployment_pre_cmd.sh && "
+                f"{create_script_cmd.cmd} && bash {name}_deployment_cmd.sh"
+            )
+
+        s += f"for ((g=0; g<{aux.num_instances}; g++)); do\n"
+        s += f"    START_IDX=$((g * {nodes_per_instance}))\n"
+        s += f'    INSTANCE_NODES_ARR=("${{{aux.nodes_var}[@]:$START_IDX:{nodes_per_instance}}}")\n'
+        s += '    INSTANCE_NODELIST=$(IFS=,; echo "${INSTANCE_NODES_ARR[*]}")\n'
+        s += f'    {prefix}_MASTER_IP="${{{prefix}_NODES_IPS_ARRAY[$START_IDX]}}"\n'
+        s += f'    {prefix}_HEAD_NODE_IPS+=("${prefix}_MASTER_IP")\n'
+        s += f"    export {prefix}_MASTER_IP\n"
+        s += f'    echo "{name} Instance $g: {prefix}_MASTER_IP=${prefix}_MASTER_IP, nodes: ${{INSTANCE_NODES_ARR[*]}}"\n'
+        s += "    srun --mpi pmix --overlap "
+        s += f'--nodelist "$INSTANCE_NODELIST" --nodes {nodes_per_instance} --ntasks {per_instance_ntasks} '
+        s += f"--container-image {aux.cfg.image} "
+        if aux_mounts_list:
+            s += "--container-mounts {} ".format(",".join(aux_mounts_list))
+        if not cfg.execution.get("mounts", {}).get("mount_home", True):
+            s += "--no-container-mount-home "
+        s += "--output {} ".format(
+            remote_task_subdir / "logs" / f"{name}-server-${{g}}-%A-%t.log"
+        )
+        if env_var_names:
+            s += f"--container-env {','.join(sorted(env_var_names))} "
+        s += "bash -c '{}' &\n".format(script)
+        s += f"    {aux.pids_var}+=($!)\n"
+        s += "done\n\n"
+
+        s += f'echo "{prefix}_HEAD_NODE_IPS: ${{{prefix}_HEAD_NODE_IPS[@]}}"\n'
+        s += f"{aux.pid_var}=${{{aux.pids_var}[0]}}  # reference to first instance PID for health check\n\n"
+
+    else:
+        # Single instance mode: one srun, single PID
+        n_tasks = aux.cfg.get("n_tasks", 1)
+
+        s += "srun --mpi pmix --overlap "
+        s += f'--nodelist "${{{aux.nodelist_var}}}" '
+        s += f"--nodes {aux.num_nodes} --ntasks {n_tasks} "
+        s += f"--container-image {aux.cfg.image} "
+        if aux_mounts_list:
+            s += "--container-mounts {} ".format(",".join(aux_mounts_list))
+        if not cfg.execution.get("mounts", {}).get("mount_home", True):
+            s += "--no-container-mount-home "
+        s += "--output {} ".format(
+            remote_task_subdir / "logs" / f"{name}-server-%A-%t.log"
+        )
+
+        if env_var_names:
+            s += f"--container-env {','.join(sorted(env_var_names))} "
+
+        # Wrap deployment command to execute pre_cmd inside container if needed
+        if pre_cmd:
+            create_pre_script_cmd = _str_to_echo_command(
+                pre_cmd, filename=f"{name}_deployment_pre_cmd.sh"
+            )
+            escaped_cmd = deploy_command.replace("'", "'\"'\"'")
+            wrapped_command = (
+                f"bash -c '{create_pre_script_cmd.cmd} && "
+                f"source {name}_deployment_pre_cmd.sh && "
+                f"{escaped_cmd}'"
+            )
+            s += "{} &\n\n".format(wrapped_command)
+        else:
+            s += "{} &\n\n".format(deploy_command)
+
+        s += f"{aux.pid_var}=$!  # capture the PID of the {name} server background srun process\n\n"
+
+    return s, is_potentially_unsafe, debug_comment
+
+
+def _generate_aux_haproxy_srun_command(
+    aux: AuxDeploymentState,
+    remote_task_subdir: Path,
+    cfg: DictConfig,
+) -> str:
+    """Generate HAProxy srun command for a multi-instance auxiliary deployment."""
+    prefix = aux.env_prefix
+    name = aux.name
+
+    s = ""
+    s += f"# {name} proxy load balancer\n"
+
+    # Generate haproxy config with placeholders for this auxiliary
+    template_dir = Path(__file__).parent
+    env = Environment(loader=FileSystemLoader(template_dir))
+    template = env.get_template("proxy.cfg.template")
+
+    nodes_per_instance = aux.num_nodes // aux.num_instances
+    nodes = []
+    for i in range(aux.num_instances):
+        head_idx = i * nodes_per_instance
+        nodes.append({"ip": f"{{{prefix}_IP_{head_idx}}}", "port": int(aux.cfg.port)})
+
+    health_check_path = aux.cfg.endpoints.get("health", "/health")
+    proxy_config = template.render(
+        haproxy_port=aux.proxy_port,
+        health_check_path=health_check_path,
+        health_check_status=200,
+        nodes=nodes,
+    )
+
+    # Write template inline via heredoc
+    proxy_cfg_path = f"{remote_task_subdir}/{name}_proxy.cfg"
+    s += f"cat > {proxy_cfg_path} << 'PROXY_EOF'\n"
+    s += proxy_config
+    s += "\nPROXY_EOF\n"
+
+    # Replace placeholder IPs with actual node IPs
+    s += f"proxy_config_file={proxy_cfg_path}\n"
+    s += f'for i in "${{!{prefix}_NODES_IPS_ARRAY[@]}}"; do\n'
+    s += f'    ip="${{{prefix}_NODES_IPS_ARRAY[$i]}}"\n'
+    s += f'    sed -i "s/{{{prefix}_IP_$i}}/$ip/g" "$proxy_config_file"\n'
+    s += "done\n"
+    s += "\n"
+
+    proxy_image = cfg.execution.get("proxy", {}).get("image", "haproxy:latest")
+    s += "srun --mpi pmix --overlap "
+    s += '--nodelist "${PRIMARY_NODE}" --nodes 1 --ntasks 1 '
+    s += f"--container-image {proxy_image} "
+    s += f"--container-mounts {proxy_cfg_path}:/usr/local/etc/haproxy/haproxy.cfg:ro "
+    s += f"--output {remote_task_subdir}/logs/{name}-proxy-%A.log "
+    s += "haproxy -f /usr/local/etc/haproxy/haproxy.cfg &\n"
+    s += f"{aux.proxy_pid_var}=$!  # capture the PID of the {name} proxy background srun process\n"
+    s += f'echo "{name} proxy started with PID: ${aux.proxy_pid_var}"\n\n'
+
+    # Wait for proxy to be ready
+    health_check_timeout = resolve_endpoint_readiness_timeout(cfg)
+    s += _get_wait_for_server_handler(
+        ip_list="127.0.0.1",
+        port=aux.proxy_port,
+        health_check_path=health_check_path,
+        timeout=health_check_timeout,
+        service_name=f"{name} Proxy",
+        check_pid=False,
+    )
+    s += "\n"
+
+    return s
+
+
+def _get_wait_for_server_handler(
+    ip_list: str,
+    port: int,
+    health_check_path: str,
+    timeout: int,
+    service_name: str = "server",
+    check_pid: bool = False,
+    pid_var: str = "SERVER_PID",
+):
+    """Generate wait for server handler that takes a list of IPs."""
+    pid_check = ""
+    if check_pid:
+        if pid_var.endswith("_PIDS") or pid_var == "SERVER_PID":
+            # For array-style PID vars (SERVER_PIDS, *_SERVER_PIDS), check all PIDs
+            pids_array_var = pid_var if pid_var.endswith("_PIDS") else "SERVER_PIDS"
+            pid_check = f'for _check_pid in "${{{pids_array_var}[@]}}"; do kill -0 "$_check_pid" 2>/dev/null || {{ echo "{service_name} process $_check_pid died"; exit 1; }}; done'
+        else:
+            # For single PID variables, check the single PID
+            pid_check = (
+                'kill -0 "$'
+                + pid_var
+                + '" 2>/dev/null || { echo "'
+                + service_name
+                + " process $"
+                + pid_var
+                + ' died"; exit 1; }'
+            )
+
+    handler = f"""date
+# wait for the {service_name} to initialize
+TIMEOUT={timeout}
+ELAPSED=0
+for ip in {ip_list}; do
+  echo "Waiting for {service_name} on $ip..."
+  while [[ "$(curl -s -o /dev/null -w "%{{http_code}}" http://$ip:{port}{health_check_path})" != "200" ]]; do
+    {pid_check}
+    [ $ELAPSED -ge $TIMEOUT ] && {{ echo "Health check timeout after ${{TIMEOUT}}s"; exit 1; }}
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  echo "{service_name} ready on $ip!"
+done
+date
+""".strip()
+
+    return handler
+
+
+def _get_proxy_server_srun_command(cfg, remote_task_subdir):
+    """Generate proxy server srun command based on proxy type."""
+    proxy_type = cfg.execution.get("proxy", {}).get("type", "haproxy")
+
+    if proxy_type == "haproxy":
+        return _generate_haproxy_srun_command(cfg, remote_task_subdir)
+    else:
+        raise ValueError(
+            f"Unsupported proxy type: {proxy_type}. Currently only 'haproxy' is supported."
+        )
+
+
+def _generate_haproxy_srun_command(cfg, remote_task_subdir):
+    """Generate HAProxy-specific srun command using template-based config."""
+    s = ""
+    s += "# Proxy load balancer\n"
+    s += "# Copy template to config file (important for restarts)\n"
+    s += f"cp {remote_task_subdir}/proxy.cfg.template {remote_task_subdir}/proxy.cfg\n"
+    s += "# Replace placeholder IPs with actual node IPs\n"
+    s += f"proxy_config_file={remote_task_subdir}/proxy.cfg\n"
+    s += 'for i in "${!NODES_IPS_ARRAY[@]}"; do\n'
+    s += '    ip="${NODES_IPS_ARRAY[$i]}"\n'
+    s += '    sed -i "s/{IP_$i}/$ip/g" "$proxy_config_file"\n'
+    s += "done\n"
+    s += "\n"
+    s += "srun --mpi pmix --overlap "
+    s += '--nodelist "${PRIMARY_NODE}" --nodes 1 --ntasks 1 '
+    s += f"--container-image {cfg.execution.get('proxy', {}).get('image', 'haproxy:latest')} "
+    s += f"--container-mounts {remote_task_subdir}/proxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro "
+    s += f"--output {remote_task_subdir}/logs/proxy-%A.log "
+    s += "haproxy -f /usr/local/etc/haproxy/haproxy.cfg &\n"
+    s += "PROXY_PID=$!  # capture the PID of the proxy background srun process\n"
+    s += 'echo "Proxy started with PID: $PROXY_PID"\n\n'
+
+    # Wait for proxy to be ready on localhost
+    proxy_config = cfg.execution.get("proxy", {}).get("config", {})
+    haproxy_port = proxy_config.get("haproxy_port", 5009)
+    health_path = proxy_config.get("health_check_path", "/health")
+    health_check_timeout = resolve_endpoint_readiness_timeout(cfg)
+    s += _get_wait_for_server_handler(
+        ip_list="127.0.0.1",
+        port=haproxy_port,
+        health_check_path=health_path,
+        timeout=health_check_timeout,
+        service_name="Proxy",
+        check_pid=False,
+    )
+    s += "\n"
+
+    return s
+
+
+def _collect_mount_paths(cfg: DictConfig) -> List[str]:
+    """Collect all mount source paths from the configuration.
+
+    Args:
+        cfg: The configuration object for the evaluation run.
+
+    Returns:
+        List of source paths that need to be mounted.
+    """
+    mount_paths = []
+
+    # Deployment mounts
+    if cfg.deployment.type != "none":
+        if checkpoint_path := cfg.deployment.get("checkpoint_path"):
+            mount_paths.append(checkpoint_path)
+        if cache_path := cfg.deployment.get("cache_path"):
+            mount_paths.append(cache_path)
+        for source_mnt in cfg.execution.get("mounts", {}).get("deployment", {}).keys():
+            mount_paths.append(source_mnt)
+
+    # Auxiliary deployment mounts
+    aux_deployments_cfg = cfg.get("auxiliary_deployments", {})
+    if aux_deployments_cfg:
+        for aux_name, aux_cfg in aux_deployments_cfg.items():
+            if aux_cfg.get("type", "none") == "none":
+                continue
+            if checkpoint_path := aux_cfg.get("checkpoint_path"):
+                mount_paths.append(checkpoint_path)
+            if cache_path := aux_cfg.get("cache_path"):
+                mount_paths.append(cache_path)
+            for source_mnt in (
+                cfg.execution.get("mounts", {})
+                .get("auxiliary", {})
+                .get(aux_name, {})
+                .keys()
+            ):
+                mount_paths.append(source_mnt)
+
+    # Evaluation mounts
+    for source_mnt in cfg.execution.get("mounts", {}).get("evaluation", {}).keys():
+        mount_paths.append(source_mnt)
+
+    return mount_paths
+
+
+def _validate_remote_paths_exist(
+    paths: List[str],
+    username: str,
+    hostname: str,
+    socket: str | None,
+) -> None:
+    """Validate that all specified paths exist as directories on the remote host.
+
+    Args:
+        paths: List of directory paths to validate.
+        username: SSH username.
+        hostname: SSH hostname.
+        socket: control socket location or None
+
+    Raises:
+        ValueError: If any paths do not exist as directories on the remote host.
+    """
+    if not paths:
+        return
+
+    # Remove duplicates while preserving order
+    unique_paths = list(dict.fromkeys(paths))
+
+    # Build a single SSH command to check all paths at once
+    test_commands = []
+    for path in unique_paths:
+        # Use test -d to check if directory exists
+        # Escape single quotes in path using POSIX-safe method: ' becomes '"'"'
+        escaped_path = path.replace("'", "'\"'\"'")
+        test_commands.append(
+            f"test -d '{escaped_path}' && echo 'EXISTS:{path}' || echo 'MISSING:{path}'"
+        )
+
+    combined_command = " ; ".join(test_commands)
+
+    ssh_command = ["ssh"]
+    if socket is not None:
+        ssh_command.append(f"-S {socket}")
+    ssh_command.append(f"{username}@{hostname}")
+    ssh_command.append(combined_command)
+    ssh_command = " ".join(ssh_command)
+
+    logger.info("Validating mount directories exist on remote host", cmd=ssh_command)
+    completed_process = subprocess.run(
+        args=shlex.split(ssh_command),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    if completed_process.returncode != 0:
+        error_msg = (
+            completed_process.stderr.decode("utf-8")
+            if completed_process.stderr
+            else "Unknown error"
+        )
+        logger.error(
+            "Error validating remote paths",
+            code=completed_process.returncode,
+            msg=error_msg,
+        )
+        raise RuntimeError(f"Failed to validate remote paths: {error_msg}")
+
+    # Parse output to find missing paths
+    output = completed_process.stdout.decode("utf-8")
+    missing_paths = []
+    for line in output.strip().split("\n"):
+        if line.startswith("MISSING:"):
+            missing_path = line.replace("MISSING:", "")
+            missing_paths.append(missing_path)
+
+    if missing_paths:
+        error_message = (
+            f"The following mount paths do not exist as directories on {username}@{hostname}:\n"
+            + "\n".join(f"  - {path}" for path in missing_paths)
+            + "\n\nMount paths must be directories. Please create these directories on the cluster or update your configuration."
+        )
+        logger.error("Mount validation failed", missing_paths=missing_paths)
+        raise ValueError(error_message)

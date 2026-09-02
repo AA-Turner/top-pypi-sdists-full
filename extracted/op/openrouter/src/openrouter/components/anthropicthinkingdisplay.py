@@ -9,6 +9,7 @@ AnthropicThinkingDisplay = Union[
     Literal[
         "summarized",
         "omitted",
+        "updates",
     ],
     UnrecognizedStr,
 ]

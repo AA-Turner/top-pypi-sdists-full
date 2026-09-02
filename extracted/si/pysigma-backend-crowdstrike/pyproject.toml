@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "pysigma-backend-crowdstrike"
+version = "3.0.0"
+description = "pySigma CrowdStrike Logscale backend and processing pipelines for the Falcon data model."
+readme = "README.md"
+authors = ["Panos Moullotos", "Thomas Patzke <thomas@patzke.org>"]
+license = "LGPL-2.1-only"
+repository = "https://github.com/SigmaHQ/pySigma-backend-crowdstrike"
+packages = [
+    { include = "sigma" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pysigma = "^1.0.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+pytest = "^8.3.4"
+pytest-cov = "^6.0.0"
+pytest-mypy = "^0.10.3"
+pylint = "^3.3.2"
+rope = "^1.13.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

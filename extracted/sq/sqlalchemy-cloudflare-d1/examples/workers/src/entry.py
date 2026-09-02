@@ -1,0 +1,4435 @@
+"""
+Example Python Worker using sqlalchemy-cloudflare-d1.
+
+This Worker demonstrates the WorkerConnection class and provides
+endpoints that mirror the REST API integration tests for parity.
+
+It also demonstrates the new create_engine_from_binding() function
+for using SQLAlchemy Core/ORM patterns without raw SQL.
+
+Note: Python Workers are currently in beta.
+"""
+
+import uuid
+from workers import WorkerEntrypoint, Response
+from sqlalchemy_cloudflare_d1 import WorkerConnection, create_engine_from_binding
+
+
+class Default(WorkerEntrypoint):
+    """Default Worker entrypoint that handles HTTP requests."""
+
+    async def fetch(self, request, env):
+        """Handle incoming HTTP requests."""
+        url = request.url
+        path = url.split("/")[-1].split("?")[0] if "/" in url else ""
+
+        # Core test endpoints (matching REST API tests)
+        if path == "select":
+            return await self.test_select()
+        elif path == "sqlite-master":
+            return await self.test_sqlite_master()
+        elif path == "cursor-description":
+            return await self.test_cursor_description()
+        elif path == "crud":
+            return await self.test_crud()
+        elif path == "parameterized":
+            return await self.test_parameterized()
+        elif path == "health":
+            return await self.health_check()
+        # SQLAlchemy Core endpoints (no raw SQL)
+        elif path == "sqlalchemy-select":
+            return await self.test_sqlalchemy_select()
+        elif path == "sqlalchemy-crud":
+            return await self.test_sqlalchemy_crud()
+        elif path == "sqlalchemy-composite-pk":
+            return await self.test_sqlalchemy_composite_pk()
+        elif path == "sqlalchemy-reflect":
+            return await self.test_sqlalchemy_reflect()
+        elif path == "sqlalchemy-reflect-constraints":
+            return await self.test_sqlalchemy_reflect_constraints()
+        # Empty result set tests (GitHub issue #4)
+        elif path == "empty-result":
+            return await self.test_empty_result()
+        elif path == "empty-result-sqlalchemy":
+            return await self.test_empty_result_sqlalchemy()
+        # JSON column filtering tests
+        elif path == "json-filter":
+            return await self.test_json_filter()
+        elif path == "json-aggregate":
+            return await self.test_json_aggregate()
+        # Pandas to_sql tests
+        elif path == "pandas-to-sql":
+            return await self.test_pandas_to_sql()
+        elif path == "pandas-to-sql-upsert":
+            return await self.test_pandas_to_sql_upsert()
+        elif path == "pandas-to-sql-json":
+            return await self.test_pandas_to_sql_json()
+        # SQL injection prevention tests
+        elif path == "sqli-string":
+            return await self.test_sqli_string()
+        elif path == "sqli-union":
+            return await self.test_sqli_union()
+        elif path == "sqli-drop":
+            return await self.test_sqli_drop()
+        elif path == "sqli-orm":
+            return await self.test_sqli_orm()
+        elif path == "sqli-like":
+            return await self.test_sqli_like()
+        # Additional SQLAlchemy tests
+        elif path == "sqlalchemy-upsert":
+            return await self.test_sqlalchemy_upsert()
+        elif path == "sqlalchemy-get-tables":
+            return await self.test_sqlalchemy_get_tables()
+        # Additional empty result tests
+        elif path == "empty-result-where":
+            return await self.test_empty_result_where()
+        # Additional JSON tests
+        elif path == "json-multiple-values":
+            return await self.test_json_multiple_values()
+        # Boolean column tests
+        elif path == "boolean-column":
+            return await self.test_boolean_column()
+        elif path == "boolean-filter":
+            return await self.test_boolean_filter()
+        elif path == "boolean-nullable":
+            return await self.test_boolean_nullable()
+        # NULL parameter tests
+        elif path == "null-string":
+            return await self.test_null_string()
+        elif path == "null-integer":
+            return await self.test_null_integer()
+        # LargeBinary column tests
+        elif path == "largebinary-basic":
+            return await self.test_largebinary_basic()
+        elif path == "largebinary-image":
+            return await self.test_largebinary_image()
+        elif path == "largebinary-nullable":
+            return await self.test_largebinary_nullable()
+        # ON CONFLICT advanced tests
+        elif path == "on-conflict-do-nothing":
+            return await self.test_on_conflict_do_nothing()
+        elif path == "on-conflict-composite":
+            return await self.test_on_conflict_composite()
+        elif path == "on-conflict-where":
+            return await self.test_on_conflict_where()
+        # Single-row result tests (bug: single-row results lost in description)
+        elif path == "single-row-result":
+            return await self.test_single_row_result()
+        elif path == "single-row-sqlalchemy":
+            return await self.test_single_row_sqlalchemy()
+        elif path == "multi-row-result":
+            return await self.test_multi_row_result()
+        # Autoincrement insert tests (GitHub issue #12)
+        elif path == "autoincrement-insert":
+            return await self.test_autoincrement_insert()
+        elif path == "autoincrement-insert-sqlalchemy":
+            return await self.test_autoincrement_insert_sqlalchemy()
+        elif path == "autoincrement-lastrowid":
+            return await self.test_autoincrement_lastrowid()
+        # DateTime column tests (GitHub issue #13)
+        elif path == "datetime-basic":
+            return await self.test_datetime_basic()
+        elif path == "datetime-non-utc":
+            return await self.test_datetime_non_utc()
+        elif path == "datetime-nullable":
+            return await self.test_datetime_nullable()
+        elif path == "datetime-orm":
+            return await self.test_datetime_orm()
+        # Date column tests (GitHub issue #15)
+        elif path == "date-basic":
+            return await self.test_date_basic()
+        elif path == "date-nullable":
+            return await self.test_date_nullable()
+        elif path == "date-orm":
+            return await self.test_date_orm()
+        # Time column tests (GitHub issue #18)
+        elif path == "time-basic":
+            return await self.test_time_basic()
+        elif path == "time-nullable":
+            return await self.test_time_nullable()
+        elif path == "time-orm":
+            return await self.test_time_orm()
+        # UUID tests (GitHub issue #24)
+        elif path == "uuid-basic":
+            return await self.test_uuid_basic()
+        elif path == "uuid-nullable":
+            return await self.test_uuid_nullable()
+        elif path == "uuid-orm":
+            return await self.test_uuid_orm()
+        # Enum tests (GitHub issue #24)
+        elif path == "enum-basic":
+            return await self.test_enum_basic()
+        elif path == "enum-python-class":
+            return await self.test_enum_python_class()
+        elif path == "enum-nullable":
+            return await self.test_enum_nullable()
+        elif path == "enum-orm":
+            return await self.test_enum_orm()
+        elif path == "uuid-pk":
+            return await self.test_uuid_pk()
+        # Parallel query tests (GitHub issue #20)
+        elif path == "parallel-queries-engine":
+            return await self.test_parallel_queries_engine()
+        elif path == "parallel-queries-async":
+            return await self.test_parallel_queries_async()
+        else:
+            return await self.index()
+
+    def get_connection(self) -> WorkerConnection:
+        """Get a WorkerConnection wrapping the D1 binding."""
+        return WorkerConnection(self.env.DB)
+
+    async def index(self):
+        """Return API documentation."""
+        endpoints = {
+            "endpoints": {
+                "/": "This help message",
+                "/health": "Health check - SELECT 1",
+                "/select": "Test basic SELECT query",
+                "/sqlite-master": "Query sqlite_master for tables",
+                "/cursor-description": "Test cursor description population",
+                "/crud": "Test CREATE, INSERT, SELECT, DROP cycle",
+                "/parameterized": "Test parameterized queries",
+                "/sqlalchemy-select": "Test SQLAlchemy Core SELECT (no raw SQL)",
+                "/sqlalchemy-crud": "Test SQLAlchemy Core CRUD (no raw SQL)",
+                "/sqlalchemy-composite-pk": "Test SQLAlchemy composite primary key DDL",
+                "/sqlalchemy-reflect": "Test SQLAlchemy table reflection",
+                "/sqlalchemy-reflect-constraints": "Test SQLAlchemy constraint reflection",
+                "/empty-result": "Test empty result set description (issue #4)",
+                "/empty-result-sqlalchemy": "Test SQLAlchemy empty result (issue #4)",
+                "/json-filter": "Test filtering on JSON array columns",
+                "/json-aggregate": "Test aggregation on JSON array columns",
+                "/pandas-to-sql": "Test pandas DataFrame.to_sql()",
+                "/pandas-to-sql-upsert": "Test pandas to_sql with OR REPLACE",
+                "/pandas-to-sql-json": "Test pandas to_sql with JSON columns",
+                "/sqli-string": "Test SQL injection prevention (string param)",
+                "/sqli-union": "Test SQL injection prevention (UNION attack)",
+                "/sqli-drop": "Test SQL injection prevention (DROP TABLE)",
+                "/sqli-orm": "Test SQL injection prevention (ORM filter)",
+                "/sqli-like": "Test SQL injection prevention (LIKE clause)",
+                "/sqlalchemy-upsert": "Test SQLAlchemy ON CONFLICT upsert",
+                "/sqlalchemy-get-tables": "Test dialect get_table_names()",
+                "/empty-result-where": "Test empty result with WHERE clause",
+                "/json-multiple-values": "Test JSON filter with multiple values",
+                "/boolean-column": "Test boolean column returns Python bool",
+                "/boolean-filter": "Test filtering by boolean values",
+                "/boolean-nullable": "Test nullable boolean columns",
+                "/null-string": "Test NULL parameter with String column",
+                "/null-integer": "Test NULL parameter with Integer column",
+                "/largebinary-basic": "Test LargeBinary column basic usage",
+                "/largebinary-image": "Test LargeBinary with image data",
+                "/largebinary-nullable": "Test nullable LargeBinary columns",
+                "/on-conflict-do-nothing": "Test ON CONFLICT DO NOTHING",
+                "/on-conflict-composite": "Test ON CONFLICT with composite key",
+                "/on-conflict-where": "Test ON CONFLICT with WHERE clause",
+                "/single-row-result": "Test single-row SELECT returns data correctly",
+                "/single-row-sqlalchemy": "Test single-row via SQLAlchemy engine",
+                "/multi-row-result": "Test multi-row SELECT returns correct data",
+                "/datetime-basic": "Test DateTime column insert/retrieve (issue #13)",
+                "/datetime-non-utc": "Test DateTime with non-UTC timezone",
+                "/datetime-nullable": "Test nullable DateTime columns",
+                "/datetime-orm": "Test DateTime via ORM session",
+                "/date-basic": "Test Date column insert/retrieve",
+                "/date-nullable": "Test nullable Date columns",
+                "/date-orm": "Test Date via ORM session",
+                "/time-basic": "Test Time column insert/retrieve",
+                "/time-nullable": "Test nullable Time columns",
+                "/time-orm": "Test Time via ORM session",
+                "/parallel-queries-engine": "Timing: create_engine_from_binding() blocks per query (sequential)",
+                "/parallel-queries-async": "Timing: WorkerConnection async is truly concurrent",
+            },
+            "package": "sqlalchemy-cloudflare-d1",
+            "connection_type": "WorkerConnection (D1 binding)",
+        }
+        return Response.json(endpoints)
+
+    async def health_check(self):
+        """Health check - mirrors REST API test_connection_can_execute_select."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            await cursor.execute_async("SELECT 1 as value")
+            row = cursor.fetchone()
+            conn.close()
+
+            return Response.json(
+                {
+                    "status": "healthy",
+                    "database": "connected",
+                    "value": row[0] if row else None,
+                }
+            )
+        except Exception as e:
+            return Response.json({"status": "unhealthy", "error": str(e)}, status=500)
+
+    async def test_select(self):
+        """Test basic SELECT - mirrors test_connection_can_execute_select."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            await cursor.execute_async("SELECT 1 as value")
+            row = cursor.fetchone()
+            conn.close()
+
+            success = row is not None and row[0] == 1
+            return Response.json(
+                {
+                    "test": "select",
+                    "success": success,
+                    "row": row,
+                }
+            )
+        except Exception as e:
+            return Response.json(
+                {"test": "select", "success": False, "error": str(e)}, status=500
+            )
+
+    async def test_sqlite_master(self):
+        """Query sqlite_master - mirrors test_connection_can_query_sqlite_master."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            await cursor.execute_async(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+            rows = cursor.fetchall()
+            conn.close()
+
+            return Response.json(
+                {
+                    "test": "sqlite_master",
+                    "success": isinstance(rows, list),
+                    "tables": [row[0] for row in rows],
+                    "count": len(rows),
+                }
+            )
+        except Exception as e:
+            return Response.json(
+                {"test": "sqlite_master", "success": False, "error": str(e)}, status=500
+            )
+
+    async def test_cursor_description(self):
+        """Test cursor description - mirrors test_cursor_description_populated."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            await cursor.execute_async("SELECT 1 as num, 'hello' as txt")
+            conn.close()
+
+            description = cursor.description
+            success = (
+                description is not None
+                and len(description) == 2
+                and description[0][0] == "num"
+                and description[1][0] == "txt"
+            )
+
+            return Response.json(
+                {
+                    "test": "cursor_description",
+                    "success": success,
+                    "description": [d[0] for d in description] if description else None,
+                }
+            )
+        except Exception as e:
+            return Response.json(
+                {"test": "cursor_description", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_crud(self):
+        """Test CRUD cycle - mirrors test_create_insert_select_drop."""
+        table_name = f"test_worker_{uuid.uuid4().hex[:8]}"
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            # CREATE TABLE
+            await cursor.execute_async(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    value INTEGER
+                )
+            """)
+
+            # INSERT
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name, value) VALUES (?, ?)",
+                ("test_row", 42),
+            )
+            insert_rowcount = cursor.rowcount
+
+            # SELECT
+            await cursor.execute_async(f"SELECT id, name, value FROM {table_name}")
+            rows = cursor.fetchall()
+
+            # DROP TABLE
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            conn.close()
+
+            success = (
+                insert_rowcount == 1
+                and len(rows) == 1
+                and rows[0][1] == "test_row"
+                and rows[0][2] == 42
+            )
+
+            return Response.json(
+                {
+                    "test": "crud",
+                    "success": success,
+                    "table_name": table_name,
+                    "insert_rowcount": insert_rowcount,
+                    "select_rows": rows,
+                }
+            )
+        except Exception as e:
+            # Try to clean up
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "crud", "success": False, "error": str(e)}, status=500
+            )
+
+    async def test_parameterized(self):
+        """Test parameterized queries - mirrors test_parameterized_query."""
+        table_name = f"test_param_{uuid.uuid4().hex[:8]}"
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            # CREATE TABLE
+            await cursor.execute_async(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT
+                )
+            """)
+
+            # Insert multiple rows with parameters
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name) VALUES (?)", ("Alice",)
+            )
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name) VALUES (?)", ("Bob",)
+            )
+
+            # Query with parameter
+            await cursor.execute_async(
+                f"SELECT name FROM {table_name} WHERE name = ?", ("Alice",)
+            )
+            rows = cursor.fetchall()
+
+            # DROP TABLE
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            conn.close()
+
+            success = len(rows) == 1 and rows[0][0] == "Alice"
+
+            return Response.json(
+                {
+                    "test": "parameterized",
+                    "success": success,
+                    "table_name": table_name,
+                    "query_result": rows,
+                }
+            )
+        except Exception as e:
+            # Try to clean up
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "parameterized", "success": False, "error": str(e)}, status=500
+            )
+
+    # ========== SQLAlchemy Core Endpoints (no raw SQL) ==========
+
+    def get_engine(self):
+        """Get a SQLAlchemy engine from the D1 binding."""
+        return create_engine_from_binding(self.env.DB)
+
+    async def test_sqlalchemy_select(self):
+        """Test SQLAlchemy Core SELECT - no raw SQL.
+
+        Demonstrates using select() with text() for simple queries.
+        """
+        try:
+            from sqlalchemy import text
+
+            engine = self.get_engine()
+
+            with engine.connect() as conn:
+                # Use text() for simple SELECT
+                result = conn.execute(text("SELECT 1 as value"))
+                row = result.fetchone()
+
+            success = row is not None and row[0] == 1
+
+            return Response.json(
+                {
+                    "test": "sqlalchemy_select",
+                    "success": success,
+                    "row": list(row) if row else None,
+                }
+            )
+        except Exception as e:
+            return Response.json(
+                {"test": "sqlalchemy_select", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_sqlalchemy_crud(self):
+        """Test SQLAlchemy Core CRUD - no raw SQL.
+
+        Demonstrates using Table, MetaData, insert(), select() without raw SQL.
+        """
+        from sqlalchemy import MetaData, Table, Column, Integer, String, select
+
+        table_name = f"test_sa_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            # Define table using SQLAlchemy Core
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(50), nullable=False),
+                Column("value", Integer),
+            )
+
+            # CREATE TABLE
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                # INSERT using SQLAlchemy Core (no raw SQL)
+                conn.execute(test_table.insert().values(name="test_row", value=42))
+                conn.commit()
+
+                # SELECT using SQLAlchemy Core (no raw SQL)
+                result = conn.execute(select(test_table))
+                rows = result.fetchall()
+
+                # Get column names from result
+                columns = list(result.keys())
+
+            # DROP TABLE
+            metadata.drop_all(engine)
+
+            success = len(rows) == 1 and rows[0][1] == "test_row" and rows[0][2] == 42
+
+            return Response.json(
+                {
+                    "test": "sqlalchemy_crud",
+                    "success": success,
+                    "table_name": table_name,
+                    "columns": columns,
+                    "rows": [list(row) for row in rows],
+                }
+            )
+        except Exception as e:
+            # Try to clean up
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqlalchemy_crud", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_sqlalchemy_composite_pk(self):
+        """Test SQLAlchemy composite primary key DDL against D1 binding."""
+        from sqlalchemy import Column, MetaData, String, Table, select
+
+        table_name = f"test_composite_pk_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("tenant_id", String, primary_key=True),
+                Column("record_key", String, primary_key=True),
+                Column("value", String),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(
+                        tenant_id="tenant_a",
+                        record_key="label_a",
+                        value="value_a",
+                    )
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(
+                        test_table.c.tenant_id,
+                        test_table.c.record_key,
+                        test_table.c.value,
+                    )
+                )
+                row = result.fetchone()
+                columns = list(result.keys())
+
+            metadata.drop_all(engine)
+
+            success = row is not None and tuple(row) == (
+                "tenant_a",
+                "label_a",
+                "value_a",
+            )
+
+            return Response.json(
+                {
+                    "test": "sqlalchemy_composite_pk",
+                    "success": success,
+                    "table_name": table_name,
+                    "columns": columns,
+                    "row": list(row) if row is not None else None,
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqlalchemy_composite_pk", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_sqlalchemy_reflect(self):
+        """Test SQLAlchemy table reflection.
+
+        Creates a table with raw SQL, then reflects it using SQLAlchemy
+        to demonstrate autoload_with functionality.
+        """
+        table_name = f"test_reflect_{uuid.uuid4().hex[:8]}"
+
+        try:
+            from sqlalchemy import MetaData, Table, select
+
+            # First create table with WorkerConnection (raw SQL)
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            await cursor.execute_async(f"""
+                CREATE TABLE {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    email TEXT
+                )
+            """)
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (username, email) VALUES (?, ?)",
+                ("alice", "alice@example.com"),
+            )
+            conn.close()
+
+            # Now reflect the table using SQLAlchemy
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            # Reflect existing table (autoload_with)
+            reflected_table = Table(table_name, metadata, autoload_with=engine)
+
+            # Query using reflected table
+            with engine.connect() as sa_conn:
+                result = sa_conn.execute(select(reflected_table))
+                rows = result.fetchall()
+                columns = list(result.keys())
+
+            # Get reflected column info
+            reflected_columns = [
+                {"name": col.name, "type": str(col.type)}
+                for col in reflected_table.columns
+            ]
+
+            # Clean up
+            raw_conn = self.get_connection()
+            cursor = raw_conn.cursor()
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            raw_conn.close()
+
+            success = (
+                len(rows) == 1 and rows[0][1] == "alice" and len(reflected_columns) == 3
+            )
+
+            return Response.json(
+                {
+                    "test": "sqlalchemy_reflect",
+                    "success": success,
+                    "table_name": table_name,
+                    "reflected_columns": reflected_columns,
+                    "columns": columns,
+                    "rows": [list(row) for row in rows],
+                }
+            )
+        except Exception as e:
+            # Try to clean up
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqlalchemy_reflect", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_sqlalchemy_reflect_constraints(self):
+        """Test SQLAlchemy foreign key and unique constraint reflection."""
+        parent_table_name = f"test_reflect_parent_{uuid.uuid4().hex[:8]}"
+        child_table_name = f"test_reflect_child_{uuid.uuid4().hex[:8]}"
+        unique_constraint_name = f"uq_{uuid.uuid4().hex[:12]}"
+
+        try:
+            from sqlalchemy import (
+                Column,
+                ForeignKey,
+                Integer,
+                MetaData,
+                String,
+                Table,
+                UniqueConstraint,
+                inspect,
+            )
+
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            Table(
+                parent_table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("slug", String, unique=True),
+            )
+            Table(
+                child_table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("parent_id", Integer, ForeignKey(f"{parent_table_name}.id")),
+                Column("tenant_id", String),
+                Column("record_key", String),
+                UniqueConstraint(
+                    "tenant_id",
+                    "record_key",
+                    name=unique_constraint_name,
+                ),
+            )
+
+            metadata.create_all(engine)
+
+            inspector = inspect(engine)
+            foreign_keys = inspector.get_foreign_keys(child_table_name)
+            unique_constraints = inspector.get_unique_constraints(child_table_name)
+            parent_unique_constraints = inspector.get_unique_constraints(
+                parent_table_name
+            )
+
+            metadata.drop_all(engine)
+
+            expected_child_unique = {
+                "name": unique_constraint_name,
+                "column_names": ["tenant_id", "record_key"],
+            }
+            expected_parent_unique = {"name": None, "column_names": ["slug"]}
+            foreign_key = foreign_keys[0] if foreign_keys else {}
+            success = (
+                foreign_key.get("constrained_columns") == ["parent_id"]
+                and foreign_key.get("referred_schema") is None
+                and foreign_key.get("referred_table") == parent_table_name
+                and foreign_key.get("referred_columns") == ["id"]
+                and expected_child_unique in unique_constraints
+                and expected_parent_unique in parent_unique_constraints
+            )
+
+            return Response.json(
+                {
+                    "test": "sqlalchemy_reflect_constraints",
+                    "success": success,
+                    "foreign_keys": foreign_keys,
+                    "unique_constraints": unique_constraints,
+                    "parent_unique_constraints": parent_unique_constraints,
+                }
+            )
+        except Exception as e:
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {child_table_name}")
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {parent_table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {
+                    "test": "sqlalchemy_reflect_constraints",
+                    "success": False,
+                    "error": str(e),
+                },
+                status=500,
+            )
+
+    # MARK: - Empty Result Set Tests (GitHub issue #4)
+
+    async def test_empty_result(self):
+        """Test cursor.description is populated even with empty results.
+
+        Regression test for GitHub issue #4.
+        """
+        table_name = f"test_empty_{uuid.uuid4().hex[:8]}"
+
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            # CREATE TABLE
+            await cursor.execute_async(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    value INTEGER
+                )
+            """)
+
+            # Query empty table - should not raise error
+            await cursor.execute_async(f"SELECT id, name, value FROM {table_name}")
+            rows = cursor.fetchall()
+
+            # Capture description before cleanup
+            description = cursor.description
+
+            # DROP TABLE
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            conn.close()
+
+            # Verify empty results with valid description
+            success = (
+                len(rows) == 0
+                and description is not None
+                and len(description) == 3
+                and description[0][0] == "id"
+                and description[1][0] == "name"
+                and description[2][0] == "value"
+            )
+
+            return Response.json(
+                {
+                    "test": "empty_result",
+                    "success": success,
+                    "row_count": len(rows),
+                    "description": [d[0] for d in description] if description else None,
+                }
+            )
+        except Exception as e:
+            # Try to clean up
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "empty_result", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_empty_result_sqlalchemy(self):
+        """Test SQLAlchemy doesn't raise NoSuchColumnError on empty results.
+
+        Regression test for GitHub issue #4.
+        """
+        from sqlalchemy import MetaData, Table, Column, Integer, String, select
+
+        table_name = f"test_sa_empty_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+            )
+
+            # CREATE TABLE
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                # Query empty table - should not raise NoSuchColumnError
+                result = conn.execute(select(test_table))
+                rows = result.fetchall()
+
+            # DROP TABLE
+            metadata.drop_all(engine)
+
+            success = len(rows) == 0
+
+            return Response.json(
+                {
+                    "test": "empty_result_sqlalchemy",
+                    "success": success,
+                    "row_count": len(rows),
+                }
+            )
+        except Exception as e:
+            # Try to clean up
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "empty_result_sqlalchemy", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - JSON Column Filtering Tests
+
+    async def test_json_filter(self):
+        """Test filtering rows where JSON array contains a specific value."""
+        import json
+        from sqlalchemy import (
+            MetaData,
+            Table,
+            Column,
+            Integer,
+            String,
+            select,
+            exists,
+            func,
+        )
+
+        table_name = f"test_json_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+                Column("tags", String),  # JSON array stored as TEXT
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                # Insert test data with JSON arrays
+                conn.execute(
+                    test_table.insert().values(
+                        name="Alice", tags=json.dumps(["python", "sqlalchemy"])
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(
+                        name="Bob", tags=json.dumps(["javascript", "react"])
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(
+                        name="Charlie", tags=json.dumps(["python", "fastapi"])
+                    )
+                )
+                conn.commit()
+
+                # Query: find rows where tags contains "python"
+                je = func.json_each(test_table.c.tags).table_valued("value").alias("je")
+                stmt = (
+                    select(test_table.c.name)
+                    .where(
+                        exists(
+                            select(1)
+                            .select_from(je)
+                            .where(func.lower(je.c.value) == "python")
+                        )
+                    )
+                    .order_by(test_table.c.name)
+                )
+                result = conn.execute(stmt)
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            # Should find Alice and Charlie
+            success = (
+                len(rows) == 2 and rows[0][0] == "Alice" and rows[1][0] == "Charlie"
+            )
+
+            return Response.json(
+                {
+                    "test": "json_filter",
+                    "success": success,
+                    "matching_names": [row[0] for row in rows],
+                }
+            )
+        except Exception as e:
+            # Try to clean up
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "json_filter", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_json_aggregate(self):
+        """Test aggregation after expanding JSON array with json_each."""
+        import json
+        from sqlalchemy import (
+            MetaData,
+            Table,
+            Column,
+            Integer,
+            String,
+            select,
+            func,
+            true,
+        )
+
+        table_name = f"test_json_agg_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("post_id", String(50)),
+                Column("tags", String),  # JSON array
+                Column("score", Integer),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                # Insert test data
+                conn.execute(
+                    test_table.insert().values(
+                        post_id="p1", tags=json.dumps(["tech", "python"]), score=10
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(
+                        post_id="p2", tags=json.dumps(["tech", "javascript"]), score=20
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(
+                        post_id="p3", tags=json.dumps(["python", "data"]), score=15
+                    )
+                )
+                conn.commit()
+
+                # Aggregate scores by tag (expand JSON array)
+                je = func.json_each(test_table.c.tags).table_valued("value").alias("je")
+
+                stmt = (
+                    select(
+                        je.c.value.label("tag"),
+                        func.sum(test_table.c.score).label("total_score"),
+                    )
+                    .select_from(test_table.join(je, true()))
+                    .group_by(je.c.value)
+                    .order_by(je.c.value)
+                )
+                result = conn.execute(stmt)
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            # Build dict for verification
+            tag_scores = {row[0]: row[1] for row in rows}
+
+            # Expected:
+            # data: 15 (p3)
+            # javascript: 20 (p2)
+            # python: 25 (p1 + p3)
+            # tech: 30 (p1 + p2)
+            success = (
+                len(rows) == 4
+                and tag_scores.get("data") == 15
+                and tag_scores.get("javascript") == 20
+                and tag_scores.get("python") == 25
+                and tag_scores.get("tech") == 30
+            )
+
+            return Response.json(
+                {
+                    "test": "json_aggregate",
+                    "success": success,
+                    "tag_scores": tag_scores,
+                }
+            )
+        except Exception as e:
+            # Try to clean up
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "json_aggregate", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - Pandas to_sql Tests
+
+    @staticmethod
+    def make_sqlite_method(conflict_prefix: str = "OR IGNORE"):
+        """Return a pandas.to_sql(method=...) that inserts with a given prefix."""
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        def _method(table, conn, keys, data_iter):
+            sa_table = getattr(table, "table", table)
+            rows = [dict(zip(keys, row)) for row in data_iter]
+            if not rows:
+                return
+            stmt = sqlite_insert(sa_table).values(rows)
+            if conflict_prefix:
+                stmt = stmt.prefix_with(conflict_prefix)
+            conn.execute(stmt)
+
+        return _method
+
+    async def test_pandas_to_sql(self):
+        """Test pandas DataFrame.to_sql() with D1 engine."""
+        import pandas as pd
+        from sqlalchemy import MetaData, Table, Column, Integer, String, select
+
+        table_name = f"test_pandas_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+                Column("score", Integer),
+            )
+
+            metadata.create_all(engine)
+
+            # Create DataFrame
+            df = pd.DataFrame(
+                {
+                    "name": ["Alice", "Bob", "Charlie"],
+                    "score": [85, 92, 78],
+                }
+            )
+
+            # Use to_sql to insert data
+            df.to_sql(
+                table_name,
+                con=engine,
+                if_exists="append",
+                index=False,
+            )
+
+            # Verify data was inserted
+            with engine.connect() as conn:
+                result = conn.execute(
+                    select(test_table.c.name, test_table.c.score).order_by(
+                        test_table.c.name
+                    )
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = (
+                len(rows) == 3
+                and rows[0] == ("Alice", 85)
+                and rows[1] == ("Bob", 92)
+                and rows[2] == ("Charlie", 78)
+            )
+
+            return Response.json(
+                {
+                    "test": "pandas_to_sql",
+                    "success": success,
+                    "rows": [list(row) for row in rows],
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "pandas_to_sql", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_pandas_to_sql_upsert(self):
+        """Test pandas to_sql with OR REPLACE conflict handling."""
+        import pandas as pd
+        from sqlalchemy import MetaData, Table, Column, Integer, String, select
+
+        table_name = f"test_pandas_upsert_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100), unique=True),
+                Column("score", Integer),
+            )
+
+            metadata.create_all(engine)
+
+            # Insert initial data
+            df1 = pd.DataFrame({"name": ["Alice", "Bob"], "score": [85, 92]})
+            df1.to_sql(
+                table_name,
+                con=engine,
+                if_exists="append",
+                index=False,
+            )
+
+            # Upsert with OR REPLACE - Alice's score should be updated
+            df2 = pd.DataFrame({"name": ["Alice", "Charlie"], "score": [100, 78]})
+            df2.to_sql(
+                table_name,
+                con=engine,
+                if_exists="append",
+                index=False,
+                method=self.make_sqlite_method("OR REPLACE"),
+            )
+
+            # Verify
+            with engine.connect() as conn:
+                result = conn.execute(
+                    select(test_table.c.name, test_table.c.score).order_by(
+                        test_table.c.name
+                    )
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = (
+                len(rows) == 3
+                and rows[0] == ("Alice", 100)  # Score replaced
+                and rows[1] == ("Bob", 92)
+                and rows[2] == ("Charlie", 78)
+            )
+
+            return Response.json(
+                {
+                    "test": "pandas_to_sql_upsert",
+                    "success": success,
+                    "rows": [list(row) for row in rows],
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "pandas_to_sql_upsert", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_pandas_to_sql_json(self):
+        """Test pandas to_sql with stringified JSON columns."""
+        import json
+        import pandas as pd
+        from sqlalchemy import MetaData, Table, Column, Integer, String, select
+
+        table_name = f"test_pandas_json_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+                Column("config", String),  # JSON stored as TEXT
+            )
+
+            metadata.create_all(engine)
+
+            # Create DataFrame with JSON data
+            df = pd.DataFrame(
+                {
+                    "name": ["service_a", "service_b"],
+                    "config": [
+                        json.dumps({"enabled": True, "retries": 3}),
+                        json.dumps({"enabled": False, "retries": 1}),
+                    ],
+                }
+            )
+
+            df.to_sql(
+                table_name,
+                con=engine,
+                if_exists="append",
+                index=False,
+            )
+
+            # Verify data and JSON parsing
+            with engine.connect() as conn:
+                result = conn.execute(
+                    select(test_table.c.name, test_table.c.config).order_by(
+                        test_table.c.name
+                    )
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            # Parse JSON to verify
+            config_a = json.loads(rows[0][1])
+            config_b = json.loads(rows[1][1])
+
+            success = (
+                len(rows) == 2
+                and rows[0][0] == "service_a"
+                and config_a["enabled"] is True
+                and config_a["retries"] == 3
+                and rows[1][0] == "service_b"
+                and config_b["enabled"] is False
+            )
+
+            return Response.json(
+                {
+                    "test": "pandas_to_sql_json",
+                    "success": success,
+                    "rows": [
+                        {"name": row[0], "config": json.loads(row[1])} for row in rows
+                    ],
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "pandas_to_sql_json", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - SQL Injection Prevention Tests
+
+    async def test_sqli_string(self):
+        """Test SQL injection attempt in string parameter is safely escaped."""
+        table_name = f"test_sqli_{uuid.uuid4().hex[:8]}"
+
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            await cursor.execute_async(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT,
+                    secret TEXT
+                )
+            """)
+
+            # Insert legitimate data
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name, secret) VALUES (?, ?)",
+                ("alice", "secret123"),
+            )
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name, secret) VALUES (?, ?)",
+                ("bob", "secret456"),
+            )
+
+            # Attempt SQL injection via string parameter
+            malicious_input = "' OR '1'='1"
+            await cursor.execute_async(
+                f"SELECT name FROM {table_name} WHERE name = ?", (malicious_input,)
+            )
+            rows = cursor.fetchall()
+
+            # Clean up
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            conn.close()
+
+            # Should return 0 rows (no match), not all rows
+            success = len(rows) == 0
+
+            return Response.json(
+                {
+                    "test": "sqli_string",
+                    "success": success,
+                    "row_count": len(rows),
+                    "malicious_input": malicious_input,
+                }
+            )
+        except Exception as e:
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqli_string", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_sqli_union(self):
+        """Test UNION-based SQL injection is prevented."""
+        table_name = f"test_sqli_union_{uuid.uuid4().hex[:8]}"
+
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            await cursor.execute_async(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT
+                )
+            """)
+
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (username) VALUES (?)", ("alice",)
+            )
+
+            # Attempt UNION injection to read sqlite_master
+            malicious_input = "' UNION SELECT name FROM sqlite_master--"
+            await cursor.execute_async(
+                f"SELECT username FROM {table_name} WHERE username = ?",
+                (malicious_input,),
+            )
+            rows = cursor.fetchall()
+
+            # Clean up
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            conn.close()
+
+            # Should return 0 rows, not table names from sqlite_master
+            success = len(rows) == 0
+
+            return Response.json(
+                {
+                    "test": "sqli_union",
+                    "success": success,
+                    "row_count": len(rows),
+                    "malicious_input": malicious_input,
+                }
+            )
+        except Exception as e:
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqli_union", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_sqli_drop(self):
+        """Test DROP TABLE injection is prevented."""
+        table_name = f"test_sqli_drop_{uuid.uuid4().hex[:8]}"
+
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            await cursor.execute_async(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT
+                )
+            """)
+
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name) VALUES (?)", ("test",)
+            )
+
+            # Attempt to drop table via injection
+            malicious_input = f"'; DROP TABLE {table_name};--"
+            await cursor.execute_async(
+                f"SELECT name FROM {table_name} WHERE name = ?", (malicious_input,)
+            )
+            rows = cursor.fetchall()
+
+            # Should return 0 rows
+            row_count = len(rows)
+
+            # Verify table still exists
+            await cursor.execute_async(f"SELECT COUNT(*) FROM {table_name}")
+            count_row = cursor.fetchone()
+            table_count = count_row[0] if count_row else 0
+
+            # Clean up
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            conn.close()
+
+            success = row_count == 0 and table_count == 1
+
+            return Response.json(
+                {
+                    "test": "sqli_drop",
+                    "success": success,
+                    "row_count": row_count,
+                    "table_still_exists": table_count == 1,
+                    "malicious_input": malicious_input,
+                }
+            )
+        except Exception as e:
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqli_drop", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_sqli_orm(self):
+        """Test SQL injection prevention with SQLAlchemy ORM queries."""
+        from sqlalchemy import MetaData, Table, Column, Integer, String, select
+
+        table_name = f"test_sqli_orm_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("username", String(100)),
+                Column("password", String(100)),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                # Insert test data
+                conn.execute(
+                    test_table.insert().values(username="admin", password="secret")
+                )
+                conn.execute(
+                    test_table.insert().values(username="user", password="pass123")
+                )
+                conn.commit()
+
+                # Attempt SQL injection via ORM filter
+                malicious_input = "admin' OR '1'='1"
+                result = conn.execute(
+                    select(test_table).where(test_table.c.username == malicious_input)
+                )
+                rows = result.fetchall()
+
+                # Verify legitimate query still works
+                result2 = conn.execute(
+                    select(test_table).where(test_table.c.username == "admin")
+                )
+                legitimate_rows = result2.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = len(rows) == 0 and len(legitimate_rows) == 1
+
+            return Response.json(
+                {
+                    "test": "sqli_orm",
+                    "success": success,
+                    "malicious_row_count": len(rows),
+                    "legitimate_row_count": len(legitimate_rows),
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqli_orm", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_sqli_like(self):
+        """Test SQL injection in LIKE clause is prevented."""
+        from sqlalchemy import MetaData, Table, Column, Integer, String, select
+
+        table_name = f"test_sqli_like_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("email", String(100)),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(test_table.insert().values(email="alice@example.com"))
+                conn.execute(test_table.insert().values(email="bob@example.com"))
+                conn.commit()
+
+                # Attempt injection via LIKE pattern
+                malicious_input = "%' OR '1'='1' --"
+                result = conn.execute(
+                    select(test_table).where(test_table.c.email.like(malicious_input))
+                )
+                malicious_rows = result.fetchall()
+
+                # Verify legitimate LIKE works
+                result2 = conn.execute(
+                    select(test_table).where(test_table.c.email.like("%@example.com"))
+                )
+                legitimate_rows = result2.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = len(malicious_rows) == 0 and len(legitimate_rows) == 2
+
+            return Response.json(
+                {
+                    "test": "sqli_like",
+                    "success": success,
+                    "malicious_row_count": len(malicious_rows),
+                    "legitimate_row_count": len(legitimate_rows),
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqli_like", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - Additional SQLAlchemy Tests
+
+    async def test_sqlalchemy_upsert(self):
+        """Test INSERT ... ON CONFLICT DO UPDATE (upsert)."""
+        from sqlalchemy import MetaData, Table, Column, Integer, String, select
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        table_name = f"test_upsert_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", String, primary_key=True),
+                Column("name", String(100)),
+                Column("count", Integer),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                # First insert
+                stmt = sqlite_insert(test_table).values(
+                    id="key1", name="Original", count=1
+                )
+                conn.execute(stmt)
+                conn.commit()
+
+                # Upsert - should update existing row
+                stmt = sqlite_insert(test_table).values(
+                    id="key1", name="Updated", count=2
+                )
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["id"],
+                    set_={"name": stmt.excluded.name, "count": stmt.excluded.count},
+                )
+                conn.execute(stmt)
+                conn.commit()
+
+                # Verify update happened
+                result = conn.execute(
+                    select(test_table).where(test_table.c.id == "key1")
+                )
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = row is not None and row[1] == "Updated" and row[2] == 2
+
+            return Response.json(
+                {
+                    "test": "sqlalchemy_upsert",
+                    "success": success,
+                    "row": list(row) if row else None,
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqlalchemy_upsert", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_sqlalchemy_get_tables(self):
+        """Test dialect get_table_names works."""
+        from sqlalchemy import MetaData, Table, Column, Integer, String
+
+        table_name = f"test_tables_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            # Create table (registers in metadata for create_all/drop_all)
+            Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+            )
+
+            # Create the table
+            metadata.create_all(engine)
+
+            try:
+                # Verify table exists using dialect method
+                with engine.connect() as conn:
+                    tables = engine.dialect.get_table_names(conn)
+                    table_exists = table_name in tables
+            finally:
+                # Clean up
+                metadata.drop_all(engine)
+
+            return Response.json(
+                {
+                    "test": "sqlalchemy_get_tables",
+                    "success": table_exists,
+                    "table_name": table_name,
+                    "table_exists": table_exists,
+                    "table_count": len(tables),
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                Table(table_name, metadata)  # Register table in metadata for drop
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "sqlalchemy_get_tables", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - Additional Empty Result Tests
+
+    async def test_empty_result_where(self):
+        """Test empty result from WHERE clause that matches nothing."""
+        table_name = f"test_empty_where_{uuid.uuid4().hex[:8]}"
+
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            # Create and populate table
+            await cursor.execute_async(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL
+                )
+            """)
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name) VALUES (?)", ("Alice",)
+            )
+
+            # Query with WHERE that matches nothing
+            await cursor.execute_async(
+                f"SELECT id, name FROM {table_name} WHERE name = ?",
+                ("NonExistent",),
+            )
+            rows = cursor.fetchall()
+            description = cursor.description
+
+            # Clean up
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            conn.close()
+
+            # Should have empty results but valid description
+            success = (
+                len(rows) == 0
+                and description is not None
+                and len(description) == 2
+                and description[0][0] == "id"
+                and description[1][0] == "name"
+            )
+
+            return Response.json(
+                {
+                    "test": "empty_result_where",
+                    "success": success,
+                    "row_count": len(rows),
+                    "description": [d[0] for d in description] if description else None,
+                }
+            )
+        except Exception as e:
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "empty_result_where", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - Additional JSON Tests
+
+    async def test_json_multiple_values(self):
+        """Test filtering rows where JSON array contains any of multiple values."""
+        import json
+        from sqlalchemy import (
+            MetaData,
+            Table,
+            Column,
+            Integer,
+            String,
+            select,
+            exists,
+            func,
+        )
+
+        table_name = f"test_json_multi_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("product", String(100)),
+                Column("categories", String),  # JSON array
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(
+                        product="Widget A",
+                        categories=json.dumps(["electronics", "gadgets"]),
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(
+                        product="Widget B",
+                        categories=json.dumps(["home", "kitchen"]),
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(
+                        product="Widget C",
+                        categories=json.dumps(["electronics", "office"]),
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(
+                        product="Widget D",
+                        categories=json.dumps(["sports", "outdoor"]),
+                    )
+                )
+                conn.commit()
+
+                # Query: find products in "electronics" OR "home" categories
+                je = (
+                    func.json_each(test_table.c.categories)
+                    .table_valued("value")
+                    .alias("je")
+                )
+                stmt = (
+                    select(test_table.c.product)
+                    .where(
+                        exists(
+                            select(1)
+                            .select_from(je)
+                            .where(func.lower(je.c.value).in_(["electronics", "home"]))
+                        )
+                    )
+                    .order_by(test_table.c.product)
+                )
+                result = conn.execute(stmt)
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = (
+                len(rows) == 3
+                and rows[0][0] == "Widget A"
+                and rows[1][0] == "Widget B"
+                and rows[2][0] == "Widget C"
+            )
+
+            return Response.json(
+                {
+                    "test": "json_multiple_values",
+                    "success": success,
+                    "matching_products": [row[0] for row in rows],
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "json_multiple_values", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - Boolean Column Tests
+
+    async def test_boolean_column(self):
+        """Test that boolean columns return Python bool, not str or int."""
+        from sqlalchemy import MetaData, Table, Column, Integer, String, Boolean, select
+
+        table_name = f"test_bool_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("username", String(100)),
+                Column("is_admin", Boolean),
+                Column("is_active", Boolean),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(
+                        username="admin", is_admin=True, is_active=True
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(
+                        username="user", is_admin=False, is_active=True
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(
+                        username="inactive", is_admin=False, is_active=False
+                    )
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(
+                        test_table.c.username,
+                        test_table.c.is_admin,
+                        test_table.c.is_active,
+                    ).order_by(test_table.c.username)
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            # Verify booleans are actual Python bools
+            success = (
+                len(rows) == 3
+                and rows[0][1] is True  # admin.is_admin
+                and rows[0][2] is True  # admin.is_active
+                and rows[1][1] is False  # inactive.is_admin
+                and rows[1][2] is False  # inactive.is_active
+                and rows[2][1] is False  # user.is_admin
+                and rows[2][2] is True  # user.is_active
+            )
+
+            return Response.json(
+                {
+                    "test": "boolean_column",
+                    "success": success,
+                    "admin_is_admin": rows[0][1],
+                    "admin_is_active": rows[0][2],
+                    "inactive_is_admin": rows[1][1],
+                    "inactive_is_active": rows[1][2],
+                    "user_is_admin": rows[2][1],
+                    "user_is_active": rows[2][2],
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "boolean_column", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_boolean_filter(self):
+        """Test filtering by boolean values works correctly."""
+        from sqlalchemy import MetaData, Table, Column, Integer, String, Boolean, select
+
+        table_name = f"test_bool_filter_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+                Column("enabled", Boolean),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(test_table.insert().values(name="Feature A", enabled=True))
+                conn.execute(
+                    test_table.insert().values(name="Feature B", enabled=False)
+                )
+                conn.execute(test_table.insert().values(name="Feature C", enabled=True))
+                conn.commit()
+
+                # Filter for enabled=True
+                result = conn.execute(
+                    select(test_table.c.name)
+                    .where(test_table.c.enabled == True)  # noqa: E712
+                    .order_by(test_table.c.name)
+                )
+                enabled_rows = result.fetchall()
+
+                # Filter for enabled=False
+                result = conn.execute(
+                    select(test_table.c.name).where(
+                        test_table.c.enabled == False  # noqa: E712
+                    )
+                )
+                disabled_rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = (
+                len(enabled_rows) == 2
+                and enabled_rows[0][0] == "Feature A"
+                and enabled_rows[1][0] == "Feature C"
+                and len(disabled_rows) == 1
+                and disabled_rows[0][0] == "Feature B"
+            )
+
+            return Response.json(
+                {
+                    "test": "boolean_filter",
+                    "success": success,
+                    "enabled_features": [row[0] for row in enabled_rows],
+                    "disabled_features": [row[0] for row in disabled_rows],
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "boolean_filter", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_boolean_nullable(self):
+        """Test nullable boolean columns handle NULL correctly."""
+        from sqlalchemy import MetaData, Table, Column, Integer, String, Boolean, select
+
+        table_name = f"test_bool_null_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+                Column("verified", Boolean, nullable=True),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(test_table.insert().values(name="User A", verified=True))
+                conn.execute(test_table.insert().values(name="User B", verified=False))
+                conn.execute(test_table.insert().values(name="User C", verified=None))
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.name, test_table.c.verified).order_by(
+                        test_table.c.name
+                    )
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = (
+                len(rows) == 3
+                and rows[0][1] is True  # User A
+                and rows[1][1] is False  # User B
+                and rows[2][1] is None  # User C (NULL)
+            )
+
+            return Response.json(
+                {
+                    "test": "boolean_nullable",
+                    "success": success,
+                    "user_a_verified": rows[0][1],
+                    "user_b_verified": rows[1][1],
+                    "user_c_verified": rows[2][1],
+                }
+            )
+        except Exception as e:
+            try:
+                engine = self.get_engine()
+                metadata = MetaData()
+                test_table = Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "boolean_nullable", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - NULL Parameter Tests
+
+    async def test_null_string(self):
+        """Test inserting NULL into a String column."""
+        from sqlalchemy import MetaData, Table, Column, Integer, String, select
+
+        table_name = f"test_null_str_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("value", String(100), nullable=True),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(test_table.insert().values(value="hello"))
+                conn.execute(test_table.insert().values(value=None))
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.value).order_by(test_table.c.id)
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = len(rows) == 2 and rows[0][0] == "hello" and rows[1][0] is None
+
+            return Response.json(
+                {
+                    "test": "null_string",
+                    "success": success,
+                    "row_with_value": rows[0][0],
+                    "row_with_null": rows[1][0],
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "null_string", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_null_integer(self):
+        """Test inserting NULL into an Integer column."""
+        from sqlalchemy import MetaData, Table, Column, Integer, select
+
+        table_name = f"test_null_int_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("value", Integer, nullable=True),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(test_table.insert().values(value=42))
+                conn.execute(test_table.insert().values(value=None))
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.value).order_by(test_table.c.id)
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = len(rows) == 2 and rows[0][0] == 42 and rows[1][0] is None
+
+            return Response.json(
+                {
+                    "test": "null_integer",
+                    "success": success,
+                    "row_with_value": rows[0][0],
+                    "row_with_null": rows[1][0],
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "null_integer", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - LargeBinary Column Tests
+
+    async def test_largebinary_basic(self):
+        """Test basic LargeBinary column functionality."""
+        from sqlalchemy import (
+            Column,
+            Integer,
+            LargeBinary,
+            MetaData,
+            String,
+            Table,
+            select,
+        )
+
+        table_name = f"test_largebinary_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+                Column("data", LargeBinary),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                binary_data = b"\x00\x01\x02\x03\xff\xfe\xfd"
+                conn.execute(
+                    test_table.insert().values(name="test_file", data=binary_data)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table).where(test_table.c.name == "test_file")
+                )
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = row is not None and row[2] == binary_data
+
+            return Response.json(
+                {
+                    "test": "largebinary_basic",
+                    "success": success,
+                    "data_matches": row[2] == binary_data if row else False,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "largebinary_basic", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_largebinary_image(self):
+        """Test storing simulated image data."""
+        from sqlalchemy import (
+            Column,
+            Integer,
+            LargeBinary,
+            MetaData,
+            String,
+            Table,
+            select,
+        )
+
+        table_name = f"test_largebinary_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("filename", String(100)),
+                Column("image_data", LargeBinary),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+                conn.execute(
+                    test_table.insert().values(filename="test.png", image_data=png_data)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table).where(test_table.c.filename == "test.png")
+                )
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = row is not None and row[2] == png_data
+            has_png_header = row[2][:8] == b"\x89PNG\r\n\x1a\n" if row else False
+
+            return Response.json(
+                {
+                    "test": "largebinary_image",
+                    "success": success,
+                    "has_png_header": has_png_header,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "largebinary_image", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_largebinary_nullable(self):
+        """Test nullable LargeBinary columns."""
+        from sqlalchemy import (
+            Column,
+            Integer,
+            LargeBinary,
+            MetaData,
+            String,
+            Table,
+            select,
+        )
+
+        table_name = f"test_largebinary_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+                Column("data", LargeBinary, nullable=True),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(test_table.insert().values(name="no_data", data=None))
+                conn.execute(
+                    test_table.insert().values(name="has_data", data=b"\xab\xcd")
+                )
+                conn.commit()
+
+                result = conn.execute(select(test_table).order_by(test_table.c.id))
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = len(rows) == 2
+            null_is_none = rows[0][2] is None if len(rows) > 0 else False
+            data_is_bytes = rows[1][2] == b"\xab\xcd" if len(rows) > 1 else False
+
+            return Response.json(
+                {
+                    "test": "largebinary_nullable",
+                    "success": success,
+                    "null_is_none": null_is_none,
+                    "data_is_bytes": data_is_bytes,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "largebinary_nullable", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - ON CONFLICT Advanced Tests
+
+    async def test_on_conflict_do_nothing(self):
+        """Test INSERT ... ON CONFLICT DO NOTHING."""
+        from sqlalchemy import Column, Integer, MetaData, String, Table, select
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        table_name = f"test_conflict_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100), unique=True),
+                Column("count", Integer),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                stmt = sqlite_insert(test_table).values(
+                    id=1, name="unique_name", count=10
+                )
+                conn.execute(stmt)
+                conn.commit()
+
+                stmt = sqlite_insert(test_table).values(
+                    id=2, name="unique_name", count=20
+                )
+                stmt = stmt.on_conflict_do_nothing(index_elements=["name"])
+                conn.execute(stmt)
+                conn.commit()
+
+                result = conn.execute(select(test_table))
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = len(rows) == 1
+            original_preserved = rows[0][2] == 10 if rows else False
+
+            return Response.json(
+                {
+                    "test": "on_conflict_do_nothing",
+                    "success": success,
+                    "row_count": len(rows),
+                    "original_value_preserved": original_preserved,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "on_conflict_do_nothing", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_on_conflict_composite(self):
+        """Test ON CONFLICT with composite unique constraint."""
+        from sqlalchemy import (
+            Column,
+            Integer,
+            MetaData,
+            String,
+            Table,
+            UniqueConstraint,
+            select,
+        )
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        table_name = f"test_conflict_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("user_id", Integer),
+                Column("resource_id", Integer),
+                Column("access_level", String(50)),
+                UniqueConstraint("user_id", "resource_id", name="unique_user_resource"),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                stmt = sqlite_insert(test_table).values(
+                    user_id=1, resource_id=100, access_level="read"
+                )
+                conn.execute(stmt)
+                conn.commit()
+
+                stmt = sqlite_insert(test_table).values(
+                    user_id=1, resource_id=100, access_level="write"
+                )
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["user_id", "resource_id"],
+                    set_={"access_level": stmt.excluded.access_level},
+                )
+                conn.execute(stmt)
+                conn.commit()
+
+                result = conn.execute(select(test_table))
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = len(rows) == 1
+            value_updated = rows[0][2] == "write" if rows else False
+
+            return Response.json(
+                {
+                    "test": "on_conflict_composite",
+                    "success": success,
+                    "value_updated": value_updated,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "on_conflict_composite", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - Single-Row Result Tests
+
+    async def test_single_row_result(self):
+        """Test that a single-row SELECT returns data in fetchall, not description."""
+        table_name = f"test_single_{uuid.uuid4().hex[:8]}"
+
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            # Create table and insert exactly 1 row
+            await cursor.execute_async(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    value INTEGER
+                )
+            """)
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name, value) VALUES (?, ?)",
+                ("only_row", 99),
+            )
+
+            # SELECT the single row
+            await cursor.execute_async(f"SELECT id, name, value FROM {table_name}")
+            description = cursor.description
+            rows = cursor.fetchall()
+            rowcount = cursor.rowcount
+
+            # Clean up
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            conn.close()
+
+            # Verify: description should have column names, not data values
+            desc_names = [d[0] for d in description] if description else []
+            expected_columns = ["id", "name", "value"]
+
+            success = (
+                len(rows) == 1
+                and rows[0][1] == "only_row"
+                and rows[0][2] == 99
+                and desc_names == expected_columns
+            )
+
+            return Response.json(
+                {
+                    "test": "single_row_result",
+                    "success": success,
+                    "rows": rows,
+                    "row_count": len(rows),
+                    "rowcount": rowcount,
+                    "description_names": desc_names,
+                    "expected_columns": expected_columns,
+                }
+            )
+        except Exception as e:
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "single_row_result", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_single_row_sqlalchemy(self):
+        """Test single-row result via SQLAlchemy engine."""
+        from sqlalchemy import Column, Integer, MetaData, String, Table, select
+
+        table_name = f"test_single_sa_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("name", String(100)),
+                Column("value", Integer),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(test_table.insert().values(name="only_row", value=99))
+                conn.commit()
+
+                result = conn.execute(select(test_table))
+                rows = result.fetchall()
+                columns = list(result.keys())
+
+            metadata.drop_all(engine)
+
+            success = len(rows) == 1 and rows[0][1] == "only_row" and rows[0][2] == 99
+
+            return Response.json(
+                {
+                    "test": "single_row_sqlalchemy",
+                    "success": success,
+                    "rows": [list(row) for row in rows],
+                    "columns": columns,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "single_row_sqlalchemy", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_multi_row_result(self):
+        """Test that multi-row SELECT returns correct data and description."""
+        table_name = f"test_multi_{uuid.uuid4().hex[:8]}"
+
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            await cursor.execute_async(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    value INTEGER
+                )
+            """)
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name, value) VALUES (?, ?)",
+                ("row_one", 10),
+            )
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name, value) VALUES (?, ?)",
+                ("row_two", 20),
+            )
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (name, value) VALUES (?, ?)",
+                ("row_three", 30),
+            )
+
+            # SELECT all rows
+            await cursor.execute_async(
+                f"SELECT id, name, value FROM {table_name} ORDER BY id"
+            )
+            description = cursor.description
+            rows = cursor.fetchall()
+            rowcount = cursor.rowcount
+
+            # Clean up
+            await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            conn.close()
+
+            desc_names = [d[0] for d in description] if description else []
+            expected_columns = ["id", "name", "value"]
+
+            success = (
+                len(rows) == 3
+                and desc_names == expected_columns
+                and rows[0][1] == "row_one"
+                and rows[1][1] == "row_two"
+                and rows[2][1] == "row_three"
+            )
+
+            return Response.json(
+                {
+                    "test": "multi_row_result",
+                    "success": success,
+                    "rows": rows,
+                    "row_count": len(rows),
+                    "rowcount": rowcount,
+                    "description_names": desc_names,
+                    "expected_columns": expected_columns,
+                }
+            )
+        except Exception as e:
+            try:
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+                conn.close()
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "multi_row_result", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_on_conflict_where(self):
+        """Test ON CONFLICT with WHERE clause."""
+        from sqlalchemy import Boolean, Column, Integer, MetaData, String, Table, select
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        table_name = f"test_conflict_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("email", String(100), unique=True),
+                Column("is_verified", Boolean),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                stmt = sqlite_insert(test_table).values(
+                    email="test@example.com", is_verified=False
+                )
+                conn.execute(stmt)
+                conn.commit()
+
+                stmt = sqlite_insert(test_table).values(
+                    email="test@example.com", is_verified=True
+                )
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["email"],
+                    set_={"is_verified": stmt.excluded.is_verified},
+                    where=(test_table.c.is_verified == False),  # noqa: E712
+                )
+                conn.execute(stmt)
+                conn.commit()
+
+                result = conn.execute(select(test_table))
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = row is not None and row[2] is True
+
+            return Response.json(
+                {
+                    "test": "on_conflict_where",
+                    "success": success,
+                    "is_verified": row[2] if row else None,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "on_conflict_where", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - Autoincrement Insert Tests (Issue #12)
+
+    async def test_autoincrement_insert(self):
+        """Test raw cursor INSERT without specifying primary key, check lastrowid."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        table_name = f"test_autoincr_{uuid.uuid4().hex[:8]}"
+        try:
+            await cursor.execute_async(
+                f"CREATE TABLE {table_name} "
+                "(id INTEGER PRIMARY KEY, title TEXT NOT NULL)"
+            )
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (title) VALUES (?)",
+                ("Hello World",),
+            )
+            last_id = cursor.lastrowid
+            meta = cursor._last_result_meta
+
+            await cursor.execute_async(
+                f"INSERT INTO {table_name} (title) VALUES (?)",
+                ("Second Entry",),
+            )
+            last_id_2 = cursor.lastrowid
+            meta_2 = cursor._last_result_meta
+
+            await cursor.execute_async(f"DROP TABLE {table_name}")
+
+            return Response.json(
+                {
+                    "test": "autoincrement_insert",
+                    "success": last_id == 1 and last_id_2 == 2,
+                    "lastrowid_1": last_id,
+                    "lastrowid_2": last_id_2,
+                    "meta_1": meta,
+                    "meta_2": meta_2,
+                }
+            )
+        except Exception as e:
+            try:
+                await cursor.execute_async(f"DROP TABLE IF EXISTS {table_name}")
+            except Exception:
+                pass
+            return Response.json(
+                {
+                    "test": "autoincrement_insert",
+                    "success": False,
+                    "error": str(e),
+                },
+                status=500,
+            )
+
+    async def test_autoincrement_insert_sqlalchemy(self):
+        """Test SQLAlchemy ORM INSERT without specifying primary key (issue #12).
+
+        This reproduces the exact scenario from the bug report:
+        session.add(News(title="...")) without setting id.
+        """
+        from sqlalchemy import Integer, String, MetaData, Table
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+
+        engine = create_engine_from_binding(self.env.DB)
+        table_name = f"test_autoincr_orm_{uuid.uuid4().hex[:8]}"
+
+        try:
+
+            class Base(DeclarativeBase):
+                pass
+
+            class News(Base):
+                __tablename__ = table_name
+                id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+                url: Mapped[str] = mapped_column(String(511), unique=True, index=True)
+                title: Mapped[str] = mapped_column(String(127))
+
+            Base.metadata.create_all(engine)
+
+            with Session(engine) as session:
+                entry = News(
+                    url="https://example.com/first",
+                    title="First Title",
+                )
+                session.add(entry)
+                session.commit()
+                session.refresh(entry)
+                entry_id = entry.id
+                entry_title = entry.title
+
+            with Session(engine) as session:
+                entry2 = News(
+                    url="https://example.com/second",
+                    title="Second Title",
+                )
+                session.add(entry2)
+                session.commit()
+                session.refresh(entry2)
+                entry2_id = entry2.id
+
+            Base.metadata.drop_all(engine)
+
+            return Response.json(
+                {
+                    "test": "autoincrement_insert_sqlalchemy",
+                    "success": entry_id == 1 and entry2_id == 2,
+                    "entry_id": entry_id,
+                    "entry_title": entry_title,
+                    "entry2_id": entry2_id,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata = MetaData()
+                Table(table_name, metadata)
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {
+                    "test": "autoincrement_insert_sqlalchemy",
+                    "success": False,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                status=500,
+            )
+
+    async def test_autoincrement_lastrowid(self):
+        """Test that lastrowid is correctly populated from D1 meta."""
+        from sqlalchemy import Integer, String, MetaData, Table, Column
+
+        engine = create_engine_from_binding(self.env.DB)
+        metadata = MetaData()
+        table_name = f"test_autoincr_lr_{uuid.uuid4().hex[:8]}"
+
+        test_table = Table(
+            table_name,
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("title", String(127), nullable=False),
+        )
+
+        try:
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                result = conn.execute(test_table.insert().values(title="First"))
+                lastrowid_1 = result.inserted_primary_key[0]
+
+                result2 = conn.execute(test_table.insert().values(title="Second"))
+                lastrowid_2 = result2.inserted_primary_key[0]
+                conn.commit()
+
+            metadata.drop_all(engine)
+
+            return Response.json(
+                {
+                    "test": "autoincrement_lastrowid",
+                    "success": lastrowid_1 == 1 and lastrowid_2 == 2,
+                    "lastrowid_1": lastrowid_1,
+                    "lastrowid_2": lastrowid_2,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {
+                    "test": "autoincrement_lastrowid",
+                    "success": False,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                status=500,
+            )
+
+    # MARK: - DateTime Column Tests (Issue #13)
+
+    async def test_datetime_basic(self):
+        """Test DateTime column insert and retrieve with timezone-aware datetimes."""
+        from datetime import datetime, timezone
+        from sqlalchemy import (
+            Column,
+            DateTime,
+            Integer,
+            MetaData,
+            String,
+            Table,
+            select,
+        )
+
+        table_name = f"test_dt_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("created_at", DateTime(timezone=True)),
+            )
+
+            metadata.create_all(engine)
+
+            dt_value = datetime(2025, 12, 29, 16, 51, 29, tzinfo=timezone.utc)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(title="Test", created_at=dt_value)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.title, test_table.c.created_at)
+                )
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = (
+                row is not None
+                and row[0] == "Test"
+                and isinstance(row[1], datetime)
+                and row[1].year == 2025
+                and row[1].month == 12
+                and row[1].day == 29
+            )
+
+            return Response.json(
+                {
+                    "test": "datetime_basic",
+                    "success": success,
+                    "title": row[0] if row else None,
+                    "created_at_type": type(row[1]).__name__ if row else None,
+                    "year": row[1].year
+                    if row and isinstance(row[1], datetime)
+                    else None,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "datetime_basic", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_datetime_non_utc(self):
+        """Test DateTime with non-UTC timezone offset (exact scenario from issue #13)."""
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import (
+            Column,
+            DateTime,
+            Integer,
+            MetaData,
+            String,
+            Table,
+            select,
+        )
+
+        table_name = f"test_dt_tz_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("origin_created_at", DateTime(timezone=True)),
+                Column("indexed_at", DateTime(timezone=True)),
+            )
+
+            metadata.create_all(engine)
+
+            tz_minus_3 = timezone(timedelta(hours=-3))
+            origin_dt = datetime(2025, 12, 29, 16, 51, 29, tzinfo=tz_minus_3)
+            indexed_dt = datetime(2026, 2, 1, 18, 22, 4, 948999, tzinfo=timezone.utc)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(
+                        title="News",
+                        origin_created_at=origin_dt,
+                        indexed_at=indexed_dt,
+                    )
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(
+                        test_table.c.origin_created_at,
+                        test_table.c.indexed_at,
+                    )
+                )
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = (
+                row is not None
+                and isinstance(row[0], datetime)
+                and isinstance(row[1], datetime)
+            )
+
+            return Response.json(
+                {
+                    "test": "datetime_non_utc",
+                    "success": success,
+                    "origin_type": type(row[0]).__name__ if row else None,
+                    "indexed_type": type(row[1]).__name__ if row else None,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "datetime_non_utc", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_datetime_nullable(self):
+        """Test nullable DateTime columns handle NULL correctly."""
+        from datetime import datetime, timezone
+        from sqlalchemy import (
+            Column,
+            DateTime,
+            Integer,
+            MetaData,
+            String,
+            Table,
+            select,
+        )
+
+        table_name = f"test_dt_null_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("published_at", DateTime(timezone=True), nullable=True),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(
+                        title="Published",
+                        published_at=datetime.now(timezone.utc),
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(title="Draft", published_at=None)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.title, test_table.c.published_at).order_by(
+                        test_table.c.id
+                    )
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = (
+                len(rows) == 2
+                and rows[0][0] == "Published"
+                and isinstance(rows[0][1], datetime)
+                and rows[1][0] == "Draft"
+                and rows[1][1] is None
+            )
+
+            return Response.json(
+                {
+                    "test": "datetime_nullable",
+                    "success": success,
+                    "published_has_datetime": isinstance(rows[0][1], datetime)
+                    if rows
+                    else False,
+                    "draft_is_none": rows[1][1] is None if len(rows) > 1 else False,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "datetime_nullable", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_datetime_orm(self):
+        """Test DateTime via ORM session (reproduces exact issue #13 scenario)."""
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import Integer, String, Float, Text, DateTime
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+
+        engine = create_engine_from_binding(self.env.DB)
+        table_name = f"test_dt_orm_{uuid.uuid4().hex[:8]}"
+
+        try:
+
+            class Base(DeclarativeBase):
+                pass
+
+            class News(Base):
+                __tablename__ = table_name
+                id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+                url: Mapped[str] = mapped_column(String(511), unique=True, index=True)
+                title: Mapped[str] = mapped_column(String(127))
+                content: Mapped[str] = mapped_column(Text)
+                response_elapsed_seconds: Mapped[float | None] = mapped_column(
+                    Float, nullable=True
+                )
+                origin_created_at: Mapped[datetime | None] = mapped_column(
+                    DateTime(timezone=True), nullable=True
+                )
+                indexed_at: Mapped[datetime] = mapped_column(
+                    DateTime(timezone=True),
+                    default=lambda: datetime.now(timezone.utc),
+                )
+                inserted_at: Mapped[datetime] = mapped_column(
+                    DateTime(timezone=True),
+                    default=lambda: datetime.now(timezone.utc),
+                )
+
+            Base.metadata.create_all(engine)
+
+            tz_minus_3 = timezone(timedelta(hours=-3))
+            origin_dt = datetime(2025, 12, 29, 16, 51, 29, tzinfo=tz_minus_3)
+
+            with Session(engine) as session:
+                news_entry = News(
+                    url="https://example.com/issue-13-test",
+                    title="Issue 13 DateTime Test",
+                    content="Testing datetime bind parameter conversion.",
+                    response_elapsed_seconds=0.504,
+                    origin_created_at=origin_dt,
+                    indexed_at=datetime.now(timezone.utc),
+                )
+                session.add(news_entry)
+                session.commit()
+                session.refresh(news_entry)
+                entry_id = news_entry.id
+                entry_title = news_entry.title
+                origin_is_dt = isinstance(news_entry.origin_created_at, datetime)
+                indexed_is_dt = isinstance(news_entry.indexed_at, datetime)
+                inserted_is_dt = isinstance(news_entry.inserted_at, datetime)
+
+            Base.metadata.drop_all(engine)
+
+            success = (
+                entry_id == 1 and origin_is_dt and indexed_is_dt and inserted_is_dt
+            )
+
+            return Response.json(
+                {
+                    "test": "datetime_orm",
+                    "success": success,
+                    "entry_id": entry_id,
+                    "entry_title": entry_title,
+                    "origin_is_datetime": origin_is_dt,
+                    "indexed_is_datetime": indexed_is_dt,
+                    "inserted_is_datetime": inserted_is_dt,
+                }
+            )
+        except Exception as e:
+            try:
+                from sqlalchemy import MetaData, Table
+
+                md = MetaData()
+                Table(table_name, md)
+                md.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {
+                    "test": "datetime_orm",
+                    "success": False,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                status=500,
+            )
+
+    async def test_date_basic(self):
+        """Test Date column insert and retrieve."""
+        from datetime import date
+        from sqlalchemy import (
+            Column,
+            Date,
+            Integer,
+            MetaData,
+            String,
+            Table,
+            select,
+        )
+
+        table_name = f"test_date_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("birth_date", Date),
+            )
+
+            metadata.create_all(engine)
+
+            date_value = date(2025, 12, 29)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(title="Test", birth_date=date_value)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.title, test_table.c.birth_date)
+                )
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = (
+                row is not None
+                and row[0] == "Test"
+                and isinstance(row[1], date)
+                and row[1].year == 2025
+                and row[1].month == 12
+                and row[1].day == 29
+            )
+
+            return Response.json(
+                {
+                    "test": "date_basic",
+                    "success": success,
+                    "title": row[0] if row else None,
+                    "birth_date_type": type(row[1]).__name__ if row else None,
+                    "year": row[1].year if row and isinstance(row[1], date) else None,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "date_basic", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_date_nullable(self):
+        """Test nullable Date columns handle NULL correctly."""
+        from datetime import date
+        from sqlalchemy import (
+            Column,
+            Date,
+            Integer,
+            MetaData,
+            String,
+            Table,
+            select,
+        )
+
+        table_name = f"test_date_null_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("event_date", Date, nullable=True),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(
+                        title="With Date",
+                        event_date=date(2025, 1, 1),
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(title="No Date", event_date=None)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.title, test_table.c.event_date).order_by(
+                        test_table.c.id
+                    )
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = (
+                len(rows) == 2
+                and rows[0][0] == "With Date"
+                and isinstance(rows[0][1], date)
+                and rows[1][0] == "No Date"
+                and rows[1][1] is None
+            )
+
+            return Response.json(
+                {
+                    "test": "date_nullable",
+                    "success": success,
+                    "with_date_is_date": isinstance(rows[0][1], date)
+                    if rows
+                    else False,
+                    "no_date_is_none": rows[1][1] is None if len(rows) > 1 else False,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "date_nullable", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_date_orm(self):
+        """Test Date via ORM session."""
+        from datetime import date
+        from sqlalchemy import Integer, String, Date
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+
+        engine = create_engine_from_binding(self.env.DB)
+        table_name = f"test_date_orm_{uuid.uuid4().hex[:8]}"
+
+        try:
+
+            class Base(DeclarativeBase):
+                pass
+
+            class Event(Base):
+                __tablename__ = table_name
+                id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+                title: Mapped[str] = mapped_column(String(127))
+                event_date: Mapped[date] = mapped_column(Date)
+
+            Base.metadata.create_all(engine)
+
+            test_date = date(2025, 12, 29)
+
+            with Session(engine) as session:
+                event = Event(
+                    title="Date Test Event",
+                    event_date=test_date,
+                )
+                session.add(event)
+                session.commit()
+                session.refresh(event)
+                event_title = event.title
+                event_date_is_date = isinstance(event.event_date, date)
+                event_date_value = event.event_date
+
+            Base.metadata.drop_all(engine)
+
+            success = event_date_is_date and event_date_value == test_date
+
+            return Response.json(
+                {
+                    "test": "date_orm",
+                    "success": success,
+                    "event_title": event_title,
+                    "event_date_is_date": event_date_is_date,
+                }
+            )
+        except Exception as e:
+            try:
+                from sqlalchemy import MetaData, Table
+
+                md = MetaData()
+                Table(table_name, md)
+                md.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {
+                    "test": "date_orm",
+                    "success": False,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                status=500,
+            )
+
+    # MARK: - Time Column Tests
+
+    async def test_time_basic(self):
+        """Test Time column insert and retrieve."""
+        from datetime import time
+        from sqlalchemy import (
+            Column,
+            Integer,
+            MetaData,
+            String,
+            Table,
+            Time,
+            select,
+        )
+
+        table_name = f"test_time_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("event_time", Time),
+            )
+
+            metadata.create_all(engine)
+
+            time_value = time(14, 30, 45)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(title="Test", event_time=time_value)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.title, test_table.c.event_time)
+                )
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = (
+                row is not None
+                and row[0] == "Test"
+                and isinstance(row[1], time)
+                and row[1].hour == 14
+                and row[1].minute == 30
+                and row[1].second == 45
+            )
+
+            return Response.json(
+                {
+                    "test": "time_basic",
+                    "success": success,
+                    "title": row[0] if row else None,
+                    "event_time_type": type(row[1]).__name__ if row else None,
+                    "hour": row[1].hour if row and isinstance(row[1], time) else None,
+                    "minute": row[1].minute
+                    if row and isinstance(row[1], time)
+                    else None,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "time_basic", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_time_nullable(self):
+        """Test nullable Time columns handle NULL correctly."""
+        from datetime import time
+        from sqlalchemy import (
+            Column,
+            Integer,
+            MetaData,
+            String,
+            Table,
+            Time,
+            select,
+        )
+
+        table_name = f"test_time_null_{uuid.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("event_time", Time, nullable=True),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(
+                        title="With Time",
+                        event_time=time(9, 0, 0),
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(title="No Time", event_time=None)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.title, test_table.c.event_time).order_by(
+                        test_table.c.id
+                    )
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = (
+                len(rows) == 2
+                and rows[0][0] == "With Time"
+                and isinstance(rows[0][1], time)
+                and rows[1][0] == "No Time"
+                and rows[1][1] is None
+            )
+
+            return Response.json(
+                {
+                    "test": "time_nullable",
+                    "success": success,
+                    "with_time_is_time": isinstance(rows[0][1], time)
+                    if rows
+                    else False,
+                    "no_time_is_none": rows[1][1] is None if len(rows) > 1 else False,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "time_nullable", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_time_orm(self):
+        """Test Time via ORM session."""
+        from datetime import time
+        from sqlalchemy import Integer, String, Time
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+
+        engine = create_engine_from_binding(self.env.DB)
+        table_name = f"test_time_orm_{uuid.uuid4().hex[:8]}"
+
+        try:
+
+            class Base(DeclarativeBase):
+                pass
+
+            class Schedule(Base):
+                __tablename__ = table_name
+                id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+                title: Mapped[str] = mapped_column(String(127))
+                start_time: Mapped[time] = mapped_column(Time)
+
+            Base.metadata.create_all(engine)
+
+            test_time = time(14, 30, 45)
+
+            with Session(engine) as session:
+                entry = Schedule(
+                    title="Time Test Entry",
+                    start_time=test_time,
+                )
+                session.add(entry)
+                session.commit()
+                session.refresh(entry)
+                entry_title = entry.title
+                start_time_is_time = isinstance(entry.start_time, time)
+                start_time_value = entry.start_time
+
+            Base.metadata.drop_all(engine)
+
+            success = start_time_is_time and start_time_value == test_time
+
+            return Response.json(
+                {
+                    "test": "time_orm",
+                    "success": success,
+                    "entry_title": entry_title,
+                    "start_time_is_time": start_time_is_time,
+                }
+            )
+        except Exception as e:
+            try:
+                from sqlalchemy import MetaData, Table
+
+                md = MetaData()
+                Table(table_name, md)
+                md.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {
+                    "test": "time_orm",
+                    "success": False,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                status=500,
+            )
+
+    # MARK: - UUID Tests (GitHub issue #24)
+
+    async def test_uuid_basic(self):
+        """Test UUID column insert and retrieve."""
+        import uuid as uuid_module
+        from sqlalchemy import Column, Integer, MetaData, String, Table, Uuid, select
+
+        table_name = f"test_uuid_{uuid_module.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("item_uuid", Uuid(as_uuid=True)),
+            )
+
+            metadata.create_all(engine)
+
+            test_uuid = uuid_module.uuid4()
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(title="Test", item_uuid=test_uuid)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.title, test_table.c.item_uuid)
+                )
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = (
+                row is not None
+                and row[0] == "Test"
+                and isinstance(row[1], uuid_module.UUID)
+                and row[1] == test_uuid
+            )
+
+            return Response.json(
+                {
+                    "test": "uuid_basic",
+                    "success": success,
+                    "uuid_type": type(row[1]).__name__ if row else None,
+                    "uuid_match": row[1] == test_uuid if row else False,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "uuid_basic", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_uuid_nullable(self):
+        """Test nullable UUID columns handle NULL correctly."""
+        import uuid as uuid_module
+        from sqlalchemy import Column, Integer, MetaData, String, Table, Uuid, select
+
+        table_name = f"test_uuid_null_{uuid_module.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("item_uuid", Uuid(as_uuid=True), nullable=True),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(
+                        title="With UUID", item_uuid=uuid_module.uuid4()
+                    )
+                )
+                conn.execute(
+                    test_table.insert().values(title="No UUID", item_uuid=None)
+                )
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.title, test_table.c.item_uuid).order_by(
+                        test_table.c.id
+                    )
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = (
+                len(rows) == 2
+                and isinstance(rows[0][1], uuid_module.UUID)
+                and rows[1][1] is None
+            )
+
+            return Response.json(
+                {
+                    "test": "uuid_nullable",
+                    "success": success,
+                    "with_uuid_is_uuid": isinstance(rows[0][1], uuid_module.UUID)
+                    if rows
+                    else False,
+                    "no_uuid_is_none": rows[1][1] is None if len(rows) > 1 else False,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "uuid_nullable", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_uuid_orm(self):
+        """Test UUID via ORM session."""
+        import uuid as uuid_module
+        from sqlalchemy import Integer, String, Uuid
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+
+        engine = create_engine_from_binding(self.env.DB)
+        table_name = f"test_uuid_orm_{uuid_module.uuid4().hex[:8]}"
+
+        try:
+
+            class Base(DeclarativeBase):
+                pass
+
+            class Item(Base):
+                __tablename__ = table_name
+                id: Mapped[int] = mapped_column(Integer, primary_key=True)
+                title: Mapped[str] = mapped_column(String(127))
+                item_uuid: Mapped[uuid_module.UUID] = mapped_column(Uuid(as_uuid=True))
+
+            Base.metadata.create_all(engine)
+
+            test_uuid = uuid_module.uuid4()
+
+            with Session(engine) as session:
+                item = Item(title="UUID ORM Test", item_uuid=test_uuid)
+                session.add(item)
+                session.commit()
+                session.refresh(item)
+                entry_title = item.title
+                uuid_is_uuid = isinstance(item.item_uuid, uuid_module.UUID)
+                uuid_match = item.item_uuid == test_uuid
+
+            Base.metadata.drop_all(engine)
+
+            return Response.json(
+                {
+                    "test": "uuid_orm",
+                    "success": uuid_is_uuid and uuid_match,
+                    "entry_title": entry_title,
+                    "uuid_is_uuid": uuid_is_uuid,
+                    "uuid_match": uuid_match,
+                }
+            )
+        except Exception as e:
+            try:
+                from sqlalchemy import MetaData, Table
+
+                md = MetaData()
+                Table(table_name, md)
+                md.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "uuid_orm", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_uuid_pk(self):
+        """Test UUID used as primary key."""
+        import uuid as uuid_module
+        from sqlalchemy import Column, MetaData, String, Table, Uuid, select
+
+        table_name = f"test_uuid_pk_{uuid_module.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Uuid(as_uuid=True), primary_key=True),
+                Column("title", String(127)),
+            )
+
+            metadata.create_all(engine)
+
+            pk_uuid = uuid_module.uuid4()
+
+            with engine.connect() as conn:
+                conn.execute(test_table.insert().values(id=pk_uuid, title="PK Test"))
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table).where(test_table.c.id == pk_uuid)
+                )
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = (
+                row is not None
+                and isinstance(row[0], uuid_module.UUID)
+                and row[0] == pk_uuid
+                and row[1] == "PK Test"
+            )
+
+            return Response.json(
+                {
+                    "test": "uuid_pk",
+                    "success": success,
+                    "pk_is_uuid": isinstance(row[0], uuid_module.UUID)
+                    if row
+                    else False,
+                    "pk_match": row[0] == pk_uuid if row else False,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "uuid_pk", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - Enum Tests (GitHub issue #24)
+
+    async def test_enum_basic(self):
+        """Test Enum column with string values insert and retrieve."""
+        import uuid as uuid_module
+        from sqlalchemy import Column, Enum, Integer, MetaData, String, Table, select
+
+        table_name = f"test_enum_{uuid_module.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("status", Enum("active", "inactive", "pending")),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(test_table.insert().values(title="Test", status="active"))
+                conn.commit()
+
+                result = conn.execute(select(test_table.c.title, test_table.c.status))
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = row is not None and row[0] == "Test" and row[1] == "active"
+
+            return Response.json(
+                {
+                    "test": "enum_basic",
+                    "success": success,
+                    "status_value": row[1] if row else None,
+                    "status_type": type(row[1]).__name__ if row else None,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "enum_basic", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_enum_python_class(self):
+        """Test Enum column with Python enum.Enum class."""
+        import enum as enum_module
+        import uuid as uuid_module
+        from sqlalchemy import Column, Enum, Integer, MetaData, String, Table, select
+
+        class Status(enum_module.Enum):
+            active = "active"
+            inactive = "inactive"
+            pending = "pending"
+
+        table_name = f"test_enum_cls_{uuid_module.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("status", Enum(Status)),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(title="Test", status=Status.active)
+                )
+                conn.commit()
+
+                result = conn.execute(select(test_table.c.title, test_table.c.status))
+                row = result.fetchone()
+
+            metadata.drop_all(engine)
+
+            success = row is not None and row[0] == "Test" and row[1] == Status.active
+
+            return Response.json(
+                {
+                    "test": "enum_python_class",
+                    "success": success,
+                    "status_is_enum": isinstance(row[1], Status) if row else False,
+                    "status_value": row[1].value
+                    if row and isinstance(row[1], Status)
+                    else str(row[1])
+                    if row
+                    else None,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "enum_python_class", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_enum_nullable(self):
+        """Test nullable Enum columns handle NULL correctly."""
+        import uuid as uuid_module
+        from sqlalchemy import Column, Enum, Integer, MetaData, String, Table, select
+
+        table_name = f"test_enum_null_{uuid_module.uuid4().hex[:8]}"
+
+        try:
+            engine = self.get_engine()
+            metadata = MetaData()
+
+            test_table = Table(
+                table_name,
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("title", String(127)),
+                Column("status", Enum("active", "inactive"), nullable=True),
+            )
+
+            metadata.create_all(engine)
+
+            with engine.connect() as conn:
+                conn.execute(
+                    test_table.insert().values(title="With Status", status="active")
+                )
+                conn.execute(test_table.insert().values(title="No Status", status=None))
+                conn.commit()
+
+                result = conn.execute(
+                    select(test_table.c.title, test_table.c.status).order_by(
+                        test_table.c.id
+                    )
+                )
+                rows = result.fetchall()
+
+            metadata.drop_all(engine)
+
+            success = len(rows) == 2 and rows[0][1] == "active" and rows[1][1] is None
+
+            return Response.json(
+                {
+                    "test": "enum_nullable",
+                    "success": success,
+                    "with_status_value": rows[0][1] if rows else None,
+                    "no_status_is_none": rows[1][1] is None if len(rows) > 1 else False,
+                }
+            )
+        except Exception as e:
+            try:
+                metadata.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "enum_nullable", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    async def test_enum_orm(self):
+        """Test Enum via ORM session with Python enum class."""
+        import enum as enum_module
+        import uuid as uuid_module
+        from sqlalchemy import Enum, Integer, String
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+
+        class Priority(enum_module.Enum):
+            low = "low"
+            medium = "medium"
+            high = "high"
+
+        engine = create_engine_from_binding(self.env.DB)
+        table_name = f"test_enum_orm_{uuid_module.uuid4().hex[:8]}"
+
+        try:
+
+            class Base(DeclarativeBase):
+                pass
+
+            class Task(Base):
+                __tablename__ = table_name
+                id: Mapped[int] = mapped_column(Integer, primary_key=True)
+                title: Mapped[str] = mapped_column(String(127))
+                priority: Mapped[Priority] = mapped_column(Enum(Priority))
+
+            Base.metadata.create_all(engine)
+
+            with Session(engine) as session:
+                task = Task(title="Enum ORM Task", priority=Priority.high)
+                session.add(task)
+                session.commit()
+                session.refresh(task)
+                entry_title = task.title
+                priority_is_enum = isinstance(task.priority, Priority)
+                priority_match = task.priority == Priority.high
+
+            Base.metadata.drop_all(engine)
+
+            return Response.json(
+                {
+                    "test": "enum_orm",
+                    "success": priority_is_enum and priority_match,
+                    "entry_title": entry_title,
+                    "priority_is_enum": priority_is_enum,
+                    "priority_match": priority_match,
+                }
+            )
+        except Exception as e:
+            try:
+                from sqlalchemy import MetaData, Table
+
+                md = MetaData()
+                Table(table_name, md)
+                md.drop_all(engine)
+            except Exception:
+                pass
+            return Response.json(
+                {"test": "enum_orm", "success": False, "error": str(e)},
+                status=500,
+            )
+
+    # MARK: - Parallel Query Tests (GitHub issue #20)
+
+    async def test_parallel_queries_engine(self):
+        """Timing test showing create_engine_from_binding() queries run concurrently.
+
+        Although SyncWorkerConnection uses pyodide.ffi.run_sync() internally,
+        run_sync() drives the JS event loop rather than truly blocking it.
+        asyncio.gather() can therefore interleave multiple D1 round-trips.
+
+        Uses N unique parameterized queries (SELECT :n) so D1 cannot cache
+        results across runs. Sequential time = N * one_query_latency.
+        If concurrent, parallel time ≈ one_query_latency.
+        """
+        import asyncio
+        import time
+        from sqlalchemy import text
+
+        N_QUERIES = 10
+
+        try:
+            engine = self.get_engine()
+
+            async def single_query(i):
+                with engine.connect() as conn:
+                    result = conn.execute(text("SELECT :n as n"), {"n": i})
+                    return result.fetchone()[0]
+
+            seq_start = time.time()
+            for i in range(N_QUERIES):
+                await single_query(i)
+            sequential_time = time.time() - seq_start
+
+            par_start = time.time()
+            results = await asyncio.gather(*[single_query(i) for i in range(N_QUERIES)])
+            parallel_time = time.time() - par_start
+
+            results_correct = results == list(range(N_QUERIES))
+            # Expect genuine speedup — parallel < 80% of sequential
+            is_concurrent = parallel_time < sequential_time * 0.8
+
+            return Response.json(
+                {
+                    "test": "parallel_queries_engine",
+                    "success": results_correct and is_concurrent,
+                    "results_correct": results_correct,
+                    "is_concurrent": is_concurrent,
+                    "sequential_time_s": round(sequential_time, 3),
+                    "parallel_time_s": round(parallel_time, 3),
+                    "n_queries": N_QUERIES,
+                }
+            )
+        except Exception as e:
+            return Response.json(
+                {
+                    "test": "parallel_queries_engine",
+                    "success": False,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                status=500,
+            )
+
+    async def test_parallel_queries_async(self):
+        """Timing test showing WorkerConnection async queries are truly concurrent.
+
+        Instead of a CPU-bound CTE (which D1 serializes server-side regardless),
+        we run many lightweight round-trips where network latency is the bottleneck.
+        N_QUERIES simple SELECTs are fired sequentially then concurrently via
+        asyncio.gather(). If WorkerConnection truly yields to the event loop,
+        the parallel run should be faster because multiple D1 round-trips overlap.
+        """
+        import asyncio
+        import time
+
+        N_QUERIES = 10
+
+        try:
+
+            async def single_query(i):
+                conn = self.get_connection()
+                cursor = conn.cursor()
+                await cursor.execute_async("SELECT ? as n", (i,))
+                row = cursor.fetchone()
+                conn.close()
+                return row[0]
+
+            # Sequential: N_QUERIES round-trips one after another
+            seq_start = time.time()
+            for i in range(N_QUERIES):
+                await single_query(i)
+            sequential_time = time.time() - seq_start
+
+            # Parallel: all N_QUERIES in flight at once
+            par_start = time.time()
+            results = await asyncio.gather(*[single_query(i) for i in range(N_QUERIES)])
+            parallel_time = time.time() - par_start
+
+            results_correct = results == list(range(N_QUERIES))
+            # Expect genuine speedup — parallel < 80% of sequential
+            is_concurrent = parallel_time < sequential_time * 0.8
+
+            return Response.json(
+                {
+                    "test": "parallel_queries_async",
+                    "success": results_correct and is_concurrent,
+                    "results_correct": results_correct,
+                    "is_concurrent": is_concurrent,
+                    "sequential_time_s": round(sequential_time, 3),
+                    "parallel_time_s": round(parallel_time, 3),
+                    "n_queries": N_QUERIES,
+                }
+            )
+        except Exception as e:
+            return Response.json(
+                {
+                    "test": "parallel_queries_async",
+                    "success": False,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                status=500,
+            )

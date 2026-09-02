@@ -100,13 +100,20 @@ class NPM(BaseCommand):
 
         print("installing js dependencies with npm")
         check_call(
-            ['npm', 'install', '--progress=false', '--unsafe-perm'],
+            ['npm', 'install', '--progress=false'],
             cwd=here,
             shell=shell,
         )
         os.utime(self.node_modules)
 
+        # autorunning postinstall scripts may be disabled for security
+        check_call(
+            ['npm', 'run', 'postinstall'],
+            cwd=here,
+            shell=shell,
+        )
         os.utime(self.bower_dir)
+
         # update data-files in case this created new files
         self.distribution.data_files = get_data_files()
         assert not self.should_run(), 'NPM.run failed'
@@ -191,7 +198,7 @@ class JSX(BaseCommand):
 
         print("Installing JSX admin app requirements")
         check_call(
-            ['npm', 'install', '--progress=false', '--unsafe-perm'],
+            ['npm', 'install', '--progress=false'],
             cwd=self.jsx_dir,
             shell=shell,
         )

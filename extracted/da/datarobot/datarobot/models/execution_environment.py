@@ -156,37 +156,37 @@ class ExecutionEnvironment(APIObject):
         is_public: Optional[bool] = None,
         use_cases: Optional[List[str]] = None,
     ) -> "ExecutionEnvironment":
-        """Create an execution environment.
+        """Creates an execution environment.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         name: str
-            execution environment name
+            The execution environment name.
         description: Optional[str]
-            execution environment description
+            The execution environment description.
         programming_language: Optional[str]
-            programming language of the environment to be created.
-            Can be "python", "r", "java" or "other". Default value - "other"
+            The programming language of the environment to be created.
+            Can be "python", "r", "java" or "other". Default value - "other".
         required_metadata_keys: List[RequiredMetadataKey]
-            Definition of a metadata keys that custom models using this environment must define
+            The definition of metadata keys that custom models using this environment must define.
         is_public: bool, optional
-            public accessibility of environment
+            The public accessibility of environment.
         use_cases: List[str], optional
-             List of use-cases this environment may be used for
+            A list of use-cases this environment may be used for.
 
         Returns
         -------
         ExecutionEnvironment
-            created execution environment
+            The created execution environment.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         required_metadata_keys = required_metadata_keys or []
         payload: Dict[str, Union[None, str, bool, List[str], List[RequiredMetadataKeyType]]] = {
@@ -212,20 +212,20 @@ class ExecutionEnvironment(APIObject):
         offset: Optional[int] = 0,
         limit: Optional[int] = 0,
     ) -> List["ExecutionEnvironment"]:
-        """List execution environments available to the user.
+        """Returns a list of execution environments available to the user.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         search_for: Optional[str]
-            the string for filtering execution environment - only execution
+            The string for filtering execution environment - only execution
             environments that contain the string in name or description will
             be returned.
         is_own: bool, optional
             Only return execution environments that were created by the current user.
         use_cases: str, optional
-            Only return execution environments that contain the specified use case
+            Only return execution environments that contain the specified use case.
         is_public: Optional[bool]
             Only return execution environments matching this parameter value.
         offset: Optional[int]
@@ -237,14 +237,14 @@ class ExecutionEnvironment(APIObject):
         Returns
         -------
         List[ExecutionEnvironment]
-            a list of execution environments.
+            A list of execution environments.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         param: Dict[str, Any] = {"search_for": search_for}
         if is_own is not None:
@@ -266,41 +266,41 @@ class ExecutionEnvironment(APIObject):
 
     @classmethod
     def get(cls, execution_environment_id: str) -> "ExecutionEnvironment":
-        """Get execution environment by its ID.
+        """Returns the execution environment by its ID.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         execution_environment_id: str
-            ID of the execution environment to retrieve
+            The ID of the execution environment to retrieve.
 
         Returns
         -------
         ExecutionEnvironment
-            retrieved execution environment
+            The retrieved execution environment.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         path = f"{cls._path}{execution_environment_id}/"
         return cls.from_location(path)
 
     def delete(self) -> None:
-        """Delete execution environment.
+        """Deletes the execution environment.
 
         .. versionadded:: v2.21
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         url = f"{self._path}{self.id}/"
         self._client.delete(url)
@@ -313,29 +313,29 @@ class ExecutionEnvironment(APIObject):
         is_public: Optional[bool] = None,
         use_cases: Optional[List[str]] = None,
     ) -> None:
-        """Update execution environment properties.
+        """Updates the execution environment properties.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         name: Optional[str]
-            new execution environment name
+            The new execution environment name.
         description: Optional[str]
-            new execution environment description
+            The new execution environment description.
         required_metadata_keys: List[RequiredMetadataKey]
-            Definition of a metadata keys that custom models using this environment must define
+            The definition of metadata keys that custom models using this environment must define.
         is_public: bool, optional
-            public accessibility of environment
+            The public accessibility of environment.
         use_cases: List[str], optional
-             List of use-cases this environment may be used for
+            A list of use-cases this environment may be used for.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         payload: Dict[str, Union[None, str, bool, List[RequiredMetadataKeyType], List[str]]] = {
             "name": name,
@@ -355,16 +355,16 @@ class ExecutionEnvironment(APIObject):
         self._set_values(**self._safe_data(data, do_recursive=True))
 
     def refresh(self) -> None:
-        """Update execution environment with the latest data from server.
+        """Updates the execution environment with the latest data from server.
 
         .. versionadded:: v2.21
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         url = f"{self._path}{self.id}/"
         response = self._client.get(url)
@@ -397,9 +397,9 @@ class ExecutionEnvironment(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Examples
         --------

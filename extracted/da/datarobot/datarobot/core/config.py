@@ -21,6 +21,8 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.sources import EnvSettingsSource, PydanticBaseSettingsSource
 
+from datarobot.utils.deprecation import deprecation_warning
+
 # Support both old and new locations of parse_env_vars
 try:
     # Older versions (< 2.3.0) have parse_env_vars in pydantic_settings.sources
@@ -64,6 +66,35 @@ def getenv(name: str, default: Optional[str] = None) -> _RuntimeParamPayload:
                 return str(payload["apiToken"])
 
     return raw
+
+
+# Two per-LLM runtime parameters were renamed into the `{instance}_` namespace:
+# `NIM_DEPLOYMENT_ID` and `USE_DATAROBOT_LLM_GATEWAY`. Deployments created before the
+# rename still set the bare names, which are no longer declared fields and so are
+# dropped by `extra="ignore"`; they can only be read straight from the environment.
+# The two helpers below let `resolve_llm_config` do that as a fallback, and are meant
+# to be removed along with it once those deployments are gone.
+
+
+def _coerce_bool(value: object) -> bool:
+    """Coerce a runtime-parameter value (a bool, or a ``"1"``/``"0"`` string) to a bool."""
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+
+def _deprecated_param(old_name: str, new_name: str) -> _RuntimeParamPayload:
+    """Read a param from its pre-rename name, warning when it is there and ``None`` when not."""
+    old_value = getenv(old_name)
+    if old_value is None:
+        return None
+    deprecation_warning(
+        subject=old_name,
+        deprecated_since_version="3.19",
+        will_remove_version="3.21",
+        message=(f"Rename this runtime parameter to `{new_name}`. Falling back to the deprecated value for now."),
+    )
+    return old_value
 
 
 class PulumiConfigSettingsSource(EnvSettingsSource):  # type: ignore[misc,unused-ignore]
@@ -246,13 +277,36 @@ class DataRobotAppFrameworkBaseSettings(BaseSettings):  # type: ignore[misc,unus
         LLMConfig
             That instance's routing fields, combined with the endpoint and API token
             resolved from this config.
+
+        Notes
+        -----
+        Two routing fields fall back to their pre-rename bare parameter names,
+        ``NIM_DEPLOYMENT_ID`` and ``USE_DATAROBOT_LLM_GATEWAY``, when the namespaced
+        ``{name}_*`` field was not set explicitly. That keeps deployments created before
+        the rename working, warns when it happens, and is meant to be removed later.
         """
+        nim_deployment_id = getattr(self, f"{name}_nim_deployment_id", None)
+        use_datarobot_llm_gateway = getattr(self, f"{name}_use_datarobot_llm_gateway", True)
+
+        # `model_fields_set` distinguishes an explicitly-provided value from a default,
+        # so the deprecated bare name is only consulted when the namespaced field was
+        # left alone. That check is what makes the bool work, since its default is truthy.
+        fields_set = self.model_fields_set
+        if f"{name}_nim_deployment_id" not in fields_set:
+            legacy = _deprecated_param("NIM_DEPLOYMENT_ID", f"{name.upper()}_NIM_DEPLOYMENT_ID")
+            if legacy is not None:
+                nim_deployment_id = str(legacy)
+        if f"{name}_use_datarobot_llm_gateway" not in fields_set:
+            legacy = _deprecated_param("USE_DATAROBOT_LLM_GATEWAY", f"{name.upper()}_USE_DATAROBOT_LLM_GATEWAY")
+            if legacy is not None:
+                use_datarobot_llm_gateway = _coerce_bool(legacy)
+
         return LLMConfig(
             datarobot_endpoint=self.resolve_datarobot_endpoint(),
             datarobot_api_token=self.resolve_datarobot_api_token(),
             llm_deployment_id=getattr(self, f"{name}_deployment_id", None),
-            llm_nim_deployment_id=getattr(self, f"{name}_nim_deployment_id", None),
-            llm_use_datarobot_llm_gateway=getattr(self, f"{name}_use_datarobot_llm_gateway", True),
+            llm_nim_deployment_id=nim_deployment_id,
+            llm_use_datarobot_llm_gateway=use_datarobot_llm_gateway,
             llm_default_model=getattr(self, f"{name}_default_model", None),
         )
 

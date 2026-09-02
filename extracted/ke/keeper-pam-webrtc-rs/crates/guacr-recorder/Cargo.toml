@@ -1,0 +1,19 @@
+[package]
+name = "guacr-recorder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Video session recording: fMP4 muxing, raw streaming to gateway via ZMQ PAIR socket"
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+log.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "io-util", "time", "fs"] }
+zmq.workspace = true
+
+guacr-handlers = { path = "../guacr-handlers" }
+guacr-recording = { path = "../guacr-recording" }

@@ -12,6 +12,9 @@ from dreadnode.builtin_capabilities import (
     read_builtin_skill_instructions,
 )
 
+if t.TYPE_CHECKING:
+    from dreadnode.capabilities.capability import Capability
+
 __all__ = [
     "get_concepts_prompt",
     "get_core_system_prompt",
@@ -19,6 +22,7 @@ __all__ = [
     "get_platform_context",
     "get_project_memory_background_context",
     "get_runtime_shell_prompt",
+    "get_tooling_health_context",
     "render_project_memory_preload_xml",
 ]
 
@@ -106,6 +110,74 @@ def get_platform_context() -> str:
         return "\n## Current platform context\n\n" + "\n".join(parts) + "\n"
     except Exception:
         logger.debug("Platform context extraction failed", exc_info=True)
+        return ""
+
+
+def get_tooling_health_context(capability: "Capability | None") -> str:
+    """Warn the agent about preflight ``checks:`` that failed for its capability.
+
+    Capability ``checks:`` run at load time and record a ``kind="check"`` entry
+    in ``component_health`` (status ``ok`` or ``error``). Those results already
+    surface in the TUI, but the agent never saw them — so on a host missing a
+    required binary it would call tools that fail and burn tokens doing half a
+    job. This block puts the failed checks in front of the agent and tells it to
+    stop and engage the operator instead of proceeding blind.
+
+    Returns an empty string when the capability has no failed checks, so healthy
+    runtimes pay no prompt cost.
+    """
+    if capability is None:
+        return ""
+    try:
+        health = getattr(capability, "component_health", None) or []
+        failed = [
+            entry
+            for entry in health
+            if entry.get("kind") == "check" and entry.get("status") == "error"
+        ]
+        if not failed:
+            return ""
+
+        lines: list[str] = []
+        for entry in failed:
+            name = str(entry.get("name") or "unknown")
+            error = str(entry.get("error") or "").strip()
+            lines.append(f"- `{name}`" + (f" — {error}" if error else ""))
+
+        cap_name = getattr(capability, "name", None) or "the active capability"
+        guidance = dedent(
+            f"""\
+            The preflight checks below for the **{cap_name}** capability FAILED on
+            this runtime — the underlying tools are missing or broken:
+            """
+        ).rstrip()
+        instructions = dedent(
+            """\
+            These tools are required for parts of this capability's workflow.
+            Do NOT proceed with tasks that depend on them: you will produce a
+            half-finished result and waste effort calling tools that error out.
+
+            Instead:
+            - Tell the operator exactly which tools are missing and stop, using
+              `ask_user` when it is available, before starting dependent work.
+            - Only continue if you can scope the task down to what the available
+              tools genuinely support — and say explicitly what you are skipping.
+            - If a setup step can install the missing tooling (e.g. a capability
+              install/setup script), surface that to the operator as the fix.
+            """
+        ).rstrip()
+
+        return (
+            "\n## Runtime Tooling Health\n\n"
+            + guidance
+            + "\n\n"
+            + "\n".join(lines)
+            + "\n\n"
+            + instructions
+            + "\n"
+        )
+    except Exception:
+        logger.debug("Tooling health context extraction failed", exc_info=True)
         return ""
 
 

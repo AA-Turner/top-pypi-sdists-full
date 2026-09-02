@@ -3,6 +3,7 @@
 import os
 import re
 import runpy
+import warnings
 from collections.abc import Iterable
 from copy import deepcopy
 from enum import Enum
@@ -18,7 +19,7 @@ import pandera.api.dataframe.model as dataframe_model
 import pandera.api.extensions as pax
 import pandera.pandas as pa
 from pandera.api.base.model import MetaModel
-from pandera.errors import SchemaError, SchemaInitError
+from pandera.errors import SchemaError, SchemaInitError, SchemaWarning
 from pandera.typing import DataFrame, FieldType, Index, Series, String
 from pandera.typing import pandas as pandas_typing
 
@@ -125,10 +126,11 @@ def test_field_type_presence_and_nullability() -> None:
 
     class Model(pa.DataFrameModel):
         required: int
-        nullable_values: int | None
+        nullable_values: FieldType[int | None]  # type: ignore[valid-type]
         optional_presence: FieldType[int] | None
-        explicit_nullable: int | None = pa.Field(nullable=False)
-        explicit_non_nullable: int = pa.Field(nullable=True)
+        legacy_optional_presence: int | None
+        explicit_nullable: int = pa.Field(nullable=True)
+        explicit_required: FieldType[int] | None = pa.Field(required=True)
         aliased: str = pa.Field(alias="renamed")
 
     schema = Model.to_schema()
@@ -144,8 +146,14 @@ def test_field_type_presence_and_nullability() -> None:
     assert not schema.columns["optional_presence"].required
     assert not schema.columns["optional_presence"].nullable
 
-    assert not schema.columns["explicit_nullable"].nullable
-    assert schema.columns["explicit_non_nullable"].nullable
+    # a bare ``T | None`` annotation keeps its historical meaning: the column
+    # may be absent, and its values are non-nullable unless stated otherwise.
+    # See https://github.com/unionai-oss/pandera/issues/2457
+    assert not schema.columns["legacy_optional_presence"].required
+    assert not schema.columns["legacy_optional_presence"].nullable
+
+    assert schema.columns["explicit_nullable"].nullable
+    assert schema.columns["explicit_required"].required
     assert Model.aliased == "renamed"
     for name in (
         Model.required,
@@ -312,7 +320,7 @@ def test_nullable_annotation_coercion() -> None:
     """Inferred nullability must also guide pandas dtype coercion."""
 
     class Model(pa.DataFrameModel):
-        value: int | None = pa.Field(coerce=True)
+        value: FieldType[int | None] = pa.Field(coerce=True)  # type: ignore[valid-type]
 
     validated = Model.validate(pd.DataFrame({"value": [1, None]}))
     assert validated["value"].isna().sum() == 1
@@ -431,6 +439,29 @@ def test_optional_column() -> None:
     assert not schema.columns["b"].required
     assert not schema.columns["c"].required
     assert not schema.columns["d"].required
+
+
+def test_optional_bare_dtype_column() -> None:
+    """Bare ``T | None`` annotations declare an optional column.
+
+    Regression test for https://github.com/unionai-oss/pandera/issues/2457
+    """
+
+    class Schema(pa.DataFrameModel):
+        a: int
+        b: int | None
+        c: Optional[str]  # noqa: UP045
+        d: Annotated[int, pa.Field(gt=0)] | None
+        e: int | None = pa.Field(required=True)
+
+    schema = Schema.to_schema()
+    assert schema.columns["a"].required
+    for name in ("b", "c", "d"):
+        assert not schema.columns[name].required
+        assert not schema.columns[name].nullable
+    assert schema.columns["e"].required
+
+    Schema.validate(pd.DataFrame({"a": [1], "e": [1]}))
 
 
 def test_optional_column_with_typing_module_alias() -> None:
@@ -2209,7 +2240,7 @@ def test_generic_nullable_field() -> None:
     T = TypeVar("T", int, float, str)
 
     class GenericModel(pa.DataFrameModel, Generic[T]):
-        value: T | None
+        value: T = pa.Field(nullable=True)
 
     class IntModel(GenericModel[int]): ...
 
@@ -2629,3 +2660,57 @@ def test_model_with_pydantic_base_model_with_df_init():
         df: pa.typing.DataFrame[PanderaDataFrameModel] = pd.DataFrame(
             {"field": [1, 2, 3]}
         )
+
+
+def test_field_on_missing_warns_for_optional_column():
+    """Field(on_missing='warn') warns when the optional column is absent."""
+
+    class Schema(pa.DataFrameModel):
+        a: Series[int]
+        b: Series[str] | None = pa.Field(on_missing="warn")
+        c: Series[str] | None  # no on_missing -> stays silent
+
+    df = pd.DataFrame({"a": [1, 2]})
+    with pytest.warns(SchemaWarning, match="optional column 'b'") as record:
+        Schema.validate(df)
+    messages = [str(w.message) for w in record]
+    assert not any("'c'" in m for m in messages)
+
+
+def test_config_on_missing_columns_warns_for_optional_column():
+    """Config.on_missing_columns applies to every optional column."""
+
+    class Schema(pa.DataFrameModel):
+        a: Series[int]
+        b: Series[str] | None
+
+        class Config:
+            on_missing_columns = "warn"
+
+    df = pd.DataFrame({"a": [1, 2]})
+    with pytest.warns(SchemaWarning, match="optional column 'b'"):
+        Schema.validate(df)
+
+
+def test_on_missing_default_does_not_warn():
+    """Without on_missing configured, missing optional columns are silent."""
+
+    class Schema(pa.DataFrameModel):
+        a: Series[int]
+        b: Series[str] | None
+
+    df = pd.DataFrame({"a": [1, 2]})
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        Schema.validate(df)
+
+
+def test_field_on_missing_invalid_value_raises_init_error():
+    """An invalid on_missing value raises a SchemaInitError."""
+
+    class Schema(pa.DataFrameModel):
+        a: Series[int]
+        b: Series[str] | None = pa.Field(on_missing="raise")
+
+    with pytest.raises(SchemaInitError, match="on_missing must be"):
+        Schema.validate(pd.DataFrame({"a": [1, 2]}))

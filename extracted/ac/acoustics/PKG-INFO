@@ -1,0 +1,56 @@
+Metadata-Version: 2.1
+Name: acoustics
+Version: 0.2.6
+Summary: Acoustics module for Python.
+Author: Python Acoustics
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Dist: numpy >= 1.8
+Requires-Dist: scipy >= 0.16
+Requires-Dist: matplotlib
+Requires-Dist: six >= 1.4.1
+Requires-Dist: pandas >= 0.15
+Requires-Dist: tabulate
+Requires-Dist: sphinx ; extra == "documentation"
+Requires-Dist: pyFFTW ; extra == "fast_fft"
+Project-URL: Bug Tracker, https://github.com/python-acoustics/python-acoustics/issues
+Project-URL: Homepage, https://github.com/python-acoustics/python-acoustics
+Provides-Extra: documentation
+Provides-Extra: fast_fft
+
+# python-acoustics
+
+[![Build Status](https://travis-ci.org/python-acoustics/python-acoustics.svg?branch=master)](https://travis-ci.org/python-acoustics/python-acoustics)
+
+The `python-acoustics` module is a Python module with useful tools for acousticians.
+
+## Installation
+
+The latest release can be found on PyPI and installed with `pip install acoustics`.
+Otherwise, you can clone this repository and install with `pip install` or `pip install -e` when you want an editable install.
+
+
+## Examples
+
+Several examples can be found in the `examples` folder.
+
+## Tests
+
+The test suite can be run with
+
+`pytest`
+
+## Documentation
+
+Documentation can be found [online](http://python-acoustics.github.io/python-acoustics/).
+
+## License
+
+`python-acoustics` is distributed under the BSD 3-clause license. See `LICENSE` for more information.
+
+## Contributing
+
+Contributors are always welcome.
+

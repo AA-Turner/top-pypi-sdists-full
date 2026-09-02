@@ -1,0 +1,21 @@
+[package]
+name = "formualizer-testkit"
+version = "0.1.0"
+edition = "2024"
+description = "Reusable test and fixture helpers for Formualizer crates"
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+publish = false
+readme = "README.md"
+
+[features]
+# xlsx fixture helpers (umya-backed). Default-on; disable for dependents that
+# only need the pure generators (e.g. formualizer-eval dev-deps).
+default = ["xlsx"]
+xlsx = ["dep:umya-spreadsheet", "dep:tempfile"]
+
+[dependencies]
+tempfile = { workspace = true, optional = true }
+umya-spreadsheet = { version = "=2.3.2", optional = true }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cwsandbox
-Version: 1.7.0
+Version: 1.12.0
 Summary: A Python client library for CoreWeave Sandbox
 Author: CoreWeave, Inc.
 License-Expression: Apache-2.0
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4,>=3.11
+Requires-Dist: cryptography>=42.0.0
 Requires-Dist: googleapis-common-protos>=1.63.0
 Requires-Dist: grpcio>=1.78.0
 Requires-Dist: protobuf<7,>=5
@@ -35,7 +36,9 @@ Requires-Dist: pytest>=8.0.0; extra == 'dev'
 Requires-Dist: python-semantic-release>=9.15.1; extra == 'dev'
 Requires-Dist: ruff>=0.6.0; extra == 'dev'
 Requires-Dist: types-protobuf<7,>=5; extra == 'dev'
-Requires-Dist: wandb>=0.19.0; extra == 'dev'
+Requires-Dist: wandb>=0.29.0; extra == 'dev'
+Provides-Extra: wandb
+Requires-Dist: wandb>=0.29.0; extra == 'wandb'
 Description-Content-Type: text/markdown
 
 # cwsandbox-client
@@ -65,6 +68,58 @@ async with Sandbox.run("sleep", "infinity") as sb:
     result = await sb.exec(["python", "-c", "print(2 + 2)"])
     print(result.stdout)  # 4
 ```
+
+## Sandbox data connections
+
+Exec, log, and file operations prefer a sandbox-scoped direct mTLS connection.
+Lifecycle and management operations continue to use the CWSandbox API. The SDK
+generates the private key in memory, sends only a certificate signing request,
+and never sends API bearer credentials to the sandbox data endpoint.
+
+The default `auto` policy uses a short direct-connect budget, then falls back to
+the API gateway. You can require either path for validation or rollback:
+
+```python
+from cwsandbox import DataPlaneMode, Sandbox, SandboxDefaults
+
+# Fail instead of falling back, useful when validating direct connectivity.
+with Sandbox.run(data_plane_mode=DataPlaneMode.DIRECT) as sb:
+    print(sb.exec(["echo", "direct"]).result().stdout)
+
+# Disable direct access for a group of sandboxes.
+defaults = SandboxDefaults(data_plane_mode=DataPlaneMode.GATEWAY)
+with Sandbox.run(defaults=defaults) as sb:
+    print(sb.exec(["echo", "gateway"]).result().stdout)
+```
+
+Direct credentials are scoped to the requested operation and created lazily.
+Active streams retain their connection, while a process-wide bounded
+idle-channel cache prevents large collections of inactive sandbox objects from
+retaining one socket per sandbox.
+
+## Authentication
+
+Authentication defaults to `AuthStrategy.COREWEAVE_API_KEY`, which reads
+`CWSANDBOX_API_KEY` and sends it as a Bearer token. The strategy argument is
+optional, so existing callers do not need to change.
+
+To use W&B credentials, install the optional integration and select it
+explicitly. Credential resolution is delegated to the W&B SDK and supports an
+active W&B session, `WANDB_API_KEY`, and the host-specific entry in `.netrc`:
+
+```bash
+pip install "cwsandbox[wandb]"
+```
+
+```python
+from cwsandbox import AuthStrategy, Sandbox
+
+with Sandbox.run(auth=AuthStrategy.WANDB) as sb:
+    ...
+```
+
+W&B authentication is sent in the `x-wandb-api-key` header; it is not treated
+as a CoreWeave Bearer token.
 
 ## Development
 

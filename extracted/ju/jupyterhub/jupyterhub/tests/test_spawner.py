@@ -40,6 +40,8 @@ while True:
         print("interrupted")
 """
 
+pytestmark = pytest.mark.ssl
+
 
 def setup():
     logging.basicConfig(level=logging.DEBUG)
@@ -79,13 +81,13 @@ async def test_spawner(db, request):
 
 
 def test_spawner_from_db(app, user):
-    spawner = user.spawners['name']
+    spawner = user.get_or_create_spawner('name', 'name')
     user_options = {"test": "value"}
     spawner.orm_spawner.user_options = user_options
     app.db.commit()
     # delete and recreate the spawner from the db
     user.spawners.pop('name')
-    new_spawner = user.spawners['name']
+    new_spawner = user.get_or_create_spawner('name', 'name')
     assert new_spawner.orm_spawner.user_options == user_options
     assert new_spawner.user_options == user_options
 
@@ -123,8 +125,15 @@ async def test_single_user_spawner(app, request):
     await wait_for_spawner(spawner)
     status = await spawner.poll()
     assert status is None
+    # seems to take a long time to exit sometimes
+    # (only on CI when this is the first test)
+    # give slow CI an extra long grace period to exit
+    spawner.interrupt_timeout = 60
     await spawner.stop()
     status = await spawner.poll()
+    # ensures clean exit
+    # will be e.g. -15 if terminated (interrupt timeout reached),
+    # -9 if killed (even TERM didn't stop the process)
     assert status == 0
 
 
@@ -254,7 +263,7 @@ async def test_shell_cmd(db, tmpdir, request):
     db.commit()
     s.server = Server.from_orm(server)
     db.commit()
-    (ip, port) = await s.start()
+    ip, port = await s.start()
     request.addfinalizer(s.stop)
     s.server.ip = ip
     s.server.port = port
@@ -610,9 +619,6 @@ async def test_apply_user_options_dict(db):
         # undeclared, but available
         "cpu_limit": "1m",
     }
-    if sys.version_info < (3, 9):
-        # traitlets added `from_string` after requiring Python 3.9
-        user_options["start_timeout"] = int(user_options["start_timeout"])
     spawner = new_spawner(db, apply_user_options=apply_user_options)
     await spawner._run_apply_user_options(user_options)
     assert spawner.mem_limit == 1 << 30

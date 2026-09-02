@@ -1,0 +1,994 @@
+"""
+SSM send-command + poll-for-completion chokepoint.
+
+Consolidation substrate for the ``run_ssm`` bash helper that previously
+appeared as a ~54-line mirror in every dispatcher script that drives a
+spot instance over the SSM transport. The first occurrence shipped in
+alpha-engine-predictor #168 (2026-05-15) as part of the SSH/SCP→SSM
+migration; the second and third occurrences land when alpha-engine-data's
+``spot_data_weekly.sh`` and alpha-engine-backtester's ``spot_backtest.sh``
+migrate off SSH+SCP onto the same SSM transport. Per
+``~/Development/CLAUDE.md`` SOTA sub-sub-rule + the
+``[[feedback_lift_invariants_to_chokepoint_after_second_recurrence]]``
+discipline, the pattern lifts to lib at the second recurrence.
+
+The pre-lift bash shape was::
+
+    run_ssm "<description>" "<bash script>" [timeout_seconds]
+    # 1. base64-encode the script body (transport-safe wrapping of inner
+    #    heredocs / quoting)
+    # 2. aws ssm send-command --document-name AWS-RunShellScript \
+    #      --instance-ids "$INSTANCE_ID" \
+    #      --output-s3-bucket-name "$S3_BUCKET" \
+    #      --output-s3-key-prefix "${S3_STAGING_PREFIX}/ssm-output" \
+    #      --timeout-seconds "$timeout_s" \
+    #      --parameters file://$pfile
+    # 3. while :; do
+    #      aws ssm get-command-invocation --command-id $cmd_id
+    #      stream stdout delta; check Status; break on terminal
+    #    done
+    # 4. on Success → return 0
+    # 5. on Failed/TimedOut/Cancelled → fetch stderr, print, return 1
+
+The Python primitive in this module exposes the same contract — base64
+wrap, send, poll, stream, propagate exit — but lives in one place so
+the polling cadence, error-class handling, and S3 output-key layout
+match across every consumer.
+
+**Why a CLI, not a bash function:**
+
+Per the SOTA / institutional-approach sub-sub-rule ("when mirroring a
+pattern across repos, consider lifting it into ``nousergon-lib``...
+Pure-Bash primitives can stay mirrored unless re-expressible as a
+Python CLI entry callable from Bash, in which case the CLI re-expression
+is the institutional path"). The dispatcher script invokes::
+
+    python -m krepis.ssm_dispatcher run \\
+      --instance-id "$INSTANCE_ID" \\
+      --description "bootstrap" \\
+      --timeout 3600 \\
+      --output-bucket "$S3_BUCKET" \\
+      --output-key-prefix "${S3_STAGING_PREFIX}/ssm-output" \\
+      --region "$AWS_REGION" \\
+      --script-stdin <<'BOOTSTRAP'
+    set -eo pipefail
+    ...
+    BOOTSTRAP
+
+Exit code 0 on Success; 1 on terminal non-Success; 2 on bad input. The
+inner script's stdout streams to the dispatcher's stdout as it arrives
+(SSM ``StandardOutputContent`` delta); on terminal non-Success the
+``StandardErrorContent`` is fetched + printed before the dispatcher
+exits.
+
+**InvocationDoesNotExist race:**
+
+After ``send-command`` returns a ``CommandId``, the first poll of
+``get-command-invocation`` can race the SSM control plane's registration
+and return ``InvocationDoesNotExist``. The 2026-05-23 Saturday SF showed
+this exact failure mode at event 16 (MorningEnrich first poll), absorbed
+by the SF Catch but representing a substrate weakness. This module
+treats ``InvocationDoesNotExist`` as a transient "Pending" status for
+the first ~60s after SendCommand (the registration window) and as a
+terminal failure thereafter. Mirrors the bash predecessor's
+``2>/dev/null || echo Pending`` swallow without the all-errors-look-like-Pending
+ambiguity.
+
+**Failure behavior — never raises:**
+
+- Inner command's terminal status maps to exit code 0 (Success) or 1
+  (Failed / TimedOut / Cancelled / TerminalError). The dispatcher
+  script's ``set -e`` then propagates that exit upward to the SF Catch.
+- Subprocess setup failure (boto3 missing, IAM denied at SendCommand
+  time, instance not registered) is logged + returns 1. The caller
+  reads the failure from CloudWatch / SSM history; this module's job
+  is to be a thin transport, not a recovery layer.
+
+**Peak-RSS budget (alpha-engine-config-I7260):**
+
+This module is the fleet's real chokepoint for work that runs ON A SPOT BOX —
+measured 2026-08-13, all three dispatcher repos funnel every remote step
+through ``_spot_common.sh::run_ssm`` into ``krepis.ssm_dispatcher run``. So it
+is where the peak resident set of the remote workload is measured: the script
+body is wrapped by :func:`krepis.rss_budget.wrap_script`, and on terminal
+Success the reading is folded into the stage's console row under
+``ops/checks/ae-rss-<stage>/latest.json``.
+
+This activates only when ``--diagnostics-bucket`` is set — the caller has then
+already declared that this dispatcher may persist run records to that bucket,
+so no consumer gains an S3 write it did not ask for, and none of the three
+dispatcher repos needs a flag change. The wrapper returns the body's exit
+status on every path, and the publication is best-effort and swallowed: an
+observability addition may not fail a stage that did its work. See
+:mod:`krepis.rss_budget` for why the floors it makes falsifiable were guesses,
+and why the thresholds shipped with it are declared initial values rather than
+measurements.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import logging
+import os
+import sys
+import time
+from datetime import datetime, timezone
+from typing import Final, Optional
+
+from . import resource_kill, rss_budget, s3_surface
+
+logger = logging.getLogger(__name__)
+
+# Status taxonomy from SSM's get-command-invocation. Terminal non-Success
+# statuses all map to exit 1.
+TERMINAL_NON_SUCCESS: Final[frozenset[str]] = frozenset(
+    {"Cancelled", "Failed", "TimedOut", "Cancelling", "TerminalError"}
+)
+PENDING_STATUSES: Final[frozenset[str]] = frozenset(
+    {"Pending", "InProgress", "Delayed"}
+)
+SUCCESS_STATUS: Final[str] = "Success"
+
+# Window during which InvocationDoesNotExist counts as a registration race
+# rather than a true failure. Mirrors the empirical observation that the
+# SSM control plane has settled by ~30s post-SendCommand under normal
+# conditions; 60s is a defensive ceiling.
+REGISTRATION_GRACE_SECONDS: Final[int] = 60
+
+# Poll cadence — matches the bash predecessor's `sleep 5`.
+DEFAULT_POLL_INTERVAL_SECONDS: Final[float] = 5.0
+
+# StandardOutputContent / StandardErrorContent fields are capped at 24KB
+# in get-command-invocation responses. Beyond the cap the buffer rotates
+# (we detect by a length decrease) and the full log lives in the
+# configured S3 output prefix.
+SSM_INLINE_OUTPUT_CAP_BYTES: Final[int] = 24 * 1024
+
+# Stdout/stderr tail length captured in the diagnostics JSON written on
+# terminal non-Success. Chosen at 4KB to mirror the typical pre-lift bash
+# diagnostic posture (operators want enough tail to grep the failure
+# signature without consuming the full SSM inline cap); the full log
+# lives in --output-bucket when configured.
+DIAGNOSTICS_TAIL_BYTES: Final[int] = 4 * 1024
+
+#: Declared S3 surface (``krepis.s3_surface``, alpha-engine-config-I8156).
+#: Both namespaces this module touches are named by the caller: SSM's own
+#: command output is read back from ``--output-key-prefix`` and the terminal
+#: diagnostics JSON is written to ``--diagnostics-prefix``. krepis picks
+#: neither, so the grant obligation sits with the dispatching consumer.
+S3_SURFACE = (
+    s3_surface.caller_supplied(
+        "--output-key-prefix (read back) and --diagnostics-prefix (written) "
+        "are both supplied by the dispatching caller"
+    ),
+)
+
+# alpha-engine-config-I7258: this module is where the REMOTE process's exit
+# status is actually read — `get_command_invocation`'s `ResponseCode` field
+# is the plugin's real shell exit code, set by SSM itself independent of
+# whatever text the remote script printed. It is authoritative in a way
+# text-scraping a "Killed" line never is: a caller's own `if ! cmd; then
+# echo "ERROR: ... failed"; exit 1; fi` launders the true code (137) to a
+# generic 1 in the SCRIPT's own exit, but the SSM agent still reports the
+# plugin's ResponseCode as observed on the box before that laundering
+# happened. Classifying here — "where the remote exit status is read", not
+# where a local dispatcher child is waited on (that's ssm_log_capture, a
+# different chokepoint one hop further out) — is what makes the
+# classification survive a launcher that has not yet been fixed to
+# preserve its own rc.
+#
+# alpha-engine-config-I7442: the codes, the patterns and the verdict now live
+# ONCE, in :mod:`krepis.resource_kill`. This module and ssm_log_capture each
+# carried a private copy and they had already drifted — this one never scanned
+# text, that one never saw SSM's ``TimedOut`` status. Both delegate.
+#
+# I7442 also closes the case ResponseCode alone cannot: on 2026-08-15
+# PredictorBacktest's remote script laundered its own 137 to `exit 1`, so
+# ResponseCode was 1 and this classifier said "not a resource kill". The
+# `Killed` line existed — past the 24KB inline cap, in the S3 output prefix
+# SSM writes for exactly that reason. :func:`_fetch_remote_output_tail` reads
+# the TAIL of that object before returning, so the kill line is classified even
+# when every exit code on the path has been laundered.
+
+
+def _classify_terminal_failure(
+    status: str, response_code: Optional[int], kill_line: Optional[str] = None
+) -> Optional[str]:
+    """Return ``"OOM"``, ``"TIMEOUT"``, or ``None`` for a terminal non-Success.
+
+    Thin delegation to :func:`krepis.resource_kill.classify`; kept as a named
+    function because the consumer contract tests in three repos import it.
+    """
+    return resource_kill.classify(
+        returncode=response_code, status=status, kill_line=kill_line
+    )
+
+
+# Bytes read from the END of each SSM S3 output object on a terminal failure.
+# The tail, unconditionally and never the head: SSM's own inline capture keeps
+# the HEAD and that is precisely how the 2026-08-15 log came to be truncated at
+# the failure (`2026-08-15 12:44--output truncated--`). 32KB is comfortably
+# more than the ~1KB of shell/kernel kill output plus the workload's last
+# phase, and one range-get per failed stage is free next to the stage itself.
+REMOTE_TAIL_BYTES: Final[int] = 32 * 1024
+
+# The SSM agent uploads its stdout/stderr objects around the moment the command
+# reaches a terminal status, so the first list can legitimately race it. Bounded
+# and short — this runs on the failure path and must not add minutes to it.
+REMOTE_TAIL_ATTEMPTS: Final[int] = 4
+REMOTE_TAIL_RETRY_SECONDS: Final[float] = 2.0
+
+
+def _fetch_remote_output_tail(
+    *,
+    bucket: Optional[str],
+    key_prefix: Optional[str],
+    command_id: str,
+    s3_client=None,
+    sleep=time.sleep,
+    attempts: int = REMOTE_TAIL_ATTEMPTS,
+    tail_bytes: int = REMOTE_TAIL_BYTES,
+) -> str:
+    """Read the tail of SSM's own S3 upload of the remote stdout/stderr.
+
+    SSM writes the FULL remote output under
+    ``{key_prefix}/{command_id}/{instance-id}/awsrunShellScript/0.awsrunShellScript/{stdout,stderr}``
+    whenever ``OutputS3BucketName`` is configured — which every alpha-engine
+    launcher sets. That upload is the only copy not subject to the 24KB inline
+    cap, and reading it HERE is what makes it useful: this runs inside the
+    dispatcher, before any launcher EXIT trap has terminated the instance or
+    cleaned the staging prefix the upload lives under.
+
+    Returns the concatenated tails, or ``""``. Never raises — a diagnostic
+    read may not change a stage's outcome.
+    """
+    if not bucket or not key_prefix:
+        return ""
+    if s3_client is None:
+        try:
+            import boto3
+
+            s3_client = boto3.client("s3")
+        except Exception as exc:
+            logger.warning(
+                "ssm_dispatcher: no S3 client for the remote-output tail "
+                "(swallowed): %s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return ""
+    prefix = "{}/{}/".format(key_prefix.rstrip("/"), command_id)
+    keys: list = []
+    for attempt in range(attempts):
+        try:
+            resp = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+            keys = [
+                item["Key"]
+                for item in (resp.get("Contents", []) or [])
+                if item["Key"].endswith("/stdout") or item["Key"].endswith("/stderr")
+            ]
+        except Exception as exc:
+            logger.warning(
+                "ssm_dispatcher: listing %s failed (swallowed): %s: %s",
+                prefix,
+                type(exc).__name__,
+                exc,
+            )
+            return ""
+        if keys or attempt == attempts - 1:
+            break
+        sleep(REMOTE_TAIL_RETRY_SECONDS)
+    chunks = []
+    # stdout last: bash's own "<script>: line N: <pid> Killed" job-control
+    # message goes to the shell's stderr, but a launcher that redirects 2>&1
+    # puts it on stdout, and resource_kill scans tail-first — so ordering the
+    # blob stderr-then-stdout keeps the most recently written text last.
+    for key in sorted(keys, key=lambda k: (not k.endswith("/stderr"), k)):
+        try:
+            obj = s3_client.get_object(
+                Bucket=bucket, Key=key, Range="bytes=-{}".format(int(tail_bytes))
+            )
+            body = obj["Body"].read()
+            chunks.append(
+                "--- tail of s3://{}/{} ---\n{}".format(
+                    bucket, key, body.decode("utf-8", errors="replace")
+                )
+            )
+        except Exception as exc:
+            logger.warning(
+                "ssm_dispatcher: tail read of s3://%s/%s failed (swallowed): %s: %s",
+                bucket,
+                key,
+                type(exc).__name__,
+                exc,
+            )
+    return "\n".join(chunks)
+
+# Bytes of streamed stdout retained in memory purely so the peak-RSS sentinel
+# (emitted by the on-box harness AFTER the body exits, so always in the tail)
+# can be recovered on Success. Bounded on purpose: the inline SSM field is
+# capped at 24KB and rotates, and an unbounded accumulator on a multi-hour
+# chatty stage is the exact defect class of alpha-engine-config-I7021 (a
+# warning that fills the capture window and evicts the record beside it).
+RSS_SENTINEL_TAIL_BYTES: Final[int] = 64 * 1024
+
+
+class SsmDispatchError(Exception):
+    """Non-recoverable SSM send-command / poll failure."""
+
+
+def _tail_bytes(text: str, max_bytes: int = DIAGNOSTICS_TAIL_BYTES) -> str:
+    """Return the last ``max_bytes`` of ``text``, snapping to a line boundary.
+
+    Used to bound the size of stdout/stderr payloads embedded in the
+    diagnostics JSON. Snap to a newline so the tail starts at a clean
+    line break rather than mid-line — operators grepping for a failure
+    signature get a coherent prefix instead of a truncated token. If no
+    newline exists in the window, the raw byte tail is returned.
+    """
+    if not text:
+        return ""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text
+    tail = encoded[-max_bytes:].decode("utf-8", errors="replace")
+    nl = tail.find("\n")
+    if nl != -1 and nl < len(tail) - 1:
+        return tail[nl + 1 :]
+    return tail
+
+
+def _ship_diagnostics(
+    *,
+    bucket: str,
+    prefix: str,
+    status: str,
+    command_id: str,
+    description: str,
+    exit_window_utc: str,
+    stdout_tail: str,
+    stderr_tail: str,
+    instance_id: str,
+    boto3_client=None,
+    stderr_stream=None,
+    response_code: Optional[int] = None,
+    classification: Optional[str] = None,
+    kill_line: Optional[str] = None,
+    remote_tail: Optional[str] = None,
+) -> tuple[bool, str]:
+    """Write the terminal-non-Success diagnostics JSON to S3.
+
+    Returns ``(ok, detail)``. **Never raises** — mirrors the failure-mode
+    posture of ``krepis.ssm_log_capture._ship_log_to_s3``. Any
+    S3 upload failure (NoCredentialsError, AccessDenied, transient
+    network) is logged to ``stderr_stream`` + swallowed; the inner
+    dispatcher exit code is preserved.
+
+    Key shape: ``s3://{bucket}/{prefix}/{YYYY-MM-DD}.json``. The date
+    component is the UTC date at exit-window time. The current spec
+    permits one diagnostics file per ``{prefix}`` per UTC day; consumer
+    dispatchers that need multi-failure-per-day discrimination should
+    incorporate the repo or stage name into ``--diagnostics-prefix``.
+    """
+    err = stderr_stream if stderr_stream is not None else sys.stderr
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    key = f"{prefix.rstrip('/')}/{date_str}.json"
+    payload = {
+        "status": status,
+        "command_id": command_id,
+        "description": description,
+        "exit_window_utc": exit_window_utc,
+        "stdout_tail": stdout_tail,
+        "stderr_tail": stderr_tail,
+        "instance_id": instance_id,
+        # alpha-engine-config-I7258: response_code is SSM's ResponseCode
+        # (the remote plugin's real exit code); classification is "OOM" /
+        # "TIMEOUT" / null. Persisted here so a resource kill is still
+        # visibly classified for anyone reading the diagnostics JSON
+        # directly, not only in the stderr line above.
+        "response_code": response_code,
+        "classification": classification,
+        # alpha-engine-config-I7442: the line the classification was made from,
+        # and the tail of SSM's own S3 output upload. Persisted because this
+        # JSON outlives the staging prefix — before I7442 the only record of a
+        # 4-hour failure was a truncated capture pointing at an emptied prefix.
+        "kill_line": kill_line,
+        "remote_tail": remote_tail,
+    }
+    try:
+        if boto3_client is None:
+            import boto3
+
+            s3 = boto3.client("s3")
+        else:
+            s3 = boto3_client
+        s3.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=json.dumps(payload, indent=2).encode("utf-8"),
+            ContentType="application/json",
+        )
+        return True, f"s3://{bucket}/{key}"
+    except Exception as exc:
+        msg = (
+            f"ssm_dispatcher: diagnostics-write to s3://{bucket}/{key} "
+            f"failed (swallowed; inner exit preserved): "
+            f"{type(exc).__name__}: {exc}\n"
+        )
+        err.write(msg)
+        err.flush()
+        return False, f"{type(exc).__name__}: {exc}"
+
+
+def _encode_command_payload(script: str) -> str:
+    """Wrap ``script`` for AWS-RunShellScript transport.
+
+    The pre-lift bash helper base64-encoded the script body and emitted
+    a single command ``echo <b64> | base64 -d | bash``. This is the
+    transport-safe wrapping that lets the script contain heredocs,
+    embedded Python, single quotes, etc. without ASL/SSM escaping
+    surface.
+    """
+    b64 = base64.b64encode(script.encode("utf-8")).decode("ascii")
+    return f"echo {b64} | base64 -d | bash"
+
+
+def run(
+    instance_id: str,
+    description: str,
+    script: str,
+    *,
+    timeout_seconds: int = 3600,
+    output_bucket: Optional[str] = None,
+    output_key_prefix: Optional[str] = None,
+    region: str = "us-east-1",
+    poll_interval_seconds: float = DEFAULT_POLL_INTERVAL_SECONDS,
+    diagnostics_bucket: Optional[str] = None,
+    diagnostics_prefix: Optional[str] = None,
+    resource_limit: Optional[str] = None,
+    stdout_stream=None,
+    stderr_stream=None,
+    sleep=time.sleep,
+    monotonic=time.monotonic,
+    boto3_client=None,
+    s3_client=None,
+) -> int:
+    """Send ``script`` to ``instance_id`` via SSM, poll until terminal, stream stdout.
+
+    Args:
+        instance_id: target EC2 instance ID (must be SSM-registered).
+        description: short label for SSM history + dispatcher logs.
+        script: bash script body. Will be base64-wrapped + executed as
+            a single AWS-RunShellScript command.
+        timeout_seconds: total command budget in seconds. Applied to BOTH
+            SendCommand's TimeoutSeconds (delivery) and the
+            AWS-RunShellScript ``executionTimeout`` document parameter
+            (runtime) — the latter otherwise defaults to 3600s and
+            silently caps any longer workload.
+        output_bucket: S3 bucket for SSM to write the full stdout/stderr
+            (past the 24KB inline cap). Optional; if unset, only inline
+            output is available.
+        output_key_prefix: S3 key prefix for the SSM output bucket.
+        region: AWS region.
+        poll_interval_seconds: gap between get-command-invocation polls.
+        diagnostics_bucket: S3 bucket for the terminal-non-Success
+            diagnostics JSON (L369). When both ``diagnostics_bucket`` and
+            ``diagnostics_prefix`` are set, every terminal non-Success
+            outcome writes ``{prefix}/{YYYY-MM-DD}.json`` with status +
+            command_id + description + exit_window + stdout/stderr tails
+            + instance_id. Best-effort; S3 failure is swallowed so the
+            inner exit code is preserved.
+        diagnostics_prefix: S3 key prefix for diagnostics JSON. Typical
+            shape from consumer dispatchers: ``_spot_diagnostics/{repo}``.
+        resource_limit: free-text description of the resource bound the
+            LAUNCHER knows and this module cannot see — in practice the spot
+            instance type, e.g. ``"instance-type=c5.4xlarge"``. Rendered into
+            the ``limit=`` field of a classified resource kill alongside this
+            module's own ``executionTimeout``, per sf-pipeline-policy §3
+            obligation 3 ("name the stage, the limit and the observed value").
+        stdout_stream: destination for streamed inner stdout (default:
+            ``sys.stdout``).
+        stderr_stream: destination for the terminal-failure stderr dump
+            (default: ``sys.stderr``).
+        sleep / monotonic: time hooks (overridable for tests).
+        boto3_client: optional boto3 ``ssm`` client (for tests). When
+            ``None``, constructed via ``boto3.client('ssm', region_name=region)``.
+        s3_client: optional boto3 ``s3`` client used only for the
+            diagnostics-write path. When ``None`` and a diagnostics-write
+            is triggered, constructed via ``boto3.client('s3')``.
+
+    Returns:
+        ``0`` on terminal Success.
+        ``1`` on any terminal non-Success status, send-command failure,
+        or unrecoverable poll failure.
+
+    Never raises.
+    """
+    out = stdout_stream if stdout_stream is not None else sys.stdout
+    err = stderr_stream if stderr_stream is not None else sys.stderr
+
+    try:
+        if boto3_client is None:
+            import boto3
+
+            ssm = boto3.client("ssm", region_name=region)
+        else:
+            ssm = boto3_client
+    except Exception as exc:
+        print(
+            f"ssm_dispatcher: boto3 client construction failed: "
+            f"{type(exc).__name__}: {exc}",
+            file=err,
+        )
+        return 1
+
+    # Peak-RSS budget (alpha-engine-config-I7260). Gated on the caller having
+    # already opted this dispatcher into writing run records to a bucket, and
+    # skipped for the infrastructure steps whose readings would only dilute the
+    # stage's row. `wrap_script` returns the body's exit status on every path,
+    # including the branch where no interpreter exists to run the harness.
+    _rss_stage, _rss_step = rss_budget.split_description(description)
+    measure_rss = bool(diagnostics_bucket) and rss_budget.is_publishable_step(
+        _rss_step
+    )
+    if measure_rss:
+        try:
+            script = rss_budget.wrap_script(script)
+        except Exception as exc:
+            # (a) swallowed: any failure to BUILD the measurement wrapper.
+            # (b) the unwrapped body is dispatched instead, so the stage runs
+            #     exactly as it did before this feature existed.
+            # (c) recorded at WARNING in the dispatcher's captured log, which
+            #     ssm_log_capture ships to _ssm_logs/<slug>/<date>/.
+            logger.warning(
+                "ssm_dispatcher: could not wrap %r for peak-RSS measurement "
+                "(swallowed; dispatching unwrapped): %s: %s",
+                description,
+                type(exc).__name__,
+                exc,
+            )
+            measure_rss = False
+
+    payload = _encode_command_payload(script)
+    send_kwargs: dict = {
+        "InstanceIds": [instance_id],
+        "DocumentName": "AWS-RunShellScript",
+        "Comment": description[:100],  # SSM Comment cap is 100 chars
+        # TimeoutSeconds is SSM's DELIVERY timeout (how long the service may
+        # take to hand the command to the agent). The RUNTIME cap is the
+        # document's executionTimeout parameter below — without it,
+        # AWS-RunShellScript applies its own default of 3600s and kills any
+        # longer workload regardless of timeout_seconds (2026-07-18: the
+        # weekly RAGIngestion sweep died at exactly 1h twice while the caller
+        # passed --timeout 14400).
+        "TimeoutSeconds": int(timeout_seconds),
+        "Parameters": {
+            "commands": [payload],
+            "executionTimeout": [str(int(timeout_seconds))],
+        },
+    }
+    if output_bucket:
+        send_kwargs["OutputS3BucketName"] = output_bucket
+    if output_key_prefix:
+        send_kwargs["OutputS3KeyPrefix"] = output_key_prefix
+
+    try:
+        resp = ssm.send_command(**send_kwargs)
+    except Exception as exc:
+        print(
+            f"ssm_dispatcher: send_command failed for {description!r}: "
+            f"{type(exc).__name__}: {exc}",
+            file=err,
+        )
+        return 1
+
+    command_id = resp.get("Command", {}).get("CommandId")
+    if not command_id:
+        print(
+            f"ssm_dispatcher: send_command returned no CommandId for {description!r}",
+            file=err,
+        )
+        return 1
+
+    print(f"    [ssm {description}] command-id={command_id}", file=err)
+
+    start_monotonic = monotonic()
+    last_out_len = 0
+    # Bounded tail of everything streamed, kept only to recover the peak-RSS
+    # sentinel on Success. Scanned from the accumulated DELTAS rather than the
+    # final response, because the 24KB inline field rotates.
+    rss_tail = ""
+
+    while True:
+        sleep(poll_interval_seconds)
+
+        try:
+            inv = ssm.get_command_invocation(
+                CommandId=command_id,
+                InstanceId=instance_id,
+            )
+        except Exception as exc:
+            code = _classify_boto_exception(exc)
+            if code == "InvocationDoesNotExist":
+                elapsed = monotonic() - start_monotonic
+                if elapsed <= REGISTRATION_GRACE_SECONDS:
+                    # Registration race per the 2026-05-23 Saturday SF
+                    # event-16 substrate weakness; keep polling.
+                    continue
+                print(
+                    f"ssm_dispatcher: {description!r} command {command_id} "
+                    f"never registered (InvocationDoesNotExist after "
+                    f"{elapsed:.0f}s)",
+                    file=err,
+                )
+                return 1
+            # Other transient classes that the bash predecessor swallowed
+            # via `2>/dev/null || echo Pending`. Be explicit: only the
+            # listed set is treated as transient; anything else is a hard
+            # failure.
+            if code in {"ThrottlingException", "RequestLimitExceeded"}:
+                continue
+            print(
+                f"ssm_dispatcher: get_command_invocation for {description!r} "
+                f"raised {code}: {exc}",
+                file=err,
+            )
+            return 1
+
+        status = inv.get("Status", "Pending")
+        std_out = inv.get("StandardOutputContent", "") or ""
+
+        if len(std_out) > last_out_len:
+            delta = std_out[last_out_len:]
+            out.write(delta)
+            out.flush()
+            if measure_rss:
+                rss_tail = (rss_tail + delta)[-RSS_SENTINEL_TAIL_BYTES:]
+            last_out_len = len(std_out)
+        elif len(std_out) < last_out_len:
+            # 24KB cap rotated the buffer; the full log is in S3 (if
+            # output_bucket was configured).
+            cap_note = (
+                f"    [ssm {description}] (stdout exceeded "
+                f"{SSM_INLINE_OUTPUT_CAP_BYTES // 1024}KB cap — full log: "
+                f"s3://{output_bucket}/{output_key_prefix}/)\n"
+                if output_bucket
+                else (
+                    f"    [ssm {description}] (stdout exceeded "
+                    f"{SSM_INLINE_OUTPUT_CAP_BYTES // 1024}KB cap — "
+                    "configure --output-bucket for full log)\n"
+                )
+            )
+            err.write(cap_note)
+            err.flush()
+            if measure_rss:
+                # The window rotated: this response is a fresh view, not a
+                # delta. Append the whole of it so a sentinel that landed
+                # inside the rotated window is still recoverable.
+                rss_tail = (rss_tail + std_out)[-RSS_SENTINEL_TAIL_BYTES:]
+            last_out_len = len(std_out)
+
+        if status == SUCCESS_STATUS:
+            if measure_rss:
+                # SUCCESS ONLY. An OOM-killed process reports no peak RSS —
+                # that is the structural fact this whole path exists because
+                # of (alpha-engine-config-I7260) — so a failed run has nothing
+                # honest to contribute to a budget and must not overwrite the
+                # last row that did.
+                body = rss_budget.publish(
+                    bucket=diagnostics_bucket,
+                    description=description,
+                    instance_id=instance_id,
+                    stdout=rss_tail,
+                    correlation_id=os.environ.get("RUN_TOKEN") or None,
+                    s3_client=s3_client,
+                )
+                if body is not None:
+                    err.write(
+                        f"    [ssm {description}] memory budget: "
+                        f"{body['status']} — {body['summary']}\n"
+                    )
+                    err.flush()
+            return 0
+        if status in TERMINAL_NON_SUCCESS:
+            std_err = inv.get("StandardErrorContent", "") or ""
+            response_code = inv.get("ResponseCode")
+            elapsed_seconds = monotonic() - start_monotonic
+            # alpha-engine-config-I7442. Read the FULL remote output SSM
+            # uploaded to S3 — tail only, and before anything is torn down.
+            # This is the copy that carries the kill line when the inline 24KB
+            # window has rotated past it, and until now nothing ever read it:
+            # the launcher's EXIT trap deleted the prefix minutes later as part
+            # of handling the very failure it documented.
+            remote_tail = _fetch_remote_output_tail(
+                bucket=output_bucket,
+                key_prefix=output_key_prefix,
+                command_id=command_id,
+                s3_client=s3_client,
+                sleep=sleep,
+            )
+            kill_line = resource_kill.find_kill_line(
+                remote_tail
+            ) or resource_kill.find_kill_line("\n".join([std_err, std_out]))
+            classification = _classify_terminal_failure(
+                status, response_code, kill_line=kill_line
+            )
+            # Nested-log location is one copy-paste away rather than three
+            # inferences (alpha-engine-config-I7258 obligation 4): the full
+            # remote stdout/stderr — where a bash "Killed" line actually
+            # lives when it exceeds the 24KB inline cap — is under this
+            # exact S3 prefix, always stated, not only on cap-rotation. Since
+            # I7442 that prefix is preserved to `_spot_evidence/` by
+            # `krepis.spot_evidence` rather than deleted, so the hint now
+            # points at something that still exists when it is read.
+            full_log_hint = (
+                f"s3://{output_bucket}/{output_key_prefix}/"
+                if output_bucket
+                else "no --output-bucket configured; only the 24KB inline capture above is available"
+            )
+            if classification:
+                # sf-pipeline-policy §3 obligation 3: say OOM or TIMEOUT and
+                # name the stage, the limit and the observed value. The limit
+                # this module knows for certain is its own execution budget;
+                # `resource_limit` carries whatever the launcher knows on top
+                # (its instance type), and both are rendered even when unknown.
+                declared_limit = f"executionTimeout={int(timeout_seconds)}s"
+                if resource_limit:
+                    declared_limit = f"{resource_limit}, {declared_limit}"
+                observed = (
+                    f"{elapsed_seconds:.0f}s elapsed"
+                    if classification == resource_kill.TIMEOUT
+                    else None
+                )
+                err.write(
+                    resource_kill.format_cause(
+                        classification=classification,
+                        stage=description,
+                        returncode=response_code,
+                        kill_line=kill_line,
+                        limit=declared_limit,
+                        observed=observed,
+                    )
+                    # The trailing segment keeps the exact tokens the pre-I7442
+                    # message carried — SSM step {description!r},
+                    # response_code=, instance=, status= — because sf-watch,
+                    # the ops-alert fan-out and three repos' contract tests
+                    # grep them. New fields were added around them, none
+                    # renamed.
+                    + f" — SSM step {description!r} terminal status={status} "
+                    f"response_code={response_code} instance={instance_id} — "
+                    f"full remote log: {full_log_hint}\n"
+                )
+            else:
+                err.write(
+                    f"ERROR: SSM step {description!r} terminal status={status} "
+                    f"response_code={response_code} instance={instance_id} — "
+                    f"full remote log: {full_log_hint}\n"
+                )
+            if remote_tail:
+                # Unconditional, and the TAIL. The captured `_ssm_logs` copy of
+                # this run previously ended at SSM's own `--output truncated--`
+                # marker — which keeps the HEAD — so the one region of the log
+                # that described the failure was the one region never kept.
+                err.write(
+                    f"--- remote output tail ({REMOTE_TAIL_BYTES // 1024}KB per "
+                    f"stream, read from S3 before teardown) ---\n"
+                )
+                err.write(remote_tail)
+                if not remote_tail.endswith("\n"):
+                    err.write("\n")
+            if std_err:
+                err.write(
+                    f"--- stderr ({SSM_INLINE_OUTPUT_CAP_BYTES // 1024}KB cap; "
+                )
+                if output_bucket:
+                    err.write(
+                        f"full: s3://{output_bucket}/{output_key_prefix}/) ---\n"
+                    )
+                else:
+                    err.write("configure --output-bucket for full log) ---\n")
+                err.write(std_err)
+                if not std_err.endswith("\n"):
+                    err.write("\n")
+            err.flush()
+            if diagnostics_bucket and diagnostics_prefix:
+                exit_window_utc = datetime.now(timezone.utc).isoformat(
+                    timespec="seconds"
+                )
+                ok, detail = _ship_diagnostics(
+                    bucket=diagnostics_bucket,
+                    prefix=diagnostics_prefix,
+                    status=status,
+                    command_id=command_id,
+                    description=description,
+                    exit_window_utc=exit_window_utc,
+                    stdout_tail=_tail_bytes(std_out),
+                    stderr_tail=_tail_bytes(std_err),
+                    instance_id=instance_id,
+                    boto3_client=s3_client,
+                    stderr_stream=err,
+                    response_code=response_code,
+                    classification=classification,
+                    kill_line=kill_line,
+                    remote_tail=_tail_bytes(remote_tail),
+                )
+                if ok:
+                    err.write(
+                        f"    [ssm {description}] diagnostics → {detail}\n"
+                    )
+                    err.flush()
+            return 1
+        if status not in PENDING_STATUSES:
+            # Unknown status — treat as a hard failure, log it.
+            err.write(
+                f"ssm_dispatcher: {description!r} returned unknown status "
+                f"{status!r}; treating as failure\n"
+            )
+            err.flush()
+            return 1
+        # Pending / InProgress / Delayed — keep polling.
+
+
+def _classify_boto_exception(exc: BaseException) -> str:
+    """Extract the ``Error.Code`` from a botocore ClientError.
+
+    Returns the exception class name when no ``response.Error.Code`` is
+    available (e.g., on non-botocore exceptions). Tests patch this for
+    deterministic InvocationDoesNotExist surfacing.
+    """
+    response = getattr(exc, "response", None)
+    if isinstance(response, dict):
+        code = response.get("Error", {}).get("Code")
+        if code:
+            return str(code)
+    return type(exc).__name__
+
+
+def _read_script(args: argparse.Namespace) -> str:
+    if args.script_file:
+        with open(args.script_file, "r", encoding="utf-8") as fh:
+            return fh.read()
+    if args.script_stdin:
+        return sys.stdin.read()
+    raise SystemExit(
+        "ssm_dispatcher: must pass either --script-file PATH or --script-stdin "
+        "(with the script body on stdin)"
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m krepis.ssm_dispatcher",
+        description=(
+            "Send a bash script to an SSM-registered EC2 instance via "
+            "AWS-RunShellScript, poll until terminal, stream stdout to "
+            "this process, and propagate the inner exit status. The "
+            "institutional replacement for the ~54-line run_ssm bash "
+            "helper mirrored across alpha-engine-* dispatcher scripts."
+        ),
+    )
+    subparsers = parser.add_subparsers(dest="cmd", required=True)
+
+    run_p = subparsers.add_parser(
+        "run",
+        help="Dispatch a script to an instance and stream its output.",
+    )
+    run_p.add_argument(
+        "--instance-id",
+        required=True,
+        help="Target EC2 instance ID (must be SSM-registered).",
+    )
+    run_p.add_argument(
+        "--description",
+        required=True,
+        help=(
+            "Short label for the SSM command Comment + dispatcher log "
+            "lines (e.g., 'bootstrap', 'full-training')."
+        ),
+    )
+    run_p.add_argument(
+        "--timeout",
+        type=int,
+        default=3600,
+        help="Total command budget in seconds — sets delivery TimeoutSeconds AND the runtime executionTimeout document parameter (default: 3600).",
+    )
+    run_p.add_argument(
+        "--output-bucket",
+        default=None,
+        help=(
+            "S3 bucket where SSM writes the full stdout/stderr beyond "
+            "the inline 24KB cap. Optional; without it, only the inline "
+            "delta is available."
+        ),
+    )
+    run_p.add_argument(
+        "--output-key-prefix",
+        default=None,
+        help="S3 key prefix under --output-bucket for the SSM output.",
+    )
+    run_p.add_argument(
+        "--region",
+        default=os.environ.get("AWS_REGION", "us-east-1"),
+        help="AWS region (default: $AWS_REGION or us-east-1).",
+    )
+    run_p.add_argument(
+        "--poll-interval",
+        type=float,
+        default=DEFAULT_POLL_INTERVAL_SECONDS,
+        help=(
+            "Seconds between get-command-invocation polls (default: "
+            f"{DEFAULT_POLL_INTERVAL_SECONDS:g})."
+        ),
+    )
+    run_p.add_argument(
+        "--diagnostics-bucket",
+        default=None,
+        help=(
+            "S3 bucket for the terminal-non-Success diagnostics JSON (L369). "
+            "When set together with --diagnostics-prefix, every terminal "
+            "non-Success outcome writes a JSON record with status + "
+            "command_id + stdout/stderr tails + instance_id. Best-effort; "
+            "S3 failure is swallowed (never masks the inner exit code)."
+        ),
+    )
+    run_p.add_argument(
+        "--diagnostics-prefix",
+        default=None,
+        help=(
+            "S3 key prefix for diagnostics JSON. Typical shape from "
+            "consumer dispatchers: '_spot_diagnostics/{repo}'. Key: "
+            "'{prefix}/{YYYY-MM-DD}.json'."
+        ),
+    )
+    run_p.add_argument(
+        "--resource-limit",
+        default=None,
+        help=(
+            "Free-text description of the resource bound the launcher knows "
+            "and this module cannot see — in practice the spot instance type, "
+            "e.g. 'instance-type=c5.4xlarge'. Rendered into the limit= field "
+            "of a classified OOM/TIMEOUT cause (sf-pipeline-policy §3)."
+        ),
+    )
+    script_grp = run_p.add_mutually_exclusive_group(required=True)
+    script_grp.add_argument(
+        "--script-file",
+        default=None,
+        help="Path to a local file containing the bash script body.",
+    )
+    script_grp.add_argument(
+        "--script-stdin",
+        action="store_true",
+        help="Read the bash script body from stdin (heredoc-friendly).",
+    )
+
+    args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.WARNING)
+
+    script = _read_script(args)
+    if not script.strip():
+        print(
+            "ssm_dispatcher: empty script body (refusing to dispatch a no-op)",
+            file=sys.stderr,
+        )
+        return 2
+
+    return run(
+        instance_id=args.instance_id,
+        description=args.description,
+        script=script,
+        timeout_seconds=args.timeout,
+        output_bucket=args.output_bucket,
+        output_key_prefix=args.output_key_prefix,
+        region=args.region,
+        poll_interval_seconds=args.poll_interval,
+        diagnostics_bucket=args.diagnostics_bucket,
+        diagnostics_prefix=args.diagnostics_prefix,
+        resource_limit=args.resource_limit,
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(main())

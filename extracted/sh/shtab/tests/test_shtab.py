@@ -760,6 +760,12 @@ def test_add_argument_to_optional(shell):
         pytest.skip("WiP")
 
 
+def test_add_argument_to_group_typing():
+    parser = ArgumentParser(prog="test")
+    group = parser.add_argument_group("completion")
+    assert shtab.add_argument_to(group) is group, "should return same object"
+
+
 @fix_shell
 def test_add_argument_to_positional(shell, capsys):
     parser = ArgumentParser(prog="test")
@@ -788,6 +794,11 @@ def test_add_argument_to_positional(shell, capsys):
 @fix_shell
 def test_get_completer(shell):
     shtab.get_completer(shell)
+
+
+@pytest.mark.parametrize("quote", ["'"] + list(map(chr, range(0x2018, 0x201c))))
+def test_powershell_escape_quotes(quote):
+    assert shtab._powershell_escape(f"a{quote}b") == f"'a{quote}{quote}b'"
 
 
 def test_get_completer_invalid():

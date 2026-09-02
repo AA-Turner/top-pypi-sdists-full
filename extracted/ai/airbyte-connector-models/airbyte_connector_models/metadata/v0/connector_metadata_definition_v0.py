@@ -719,6 +719,7 @@ class ConnectorMetadataDefinitionV0DataExternalDocumentationUrlType(Enum):
     api_reference = "api_reference"
     api_release_history = "api_release_history"
     authentication_guide = "authentication_guide"
+    code_repository = "code_repository"
     data_model_reference = "data_model_reference"
     developer_community = "developer_community"
     migration_guide = "migration_guide"
@@ -726,6 +727,7 @@ class ConnectorMetadataDefinitionV0DataExternalDocumentationUrlType(Enum):
     other = "other"
     permissions_scopes = "permissions_scopes"
     rate_limits = "rate_limits"
+    spec_repository = "spec_repository"
     sql_reference = "sql_reference"
     status_page = "status_page"
 

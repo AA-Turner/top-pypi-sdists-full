@@ -326,7 +326,7 @@ class CustomTemplate(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List[CustomTemplate]:
-        """List all custom templates.
+        """Returns a list of all custom templates.
 
         .. versionadded:: v3.7
 
@@ -535,7 +535,7 @@ class CustomTemplate(APIObject):
 
     def delete(self) -> None:
         """
-        Delete this custom template.
+        Deletes the custom template.
 
         .. versionadded:: v3.7
 

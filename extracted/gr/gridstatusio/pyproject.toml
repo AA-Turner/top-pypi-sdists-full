@@ -1,0 +1,106 @@
+[project]
+name = "gridstatusio"
+version = "0.16.0"
+description = "Python Client for GridStatus.io API"
+authors = [{ name = "Max Kanter", email = "kmax12@gmail.com" }]
+requires-python = ">=3.10, <4"
+readme = "README.md"
+license.file = "LICENSE"
+maintainers = [{ name = "Max Kanter", email = "kmax12@gmail.com" }]
+keywords = [
+    "energy",
+    "independent system operator",
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "requests>=2.32.2,<3",
+    "termcolor>=3.2.0",
+    "tabulate>=0.9.0,<0.10",
+    "pandas>=2.3.0",
+    # Enables brotli content-negotiation: when a brotli decoder is installed,
+    # urllib3 adds "br" to the default Accept-Encoding and decodes responses
+    # transparently, so the large data payloads come back ~40% smaller than gzip
+    # with no client code changes. brotli is CPython-only; brotlicffi is its PyPy
+    # equivalent (this is the urllib3-recommended dependency split).
+    "brotli>=1.1.0; platform_python_implementation == 'CPython'",
+    "brotlicffi>=1.1.0; platform_python_implementation != 'CPython'",
+]
+
+[project.optional-dependencies]
+polars = [
+    "polars>=1.36.1",
+]
+notebooks = [
+    "notebook>=7.0.0",
+    "plotly>=5.20.0",
+]
+all = [
+    "polars>=1.36.1",
+    "notebook>=7.0.0",
+    "plotly>=5.20.0",
+]
+
+[project.urls]
+"Source Code" = "https://github.com/kmax12/gridstatusio/"
+"Issue Tracker" = "https://github.com/kmax12/gridstatusio/issues"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=9.1.0",
+    "pytest-xdist>=3.8.0",
+    "pytest-rerunfailures>=16.3",
+    "pre-commit>=4.5.1",
+    "kaleido==0.2.1",
+    "nbformat>=5.10.4",
+    "ruff>=0.5.0,<0.6",
+    "pyright>=1.1.407,<2",
+    # Include optional dependencies for testing
+    "polars>=1.36.1",
+    "notebook>=7.6.0",
+    "plotly>=6.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["gridstatusio/tests/*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.ruff]
+line-length = 88
+lint.ignore = []
+lint.select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # flake8-quotes
+    "Q",
+    # isort
+    "I001"
+]
+src = ["gridstatusio"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gridstatusio"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402", "F403", "F405", "E501", "I001"]
+"Examples/*.ipynb" = ["E501"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+# typeCheckingMode = "strict" # Off for now, since it goes from 10 to 500+ errors, likely due to imports

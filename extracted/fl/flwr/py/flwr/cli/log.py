@@ -32,7 +32,7 @@ from flwr.proto.control_pb2 import StreamLogsRequest  # pylint: disable=E0611
 from flwr.proto.control_pb2_grpc import ControlStub
 from flwr.supercore import log as logger
 
-from .utils import flwr_cli_grpc_exc_handler, init_channel_from_connection
+from .utils import flwr_cli_exc_handler, init_channel_from_connection
 
 
 class AllLogsRetrieved(BaseException):
@@ -44,7 +44,7 @@ class AllLogsRetrieved(BaseException):
 
 
 def start_stream(
-    run_id: int, channel: grpc.Channel, refresh_period: int = CONN_REFRESH_PERIOD
+    run_id: int, stub: ControlStub, refresh_period: int = CONN_REFRESH_PERIOD
 ) -> None:
     """Start log streaming for a given run ID.
 
@@ -52,12 +52,11 @@ def start_stream(
     ----------
     run_id : int
         The unique identifier of the run to stream logs from.
-    channel : grpc.Channel
-        The gRPC channel for communication.
+    stub : ControlStub
+        The gRPC stub to interact with the Control service.
     refresh_period : int (default: CONN_REFRESH_PERIOD)
         Connection refresh period in seconds.
     """
-    stub = ControlStub(channel)
     after_timestamp = 0.0
     try:
         logger(INFO, "Starting logstream for run_id `%s`", run_id)
@@ -75,8 +74,6 @@ def start_stream(
             raise e
     except AllLogsRetrieved:
         pass
-    finally:
-        channel.close()
 
 
 def stream_logs(
@@ -106,7 +103,7 @@ def stream_logs(
     latest_timestamp = 0.0
     res = None
 
-    with flwr_cli_grpc_exc_handler():
+    with flwr_cli_exc_handler():
         try:
             for res in stub.StreamLogs(req, timeout=duration):
                 print(res.log_output, end="")
@@ -122,22 +119,21 @@ def stream_logs(
     return max(latest_timestamp, after_timestamp)
 
 
-def print_logs(run_id: int, channel: grpc.Channel, timeout: int) -> None:
+def print_logs(run_id: int, stub: ControlStub, timeout: int) -> None:
     """Print logs from the beginning of a run.
 
     Parameters
     ----------
     run_id : int
         The unique identifier of the run to retrieve logs from.
-    channel : grpc.Channel
-        The gRPC channel for communication.
+    stub : ControlStub
+        The gRPC stub to interact with the Control service.
     timeout : int
         Timeout duration in seconds for the log retrieval request.
     """
-    stub = ControlStub(channel)
     req = StreamLogsRequest(run_id=run_id, after_timestamp=0.0)
 
-    with flwr_cli_grpc_exc_handler():
+    with flwr_cli_exc_handler():
         try:
             # Enforce timeout for graceful exit
             for res in stub.StreamLogs(req, timeout=timeout):
@@ -150,9 +146,6 @@ def print_logs(run_id: int, channel: grpc.Channel, timeout: int) -> None:
                 pass
             else:
                 raise e
-        finally:
-            channel.close()
-            logger(DEBUG, "Channel closed")
 
 
 def log(
@@ -218,9 +211,13 @@ def _log_with_control_api(
         If True, stream logs continuously; if False, print once.
     """
     channel = init_channel_from_connection(superlink_connection)
-
-    if stream:
-        start_stream(run_id, channel, CONN_REFRESH_PERIOD)
-    else:
-        logger(INFO, "Printing logstream for run_id `%s`", run_id)
-        print_logs(run_id, channel, timeout=5)
+    try:
+        stub = ControlStub(channel)
+        if stream:
+            start_stream(run_id, stub, CONN_REFRESH_PERIOD)
+        else:
+            logger(INFO, "Printing logstream for run_id `%s`", run_id)
+            print_logs(run_id, stub, timeout=5)
+    finally:
+        channel.close()
+        logger(DEBUG, "Channel closed")

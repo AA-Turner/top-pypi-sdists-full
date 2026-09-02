@@ -40,6 +40,7 @@ from pytest import fixture, mark, raises
 from sqlalchemy import event
 from tornado.httpclient import HTTPError
 from tornado.platform.asyncio import AsyncIOMainLoop
+from traitlets import default
 
 import jupyterhub.services.service
 
@@ -114,19 +115,17 @@ async def app(request, ssl_tmpdir):
 
     mocked_app = MockHub.instance(**kwargs)
 
-    def fin():
-        # disconnect logging during cleanup because pytest closes captured FDs prematurely
-        mocked_app.log.handlers = []
-        MockHub.clear_instance()
-        try:
-            mocked_app.stop()
-        except Exception as e:
-            print(f"Error stopping Hub: {e}", file=sys.stderr)
-
-    request.addfinalizer(fin)
     await mocked_app.initialize([])
     await mocked_app.start()
-    return mocked_app
+    yield mocked_app
+
+    # disconnect logging during cleanup because pytest closes captured FDs prematurely
+    mocked_app.log.handlers = []
+    MockHub.clear_instance()
+    try:
+        await mocked_app.stop()
+    except Exception as e:
+        print(f"Error stopping Hub: {e}", file=sys.stderr)
 
 
 @fixture
@@ -189,52 +188,50 @@ async def cleanup_after(request):
     without having to launch a whole new app
     """
 
-    try:
-        yield
-    finally:
-        if _db is not None:
-            # cleanup after failed transactions
-            _db.rollback()
+    yield
+    if _db is not None:
+        # cleanup after failed transactions
+        _db.rollback()
 
-        if not MockHub.initialized():
-            return
-        app = MockHub.instance()
-        if app.db_file.closed:
-            return
+    if not MockHub.initialized():
+        return
+    app = MockHub.instance()
+    if app.db_file.closed:
+        return
 
-        # cleanup users
-        for orm_user in app.db.query(orm.User):
-            user = app.users[orm_user]
-            for name, spawner in list(user.spawners.items()):
-                if spawner.active:
-                    try:
-                        await app.proxy.delete_user(user, name)
-                    except HTTPError:
-                        pass
-                    print(f"Stopping leftover server {spawner._log_name}")
-                    await user.stop(name)
-            if user.name not in {'admin', 'user'}:
-                app.log.debug(f"Deleting test user {user.name}")
-                app.users.delete(user.id)
-        # delete groups
-        for group in app.db.query(orm.Group):
-            app.log.debug(f"Deleting test group {group.name}")
-            app.db.delete(group)
-        # delete shares
-        for share in app.db.query(orm.Share):
-            app.log.debug(f"Deleting test share {share}")
-            app.db.delete(share)
+    # cleanup users
+    for orm_user in app.db.query(orm.User):
+        user = app.users[orm_user]
+        for name, spawner in list(user.spawners.items()):
+            if spawner.active:
+                try:
+                    await app.proxy.delete_user(user, name)
+                except HTTPError:
+                    pass
+                print(f"Stopping leftover server {spawner._log_name}")
+                await user.stop(name)
+        if user.name not in {'admin', 'user'}:
+            app.log.debug(f"Deleting test user {user.name}")
+            app.users.delete(user.id)
+    # delete groups
+    for group in app.db.query(orm.Group):
+        app.log.debug(f"Deleting test group {group.name}")
+        app.db.delete(group)
+    # delete shares
+    for share in app.db.query(orm.Share):
+        app.log.debug(f"Deleting test share {share}")
+        app.db.delete(share)
 
-        # clear services
-        for name, service in app._service_map.items():
-            if service.managed:
-                service.stop()
-        for orm_service in app.db.query(orm.Service):
-            if orm_service.oauth_client:
-                app.oauth_provider.remove_client(orm_service.oauth_client_id)
-            app.db.delete(orm_service)
-        app._service_map.clear()
-        app.db.commit()
+    # clear services
+    for name, service in app._service_map.items():
+        if service.managed:
+            service.stop()
+    for orm_service in app.db.query(orm.Service):
+        if orm_service.oauth_client:
+            app.oauth_provider.remove_client(orm_service.oauth_client_id)
+        app.db.delete(orm_service)
+    app._service_map.clear()
+    app.db.commit()
 
 
 _username_counter = 0
@@ -337,6 +334,17 @@ class MockServiceSpawner(jupyterhub.services.service._ServiceSpawner):
     """
 
     poll_interval = 1
+
+    @default("env_keep")
+    def _env_keep_default(self):
+        # preserve test and coverage env
+        to_keep = super()._env_keep_default()
+        for key in os.environ:
+            if key in to_keep:
+                continue
+            if any(substring in key for substring in ['COVERAGE', 'JUPYTERHUB']):
+                to_keep.append(key)
+        return to_keep
 
 
 async def _mockservice(request, app, name, external=False, url=False):
@@ -478,10 +486,35 @@ def bad_spawn(app):
 
 
 @fixture
+def custom_bad_spawn(app):
+    """Fixture enabling BadSpawner"""
+    with mock.patch.dict(
+        app.tornado_settings, {'spawner_class': mocking.CustomBadSpawner}
+    ):
+        yield
+
+
+@fixture
 def slow_bad_spawn(app):
     """Fixture enabling SlowBadSpawner"""
     with mock.patch.dict(
         app.tornado_settings, {'spawner_class': mocking.SlowBadSpawner}
+    ):
+        yield
+
+
+@fixture
+def form_spawn(app):
+    """Fixture enabling FormSpawner"""
+    with mock.patch.dict(app.tornado_settings, {'spawner_class': mocking.FormSpawner}):
+        yield
+
+
+@fixture
+def named_servers(app):
+    with mock.patch.dict(
+        app.tornado_settings,
+        {'allow_named_servers': True, 'named_server_limit_per_user': 2},
     ):
         yield
 

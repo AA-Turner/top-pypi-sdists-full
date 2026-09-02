@@ -9,6 +9,7 @@ class ApplicationServicesApiMock:
         self.mock_create_database_resource = MagicMock()
         self.mock_create_desktop_resource = MagicMock()
         self.mock_create_file_share_service = MagicMock()
+        self.mock_create_printer = MagicMock()
         self.mock_create_server_configuration = MagicMock()
         self.mock_create_service_forwarder = MagicMock()
         self.mock_create_ssh_resource = MagicMock()
@@ -16,6 +17,7 @@ class ApplicationServicesApiMock:
         self.mock_delete_database_resource = MagicMock()
         self.mock_delete_desktop_resource = MagicMock()
         self.mock_delete_file_share_service = MagicMock()
+        self.mock_delete_printer = MagicMock()
         self.mock_delete_service_forwarder = MagicMock()
         self.mock_delete_ssh_resource = MagicMock()
         self.mock_get_application_service = MagicMock()
@@ -25,6 +27,7 @@ class ApplicationServicesApiMock:
         self.mock_get_desktop_resource = MagicMock()
         self.mock_get_file_share_service = MagicMock()
         self.mock_get_file_share_usage_metrics = MagicMock()
+        self.mock_get_printer = MagicMock()
         self.mock_get_service_forwarder = MagicMock()
         self.mock_get_ssh_resource = MagicMock()
         self.mock_list_application_services = MagicMock()
@@ -32,12 +35,14 @@ class ApplicationServicesApiMock:
         self.mock_list_desktop_resources = MagicMock()
         self.mock_list_external_networks = MagicMock()
         self.mock_list_file_share_services = MagicMock()
+        self.mock_list_printers = MagicMock()
         self.mock_list_service_forwarders = MagicMock()
         self.mock_list_ssh_resources = MagicMock()
         self.mock_replace_application_service = MagicMock()
         self.mock_replace_database_resource = MagicMock()
         self.mock_replace_desktop_resource = MagicMock()
         self.mock_replace_file_share_service = MagicMock()
+        self.mock_replace_printer = MagicMock()
         self.mock_replace_service_forwarder = MagicMock()
         self.mock_replace_ssh_resource = MagicMock()
 
@@ -76,6 +81,12 @@ class ApplicationServicesApiMock:
         This method mocks the original api ApplicationServicesApi.create_file_share_service with MagicMock.
         """
         return self.mock_create_file_share_service(self, *args, **kwargs)
+
+    def create_printer(self, *args, **kwargs):
+        """
+        This method mocks the original api ApplicationServicesApi.create_printer with MagicMock.
+        """
+        return self.mock_create_printer(self, *args, **kwargs)
 
     def create_server_configuration(self, *args, **kwargs):
         """
@@ -118,6 +129,12 @@ class ApplicationServicesApiMock:
         This method mocks the original api ApplicationServicesApi.delete_file_share_service with MagicMock.
         """
         return self.mock_delete_file_share_service(self, *args, **kwargs)
+
+    def delete_printer(self, *args, **kwargs):
+        """
+        This method mocks the original api ApplicationServicesApi.delete_printer with MagicMock.
+        """
+        return self.mock_delete_printer(self, *args, **kwargs)
 
     def delete_service_forwarder(self, *args, **kwargs):
         """
@@ -173,6 +190,12 @@ class ApplicationServicesApiMock:
         """
         return self.mock_get_file_share_usage_metrics(self, *args, **kwargs)
 
+    def get_printer(self, *args, **kwargs):
+        """
+        This method mocks the original api ApplicationServicesApi.get_printer with MagicMock.
+        """
+        return self.mock_get_printer(self, *args, **kwargs)
+
     def get_service_forwarder(self, *args, **kwargs):
         """
         This method mocks the original api ApplicationServicesApi.get_service_forwarder with MagicMock.
@@ -215,6 +238,12 @@ class ApplicationServicesApiMock:
         """
         return self.mock_list_file_share_services(self, *args, **kwargs)
 
+    def list_printers(self, *args, **kwargs):
+        """
+        This method mocks the original api ApplicationServicesApi.list_printers with MagicMock.
+        """
+        return self.mock_list_printers(self, *args, **kwargs)
+
     def list_service_forwarders(self, *args, **kwargs):
         """
         This method mocks the original api ApplicationServicesApi.list_service_forwarders with MagicMock.
@@ -250,6 +279,12 @@ class ApplicationServicesApiMock:
         This method mocks the original api ApplicationServicesApi.replace_file_share_service with MagicMock.
         """
         return self.mock_replace_file_share_service(self, *args, **kwargs)
+
+    def replace_printer(self, *args, **kwargs):
+        """
+        This method mocks the original api ApplicationServicesApi.replace_printer with MagicMock.
+        """
+        return self.mock_replace_printer(self, *args, **kwargs)
 
     def replace_service_forwarder(self, *args, **kwargs):
         """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.12.223
+Version: 1.12.233
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -43,7 +43,7 @@ Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus==2.5.56
 Requires-Dist: abxpkg==1.12.110
-Requires-Dist: abx-plugins==1.12.196
+Requires-Dist: abx-plugins==1.12.203
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
@@ -158,6 +158,13 @@ Plugins are loaded from the installed [`abx-plugins`](https://pypi.org/project/a
 1. **Install phase** runner reads plugins `config.json`: `required_binaries` and emits `BinaryRequestEvent`s for `abxpkg.binary_service.BinaryService`, which resolves or installs binaries using built-in providers such as env, pip, npm, brew, apt, cargo, and browser-specific providers. `abxpkg` owns the persistent binary cache; `abx-dl` only projects resolved paths into the current run's in-memory config.
 2. **CrawlSetup hooks** (`on_CrawlSetup__*`) launch/configure expensive crawl-scoped processes like chrome, or trigger side effects. background hooks use their first stdout line as the readiness boundary and emit no stdout JSONL records.
 3. **Snapshot hooks** (`on_Snapshot__*`) run per URL to extract content. background hooks use their first stdout line as the readiness boundary; JSONL records after that are `ArchiveResult`, `Snapshot`, and `Tag`.
+
+Applications embedding the runtime use the same framework-free interfaces as
+the CLI: `PluginCatalog` for inventory, `PluginConfigResolver` for config,
+`ExecutionPlan` for plugin selection/service setup, `execute_hook()` for a
+single finite hook, and `OutputManifest` for output metadata. These APIs accept
+plain mappings, filesystem paths, environment variables, and CLI arguments;
+they do not depend on Django or an application database.
 
 
 <br/>

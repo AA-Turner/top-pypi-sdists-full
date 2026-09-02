@@ -1,0 +1,227 @@
+# Update Renovate Dashboard — standalone scheduled workflow.
+#
+# Discovers every atlan-application-sdk consumer repo, gathers open and
+# recently-merged Renovate PRs across the scanned scope via a handful of paginated
+# GraphQL search queries (renovate_fleet_scan.py — not a per-repo `gh pr list` loop,
+# which used to be the dominant contributor to fleet-wide rate-limit pressure),
+# classifies them with the conformance `renovate-scan` CLI, and deploys per-repo +
+# fleet dashboard data to Kryptonite (k.atlan.dev/renovate-dashboard/).
+#
+# Mirrors the conformance dashboard job in update-dashboard.yaml for the S3
+# deployment pattern. Discovery is discover_org_consumers.py — the same
+# deterministic script the self-hosted renovate.yaml runner uses, against the
+# same signal (repos whose renovate.json extends the shared preset). It runs
+# here with a wider `--name-pattern` than the runner does: see the discovery
+# step for why the dashboard covers application-sdk and the runner must not.
+#
+# Two modes:
+#   Full-fleet (schedule / workflow_dispatch without repo input):
+#     Discovers all consumer repos via discover_org_consumers.py and scans the
+#     whole fleet. Updates per-repo data, fleet.json aggregate, repos.json
+#     manifest, and all history JSONL files.
+#   Single-repo (workflow_dispatch with repo=<owner/name>):
+#     Scans only the specified repo. Skips fleet.json and fleet history so a
+#     partial scan never overwrites the full-fleet aggregate. Used by the
+#     renovate-auto-approve-reusable workflow for push-based, near-real-time
+#     updates immediately after a PR gate evaluation.
+name: Update Renovate Dashboard
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # every 6 hours
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: >
+          Single consumer repo to scan (e.g. atlanhq/my-app).
+          Leave empty to scan the full fleet.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  id-token: write  # required for OIDC auth in aws-actions/configure-aws-credentials
+  actions: read    # required to download workflow artifacts (parity with update-dashboard.yaml)
+
+jobs:
+  renovate-dashboard:
+    name: Update Renovate Dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout application-sdk
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Mint fleet App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          owner: atlanhq
+
+      # Push-based single-repo mode: skip fleet discovery entirely. Split from
+      # the full-fleet step so the mode branch lives in `if:` rather than inside
+      # a run: block, per docs/standards/ci.md.
+      - name: Scope to one repo
+        id: discover_single
+        if: inputs.repo != ''
+        env:
+          SINGLE_REPO: ${{ inputs.repo }}
+        run: |
+          set -euo pipefail
+          echo "Single-repo scan: $SINGLE_REPO"
+          printf 'repos=["%s"]\n' "$SINGLE_REPO" >> "$GITHUB_OUTPUT"
+
+      # Full-fleet mode uses the same deterministic discovery the Renovate
+      # runner does, so the dashboard lists the repos Renovate actually manages.
+      #
+      # This replaces a `gh search code` for the preset marker. That query only
+      # ever returned 1 repo (application-sdk itself) HERE, under the fleet App's
+      # installation token — the same query run with a user PAT returns ~75. The
+      # code-search index is not the problem; a server-to-server token's access
+      # to it is. So the failure was invisible in the one place it mattered:
+      # every scheduled run logged "Discovered 1 consumer repos" while the
+      # dashboard showed 616, because the writer unioned that collapsed scope
+      # with an org-wide PR search (see renovate_fleet_scan.py).
+      #
+      # Do not "fix" this by swapping the token — code search is also
+      # best-effort and unordered (a fleet rehearsal saw it return anywhere from
+      # 30 to ~90 results across calls, dropping a real consumer). discover_org_
+      # consumers.py lists with `gh repo list` and reads each renovate.json over
+      # the API, which the App token can do, deterministically, and with
+      # `--no-archived` — keeping departed repos off the dashboard (FND-960).
+      #
+      # --name-pattern is WIDER than the runner's default. The runner excludes
+      # application-sdk on purpose (it stays on the Mend-hosted app, which is
+      # what keeps its action pins updated), but Mend still publishes Renovate
+      # PRs against it and this repo carries the lock-PR lane the dashboard
+      # exists to watch. Excluded from the fleet runner, in scope for the fleet
+      # view. The connectors-{sql,api,pipeline} mirrors stay out of both: they
+      # extend the preset but no engine opens PRs on them, so they would only
+      # ever render as empty rows.
+      #
+      # --fail-on-empty because the dashboard's entire publish scope comes from
+      # this output, and a token that lost org read returns the same empty answer
+      # as a fleet with no consumers.
+      - name: Discover atlan-application-sdk consumers
+        id: discover_fleet
+        if: inputs.repo == ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/discover_org_consumers.py \
+            --owner atlanhq \
+            --name-pattern '^(atlan-[a-z0-9-]+-app|application-sdk)$' \
+            --fail-on-empty
+
+      - name: Gather Renovate PR data
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPOS: ${{ steps.discover_fleet.outputs.repos || steps.discover_single.outputs.repos }}
+          SINGLE_REPO: ${{ inputs.repo }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/renovate-input/open /tmp/renovate-input/merged
+          printf '%s' "$REPOS" > /tmp/renovate-known-repos.json
+
+          # 30-day merged window — GNU date on the runner, BSD date as fallback.
+          SINCE=$(date -d '30 days ago' +%Y-%m-%d 2>/dev/null || date -v-30d +%Y-%m-%d)
+
+          # A handful of paginated GraphQL search calls covers the whole scope (org or
+          # single repo) at once, replacing what used to be two `gh pr list` REST calls
+          # per discovered repo — that O(repos) loop was a major contributor to hitting
+          # GitHub's rate limits at fleet scale. See renovate_fleet_scan.py.
+          # --repo is always passed (empty string in full-fleet mode); resolve_scope()
+          # in the script treats an empty value as "no repo" and falls back to --org.
+          python3 .github/scripts/renovate_fleet_scan.py \
+            --org atlanhq \
+            --repo "$SINGLE_REPO" \
+            --since "$SINCE" \
+            --open-dir /tmp/renovate-input/open \
+            --merged-dir /tmp/renovate-input/merged \
+            --known-repos-file /tmp/renovate-known-repos.json
+
+          echo "Open PR files:   $(ls /tmp/renovate-input/open   | wc -l)"
+          echo "Merged PR files: $(ls /tmp/renovate-input/merged | wc -l)"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.7"
+
+      - name: Run Renovate scanner
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/renovate-output
+          # Run from the checked-out source so renovate-scan is always current
+          # with main, regardless of the latest PyPI release version.
+          uv run --directory packages/conformance \
+            atlan-application-sdk-conformance renovate-scan \
+            --input /tmp/renovate-input/open \
+            --merged /tmp/renovate-input/merged \
+            --out /tmp/renovate-output
+
+      - name: Setup AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        with:
+          aws-region: ap-south-1
+          role-to-assume: arn:aws:iam::733936409301:role/kryptonite-store_FullAccess
+
+      - name: Deploy to Kryptonite (renovate)
+        env:
+          SINGLE_REPO: ${{ inputs.repo }}
+        run: |
+          set -euo pipefail
+          PREFIX="renovate-dashboard"
+
+          # Two syncs and a local merge, rather than a cp per file. The previous
+          # loops issued ~1,644 sequential aws invocations at 548 repos (one
+          # upload per repo, plus a download and an upload per history file) and
+          # took 39m18s — overrunning the job's 45-minute ceiling and killing the
+          # run after a successful scan, so nothing published. `aws s3 sync`
+          # parallelises internally and transfers only what changed.
+
+          # Existing history down, so the merge is a local operation.
+          mkdir -p /tmp/existing-history
+          aws s3 sync "s3://kryptonite-store/${PREFIX}/history/" \
+            /tmp/existing-history/
+
+          # Build the exact tree to upload: repo summaries, merged histories, and
+          # fleet.json on full-fleet runs only. All branching lives in the script
+          # (docs/standards/ci.md), which is covered by .github/scripts/tests/.
+          python3 .github/scripts/renovate_dashboard_stage.py \
+            --output-dir /tmp/renovate-output \
+            --existing-history-dir /tmp/existing-history \
+            --stage-dir /tmp/renovate-stage \
+            --single-repo "${SINGLE_REPO:-}"
+
+          # Up in one pass. No --delete: this prefix is additive, and a partial
+          # run must never remove another run's repo files.
+          aws s3 sync /tmp/renovate-stage/ "s3://kryptonite-store/${PREFIX}/"
+
+          # Regenerate manifest of all repo files present in S3.
+          aws s3 ls "s3://kryptonite-store/${PREFIX}/repos/" \
+            | grep '\.json$' | awk '{print $4}' \
+            | python3 -c "import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))" \
+            > /tmp/renovate-output/repos.json
+          aws s3 cp /tmp/renovate-output/repos.json \
+            "s3://kryptonite-store/${PREFIX}/repos.json"
+
+          echo "Renovate dashboard updated: https://k.atlan.dev/${PREFIX}/"
+
+      # Last, and deliberately after the deploy: this step can fail the job, and
+      # a dashboard that stops publishing because it found something to report
+      # would take out the view someone needs to act on the report.
+      #
+      # Full-fleet runs only. Single-repo mode is dispatched per PR-gate
+      # evaluation by renovate-auto-approve-reusable, where a fleet-wide health
+      # verdict does not belong and would red an unrelated repo's workflow.
+      - name: Alarm on refusals the reaper should have cleared
+        if: ${{ !inputs.repo }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/renovate_refusal_alarm.py \
+            --out-dir /tmp/renovate-output

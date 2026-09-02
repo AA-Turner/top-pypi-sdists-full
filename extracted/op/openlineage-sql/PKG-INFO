@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: openlineage_sql
-Version: 1.52.0
+Version: 1.53.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Summary: Python interface for the Rust OpenLineage lineage extraction library

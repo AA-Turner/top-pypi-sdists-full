@@ -43,6 +43,7 @@ SLASH_COMMANDS: list[SlashCommand] = [
     ),
     SlashCommand("/logout", "Disconnect and revoke credentials"),
     SlashCommand("/whoami", "Show current identity"),
+    SlashCommand("/status", "Show session, model, and context details"),
     SlashCommand("/profile", "Switch profile"),
     SlashCommand("/workspace", "View or switch workspace (restarts runtime)", "[key]"),
     SlashCommand("/workspaces", "List workspaces"),

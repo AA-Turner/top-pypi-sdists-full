@@ -23,6 +23,7 @@ from ._actions import (
     previous_config,
 )
 from ._common import (
+    config_schema_key,
     debug_mode_active,
     get_optionals_as_positionals_actions,
     get_parsing_setting,
@@ -1149,10 +1150,8 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
                     setattr(self, name, self._raise_invalidated_by_completion_script)
 
     def get_completion_script(self, completion_type: str, **kwargs) -> str:
-        """Returns shell completion script for a completion type."""
-        completion_script = get_completion_script_internal(self, completion_type, **kwargs)
-        self._invalidate_by_completion_script()
-        return completion_script
+        """Returns a shell completion script or a JSON Schema for a completion type."""
+        return get_completion_script_internal(self, completion_type, **kwargs)
 
     ## Other methods ##
 
@@ -1377,6 +1376,10 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
                     continue
 
             num += 1
+
+            if action is None and key.rsplit(".", 1)[-1] == config_schema_key:
+                cfg.pop(key)  # only meant for editors, see completion type jsonschema
+                continue
 
             if action is None or isinstance(action, ActionSubCommands):
                 value = cfg[key]

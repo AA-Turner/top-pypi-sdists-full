@@ -176,7 +176,7 @@ class EvaluationDatasetMetricAggregation(APIObject):
         limit: Optional[int] = 100,
         non_errored_only: Optional[bool] = True,
     ) -> List[EvaluationDatasetMetricAggregation]:
-        """List evaluation dataset metric aggregations.  The results will be filtered by the provided
+        """Returns a list of evaluation dataset metric aggregations. The results will be filtered by the provided
         LLM blueprint IDs and chat IDs.
 
         Parameters
@@ -226,8 +226,8 @@ class EvaluationDatasetMetricAggregation(APIObject):
 
     @classmethod
     def delete(cls, llm_blueprint_ids: Optional[List[str]] = None, chat_ids: Optional[List[str]] = None) -> None:
-        """Delete the associated evaluation dataset metric aggregations.  Either llm_blueprint_ids
-        or chat_ids must be provided.  If both are provided, only results matching both will be removed.
+        """Delete the associated evaluation dataset metric aggregations. Either ``llm_blueprint_ids``
+        or ``chat_ids`` must be provided. If both are provided, only results matching both will be removed.
 
         Parameters
         ----------

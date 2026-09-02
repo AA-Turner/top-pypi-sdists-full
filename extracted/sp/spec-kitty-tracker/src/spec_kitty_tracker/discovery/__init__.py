@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from spec_kitty_tracker.discovery import providers as _providers  # noqa: F401
-from spec_kitty_tracker.discovery.registry import (
-    get_resource_discoverer,
-    get_workspace_discoverer,
-)
 from spec_kitty_tracker.discovery._validation import (
     validate_resource_result,
     validate_workspace_result,
+)
+from spec_kitty_tracker.discovery.registry import (
+    get_resource_discoverer,
+    get_workspace_discoverer,
 )
 from spec_kitty_tracker.discovery.types import (
     DiscoveredResource,

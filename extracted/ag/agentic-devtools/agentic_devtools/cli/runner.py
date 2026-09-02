@@ -1,0 +1,632 @@
+"""
+Command runner for agentic-devtools.
+
+This module provides a way to run agdt-* commands by name.
+
+Usage:
+    python -m agentic_devtools.cli.runner agdt-set key value
+    python -m agentic_devtools.cli.runner agdt-get key
+"""
+
+import sys
+
+# Map command names to their entry point functions
+# This mirrors pyproject.toml [project.scripts]
+COMMAND_MAP = {
+    # State management
+    "agdt-set": ("agentic_devtools.cli.state", "set_cmd"),
+    "agdt-get": ("agentic_devtools.cli.state", "get_cmd"),
+    "agdt-delete": ("agentic_devtools.cli.state", "delete_cmd"),
+    "agdt-clear": ("agentic_devtools.cli.state", "clear_cmd"),
+    "agdt-show": ("agentic_devtools.cli.state", "show_cmd"),
+    # Workflow state
+    "agdt-get-workflow": ("agentic_devtools.cli.state", "get_workflow_cmd"),
+    "agdt-clear-workflow": ("agentic_devtools.cli.state", "clear_workflow_cmd"),
+    # Pull-request actions
+    "agdt-add-pull-request-comment": (
+        "agentic_devtools.cli.pull_request_comments",
+        "add_pull_request_comment_async",
+    ),
+    "agdt-approve-pull-request": (
+        "agentic_devtools.cli.azure_devops",
+        "approve_pull_request_async",
+    ),
+    "agdt-create-pull-request": (
+        "agentic_devtools.cli.azure_devops",
+        "create_pull_request_async_cli",
+    ),
+    "agdt-get-pull-request-threads": (
+        "agentic_devtools.cli.azure_devops",
+        "get_pull_request_threads_async",
+    ),
+    "agdt-reply-to-pull-request-thread": (
+        "agentic_devtools.cli.pull_request_thread",
+        "reply_to_pull_request_thread_async_cli",
+    ),
+    "agdt-resolve-thread": (
+        "agentic_devtools.cli.pull_request_threads",
+        "resolve_thread_async",
+    ),
+    "agdt-mark-pull-request-draft": (
+        "agentic_devtools.cli.azure_devops",
+        "mark_pull_request_draft_async",
+    ),
+    "agdt-publish-pull-request": (
+        "agentic_devtools.cli.azure_devops",
+        "publish_pull_request_async",
+    ),
+    "agdt-run-e2e-tests-synapse": (
+        "agentic_devtools.cli.azure_devops",
+        "run_e2e_tests_synapse_async",
+    ),
+    "agdt-run-e2e-tests-fabric": (
+        "agentic_devtools.cli.azure_devops",
+        "run_e2e_tests_fabric_async",
+    ),
+    "agdt-run-wb-patch": (
+        "agentic_devtools.cli.azure_devops",
+        "run_wb_patch_async",
+    ),
+    "agdt-get-run-details": (
+        "agentic_devtools.cli.azure_devops",
+        "get_run_details_async",
+    ),
+    "agdt-wait-for-run": (
+        "agentic_devtools.cli.azure_devops",
+        "wait_for_run_async",
+    ),
+    "agdt-list-pipelines": (
+        "agentic_devtools.cli.azure_devops",
+        "list_pipelines_async",
+    ),
+    "agdt-get-pipeline-id": (
+        "agentic_devtools.cli.azure_devops",
+        "get_pipeline_id_async",
+    ),
+    "agdt-create-pipeline": (
+        "agentic_devtools.cli.azure_devops",
+        "create_pipeline_async",
+    ),
+    "agdt-update-pipeline": (
+        "agentic_devtools.cli.azure_devops",
+        "update_pipeline_async",
+    ),
+    "agdt-get-pull-request-details": (
+        "agentic_devtools.cli.azure_devops",
+        "get_pull_request_details_async",
+    ),
+    # v2 PR review artifact commands (sync)
+    "agdt-pr-review-build-manifest": (
+        "agentic_devtools.cli.azure_devops.pr_review_manifest",
+        "build_manifest_command",
+    ),
+    "agdt-pr-review-triage": (
+        "agentic_devtools.cli.azure_devops.pr_review_triage",
+        "triage_command",
+    ),
+    "agdt-file-review-write": (
+        "agentic_devtools.cli.azure_devops.pr_review_write",
+        "file_review_write_command",
+    ),
+    "agdt-pr-review-resolve-ducks": (
+        "agentic_devtools.cli.azure_devops.pr_review_ducks",
+        "resolve_ducks_command",
+    ),
+    "agdt-pr-review-accept-answer": (
+        "agentic_devtools.cli.azure_devops.pr_review_accept",
+        "accept_answer_command",
+    ),
+    "agdt-pr-review-refresh-comment": (
+        "agentic_devtools.cli.azure_devops.pr_review_refresh",
+        "refresh_comment_command",
+    ),
+    "agdt-pr-review-submit": (
+        "agentic_devtools.cli.azure_devops.pr_review_submit",
+        "pr_review_submit_command",
+    ),
+    # Suggestion verification commands
+    "agdt-confirm-suggestion-addressed": (
+        "agentic_devtools.cli.azure_devops",
+        "confirm_suggestion_addressed_async_cli",
+    ),
+    "agdt-reject-suggestion-resolution": (
+        "agentic_devtools.cli.azure_devops",
+        "reject_suggestion_resolution_async_cli",
+    ),
+    # Azure CLI (App Insights queries)
+    "agdt-query-app-insights": (
+        "agentic_devtools.cli.azure",
+        "query_app_insights_async",
+    ),
+    "agdt-query-fabric-dap-errors": (
+        "agentic_devtools.cli.azure",
+        "query_fabric_dap_errors_async",
+    ),
+    "agdt-query-fabric-dap-provisioning": (
+        "agentic_devtools.cli.azure",
+        "query_fabric_dap_provisioning_async",
+    ),
+    "agdt-query-fabric-dap-timeline": (
+        "agentic_devtools.cli.azure",
+        "query_fabric_dap_timeline_async",
+    ),
+    # VPN Toggle (all run in background)
+    "agdt-vpn-off": (
+        "agentic_devtools.cli.azure_devops.vpn_toggle",
+        "vpn_off_async",
+    ),
+    "agdt-vpn-on": (
+        "agentic_devtools.cli.azure_devops.vpn_toggle",
+        "vpn_on_async",
+    ),
+    "agdt-vpn-status": (
+        "agentic_devtools.cli.azure_devops.vpn_toggle",
+        "vpn_status_async",
+    ),
+    # Jira
+    "agdt-create-epic": ("agentic_devtools.cli.jira", "create_epic_async"),
+    "agdt-create-issue": ("agentic_devtools.cli.jira", "create_issue_async"),
+    "agdt-create-subtask": ("agentic_devtools.cli.jira", "create_subtask_async"),
+    "agdt-add-jira-comment": ("agentic_devtools.cli.jira", "add_comment_async_cli"),
+    "agdt-get-jira-issue": ("agentic_devtools.cli.jira", "get_issue_async"),
+    "agdt-update-jira-issue": ("agentic_devtools.cli.jira", "update_issue_async"),
+    "agdt-list-project-roles": (
+        "agentic_devtools.cli.jira",
+        "list_project_roles_async",
+    ),
+    "agdt-get-project-role-details": (
+        "agentic_devtools.cli.jira",
+        "get_project_role_details_async",
+    ),
+    "agdt-add-users-to-project-role": (
+        "agentic_devtools.cli.jira",
+        "add_users_to_project_role_async",
+    ),
+    "agdt-add-users-to-project-role-batch": (
+        "agentic_devtools.cli.jira",
+        "add_users_to_project_role_batch_async",
+    ),
+    "agdt-find-role-id-by-name": (
+        "agentic_devtools.cli.jira",
+        "find_role_id_by_name_async",
+    ),
+    "agdt-check-user-exists": (
+        "agentic_devtools.cli.jira",
+        "check_user_exists_async",
+    ),
+    "agdt-check-users-exist": (
+        "agentic_devtools.cli.jira",
+        "check_users_exist_async",
+    ),
+    "agdt-parse-jira-error-report": (
+        "agentic_devtools.cli.jira",
+        "parse_jira_error_report",
+    ),
+    # Git
+    "agdt-git-save-work": ("agentic_devtools.cli.git", "commit_async"),
+    "agdt-git-sync": ("agentic_devtools.cli.git", "sync_async"),
+    "agdt-git-stage": ("agentic_devtools.cli.git", "stage_async"),
+    "agdt-git-push": ("agentic_devtools.cli.git", "push_async"),
+    "agdt-git-force-push": ("agentic_devtools.cli.git", "force_push_async"),
+    "agdt-git-publish": ("agentic_devtools.cli.git", "publish_async"),
+    # Commit body
+    "agdt-commit-body-show": ("agentic_devtools.cli.git.commit_body", "show_cmd"),
+    # Testing
+    "agdt-test": ("agentic_devtools.cli.testing", "run_tests"),
+    "agdt-test-quick": ("agentic_devtools.cli.testing", "run_tests_quick"),
+    "agdt-test-file": ("agentic_devtools.cli.testing", "run_tests_file"),
+    "agdt-test-pattern": ("agentic_devtools.cli.testing", "run_tests_pattern"),
+    # Tasks
+    "agdt-tasks": ("agentic_devtools.cli.tasks", "list_tasks"),
+    "agdt-task-status": ("agentic_devtools.cli.tasks", "task_status"),
+    "agdt-task-log": ("agentic_devtools.cli.tasks", "task_log"),
+    "agdt-task-wait": ("agentic_devtools.cli.tasks", "task_wait"),
+    "agdt-tasks-clean": ("agentic_devtools.cli.tasks", "tasks_clean"),
+    "agdt-show-other-incomplete-tasks": (
+        "agentic_devtools.cli.tasks",
+        "show_other_incomplete_tasks",
+    ),
+    # Workflows
+    "agdt-initiate-pull-request-review-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_pull_request_review_workflow",
+    ),
+    "agdt-initiate-work-on-jira-issue-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_work_on_jira_issue_workflow",
+    ),
+    "agdt-initiate-create-jira-issue-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_create_jira_issue_workflow",
+    ),
+    "agdt-initiate-create-jira-epic-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_create_jira_epic_workflow",
+    ),
+    "agdt-initiate-create-jira-subtask-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_create_jira_subtask_workflow",
+    ),
+    "agdt-initiate-update-jira-issue-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_update_jira_issue_workflow",
+    ),
+    "agdt-initiate-optimize-issue-for-ai-agent-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_optimize_issue_for_ai_agent_workflow",
+    ),
+    "agdt-initiate-break-down-issue-into-subtasks-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_break_down_issue_into_subtasks_workflow",
+    ),
+    "agdt-initiate-apply-pr-suggestions-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_apply_pull_request_review_suggestions_workflow",
+    ),
+    "agdt-initiate-pr-merge-orchestrator-workflow": (
+        "agentic_devtools.cli.workflows",
+        "initiate_pr_merge_orchestrator_workflow",
+    ),
+    "agdt-advance-workflow": (
+        "agentic_devtools.cli.workflows",
+        "advance_workflow_cmd",
+    ),
+    "agdt-get-next-workflow-prompt": (
+        "agentic_devtools.cli.workflows",
+        "get_next_workflow_prompt_cmd",
+    ),
+    "agdt-create-checklist": (
+        "agentic_devtools.cli.workflows",
+        "create_checklist_cmd",
+    ),
+    "agdt-update-checklist": (
+        "agentic_devtools.cli.workflows",
+        "update_checklist_cmd",
+    ),
+    "agdt-show-checklist": (
+        "agentic_devtools.cli.workflows",
+        "show_checklist_cmd",
+    ),
+    # Issue templates
+    "agdt-render-issue": (
+        "agentic_devtools.cli.issue_template.async_commands",
+        "render_issue_async_cli",
+    ),
+    "agdt-phase0-review": (
+        "agentic_devtools.cli.phase0_review",
+        "phase0_review_async",
+    ),
+    "agdt-validate-templates": (
+        "agentic_devtools.cli.issue_template.validate_templates",
+        "validate_templates_cli",
+    ),
+    # Background worktree setup (internal, called by background task)
+    "agdt-setup-worktree-background": (
+        "agentic_devtools.cli.workflows",
+        "setup_worktree_background_cmd",
+    ),
+    # GitHub PR actions
+    "agdt-gh-reply-to-review-comments": (
+        "agentic_devtools.cli.github.review_reply",
+        "reply_to_review_comments_command",
+    ),
+    # GitHub issue creation (agentic-devtools repository)
+    "agdt-create-agdt-issue": (
+        "agentic_devtools.cli.github",
+        "create_agdt_issue_async_cli",
+    ),
+    "agdt-create-agdt-bug-issue": (
+        "agentic_devtools.cli.github",
+        "create_agdt_bug_issue_async_cli",
+    ),
+    "agdt-create-agdt-feature-issue": (
+        "agentic_devtools.cli.github",
+        "create_agdt_feature_issue_async_cli",
+    ),
+    "agdt-create-agdt-documentation-issue": (
+        "agentic_devtools.cli.github",
+        "create_agdt_documentation_issue_async_cli",
+    ),
+    "agdt-create-agdt-task-issue": (
+        "agentic_devtools.cli.github",
+        "create_agdt_task_issue_async_cli",
+    ),
+    # GitHub PR analysis (synchronous)
+    "agdt-gh-copilot-review-status": (
+        "agentic_devtools.cli.github.copilot_review_status",
+        "copilot_review_status_command",
+    ),
+    # GitHub PR actions (synchronous)
+    "agdt-gh-rerun-checks": (
+        "agentic_devtools.cli.github.rerun_checks",
+        "rerun_checks_command",
+    ),
+    "agdt-gh-resolve-review-threads": (
+        "agentic_devtools.cli.github.resolve_review_threads",
+        "resolve_review_threads_command",
+    ),
+    "agdt-gh-pr-approve": (
+        "agentic_devtools.cli.github.pr_approve",
+        "pr_approve_command",
+    ),
+    "agdt-gh-request-copilot-review": (
+        "agentic_devtools.cli.github.request_copilot_review",
+        "request_copilot_review_command",
+    ),
+    # GitHub PR polling
+    "agdt-gh-pr-poll-ready": (
+        "agentic_devtools.cli.github.pr_poll_ready",
+        "pr_poll_ready_command",
+    ),
+    "agdt-gh-pr-merge": (
+        "agentic_devtools.cli.github.pr_merge",
+        "pr_merge_command",
+    ),
+    "agdt-apply-pr-thread-autofix-suggestions": (
+        "agentic_devtools.cli.apply_thread_autofix_suggestions",
+        "apply_pr_autofix_suggestions_command",
+    ),
+    # Speckit
+    "agdt-speckit-specify": ("agentic_devtools.cli.speckit", "speckit_specify"),
+    "agdt-speckit-plan": ("agentic_devtools.cli.speckit", "speckit_plan"),
+    "agdt-speckit-tasks": ("agentic_devtools.cli.speckit", "speckit_tasks"),
+    "agdt-speckit-implement": ("agentic_devtools.cli.speckit", "speckit_implement"),
+    "agdt-speckit-clarify": ("agentic_devtools.cli.speckit", "speckit_clarify"),
+    "agdt-speckit-checklist": ("agentic_devtools.cli.speckit", "speckit_checklist"),
+    "agdt-speckit-analyze": ("agentic_devtools.cli.speckit", "speckit_analyze"),
+    "agdt-speckit-constitution": ("agentic_devtools.cli.speckit", "speckit_constitution"),
+    "agdt-speckit-taskstoissues": ("agentic_devtools.cli.speckit", "speckit_taskstoissues"),
+    "agdt-speckit-validate-frs": (
+        "agentic_devtools.cli.speckit",
+        "speckit_validate_frs",
+    ),
+    "agdt-speckit-cross-ref": (
+        "agentic_devtools.cli.speckit",
+        "speckit_cross_ref",
+    ),
+    "agdt-speckit-test-coverage": (
+        "agentic_devtools.cli.speckit",
+        "speckit_test_coverage",
+    ),
+    "agdt-speckit-validate-checklists": (
+        "agentic_devtools.cli.speckit",
+        "speckit_validate_checklists",
+    ),
+    "agdt-speckit-verify-artifacts": (
+        "agentic_devtools.cli.speckit",
+        "speckit_verify_artifacts",
+    ),
+    "agdt-speckit-request-artifact-fix": (
+        "agentic_devtools.cli.speckit",
+        "speckit_request_artifact_fix",
+    ),
+    # Speckit nest & retro-spec
+    "agdt-speckit-nest": (
+        "agentic_devtools.cli.speckit.nest.async_commands",
+        "nest_async_command",
+    ),
+    "agdt-speckit-retro-spec": (
+        "agentic_devtools.cli.speckit.retro_spec.async_commands",
+        "retro_spec_async_command",
+    ),
+    # Speckit native scaffold commands (replace .specify/scripts/bash/*.sh)
+    # scaffold-plan is kept synchronous: callers parse its JSON output immediately
+    # (speckit.plan.agent.md, plan.md) without waiting for a background task.
+    "agdt-speckit-scaffold-plan": (
+        "agentic_devtools.cli.speckit",
+        "speckit_scaffold_plan",
+    ),
+    "agdt-speckit-scaffold-new-feature": (
+        "agentic_devtools.cli.speckit",
+        "speckit_scaffold_new_feature_async",
+    ),
+    "agdt-speckit-scaffold-check-prereqs": (
+        "agentic_devtools.cli.speckit",
+        "speckit_scaffold_check_prereqs",
+    ),
+    "agdt-speckit-scaffold-tasks": (
+        "agentic_devtools.cli.speckit",
+        "speckit_scaffold_tasks_async",
+    ),
+    "agdt-speckit-scaffold-update-agent-context": (
+        "agentic_devtools.cli.speckit.scaffold_update_agent_context",
+        "scaffold_update_agent_context_async",
+    ),
+    # Release
+    "agdt-release-pypi": ("agentic_devtools.cli.release", "release_pypi_async"),
+    # Config mode & sync-back
+    "agdt-config-mode": ("agentic_devtools.cli.config.opt_in_mode", "config_mode_cmd"),
+    "agdt-sync-back": ("agentic_devtools.cli.config.sync_back", "sync_back_cmd"),
+    # Setup
+    "agdt-setup": ("agentic_devtools.cli.setup", "setup_cmd"),
+    "agdt-setup-copilot-cli": ("agentic_devtools.cli.setup", "setup_copilot_cli_cmd"),
+    "agdt-setup-gh-cli": ("agentic_devtools.cli.setup", "setup_gh_cli_cmd"),
+    "agdt-setup-check": ("agentic_devtools.cli.setup", "setup_check_cmd"),
+    "agdt-setup-certs": ("agentic_devtools.cli.setup", "setup_certs_cmd"),
+    "agdt-setup-decision-log": (
+        "agentic_devtools.cli.setup.decision_log",
+        "decision_log_command",
+    ),
+    "agdt-init-pr-template": ("agentic_devtools.cli.pr_template", "init_pr_template"),
+    # Copilot auto-start
+    "agdt-copilot-auto-start": (
+        "agentic_devtools.cli.copilot.auto_start",
+        "copilot_auto_start_cmd",
+    ),
+    "agdt-retry-autostart": (
+        "agentic_devtools.cli.copilot.auto_start",
+        "retry_autostart_cmd",
+    ),
+    # Post-agent evaluator
+    "agdt-evaluate-post-agent-state": (
+        "agentic_devtools.cli.ci.evaluator.command",
+        "evaluate_post_agent_state_command",
+    ),
+    # Azure context management
+    "agdt-azure-context-use": (
+        "agentic_devtools.cli.azure_context.commands",
+        "azure_context_use_command",
+    ),
+    "agdt-azure-context-status": (
+        "agentic_devtools.cli.azure_context.commands",
+        "azure_context_status_command",
+    ),
+    "agdt-azure-context-current": (
+        "agentic_devtools.cli.azure_context.commands",
+        "azure_context_current_command",
+    ),
+    "agdt-azure-context-ensure-login": (
+        "agentic_devtools.cli.azure_context.commands",
+        "azure_context_ensure_login_command",
+    ),
+    # Network / VPN wrappers
+    "agdt-network-status": ("agentic_devtools.cli.network", "network_status_cmd"),
+    "agdt-vpn-run": ("agentic_devtools.cli.vpn", "vpn_run_cmd"),
+    # GitHub PR commands
+    "agdt-gh-pr-state": ("agentic_devtools.cli.github.pr_state", "pr_state_command"),
+    "agdt-gh-pr-checks-status": (
+        "agentic_devtools.cli.github.pr_checks_status",
+        "pr_checks_status_command",
+    ),
+    "agdt-gh-create-pull-request": (
+        "agentic_devtools.cli.github.pr_create",
+        "create_pull_request_command",
+    ),
+    # Segment management
+    "agdt-segments-status": (
+        "agentic_devtools.cli.segments.commands",
+        "segments_status_command",
+    ),
+    "agdt-segments-clean": (
+        "agentic_devtools.cli.segments.commands",
+        "segments_clean_command",
+    ),
+    # Observability
+    "agdt-observability-summary": (
+        "agentic_devtools.cli.observability",
+        "observability_summary_command",
+    ),
+    # Orchestrator commands
+    "agdt-orchestrate-init": (
+        "agentic_devtools.cli.workflows.orchestrator_commands",
+        "orchestrate_init_async",
+    ),
+    "agdt-orchestrate-step": (
+        "agentic_devtools.cli.workflows.orchestrator_commands",
+        "orchestrate_step_async",
+    ),
+    "agdt-orchestrate-finalize": (
+        "agentic_devtools.cli.workflows.orchestrator_commands",
+        "orchestrate_finalize_async",
+    ),
+    "agdt-audit-trio": (
+        "agentic_devtools.cli.workflows.orchestrator_commands",
+        "audit_trio_async",
+    ),
+    # NOTE: agdt-mcp-server is intentionally NOT in COMMAND_MAP.
+    # It is wired directly to agentic_devtools.mcp.server:main in
+    # pyproject.toml because the MCP stdio transport requires direct
+    # control of stdin/stdout (incompatible with run_as_script's wrapper).
+}
+
+
+def run_command(command: str) -> None:
+    """
+    Import and run the specified command.
+
+    Args:
+        command: The agdt-* command name (e.g., 'agdt-set', 'agdt-get')
+    """
+    if command not in COMMAND_MAP:
+        print(f"Unknown command: {command}", file=sys.stderr)
+        print("\nAvailable commands:", file=sys.stderr)
+        for cmd in sorted(COMMAND_MAP.keys()):
+            print(f"  {cmd}", file=sys.stderr)
+        sys.exit(1)
+
+    module_name, func_name = COMMAND_MAP[command]
+
+    # Import the module and get the function
+    import importlib
+
+    try:
+        module = importlib.import_module(module_name)
+        func = getattr(module, func_name)
+    except (ImportError, AttributeError) as e:
+        print(f"Error loading command {command}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Run the command
+    try:
+        func()
+    finally:
+        try:
+            from agentic_devtools.cli.git.agdt_branch import persist_if_dirty
+        except Exception as exc:
+            # Warn once if the persist hook cannot be imported (ImportError,
+            # SyntaxError, or any other import-time error), but never change
+            # the command's exit code.
+            print(
+                f"Warning: could not import persist_if_dirty hook: {exc}",
+                file=sys.stderr,
+            )
+        else:
+            try:
+                persist_if_dirty()
+            except Exception:
+                pass  # Never crash the command due to persist hook failures
+
+
+def run_as_script() -> None:
+    """
+    Entry point called by console_scripts.
+
+    Derives the command name from ``sys.argv[0]`` (the script name) and runs
+    it, handling :exc:`KeyboardInterrupt` gracefully so Ctrl+C produces a
+    clean message and exits with code 130 instead of a traceback.
+    """
+    import os
+
+    command = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+    try:
+        run_command(command)
+    except KeyboardInterrupt:
+        print("\nOperation cancelled.")
+        sys.exit(130)
+
+
+def main() -> None:
+    """
+    Main entry point for the runner.
+
+    Parses the command name from arguments and dispatches to the appropriate
+    entry point function.
+    """
+    if len(sys.argv) < 2:
+        print("Usage: python -m agentic_devtools.cli.runner <command> [args...]")
+        print()
+        print("Example: python -m agentic_devtools.cli.runner agdt-set key value")
+        print()
+        print("Available commands:")
+        for cmd in sorted(COMMAND_MAP.keys()):
+            print(f"  {cmd}")
+        sys.exit(1)
+
+    command = sys.argv[1]
+
+    # Remove the command from argv so the actual command sees correct args
+    sys.argv = [command] + sys.argv[2:]
+
+    try:
+        run_command(command)
+    except KeyboardInterrupt:  # pragma: no cover
+        print("\nOperation cancelled.")
+        sys.exit(130)  # Standard exit code for SIGINT
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nOperation cancelled.")
+        sys.exit(130)

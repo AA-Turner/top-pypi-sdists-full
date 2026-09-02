@@ -1,0 +1,122 @@
+[project] 
+name = "policyengine-uk"
+version = "2.95.0"
+description = "PolicyEngine tax and benefit system for the UK."
+readme = "README.md"
+authors = [
+    { name = "PolicyEngine", email = "nikhil@policyengine.org" }
+]
+maintainers = [
+    { name = "Nikhil Woodruff", email = "nikhil@policyengine.org" }
+]
+license = "AGPL-3.0"
+keywords = ["benefit", "microsimulation", "social", "tax"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Operating System :: POSIX",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "policyengine-core>=3.30.1",
+    "microdf-python>=1.2.1",
+    "pydantic>=2.11.7",
+    "tables>=3.10.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/PolicyEngine/policyengine-uk"
+Repository = "https://github.com/PolicyEngine/policyengine-uk"
+Issues = "https://github.com/PolicyEngine/policyengine-uk/issues"
+Changelog = "https://github.com/PolicyEngine/policyengine-uk/blob/master/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = [
+    "policyengine_uk/**/*",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["policyengine_uk"]
+
+[project.optional-dependencies]
+dev = [
+    # pytest and wheel are brought in transitively by policyengine-core's
+    # runtime dependencies, so they're not repeated here. coverage,
+    # pytest-cov, ruff and towncrier live in core's dev extras, which pip
+    # does NOT install transitively when installing policyengine-uk[dev],
+    # so they must be listed explicitly here.
+    "coverage",
+    "pytest-cov",
+    "ruff>=0.9.0",
+    "towncrier>=24.8.0",
+    "furo<2023",
+    "tqdm",
+    "setuptools",
+    "sphinx-argparse>=0.3.2,<1",
+    "sphinx-math-dollar>=1.2.1,<2",
+    "snowballstemmer>=2,<3",
+    "jupyter-book>=2.0.0a0",
+    "rich",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "microsimulation: marks tests that use full microsimulation (deselect with '-m \"not microsimulation\"')",
+]
+
+[tool.towncrier]
+package = "policyengine_uk"
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+title_format = "## [{version}] - {project_date}"
+issue_format = ""
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = [
+    "docs/book/programs/gov/dfe/care-to-learn.ipynb",
+]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E402", "E501", "E712", "E713", "E721", "E722", "E741", "F401", "F402", "F403", "F405", "F541", "F811", "F821", "F841"]

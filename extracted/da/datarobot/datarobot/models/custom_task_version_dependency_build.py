@@ -20,23 +20,24 @@ from datarobot.models.api_object import APIObject
 
 
 class CustomTaskVersionDependencyBuild(APIObject):
-    """Metadata about a DataRobot custom task version's dependency build
+    """Metadata about a DataRobot custom task version's dependency build.
+
     .. versionadded:: v2.27
 
     Attributes
     ----------
     custom_task_id: str
-        id of the custom task
+        The ID of the custom task.
     custom_task_version_id: str
-        id of the custom task version
+        The ID of the custom task version.
     build_status: str
-        the status of the custom task version's dependency build
+        The status of the custom task version's dependency build.
     started_at: str
-        ISO-8601 formatted timestamp of when the build was started
+        ISO-8601 formatted timestamp of when the build was started.
     completed_at: str
-        ISO-8601 formatted timestamp of when the build has completed
+        ISO-8601 formatted timestamp of when the build has completed.
     build_log_location: str
-        Location of retrieving dependency build log
+        The location of the dependency build log.
     """
 
     _converter = t.Dict({

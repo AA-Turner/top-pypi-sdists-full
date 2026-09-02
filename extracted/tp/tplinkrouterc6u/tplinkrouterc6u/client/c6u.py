@@ -1,0 +1,928 @@
+from hashlib import md5
+from re import search
+from json import loads
+from urllib.parse import urlencode
+from requests import post, Response
+from logging import Logger
+from urllib.parse import parse_qsl
+from json import dumps
+from tplinkrouterc6u.common.helper import get_ip, get_ipv6, get_mac
+from tplinkrouterc6u.common.encryption import EncryptionWrapper
+from tplinkrouterc6u.common.package_enum import Connection, VPN, VpnClientServerProtocol
+from tplinkrouterc6u.common.dataclass import (
+    Firmware,
+    Status,
+    Device,
+    IPv4Reservation,
+    IPv4DHCPLease,
+    IPv4Status,
+    IPv6Status,
+    VPNStatus,
+    WifiStatus,
+    VpnClientStatus,
+    VpnClientServer,
+    VpnClientDevice,
+)
+from tplinkrouterc6u.common.exception import ClientException, ClientError
+from tplinkrouterc6u.client_abstract import AbstractRouter
+from abc import abstractmethod
+
+
+class TplinkRequest:
+    def request(self, path: str, data: str, ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+        if self._logged is False:
+            raise Exception('Not authorised')
+        url = '{}/cgi-bin/luci/;stok={}/{}'.format(self.host, self._stok, path)
+
+        response = post(
+            url,
+            data=self._prepare_data(data),
+            headers=self._headers_request,
+            cookies={'sysauth': self._sysauth},
+            timeout=self.timeout,
+            verify=self._verify_ssl,
+        )
+
+        if ignore_response:
+            return None
+
+        data = response.text
+        error = ''
+        try:
+            data = response.json()
+            if 'data' not in data:
+                raise Exception("Router didn't respond with JSON")
+            data = self._decrypt_response(data)
+
+            if self._is_valid_response(data):
+                return data.get(self._data_block)
+            elif ignore_errors:
+                return data
+        except Exception as e:
+            error = ('TplinkRouter - {} - An unknown response - {}; Request {} - Response {}'
+                     .format(self.__class__.__name__, e, path, data))
+            if getattr(self, '_encryption', None):
+                try:
+                    error += ' Decrypted response - {}'.format(
+                        self._encryption.aes_decrypt(response.text))
+                except Exception:
+                    pass
+        error = ('TplinkRouter - {} - Response with error; Request {} - Response {}'
+                 .format(self.__class__.__name__, path, data)) if not error else error
+        if self._logger:
+            self._logger.debug(error)
+        raise ClientError(error)
+
+    def _is_valid_response(self, data: dict) -> bool:
+        return 'success' in data and data['success'] and self._data_block in data
+
+    def _prepare_data(self, data: str):
+        return data
+
+    def _decrypt_response(self, data: dict) -> dict:
+        return data
+
+
+class TplinkEncryption(TplinkRequest):
+    def __init__(self, host: str, password: str, username: str = 'admin', logger: Logger = None,
+                 verify_ssl: bool = True, timeout: int = 30) -> None:
+        super().__init__(host, password, username, logger, verify_ssl, timeout)
+        self._stok = ''
+        self._logged = False
+        self._sysauth = None
+        self._data_block = 'data'
+        self._headers_request = {}
+        self._headers_login = {}
+        self.nn = ''
+        self.ee = ''
+        self._seq = ''
+        self._pwdNN = ''
+        self._pwdEE = ''
+        self._encryption = EncryptionWrapper()
+
+    def supports(self) -> bool:
+        if len(self.password) > 125:
+            return False
+
+        try:
+            self._request_pwd()
+            return True
+        except ClientException:
+            return False
+
+    def authorize(self) -> None:
+        if self._pwdNN == '':
+            self._request_pwd()
+
+        if self._seq == '':
+            self._request_seq()
+
+        response = self._try_login()
+
+        is_valid_json = False
+        try:
+            response.json()
+            is_valid_json = True
+        except BaseException:
+            """Ignore"""
+
+        if is_valid_json is False or response.status_code == 403:
+            self._logged = False
+            self._request_pwd()
+            self._request_seq()
+            response = self._try_login()
+
+        data = response.text
+        try:
+            data = response.json()
+            data = self._decrypt_response(data)
+
+            self._stok = data[self._data_block]['stok']
+            regex_result = search(
+                'sysauth=(.*);', response.headers['set-cookie'])
+            self._sysauth = regex_result.group(1)
+            self._logged = True
+
+        except Exception as e:
+            error = ("TplinkRouter - {} - Cannot authorize! Error - {}; Response - {}"
+                     .format(self.__class__.__name__, e, data))
+            if self._logger:
+                self._logger.debug(error)
+            raise ClientException(error)
+
+    def _request_pwd(self) -> None:
+        url = '{}/cgi-bin/luci/;stok=/login?form=keys'.format(self.host)
+
+        # If possible implement RSA encryption of password here.
+        response = post(
+            url, params={'operation': 'read'},
+            timeout=self.timeout,
+            verify=self._verify_ssl,
+        )
+
+        try:
+            data = response.json()
+
+            args = data[self._data_block]['password']
+
+            self._pwdNN = args[0]
+            self._pwdEE = args[1]
+
+        except Exception as e:
+            error = ('TplinkRouter - {} - Unknown error for pwd! Error - {}; Response - {}'
+                     .format(self.__class__.__name__, e, response.text))
+            if self._logger:
+                self._logger.debug(error)
+            raise ClientException(error)
+
+    def _request_seq(self) -> None:
+        url = '{}/cgi-bin/luci/;stok=/login?form=auth'.format(self.host)
+
+        # If possible implement RSA encryption of password here.
+        response = post(
+            url,
+            params={'operation': 'read'},
+            timeout=self.timeout,
+            verify=self._verify_ssl,
+        )
+
+        try:
+            data = response.json()
+
+            self._seq = data[self._data_block]['seq']
+            args = data[self._data_block]['key']
+
+            self.nn = args[0]
+            self.ee = args[1]
+
+        except Exception as e:
+            error = ('TplinkRouter - {} - Unknown error for seq! Error - {}; Response - {}'
+                     .format(self.__class__.__name__, e, response.text))
+            if self._logger:
+                self._logger.debug(error)
+            raise ClientException(error)
+
+    def _try_login(self) -> Response:
+        url = '{}/cgi-bin/luci/;stok=/login?form=login'.format(self.host)
+
+        crypted_pwd = self._encryption.rsa_encrypt(self.password, self._pwdNN, self._pwdEE)
+
+        body = self._prepare_data(self._get_login_data(crypted_pwd))
+
+        return post(
+            url,
+            data=body,
+            headers=self._headers_login,
+            timeout=self.timeout,
+            verify=self._verify_ssl,
+        )
+
+    @staticmethod
+    def _get_login_data(crypted_pwd: str) -> str:
+        return 'operation=login&password={}&confirm=true'.format(crypted_pwd)
+
+    def _prepare_data(self, data: str) -> dict:
+        encrypted_data = self._encryption.aes_encrypt(data)
+        data_len = len(encrypted_data)
+        hash = md5((self.username + self.password).encode()).hexdigest()
+
+        sign = self._encryption.get_signature(int(self._seq) + data_len,
+                                              True if self._logged is False else False,
+                                              hash, self.nn, self.ee)
+
+        return {'sign': sign, 'data': encrypted_data}
+
+    def _decrypt_response(self, data: dict) -> dict:
+        if not data.get('data'):
+            return {}
+        return loads(self._encryption.aes_decrypt(data['data']))
+
+
+class TplinkBaseRouter(AbstractRouter, TplinkRequest):
+    def __init__(self, host: str, password: str, username: str = 'admin', logger: Logger = None,
+                 verify_ssl: bool = True, timeout: int = 30) -> None:
+        super().__init__(host, password, username, logger, verify_ssl, timeout)
+
+        self._stok = ''
+        self._logged = False
+        self._sysauth = None
+        self._data_block = 'data'
+        self._smart_network = True
+        self._easymesh = True
+        self._perf_status = True
+        self._url_firmware = 'admin/firmware?form=upgrade&operation=read'
+        self._url_ipv4_reservations = 'admin/dhcps?form=reservation&operation=load'
+        self._url_ipv4_dhcp_leases = 'admin/dhcps?form=client&operation=load'
+        self._url_smart_network = 'admin/smart_network?form=game_accelerator&operation=loadDevice'
+        self._url_easymesh_device_list = 'admin/easymesh_network?form=get_mesh_device_list_all&operation=read'
+        self._url_openvpn = 'admin/openvpn?form=config&operation=read'
+        self._url_pptpd = 'admin/pptpd?form=config&operation=read'
+        self._url_vpnconn_openvpn = 'admin/vpnconn?form=config&operation=list&vpntype=openvpn'
+        self._url_vpnconn_pptpd = 'admin/vpnconn?form=config&operation=list&vpntype=pptp'
+        self._url_vpn_client_enable = 'admin/vpn?form=enable'
+        self._url_vpn_client_server = 'admin/vpn?form=server'
+        self._url_vpn_client_user_list = 'admin/vpn?form=vpn_user_list'
+        self._url_ipv4_dhcps = 'admin/dhcps?form=setting'
+        referer = '{}/webpages/index.html'.format(self.host)
+        self._headers_request = {'Referer': referer, 'Origin': self.host}
+        self._headers_login = {'Referer': referer, 'Content-Type': 'application/x-www-form-urlencoded'}
+
+    @abstractmethod
+    def authorize(self) -> bool:
+        pass
+
+    def set_wifi(self, wifi: Connection, enable: bool = None, ssid: str = None, hidden: str = None,
+                 encryption: str = None, psk_version: str = None, psk_cipher: str = None, psk_key: str = None,
+                 hwmode: str = None, htmode: str = None, channel: int = None, txpower: str = None,
+                 disabled_all: str = None, portal_password: str = None) -> None:
+        values = {
+            Connection.HOST_2G: 'wireless_2g',
+            Connection.HOST_5G: 'wireless_5g',
+            Connection.HOST_6G: 'wireless_6g',
+            Connection.GUEST_2G: 'guest_2g',
+            Connection.GUEST_5G: 'guest_5g',
+            Connection.GUEST_6G: 'guest_6g',
+            Connection.IOT_2G: 'iot_2g',
+            Connection.IOT_5G: 'iot_5g',
+            Connection.IOT_6G: 'iot_6g',
+        }
+
+        value = values.get(wifi)
+        if not value:
+            raise ValueError(f"Invalid Wi-Fi connection type: {wifi}")
+
+        if all(v is None for v in [enable, ssid, hidden, encryption, psk_version, psk_cipher, psk_key, hwmode,
+                                   htmode, channel, txpower, disabled_all, portal_password]):
+            raise ValueError("At least one wireless setting must be provided")
+
+        data = "operation=write"
+
+        if enable is not None:
+            # Backward compatibility with existing tests
+            if all(v is None for v in [ssid, hidden, encryption, psk_version, psk_cipher, psk_key, hwmode,
+                                       htmode, channel, txpower, disabled_all, portal_password]):
+                data += f"&enable={'on' if enable else 'off'}"
+            else:
+                data += f"&{value}_enable={'on' if enable else 'off'}"
+        if ssid is not None:
+            data += f"&{value}_ssid={ssid}"
+        if hidden is not None:
+            data += f"&{value}_hidden={hidden}"
+        if encryption is not None:
+            data += f"&{value}_encryption={encryption}"
+        if psk_version is not None:
+            data += f"&{value}_psk_version={psk_version}"
+        if psk_cipher is not None:
+            data += f"&{value}_psk_cipher={psk_cipher}"
+        if psk_key is not None:
+            data += f"&{value}_psk_key={psk_key}"
+        if hwmode is not None:
+            data += f"&{value}_hwmode={hwmode}"
+        if htmode is not None:
+            data += f"&{value}_htmode={htmode}"
+        if channel is not None:
+            data += f"&{value}_channel={channel}"
+        if txpower is not None:
+            data += f"&{value}_txpower={txpower}"
+        if disabled_all is not None:
+            data += f"&{value}_disabled_all={disabled_all}"
+        if portal_password is not None:
+            data += f"&{value}_portal_password={portal_password}"
+
+        path = f"admin/wireless?form={value}"
+        self.request(path, data)
+
+    def get_wifi(self, wifi: Connection) -> WifiStatus:
+        values = {
+            Connection.HOST_2G: 'wireless_2g',
+            Connection.HOST_5G: 'wireless_5g',
+            Connection.HOST_6G: 'wireless_6g',
+            Connection.GUEST_2G: 'guest_2g',
+            Connection.GUEST_5G: 'guest_5g',
+            Connection.GUEST_6G: 'guest_6g',
+            Connection.IOT_2G: 'iot_2g',
+            Connection.IOT_5G: 'iot_5g',
+            Connection.IOT_6G: 'iot_6g',
+        }
+        value = values.get(wifi)
+        if not value:
+            raise ValueError(f"Invalid Wi-Fi connection type: {wifi}")
+
+        data = self.request(f'admin/wireless?form={value}', 'operation=read')
+        status = WifiStatus()
+
+        def get_v(key):
+            return data.get(f'{value}_{key}', data.get(key))
+
+        status.enable = self._str2bool(get_v('enable'))
+        status.ssid = get_v('ssid')
+        status.hidden = self._str2bool(get_v('hidden'))
+        status.encryption = get_v('encryption')
+        status.psk_key = get_v('psk_key')
+        status.portal_enable = self._str2bool(get_v('portal_enable'))
+        status.portal_password = get_v('portal_password')
+        try:
+            status.channel = int(get_v('channel'))
+        except (TypeError, ValueError):
+            status.channel = None
+
+        return status
+
+    def reboot(self) -> None:
+        self.request('admin/system?form=reboot', 'operation=write', True)
+
+    def logout(self) -> None:
+        self.request('admin/system?form=logout', 'operation=write', True)
+        self._stok = ''
+        self._sysauth = ''
+        self._logged = False
+
+    def get_firmware(self) -> Firmware:
+        data = self.request(self._url_firmware, 'operation=read')
+        firmware = Firmware(data.get('hardware_version', ''), data.get('model', ''), data.get('firmware_version', ''))
+
+        return firmware
+
+    def get_status(self) -> Status:
+        data = self.request('admin/status?form=all&operation=read', 'operation=read')
+
+        status = Status()
+        status._wan_macaddr = get_mac(data['wan_macaddr']) if 'wan_macaddr' in data and data['wan_macaddr'] else None
+        status._lan_macaddr = get_mac(data['lan_macaddr'])
+        status._wan_ipv4_addr = get_ip(data['wan_ipv4_ipaddr']) if 'wan_ipv4_ipaddr' in data else None
+        status._lan_ipv4_addr = get_ip(data['lan_ipv4_ipaddr']) if 'lan_ipv4_ipaddr' in data else None
+        status._wan_ipv4_gateway = get_ip(data['wan_ipv4_gateway']) if 'wan_ipv4_gateway' in data else None
+        status.wan_ipv4_uptime = data.get('wan_ipv4_uptime')
+        status.wan_ipv6_enabled = self._str2bool(data.get('wan_ipv6_enable', ''))
+        status._wan_ipv6_addr = get_ipv6(data.get('wan_ipv6_ip6addr', '::').split('/')[0])
+        status.lan_ipv4_dhcp_enable = self._str2bool(data.get('lan_ipv4_dhcp_enable'))
+        status.mem_usage = data.get('mem_usage')
+        status.cpu_usage = data.get('cpu_usage')
+        status.conn_type = data.get('conn_type')
+        status.wired_total = len(data.get('access_devices_wired', []))
+        status.wifi_clients_total = len(data.get('access_devices_wireless_host', []))
+        status.guest_clients_total = len(data.get('access_devices_wireless_guest', []))
+        status.guest_2g_enable = self._str2bool(data.get('guest_2g_enable'))
+        status.guest_5g_enable = self._str2bool(data.get('guest_5g_enable'))
+        status.guest_6g_enable = self._str2bool(data.get('guest_6g_enable'))
+        status.iot_2g_enable = self._str2bool(data.get('iot_2g_enable'))
+        status.iot_5g_enable = self._str2bool(data.get('iot_5g_enable'))
+        status.iot_6g_enable = self._str2bool(data.get('iot_6g_enable'))
+        status.wifi_2g_enable = self._str2bool(data.get('wireless_2g_enable'))
+        status.wifi_5g_enable = self._str2bool(data.get('wireless_5g_enable'))
+        status.wifi_6g_enable = self._str2bool(data.get('wireless_6g_enable'))
+
+        if (status.mem_usage is None or status.cpu_usage is None) and self._perf_status:
+            try:
+                performance = self.request('admin/status?form=perf&operation=read', 'operation=read')
+                status.mem_usage = performance.get('mem_usage')
+                status.cpu_usage = performance.get('cpu_usage')
+            except BaseException:
+                self._perf_status = False
+
+        devices = {}
+
+        def _add_device(conn: Connection, item: dict) -> None:
+            devices[item['macaddr']] = Device(conn, get_mac(item.get('macaddr', '00:00:00:00:00:00')),
+                                              get_ip(item['ipaddr']),
+                                              item['hostname'])
+
+        for item in data.get('access_devices_wired', []):
+            type = self._map_wire_type(item.get('wire_type'))
+            _add_device(type, item)
+
+        for item in data.get('access_devices_wireless_host', []):
+            type = self._map_wire_type(item.get('wire_type'))
+            _add_device(type, item)
+
+        for item in data.get('access_devices_wireless_guest', []):
+            type = self._map_wire_type(item.get('wire_type'), False)
+            _add_device(type, item)
+
+        smart_network = None
+        if self._smart_network:
+            try:
+                smart_network = self.request(self._url_smart_network, 'operation=loadDevice')
+            except Exception:
+                self._smart_network = False
+
+        if smart_network:
+            for item in smart_network:
+                mac = item.get('mac')
+                if not mac:
+                    continue
+
+                if mac not in devices:
+                    conn = self._map_wire_type(item.get('deviceTag'), not item.get('isGuest'))
+                    devices[mac] = Device(conn, get_mac(item.get('mac', '00:00:00:00:00:00')),
+                                          get_ip(item.get('ip', '0.0.0.0')), item.get('deviceName', ''))
+                    if conn.is_iot():
+                        if status.iot_clients_total is None:
+                            status.iot_clients_total = 0
+                        status.iot_clients_total += 1
+
+                device = devices[mac]
+                device.down_speed = item.get('downloadSpeed', item.get('downSpeed'))
+                device.up_speed = item.get('uploadSpeed', item.get('upSpeed'))
+                device.tx_rate = item.get('txrate', item.get('txRate'))
+                device.rx_rate = item.get('rxrate', item.get('rxRate'))
+                device.online_time = item.get('onlineTime', item.get('online_time'))
+                device.traffic_usage = item.get('trafficUsage', item.get('trafficUsed'))
+                device.signal = int(item.get('signal')) if item.get('signal') else None
+
+        try:
+            wireless_stats = self.request('admin/wireless?form=statistics', 'operation=load')
+            for item in wireless_stats:
+                if item['mac'] not in devices:
+                    status.wifi_clients_total += 1
+                    type = self._map_wire_type(item.get('type'))
+                    devices[item['mac']] = Device(type, get_mac(item['mac']), get_ip('0.0.0.0'),
+                                                  '')
+                devices[item['mac']].packets_sent = item.get('txpkts')
+                devices[item['mac']].packets_received = item.get('rxpkts')
+        except Exception:
+            # WiFi might be disabled on the router, skip wireless statistics
+            pass
+
+        easymesh_device_list = None
+        if self._easymesh:
+            try:
+                easymesh_device_list = self.request(self._url_easymesh_device_list, 'operation=read')
+            except Exception:
+                self._easymesh = False
+
+        if easymesh_device_list:
+            # Match EasyMesh MACs (often dash-uppercase) to devices keyed by other API formats
+            devices_by_mac = {device.macaddr: device for device in devices.values()}
+            for ap in easymesh_device_list:
+                try:
+                    # 'sclient' is mesh main or satellite, 'nclient' is a network device
+                    sclient_detail = self.request(
+                        'admin/easymesh_network?form=mesh_sclient_detail&operation=read&mac=' + ap['mac'],
+                        'operation=read&mac=' + ap['mac'])
+                except Exception:
+                    continue
+
+                if not sclient_detail:
+                    continue
+
+                for nclient in sclient_detail.get('mesh_nclient_list') or []:
+                    nclient_mac = nclient.get('mac')
+                    if not nclient_mac:
+                        continue
+                    device = devices_by_mac.get(str(get_mac(nclient_mac)))
+                    if device is None:
+                        continue
+                    if ap.get('role') == 'satellite_router':
+                        # Last satellite wins if the same client appears under multiple APs
+                        device.ap_name = ap.get('name')
+                        if nclient.get('signal_strength') is not None:
+                            device.signal = nclient['signal_strength']
+                    elif device.ap_name is None:
+                        # prefix * helps identify and sort main node devices for display
+                        device.ap_name = '*' + (ap.get('name') or '')
+
+        status.devices = list(devices.values())
+        status.clients_total = (status.wired_total + status.wifi_clients_total + status.guest_clients_total
+                                + (status.iot_clients_total or 0))
+
+        return status
+
+    def get_ipv4_status(self) -> IPv4Status:
+        ipv4_status = IPv4Status()
+        data = self.request('admin/network?form=status_ipv4&operation=read', 'operation=read')
+        ipv4_status._wan_macaddr = get_mac(data.get('wan_macaddr', '00:00:00:00:00:00'))
+        ipv4_status._wan_ipv4_ipaddr = get_ip(data.get('wan_ipv4_ipaddr', '0.0.0.0'))
+        ipv4_status._wan_ipv4_gateway = get_ip(data.get('wan_ipv4_gateway', '0.0.0.0'))
+        ipv4_status._wan_ipv4_conntype = data.get('wan_ipv4_conntype', '')
+        ipv4_status._wan_ipv4_netmask = get_ip(data.get('wan_ipv4_netmask', '0.0.0.0'))
+        ipv4_status._wan_ipv4_pridns = get_ip(data.get('wan_ipv4_pridns', '0.0.0.0'))
+        ipv4_status._wan_ipv4_snddns = get_ip(data.get('wan_ipv4_snddns', '0.0.0.0'))
+        ipv4_status._lan_macaddr = get_mac(data.get('lan_macaddr', '00:00:00:00:00:00'))
+        ipv4_status._lan_ipv4_ipaddr = get_ip(data.get('lan_ipv4_ipaddr', '0.0.0.0'))
+        ipv4_status.lan_ipv4_dhcp_enable = self._str2bool(data.get('lan_ipv4_dhcp_enable', ''))
+        ipv4_status._lan_ipv4_netmask = get_ip(data.get('lan_ipv4_netmask', '0.0.0.0'))
+        ipv4_status.remote = self._str2bool(data.get('remote', '')) if data.get('remote') else None
+
+        return ipv4_status
+
+    def get_ipv6_status(self) -> IPv6Status:
+        ipv6_status = IPv6Status()
+        data = self.request('admin/network?form=status_ipv6&operation=read', 'operation=read')
+        ipv6_status.wan_ipv6_enabled = self._str2bool(data.get('wan_ipv6_enable', ''))
+        ipv6_status._wan_ipv6_conntype = data.get('wan_ipv6_conntype', '')
+        ipv6_status._wan_ipv6_addr = get_ipv6(data.get('wan_ipv6_ip6addr', '::').split('/')[0])
+        ipv6_status._wan_ipv6_gateway = get_ipv6(data.get('wan_ipv6_gateway', '::'))
+        ipv6_status._wan_ipv6_pridns = get_ipv6(data.get('wan_ipv6_pridns', '::'))
+        ipv6_status._wan_ipv6_snddns = get_ipv6(data.get('wan_ipv6_snddns', '::'))
+
+        data = self.request('admin/network?form=wan_ipv6_dynamic&operation=read', 'operation=read')
+        ipv6_status._wan_ipv6_conn_status = data.get('conn_status', '')
+        ipv6_status._ipv6_site_prefix = get_ipv6(data.get('prefix', '::'))
+
+        return ipv6_status
+
+    @staticmethod
+    def _as_list(data, envelope_key: str, what: str) -> list:
+        """Return a list payload whether or not the router wrapped it.
+
+        Some firmware answers these `operation=load` calls with a bare JSON
+        array, and some wraps it as ``{"<key>": [...]}``. Observed on an Archer
+        BE805 v1.20 running 1.5.1 Build 20260523 rel.11659(5347), where the
+        reservation payload arrives as ``{"list": [...]}`` and iterating the
+        response directly yields dict *keys*, so the first ``item['mac']``
+        raises ``TypeError: string indices must be integers``.
+
+        Both shapes are accepted rather than one being replaced by the other:
+        these payloads are model- and firmware-specific, and swapping the
+        assumption would simply move the failure to whichever routers answer the
+        other way.
+        """
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            value = data.get(envelope_key)
+            if isinstance(value, list):
+                return value
+            raise ClientError(
+                '{} response is an object without a list "{}"; got keys {}'
+                .format(what, envelope_key, sorted(data.keys())))
+        raise ClientError('{} response is neither a list nor an object; got {}'
+                          .format(what, type(data).__name__))
+
+    def get_ipv4_reservations(self) -> [IPv4Reservation]:
+        ipv4_reservations = []
+        data = self.request(self._url_ipv4_reservations, 'operation=load')
+
+        for item in self._as_list(data, 'list', 'IPv4 reservation'):
+            ipv4_reservations.append(
+                IPv4Reservation(get_mac(item['mac']), get_ip(item['ip']), item['comment'],
+                                self._str2bool(item['enable'])))
+
+        return ipv4_reservations
+
+    def add_ipv4_reservation(self, macaddr: str, ipaddr: str, comment: str = '', enable: bool = True) -> None:
+        """Add an IPv4 DHCP address reservation.
+
+        macaddr may be given in any common format (colon/dash, upper/lower);
+        it is normalised to the dash-uppercase form the router stores.
+        """
+        path = self._url_ipv4_reservations.split('&operation=')[0]
+        new = dumps({
+            'mac': str(get_mac(macaddr)),
+            'ip': ipaddr,
+            'comment': comment,
+            'enable': 'on' if enable else 'off',
+        })
+        self.request(path, urlencode({'operation': 'insert', 'new': new}))
+
+    def get_ipv4_dhcp_leases(self) -> [IPv4DHCPLease]:
+        dhcp_leases = []
+        data = self.request(self._url_ipv4_dhcp_leases, 'operation=load')
+
+        for item in self._as_list(data, 'dhcp_clients', 'DHCP lease'):
+            dhcp_leases.append(
+                IPv4DHCPLease(get_mac(item['macaddr']), get_ip(item['ipaddr']), item['name'],
+                              item['leasetime']))
+
+        return dhcp_leases
+
+    def get_vpn_status(self) -> VPNStatus:
+        status = VPNStatus()
+
+        values = [
+            self.request(self._url_openvpn, "operation=read"),
+            self.request(self._url_pptpd, "operation=read"),
+            self.request(self._url_vpnconn_openvpn, "operation=list&vpntype=openvpn"),
+            self.request(self._url_vpnconn_pptpd, "operation=list&vpntype=pptp"),
+        ]
+
+        status.openvpn_enable = values[0]['enabled'] == 'on'
+        status.pptpvpn_enable = values[1]['enabled'] == 'on'
+
+        if isinstance(values[2], list):
+            status.openvpn_clients_total = len(values[2])
+            status.pptpvpn_clients_total = len(values[3])
+        else:
+            status.openvpn_clients_total = 0
+            status.pptpvpn_clients_total = 0
+
+        return status
+
+    def set_vpn(self, vpn: VPN, enable: bool) -> None:
+        path = self._url_openvpn if VPN.OPEN_VPN == vpn else self._url_pptpd
+        current_config = self.request(path, "operation=read")
+        current_config['enabled'] = "on" if enable else "off"
+        data = urlencode(current_config)
+        data = "operation=write&{}".format(data)
+        self.request(path, data)
+
+    def get_vpn_client_status(self) -> VpnClientStatus:
+        enable_data = self.request(self._url_vpn_client_enable, 'operation=read')
+        server_data = self.request(self._url_vpn_client_server, 'operation=load')
+        device_data = self.request(self._url_vpn_client_user_list, 'operation=load')
+
+        servers = []
+        for item in server_data:
+            try:
+                protocol = VpnClientServerProtocol(item.get('type', ''))
+            except ValueError:
+                raise ClientException('Unknown VPN server protocol: {}'.format(item.get('type')))
+            servers.append(VpnClientServer(
+                id=item.get('key', ''),
+                name=item.get('des', ''),
+                protocol=protocol,
+                active=item.get('enable') == 'on',
+                status=item.get('status'),
+            ))
+
+        devices = []
+        for item in (device_data or []):
+            devices.append(VpnClientDevice(
+                _macaddr=get_mac(item.get('mac', '00:00:00:00:00:00')),
+                name=item.get('name', ''),
+                enabled=item.get('access') == 'on',
+            ))
+
+        return VpnClientStatus(
+            enabled=enable_data.get('enable') == 'on',
+            servers=servers,
+            devices=devices,
+        )
+
+    def set_vpn_client(self, enable: bool) -> None:
+        self.request(
+            self._url_vpn_client_enable,
+            urlencode({'operation': 'write', 'enable': 'on' if enable else 'off'}),
+        )
+
+    def set_vpn_client_server(self, server_id: str, enable: bool) -> None:
+        """Toggle a VPN server on or off by ID.
+
+        When enable=True, the router automatically deactivates all other active servers;
+        only one server can be active at a time.
+        When enable=False and the server is already inactive, this is a no-op.
+        """
+        data = self.request(self._url_vpn_client_server, 'operation=load')
+        target = next((item for item in data if item.get('key') == server_id), None)
+        if target is None:
+            raise ClientException('VPN server not found: {}'.format(server_id))
+        desired = 'on' if enable else 'off'
+        if target.get('enable') == desired:
+            return
+        old = dict(target)
+        new = dict(target)
+        new['enable'] = desired
+        payload = urlencode({
+            'operation': 'update',
+            'key': target['key'],
+            'new': dumps(new),
+            'old': dumps(old),
+        })
+        self.request(self._url_vpn_client_server, payload)
+
+    def set_vpn_client_device(self, mac: str, enable: bool) -> None:
+        data = self.request(self._url_vpn_client_user_list, 'operation=load')
+        normalized = get_mac(mac)
+        target = next((item for item in data if get_mac(item.get('mac', '')) == normalized), None)
+        if target is None:
+            raise ClientException('Device not found in VPN whitelist: {}'.format(mac))
+        old = dict(target)
+        new = dict(target)
+        new['access'] = 'on' if enable else 'off'
+        payload = urlencode({
+            'operation': 'update',
+            'key': target['mac'],
+            'new': dumps(new),
+            'old': dumps(old),
+        })
+        self.request(self._url_vpn_client_user_list, payload)
+
+    def set_ipv4_dhcps(self, enable: bool) -> None:
+        data = self.request(self._url_ipv4_dhcps, 'operation=read')
+        payload = urlencode({
+            'operation': 'write',
+            'enable': 'on' if enable else 'off',
+            'leasetime': data.get('leasetime', ''),
+            'pri_dns': data.get('pri_dns', ''),
+            'snd_dns': data.get('snd_dns', ''),
+            'gateway': data.get('gateway', ''),
+            'ipaddr_start': data.get('ipaddr_start', ''),
+            'ipaddr_end': data.get('ipaddr_end', ''),
+            'domain': data.get('domain', ''),
+        })
+        self.request(self._url_ipv4_dhcps, payload)
+
+    @staticmethod
+    def _str2bool(v) -> bool | None:
+        return str(v).lower() in ("yes", "true", "on") if v is not None else None
+
+    @staticmethod
+    def _map_wire_type(data: str | None, host: bool = True) -> Connection:
+        result = Connection.UNKNOWN
+        if data is None:
+            return result
+        if data == 'wired':
+            result = Connection.WIRED
+        if data.startswith('2.4'):
+            result = Connection.HOST_2G if host else Connection.GUEST_2G
+        elif data.startswith('5'):
+            result = Connection.HOST_5G if host else Connection.GUEST_5G
+        elif data.startswith('6'):
+            result = Connection.HOST_6G if host else Connection.GUEST_6G
+        elif data.startswith('iot_2'):
+            result = Connection.IOT_2G
+        elif data.startswith('iot_5'):
+            result = Connection.IOT_5G
+        elif data.startswith('iot_6'):
+            result = Connection.IOT_6G
+        return result
+
+
+class TplinkRouterJson(TplinkBaseRouter):
+    def __init__(self, host: str, password: str, username: str = 'admin', logger: Logger = None,
+                 verify_ssl: bool = True, timeout: int = 30) -> None:
+        super().__init__(host, password, username, logger, verify_ssl, timeout)
+        self._headers_request['Content-Type'] = 'application/json'
+
+    def request(self, path: str, data: str, ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+        # BE805 expects the payload to be a JSON object, even though the base class
+        # typically sends form-urlencoded style strings (e.g. 'operation=read').
+        # We intercept the request, parse the string to a dict, and convert to JSON.
+
+        # Also, BE805 requires the 'operation' parameter to be in the URL query string
+        # for many endpoints (e.g. firmware, dhcp, vpn).
+
+        if isinstance(data, str) and '=' in data:
+            try:
+                # content is like "operation=read&form=..."
+                # Parse to dict
+                parsed = dict(parse_qsl(data))
+
+                for key, value in parsed.items():
+                    if f'{key}=' not in path:
+                        path += f"&{key}={value}"
+
+                # Convert to JSON string
+                data = dumps(parsed)
+            except Exception:
+                # If parsing fails, fall back to sending original data
+                pass
+        return super().request(path, data, ignore_response, ignore_errors)
+
+
+class TplinkRouter(TplinkEncryption, TplinkRouterJson):
+    def __init__(self, host: str, password: str, username: str = 'admin', logger: Logger = None,
+                 verify_ssl: bool = True, timeout: int = 30) -> None:
+        super().__init__(host, password, username, logger, verify_ssl, timeout)
+
+        self._url_firmware = 'admin/firmware?form=upgrade'
+        self._url_ipv4_reservations = 'admin/dhcps?form=reservation'
+        self._url_ipv4_dhcp_leases = 'admin/dhcps?form=client'
+        self._url_smart_network = 'admin/smart_network?form=game_accelerator'
+        self._url_openvpn = 'admin/openvpn?form=config'
+        self._url_pptpd = 'admin/pptpd?form=config'
+        self._url_vpnconn_openvpn = 'admin/vpnconn?form=config'
+        self._url_vpnconn_pptpd = 'admin/vpnconn?form=config'
+
+
+class TplinkRouterV1_11(TplinkRouterJson):
+    """
+    Router client for newer TP-Link firmware (1.11.0+) that uses simplified
+    RSA-only authentication without AES encryption wrapper.
+
+    Based on fix from: https://github.com/AlexandrErohin/TP-Link-Archer-C6U/issues/90
+    """
+
+    def __init__(self, host: str, password: str, username: str = 'admin', logger: Logger = None,
+                 verify_ssl: bool = True, timeout: int = 30) -> None:
+        super().__init__(host, password, username, logger, verify_ssl, timeout)
+        self._pwdNN = ''
+        self._pwdEE = ''
+
+    def supports(self) -> bool:
+        """Check if this client can handle the router (new firmware with RSA-only auth)."""
+        if len(self.password) > 125:
+            return False
+
+        try:
+            self._request_pwd()
+            # V1_11 uses 2048-bit RSA = 512 hex chars, older firmware uses 1024-bit = 256 chars
+            if len(self._pwdNN) >= 512:
+                self.authorize()
+                self.logout()
+                return True
+        except Exception:
+            pass
+
+        return False
+
+    def _request_pwd(self) -> None:
+        """Get RSA public key for password encryption."""
+        url = '{}/cgi-bin/luci/;stok=/login?form=keys'.format(self.host)
+
+        response = post(
+            url,
+            params={'operation': 'read'},
+            timeout=self.timeout,
+            verify=self._verify_ssl,
+        )
+
+        try:
+            data = response.json()
+            self._pwdNN = data[self._data_block]['password'][0]
+            self._pwdEE = data[self._data_block]['password'][1]
+        except Exception as e:
+            error = ('TplinkRouterV1_11 - {} - Failed to get encryption keys! Error - {}; Response - {}'
+                     .format(self.__class__.__name__, e, response.text))
+            if self._logger:
+                self._logger.debug(error)
+            raise ClientException(error)
+
+    def authorize(self) -> None:
+        """Authorize using simplified RSA-only authentication (no AES encryption)."""
+        if self._pwdNN == '':
+            self._request_pwd()
+
+        # RSA encrypt password using existing utility
+        encrypted_pwd = EncryptionWrapper.rsa_encrypt(self.password, self._pwdNN, self._pwdEE)
+
+        # Simple login - just operation=login&password=<HEX>
+        url = '{}/cgi-bin/luci/;stok=/login?form=login'.format(self.host)
+        response = post(
+            url,
+            data='operation=login&password={}'.format(encrypted_pwd),
+            headers=self._headers_login,
+            timeout=self.timeout,
+            verify=self._verify_ssl,
+        )
+
+        try:
+            data = response.json()
+            if not data.get('success'):
+                error_info = data.get(self._data_block, {})
+                raise ClientException(
+                    'TplinkRouterV1_11 - {} - Login failed: {}'.format(
+                        self.__class__.__name__,
+                        error_info.get('errorcode', 'unknown error')
+                    )
+                )
+
+            self._stok = data[self._data_block]['stok']
+
+            # Get sysauth cookie
+            if 'set-cookie' in response.headers:
+                regex_result = search(r'sysauth=([^;]+)', response.headers['set-cookie'])
+                if regex_result:
+                    self._sysauth = regex_result.group(1)
+
+            self._logged = True
+
+        except ClientException:
+            raise
+        except Exception as e:
+            error = ('TplinkRouterV1_11 - {} - Cannot authorize! Error - {}; Response - {}'
+                     .format(self.__class__.__name__, e, response.text))
+            if self._logger:
+                self._logger.debug(error)
+            raise ClientException(error)

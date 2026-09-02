@@ -14,18 +14,20 @@
 #  KIND, either express or implied.  See the License for the
 #  specific language governing permissions and limitations
 #  under the License.
+from __future__ import annotations
+
 from collections import deque
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
-    Union,
 )
 from urllib.parse import quote, unquote
 
 from pydantic import ConfigDict, Field, TypeAdapter, field_validator
 from requests import HTTPError, Session
 from tenacity import RetryCallState, retry, retry_if_exception_type, stop_after_attempt
+from typing_extensions import override
 
 from pyiceberg import __version__
 from pyiceberg.catalog import BOTOCORE_SESSION, TOKEN, URI, WAREHOUSE_LOCATION, Catalog, PropertiesUpdateSummary
@@ -40,6 +42,7 @@ from pyiceberg.catalog.rest.scan_planning import (
     PlanSubmitted,
     PlanTableScanRequest,
     ScanTasks,
+    StorageCredential,
 )
 from pyiceberg.exceptions import (
     AuthorizationExpiredError,
@@ -54,8 +57,17 @@ from pyiceberg.exceptions import (
     NoSuchViewError,
     TableAlreadyExistsError,
     UnauthorizedError,
+    ViewAlreadyExistsError,
 )
-from pyiceberg.io import AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, FileIO, load_file_io
+from pyiceberg.io import (
+    AWS_ACCESS_KEY_ID,
+    AWS_PROFILE_NAME,
+    AWS_REGION,
+    AWS_SECRET_ACCESS_KEY,
+    AWS_SESSION_TOKEN,
+    FileIO,
+    load_file_io,
+)
 from pyiceberg.partitioning import UNPARTITIONED_PARTITION_SPEC, PartitionSpec, assign_fresh_partition_spec_ids
 from pyiceberg.schema import Schema, assign_fresh_schema_ids
 from pyiceberg.table import (
@@ -77,7 +89,9 @@ from pyiceberg.table.update import (
 from pyiceberg.typedef import EMPTY_DICT, UTF8, IcebergBaseModel, Identifier, Properties
 from pyiceberg.types import transform_dict_value_to_str
 from pyiceberg.utils.deprecated import deprecation_message
-from pyiceberg.utils.properties import get_first_property_value, get_header_properties, property_as_bool
+from pyiceberg.utils.properties import get_first_property_value, get_header_properties, property_as_bool, property_as_int
+from pyiceberg.view import View
+from pyiceberg.view.metadata import ViewMetadata, ViewVersion
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -114,7 +128,7 @@ class Endpoint(IcebergBaseModel):
         return f"{self.http_method.value} {self.path}"
 
     @classmethod
-    def from_string(cls, endpoint: str) -> "Endpoint":
+    def from_string(cls, endpoint: str) -> Endpoint:
         elements = endpoint.strip().split(None, 1)
         if len(elements) != 2:
             raise ValueError(f"Invalid endpoint (must consist of two elements separated by a single space): {endpoint}")
@@ -133,12 +147,16 @@ class Endpoints:
     create_table: str = "namespaces/{namespace}/tables"
     register_table: str = "namespaces/{namespace}/register"
     load_table: str = "namespaces/{namespace}/tables/{table}"
+    load_credentials: str = "namespaces/{namespace}/tables/{table}/credentials"
     update_table: str = "namespaces/{namespace}/tables/{table}"
     drop_table: str = "namespaces/{namespace}/tables/{table}"
     table_exists: str = "namespaces/{namespace}/tables/{table}"
     get_token: str = "oauth/tokens"
     rename_table: str = "tables/rename"
     list_views: str = "namespaces/{namespace}/views"
+    load_view: str = "namespaces/{namespace}/views/{view}"
+    create_view: str = "namespaces/{namespace}/views"
+    register_view: str = "namespaces/{namespace}/register-view"
     drop_view: str = "namespaces/{namespace}/views/{view}"
     view_exists: str = "namespaces/{namespace}/views/{view}"
     plan_table_scan: str = "namespaces/{namespace}/tables/{table}/plan"
@@ -164,9 +182,12 @@ class Capability:
     V1_DELETE_TABLE = Endpoint(http_method=HttpMethod.DELETE, path=f"{API_PREFIX}/{Endpoints.drop_table}")
     V1_RENAME_TABLE = Endpoint(http_method=HttpMethod.POST, path=f"{API_PREFIX}/{Endpoints.rename_table}")
     V1_REGISTER_TABLE = Endpoint(http_method=HttpMethod.POST, path=f"{API_PREFIX}/{Endpoints.register_table}")
+    V1_LOAD_CREDENTIALS = Endpoint(http_method=HttpMethod.GET, path=f"{API_PREFIX}/{Endpoints.load_credentials}")
 
     V1_LIST_VIEWS = Endpoint(http_method=HttpMethod.GET, path=f"{API_PREFIX}/{Endpoints.list_views}")
+    V1_LOAD_VIEW = Endpoint(http_method=HttpMethod.GET, path=f"{API_PREFIX}/{Endpoints.load_view}")
     V1_VIEW_EXISTS = Endpoint(http_method=HttpMethod.HEAD, path=f"{API_PREFIX}/{Endpoints.view_exists}")
+    V1_REGISTER_VIEW = Endpoint(http_method=HttpMethod.POST, path=f"{API_PREFIX}/{Endpoints.register_view}")
     V1_DELETE_VIEW = Endpoint(http_method=HttpMethod.DELETE, path=f"{API_PREFIX}/{Endpoints.drop_view}")
     V1_SUBMIT_TABLE_SCAN_PLAN = Endpoint(http_method=HttpMethod.POST, path=f"{API_PREFIX}/{Endpoints.plan_table_scan}")
     V1_TABLE_SCAN_PLAN_TASKS = Endpoint(http_method=HttpMethod.POST, path=f"{API_PREFIX}/{Endpoints.fetch_scan_tasks}")
@@ -195,6 +216,7 @@ DEFAULT_ENDPOINTS: frozenset[Endpoint] = frozenset(
 VIEW_ENDPOINTS: frozenset[Endpoint] = frozenset(
     (
         Capability.V1_LIST_VIEWS,
+        Capability.V1_LOAD_VIEW,
         Capability.V1_DELETE_VIEW,
     )
 )
@@ -203,6 +225,11 @@ VIEW_ENDPOINTS: frozenset[Endpoint] = frozenset(
 class IdentifierKind(Enum):
     TABLE = "table"
     VIEW = "view"
+
+
+class ScanPlanningMode(Enum):
+    CLIENT = "client"
+    SERVER = "server"
 
 
 ACCESS_DELEGATION_DEFAULT = "vended-credentials"
@@ -228,17 +255,21 @@ SSL = "ssl"
 SIGV4 = "rest.sigv4-enabled"
 SIGV4_REGION = "rest.signing-region"
 SIGV4_SERVICE = "rest.signing-name"
+SIGV4_MAX_RETRIES = "rest.sigv4.max-retries"
+SIGV4_MAX_RETRIES_DEFAULT = 10
 EMPTY_BODY_SHA256: str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 OAUTH2_SERVER_URI = "oauth2-server-uri"
 SNAPSHOT_LOADING_MODE = "snapshot-loading-mode"
 AUTH = "auth"
 CUSTOM = "custom"
-REST_SCAN_PLANNING_ENABLED = "rest-scan-planning-enabled"
-REST_SCAN_PLANNING_ENABLED_DEFAULT = False
+SCAN_PLANNING_MODE = "scan-planning-mode"
+SCAN_PLANNING_MODE_DEFAULT = ScanPlanningMode.CLIENT.value
 # for backwards compatibility with older REST servers where it can be assumed that a particular
 # server supports view endpoints but doesn't send the "endpoints" field in the ConfigResponse
 VIEW_ENDPOINTS_SUPPORTED = "view-endpoints-supported"
 VIEW_ENDPOINTS_SUPPORTED_DEFAULT = False
+
+PAGE_SIZE = "rest-page-size"
 
 NAMESPACE_SEPARATOR_PROPERTY = "namespace-separator"
 DEFAULT_NAMESPACE_SEPARATOR = b"\x1f".decode(UTF8)
@@ -261,6 +292,17 @@ class TableResponse(IcebergBaseModel):
     metadata_location: str | None = Field(alias="metadata-location", default=None)
     metadata: TableMetadata
     config: Properties = Field(default_factory=dict)
+    storage_credentials: list[StorageCredential] = Field(alias="storage-credentials", default_factory=list)
+
+
+class LoadCredentialsResponse(IcebergBaseModel):
+    storage_credentials: list[StorageCredential] = Field(alias="storage-credentials")
+
+
+class ViewResponse(IcebergBaseModel):
+    metadata_location: str | None = Field(alias="metadata-location", default=None)
+    metadata: ViewMetadata
+    config: Properties = Field(default_factory=dict)
 
 
 class CreateTableRequest(IcebergBaseModel):
@@ -278,7 +320,25 @@ class CreateTableRequest(IcebergBaseModel):
         return transform_dict_value_to_str(properties)
 
 
+class CreateViewRequest(IcebergBaseModel):
+    name: str = Field()
+    location: str | None = Field()
+    view_schema: Schema = Field(alias="schema")
+    view_version: ViewVersion = Field(alias="view-version")
+    properties: Properties = Field(default_factory=dict)
+
+    @field_validator("properties", mode="before")
+    def transform_properties_dict_value_to_str(cls, properties: Properties) -> dict[str, str]:
+        return transform_dict_value_to_str(properties)
+
+
 class RegisterTableRequest(IcebergBaseModel):
+    name: str
+    metadata_location: str = Field(..., alias="metadata-location")
+    overwrite: bool
+
+
+class RegisterViewRequest(IcebergBaseModel):
     name: str
     metadata_location: str = Field(..., alias="metadata-location")
 
@@ -298,11 +358,19 @@ class ConfigResponse(IcebergBaseModel):
 
 class ListNamespaceResponse(IcebergBaseModel):
     namespaces: list[Identifier] = Field()
+    next_page_token: str | None = Field(default=None, alias="next-page-token")
 
 
 class NamespaceResponse(IcebergBaseModel):
     namespace: Identifier = Field()
-    properties: Properties = Field()
+    properties: Properties = Field(default_factory=dict)
+
+    @field_validator("properties", mode="before")
+    @classmethod
+    def replace_none_with_dict(cls, v: Any) -> Properties:
+        if v is None:
+            return {}
+        return v
 
 
 class UpdateNamespacePropertiesResponse(IcebergBaseModel):
@@ -323,10 +391,12 @@ class ListViewResponseEntry(IcebergBaseModel):
 
 class ListTablesResponse(IcebergBaseModel):
     identifiers: list[ListTableResponseEntry] = Field()
+    next_page_token: str | None = Field(default=None, alias="next-page-token")
 
 
 class ListViewsResponse(IcebergBaseModel):
     identifiers: list[ListViewResponseEntry] = Field()
+    next_page_token: str | None = Field(default=None, alias="next-page-token")
 
 
 _PLANNING_RESPONSE_ADAPTER = TypeAdapter(PlanningResponse)
@@ -396,17 +466,37 @@ class RestCatalog(Catalog):
 
         return session
 
+    @staticmethod
+    def _resolve_storage_credentials(storage_credentials: list[StorageCredential], location: str | None) -> Properties:
+        """Resolve the best-matching storage credential by longest prefix match.
+
+        Mirrors the Java implementation in S3FileIO.clientForStoragePath() which iterates
+        over storage credential prefixes and selects the one with the longest match.
+
+        See: https://github.com/apache/iceberg/blob/main/aws/src/main/java/org/apache/iceberg/aws/s3/S3FileIO.java
+        """
+        if not storage_credentials or not location:
+            return {}
+
+        best_match: StorageCredential | None = None
+        for cred in storage_credentials:
+            if location.startswith(cred.prefix):
+                if best_match is None or len(cred.prefix) > len(best_match.prefix):
+                    best_match = cred
+
+        return best_match.config if best_match else {}
+
     def _load_file_io(self, properties: Properties = EMPTY_DICT, location: str | None = None) -> FileIO:
         merged_properties = {**self.properties, **properties}
         if self._auth_manager:
             merged_properties[AUTH_MANAGER] = self._auth_manager
         return load_file_io(merged_properties, location)
 
+    @override
     def supports_server_side_planning(self) -> bool:
         """Check if the catalog supports server-side scan planning."""
-        return Capability.V1_SUBMIT_TABLE_SCAN_PLAN in self._supported_endpoints and property_as_bool(
-            self.properties, REST_SCAN_PLANNING_ENABLED, REST_SCAN_PLANNING_ENABLED_DEFAULT
-        )
+        scan_planning_mode = ScanPlanningMode(self.properties.get(SCAN_PLANNING_MODE, SCAN_PLANNING_MODE_DEFAULT))
+        return Capability.V1_SUBMIT_TABLE_SCAN_PLAN in self._supported_endpoints and scan_planning_mode == ScanPlanningMode.SERVER
 
     @retry(**_RETRY_ARGS)
     def _plan_table_scan(self, identifier: str | Identifier, request: PlanTableScanRequest) -> PlanningResponse:
@@ -688,9 +778,11 @@ class RestCatalog(Catalog):
 
         class SigV4Adapter(HTTPAdapter):
             def __init__(self, **properties: str):
-                super().__init__()
                 self._properties = properties
+                max_retries = property_as_int(self._properties, SIGV4_MAX_RETRIES, SIGV4_MAX_RETRIES_DEFAULT)
+                super().__init__(max_retries=max_retries)
                 self._boto_session = boto3.Session(
+                    profile_name=get_first_property_value(self._properties, AWS_PROFILE_NAME),
                     region_name=get_first_property_value(self._properties, AWS_REGION),
                     botocore_session=self._properties.get(BOTOCORE_SESSION),
                     aws_access_key_id=get_first_property_value(self._properties, AWS_ACCESS_KEY_ID),
@@ -734,26 +826,42 @@ class RestCatalog(Catalog):
         session.mount(self.uri, SigV4Adapter(**self.properties))
 
     def _response_to_table(self, identifier_tuple: tuple[str, ...], table_response: TableResponse) -> Table:
+        # Per Iceberg spec: storage-credentials take precedence over config
+        credential_config = self._resolve_storage_credentials(
+            table_response.storage_credentials, table_response.metadata_location
+        )
         return Table(
             identifier=identifier_tuple,
             metadata_location=table_response.metadata_location,  # type: ignore
             metadata=table_response.metadata,
             io=self._load_file_io(
-                {**table_response.metadata.properties, **table_response.config}, table_response.metadata_location
+                {**table_response.metadata.properties, **table_response.config, **credential_config},
+                table_response.metadata_location,
             ),
             catalog=self,
             config=table_response.config,
         )
 
     def _response_to_staged_table(self, identifier_tuple: tuple[str, ...], table_response: TableResponse) -> StagedTable:
+        # Per Iceberg spec: storage-credentials take precedence over config
+        credential_config = self._resolve_storage_credentials(
+            table_response.storage_credentials, table_response.metadata_location
+        )
         return StagedTable(
             identifier=identifier_tuple,
             metadata_location=table_response.metadata_location,  # type: ignore
             metadata=table_response.metadata,
             io=self._load_file_io(
-                {**table_response.metadata.properties, **table_response.config}, table_response.metadata_location
+                {**table_response.metadata.properties, **table_response.config, **credential_config},
+                table_response.metadata_location,
             ),
             catalog=self,
+        )
+
+    def _response_to_view(self, identifier_tuple: tuple[str, ...], view_response: ViewResponse) -> View:
+        return View(
+            identifier=identifier_tuple,
+            metadata=view_response.metadata,
         )
 
     def _refresh_token(self) -> None:
@@ -775,7 +883,7 @@ class RestCatalog(Catalog):
     def _create_table(
         self,
         identifier: str | Identifier,
-        schema: Union[Schema, "pa.Schema"],
+        schema: Schema | pa.Schema,
         location: str | None = None,
         partition_spec: PartitionSpec = UNPARTITIONED_PARTITION_SPEC,
         sort_order: SortOrder = UNSORTED_SORT_ORDER,
@@ -814,11 +922,12 @@ class RestCatalog(Catalog):
             _handle_non_200_response(exc, {409: TableAlreadyExistsError, 404: NoSuchNamespaceError})
         return TableResponse.model_validate_json(response.text)
 
+    @override
     @retry(**_RETRY_ARGS)
     def create_table(
         self,
         identifier: str | Identifier,
-        schema: Union[Schema, "pa.Schema"],
+        schema: Schema | pa.Schema,
         location: str | None = None,
         partition_spec: PartitionSpec = UNPARTITIONED_PARTITION_SPEC,
         sort_order: SortOrder = UNSORTED_SORT_ORDER,
@@ -835,11 +944,12 @@ class RestCatalog(Catalog):
         )
         return self._response_to_table(self.identifier_to_tuple(identifier), table_response)
 
+    @override
     @retry(**_RETRY_ARGS)
     def create_table_transaction(
         self,
         identifier: str | Identifier,
-        schema: Union[Schema, "pa.Schema"],
+        schema: Schema | pa.Schema,
         location: str | None = None,
         partition_spec: PartitionSpec = UNPARTITIONED_PARTITION_SPEC,
         sort_order: SortOrder = UNSORTED_SORT_ORDER,
@@ -857,13 +967,54 @@ class RestCatalog(Catalog):
         staged_table = self._response_to_staged_table(self.identifier_to_tuple(identifier), table_response)
         return CreateTableTransaction(staged_table)
 
+    @override
     @retry(**_RETRY_ARGS)
-    def register_table(self, identifier: str | Identifier, metadata_location: str) -> Table:
+    def create_view(
+        self,
+        identifier: str | Identifier,
+        schema: Schema | pa.Schema,
+        view_version: ViewVersion,
+        location: str | None = None,
+        properties: Properties = EMPTY_DICT,
+    ) -> View:
+        iceberg_schema = self._convert_schema_if_needed(schema)
+        fresh_schema = assign_fresh_schema_ids(iceberg_schema)
+
+        namespace_and_view = self._split_identifier_for_path(identifier, IdentifierKind.VIEW)
+        if location:
+            location = location.rstrip("/")
+
+        request = CreateViewRequest(
+            name=namespace_and_view["view"],
+            location=location,
+            view_schema=fresh_schema,
+            view_version=view_version,
+            properties=properties,
+        )
+
+        serialized_json = request.model_dump_json().encode(UTF8)
+        response = self._session.post(
+            self.url(Endpoints.create_view, namespace=namespace_and_view["namespace"]),
+            data=serialized_json,
+        )
+
+        try:
+            response.raise_for_status()
+        except HTTPError as exc:
+            _handle_non_200_response(exc, {409: ViewAlreadyExistsError})
+
+        view_response = ViewResponse.model_validate_json(response.text)
+        return self._response_to_view(self.identifier_to_tuple(identifier), view_response)
+
+    @retry(**_RETRY_ARGS)
+    @override
+    def register_table(self, identifier: str | Identifier, metadata_location: str, overwrite: bool = False) -> Table:
         """Register a new table using existing metadata.
 
         Args:
             identifier (Union[str, Identifier]): Table identifier for the table
             metadata_location (str): The location to the metadata
+            overwrite (bool): Whether to overwrite the existing table, default False
 
         Returns:
             Table: The newly registered table
@@ -876,6 +1027,7 @@ class RestCatalog(Catalog):
         request = RegisterTableRequest(
             name=self._identifier_to_validated_tuple(identifier)[-1],
             metadata_location=metadata_location,
+            overwrite=overwrite,
         )
         serialized_json = request.model_dump_json().encode(UTF8)
         response = self._session.post(
@@ -891,18 +1043,43 @@ class RestCatalog(Catalog):
         return self._response_to_table(self.identifier_to_tuple(identifier), table_response)
 
     @retry(**_RETRY_ARGS)
+    @override
     def list_tables(self, namespace: str | Identifier) -> list[Identifier]:
         self._check_endpoint(Capability.V1_LIST_TABLES)
         namespace_tuple = self._check_valid_namespace_identifier(namespace)
         namespace_concat = self._encode_namespace_path(namespace_tuple)
-        response = self._session.get(self.url(Endpoints.list_tables, namespace=namespace_concat))
-        try:
-            response.raise_for_status()
-        except HTTPError as exc:
-            _handle_non_200_response(exc, {404: NoSuchNamespaceError})
-        return [(*table.namespace, table.name) for table in ListTablesResponse.model_validate_json(response.text).identifiers]
+        url = self.url(Endpoints.list_tables, namespace=namespace_concat)
+
+        params: dict[str, str] = {}
+        page_size = property_as_int(self.properties, PAGE_SIZE, None)
+        if page_size is not None:
+            if page_size <= 0:
+                raise ValueError(f"{PAGE_SIZE} must be a positive integer")
+            params["pageSize"] = str(page_size)
+
+        tables: list[Identifier] = []
+        page_token: str | None = None
+
+        while True:
+            if page_token:
+                params["pageToken"] = page_token
+            response = self._session.get(url, params=params)
+            try:
+                response.raise_for_status()
+            except HTTPError as exc:
+                _handle_non_200_response(exc, {404: NoSuchNamespaceError})
+
+            parsed = ListTablesResponse.model_validate_json(response.text)
+            tables.extend([(*table.namespace, table.name) for table in parsed.identifiers])
+
+            if not parsed.next_page_token:
+                break
+            page_token = parsed.next_page_token
+
+        return tables
 
     @retry(**_RETRY_ARGS)
+    @override
     def load_table(self, identifier: str | Identifier) -> Table:
         self._check_endpoint(Capability.V1_LOAD_TABLE)
         params = {}
@@ -924,6 +1101,33 @@ class RestCatalog(Catalog):
         return self._response_to_table(self.identifier_to_tuple(identifier), table_response)
 
     @retry(**_RETRY_ARGS)
+    def _load_credentials(
+        self,
+        identifier: str | Identifier,
+    ) -> LoadCredentialsResponse:
+        """Load raw vended storage credentials for a table."""
+        self._check_endpoint(Capability.V1_LOAD_CREDENTIALS)
+        response = self._session.get(
+            self.url(Endpoints.load_credentials, prefixed=True, **self._split_identifier_for_path(identifier)),
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as exc:
+            _handle_non_200_response(exc, {404: NoSuchTableError})
+
+        return LoadCredentialsResponse.model_validate_json(response.text)
+
+    def load_credentials(
+        self,
+        identifier: str | Identifier,
+        location: str,
+    ) -> Properties:
+        """Load vended storage credentials and return the best match for a location."""
+        credentials_response = self._load_credentials(identifier)
+        return self._resolve_storage_credentials(credentials_response.storage_credentials, location)
+
+    @retry(**_RETRY_ARGS)
+    @override
     def drop_table(self, identifier: str | Identifier, purge_requested: bool = False) -> None:
         self._check_endpoint(Capability.V1_DELETE_TABLE)
         response = self._session.delete(
@@ -936,10 +1140,12 @@ class RestCatalog(Catalog):
             _handle_non_200_response(exc, {404: NoSuchTableError})
 
     @retry(**_RETRY_ARGS)
+    @override
     def purge_table(self, identifier: str | Identifier) -> None:
         self.drop_table(identifier=identifier, purge_requested=True)
 
     @retry(**_RETRY_ARGS)
+    @override
     def rename_table(self, from_identifier: str | Identifier, to_identifier: str | Identifier) -> Table:
         self._check_endpoint(Capability.V1_RENAME_TABLE)
         payload = {
@@ -976,19 +1182,60 @@ class RestCatalog(Catalog):
         return table_request
 
     @retry(**_RETRY_ARGS)
+    @override
     def list_views(self, namespace: str | Identifier) -> list[Identifier]:
         if Capability.V1_LIST_VIEWS not in self._supported_endpoints:
             return []
         namespace_tuple = self._check_valid_namespace_identifier(namespace)
         namespace_concat = self._encode_namespace_path(namespace_tuple)
-        response = self._session.get(self.url(Endpoints.list_views, namespace=namespace_concat))
+        url = self.url(Endpoints.list_views, namespace=namespace_concat)
+
+        params: dict[str, str] = {}
+        page_size = property_as_int(self.properties, PAGE_SIZE, None)
+        if page_size is not None:
+            if page_size <= 0:
+                raise ValueError(f"{PAGE_SIZE} must be a positive integer")
+            params["pageSize"] = str(page_size)
+
+        views: list[Identifier] = []
+        page_token: str | None = None
+
+        while True:
+            if page_token:
+                params["pageToken"] = page_token
+
+            response = self._session.get(url, params=params)
+            try:
+                response.raise_for_status()
+            except HTTPError as exc:
+                _handle_non_200_response(exc, {404: NoSuchNamespaceError})
+
+            parsed = ListViewsResponse.model_validate_json(response.text)
+            views.extend([(*view.namespace, view.name) for view in parsed.identifiers])
+
+            if not parsed.next_page_token:
+                break
+            page_token = parsed.next_page_token
+
+        return views
+
+    @retry(**_RETRY_ARGS)
+    @override
+    def load_view(self, identifier: str | Identifier) -> View:
+        self._check_endpoint(Capability.V1_LOAD_VIEW)
+        response = self._session.get(
+            self.url(Endpoints.load_view, prefixed=True, **self._split_identifier_for_path(identifier, IdentifierKind.VIEW))
+        )
         try:
             response.raise_for_status()
         except HTTPError as exc:
-            _handle_non_200_response(exc, {404: NoSuchNamespaceError})
-        return [(*view.namespace, view.name) for view in ListViewsResponse.model_validate_json(response.text).identifiers]
+            _handle_non_200_response(exc, {404: NoSuchViewError})
+
+        view_response = ViewResponse.model_validate_json(response.text)
+        return self._response_to_view(self.identifier_to_tuple(identifier), view_response)
 
     @retry(**_RETRY_ARGS)
+    @override
     def commit_table(
         self, table: Table, requirements: tuple[TableRequirement, ...], updates: tuple[TableUpdate, ...]
     ) -> CommitTableResponse:
@@ -1036,6 +1283,7 @@ class RestCatalog(Catalog):
         return CommitTableResponse.model_validate_json(response.text)
 
     @retry(**_RETRY_ARGS)
+    @override
     def create_namespace(self, namespace: str | Identifier, properties: Properties = EMPTY_DICT) -> None:
         self._check_endpoint(Capability.V1_CREATE_NAMESPACE)
         namespace_tuple = self._check_valid_namespace_identifier(namespace)
@@ -1047,6 +1295,7 @@ class RestCatalog(Catalog):
             _handle_non_200_response(exc, {409: NamespaceAlreadyExistsError})
 
     @retry(**_RETRY_ARGS)
+    @override
     def drop_namespace(self, namespace: str | Identifier) -> None:
         self._check_endpoint(Capability.V1_DELETE_NAMESPACE)
         namespace_tuple = self._check_valid_namespace_identifier(namespace)
@@ -1058,24 +1307,44 @@ class RestCatalog(Catalog):
             _handle_non_200_response(exc, {404: NoSuchNamespaceError, 409: NamespaceNotEmptyError})
 
     @retry(**_RETRY_ARGS)
+    @override
     def list_namespaces(self, namespace: str | Identifier = ()) -> list[Identifier]:
         self._check_endpoint(Capability.V1_LIST_NAMESPACES)
         namespace_tuple = self.identifier_to_tuple(namespace)
-        response = self._session.get(
-            self.url(
-                f"{Endpoints.list_namespaces}?parent={self._encode_namespace_path(namespace_tuple)}"
-                if namespace_tuple
-                else Endpoints.list_namespaces
-            ),
-        )
-        try:
-            response.raise_for_status()
-        except HTTPError as exc:
-            _handle_non_200_response(exc, {404: NoSuchNamespaceError})
 
-        return ListNamespaceResponse.model_validate_json(response.text).namespaces
+        params: dict[str, str] = {}
+        page_size = property_as_int(self.properties, PAGE_SIZE, None)
+        if page_size is not None:
+            if page_size <= 0:
+                raise ValueError(f"{PAGE_SIZE} must be a positive integer")
+            params["pageSize"] = str(page_size)
+
+        namespaces: list[Identifier] = []
+        page_token: str | None = None
+
+        while True:
+            if namespace_tuple:
+                params["parent"] = self._encode_namespace_path(namespace_tuple)
+            if page_token:
+                params["pageToken"] = page_token
+            response = self._session.get(self.url(Endpoints.list_namespaces), params=params)
+
+            try:
+                response.raise_for_status()
+            except HTTPError as exc:
+                _handle_non_200_response(exc, {404: NoSuchNamespaceError})
+
+            parsed = ListNamespaceResponse.model_validate_json(response.text)
+            namespaces.extend(parsed.namespaces)
+
+            if not parsed.next_page_token:
+                break
+            page_token = parsed.next_page_token
+
+        return namespaces
 
     @retry(**_RETRY_ARGS)
+    @override
     def load_namespace_properties(self, namespace: str | Identifier) -> Properties:
         self._check_endpoint(Capability.V1_LOAD_NAMESPACE)
         namespace_tuple = self._check_valid_namespace_identifier(namespace)
@@ -1089,6 +1358,7 @@ class RestCatalog(Catalog):
         return NamespaceResponse.model_validate_json(response.text).properties
 
     @retry(**_RETRY_ARGS)
+    @override
     def update_namespace_properties(
         self, namespace: str | Identifier, removals: set[str] | None = None, updates: Properties = EMPTY_DICT
     ) -> PropertiesUpdateSummary:
@@ -1109,6 +1379,7 @@ class RestCatalog(Catalog):
         )
 
     @retry(**_RETRY_ARGS)
+    @override
     def namespace_exists(self, namespace: str | Identifier) -> bool:
         namespace_tuple = self._check_valid_namespace_identifier(namespace)
         namespace = self._encode_namespace_path(namespace_tuple)
@@ -1136,6 +1407,7 @@ class RestCatalog(Catalog):
         return False
 
     @retry(**_RETRY_ARGS)
+    @override
     def table_exists(self, identifier: str | Identifier) -> bool:
         """Check if a table exists.
 
@@ -1170,6 +1442,7 @@ class RestCatalog(Catalog):
         return False
 
     @retry(**_RETRY_ARGS)
+    @override
     def view_exists(self, identifier: str | Identifier) -> bool:
         """Check if a view exists.
 
@@ -1195,7 +1468,32 @@ class RestCatalog(Catalog):
         return False
 
     @retry(**_RETRY_ARGS)
-    def drop_view(self, identifier: str) -> None:
+    @override
+    def register_view(self, identifier: str | Identifier, metadata_location: str) -> View:
+        self._check_endpoint(Capability.V1_REGISTER_VIEW)
+        namespace_and_view = self._split_identifier_for_path(identifier, IdentifierKind.VIEW)
+        namespace = namespace_and_view["namespace"]
+        view = namespace_and_view["view"]
+        if self.table_exists(identifier):
+            raise TableAlreadyExistsError(f"Table {namespace}.{view} already exists")
+
+        request = RegisterViewRequest(name=view, metadata_location=metadata_location)
+        serialized_json = request.model_dump_json().encode(UTF8)
+        response = self._session.post(
+            self.url(Endpoints.register_view, namespace=namespace),
+            data=serialized_json,
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as exc:
+            _handle_non_200_response(exc, {409: ViewAlreadyExistsError})
+
+        view_response = ViewResponse.model_validate_json(response.text)
+        return self._response_to_view(self.identifier_to_tuple(identifier), view_response)
+
+    @retry(**_RETRY_ARGS)
+    @override
+    def drop_view(self, identifier: str | Identifier) -> None:
         self._check_endpoint(Capability.V1_DELETE_VIEW)
         response = self._session.delete(
             self.url(Endpoints.drop_view, prefixed=True, **self._split_identifier_for_path(identifier, IdentifierKind.VIEW)),

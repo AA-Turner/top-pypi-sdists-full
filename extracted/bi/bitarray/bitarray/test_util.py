@@ -33,9 +33,10 @@ from bitarray.util import (
     correspond_all, byteswap, intervals,
     serialize, deserialize, ba2hex, hex2ba, ba2base, base2ba,
     ba2int, int2ba,
-    sc_encode, sc_decode, vl_encode, vl_decode,
+    sc_encode, sc_decode, sc_stat, rl_encode, rl_decode, vl_encode, vl_decode,
     huffman_code, canonical_huffman, canonical_decode,
 )
+from bitarray._util import uleb128_encode  # type: ignore
 
 
 OPT_ENDIANS = ENDIANS + (None,)
@@ -1209,16 +1210,156 @@ class XoredIndicesTests(unittest.TestCase, Util):
             a.invert(i)
 
 
+# -------------------------   run-length codec   ----------------------------
+
+class RL_Util:
+
+    @staticmethod
+    def runs(a):
+        "return number of uninterrupted intervals of 1s and 0s"
+        n = len(a)
+        if n < 2:
+            return n
+        return count_xor(a[:-1], a[1:]) + 1
+
+    def random_runs(self, n, k):
+        "generate random bitarray of length `n` with `k` runs."
+        self.assertTrue(n == k == 0 or 1 <= k <= n)
+        a = bitarray(n)
+        if n == 0:
+            return a
+        vi = getrandbits(1)
+
+        # Create sorted sample from `range(1, n)`, with `n` last and
+        # with a total of `k` items.
+        lst = sample(range(1, n), k - 1)
+        lst.append(n)
+        lst.sort()
+
+        start = 0
+        for stop in lst:
+            a[start:stop] = vi
+            vi = not vi
+            start = stop
+        return a
+
+
+class RL_Tests(unittest.TestCase, Util, RL_Util):
+
+    def test_explicit(self):
+        for s, b in [
+                ("",    b'0\x00'),
+                ("0",   b'0\x01\x01'),
+                ("1",   b'1\x01\x01'),
+                ("10",  b'1\x02\x01\x01'),
+                ("01",  b'0\x02\x01\x01'),
+                ("1" + 63 * "0", b'1\x40\x01\x3f'),
+                ("0" + 63 * "1", b'0\x40\x01\x3f'),
+        ]:
+            a = bitarray(s)
+            self.assertEqual(rl_encode(a), b)
+            self.assertEqual(rl_decode(b), a)
+            it = iter(b)
+            self.assertEqual(rl_decode(it), a)
+            self.assertRaises(StopIteration, next, it)
+            it = iter(b + b'XYZ')
+            self.assertEqual(rl_decode(it), a)
+            self.assertEqual(next(it), ord(b'X'))
+
+    def test_decode_errors(self):
+        # incomplete stream
+        for b in [
+                b'',           # no first bit
+                b'0',          # no uleb128 encoded nbits
+                b'1\x80',      # nbits uleb128 encoding incomplete
+                b'0\x01',      # run length incomplete
+                b'1\x02\x01',  # run length incomplete
+        ]:
+            self.assertRaises(StopIteration, rl_decode, b)
+
+        # invalid first bit
+        for b in b'\x00', b'\x01', b'2':
+            msg = "invalid first bit: 0x%02x" % ord(b)
+            self.assertRaisesMessage(ValueError, msg, rl_decode, b)
+
+        # run length cannot be zero
+        for b in b'0\x01\x00\x01', b'1\xff\x0a\x01\x00':
+            msg = "run length cannot be zero"
+            self.assertRaisesMessage(ValueError, msg, rl_decode, b)
+
+        # sequence exceeds nbits
+        for b, nrun, nrem in [
+                (b'1\x01\x02',      2,  1),
+                (b'1\x30\x2f\x02',  2,  1),
+                (b'0\x40\x01\x40', 64, 63),
+        ]:
+            msg = "run length %d exceeds remaining length %d" % (nrun, nrem)
+            self.assertRaisesMessage(ValueError, msg, rl_decode, b)
+
+    def test_decode_ambiguity(self):
+        # For an empty bitarray either first-bit byte works.
+        for b in b'0\x00', b'1\x00':
+            self.assertEqual(rl_decode(b), bitarray())
+
+        # ULEB128 permits overlong representations.
+        for b in b'0\x00', b'0\x80\x00':
+            self.assertEqual(rl_decode(b), bitarray())
+
+    def test_decode_endian(self):
+        b = b'0\x02\x01\x01'
+        for endian in OPT_ENDIANS:
+            a = rl_decode(b, endian=endian)
+            self.assertEqual(a.endian, endian or get_default_endian())
+            self.assertEqual(a, bitarray("01"))
+
+    def test_decode_types(self):
+        b = b'0\x02\x01\x01'
+        for c in b, bytearray(b), list(b), iter(b):
+            a = rl_decode(c)
+            self.assertIs(type(a), bitarray)
+            self.assertEqual(a.to01(), '01')
+
+    def test_encode_types(self):
+        a = frozenbitarray("00001111 11111111 11110000 000")
+        self.assertEqual(len(a), 0x1b)
+        b = rl_encode(a)
+        self.assertIs(type(b), bytes)
+        self.assertEqual(b, b'0\x1b\x04\x10\x07')
+
+    def test_intervals(self):
+        a = bitarray("00000011111111111111110000000111000000")
+        b = bytearray([ord("0")])
+        b.extend(uleb128_encode(len(a)))
+        for unused_value, start, stop in intervals(a):
+            b.extend(uleb128_encode(stop - start))
+        self.assertEqual(rl_decode(b), a)
+        self.assertEqual(b, rl_encode(a))
+
+    def test_concatenate(self):
+        N = 100
+        arrays = [urandom(randrange(5)) for _ in range(N)]
+        it = iter(b''.join(rl_encode(a) for a in arrays))
+        self.assertEqual([rl_decode(it) for _ in range(N)], arrays)
+        self.assertRaises(StopIteration, next, it)
+
+    def test_random(self):
+        for _ in range(10):
+            n = randrange(1, 100)
+            k = randint(1, max(1, n // 2))
+            a = self.random_runs(n, k)
+
+            b = bytearray([ord("0") + a[0]])
+            b.extend(uleb128_encode(len(a)))
+            for _, start, stop in intervals(a):
+                b.extend(uleb128_encode(stop - start))
+
+            self.assertEqual(rl_decode(b), a)
+            self.assertEqual(b, rl_encode(a))
+
+
 # ------------------   intervals of uninterrupted runs   --------------------
 
-def runs(a):
-    "return number of uninterrupted intervals of 1s and 0s"
-    n = len(a)
-    if n < 2:
-        return n
-    return 1 + count_xor(a[:-1], a[1:])
-
-class IntervalsTests(unittest.TestCase, Util):
+class IntervalsTests(unittest.TestCase, Util, RL_Util):
 
     def test_explicit(self):
         for s, lst in [
@@ -1230,18 +1371,23 @@ class IntervalsTests(unittest.TestCase, Util):
             ]:
             a = bitarray(s)
             self.assertEqual(list(intervals(a)), lst)
-            self.assertEqual(runs(a), len(lst))
+            self.assertEqual(self.runs(a), len(lst))
 
     def test_uniform(self):
         for n in range(1, 100):
+            a = bitarray(n, choice(ENDIANS))
             for v in 0, 1:
-                a = n * bitarray([v], choice(ENDIANS))
+                a.setall(v)
                 self.assertEqual(list(intervals(a)), [(v, 0, n)])
-                self.assertEqual(runs(a), 1)
+                self.assertEqual(self.runs(a), 1)
 
     def test_random(self):
-        for a in self.randombitarrays():
-            n = len(a)
+        for _ in range(10):
+            n = randrange(2, 500)
+            k = randint(1, n // 2)
+            a = self.random_runs(n, k)
+
+            # Reconstruct `a` from its intervals, starting with random data.
             b = urandom(n)
             for value, start, stop in intervals(a):
                 self.assertIs(type(value), int)
@@ -1253,7 +1399,7 @@ class IntervalsTests(unittest.TestCase, Util):
         for a in self.randombitarrays():
             # list of length of runs of alternating bits
             alt_runs = [stop - start for _, start, stop in intervals(a)]
-            self.assertEqual(len(alt_runs), runs(a))
+            self.assertEqual(len(alt_runs), self.runs(a))
 
             b = bitarray()
             v = a[0] if a else None  # value of first run
@@ -1262,6 +1408,7 @@ class IntervalsTests(unittest.TestCase, Util):
                 b.extend(length * bitarray([v]))
                 v = not v
             self.assertEqual(a, b)
+
 
 # --------------------------  ba2hex()  hex2ba()  ---------------------------
 
@@ -1459,9 +1606,8 @@ class BaseTests(unittest.TestCase, Util):
         self.assertRaises(TypeError, base2ba, 32, None)
 
         for values, msg in [
-                ([-1023, -16, -1, 0, 3, 5, 31, 48, 63, 129, 511, 4123],
-                 "base must be a power of 2"),
-                ([1, 128, 256, 512, 1024, 2048, 4096, 8192],
+                ([-1023, -16, -1, 0, 3, 5, 31, 48, 63, 129, 511, 4123,
+                  1, 128, 256, 512, 1024, 2048, 4096, 8192],
                  "base must be 2, 4, 8, 16, 32 or 64")]:
             for i in values:
                 self.assertRaisesMessage(ValueError, msg, ba2base, i, a)
@@ -1575,7 +1721,71 @@ class BaseTests(unittest.TestCase, Util):
 
 # --------------------------- sparse compression ----------------------------
 
-class SC_Tests(unittest.TestCase, Util):
+class SC_Util:
+
+    def get_max_pop(self, n, m=256):
+        """
+        Return the maximal population for which one type `n` block is
+        preferred over `m` blocks of type `n-1`, or 0 if there is none.
+        """
+        self.assertIn(n, (2, 3, 4))
+        self.assertTrue(1 <= m <= 256)
+        h = 1 if n == 2 else 2  # header size for type n-1 block
+        # After cancelling the index bytes common to both alternatives,
+        # `m` type `n-1` blocks cost `h * m` bytes, while one type `n`
+        # block costs `2 + k` bytes.
+        #
+        #     h * m = 2 + k   ->   k = h * m - 2
+        #
+        k = h * m - 2  # population where type n-1 and type n tie
+        # At the tie (k), the encoder prefers type n-1.
+        return max(0, min(255, k - 1))
+
+    def sample_with_highest(self, n, k):
+        "Return `k` samples from `range(n)`, with `n-1` first."
+        self.assertGreater(n, 0)
+        self.assertGreater(k, 0)
+        indices = [n - 1]
+        indices.extend(sample(range(n - 1), k - 1))
+        return indices
+
+    @staticmethod
+    def header(nbits):
+        "little-endian header using 32-bit struct.pack() for nbits"
+        length = bits2bytes(nbits.bit_length())
+        b = bytearray([length])
+        b.extend(struct.pack("<I", nbits)[:length])
+        return bytes(b)
+
+    def make_blob(self, nbits, n, indices):
+        "little-endian streams using 32-bit struct.pack() for nbits"
+        self.assertIn(n, (2, 3, 4))
+        self.assertIn(len(indices), range(256))
+
+        b = bytearray(self.header(nbits))
+        b.append(0xc0 + n)
+        b.append(len(indices))
+        for i in sorted(indices):
+            b.extend(struct.pack("<I", i)[:n])
+        b.append(0)  # stop byte
+        return bytes(b)
+
+    @staticmethod
+    def block_counts(n):
+        counts = 5 * [0]
+        counts[n] = 1
+        return counts
+
+    def check_stat(self, a, b, n, check_encode=True):
+        stat = sc_stat(b)
+        self.assertEqual(stat['nbits'], len(a))
+        self.assertEqual(stat['blocks'], self.block_counts(n))
+        self.assertEqual(sc_decode(b), a)
+        if check_encode:
+            self.assertEqual(sc_encode(a), b)
+
+
+class SC_Tests(unittest.TestCase, Util, SC_Util):
 
     def test_explicit(self):
         for b, bits, endian in [
@@ -1592,6 +1802,19 @@ class SC_Tests(unittest.TestCase, Util):
             self.assertEqual(sc_encode(a), b)
             self.assertEQUAL(sc_decode(b), a)
 
+            stat = sc_stat(b)
+            self.assertEqual(stat['endian'], endian)
+            self.assertEqual(stat['nbits'], len(a))
+
+    def test_skip_block_data(self):
+        b = [0x01, 197, 0xa3, None, None, None, 0x00]
+        # sc_stat() skips the block data without inspecting its items.
+        self.assertEqual(sc_stat(b), {'endian': 'little',
+                                      'nbits': 197,
+                                      'blocks': [0, 1, 0, 0, 0]})
+        # sc_decode() must process the block data.
+        self.assertRaises(TypeError, sc_decode, b)
+
     def test_encode_types(self):
         for a in bitarray('1', 'big'), frozenbitarray('1', 'big'):
             b = sc_encode(a)
@@ -1601,7 +1824,7 @@ class SC_Tests(unittest.TestCase, Util):
         for a in None, [], 0, 123, b'', b'\x00', 3.14:
             self.assertRaises(TypeError, sc_encode, a)
 
-    def test_decode_types(self):
+    def test_decode_stat_types(self):
         blob = b'\x11\x03\x01\x20\0'
         for b in blob, bytearray(blob), list(blob), array.array('B', blob):
             a = sc_decode(b)
@@ -1609,51 +1832,95 @@ class SC_Tests(unittest.TestCase, Util):
             self.assertEqual(a.endian, 'big')
             self.assertEqual(a.to01(), '001')
 
-        a = [17, 3, 1, 32, 0]
-        self.assertEqual(sc_decode(a), bitarray("001"))
-        for x in 256, -1:
-            a[-1] = x
-            self.assertRaises(ValueError, sc_decode, a)
+            stat = sc_stat(b)
+            self.assertEqual(stat, {'endian': 'big', 'nbits': 3,
+                                    'blocks': [1, 0, 0, 0, 0]})
+            self.assertIs(type(stat), dict)
+            self.assertIs(type(stat['endian']), str)
+            self.assertIs(type(stat['nbits']), int)
+            blocks = stat['blocks']
+            self.assertIs(type(blocks), list)
+            self.assertEqual(len(blocks), 5)
+            self.assertTrue(all(type(n) is int for n in blocks))
 
-        self.assertRaises(TypeError, sc_decode, [0x02, None])
-        for x in None, 3, 3.2, Ellipsis, 'foo':
-            self.assertRaises(TypeError, sc_decode, x)
-
-    def test_decode_header_nbits(self):
-        for b, n in [
-                (b'\x00\0', 0),
-                (b'\x01\x00\0', 0),
-                (b'\x01\x01\0', 1),
-                (b'\x02\x00\x00\0', 0),
-                (b'\x02\x00\x01\0', 256),
-                (b'\x03\x00\x00\x00\0', 0),
-                (b'\x03\x00\x00\x01\0', 65536),
+    def test_zero_explicit(self):
+        for blob, blocks, nbits in [
+                # empty bitarray
+                (b"\x00\0",         [0, 0, 0, 0, 0], 0),
+                (b"\x02\x00\x00\xa0\xc2\x00\xc3\x00\xc4\x00\xa0\0",
+                                    [0, 2, 1, 1, 1], 0),
+                # zero bitarray with length 8
+                (b"\x01\x08\0",         [0, 0, 0, 0, 0], 8),
+                (b"\x03\x08\x00\x00\0", [0, 0, 0, 0, 0], 8),
+                (b"\x01\x08\x01\x00\xa0\xc2\x00\xc3\x00\xc4\x00\xa0\xa0\0",
+                                        [1, 3, 1, 1, 1], 8),
         ]:
-            a = sc_decode(b)
-            self.assertEqual(len(a), n)
+            it = iter(blob)
+            a = sc_decode(it)
+            self.assertRaises(StopIteration, next, it)
+            self.assertEqual(a.endian, 'little')
+            self.assertEqual(len(a), nbits)
             self.assertFalse(a.any())
 
-    def test_decode_untouch(self):
-        stream = iter(b'\x01\x03\x01\x03\0XYZ')
-        self.assertEqual(sc_decode(stream), bitarray('110'))
+            it = iter(blob)
+            stat = sc_stat(it)
+            self.assertRaises(StopIteration, next, it)
+            self.assertEqual(stat, {'endian': 'little', 'nbits': nbits,
+                                    'blocks': blocks})
+
+        self.assertEqual(sc_encode(bitarray(0, 'little')), b'\x00\0')
+        self.assertEqual(sc_encode(bitarray(8, 'little')), b'\x01\x08\0')
+
+    def test_untouch(self):
+        blob = b"\x01\x07\x01\x73\0XYZ"
+
+        stream = iter(blob)
+        self.assertEqual(sc_decode(stream), bitarray("1100111"))
         self.assertEqual(next(stream), ord('X'))
 
-        stream = iter([0x11, 0x05, 0x01, 0xff, 0, None, 'foo'])
-        self.assertEqual(sc_decode(stream), bitarray('11111'))
-        self.assertIsNone(next(stream))
-        self.assertEqual(next(stream), 'foo')
+        stream = iter(blob)
+        stat = sc_stat(stream)
+        self.assertEqual(stat, {'endian': 'little',
+                                'nbits': 7,
+                                'blocks': [1, 0, 0, 0, 0]})
+        self.assertEqual(next(stream), ord('X'))
+
+    @unittest.skipIf(not HAVE_BINOMIALVARIATE, "Python 3.12+ required")
+    def test_concatenate(self):
+        N = 100
+        arrays = [random_p(randrange(500), 1/8) for _ in range(N)]
+        it = iter(b''.join(sc_encode(a) for a in arrays))
+        self.assertEqual([sc_decode(it) for _ in range(N)], arrays)
+        self.assertRaises(StopIteration, next, it)
+
+    def test_decode_stat_errors(self):
+        for f in sc_decode, sc_stat:
+            a = [17, 3, 1, 32, 0]
+
+            self.assertRaises(TypeError, f)  # no argument
+            self.assertRaises(TypeError, f, a, None)  # extra argument
+            f(a)  # no error
+            for x in 256, -1:
+                a[-1] = x
+                self.assertRaises(ValueError, f, a)
+
+            a = [0x02, None]
+            self.assertRaises(TypeError, f, a)
+            for x in None, 3, 3.2, Ellipsis, 'foo':
+                self.assertRaises(TypeError, f, x)
 
     def test_decode_header_errors(self):
-        # invalid header
-        for c in 0x20, 0x21, 0x40, 0x80, 0xc0, 0xf0, 0xff:
-            self.assertRaisesMessage(ValueError,
-                                     "invalid header: 0x%02x" % c,
-                                     sc_decode, [c])
-        # invalid block head
-        for c in 0xc0, 0xc1, 0xc5, 0xff:
-            self.assertRaisesMessage(ValueError,
-                                     "invalid block head: 0x%02x" % c,
-                                     sc_decode, [0x01, 0x10, c])
+        for f in sc_decode, sc_stat:
+            # invalid header
+            for c in 0x20, 0x21, 0x40, 0x80, 0xc0, 0xf0, 0xff:
+                self.assertRaisesMessage(ValueError,
+                                         "invalid header: 0x%02x" % c,
+                                         f, [c])
+            # invalid block head
+            for c in 0xc0, 0xc1, 0xc5, 0xff:
+                self.assertRaisesMessage(ValueError,
+                                         "invalid block head: 0x%02x" % c,
+                                         f, [0x01, 0x10, c])
 
     def test_decode_header_overflow(self):
         self.assertRaisesMessage(
@@ -1709,93 +1976,82 @@ class SC_Tests(unittest.TestCase, Util):
             ValueError, msg[PTRSIZE],
             sc_decode, b"\x01\x10\xc4\x01\xff\xff\xff\xff\0")
 
-    def test_decode_end_of_stream(self):
+    def test_stop_iteration(self):
         for stream in [b'', b'\x00', b'\x01', b'\x02\x77',
                        b'\x01\x04\x01', b'\x01\x04\xa1', b'\x01\x04\xa0']:
-            self.assertRaises(StopIteration, sc_decode, stream)
+            for f in sc_decode, sc_stat:
+                self.assertRaises(StopIteration, f, stream)
 
     def test_decode_ambiguity(self):
-        for b in [
+        for n, blob in [
                 # raw:
-                b'\x11\x03\x01\x20\0',    # this is what sc_encode gives us
-                b'\x11\x03\x01\x3f\0',    # but we can set the pad bits to 1
+                (0, b'\x11\x03\x01\x20\0'), # this is what sc_encode gives us
+                (0, b'\x11\x03\x01\x3f\0'), # set the pad bits to 1
+                (0, b'\x12\x03\x00\x01\x20\0'), # header has redundant zeros
                 # sparse:
-                b'\x11\x03\xa1\x02\0',                  # block type 1
-                b'\x11\x03\xc2\x01\x02\x00\0',          # block type 2
-                b'\x11\x03\xc3\x01\x02\x00\x00\0',      # block type 3
-                b'\x11\x03\xc4\x01\x02\x00\x00\x00\0',  # block type 4
+                (1, b'\x11\x03\xa1\x02\0'),
+                (2, b'\x11\x03\xc2\x01\x02\x00\0'),
+                (3, b'\x11\x03\xc3\x01\x02\x00\x00\0'),
+                (4, b'\x11\x03\xc4\x01\x02\x00\x00\x00\0'),
         ]:
-            a = sc_decode(b)
+            a = sc_decode(blob)
             self.assertEqual(a.to01(), '001')
+            stat = sc_stat(blob)
+            self.assertEqual(stat['endian'], 'big')
+            self.assertEqual(stat['nbits'], 3)
+            self.assertEqual(stat['blocks'], self.block_counts(n))
 
     def test_block_type0(self):
         for k in range(0x01, 0xa0):
             nbytes = k if k <= 32 else 32 * (k - 31)
             nbits = 8 * nbytes
             a = ones(nbits, "little")
-            b = bytearray([0x01, nbits] if nbits < 256 else
-                          [0x02, nbits % 256, nbits // 256])
+            b = bytearray(self.header(nbits))
             b.append(k)
             b.extend(a.tobytes())
             b.append(0)  # stop byte
 
-            self.assertEqual(sc_decode(b), a)
-            self.assertEqual(sc_encode(a), b)
+            self.check_stat(a, b, 0)
 
     def test_block_type1(self):
         a = bitarray(256, 'little')
-        for n in range(1, 32):
-            a[getrandbits(8)] = 1
+        indices = sample(range(256), 31)
 
-            b = bytearray([0x02, 0x00, 0x01, 0xa0 + a.count()])
-            b.extend(list(a.search(1)))  # sorted indices with no duplicates
+        for k, index in enumerate(indices, 1):
+            a[index] = 1
+            b = bytearray([0x02, 0x00, 0x01, 0xa0 + k])
+            b.extend(sorted(indices[:k]))
             b.append(0)  # stop byte
 
-            self.assertEqual(sc_decode(b), a)
-            self.assertEqual(sc_encode(a), b)
+            self.check_stat(a, b, 1)
 
-    def test_block_type2(self):
-        a = bitarray(65536, 'little')
-        for n in range(1, 256):
-            a[getrandbits(16)] = 1
+    def test_block_type234(self):
+        # nbits and k are redundant, but make the expected values explicit;
+        # k also tests get_max_pop().
+        for n, m, nbits, k in [
+                (2, 256, 1 << 16, 253),
+                (3, 256, 1 << 24, 255),
+                (4,   4, 1 << 26,   5),
+        ]:
+            prev_size = 1 << ((n - 1) * 8)  # size of type n-1 block
+            self.assertEqual(prev_size * m, nbits)
+            a = bitarray(nbits, 'little')
+            self.assertEqual(self.get_max_pop(n, m), k)
+            indices = self.sample_with_highest(nbits, k)
+            a[indices] = 1
+            b = self.make_blob(nbits, n, indices)
+            self.check_stat(a, b, n)
 
-            b = bytearray([0x03, 0x00, 0x00, 0x01, 0xc2, a.count()])
-            for i in a.search(1):
-                b.extend(struct.pack("<H", i))
-            b.append(0)  # stop byte
-            self.assertEqual(sc_decode(b), a)
-            if n < 250:
-                # We cannot compare for the highest populations, as for
-                # such high values sc_encode() may find better compression
-                # with type 1 blocks.
-                self.assertEqual(sc_encode(a), b)
-            else:
-                self.assertTrue(len(sc_encode(a)) <= len(b))
-
-    def test_block_type3(self):
-        a = bitarray(16_777_216, 'little')
-        a[choices(range(1 << 24), k=255)] = 1
-        b = bytearray([0x04, 0x00, 0x00, 0x00, 0x01, 0xc3, a.count()])
-        for i in a.search(1):
-            b.extend(struct.pack("<I", i)[:3])
-        b.append(0)  # stop byte
+    def test_sparse_population_limit(self):
+        a = zeros(1 << 24)
+        a[::1 << 16] = 1  # 256 populated type-2 blocks
+        b = sc_encode(a)
         self.assertEqual(sc_decode(b), a)
-        self.assertEqual(sc_encode(a), b)
-
-    def test_block_type4(self):
-        a = bitarray(1 << 26, 'little')
-        # To understand why we cannot have a population larger than 5 for
-        # an array size 4 times the size of a type 3 block, take a look
-        # at the cost comparison in sc_encode_block().  (2 + 6 >= 2 * 4)
-        indices = sorted(set(choices(range(len(a)), k=5)))
-        a[indices] = 1
-        b = bytearray(b'\x04\x00\x00\x00\x04\xc4')
-        b.append(len(indices))
-        for i in indices:
-            b.extend(struct.pack("<I", i))
-        b.append(0)  # stop byte
-        self.assertEqual(sc_decode(b), a)
-        self.assertEqual(sc_encode(a), b)
+        # The index count byte can represent at most 255 indices (0xff), so
+        # the 256 indices do not fit in one type-3 block.  The encoder first
+        # uses one type-2 block, leaving 255 indices which fit in one type-3
+        # block.
+        self.assertEqual(sc_stat(b)['blocks'], [0, 0, 1, 1, 0])
 
     def test_decode_random_bytes(self):
         # ensure random input doesn't crash the decoder
@@ -1809,25 +2065,44 @@ class SC_Tests(unittest.TestCase, Util):
             self.assertEqual(len(a), 1024)
             self.assertEqual(a.endian, 'little')
 
-    def check_blob_length(self, a, m):
+    def check_blob_length(self, a, m, blocks):
         blob = sc_encode(a)
         self.assertEqual(len(blob), m)
         self.assertEqual(sc_decode(blob), a)
+        stat = sc_stat(blob)
+        self.assertEqual(stat['nbits'], len(a))
+        self.assertEqual(stat['blocks'], blocks)
 
     def test_encode_zeros(self):
         for i in range(26):
-            n = 1 << i
-            a = zeros(n)
-            m = 2                            # head byte and stop byte
-            m += bits2bytes(n.bit_length())  # size of n in bytes
-            self.check_blob_length(a, m)
+            nbits = 1 << i
+            a = zeros(nbits)
+            m = 2                                # head byte and stop byte
+            m += bits2bytes(nbits.bit_length())  # size of nbits in bytes
+            self.check_blob_length(a, m, [0, 0, 0, 0, 0])
 
             a[0] = 1
-            m += 2                  # block head byte and one index byte
-            m += 2 * bool(i > 9)    # count byte and second index byte
-            m += bool(i > 16)       # third index byte
-            m += bool(i > 24)       # fourth index byte
-            self.check_blob_length(a, m)
+            # As the first block accounts for the entire population, trailing
+            # zeros do not cause the block type to increase with array size.
+            n = int(i > 3)
+            m += 2  # block head and raw byte (type 0) or index (type 1)
+
+            self.check_blob_length(a, m, self.block_counts(n))
+
+    def test_encode_trailing_zeros(self):
+        for n, index, blocks in [
+                (1, 0,       self.block_counts(1)),
+                (2, 1 << 8,  [0, 2, 0, 0, 0]),  # 2 type 1 blocks are smaller
+                (2, 3 << 8,  self.block_counts(2)),
+                (3, 1 << 16, self.block_counts(3)),
+        ]:
+            # The bitarray is 4 times the decoded size of a type n block.
+            a = bitarray(4 << (8 * n))
+            a[index] = 1
+            blob = sc_encode(a)
+            # Trailing zeros must not widen the encoding.
+            self.assertEqual(sc_stat(blob)['blocks'], blocks)
+            self.assertEqual(sc_decode(blob), a)
 
     def test_encode_ones(self):
         for _ in range(10):
@@ -1836,32 +2111,38 @@ class SC_Tests(unittest.TestCase, Util):
             m = 2                                # head byte and stop byte
             m += bits2bytes(nbits.bit_length())  # size bytes
             nbytes = bits2bytes(nbits)
-            m += nbytes                       # actual raw bytes
-            # number of head bytes, all of block type 0:
-            m += bool(nbytes % 32)            # number in 0x01 .. 0x1f
-            m += (nbytes // 32 + 127) // 128  # number in 0x20 .. 0xbf
-            self.check_blob_length(a, m)
+            m += nbytes                          # actual raw bytes
+            # number of raw blocks:
+            raw_blocks = (
+                bool(nbytes % 32) +              # number in 0x01 .. 0x1f
+                (nbytes // 32 + 127) // 128)     # number in 0x20 .. 0x9f
+            # number of head bytes
+            m += raw_blocks
+            self.check_blob_length(a, m, [raw_blocks, 0, 0, 0, 0])
 
     def round_trip(self, a):
         c = a.copy()
-        i = iter(sc_encode(a))
-        b = sc_decode(i)
+        blob = sc_encode(a)
+        b = sc_decode(blob)
         self.assertTrue(a == b == c)
         self.assertTrue(a.endian == b.endian == c.endian)
-        self.assertEqual(list(i), [])
+        stat = sc_stat(blob)
+        self.assertEqual(stat['endian'], a.endian)
+        self.assertEqual(stat['nbits'], len(a))
 
     def test_random(self):
-        for _ in range(10):
+        for _ in range(5):
             n = randrange(100_000)
             endian = choice(ENDIANS)
             a = ones(n, endian)
-            while a.count():
+            while a.any():
                 a &= urandom(n, endian)
                 self.round_trip(a)
 
-# ---------------------------------------------------------------------------
 
-class VLFTests(unittest.TestCase, Util):
+# ------------------------   variable length codec   ------------------------
+
+class VL_Tests(unittest.TestCase, Util):
 
     def test_explicit(self):
         for blob, s in [
@@ -1882,7 +2163,7 @@ class VLFTests(unittest.TestCase, Util):
             self.assertEqual(c, a)
             self.assertEqual(c.endian, get_default_endian())
 
-            for endian in 'big', 'little', None:
+            for endian in OPT_ENDIANS:
                 a = bitarray(s, endian)
                 c = vl_encode(a)
                 self.assertIs(type(c), bytes)
@@ -1986,6 +2267,37 @@ class VLFTests(unittest.TestCase, Util):
             self.assertEqual(vl_encode(a), s)
             self.assertEqual(vl_decode(s), a)
 
+    @unittest.skipIf(PTRSIZE != 8, 'requires 64 bit machine')
+    def test_uleb128(self):
+        LEN_PAD_BITS = 3
+        for n in range(1, 61):
+            a = urandom(n, 'little')
+            a[-1] = 1  # avoid overlong ULEB128 representation
+            b = vl_encode(a)
+
+            # Treat the VL bytes as canonical ULEB128.
+            payload = bitarray(b, endian='little')
+            del payload[7::8]  # remove each byte's continuation bit
+            i = ba2int(payload)
+            self.assertEqual(uleb128_encode(i), b)
+
+            # Remove continuation bits, padding metadata, and actual padding
+            # to recover the original bitarray.
+            c = bitarray(b, 'big')
+            del c[::8]  # remove each byte's continuation bit
+            padding = ba2int(c[:LEN_PAD_BITS])
+            self.assertEqual(LEN_PAD_BITS + n + padding, 7 * len(b))
+            del c[:LEN_PAD_BITS]    # remove padding metadata
+            del c[len(c) - padding:]  # remove actual padding
+            self.assertEqual(c, a)
+
+    def test_concatenate(self):
+        N = 100
+        arrays = [urandom(randrange(20)) for _ in range(N)]
+        it = iter(b''.join(vl_encode(a) for a in arrays))
+        self.assertEqual([vl_decode(it) for _ in range(N)], arrays)
+        self.assertRaises(StopIteration, next, it)
+
     def round_trip(self, a):
         c = a.copy()
         s = vl_encode(a)
@@ -1993,19 +2305,25 @@ class VLFTests(unittest.TestCase, Util):
         self.check_obj(b)
         self.assertTrue(a == b == c)
         LEN_PAD_BITS = 3
+        HEAD_WIDTH = 7 - LEN_PAD_BITS  # number of payload bits in head
         self.assertEqual(len(s), (len(a) + LEN_PAD_BITS + 6) // 7)
-
         head = s[0]
-        padding = (head & 0x70) >> 4
-        self.assertEqual(len(a) + padding, 7 * len(s) - LEN_PAD_BITS)
+        padding = (head & 0x70) >> HEAD_WIDTH
+        self.assertEqual(LEN_PAD_BITS + len(a) + padding, 7 * len(s))
+
+        # overflow-safe C implementation in _util.c
+        r = len(a) % 7
+        self.assertEqual(len(a) // 7 + 1 + (r > HEAD_WIDTH), len(s))
+        self.assertEqual((HEAD_WIDTH - r + 7) % 7, padding)
 
     def test_large(self):
-        for _ in range(10):
+        for _ in range(5):
             a = urandom(randrange(100_000))
             self.round_trip(a)
 
     def test_random(self):
-        for a in self.randombitarrays():
+        for n in range(50):
+            a = urandom_2(n)
             self.round_trip(a)
 
 # ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ from copy import deepcopy
 from enum import Enum
 from os import getcwd, getenv
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Set, Tuple, TypedDict, Union
+from typing import Any, Callable, Dict, Iterable, List, Literal, NoReturn, Optional, Set, Tuple, TypedDict, Union
 from urllib.parse import urlparse
 
 import click
@@ -2370,7 +2370,7 @@ def ask_for_organization(
 event_error_separator = "__error__"
 
 
-def sys_exit(event: str, msg: str) -> None:
+def sys_exit(event: str, msg: str) -> NoReturn:
     sys.exit(f"{event}{event_error_separator}{msg}")
 
 

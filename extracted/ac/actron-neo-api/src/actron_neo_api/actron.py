@@ -1,0 +1,1585 @@
+"""Actron Air API client module."""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+import logging
+import re
+from collections.abc import AsyncIterator, Awaitable, Callable
+from copy import deepcopy
+from typing import Any, Literal
+
+import aiohttp
+from aiomqtt import MqttError
+
+from .const import (
+    BASE_URL_DEFAULT,
+    BASE_URL_NIMBUS,
+    BASE_URL_QUE,
+    COMMAND_DEBOUNCE_SECONDS,
+    HTTP_CONNECT_TIMEOUT,
+    HTTP_TOTAL_TIMEOUT,
+    MAX_ERROR_RESPONSE_LENGTH,
+    OAUTH_CLIENT_ID,
+    PLATFORM_NEO,
+    PLATFORM_QUE,
+)
+from .exceptions import ActronAirAPIError, ActronAirAuthError
+from .models import (
+    ActronAirDeviceCode,
+    ActronAirStatus,
+    ActronAirSystemInfo,
+    ActronAirToken,
+    ActronAirUserInfo,
+)
+from .oauth import ActronAirOAuth2DeviceCodeAuth
+from .rt import (
+    MQTTRTClient,
+    RealtimeConnectionDetails,
+    RealtimeConnectionEvent,
+    RealtimeEvent,
+    RealtimeMessage,
+    SignalRRTClient,
+)
+from .state import StateManager
+
+_LOGGER = logging.getLogger(__name__)
+
+# Segments of a flat broadcast key: a name, or a bracketed list index.
+_FLAT_KEY_SEGMENT_RE = re.compile(r"([^.\[\]]+)|\[(\d+)\]")
+
+
+class _PendingBatch:
+    """A batch of set-settings commands being coalesced for a single system."""
+
+    __slots__ = ("merged_command", "baseline_zones", "zone_overrides", "futures", "timer")
+
+    def __init__(self, baseline_zones: list[bool] | None) -> None:
+        """Initialise a pending batch.
+
+        Args:
+            baseline_zones: Current enabled-zones snapshot (for element-wise merging),
+                or None if unavailable.
+
+        """
+        self.merged_command: dict[str, Any] = {"type": "set-settings"}
+        self.baseline_zones = baseline_zones
+        self.zone_overrides: dict[int, bool] = {}
+        self.futures: list[asyncio.Future[None]] = []
+        self.timer: asyncio.TimerHandle | None = None
+
+
+class CommandCoalescer:
+    """Coalesces ``set-settings`` commands per system over a debounce window.
+
+    When multiple zone-enable or other set-settings commands arrive within
+    ``debounce_seconds``, they are deep-merged into a single API call.
+    ``EnabledZones`` lists are merged element-wise against the current state
+    so concurrent zone toggles don't overwrite each other.
+    """
+
+    def __init__(
+        self,
+        send_fn: Callable[[str, dict[str, Any]], Awaitable[None]],
+        state_manager: StateManager,
+        debounce_seconds: float = COMMAND_DEBOUNCE_SECONDS,
+    ) -> None:
+        """Initialise the command coalescer.
+
+        Args:
+            send_fn: Async callable ``(serial, command_dict) -> None`` that sends
+                a command to the API.
+            state_manager: State manager used to snapshot current zone state.
+            debounce_seconds: How long to wait for additional commands before
+                flushing the batch.
+
+        """
+        self._send_fn = send_fn
+        self._state_manager = state_manager
+        self._debounce = debounce_seconds
+        self._batches: dict[str, _PendingBatch] = {}
+        self._pending_tasks: set[asyncio.Task[None]] = set()
+
+    @property
+    def debounce_seconds(self) -> float:
+        """Return the debounce window in seconds."""
+        return self._debounce
+
+    # -- public -----------------------------------------------------------------
+
+    @staticmethod
+    def _flush_task_done(task: asyncio.Task[None]) -> None:
+        """Log unhandled errors from background flush tasks."""
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            _LOGGER.error(
+                "Command flush failed: %s",
+                exc,
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+
+    async def enqueue(self, serial_number: str, command: dict[str, Any]) -> None:
+        """Enqueue a ``set-settings`` command for coalescing.
+
+        The returned coroutine completes only after the merged batch is sent.
+
+        Args:
+            serial_number: Target system serial number.
+            command: Full command dict (``{"command": {…}}``).
+
+        Raises:
+            ActronAirAuthError: If authentication fails while sending the merged
+                command.
+            ActronAirAPIError: If the eventual API call fails.
+
+        """
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[None] = loop.create_future()
+
+        batch = self._get_or_create_batch(serial_number)
+        self._merge_into_batch(batch, command)
+        batch.futures.append(future)
+
+        # Reset the debounce timer
+        if batch.timer is not None:
+            batch.timer.cancel()
+
+        def _schedule_flush(sn: str = serial_number) -> None:
+            task = asyncio.ensure_future(self._flush(sn))
+            self._pending_tasks.add(task)
+            task.add_done_callback(self._pending_tasks.discard)
+            task.add_done_callback(self._flush_task_done)
+
+        batch.timer = loop.call_later(self._debounce, _schedule_flush)
+
+        await future
+
+    async def flush_all(self) -> None:
+        """Flush every pending batch immediately, cancelling debounce timers.
+
+        Also awaits any in-flight flush tasks so that all pending work
+        completes before this method returns.
+        """
+        serials = list(self._batches.keys())
+        for serial in serials:
+            batch = self._batches.get(serial)
+            if batch and batch.timer:
+                batch.timer.cancel()
+            await self._flush(serial)
+
+        # Await any in-flight flush tasks that were scheduled before this call.
+        # Snapshot first — done-callbacks mutate the set concurrently.
+        if self._pending_tasks:
+            pending = list(self._pending_tasks)
+            await asyncio.gather(*pending, return_exceptions=True)
+            for task in pending:
+                self._pending_tasks.discard(task)
+
+    # -- internals --------------------------------------------------------------
+
+    def _get_or_create_batch(self, serial_number: str) -> _PendingBatch:
+        """Return the pending batch for *serial_number*, creating one if needed."""
+        if serial_number not in self._batches:
+            baseline = self._get_baseline_zones(serial_number)
+            self._batches[serial_number] = _PendingBatch(baseline)
+        return self._batches[serial_number]
+
+    def _get_baseline_zones(self, serial_number: str) -> list[bool] | None:
+        """Snapshot the current ``EnabledZones`` from the state manager."""
+        status = self._state_manager.get_status(serial_number)
+        if status and status.user_aircon_settings:
+            return list(status.user_aircon_settings.enabled_zones)
+        return None
+
+    def _merge_into_batch(self, batch: _PendingBatch, command: dict[str, Any]) -> None:
+        """Merge a command's keys into the pending batch."""
+        inner = command.get("command", {})
+        for key, value in inner.items():
+            if key == "type":
+                continue
+
+            if (
+                key == "UserAirconSettings.EnabledZones"
+                and isinstance(value, list)
+                and batch.baseline_zones is not None
+            ):
+                # Element-wise merge: diff this command's list against the
+                # baseline to discover which index(es) the caller changed,
+                # then record those as overrides.  Indices that match baseline
+                # are left alone — they represent stale reads from the same
+                # snapshot, NOT intentional reverts.  (Each concurrent caller
+                # reads the same stale baseline, mutates one index, and sends
+                # the full array back.)
+                for i, val in enumerate(value):
+                    if i < len(batch.baseline_zones) and val != batch.baseline_zones[i]:
+                        batch.zone_overrides[i] = val
+            else:
+                # Scalar / non-list keys: last-write-wins
+                batch.merged_command[key] = value
+
+    async def _flush(self, serial_number: str) -> None:
+        """Send the merged batch and resolve all waiting futures."""
+        batch = self._batches.pop(serial_number, None)
+        if batch is None:
+            return
+
+        # Build the final command dict
+        final_inner: dict[str, Any] = dict(batch.merged_command)
+
+        # Apply per-index zone overrides
+        if batch.zone_overrides and batch.baseline_zones is not None:
+            final_zones = list(batch.baseline_zones)
+            for idx, val in batch.zone_overrides.items():
+                if idx < len(final_zones):
+                    final_zones[idx] = val
+            final_inner["UserAirconSettings.EnabledZones"] = final_zones
+
+        merged_command: dict[str, Any] = {"command": final_inner}
+
+        try:
+            await self._send_fn(serial_number, merged_command)
+        except BaseException as exc:
+            for future in batch.futures:
+                if not future.done():
+                    future.set_exception(exc)
+            if isinstance(exc, Exception):
+                return
+            raise
+
+        for future in batch.futures:
+            if not future.done():
+                future.set_result(None)
+
+
+class ActronAirAPI:
+    """Client for the Actron Air API with improved architecture.
+
+    This client provides a modern, structured approach to interacting with
+    the Actron Air API while maintaining compatibility with the previous interface.
+    """
+
+    def __init__(
+        self,
+        oauth2_client_id: str = OAUTH_CLIENT_ID,
+        refresh_token: str | None = None,
+        platform: Literal["neo", "que"] | None = None,
+        session: aiohttp.ClientSession | None = None,
+        debounce_seconds: float = COMMAND_DEBOUNCE_SECONDS,
+    ):
+        """Initialize the ActronAirAPI client with OAuth2 authentication.
+
+        Args:
+            oauth2_client_id: OAuth2 client ID for device code flow
+            refresh_token: Optional refresh token for authentication
+            platform: Platform to use ('neo', 'que', or None for auto-detect).
+                If None, enables auto-detection with Neo as the initial platform.
+            session: Optional externally-managed aiohttp session. When provided,
+                the session is reused for all HTTP requests (including OAuth) and
+                will NOT be closed by :meth:`close`.
+            debounce_seconds: Debounce window for coalescing ``set-settings``
+                commands (default: 0.1 s).  Set to 0 to disable coalescing.
+
+        """
+        # Determine base URL from platform parameter
+        if platform == PLATFORM_QUE:
+            resolved_base_url = BASE_URL_QUE
+            self._platform = PLATFORM_QUE
+            self._auto_manage_base_url = False
+        elif platform == PLATFORM_NEO:
+            resolved_base_url = BASE_URL_NIMBUS
+            self._platform = PLATFORM_NEO
+            self._auto_manage_base_url = False
+        else:
+            # Auto-detect with Neo as fallback (platform is None)
+            resolved_base_url = BASE_URL_DEFAULT
+            self._platform = PLATFORM_NEO
+            self._auto_manage_base_url = True
+
+        self.base_url = resolved_base_url
+        self._oauth2_client_id = oauth2_client_id
+
+        # Initialize OAuth2 authentication
+        self.oauth2_auth = ActronAirOAuth2DeviceCodeAuth(
+            resolved_base_url, oauth2_client_id, session=session
+        )
+
+        # Set refresh token if provided
+        if refresh_token:
+            self.oauth2_auth.refresh_token = refresh_token
+
+        self.state_manager = StateManager()
+        # Set the API reference in the state manager for command execution
+        self.state_manager.set_api(self)
+
+        # Internal cache of system info models for link resolution
+        self.systems: list[ActronAirSystemInfo] = []
+        self._initialized = False
+
+        # Session management
+        self._session: aiohttp.ClientSession | None = session
+        self._external_session = session is not None
+        self._session_lock = asyncio.Lock()
+        self._init_lock = asyncio.Lock()
+
+        # Command coalescing
+        self._coalescer = CommandCoalescer(
+            send_fn=self._send_command_direct,
+            state_manager=self.state_manager,
+            debounce_seconds=debounce_seconds,
+        )
+
+        # Realtime push integration (issue #77)
+        self._rt_client: MQTTRTClient | SignalRRTClient | None = None
+        self._push_running = False
+        self._push_stream_queues: list[
+            tuple[str | None, asyncio.Queue[ActronAirStatus | None]]
+        ] = []
+        self._push_callbacks: dict[
+            str, list[Callable[[ActronAirStatus], Awaitable[None] | None]]
+        ] = {}
+        self._push_connection_callbacks: list[
+            Callable[[RealtimeConnectionEvent], Awaitable[None] | None]
+        ] = []
+        self._refresh_tasks_lock = asyncio.Lock()
+        self._refresh_status_tasks: dict[str, asyncio.Task[ActronAirStatus | None]] = {}
+
+    @property
+    def platform(self) -> str:
+        """Get the current platform being used.
+
+        Returns:
+            'neo' if using Nimbus platform, 'que' if using Que platform,
+
+        """
+        return self._platform
+
+    @property
+    def authenticated_platform(self) -> str | None:
+        """Get the platform where tokens were originally obtained.
+
+        Returns:
+            Platform URL where tokens were authenticated, or None if not authenticated
+
+        """
+        return self.oauth2_auth.authenticated_platform
+
+    def _get_system_link(self, serial_number: str, rel: str) -> str | None:
+        """Return a HAL link for a cached system if available.
+
+        Args:
+            serial_number: Serial number of the AC system
+            rel: The relationship name of the link to retrieve
+
+        Returns:
+            The href URL string with leading slash removed, or None if not found
+
+        """
+        # Normalize serial number comparison (case-insensitive)
+        serial_lower = serial_number.lower()
+
+        for system in self.systems:
+            if system.serial.lower() != serial_lower:
+                continue
+
+            links = system.links
+            if not links:
+                continue
+
+            link_info = links.get(rel)
+            href: str | None = None
+
+            if isinstance(link_info, dict):
+                href_value = link_info.get("href")
+                href = href_value if isinstance(href_value, str) else None
+            elif isinstance(link_info, list) and link_info:
+                first_item = link_info[0]
+                if isinstance(first_item, dict):
+                    href_value = first_item.get("href")
+                    href = href_value if isinstance(href_value, str) else None
+
+            if href:
+                return href.lstrip("/")
+
+        return None
+
+    @staticmethod
+    def _is_nx_gen_system(system: ActronAirSystemInfo) -> bool:
+        """Check if a system is an NX Gen type.
+
+        Args:
+            system: System info model
+
+        Returns:
+            True if the system is NX Gen type, False otherwise
+
+        """
+        if not system.type:
+            return False
+        system_type = str(system.type).replace("-", "").lower()
+        return system_type == "nxgen"
+
+    def _set_base_url(self, base_url: str, platform: str) -> None:
+        """Update the base URL and platform, preserving existing authentication tokens.
+
+        Mutates the existing OAuth handler's endpoints in-place so that
+        coroutines holding a reference to ``self.oauth2_auth`` continue to
+        use the updated endpoints without observing a stale/replaced object.
+
+        Args:
+            base_url: New base URL to switch to
+            platform: Platform identifier ('neo', 'que')
+
+        Note:
+            This preserves tokens but they may not work if switching between
+            incompatible platforms (Neo vs Que).
+
+        """
+        base_url = base_url.strip().rstrip("/")
+        if self.base_url == base_url and self._platform == platform:
+            return
+
+        # Update OAuth endpoints first so a ValueError does not leave
+        # self.base_url / self._platform in a partially-updated state.
+        self.oauth2_auth.update_base_url(base_url)
+        self.base_url = base_url
+        self._platform = platform
+
+    def _maybe_update_base_url_from_systems(self, systems: list[ActronAirSystemInfo]) -> None:
+        """Automatically update base URL based on system types if auto-management is enabled.
+
+        Args:
+            systems: List of AC systems to analyze
+
+        Note:
+            Platform priority: Actron Connect > QUE (NX Gen) > NIMBUS (Neo).
+            Switches to the highest priority platform found in the systems list.
+
+        """
+        if not self._auto_manage_base_url or not systems:
+            return
+
+        has_nx_gen = any(self._is_nx_gen_system(system) for system in systems)
+
+        if has_nx_gen:
+            target_base = BASE_URL_QUE
+            target_platform = PLATFORM_QUE
+        else:
+            target_base = BASE_URL_NIMBUS
+            target_platform = PLATFORM_NEO
+
+        self._set_base_url(target_base, target_platform)
+
+    async def _ensure_initialized(self) -> None:
+        """Ensure the API is initialized with valid tokens.
+
+        Uses double-check locking so concurrent first calls only
+        initialise once.
+        """
+        if self._initialized:
+            return
+
+        async with self._init_lock:
+            if self._initialized:
+                return
+
+            if self.oauth2_auth.refresh_token and not self.oauth2_auth.access_token:
+                try:
+                    await self.oauth2_auth.refresh_access_token()
+                except (ActronAirAuthError, aiohttp.ClientError) as e:
+                    raise ActronAirAuthError(f"Failed to initialize API: {e}") from e
+
+            self._initialized = True
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create an aiohttp ClientSession."""
+        async with self._session_lock:
+            if self._session is None or self._session.closed:
+                timeout = aiohttp.ClientTimeout(
+                    total=HTTP_TOTAL_TIMEOUT, connect=HTTP_CONNECT_TIMEOUT
+                )
+                self._session = aiohttp.ClientSession(timeout=timeout)
+                self._external_session = False
+                self.oauth2_auth.set_session(self._session)
+                return self._session
+            return self._session
+
+    async def close(self) -> None:
+        """Close the API client and release resources.
+
+        Note:
+            If an external session was provided at construction, it will NOT be
+            closed — the caller retains ownership.
+
+        """
+        await self.stop_push()
+        await self._coalescer.flush_all()
+        async with self._session_lock:
+            if self._session and not self._session.closed and not self._external_session:
+                await self._session.close()
+                self._session = None
+
+    async def start_push(
+        self,
+        serial_numbers: list[str] | None = None,
+        *,
+        connection_details: RealtimeConnectionDetails | None = None,
+        client_id: str | None = None,
+    ) -> bool:
+        """Start realtime push updates for one or more systems.
+
+        Args:
+            serial_numbers: Optional list of system serial numbers to subscribe.
+                If omitted, subscribes all known systems (fetching systems if needed).
+            connection_details: Optional pre-resolved realtime connection details.
+                If omitted, the client attempts to discover details from API links.
+            client_id: Optional MQTT client identifier for the Neo transport.
+                Supplying one that is stable across restarts (a Home Assistant
+                config entry id, for example) opts the connection into a
+                persistent broker session. Ignored on the Que platform, which
+                does not use MQTT.
+
+        Returns:
+            True if realtime push started successfully, False if realtime is
+            unavailable and the caller should fall back to polling.
+
+        Raises:
+            ActronAirAuthError: If the credentials are no longer valid. Callers
+                should re-authenticate rather than fall back to polling.
+        """
+        if self._rt_client is not None and self._push_running:
+            return True
+
+        await self._ensure_initialized()
+        await self.oauth2_auth.ensure_token_valid()
+
+        serials: list[str]
+        if serial_numbers:
+            serials = [serial.strip().lower() for serial in serial_numbers if serial.strip()]
+        else:
+            if not self.systems:
+                await self.get_ac_systems()
+            serials = [system.serial.lower() for system in self.systems if system.serial]
+
+        if not serials:
+            _LOGGER.warning("start_push called without any known system serials")
+            return False
+
+        rt_client: MQTTRTClient | SignalRRTClient | None = None
+        try:
+            details = connection_details or await self._discover_realtime_connection_details(
+                serials[0]
+            )
+            if details is None:
+                _LOGGER.debug("Realtime connection details unavailable; push not started")
+                return False
+
+            token = self.oauth2_auth.access_token
+
+            if not token:
+                raise ActronAirAuthError("No OAuth access token available for realtime transport")
+
+            if self.platform == PLATFORM_QUE:
+                # Reuse the API session so an injected one covers the realtime
+                # transport too. The transport only closes a session it created
+                # itself, and every request it makes carries its own timeout,
+                # so the session default never applies to the event stream.
+                rt_client = SignalRRTClient(details, token, session=await self._get_session())
+            else:
+                rt_client = MQTTRTClient(
+                    details,
+                    await self._resolve_mqtt_username(),
+                    token,
+                    client_id=client_id,
+                )
+
+            if rt_client is None:
+                raise ActronAirAPIError("Failed to create realtime transport client")
+
+            def _on_event(event: RealtimeEvent) -> None:
+                task = asyncio.create_task(self._handle_realtime_event(event))
+                task.add_done_callback(self._log_background_task_error)
+
+            rt_client.register_callback(_on_event)
+
+            await rt_client.connect()
+            for serial in serials:
+                if isinstance(rt_client, MQTTRTClient):
+                    await rt_client.subscribe_system(serial)
+                else:
+                    await rt_client.subscribe(serial)
+
+            self._rt_client = rt_client
+            self._push_running = True
+            return True
+        except ActronAirAuthError:
+            # Credentials are no longer usable; polling would fail the same way.
+            await self._cleanup_failed_push(rt_client)
+            raise
+        except (
+            ActronAirAPIError,
+            MqttError,
+            aiohttp.ClientError,
+            OSError,  # covers TimeoutError, ConnectionError and ssl.SSLError
+        ) as err:
+            _LOGGER.debug("Realtime push unavailable (%s); falling back to polling", err)
+            await self._cleanup_failed_push(rt_client)
+            return False
+        except Exception:
+            _LOGGER.exception("Unexpected error starting realtime push; falling back to polling")
+            await self._cleanup_failed_push(rt_client)
+            return False
+
+    async def _resolve_mqtt_username(self) -> str:
+        """Return the account email used to identify MQTT broker connections.
+
+        The username only makes a broker connection attributable to an account;
+        it is not used for authentication (the access token is the password).
+        A lookup failure must therefore never prevent push from starting, so
+        every error is swallowed in favour of an empty username.
+        """
+        try:
+            user_info = await self.oauth2_auth.get_user_info()
+        except Exception as err:
+            _LOGGER.debug("Could not resolve account email for MQTT username: %s", err)
+            return ""
+        return user_info.email.strip() if user_info else ""
+
+    async def _cleanup_failed_push(
+        self,
+        rt_client: MQTTRTClient | SignalRRTClient | None,
+    ) -> None:
+        """Disconnect a partially started transport and reset push state."""
+        cleanup_client = self._rt_client or rt_client
+        if cleanup_client is not None:
+            try:
+                await cleanup_client.disconnect()
+            except Exception:
+                _LOGGER.debug("Failed to clean up realtime client", exc_info=True)
+        self._rt_client = None
+        self._push_running = False
+
+    async def stop_push(self) -> None:
+        """Stop realtime push updates and disconnect active transport."""
+        self._push_running = False
+        # Wake blocked stream consumers so they can exit cleanly.
+        for _, stream_queue in list(self._push_stream_queues):
+            stream_queue.put_nowait(None)
+        if self._rt_client is None:
+            return
+        try:
+            await self._rt_client.disconnect()
+        finally:
+            self._rt_client = None
+
+    def subscribe_system_updates(
+        self,
+        serial_number: str,
+        callback: Callable[[ActronAirStatus], Awaitable[None] | None],
+    ) -> Callable[[], None]:
+        """Register a callback for status updates of a specific system.
+
+        Args:
+            serial_number: Target system serial number.
+            callback: Callback invoked with each parsed status update.
+
+        Returns:
+            A callable that removes this subscription. Calling it more than
+            once is safe.
+
+        Raises:
+            ValueError: If serial_number is empty.
+        """
+        serial = serial_number.strip().lower()
+        if not serial:
+            raise ValueError("serial_number cannot be empty")
+        self._push_callbacks.setdefault(serial, []).append(callback)
+
+        def _remove_subscription() -> None:
+            """Remove this callback registration."""
+            callbacks = self._push_callbacks.get(serial)
+            if callbacks is None:
+                return
+            try:
+                callbacks.remove(callback)
+            except ValueError:
+                return
+            if not callbacks:
+                self._push_callbacks.pop(serial, None)
+
+        return _remove_subscription
+
+    def subscribe_connection_state(
+        self,
+        callback: Callable[[RealtimeConnectionEvent], Awaitable[None] | None],
+    ) -> Callable[[], None]:
+        """Register a callback for realtime transport connection changes.
+
+        Connection state belongs to the transport rather than to a single
+        system, so a callback registered here receives every transition for
+        as long as push is running.
+
+        Args:
+            callback: Callback invoked with each connection state transition.
+
+        Returns:
+            A callable that removes this subscription. Calling it more than
+            once is safe.
+        """
+        self._push_connection_callbacks.append(callback)
+
+        def _remove_subscription() -> None:
+            """Remove this callback registration."""
+            try:
+                self._push_connection_callbacks.remove(callback)
+            except ValueError:
+                return
+
+        return _remove_subscription
+
+    async def stream_system_updates(
+        self,
+        serial_number: str | None = None,
+    ) -> AsyncIterator[ActronAirStatus]:
+        """Yield parsed push status updates as they arrive.
+
+        Args:
+            serial_number: Optional serial filter. If set, only matching
+                statuses are yielded.
+        """
+        serial_filter = serial_number.strip().lower() if serial_number else None
+        stream_queue: asyncio.Queue[ActronAirStatus | None] = asyncio.Queue()
+        self._push_stream_queues.append((serial_filter, stream_queue))
+
+        try:
+            while self._push_running or not stream_queue.empty():
+                status = await stream_queue.get()
+                if status is None:
+                    break
+                yield status
+        finally:
+            self._push_stream_queues = [
+                (flt, queue) for flt, queue in self._push_stream_queues if queue is not stream_queue
+            ]
+
+    @staticmethod
+    def _log_background_task_error(task: asyncio.Task[None]) -> None:
+        """Log unhandled exceptions from background tasks."""
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            _LOGGER.error(
+                "Realtime event task failed", exc_info=(type(exc), exc, exc.__traceback__)
+            )
+
+    async def _discover_realtime_connection_details(
+        self,
+        serial_number: str,
+    ) -> RealtimeConnectionDetails | None:
+        """Discover realtime connection details from API links or platform defaults.
+
+        Neo systems may expose realtime details via a dedicated auth endpoint
+        without publishing HAL links on each system object. If link discovery
+        fails, we probe that endpoint before falling back.
+        """
+        rel_candidates = (
+            "rtc-details",
+            "rtc",
+            "realtime",
+            "messaging",
+            "mqtt",
+        )
+        for rel in rel_candidates:
+            endpoint = self._get_system_link(serial_number, rel)
+            if endpoint:
+                try:
+                    payload = await self._make_request("get", endpoint)
+                    details = self._parse_realtime_details_payload(payload)
+                    if details is not None:
+                        return details
+                except Exception:
+                    _LOGGER.debug("Realtime details link %s lookup failed", rel, exc_info=True)
+
+        # APK evidence (Retrofit base URL includes /api/v0/) resolves this to
+        # /api/v0/messaging/connection/details.
+        if self.platform == PLATFORM_NEO:
+            endpoint = "api/v0/messaging/connection/details"
+            try:
+                payload = await self._make_request("get", endpoint)
+                details = self._parse_realtime_details_payload(payload)
+                if details is not None:
+                    return details
+            except Exception:
+                _LOGGER.debug(
+                    "Realtime details endpoint lookup failed for %s",
+                    endpoint,
+                    exc_info=True,
+                )
+
+        # Que fallback endpoint from documented SignalR path.
+        if self.platform == PLATFORM_QUE:
+            return RealtimeConnectionDetails(
+                endpoint=f"{self.base_url.rstrip('/')}/api/v0/messaging/app",
+                port=443,
+                protocol="https",
+                user_id="unknown",
+            )
+
+        return None
+
+    def _parse_realtime_details_payload(
+        self,
+        payload: dict[str, Any],
+    ) -> RealtimeConnectionDetails | None:
+        """Parse API payload into RealtimeConnectionDetails."""
+        candidate = payload
+        if isinstance(payload.get("RTCDetails"), dict):
+            candidate = payload["RTCDetails"]
+        elif isinstance(payload.get("rtcDetails"), dict):
+            candidate = payload["rtcDetails"]
+
+        endpoint = self._pick_str(
+            candidate,
+            "endPoint",
+            "endpoint",
+            "Endpoint",
+            "host",
+            "server",
+        )
+        user_id = self._pick_str(candidate, "userId", "UserId", "user_id", "username") or "unknown"
+
+        if not endpoint:
+            return None
+
+        raw_port = candidate.get("port")
+        if raw_port in (None, ""):
+            raw_port = candidate.get("Port")
+        port = int(raw_port) if isinstance(raw_port, int | str) and str(raw_port).isdigit() else 443
+        protocol = self._pick_str(candidate, "protocol", "Protocol", "scheme") or "ssl"
+
+        return RealtimeConnectionDetails(
+            endpoint=endpoint,
+            port=port,
+            protocol=protocol,
+            user_id=user_id,
+        )
+
+    @staticmethod
+    def _pick_str(source: dict[str, Any], *keys: str) -> str | None:
+        """Return the first non-empty string value from source for keys."""
+        for key in keys:
+            value = source.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    async def _handle_realtime_event(self, event: RealtimeEvent) -> None:
+        """Process an incoming realtime event from active transport."""
+        if isinstance(event, RealtimeConnectionEvent):
+            await self._dispatch_connection_event(event)
+            return
+
+        if not isinstance(event, RealtimeMessage):
+            return
+
+        status = await self._coerce_realtime_status(event)
+        serial = self._extract_realtime_serial(event, status)
+        if status is None or not serial:
+            return
+
+        status.serial_number = serial
+        current_status = self.state_manager.get_status(serial)
+        if current_status is not status:
+            self.state_manager.process_status_update(serial, status)
+        for stream_filter, stream_queue in list(self._push_stream_queues):
+            if stream_filter is None or stream_filter == serial:
+                stream_queue.put_nowait(status)
+
+        for callback in list(self._push_callbacks.get(serial, [])):
+            try:
+                result = callback(status)
+                if inspect.isawaitable(result):
+                    await result
+            except Exception as err:
+                _LOGGER.warning(
+                    "Realtime callback failed for %s: %s",
+                    serial,
+                    err,
+                    exc_info=True,
+                )
+
+    async def _dispatch_connection_event(self, event: RealtimeConnectionEvent) -> None:
+        """Notify connection-state subscribers of a transport transition."""
+        for callback in list(self._push_connection_callbacks):
+            try:
+                result = callback(event)
+                if inspect.isawaitable(result):
+                    await result
+            except Exception as err:
+                _LOGGER.warning(
+                    "Realtime connection callback failed for %s: %s",
+                    event.state.value,
+                    err,
+                    exc_info=True,
+                )
+
+    async def _coerce_realtime_status(self, event: RealtimeMessage) -> ActronAirStatus | None:
+        """Convert a realtime message into a status model when possible."""
+        status = event.domain_model if isinstance(event.domain_model, ActronAirStatus) else None
+        serial = self._extract_realtime_serial(event, status)
+        if not serial:
+            return None
+
+        if self._is_mqtt_status_change_topic(event.topic):
+            return await self._merge_mqtt_status_change(serial, event.payload)
+
+        if self._is_mqtt_full_status_topic(event.topic):
+            # The transport builds domain_model from the raw payload, which
+            # silently validates a broadcast wrapper into an all-defaults
+            # status, so the broadcast shape has to win where it applies.
+            broadcast = self._parse_full_status_broadcast(serial, event.payload)
+            if broadcast is not None:
+                return broadcast
+
+        return status
+
+    @staticmethod
+    def _parse_full_status_broadcast(
+        serial: str,
+        payload: dict[str, Any],
+    ) -> ActronAirStatus | None:
+        """Parse a Neo full-status-broadcast payload into a status model.
+
+        The broker wraps the complete state in ``payload["event"]`` rather than
+        the ``{"lastKnownState": {...}}`` shape used by the HTTP API.
+
+        Returns:
+            The parsed status, or None if the payload is not a full-status
+            broadcast or cannot be validated.
+        """
+        event = payload.get("event")
+        if not isinstance(event, dict) or event.get("type") != "full-status-broadcast":
+            return None
+
+        last_known_state = {key: value for key, value in event.items() if key != "type"}
+        if not last_known_state:
+            return None
+
+        try:
+            status = ActronAirStatus.model_validate(
+                {"isOnline": True, "lastKnownState": last_known_state}
+            )
+        except Exception as exc:
+            _LOGGER.warning("Failed to parse full-status broadcast for %s: %s", serial, exc)
+            return None
+
+        status.serial_number = serial
+        return status
+
+    async def _merge_mqtt_status_change(
+        self,
+        serial: str,
+        payload: dict[str, Any],
+    ) -> ActronAirStatus | None:
+        """Merge an MQTT status-change delta into the current system state."""
+        if not self._mqtt_status_change_contains_state(payload):
+            return await self._refresh_status_from_realtime_signal(serial)
+
+        existing_status = self.state_manager.get_status(serial)
+        if existing_status is None:
+            existing_status = await self._refresh_status_from_realtime_signal(serial)
+            if existing_status is None:
+                return None
+
+        merged_status_data: dict[str, Any] = {
+            "isOnline": payload.get("isOnline", existing_status.is_online),
+            "lastKnownState": deepcopy(existing_status.last_known_state),
+        }
+
+        broadcast = self._status_change_broadcast(payload)
+        delta_state = payload.get("lastKnownState")
+        if broadcast is not None:
+            self._apply_broadcast_delta(merged_status_data["lastKnownState"], broadcast, serial)
+        elif isinstance(delta_state, dict):
+            self._deep_merge_dicts(merged_status_data["lastKnownState"], delta_state)
+        else:
+            state_updates = {
+                key: value
+                for key, value in payload.items()
+                if key not in self._mqtt_status_change_metadata_keys()
+            }
+            self._deep_merge_dicts(merged_status_data["lastKnownState"], state_updates)
+
+        try:
+            merged_status = ActronAirStatus.model_validate(merged_status_data)
+        except Exception as exc:
+            _LOGGER.warning("Failed to merge MQTT status-change for %s: %s", serial, exc)
+            return None
+
+        merged_status.serial_number = serial
+        return merged_status
+
+    async def _refresh_status_from_realtime_signal(self, serial: str) -> ActronAirStatus | None:
+        """Fetch a fresh status snapshot after a realtime invalidation signal."""
+        task = await self._get_or_create_refresh_task(serial)
+        return await task
+
+    async def _get_or_create_refresh_task(
+        self, serial: str
+    ) -> asyncio.Task[ActronAirStatus | None]:
+        """Return an in-flight refresh task for serial, creating one if needed."""
+        async with self._refresh_tasks_lock:
+            existing = self._refresh_status_tasks.get(serial)
+            if existing is not None and not existing.done():
+                return existing
+
+            task = asyncio.create_task(self._run_refresh_status(serial))
+            self._refresh_status_tasks[serial] = task
+            return task
+
+    async def _run_refresh_status(self, serial: str) -> ActronAirStatus | None:
+        """Execute a realtime-triggered refresh and clean up task bookkeeping."""
+        try:
+            await self.update_status(serial)
+        except Exception as exc:
+            _LOGGER.warning(
+                "Failed to hydrate baseline status for realtime delta %s: %s",
+                serial,
+                exc,
+            )
+            return None
+        finally:
+            async with self._refresh_tasks_lock:
+                current = self._refresh_status_tasks.get(serial)
+                if current is asyncio.current_task():
+                    self._refresh_status_tasks.pop(serial, None)
+
+        return self.state_manager.get_status(serial)
+
+    @staticmethod
+    def _status_change_broadcast(payload: dict[str, Any]) -> dict[str, Any] | None:
+        """Return the state-bearing body of a status-change-broadcast payload.
+
+        Neo wraps realtime deltas in ``payload["event"]`` with a ``type``
+        marker; every other key in that dict is a state delta.
+        """
+        event = payload.get("event")
+        if not isinstance(event, dict) or event.get("type") != "status-change-broadcast":
+            return None
+        body = {key: value for key, value in event.items() if key != "type"}
+        return body or None
+
+    @classmethod
+    def _apply_broadcast_delta(
+        cls,
+        last_known_state: dict[str, Any],
+        broadcast: dict[str, Any],
+        serial: str,
+    ) -> None:
+        """Apply flat-notation broadcast deltas onto a lastKnownState snapshot."""
+        for key, value in broadcast.items():
+            path = cls._parse_flat_key_path(key)
+            if not cls._apply_flat_path_to_dict(last_known_state, path, value):
+                _LOGGER.debug("Skipped unmappable status-change key %r for %s", key, serial)
+
+    @staticmethod
+    def _parse_flat_key_path(key: str) -> list[str | int]:
+        """Parse a flat broadcast key into a path of dict keys and list indices.
+
+        Examples:
+            ``UserAirconSettings.EnabledZones[6]`` -> ``["UserAirconSettings",
+            "EnabledZones", 6]``; ``RemoteZoneInfo[1].ZonePosition`` ->
+            ``["RemoteZoneInfo", 1, "ZonePosition"]``.
+
+        Peripheral identifiers are wrapped in angle brackets and contain dots
+        that belong to the identifier, so they stay a single literal segment.
+        """
+        if key.startswith("<") and key.endswith(">"):
+            return [key]
+
+        path: list[str | int] = []
+        for name, index in _FLAT_KEY_SEGMENT_RE.findall(key):
+            path.append(name if name else int(index))
+        return path
+
+    @classmethod
+    def _apply_flat_path_to_dict(
+        cls,
+        last_known_state: dict[str, Any],
+        path: list[str | int],
+        value: Any,
+    ) -> bool:
+        """Write value into a nested structure, creating containers as needed.
+
+        Each container is coerced to the type the next path segment requires,
+        so a broadcast that disagrees with the cached shape replaces the stale
+        container instead of raising.
+
+        Returns:
+            True if the value was written, False if the path was unusable.
+        """
+        if not path:
+            return False
+
+        current: Any = last_known_state
+        for depth, segment in enumerate(path[:-1]):
+            wanted: type = list if isinstance(path[depth + 1], int) else dict
+            current = cls._descend_flat_path(current, segment, wanted)
+            if current is None:
+                return False
+
+        return cls._set_flat_path_leaf(current, path[-1], value)
+
+    @classmethod
+    def _descend_flat_path(
+        cls,
+        container: Any,
+        segment: str | int,
+        wanted: type,
+    ) -> Any:
+        """Return the child container at segment, creating it when needed.
+
+        A returned container always matches *wanted*, so the next segment is
+        guaranteed a container it can address.
+        """
+        if isinstance(segment, int):
+            if not isinstance(container, list):
+                return None
+            while len(container) <= segment:
+                container.append(None)
+            if not cls._replaceable_child(container[segment], wanted):
+                return container[segment] if isinstance(container[segment], wanted) else None
+            container[segment] = wanted()
+            return container[segment]
+
+        existing = container.get(segment)
+        if not cls._replaceable_child(existing, wanted):
+            return existing if isinstance(existing, wanted) else None
+        container[segment] = wanted()
+        return container[segment]
+
+    @staticmethod
+    def _replaceable_child(existing: Any, wanted: type) -> bool:
+        """Return whether an existing child may be replaced with a fresh container.
+
+        A missing or scalar child is safe to replace, as is an empty container
+        of the wrong type. A populated container of the wrong type is left
+        alone: a malformed key must not discard cached state.
+        """
+        if isinstance(existing, wanted):
+            return False
+        if isinstance(existing, (dict, list)):
+            return not existing
+        return True
+
+    @staticmethod
+    def _set_flat_path_leaf(container: Any, segment: str | int, value: Any) -> bool:
+        """Assign value at the final path segment, if the container allows it.
+
+        Only an indexed segment can mismatch here: a named segment always
+        lands on a dict, either the lastKnownState root or a container that
+        :meth:`_descend_flat_path` created as one.
+        """
+        if isinstance(segment, int):
+            if not isinstance(container, list):
+                return False
+            while len(container) <= segment:
+                container.append(None)
+
+        container[segment] = value
+        return True
+
+    @staticmethod
+    def _deep_merge_dicts(base: dict[str, Any], updates: dict[str, Any]) -> None:
+        """Recursively merge updates into base in place."""
+        for key, value in updates.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                ActronAirAPI._deep_merge_dicts(base[key], value)
+                continue
+            base[key] = deepcopy(value)
+
+    @staticmethod
+    def _mqtt_status_change_contains_state(payload: dict[str, Any]) -> bool:
+        """Return whether a Neo status-change payload contains state-bearing fields."""
+        metadata_only_keys = ActronAirAPI._mqtt_status_change_metadata_keys()
+        if isinstance(payload.get("lastKnownState"), dict):
+            return True
+        if ActronAirAPI._status_change_broadcast(payload) is not None:
+            return True
+        return any(key not in metadata_only_keys for key in payload)
+
+    @staticmethod
+    def _mqtt_status_change_metadata_keys() -> set[str]:
+        """Return top-level status-change keys that are metadata, not state."""
+        return {
+            "event",
+            "wcFirmware",
+            "correlationId",
+            "commandResponse",
+            "isOnline",
+            "serial",
+            "serialNumber",
+            "SerialNumber",
+            "lastKnownState",
+        }
+
+    @staticmethod
+    def _is_mqtt_status_change_topic(topic: str) -> bool:
+        """Return whether a realtime topic is the Neo status-change channel."""
+        return topic.endswith("/mwc/status-change")
+
+    @staticmethod
+    def _is_mqtt_full_status_topic(topic: str) -> bool:
+        """Return whether a realtime topic is the Neo full-status channel."""
+        return topic.endswith("/mwc/full-status")
+
+    @staticmethod
+    def _extract_realtime_serial(
+        event: RealtimeMessage,
+        status: ActronAirStatus | None,
+    ) -> str | None:
+        """Extract system serial from status model or transport-specific metadata."""
+        if status is not None and status.serial_number:
+            return status.serial_number.lower()
+
+        topic_parts = event.topic.split("/")
+        if len(topic_parts) >= 4 and topic_parts[0] == "actron-cloud":
+            return topic_parts[3].lower()
+
+        candidates = (
+            event.payload.get("serial"),
+            event.payload.get("serialNumber"),
+            event.payload.get("SerialNumber"),
+        )
+        for value in candidates:
+            if isinstance(value, str) and value.strip():
+                return value.strip().lower()
+
+        return None
+
+    async def _sync_realtime_access_token(self) -> None:
+        """Push latest access token to active realtime transport."""
+        if self._rt_client is None:
+            return
+        token = self.oauth2_auth.access_token
+        if not token:
+            return
+        try:
+            await self._rt_client.update_access_token(token)
+        except Exception:
+            _LOGGER.debug("Failed to update realtime access token", exc_info=True)
+
+    async def __aenter__(self) -> "ActronAirAPI":
+        """Support for async context manager."""
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Support for async context manager."""
+        await self.close()
+
+    # OAuth2 Device Code Flow methods - simple proxies
+    async def request_device_code(self) -> ActronAirDeviceCode:
+        """Request a device code for OAuth2 device code flow."""
+        return await self.oauth2_auth.request_device_code()
+
+    async def poll_for_token(
+        self, device_code: str, interval: int = 5, timeout: int = 600
+    ) -> ActronAirToken | None:
+        """Poll for access token using device code with automatic polling loop.
+
+        Args:
+            device_code: The device code received from request_device_code
+            interval: Polling interval in seconds (default: 5)
+            timeout: Maximum time to wait in seconds (default: 600 = 10 minutes)
+
+        Returns:
+            Token model if successful, None if timeout occurs
+
+        """
+        return await self.oauth2_auth.poll_for_token(device_code, interval, timeout)
+
+    async def get_user_info(self) -> ActronAirUserInfo:
+        """Get user information using the access token."""
+        return await self.oauth2_auth.get_user_info()
+
+    async def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        _retry: bool = True,
+    ) -> dict[str, Any]:
+        """Make an API request with proper error handling.
+
+        Args:
+            method: HTTP method ("get", "post", etc.)
+            endpoint: API endpoint (without base URL)
+            params: URL parameters
+            json_data: JSON body data
+            data: Form data
+            headers: HTTP headers
+            _retry: Internal flag to prevent infinite retry loops
+
+        Returns:
+            API response as JSON
+
+        Raises:
+            ActronAirAuthError: For authentication errors
+            ActronAirAPIError: For API errors
+
+        """
+        # Ensure API is initialized with valid tokens
+        await self._ensure_initialized()
+
+        # Ensure we have a valid token
+        await self.oauth2_auth.ensure_token_valid()
+        await self._sync_realtime_access_token()
+
+        auth_header = self.oauth2_auth.authorization_header
+
+        # Prepare the request — clone headers to avoid mutating caller's dict
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        request_headers = dict(headers) if headers else {}
+        request_headers.update(auth_header)
+
+        # Get a session
+        session = await self._get_session()
+
+        # Make the request
+        try:
+            async with session.request(
+                method, url, params=params, json=json_data, data=data, headers=request_headers
+            ) as response:
+                if response.status == 401:
+                    response_text = await response.text()
+                    safe_text = response_text[:MAX_ERROR_RESPONSE_LENGTH]
+
+                    # If we have a refresh token and haven't retried yet, attempt refresh
+                    if _retry and self.oauth2_auth.refresh_token:
+                        try:
+                            await self.oauth2_auth.refresh_access_token()
+                            await self._sync_realtime_access_token()
+                            return await self._make_request(
+                                method, endpoint, params, json_data, data, headers, _retry=False
+                            )
+                        except ActronAirAuthError:
+                            raise
+                        except (
+                            aiohttp.ClientError,
+                            ValueError,
+                            TypeError,
+                            KeyError,
+                        ) as refresh_error:
+                            raise ActronAirAuthError(
+                                f"Authentication failed and token refresh failed: {safe_text}"
+                            ) from refresh_error
+
+                    raise ActronAirAuthError(f"Authentication failed: {safe_text}")
+
+                if not 200 <= response.status < 300:
+                    response_text = await response.text()
+                    raise ActronAirAPIError(
+                        f"API request failed. "
+                        f"Status: {response.status}, "
+                        f"Response: {response_text[:MAX_ERROR_RESPONSE_LENGTH]}"
+                    )
+
+                if response.status == 204:
+                    return {}
+
+                result: dict[str, Any] = await response.json()
+                return result
+        except aiohttp.ClientError as e:
+            raise ActronAirAPIError(f"Request failed: {str(e)}") from e
+
+    # API Methods
+
+    async def get_ac_systems(self) -> list[ActronAirSystemInfo]:
+        """Retrieve all AC systems in the customer account.
+
+        Returns:
+            List of AC system information models
+
+        Raises:
+            ActronAirAPIError: If response is missing required data
+
+        """
+        response = await self._make_request(
+            "get", "api/v0/client/ac-systems", params={"includeNeo": "true"}
+        )
+
+        # Validate response structure
+        if "_embedded" not in response:
+            raise ActronAirAPIError("Invalid response: missing '_embedded' key")
+
+        embedded = response["_embedded"]
+        if not isinstance(embedded, dict) or "ac-system" not in embedded:
+            raise ActronAirAPIError("Invalid response: missing 'ac-system' in '_embedded'")
+
+        systems_data = embedded["ac-system"]
+        if not isinstance(systems_data, list):
+            raise ActronAirAPIError("Invalid response: 'ac-system' is not a list")
+
+        # Convert to Pydantic models
+        systems = [ActronAirSystemInfo(**system_data) for system_data in systems_data]
+
+        # Store system info models for link resolution
+        self.systems = systems
+        self._maybe_update_base_url_from_systems(systems)
+
+        return systems
+
+    async def get_ac_status(self, serial_number: str) -> ActronAirStatus:
+        """Retrieve the current status for a specific AC system.
+
+        This replaces the events API which was disabled by Actron in July 2025.
+
+        Args:
+            serial_number: Serial number of the AC system
+
+        Returns:
+            Typed status model for the AC system
+
+        Raises:
+            ActronAirAPIError: If system not found or request fails
+
+        """
+        # Normalize serial number to lowercase for consistent lookup
+        serial_number = serial_number.lower()
+
+        endpoint = self._get_system_link(serial_number, "ac-status")
+        if not endpoint:
+            raise ActronAirAPIError(f"No ac-status link found for system {serial_number}")
+
+        status_data = await self._make_request("get", endpoint)
+        status = ActronAirStatus(serial_number=serial_number, **status_data)
+        status._api = self  # Set API reference for command execution
+        return status
+
+    async def send_command(self, serial_number: str, command: dict[str, Any]) -> None:
+        """Send a command to the specified AC system.
+
+        ``set-settings`` commands are routed through the :class:`CommandCoalescer`
+        so that concurrent zone toggles are merged into a single API call.
+        All other command types are sent immediately.
+
+        Args:
+            serial_number: Serial number of the AC system
+            command: Dictionary containing the command details
+
+        Raises:
+            ActronAirAPIError: If command fails or system not found
+
+        """
+        serial_number = serial_number.lower()
+
+        inner = command.get("command", {})
+        if inner.get("type") == "set-settings" and self._coalescer.debounce_seconds > 0:
+            await self._coalescer.enqueue(serial_number, command)
+        else:
+            await self._send_command_direct(serial_number, command)
+
+    async def _send_command_direct(self, serial_number: str, command: dict[str, Any]) -> None:
+        """Send a command directly to the API without coalescing.
+
+        Args:
+            serial_number: Serial number of the AC system
+            command: Dictionary containing the command details
+
+        Raises:
+            ActronAirAPIError: If command fails or system not found
+
+        """
+        endpoint = self._get_system_link(serial_number, "commands")
+        if not endpoint:
+            raise ActronAirAPIError(f"No commands link found for system {serial_number}")
+
+        await self._make_request(
+            "post",
+            endpoint,
+            json_data=command,
+            headers={"Content-Type": "application/json"},
+        )
+
+    async def update_status(
+        self, serial_number: str | None = None
+    ) -> dict[str, ActronAirStatus | None]:
+        """Update the status of AC systems using event-based updates.
+
+        Args:
+            serial_number: Optional serial number to update specific system,
+                          or None to update all systems
+
+        Returns:
+            Dictionary mapping serial numbers to status models
+
+        """
+        if serial_number:
+            # Update specific system
+            await self._update_system_status(serial_number)
+            status = self.state_manager.get_status(serial_number)
+            return {serial_number: status}
+
+        # Update all systems
+        if not self.systems:
+            return {}
+
+        results: dict[str, ActronAirStatus | None] = {}
+        for system in self.systems:
+            if system.serial:
+                await self._update_system_status(system.serial)
+                status = self.state_manager.get_status(system.serial)
+                results[system.serial] = status
+
+        return results
+
+    async def _update_system_status(self, serial_number: str) -> None:
+        """Update status for a single system using status polling.
+
+        Note: Switched from event-based updates to status polling due to
+        Actron disabling the events API in July 2025.
+
+        Args:
+            serial_number: Serial number of the system to update
+
+        Raises:
+            ActronAirAuthError: If authentication fails
+            ActronAirAPIError: If API request fails
+
+        """
+        # Get current status using the status/latest endpoint
+        status = await self.get_ac_status(serial_number)
+        if status is not None:
+            # Process and store the status via the state manager so observers are notified
+            self.state_manager.process_status_update(serial_number, status)
+
+    @property
+    def access_token(self) -> str | None:
+        """Get the current OAuth2 access token."""
+        return self.oauth2_auth.access_token
+
+    @property
+    def refresh_token_value(self) -> str | None:
+        """Get the current OAuth2 refresh token."""
+        return self.oauth2_auth.refresh_token
+
+    @property
+    def latest_event_id(self) -> dict[str, str]:
+        """Get the latest event ID for each system.
+
+        .. deprecated:: Event-based updates were removed in v0.5.
+            Event-based updates are no longer supported, so this property is
+            retained only for backward compatibility and always returns an
+            empty dictionary.
+
+        Returns:
+            An empty dictionary, because event IDs are no longer tracked.
+
+        """
+        return {}

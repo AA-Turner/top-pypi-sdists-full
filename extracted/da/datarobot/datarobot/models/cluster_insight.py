@@ -114,12 +114,12 @@ class ClusterInsight(APIObject):
     feature_type: str
         Type of feature.
     insights : List[dict]
-        List provides information regarding the importance of a specific feature in relation
+        This list provides information regarding the importance of a specific feature in relation
         to each cluster. Results help understand how the model is grouping data and what each
         cluster represents. Examples include keys such as `insight_name`. For example, you
         could get `categoryLevelFrequencyPercent` for a categorical feature, `importantNgrams`
-        for a text feature, and a set of {'avg', 'missingRowsPercent', 'min',
-        'firstQuartile', 'median', 'thirdQuartile', 'max'} for a numeric feature.
+        for a text feature, and a set of ``{'avg', 'missingRowsPercent', 'min',
+        'firstQuartile', 'median', 'thirdQuartile', 'max'}`` for a numeric feature.
     feature_impact: float
         Impact of a feature ranging from 0 to 1.
     """
@@ -190,7 +190,7 @@ class ClusterInsight(APIObject):
             Indicates whether the cluster insights computation failed or was cancelled.
         AsyncTimeoutError
             Indicates whether the cluster insights computation did not resolve within the specified
-            time limit (max_wait).
+            time limit (``max_wait``).
         """
         compute_path = cls._compute_path.format(project_id=project_id, model_id=model_id)
         response = cls._client.post(compute_path)

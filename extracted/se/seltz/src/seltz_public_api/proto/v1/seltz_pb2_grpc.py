@@ -5,7 +5,7 @@ import grpc
 from seltz_public_api.proto.v1 import seltz_pb2 as seltz__public__api_dot_proto_dot_v1_dot_seltz__pb2
 
 
-class SeltzServiceStub(object):
+class SeltzServiceStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -21,7 +21,7 @@ class SeltzServiceStub(object):
                 _registered_method=True)
 
 
-class SeltzServiceServicer(object):
+class SeltzServiceServicer:
     """Missing associated documentation comment in .proto file."""
 
     def Search(self, request, context):
@@ -46,7 +46,7 @@ def add_SeltzServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class SeltzService(object):
+class SeltzService:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod

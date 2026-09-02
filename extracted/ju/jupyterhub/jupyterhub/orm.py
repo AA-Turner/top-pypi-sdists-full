@@ -108,7 +108,7 @@ class JSONList(JSONDict):
     """
 
     def process_bind_param(self, value, dialect):
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             value = json.dumps(value)
         if isinstance(value, set):
             # serialize sets as ordered lists
@@ -303,6 +303,7 @@ class User(Base):
     def orm_spawners(self):
         return {s.name: s for s in self._orm_spawners}
 
+    user_info = Column(JSONDict)
     admin = Column(Boolean(create_constraint=False), default=False)
     created = Column(DateTime, default=utcnow)
     last_activity = Column(DateTime, nullable=True)
@@ -412,6 +413,7 @@ class Spawner(Base):
 
     state = Column(JSONDict)
     name = Column(Unicode(255))
+    display_name = Column(Unicode(255))
 
     started = Column(DateTime)
     last_activity = Column(DateTime, nullable=True)
@@ -489,6 +491,8 @@ class Service(Base):
     environment = Column(JSONDict, nullable=True)
 
     user = Column(Unicode(255), nullable=True)
+
+    timeout = Column(Integer, default=30, nullable=False)
 
     from_config = Column(Boolean, default=True)
 
@@ -716,20 +720,39 @@ class _Share:
         )
 
     # the permissions granted (!server filter will always be applied)
-    scopes = Column(JSONList)
+    _scopes = Column("scopes", JSONList)
+
+    @property
+    def scopes(self):
+        # ensure filter is always up-to-date on access
+        have_scopes = frozenset(self._scopes)
+        current_scopes = self._apply_filter(
+            have_scopes, self.owner.name, self.spawner.name, check=False
+        )
+        if current_scopes != have_scopes:
+            app_log.info(f"Reapplying scope filters for {self._log_name}")
+            self._scopes = sorted(current_scopes)
+        return self._scopes
+
+    @scopes.setter
+    def scopes(self, scopes):
+        self._scopes = scopes
+
     expires_at = Column(DateTime, nullable=True)
 
     @classmethod
-    def apply_filter(cls, scopes, spawner):
+    def apply_filter(cls, scopes, spawner, check=True):
         """Apply our filter, ensures all scopes have appropriate !server filter
 
         Any other filters will raise ValueError.
         """
-        return cls._apply_filter(frozenset(scopes), spawner.user.name, spawner.name)
+        return cls._apply_filter(
+            frozenset(scopes), spawner.user.name, spawner.name, check=check
+        )
 
     @staticmethod
     @lru_cache
-    def _apply_filter(scopes, owner_name, server_name):
+    def _apply_filter(scopes, owner_name, server_name, check=True):
         """
         implementation of Share.apply_filter
 
@@ -739,7 +762,7 @@ class _Share:
         server_filter = f"server={owner_name}/{server_name}"
         for scope in scopes:
             base_scope, _, filter = scope.partition("!")
-            if filter and filter != server_filter:
+            if check and filter and filter != server_filter:
                 raise ValueError(
                     f"!{filter} not allowed on sharing {scope}, only !{server_filter}"
                 )
@@ -946,6 +969,10 @@ class ShareCode(_Share, Hashed, Base):
             server_name = "unknown/deleted"
 
         return f"<{self.__class__.__name__}(id={self.id}, server={server_name}, scopes={self.scopes}, expires_at={self.expires_at})>"
+
+    @property
+    def _log_name(self):
+        return f"{self.owner.name}{self.spawner.name}"
 
     @classmethod
     def new(
@@ -1269,6 +1296,10 @@ class OAuthCode(Expiring, Base):
     )
 
     scopes = Column(JSONList, default=[])
+
+    # PKCE added in 5.3
+    code_challenge = Column(Unicode(255), nullable=True)
+    code_challenge_method = Column(Unicode(64), nullable=True)
 
     @staticmethod
     def now():

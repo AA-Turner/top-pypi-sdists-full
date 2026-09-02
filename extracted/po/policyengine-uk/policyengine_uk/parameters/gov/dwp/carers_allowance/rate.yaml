@@ -1,0 +1,26 @@
+description: Weekly rate of Carer's Allowance.
+values:
+  2015-04-01: 62.1
+  2016-04-01: 62.1
+  2017-04-01: 62.7
+  2018-04-01: 64.6
+  2019-04-01: 66.15
+  2020-04-01: 67.25
+  2021-04-01: 67.6
+  2022-04-01: 69.7
+  2023-04-01: 76.75
+  2024-04-01: 
+    value: 81.9
+    reference:
+      - title: Benefits Uprating 2024/25 | Commons Library Briefing
+        href: https://researchbriefings.files.parliament.uk/documents/CBP-9872/CBP-9872.pdf
+  2025-04-01: 83.29
+  2026-04-01: 86.45
+metadata:
+  period: week
+  unit: currency-GBP
+  label: "Carer's Allowance rate"
+  uprating: gov.benefit_uprating_cpi
+  reference: 
+    - title: Benefits Uprating 2022/23
+      href: https://researchbriefings.files.parliament.uk/documents/CBP-9439/CBP-9439.pdf

@@ -1,0 +1,368 @@
+"""
+--- OUTPUT ---
+"""
+
+from enum import Enum
+from typing import Any, cast
+
+from pydantic import (
+    BaseModel,
+    Field,
+    JsonValue,
+    computed_field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
+from typing_extensions import override
+
+from model_library.base.input import InputItem, ToolCall
+from model_library.base.output.performance import (
+    QueryResultPerformance,
+    CompressedQueryResultPerformance,
+    compress_query_result_performance,
+)
+from model_library.rate_limits import RateLimit
+from model_library.base.utils import add_optional
+from model_library.utils import SecondsMetric, ValsModel
+
+__all__ = [
+    "FinishReason",
+    "FinishReasonInfo",
+    "Citation",
+    "QueryResultExtras",
+    "QueryResultCost",
+    "RateLimit",
+    "QueryResultMetadata",
+    "QueryResult",
+]
+
+
+class FinishReason(str, Enum):
+    """Standardized finish reasons across all providers."""
+
+    STOP = "stop"
+    """Model naturally finished generating."""
+
+    STOP_SEQUENCE = "stop_sequence"
+    """Model stopped due to a custom stop sequence."""
+
+    MAX_TOKENS = "max_tokens"
+    """Model stopped because it reached the maximum token limit."""
+
+    CONTEXT_WINDOW_EXCEEDED = "context_window_exceeded"
+    """Model stopped because the input exceeded the context window."""
+
+    TOOL_CALLS = "tool_calls"
+    """Model stopped to make one or more tool calls."""
+
+    CONTENT_FILTER = "content_filter"
+    """Model output was blocked by a content filter or safety policy."""
+
+    GUARDRAIL = "guardrail"
+    """Model output was blocked by a guardrail."""
+
+    MALFORMED_TOOL_CALL = "malformed_tool_call"
+    """Model attempted a tool call but it was malformed or unexpected."""
+
+    PAUSED = "paused"
+    """Provider paused mid-turn to run a server-side tool; replay history to resume."""
+
+    ERROR = "error"
+    """An error occurred during generation."""
+
+    UNKNOWN = "unknown"
+    """The finish reason is unknown or not recognized."""
+
+
+class FinishReasonInfo(ValsModel):
+    reason: FinishReason
+    raw: str | None
+
+
+class Citation(ValsModel):
+    type: str | None = None
+    title: str | None = None
+    url: str | None = None
+    start_index: int | None = None
+    end_index: int | None = None
+    file_id: str | None = None
+    filename: str | None = None
+    index: int | None = None
+    container_id: str | None = None
+
+
+class QueryResultExtras(ValsModel):
+    citations: list[Citation] = Field(default_factory=list)
+    search_results: JsonValue | None = None
+    # Deprecated compatibility field for provider response/body IDs.
+    response_id: str | None = None
+    provider_response_id: str | None = None
+    provider_request_id: str | None = None
+
+    @model_validator(mode="after")
+    def _sync_legacy_response_id(self) -> "QueryResultExtras":
+        if self.provider_response_id is None and self.response_id is not None:
+            self.provider_response_id = self.response_id
+        elif self.response_id is None and self.provider_response_id is not None:
+            self.response_id = self.provider_response_id
+        return self
+
+
+class QueryResultCost(ValsModel):
+    """
+    Cost information for a query
+    Includes total cost and a structured breakdown.
+    """
+
+    input: float
+    output: float
+    reasoning: float | None = None
+    cache_read: float | None = None
+    cache_write: float | None = None
+    total_override: float | None = None
+
+    @field_validator(
+        "input",
+        "output",
+        "reasoning",
+        "cache_read",
+        "cache_write",
+        "total_override",
+        mode="after",
+    )
+    @classmethod
+    def _round_cost(cls, v: float | None) -> float | None:
+        return round(v, 12) if v is not None else None
+
+    @computed_field
+    @property
+    def total(self) -> float:
+        if self.total_override is not None:
+            return self.total_override
+
+        return sum(
+            filter(
+                None,
+                [
+                    self.input,
+                    self.output,
+                    self.reasoning,
+                    self.cache_read,
+                    self.cache_write,
+                ],
+            )
+        )
+
+    @computed_field
+    @property
+    def total_input(self) -> float:
+        return sum(
+            filter(
+                None,
+                [
+                    self.input,
+                    self.cache_read,
+                    self.cache_write,
+                ],
+            )
+        )
+
+    @computed_field
+    @property
+    def total_output(self) -> float:
+        return sum(
+            filter(
+                None,
+                [
+                    self.output,
+                    self.reasoning,
+                ],
+            )
+        )
+
+    def __add__(self, other: "QueryResultCost") -> "QueryResultCost":
+        return QueryResultCost(
+            input=self.input + other.input,
+            output=self.output + other.output,
+            reasoning=add_optional(self.reasoning, other.reasoning),
+            cache_read=add_optional(self.cache_read, other.cache_read),
+            cache_write=add_optional(self.cache_write, other.cache_write),
+            total_override=add_optional(self.total_override, other.total_override),
+        )
+
+    @override
+    def __repr__(self):
+        use_cents = self.total < 1
+
+        def format_cost(value: float | None):
+            if value is None:
+                return None
+            return f"{value * 100:.3f} cents" if use_cents else f"${value:.2f}"
+
+        return (
+            f"{format_cost(self.total)} "
+            + f"(uncached input: {format_cost(self.input)} | output: {format_cost(self.output)} | reasoning: {format_cost(self.reasoning)} | cache_read: {format_cost(self.cache_read)} | cache_write: {format_cost(self.cache_write)})"
+        )
+
+
+class QueryResultMetadata(ValsModel):
+    """Metadata for a query: token usage, cost, and timing."""
+
+    cost: QueryResultCost | None = None  # set post query
+    duration_seconds: SecondsMetric | None = None  # set post query; rounded to ms
+    performance: QueryResultPerformance | CompressedQueryResultPerformance | None = None
+    in_tokens: int = 0
+
+    out_tokens: int = 0
+    reasoning_tokens: int | None = None
+    cache_read_tokens: int | None = None
+    cache_write_tokens: int | None = None
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+    @field_serializer(
+        "performance",
+        when_used="json",
+        return_type=CompressedQueryResultPerformance | None,
+    )
+    def serialize_performance(
+        self,
+        performance: QueryResultPerformance | CompressedQueryResultPerformance | None,
+    ) -> CompressedQueryResultPerformance | None:
+        if performance is None or isinstance(
+            performance, CompressedQueryResultPerformance
+        ):
+            return performance
+        return compress_query_result_performance(performance)
+
+    @property
+    def default_duration_seconds(self) -> float:
+        return self.duration_seconds or 0
+
+    @computed_field
+    @property
+    def total_input_tokens(self) -> int:
+        return sum(
+            filter(
+                None,
+                [
+                    self.in_tokens,
+                    self.cache_read_tokens,
+                    self.cache_write_tokens,
+                ],
+            )
+        )
+
+    @computed_field
+    @property
+    def total_output_tokens(self) -> int:
+        return sum(
+            filter(
+                None,
+                [
+                    self.out_tokens,
+                    self.reasoning_tokens,
+                ],
+            )
+        )
+
+    def __add__(self, other: "QueryResultMetadata") -> "QueryResultMetadata":
+        return QueryResultMetadata(
+            in_tokens=self.in_tokens + other.in_tokens,
+            out_tokens=self.out_tokens + other.out_tokens,
+            reasoning_tokens=cast(
+                int | None, add_optional(self.reasoning_tokens, other.reasoning_tokens)
+            ),
+            cache_read_tokens=cast(
+                int | None,
+                add_optional(self.cache_read_tokens, other.cache_read_tokens),
+            ),
+            cache_write_tokens=cast(
+                int | None,
+                add_optional(self.cache_write_tokens, other.cache_write_tokens),
+            ),
+            duration_seconds=self.default_duration_seconds
+            + other.default_duration_seconds,
+            cost=cast(QueryResultCost | None, add_optional(self.cost, other.cost)),
+        )
+
+
+class ProviderToolEvent(ValsModel):
+    """A tool invocation executed by the provider, not the local agent."""
+
+    id: str | None = None
+    provider: str
+    type: str
+    name: str
+    status: str | None = None
+    input: JsonValue | None = None
+    output: JsonValue | None = None
+    sequence: int | None = None
+
+    @classmethod
+    def web_search(
+        cls,
+        *,
+        provider: str,
+        kind: str,
+        query: str,
+        sequence: int,
+        sources: list[JsonValue] | None = None,
+        id: str | None = None,
+        status: str | None = None,
+    ) -> "ProviderToolEvent":
+        return cls(
+            id=id,
+            provider=provider,
+            type=kind,
+            name="web_search",
+            status=status,
+            input=query,
+            output=sources,
+            sequence=sequence,
+        )
+
+
+class QueryResult(ValsModel):
+    """
+    Result of a query
+    Contains the text, reasoning, metadata, tool calls, and history
+    """
+
+    output_text: str | None = None
+    output_parsed: dict[str, Any] | BaseModel | None = None
+    reasoning: str | None = None
+    finish_reason: FinishReasonInfo = Field(
+        default_factory=lambda: FinishReasonInfo(reason=FinishReason.UNKNOWN, raw=None)
+    )
+    metadata: QueryResultMetadata = Field(default_factory=QueryResultMetadata)
+    tool_calls: list[ToolCall] = Field(default_factory=list)
+    provider_tool_events: list[ProviderToolEvent] = Field(default_factory=list)
+    history: list[InputItem] = Field(default_factory=list)
+    extras: QueryResultExtras = Field(default_factory=QueryResultExtras)
+
+    @property
+    def output_text_str(self) -> str:
+        return self.output_text or ""
+
+    @field_validator("output_text", mode="before")
+    def default_output_text(cls, v: str | None):
+        return None if v == "" else v
+
+    @field_validator("reasoning", mode="before")
+    def default_reasoning(cls, v: str | None):
+        return None if v == "" else v
+
+    @property
+    def search_results(self) -> Any | None:
+        """Expose provider-supplied search metadata without additional processing."""
+        return self.extras.search_results
+
+    @override
+    def __rich_repr__(self):
+        attrs = vars(self).copy()
+        yield "output_text", attrs.pop("output_text", None)
+        yield "reasoning", attrs.pop("reasoning", None)
+        yield "metadata", attrs.pop("metadata", None)
+        if self.tool_calls:
+            yield "tool_calls", self.tool_calls

@@ -1,0 +1,27 @@
+############################# feature ###################################
+news:
+  enable : true
+  image : images/disney_insideout.jpeg
+  title : OCIO v2.5.0 is here!
+  content : "Check out our [guides](https://opencolorio.readthedocs.io/en/latest/releases/_index.html#releases) for upgrading. Here are just a few highlights of new features:"
+  caption: "Image courtesy of Disney (c)"
+  feature_item : 
+      # feature item loop
+    - title : Config Merging 
+      icon : ti-files # themify icon pack : https://themify.me/themify-icons
+      content : This much-anticipated feature is now in Preview. Please provide feedback on use cases and workflows. Merging enables user and application control over things like name and alias conflicts, color space duplication, and much more.
+      
+      # feature item loop
+    - title : Vulkan GPU Support
+      icon : ti-image # themify icon pack : https://themify.me/themify-icons
+      content : Support has been added for the Khronos Vulkan graphics API standard. The OCIO GPU renderer may now be used within applications that use Vulkan to get the most out of the latest GPUs.
+
+      # feature item loop
+    - title : Full ACES 2.0 Support
+      icon : ti-brush # themify icon pack : https://themify.me/themify-icons
+      content : With the inclusion of ACES 2.0 Built-In configs, our ACES 2.0 support is now feature complete. This allows use of the ACES 2.0 Output Transforms as OCIO views.
+      
+      # feature item loop
+    - title : New Color Space Attributes
+      icon : ti-panel # themify icon pack : https://themify.me/themify-icons
+      content : OCIO now supports the Color Interop ID developed by the Color Interop Forum, as well as attributes for ICC and AMF. Please see the latest config release for example usage.

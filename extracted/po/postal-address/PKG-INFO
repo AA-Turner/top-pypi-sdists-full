@@ -1,0 +1,81 @@
+Metadata-Version: 2.1
+Name: postal-address
+Version: 22.4.22.1
+Summary: Parse, normalize and render postal addresses.
+Home-page: https://github.com/Scaleway/postal-address
+License: BSD-2
+Author: Scaleway
+Author-email: opensource@scaleway.com
+Requires-Python: >=3.6.2,<4.0.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: BSD License
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development :: Internationalization
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Localization
+Classifier: Topic :: Utilities
+Requires-Dist: Faker (>=5.0)
+Requires-Dist: boltons (>=16.5)
+Requires-Dist: importlib-metadata (>=2.0,<3.0); python_version < "3.8"
+Requires-Dist: pycountry (==22.3.5)
+Project-URL: Repository, https://github.com/Scaleway/postal-address
+Description-Content-Type: text/x-rst
+
+Postal Address
+==============
+
+Python module to parse, normalize and render postal addresses.
+
+Stable release: |release| |versions| |license|
+
+Development: |docs| |coverage| |quality|
+
+.. |release| image:: https://img.shields.io/pypi/v/postal-address.svg
+    :target: https://pypi.python.org/pypi/postal-address
+    :alt: Last release
+.. |versions| image:: https://img.shields.io/pypi/pyversions/postal-address.svg
+    :target: https://pypi.python.org/pypi/postal-address
+    :alt: Python versions
+.. |license| image:: https://img.shields.io/pypi/l/postal-address.svg
+    :target: http://opensource.org/licenses/BSD-2-Clause
+    :alt: Software license
+.. |docs| image:: https://readthedocs.org/projects/postal-address/badge/?version=master
+    :target: http://postal-address.readthedocs.io/en/develop/
+    :alt: Documentation Status
+.. |coverage| image:: https://codecov.io/gh/scaleway/postal-address/branch/develop/graph/badge.svg
+    :target: https://codecov.io/github/scaleway/postal-address?branch=master
+    :alt: Coverage Status
+.. |quality| image:: https://scrutinizer-ci.com/g/scaleway/postal-address/badges/quality-score.png?b=develop
+    :target: https://scrutinizer-ci.com/g/scaleway/postal-address/?branch=master
+    :alt: Code Quality
+
+
+Motivation
+----------
+
+    « What ties us to territory is tax. »
+    -- Kevin Deldycke, 2014-11-07
+
+The reason above is why we need fine-grained and meticulous territory
+management and normalization. This project aims to solve this problem once for
+all.
+
+Don't get me wrong, this work is a huge undertaking. Postal address parsing,
+normalization and rendering is hard. See the collection of `falsehoods
+programmers believe about postal addresses
+<https://github.com/kdeldycke/awesome-falsehood#postal-addresses>`_.
+
+This library is still in its early stages, but is good enough to implement
+the new European Directives on VAT, which requires all e-commerce shops to
+guess the locality of their EU customers depending on their billing address.
+

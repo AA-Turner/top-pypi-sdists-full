@@ -1,0 +1,895 @@
+import builtins
+import typing
+import numpy
+
+from enum import Enum
+
+import topk_sdk.data
+
+class LogicalExpr(Enum):
+    """
+    *Internal*
+
+    Instances of the `LogicalExpr` class are used to represent logical expressions in TopK.
+    Usually created using logical constructors such as [`field()`](#field), [`literal()`](#literal), etc.
+    """
+
+    def __repr__(self) -> builtins.str: ...
+    def _expr_eq(self, other: LogicalExpr) -> LogicalExpr: ...
+    def is_null(self) -> LogicalExpr:
+        """
+        Check if the expression is null.
+        """
+        ...
+    def is_not_null(self) -> LogicalExpr:
+        """
+        Check if the expression is not null.
+        """
+        ...
+    def abs(self) -> LogicalExpr:
+        """
+        Compute the absolute value of the expression.
+        """
+        ...
+    def __abs__(self) -> LogicalExpr:
+        """
+        Compute the absolute value of the expression.
+        """
+        ...
+    def ln(self) -> LogicalExpr:
+        """
+        Compute the natural logarithm of the expression.
+        """
+        ...
+    def exp(self) -> LogicalExpr:
+        """
+        Compute the exponential of the expression.
+        """
+        ...
+    def sqrt(self) -> LogicalExpr:
+        """
+        Compute the square root of the expression.
+        """
+        ...
+    def square(self) -> LogicalExpr:
+        """
+        Compute the square of the expression.
+        """
+        ...
+    def eq(self, other: FlexibleExpr) -> LogicalExpr:
+        """
+        Check if the expression is equal to another expression.
+        """
+        ...
+    def __eq__(self, other: FlexibleExpr) -> LogicalExpr:
+        """
+        Check if the expression is equal to another expression using the `==` operator.
+        """
+        ...
+    def ne(self, other: FlexibleExpr) -> LogicalExpr:
+        """
+        Check if the expression is not equal to another expression.
+        """
+        ...
+    def __ne__(self, other: FlexibleExpr) -> LogicalExpr:
+        """
+        Check if the expression is not equal to another expression using the `!=` operator.
+        """
+        ...
+    def lt(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the expression is less than another expression.
+        """
+        ...
+    def __lt__(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the expression is less than another expression using the `<` operator.
+        """
+        ...
+    def __rlt__(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the other expression is less than the self expression using the `>` operator.
+        """
+        ...
+    def lte(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the expression is less than or equal to another expression.
+        """
+        ...
+    def __le__(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the expression is less than or equal to another expression using the `<=` operator.
+        """
+        ...
+    def __rle__(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the other expression is less than or equal to the self expression using the `<=` operator.
+        """
+        ...
+    def gt(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the expression is greater than another expression.
+        """
+        ...
+    def __gt__(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the expression is greater than another expression using the `>` operator.
+        """
+        ...
+    def __rgt__(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the expression is greater than another expression using the `<` operator.
+        """
+        ...
+    def gte(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the expression is greater than or equal to another expression.
+        """
+        ...
+    def __ge__(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the expression is greater than or equal to another expression using the `>=` operator.
+        """
+        ...
+    def __rge__(self, other: Ordered) -> LogicalExpr:
+        """
+        Check if the other expression is greater than or equal to the self expression using the `<=` operator.
+        """
+        ...
+    def add(self, other: Numeric) -> LogicalExpr:
+        """
+        Add another value to the expression.
+        """
+        ...
+    def __add__(self, other: Numeric) -> LogicalExpr:
+        """
+        Add another value to the expression using the `+` operator.
+        """
+        ...
+    def __radd__(self, other: Numeric) -> LogicalExpr:
+        """
+        Add the other value to the self expression using the `+` operator.
+        """
+        ...
+    def sub(self, other: Numeric) -> LogicalExpr:
+        """
+        Subtract another value from the expression.
+        """
+        ...
+    def __sub__(self, other: Numeric) -> LogicalExpr:
+        """
+        Subtract another value from the expression using the `-` operator.
+        """
+        ...
+    def __rsub__(self, other: Numeric) -> LogicalExpr:
+        """
+        Subtract the other value from the self expression using the `-` operator.
+        """
+        ...
+    def mul(self, other: Numeric) -> LogicalExpr:
+        """
+        Multiply the expression by another value.
+        """
+        ...
+    def __mul__(self, other: Numeric) -> LogicalExpr:
+        """
+        Multiply the expression by another value using the `*` operator.
+        """
+        ...
+    def __rmul__(self, other: Numeric) -> LogicalExpr:
+        """
+        Multiply the other value by the self expression using the `*` operator.
+        """
+        ...
+    def div(self, other: Numeric) -> LogicalExpr:
+        """
+        Divide the expression by another value.
+        """
+        ...
+    def __div__(self, other: Numeric) -> LogicalExpr:
+        """
+        Divide the expression by another value using the `/` operator.
+        """
+        ...
+    def __truediv__(self, other: Numeric) -> LogicalExpr:
+        """
+        Divide the expression by another value using the `/` operator.
+        """
+        ...
+    def __rdiv__(self, other: Numeric) -> LogicalExpr:
+        """
+        Divide the other value by the self expression using the `/` operator.
+        """
+        ...
+    def __rtruediv__(self, other: Numeric) -> LogicalExpr:
+        """
+        Divide the other value by the self expression using the `/` operator.
+        """
+        ...
+    def min(self, other: Ordered) -> LogicalExpr:
+        """
+        Compute the minimum of the expression and another value.
+        """
+        ...
+    def max(self, other: Ordered) -> LogicalExpr:
+        """
+        Compute the maximum of the expression and another value.
+        """
+        ...
+    def date_part(self, part: DatePart) -> LogicalExpr:
+        """
+        Extract a part of a timestamp expression as an integer.
+
+        Supported parts:
+
+        - ``"year"`` — calendar year
+        - ``"month"`` — 1-12
+        - ``"week"`` — ISO week number
+        - ``"day"`` — day of month, 1-31
+        - ``"day_of_year"`` — 1-366
+        - ``"day_of_week"`` — 0-6, Monday = 0
+        - ``"hour"`` — 0-23
+        - ``"minute"`` — 0-59
+        - ``"second"`` — 0-59
+        - ``"millisecond"`` — 0-999
+        """
+        ...
+    def and_(self, other: Boolish) -> LogicalExpr:
+        """
+        Compute the logical AND of the expression and another expression.
+        """
+        ...
+    def __and__(self, other: Boolish) -> LogicalExpr:
+        """
+        Compute the logical AND of the expression and another expression using the `&` operator.
+        """
+        ...
+    def __rand__(self, other: Boolish) -> LogicalExpr:
+        """
+        Compute the logical AND of the other expression and the self expression using the `&` operator.
+        """
+        ...
+    def or_(self, other: Boolish) -> LogicalExpr:
+        """
+        Compute the logical OR of the expression and another expression.
+        """
+        ...
+    def __or__(self, other: Boolish) -> LogicalExpr:
+        """
+        Compute the logical OR of the expression and another expression using the `|` operator.
+        """
+        ...
+    def __ror__(self, other: Boolish) -> LogicalExpr:
+        """
+        Compute the logical OR of the other expression and the self expression using the `|` operator.
+        """
+        ...
+    def starts_with(self, other: Stringy) -> LogicalExpr:
+        """
+        Check if the expression starts with the provided string expression.
+        Can be applied on a string field or a list of strings field.
+
+        ```python
+        # Example:
+        from topk_sdk.query import field, starts_with
+
+        client.collection("books").query(
+          filter(field("title").starts_with("The") | field("tags").starts_with("fiction"))
+        )
+        ```
+        """
+        ...
+    def contains(self, other: FlexibleExpr) -> LogicalExpr:
+        """
+        Check if the expression contains another value.
+        """
+        ...
+    def in_(self, other: Iterable) -> LogicalExpr:
+        """
+        Check if the expression is in the provided iterable expression.
+        """
+        ...
+    def match_all(self, other: StringyWithList) -> LogicalExpr:
+        """
+        Check if the expression matches all terms against the field with keyword index.
+        """
+        ...
+    def match_any(self, other: StringyWithList) -> LogicalExpr:
+        """
+        Check if the expression matches any term against the field with keyword index.
+        """
+        ...
+    def coalesce(self, other: Numeric) -> LogicalExpr:
+        """
+        Coalesce nulls in the expression with another value.
+        """
+        ...
+    def choose(self, x: FlexibleExpr, y: FlexibleExpr) -> LogicalExpr:
+        """
+        Choose between two values based on the expression.
+        """
+        ...
+    def boost(self, condition: FlexibleExpr, boost: Numeric) -> LogicalExpr:
+        """
+        Multiply the scoring expression by the provided `boost` value if the `condition` is true.
+        """
+        ...
+    def elapsed(self, end: FlexibleExpr, interval: Interval) -> LogicalExpr:
+        """
+        Compute the number of `interval` units elapsed between the expression and `end`.
+        """
+        ...
+    def regexp_match(
+        self, pattern: builtins.str, flags: typing.Optional[builtins.str] = None
+    ) -> LogicalExpr:
+        """
+        Check if the expression matches the provided regexp pattern.
+        """
+        ...
+
+DatePart = typing.Literal[
+    "year",
+    "month",
+    "week",
+    "day",
+    "day_of_year",
+    "day_of_week",
+    "hour",
+    "minute",
+    "second",
+    "millisecond",
+]
+Interval = typing.Literal["millisecond", "second", "minute", "hour", "day", "week"]
+FlexibleExpr = typing.Union[str, int, float, bool, None, LogicalExpr]
+Numeric = typing.Union[int, float, LogicalExpr]
+Ordered = typing.Union[int, float, str, LogicalExpr]
+Boolish = typing.Union[bool, LogicalExpr]
+Stringy = typing.Union[str, LogicalExpr]
+StringyWithList = typing.Union[str, builtins.list[str], LogicalExpr]
+Iterable = typing.Union[
+    str,
+    builtins.list[int],
+    builtins.list[float],
+    builtins.list[str],
+    topk_sdk.data.List,
+    LogicalExpr,
+]
+
+class FunctionExpr:
+    """
+    *Internal*
+
+    Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
+    Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
+    """
+
+    ...
+
+class AggregateExpr:
+    """
+    *Internal*
+
+    Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
+    Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+    """
+
+    ...
+
+class TextExpr(Enum):
+    """
+    *Internal*
+
+    Instances of the `TextExpr` class are used to represent text expressions in TopK.
+    """
+
+    def __and__(self, other: TextExpr) -> TextExpr:
+        """
+        Combine the expression with another text expression using the `&` operator.
+        """
+        ...
+    def __rand__(self, other: TextExpr) -> TextExpr:
+        """
+        Combine the other text expression with the self expression using the `&` operator.
+        """
+        ...
+    def __or__(self, other: TextExpr) -> TextExpr:
+        """
+        Combine the expression with another text expression using the `|` operator.
+        """
+        ...
+    def __ror__(self, other: TextExpr) -> TextExpr:
+        """
+        Combine the other text expression with the self expression using the `|` operator.
+        """
+        ...
+
+class Query:
+    def select(
+        self,
+        *args: builtins.str,
+        **kwargs: typing.Union[LogicalExpr, FunctionExpr],
+    ) -> Query:
+        """
+        Adds a select stage to the query.
+        """
+        ...
+    def filter(self, expr: LogicalExpr | TextExpr) -> Query:
+        """
+        Adds a filter stage to the query.
+        """
+        ...
+    @typing.overload
+    def sort(self, expr: LogicalExpr, asc: builtins.bool = True) -> Query:
+        """
+        Adds a sort stage to the query.
+        """
+        ...
+    @typing.overload
+    def sort(
+        self,
+        expr: typing.Sequence[tuple[LogicalExpr, typing.Literal["asc", "desc"]]],
+    ) -> Query:
+        """
+        Adds a sort stage to the query.
+
+        Pass a list of `(expr, "asc" | "desc")` pairs to sort by more than one key.
+        """
+        ...
+    def limit(self, k: builtins.int) -> Query:
+        """
+        Adds a limit stage to the query.
+        """
+        ...
+    def offset(self, offset: builtins.int) -> Query:
+        """
+        Adds an offset stage to the query.
+        """
+        ...
+    def count(self) -> Query:
+        """
+        Adds a count stage to the query.
+        """
+        ...
+    def group_by(
+        self,
+        keys: dict[builtins.str, LogicalExpr],
+        aggs: dict[builtins.str, AggregateExpr],
+    ) -> Query:
+        """
+        Adds a group-by stage to the query.
+
+        Groups documents by one or more key expressions and computes aggregations for each group.
+        """
+        ...
+    def topk(
+        self, expr: LogicalExpr, k: builtins.int, asc: builtins.bool = False
+    ) -> Query:
+        """
+        .. deprecated::
+            Use ``.sort(expr, asc).limit(k)`` instead.
+
+        Adds a top-k stage to the query.
+        """
+        ...
+
+def field(name: builtins.str) -> LogicalExpr:
+    """
+    Select a field from the document.
+    """
+    ...
+
+def select(
+    *args: builtins.str,
+    **kwargs: typing.Union[LogicalExpr, FunctionExpr],
+) -> Query:
+    """
+    Creates a new query with a select stage.
+
+    ```python
+    # Example:
+    from topk_sdk.query import select, field
+
+    client.collection("books").query(
+      select("title", year=field("published_year"))
+    )
+    ```
+    """
+
+...
+
+def filter(expr: LogicalExpr | TextExpr) -> Query:
+    """
+    Creates a new query with a filter stage.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import filter, field
+
+    client.collection("books").query(
+      filter(field("published_year") > 1980)
+    )
+    ```
+    """
+    ...
+
+def group_by(
+    keys: dict[builtins.str, LogicalExpr],
+    aggs: dict[builtins.str, AggregateExpr],
+) -> Query:
+    """
+    Creates a new query with a group-by stage.
+
+    Groups documents by one or more key expressions and computes aggregations for each group.
+
+    ```python
+    # Example:
+    from topk_sdk.query import group_by, field, agg
+
+    client.collection("books").query(
+      group_by(
+        {"is_old": field("published_year") < 1940},
+        {"count": agg.count()},
+      )
+    )
+    ```
+    """
+    ...
+
+def literal(value: typing.Any) -> LogicalExpr:
+    """
+    Create a literal expression.
+    """
+    ...
+
+def match(
+    token: builtins.str,
+    field: builtins.str | None = None,
+    weight: builtins.float = 1.0,
+    all: builtins.bool = False,
+) -> TextExpr:
+    """
+    Perform a BM25 keyword search using TopK's built-in tokenizer.
+
+    The ``token`` argument is a raw query string — TopK tokenizes it automatically,
+    removes stop words, and scores documents using BM25. Pass the full query string
+    directly; tokenization and stop-word removal happen server-side.
+
+    - ``field``: restrict matching to a specific keyword-indexed field (default: all).
+    - ``weight``: scale the BM25 contribution of this expression (default: 1.0).
+    - ``all``: if True, require all tokens to match (AND); default is any-token (OR).
+    """
+
+...
+
+def should(
+    token: builtins.str,
+    field: builtins.str | None = None,
+    weight: builtins.float = 1.0,
+) -> TextExpr:
+    """
+    Adds an optional BM25 scoring term without filtering documents from the result set.
+
+    Documents containing the term receive a higher BM25 score, while documents that
+    do not contain it remain eligible for the results. Use ``should()`` together with
+    ``match()`` when some terms are required and others should only influence ranking.
+
+    When used on its own, ``should()`` matches the entire collection and ranks
+    documents according to how well they match the term.
+
+    ```python
+    match("hobbit rings", field="title") & should("lord", field="title")
+    ```
+
+    This returns only documents matching ``hobbit`` or ``rings``, while boosting
+    documents that also match ``lord``.
+
+    - ``field``: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
+    - ``weight``: Multiplier applied to the term's BM25 contribution. Defaults to ``1.0``.
+    """
+
+...
+
+def match_tokens(
+    tokens: typing.Sequence[builtins.str | tuple[builtins.str, builtins.float]],
+    field: builtins.str | None = None,
+    all: builtins.bool = False,
+) -> TextExpr:
+    """
+    Filters documents that match the provided tokens with optional per-token weights.
+
+    Each token can be a string (with the default weight of 1.0) or a (token, weight) tuple.
+
+    When ``field`` is provided, matches only against that field (must have a keyword index).
+    When ``field`` is None (default), matches against all keyword-indexed fields.
+
+    When ``all`` is False (default), matches documents containing any of the tokens (OR).
+    When ``all`` is True, matches only documents containing all tokens (AND).
+    """
+    ...
+
+def not_(expr: LogicalExpr) -> LogicalExpr:
+    """
+    Negate a logical expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, not_
+
+    .filter(
+        not_(field("title").contains("Catcher"))
+    )
+    ```
+    """
+    ...
+
+def abs(expr: LogicalExpr) -> LogicalExpr:
+    """
+    Compute the absolute value of a logical expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, abs
+
+    client.collection("books").query(
+      filter(abs(field("rating")) > 4.5)
+    )
+    ```
+    """
+
+def all(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
+    """
+    Create a logical AND expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, all
+
+    client.collection("books").query(
+      filter(all([
+        field("published_year") >= 1900,
+        field("published_year") <= 2000,
+        field("title").is_not_null()
+      ]))
+    )
+    ```
+    """
+
+def any(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
+    """
+    Create a logical OR expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, any
+
+    client.collection("books").query(
+      filter(any([
+        field("genre") == "fiction",
+        field("genre") == "mystery",
+        field("genre") == "thriller"
+      ]))
+    )
+    ```
+    """
+    ...
+
+def min(left: Ordered, right: Ordered) -> LogicalExpr:
+    """
+    Create a logical MIN expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, min
+
+    client.collection("books").query(
+      filter(min(field("rating"), field("published_year")))
+    )
+    ```
+    """
+    ...
+
+def max(left: Ordered, right: Ordered) -> LogicalExpr:
+    """
+    Create a logical MAX expression.
+
+    ```python
+    from topk_sdk.query import field, max
+
+    client.collection("books").query(
+      filter(max(field("rating"), field("published_year")))
+    )
+    ```
+    """
+    ...
+
+class fn:
+    """
+    The `query.fn` submodule exposes functions for creating function expressions such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
+    """
+
+    ...
+
+    @staticmethod
+    def vector_distance(
+        field: builtins.str,
+        vector: typing.Union[
+            list[int],
+            list[float],
+            dict[int, float],
+            dict[int, int],
+            numpy.ndarray,
+            topk_sdk.data.SparseVector,
+            topk_sdk.data.List,
+        ],
+        skip_refine: builtins.bool = False,
+    ) -> FunctionExpr:
+        """
+        Calculate the vector distance between a field and a query vector.
+
+        ```python
+        # Example:
+
+        from topk_sdk.query import field, fn, select
+
+        client.collection("books").query(
+          select(
+            "title",
+            title_similarity=fn.vector_distance(
+              "title_embedding",
+              [0.1, 0.2, 0.3, ...] # embedding for "animal"
+            )
+          )
+          .sort(field("title_similarity"), asc=False).limit(10)
+        )
+        ```
+        """
+        ...
+    @staticmethod
+    def semantic_similarity(
+        field: builtins.str,
+        query: builtins.str,
+    ) -> FunctionExpr:
+        """
+        Calculate the semantic similarity between a field and a query string.
+
+        ```python
+        # Example:
+
+        from topk_sdk.query import field, fn, select
+
+        client.collection("books").query(
+          select(
+            "title",
+            title_similarity=fn.semantic_similarity("title", "animal")
+          )
+          .sort(field("title_similarity"), asc=False).limit(10)
+        )
+        ```
+        """
+        ...
+    @staticmethod
+    def bm25_score(
+        b: typing.Optional[builtins.float] = None,
+        k1: typing.Optional[builtins.float] = None,
+    ) -> FunctionExpr:
+        """
+        Calculate the BM25 score for a keyword search.
+
+        Optional parameters: b (0-1), k1 (>=0) to override BM25 scoring behavior.
+
+        ```python
+        # Example:
+
+        from topk_sdk.query import field, fn, select
+
+        client.collection("books").query(
+          select(
+            "title",
+            text_score=fn.bm25_score()
+          )
+          .filter(match("animal"))
+          .sort(field("text_score"), asc=False).limit(10)
+        )
+        ```
+        """
+        ...
+
+    @staticmethod
+    def multi_vector_distance(
+        field: builtins.str,
+        matrix: typing.Union[
+            topk_sdk.data.Matrix,
+            numpy.ndarray,
+            list[list[float]],
+            list[list[int]],
+        ],
+        candidates: typing.Optional[builtins.int] = None,
+    ) -> FunctionExpr:
+        """
+        Calculate the multi-vector distance between a field and a query matrix.
+
+        The query matrix can be a list of lists (defaults to f32), a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html) (type inferred from dtype),
+        or a [`Matrix`](https://docs.topk.io/sdk/topk-py/data#Matrix) instance. To specify a different matrix type,
+        use [`matrix()`](https://docs.topk.io/sdk/topk-py/data#matrix-2) with `value_type` or a 2-D numpy array with the
+        corresponding dtype.
+
+        The optional `candidates` parameter limits the number of candidate vectors considered during search.
+
+        ```python
+        from topk_sdk.query import field, fn, select
+
+        client.collection("books").query(
+          select(
+            "title",
+            title_distance=fn.multi_vector_distance(
+              "title_embedding",
+              [[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]],
+              candidates=100
+            )
+          )
+          .sort(field("title_distance"), asc=False).limit(10)
+        )
+        ```
+        """
+        ...
+
+class agg:
+    """
+    The `query.agg` submodule exposes functions for creating aggregate expressions used in
+    [`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
+    [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+    """
+
+    ...
+
+    @staticmethod
+    def count(field: builtins.str | None = None) -> AggregateExpr:
+        """
+        Count the number of documents in the group.
+
+        If `field` is provided, counts only the documents where that field is non-null.
+        If omitted, counts every document in the group.
+
+        ```python
+        # Example:
+        from topk_sdk.query import group_by, field, agg
+
+        client.collection("books").query(
+          group_by(
+            {"is_old": field("published_year") < 1940},
+            {"count": agg.count()},
+          )
+        )
+        ```
+        """
+        ...
+    @staticmethod
+    def sum(field: builtins.str) -> AggregateExpr:
+        """
+        Sum the values of `field` across the group.
+        """
+        ...
+    @staticmethod
+    def min(field: builtins.str) -> AggregateExpr:
+        """
+        Find the minimum value of `field` across the group.
+        """
+        ...
+    @staticmethod
+    def max(field: builtins.str) -> AggregateExpr:
+        """
+        Find the maximum value of `field` across the group.
+        """
+        ...
+    @staticmethod
+    def avg(field: builtins.str) -> AggregateExpr:
+        """
+        Calculate the average value of `field` across the group.
+        """
+        ...

@@ -1,0 +1,489 @@
+from __future__ import annotations
+
+import asyncio
+import importlib.util
+import os
+import pathlib
+import shutil
+import socket
+import ssl
+import subprocess
+import sys
+import tempfile
+import unittest
+
+import rsloop
+
+
+TLS_FIXTURES_DIR = pathlib.Path(__file__).with_name("fixtures").joinpath("tls")
+TLS_GENERATOR = (
+    pathlib.Path(__file__)
+    .resolve()
+    .parents[1]
+    .joinpath("scripts", "generate_test_tls_certs.py")
+)
+UV = shutil.which("uv") or "uv"
+
+
+def ensure_tls_fixtures() -> None:
+    if all(
+        TLS_FIXTURES_DIR.joinpath(name).is_file()
+        for name in ("ca-cert.pem", "cert.pem", "key.pem")
+    ):
+        return
+
+    subprocess.run(
+        [
+            UV,
+            "run",
+            "--no-project",
+            "--python",
+            sys.executable,
+            "python",
+            str(TLS_GENERATOR),
+            str(TLS_FIXTURES_DIR),
+        ],
+        check=True,
+    )
+
+
+ensure_tls_fixtures()
+
+
+def make_cert_files(tmpdir: str) -> tuple[str, str, str]:
+    ca_cert_path = os.path.join(tmpdir, "ca-cert.pem")
+    cert_path = os.path.join(tmpdir, "cert.pem")
+    key_path = os.path.join(tmpdir, "key.pem")
+    pathlib.Path(ca_cert_path).write_bytes(
+        TLS_FIXTURES_DIR.joinpath("ca-cert.pem").read_bytes()
+    )
+    pathlib.Path(cert_path).write_bytes(
+        TLS_FIXTURES_DIR.joinpath("cert.pem").read_bytes()
+    )
+    pathlib.Path(key_path).write_bytes(
+        TLS_FIXTURES_DIR.joinpath("key.pem").read_bytes()
+    )
+    return ca_cert_path, cert_path, key_path
+
+
+def make_ssl_contexts(tmpdir: str):
+    import ssl
+
+    ca_cert_path, cert_path, key_path = make_cert_files(tmpdir)
+    server_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server_ctx.load_cert_chain(cert_path, key_path)
+
+    client_ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    client_ctx.load_verify_locations(cafile=ca_cert_path)
+    client_ctx.check_hostname = True
+
+    return server_ctx, client_ctx
+
+
+class TlsTests(unittest.TestCase):
+    def test_create_default_context_marks_default_verify_paths(self) -> None:
+        context = ssl.create_default_context()
+        self.assertTrue(context.__dict__.get("_rsloop_use_default_verify_paths"))
+
+    def test_create_default_context_with_explicit_ca_skips_default_paths(self) -> None:
+        context = ssl.create_default_context(
+            cafile=TLS_FIXTURES_DIR.joinpath("ca-cert.pem")
+        )
+        self.assertIsNone(context.__dict__.get("_rsloop_use_default_verify_paths"))
+
+    def test_client_config_cache_reuses_and_invalidates(self) -> None:
+        async def main() -> tuple[bool, bool]:
+            async def echo(
+                reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+            ) -> None:
+                try:
+                    writer.write(await reader.readexactly(1))
+                    await writer.drain()
+                finally:
+                    writer.close()
+                    await writer.wait_closed()
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                ca_cert_path, _, _ = make_cert_files(tmpdir)
+                server_ctx, client_ctx = make_ssl_contexts(tmpdir)
+                server = await asyncio.start_server(
+                    echo, "127.0.0.1", 0, ssl=server_ctx
+                )
+                port = server.sockets[0].getsockname()[1]
+
+                async def connect_once() -> None:
+                    reader, writer = await asyncio.open_connection(
+                        "127.0.0.1",
+                        port,
+                        ssl=client_ctx,
+                        server_hostname="localhost",
+                    )
+                    writer.write(b"x")
+                    await writer.drain()
+                    self.assertEqual(await reader.readexactly(1), b"x")
+                    writer.close()
+                    await writer.wait_closed()
+
+                try:
+                    await connect_once()
+                    first = client_ctx.__dict__["_rsloop_client_config_cache"]
+                    await connect_once()
+                    reused = client_ctx.__dict__["_rsloop_client_config_cache"] is first
+
+                    client_ctx.load_verify_locations(cafile=ca_cert_path)
+                    await connect_once()
+                    invalidated = (
+                        client_ctx.__dict__["_rsloop_client_config_cache"] is not first
+                    )
+                    return reused, invalidated
+                finally:
+                    server.close()
+                    await server.wait_closed()
+
+        self.assertEqual(rsloop.run(main()), (True, True))
+
+    def test_server_close_cancels_pending_tls_handshake(self) -> None:
+        async def main() -> None:
+            async def handle(
+                reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+            ) -> None:
+                writer.close()
+                await writer.wait_closed()
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                server_ctx, _ = make_ssl_contexts(tmpdir)
+                server = await asyncio.start_server(
+                    handle, "127.0.0.1", 0, ssl=server_ctx
+                )
+                port = server.sockets[0].getsockname()[1]
+                plain_socket = socket.create_connection(("127.0.0.1", port))
+                try:
+                    await asyncio.sleep(0.05)
+                    server.close()
+                    await asyncio.wait_for(server.wait_closed(), 1.0)
+                finally:
+                    plain_socket.close()
+
+        rsloop.run(main())
+
+    def test_create_connection_and_server_tls_round_trip(self) -> None:
+        async def main() -> tuple[str, tuple[int, ...]]:
+            loop = asyncio.get_running_loop()
+            done: asyncio.Future[str] = loop.create_future()
+            result = ""
+            server_fds: tuple[int, ...] = ()
+
+            class ServerProtocol(asyncio.Protocol):
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    self.transport = transport
+
+                def data_received(self, data: bytes) -> None:
+                    self.transport.write(data.upper())
+                    self.transport.close()
+
+                def connection_lost(self, exc: Exception | None) -> None:
+                    if not done.done():
+                        done.set_result("server-closed")
+
+            class ClientProtocol(asyncio.Protocol):
+                def __init__(self) -> None:
+                    self.parts: list[bytes] = []
+                    self.result: asyncio.Future[str] = loop.create_future()
+
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    self.transport = transport
+                    transport.write(b"tls-ok")
+
+                def data_received(self, data: bytes) -> None:
+                    self.parts.append(data)
+
+                def connection_lost(self, exc: Exception | None) -> None:
+                    if not self.result.done():
+                        self.result.set_result(b"".join(self.parts).decode())
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                server_ctx, client_ctx = make_ssl_contexts(tmpdir)
+                server = await loop.create_server(
+                    ServerProtocol,
+                    "127.0.0.1",
+                    0,
+                    ssl=server_ctx,
+                )
+                try:
+                    port = server.sockets[0].getsockname()[1]
+                    client_protocol = ClientProtocol()
+                    await loop.create_connection(
+                        lambda: client_protocol,
+                        "127.0.0.1",
+                        port,
+                        ssl=client_ctx,
+                        server_hostname="localhost",
+                    )
+                    self.assertEqual(
+                        await asyncio.wait_for(client_protocol.result, 5.0), "TLS-OK"
+                    )
+                    self.assertEqual(await asyncio.wait_for(done, 5.0), "server-closed")
+                    result = "ok"
+                finally:
+                    server.close()
+                    await server.wait_closed()
+                    server_fds = tuple(sock.fileno() for sock in server.sockets)
+
+            return result, server_fds
+
+        result, server_fds = rsloop.run(main())
+        self.assertEqual(result, "ok")
+        self.assertEqual(server_fds, (-1,))
+
+    @unittest.skipIf(os.name == "nt", "Unix sockets are Unix-only")
+    def test_create_unix_connection_and_server_tls_round_trip(self) -> None:
+        async def main() -> tuple[str, tuple[int, ...]]:
+            loop = asyncio.get_running_loop()
+            result = ""
+            server_fds: tuple[int, ...] = ()
+
+            class ServerProtocol(asyncio.Protocol):
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    self.transport = transport
+
+                def data_received(self, data: bytes) -> None:
+                    self.transport.write(b"unix:" + data)
+                    self.transport.close()
+
+            class ClientProtocol(asyncio.Protocol):
+                def __init__(self) -> None:
+                    self.parts: list[bytes] = []
+                    self.done: asyncio.Future[str] = loop.create_future()
+
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    transport.write(b"tls")
+
+                def data_received(self, data: bytes) -> None:
+                    self.parts.append(data)
+
+                def connection_lost(self, exc: Exception | None) -> None:
+                    if not self.done.done():
+                        self.done.set_result(b"".join(self.parts).decode())
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                server_ctx, client_ctx = make_ssl_contexts(tmpdir)
+                path = os.path.join(tmpdir, "sock")
+                server = await loop.create_unix_server(
+                    ServerProtocol,
+                    path,
+                    ssl=server_ctx,
+                )
+                try:
+                    client_protocol = ClientProtocol()
+                    await loop.create_unix_connection(
+                        lambda: client_protocol,
+                        path,
+                        ssl=client_ctx,
+                        server_hostname="localhost",
+                    )
+                    result = await asyncio.wait_for(client_protocol.done, 5.0)
+                finally:
+                    server.close()
+                    await server.wait_closed()
+                    server_fds = tuple(sock.fileno() for sock in server.sockets)
+
+            return result, server_fds
+
+        result, server_fds = rsloop.run(main())
+        self.assertEqual(result, "unix:tls")
+        self.assertEqual(server_fds, (-1,))
+
+    def test_connect_accepted_socket_tls_round_trip(self) -> None:
+        async def main() -> str:
+            loop = asyncio.get_running_loop()
+
+            class AcceptedProtocol(asyncio.Protocol):
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    self.transport = transport
+
+                def data_received(self, data: bytes) -> None:
+                    self.transport.write(b"accepted:" + data)
+                    self.transport.close()
+
+            class ClientProtocol(asyncio.Protocol):
+                def __init__(self) -> None:
+                    self.parts: list[bytes] = []
+                    self.done: asyncio.Future[str] = loop.create_future()
+
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    transport.write(b"socket")
+
+                def data_received(self, data: bytes) -> None:
+                    self.parts.append(data)
+
+                def connection_lost(self, exc: Exception | None) -> None:
+                    if not self.done.done():
+                        self.done.set_result(b"".join(self.parts).decode())
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                server_ctx, client_ctx = make_ssl_contexts(tmpdir)
+                listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                listener.bind(("127.0.0.1", 0))
+                listener.listen(1)
+                listener.setblocking(False)
+                try:
+                    port = listener.getsockname()[1]
+                    connect_task = asyncio.ensure_future(
+                        loop.create_connection(
+                            ClientProtocol,
+                            "127.0.0.1",
+                            port,
+                            ssl=client_ctx,
+                            server_hostname="localhost",
+                        )
+                    )
+                    accepted, _ = await loop.sock_accept(listener)
+                    await loop.connect_accepted_socket(
+                        AcceptedProtocol,
+                        accepted,
+                        ssl=server_ctx,
+                    )
+                    _, client_protocol = await connect_task
+                    return await asyncio.wait_for(client_protocol.done, 5.0)
+                finally:
+                    listener.close()
+
+        self.assertEqual(rsloop.run(main()), "accepted:socket")
+
+    def test_start_tls_upgrades_existing_transport(self) -> None:
+        async def main(*, client_first: bool) -> str:
+            loop = asyncio.get_running_loop()
+            server_upgraded = asyncio.Event()
+
+            class ServerProtocol(asyncio.Protocol):
+                def __init__(self) -> None:
+                    self.upgraded: asyncio.Future[None] = loop.create_future()
+                    self.connected = asyncio.Event()
+
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    self.transport = transport
+                    self.connected.set()
+                    if not isinstance(
+                        transport.get_extra_info("sslcontext"), type(None)
+                    ):
+                        if not self.upgraded.done():
+                            self.upgraded.set_result(None)
+                            server_upgraded.set()
+
+                async def upgrade(self, ssl_context) -> None:
+                    self.transport = await loop.start_tls(
+                        self.transport,
+                        self,
+                        ssl_context,
+                        server_side=True,
+                    )
+
+                def data_received(self, data: bytes) -> None:
+                    self.transport.write(b"upgraded:" + data)
+                    self.transport.close()
+
+            class ClientProtocol(asyncio.Protocol):
+                def __init__(self) -> None:
+                    self.done: asyncio.Future[str] = loop.create_future()
+
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    self.transport = transport
+
+                def data_received(self, data: bytes) -> None:
+                    if not self.done.done():
+                        self.done.set_result(data.decode())
+
+                async def upgrade(self, ssl_context) -> None:
+                    self.transport = await loop.start_tls(
+                        self.transport,
+                        self,
+                        ssl_context,
+                        server_hostname="localhost",
+                    )
+                    await asyncio.wait_for(server_upgraded.wait(), 5.0)
+                    self.transport.write(b"starttls")
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                server_ctx, client_ctx = make_ssl_contexts(tmpdir)
+                server_protocols: list[ServerProtocol] = []
+
+                def server_factory() -> ServerProtocol:
+                    protocol = ServerProtocol()
+                    server_protocols.append(protocol)
+                    return protocol
+
+                server = await loop.create_server(server_factory, "127.0.0.1", 0)
+                try:
+                    port = server.sockets[0].getsockname()[1]
+                    client_protocol = ClientProtocol()
+                    await loop.create_connection(
+                        lambda: client_protocol,
+                        "127.0.0.1",
+                        port,
+                    )
+                    while not server_protocols:
+                        await asyncio.sleep(0.01)
+                    await asyncio.wait_for(server_protocols[0].connected.wait(), 5.0)
+                    server_upgrade = server_protocols[0].upgrade(server_ctx)
+                    client_upgrade = client_protocol.upgrade(client_ctx)
+                    upgrades = (
+                        (client_upgrade, server_upgrade)
+                        if client_first
+                        else (server_upgrade, client_upgrade)
+                    )
+                    await asyncio.wait_for(asyncio.gather(*upgrades), 15.0)
+                    return await asyncio.wait_for(client_protocol.done, 5.0)
+                finally:
+                    server.close()
+
+        # Both scheduling orders must retire plaintext readers before either
+        # side can put handshake bytes on the socket.
+        self.assertEqual(rsloop.run(main(client_first=False)), "upgraded:starttls")
+        self.assertEqual(rsloop.run(main(client_first=True)), "upgraded:starttls")
+
+    @unittest.skipIf(
+        importlib.util.find_spec("websockets") is None,
+        "websockets package is required",
+    )
+    def test_wsbench_websockets_respects_cert_none_context(self) -> None:
+        from examples import wsbench_websockets
+        from websockets import serve
+
+        async def main() -> list[tuple[str, str]]:
+            async def echo(websocket) -> None:
+                async for message in websocket:
+                    await websocket.send(message.upper())
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                _, cert_path, key_path = make_cert_files(tmpdir)
+                server_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                server_ctx.load_cert_chain(cert_path, key_path)
+
+                client_ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+                client_ctx.check_hostname = False
+                client_ctx.hostname_checks_common_name = False
+                client_ctx.verify_mode = ssl.CERT_NONE
+
+                async with serve(
+                    echo,
+                    "127.0.0.1",
+                    0,
+                    ssl=server_ctx,
+                    compression=None,
+                    ping_interval=None,
+                ) as server:
+                    port = server.sockets[0].getsockname()[1]
+                    return await wsbench_websockets.run_messages(
+                        f"wss://127.0.0.1:{port}/",
+                        ssl_context=client_ctx,
+                        count=2,
+                    )
+
+        self.assertEqual(
+            rsloop.run(main()),
+            [("hello 0", "HELLO 0"), ("hello 1", "HELLO 1")],
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

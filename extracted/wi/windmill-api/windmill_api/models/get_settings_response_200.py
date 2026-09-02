@@ -1,0 +1,422 @@
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.get_settings_response_200_ai_config import GetSettingsResponse200AiConfig
+    from ..models.get_settings_response_200_auto_invite import GetSettingsResponse200AutoInvite
+    from ..models.get_settings_response_200_datatable import GetSettingsResponse200Datatable
+    from ..models.get_settings_response_200_dbt_warehouses import GetSettingsResponse200DbtWarehouses
+    from ..models.get_settings_response_200_default_scripts import GetSettingsResponse200DefaultScripts
+    from ..models.get_settings_response_200_deploy_ui import GetSettingsResponse200DeployUi
+    from ..models.get_settings_response_200_ducklake import GetSettingsResponse200Ducklake
+    from ..models.get_settings_response_200_error_handler import GetSettingsResponse200ErrorHandler
+    from ..models.get_settings_response_200_git_sync import GetSettingsResponse200GitSync
+    from ..models.get_settings_response_200_large_file_storage import GetSettingsResponse200LargeFileStorage
+    from ..models.get_settings_response_200_operator_settings import GetSettingsResponse200OperatorSettings
+    from ..models.get_settings_response_200_success_handler import GetSettingsResponse200SuccessHandler
+
+
+T = TypeVar("T", bound="GetSettingsResponse200")
+
+
+@_attrs_define
+class GetSettingsResponse200:
+    """
+    Attributes:
+        workspace_id (Union[Unset, str]):
+        slack_name (Union[Unset, str]):
+        slack_team_id (Union[Unset, str]):
+        slack_command_script (Union[Unset, str]):
+        slack_oauth_client_id (Union[Unset, str]):
+        slack_oauth_client_secret (Union[Unset, str]):
+        teams_team_id (Union[Unset, str]):
+        teams_command_script (Union[Unset, str]):
+        teams_team_name (Union[Unset, str]):
+        teams_team_guid (Union[Unset, str]):
+        auto_invite (Union[Unset, GetSettingsResponse200AutoInvite]): Configuration for auto-inviting users to the
+            workspace
+        plan (Union[Unset, str]):
+        customer_id (Union[Unset, str]):
+        webhook (Union[Unset, str]):
+        ai_config (Union[Unset, GetSettingsResponse200AiConfig]):
+        error_handler (Union[Unset, GetSettingsResponse200ErrorHandler]): Configuration for the workspace error handler
+        success_handler (Union[Unset, GetSettingsResponse200SuccessHandler]): Configuration for the workspace success
+            handler
+        large_file_storage (Union[Unset, GetSettingsResponse200LargeFileStorage]):
+        ducklake (Union[Unset, GetSettingsResponse200Ducklake]):
+        dbt_warehouses (Union[Unset, GetSettingsResponse200DbtWarehouses]): Warehouses a dbt project may run against, by
+            name. `main` is the one a project gets when its descriptor names none. Each entry points at a resource; it never
+            holds credentials.
+        datatable (Union[Unset, GetSettingsResponse200Datatable]):
+        git_sync (Union[Unset, GetSettingsResponse200GitSync]):
+        deploy_ui (Union[Unset, GetSettingsResponse200DeployUi]):
+        default_app (Union[Unset, str]):
+        default_scripts (Union[Unset, GetSettingsResponse200DefaultScripts]):
+        mute_critical_alerts (Union[Unset, bool]):
+        color (Union[Unset, str]):
+        operator_settings (Union[Unset, None, GetSettingsResponse200OperatorSettings]):
+        public_app_execution_limit_per_minute (Union[Unset, int]): Rate limit for public app executions per minute per
+            server. NULL or 0 means disabled.
+        error_handler_fallback_to_instance_alerts (Union[Unset, bool]): Report failed jobs to the instance critical
+            alert channels when no workspace error handler is set.
+    """
+
+    workspace_id: Union[Unset, str] = UNSET
+    slack_name: Union[Unset, str] = UNSET
+    slack_team_id: Union[Unset, str] = UNSET
+    slack_command_script: Union[Unset, str] = UNSET
+    slack_oauth_client_id: Union[Unset, str] = UNSET
+    slack_oauth_client_secret: Union[Unset, str] = UNSET
+    teams_team_id: Union[Unset, str] = UNSET
+    teams_command_script: Union[Unset, str] = UNSET
+    teams_team_name: Union[Unset, str] = UNSET
+    teams_team_guid: Union[Unset, str] = UNSET
+    auto_invite: Union[Unset, "GetSettingsResponse200AutoInvite"] = UNSET
+    plan: Union[Unset, str] = UNSET
+    customer_id: Union[Unset, str] = UNSET
+    webhook: Union[Unset, str] = UNSET
+    ai_config: Union[Unset, "GetSettingsResponse200AiConfig"] = UNSET
+    error_handler: Union[Unset, "GetSettingsResponse200ErrorHandler"] = UNSET
+    success_handler: Union[Unset, "GetSettingsResponse200SuccessHandler"] = UNSET
+    large_file_storage: Union[Unset, "GetSettingsResponse200LargeFileStorage"] = UNSET
+    ducklake: Union[Unset, "GetSettingsResponse200Ducklake"] = UNSET
+    dbt_warehouses: Union[Unset, "GetSettingsResponse200DbtWarehouses"] = UNSET
+    datatable: Union[Unset, "GetSettingsResponse200Datatable"] = UNSET
+    git_sync: Union[Unset, "GetSettingsResponse200GitSync"] = UNSET
+    deploy_ui: Union[Unset, "GetSettingsResponse200DeployUi"] = UNSET
+    default_app: Union[Unset, str] = UNSET
+    default_scripts: Union[Unset, "GetSettingsResponse200DefaultScripts"] = UNSET
+    mute_critical_alerts: Union[Unset, bool] = UNSET
+    color: Union[Unset, str] = UNSET
+    operator_settings: Union[Unset, None, "GetSettingsResponse200OperatorSettings"] = UNSET
+    public_app_execution_limit_per_minute: Union[Unset, int] = UNSET
+    error_handler_fallback_to_instance_alerts: Union[Unset, bool] = UNSET
+    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        workspace_id = self.workspace_id
+        slack_name = self.slack_name
+        slack_team_id = self.slack_team_id
+        slack_command_script = self.slack_command_script
+        slack_oauth_client_id = self.slack_oauth_client_id
+        slack_oauth_client_secret = self.slack_oauth_client_secret
+        teams_team_id = self.teams_team_id
+        teams_command_script = self.teams_command_script
+        teams_team_name = self.teams_team_name
+        teams_team_guid = self.teams_team_guid
+        auto_invite: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.auto_invite, Unset):
+            auto_invite = self.auto_invite.to_dict()
+
+        plan = self.plan
+        customer_id = self.customer_id
+        webhook = self.webhook
+        ai_config: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.ai_config, Unset):
+            ai_config = self.ai_config.to_dict()
+
+        error_handler: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.error_handler, Unset):
+            error_handler = self.error_handler.to_dict()
+
+        success_handler: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.success_handler, Unset):
+            success_handler = self.success_handler.to_dict()
+
+        large_file_storage: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.large_file_storage, Unset):
+            large_file_storage = self.large_file_storage.to_dict()
+
+        ducklake: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.ducklake, Unset):
+            ducklake = self.ducklake.to_dict()
+
+        dbt_warehouses: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.dbt_warehouses, Unset):
+            dbt_warehouses = self.dbt_warehouses.to_dict()
+
+        datatable: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.datatable, Unset):
+            datatable = self.datatable.to_dict()
+
+        git_sync: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.git_sync, Unset):
+            git_sync = self.git_sync.to_dict()
+
+        deploy_ui: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.deploy_ui, Unset):
+            deploy_ui = self.deploy_ui.to_dict()
+
+        default_app = self.default_app
+        default_scripts: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.default_scripts, Unset):
+            default_scripts = self.default_scripts.to_dict()
+
+        mute_critical_alerts = self.mute_critical_alerts
+        color = self.color
+        operator_settings: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.operator_settings, Unset):
+            operator_settings = self.operator_settings.to_dict() if self.operator_settings else None
+
+        public_app_execution_limit_per_minute = self.public_app_execution_limit_per_minute
+        error_handler_fallback_to_instance_alerts = self.error_handler_fallback_to_instance_alerts
+
+        field_dict: Dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update({})
+        if workspace_id is not UNSET:
+            field_dict["workspace_id"] = workspace_id
+        if slack_name is not UNSET:
+            field_dict["slack_name"] = slack_name
+        if slack_team_id is not UNSET:
+            field_dict["slack_team_id"] = slack_team_id
+        if slack_command_script is not UNSET:
+            field_dict["slack_command_script"] = slack_command_script
+        if slack_oauth_client_id is not UNSET:
+            field_dict["slack_oauth_client_id"] = slack_oauth_client_id
+        if slack_oauth_client_secret is not UNSET:
+            field_dict["slack_oauth_client_secret"] = slack_oauth_client_secret
+        if teams_team_id is not UNSET:
+            field_dict["teams_team_id"] = teams_team_id
+        if teams_command_script is not UNSET:
+            field_dict["teams_command_script"] = teams_command_script
+        if teams_team_name is not UNSET:
+            field_dict["teams_team_name"] = teams_team_name
+        if teams_team_guid is not UNSET:
+            field_dict["teams_team_guid"] = teams_team_guid
+        if auto_invite is not UNSET:
+            field_dict["auto_invite"] = auto_invite
+        if plan is not UNSET:
+            field_dict["plan"] = plan
+        if customer_id is not UNSET:
+            field_dict["customer_id"] = customer_id
+        if webhook is not UNSET:
+            field_dict["webhook"] = webhook
+        if ai_config is not UNSET:
+            field_dict["ai_config"] = ai_config
+        if error_handler is not UNSET:
+            field_dict["error_handler"] = error_handler
+        if success_handler is not UNSET:
+            field_dict["success_handler"] = success_handler
+        if large_file_storage is not UNSET:
+            field_dict["large_file_storage"] = large_file_storage
+        if ducklake is not UNSET:
+            field_dict["ducklake"] = ducklake
+        if dbt_warehouses is not UNSET:
+            field_dict["dbt_warehouses"] = dbt_warehouses
+        if datatable is not UNSET:
+            field_dict["datatable"] = datatable
+        if git_sync is not UNSET:
+            field_dict["git_sync"] = git_sync
+        if deploy_ui is not UNSET:
+            field_dict["deploy_ui"] = deploy_ui
+        if default_app is not UNSET:
+            field_dict["default_app"] = default_app
+        if default_scripts is not UNSET:
+            field_dict["default_scripts"] = default_scripts
+        if mute_critical_alerts is not UNSET:
+            field_dict["mute_critical_alerts"] = mute_critical_alerts
+        if color is not UNSET:
+            field_dict["color"] = color
+        if operator_settings is not UNSET:
+            field_dict["operator_settings"] = operator_settings
+        if public_app_execution_limit_per_minute is not UNSET:
+            field_dict["public_app_execution_limit_per_minute"] = public_app_execution_limit_per_minute
+        if error_handler_fallback_to_instance_alerts is not UNSET:
+            field_dict["error_handler_fallback_to_instance_alerts"] = error_handler_fallback_to_instance_alerts
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_settings_response_200_ai_config import GetSettingsResponse200AiConfig
+        from ..models.get_settings_response_200_auto_invite import GetSettingsResponse200AutoInvite
+        from ..models.get_settings_response_200_datatable import GetSettingsResponse200Datatable
+        from ..models.get_settings_response_200_dbt_warehouses import GetSettingsResponse200DbtWarehouses
+        from ..models.get_settings_response_200_default_scripts import GetSettingsResponse200DefaultScripts
+        from ..models.get_settings_response_200_deploy_ui import GetSettingsResponse200DeployUi
+        from ..models.get_settings_response_200_ducklake import GetSettingsResponse200Ducklake
+        from ..models.get_settings_response_200_error_handler import GetSettingsResponse200ErrorHandler
+        from ..models.get_settings_response_200_git_sync import GetSettingsResponse200GitSync
+        from ..models.get_settings_response_200_large_file_storage import GetSettingsResponse200LargeFileStorage
+        from ..models.get_settings_response_200_operator_settings import GetSettingsResponse200OperatorSettings
+        from ..models.get_settings_response_200_success_handler import GetSettingsResponse200SuccessHandler
+
+        d = src_dict.copy()
+        workspace_id = d.pop("workspace_id", UNSET)
+
+        slack_name = d.pop("slack_name", UNSET)
+
+        slack_team_id = d.pop("slack_team_id", UNSET)
+
+        slack_command_script = d.pop("slack_command_script", UNSET)
+
+        slack_oauth_client_id = d.pop("slack_oauth_client_id", UNSET)
+
+        slack_oauth_client_secret = d.pop("slack_oauth_client_secret", UNSET)
+
+        teams_team_id = d.pop("teams_team_id", UNSET)
+
+        teams_command_script = d.pop("teams_command_script", UNSET)
+
+        teams_team_name = d.pop("teams_team_name", UNSET)
+
+        teams_team_guid = d.pop("teams_team_guid", UNSET)
+
+        _auto_invite = d.pop("auto_invite", UNSET)
+        auto_invite: Union[Unset, GetSettingsResponse200AutoInvite]
+        if isinstance(_auto_invite, Unset):
+            auto_invite = UNSET
+        else:
+            auto_invite = GetSettingsResponse200AutoInvite.from_dict(_auto_invite)
+
+        plan = d.pop("plan", UNSET)
+
+        customer_id = d.pop("customer_id", UNSET)
+
+        webhook = d.pop("webhook", UNSET)
+
+        _ai_config = d.pop("ai_config", UNSET)
+        ai_config: Union[Unset, GetSettingsResponse200AiConfig]
+        if isinstance(_ai_config, Unset):
+            ai_config = UNSET
+        else:
+            ai_config = GetSettingsResponse200AiConfig.from_dict(_ai_config)
+
+        _error_handler = d.pop("error_handler", UNSET)
+        error_handler: Union[Unset, GetSettingsResponse200ErrorHandler]
+        if isinstance(_error_handler, Unset):
+            error_handler = UNSET
+        else:
+            error_handler = GetSettingsResponse200ErrorHandler.from_dict(_error_handler)
+
+        _success_handler = d.pop("success_handler", UNSET)
+        success_handler: Union[Unset, GetSettingsResponse200SuccessHandler]
+        if isinstance(_success_handler, Unset):
+            success_handler = UNSET
+        else:
+            success_handler = GetSettingsResponse200SuccessHandler.from_dict(_success_handler)
+
+        _large_file_storage = d.pop("large_file_storage", UNSET)
+        large_file_storage: Union[Unset, GetSettingsResponse200LargeFileStorage]
+        if isinstance(_large_file_storage, Unset):
+            large_file_storage = UNSET
+        else:
+            large_file_storage = GetSettingsResponse200LargeFileStorage.from_dict(_large_file_storage)
+
+        _ducklake = d.pop("ducklake", UNSET)
+        ducklake: Union[Unset, GetSettingsResponse200Ducklake]
+        if isinstance(_ducklake, Unset):
+            ducklake = UNSET
+        else:
+            ducklake = GetSettingsResponse200Ducklake.from_dict(_ducklake)
+
+        _dbt_warehouses = d.pop("dbt_warehouses", UNSET)
+        dbt_warehouses: Union[Unset, GetSettingsResponse200DbtWarehouses]
+        if isinstance(_dbt_warehouses, Unset):
+            dbt_warehouses = UNSET
+        else:
+            dbt_warehouses = GetSettingsResponse200DbtWarehouses.from_dict(_dbt_warehouses)
+
+        _datatable = d.pop("datatable", UNSET)
+        datatable: Union[Unset, GetSettingsResponse200Datatable]
+        if isinstance(_datatable, Unset):
+            datatable = UNSET
+        else:
+            datatable = GetSettingsResponse200Datatable.from_dict(_datatable)
+
+        _git_sync = d.pop("git_sync", UNSET)
+        git_sync: Union[Unset, GetSettingsResponse200GitSync]
+        if isinstance(_git_sync, Unset):
+            git_sync = UNSET
+        else:
+            git_sync = GetSettingsResponse200GitSync.from_dict(_git_sync)
+
+        _deploy_ui = d.pop("deploy_ui", UNSET)
+        deploy_ui: Union[Unset, GetSettingsResponse200DeployUi]
+        if isinstance(_deploy_ui, Unset):
+            deploy_ui = UNSET
+        else:
+            deploy_ui = GetSettingsResponse200DeployUi.from_dict(_deploy_ui)
+
+        default_app = d.pop("default_app", UNSET)
+
+        _default_scripts = d.pop("default_scripts", UNSET)
+        default_scripts: Union[Unset, GetSettingsResponse200DefaultScripts]
+        if isinstance(_default_scripts, Unset):
+            default_scripts = UNSET
+        else:
+            default_scripts = GetSettingsResponse200DefaultScripts.from_dict(_default_scripts)
+
+        mute_critical_alerts = d.pop("mute_critical_alerts", UNSET)
+
+        color = d.pop("color", UNSET)
+
+        _operator_settings = d.pop("operator_settings", UNSET)
+        operator_settings: Union[Unset, None, GetSettingsResponse200OperatorSettings]
+        if _operator_settings is None:
+            operator_settings = None
+        elif isinstance(_operator_settings, Unset):
+            operator_settings = UNSET
+        else:
+            operator_settings = GetSettingsResponse200OperatorSettings.from_dict(_operator_settings)
+
+        public_app_execution_limit_per_minute = d.pop("public_app_execution_limit_per_minute", UNSET)
+
+        error_handler_fallback_to_instance_alerts = d.pop("error_handler_fallback_to_instance_alerts", UNSET)
+
+        get_settings_response_200 = cls(
+            workspace_id=workspace_id,
+            slack_name=slack_name,
+            slack_team_id=slack_team_id,
+            slack_command_script=slack_command_script,
+            slack_oauth_client_id=slack_oauth_client_id,
+            slack_oauth_client_secret=slack_oauth_client_secret,
+            teams_team_id=teams_team_id,
+            teams_command_script=teams_command_script,
+            teams_team_name=teams_team_name,
+            teams_team_guid=teams_team_guid,
+            auto_invite=auto_invite,
+            plan=plan,
+            customer_id=customer_id,
+            webhook=webhook,
+            ai_config=ai_config,
+            error_handler=error_handler,
+            success_handler=success_handler,
+            large_file_storage=large_file_storage,
+            ducklake=ducklake,
+            dbt_warehouses=dbt_warehouses,
+            datatable=datatable,
+            git_sync=git_sync,
+            deploy_ui=deploy_ui,
+            default_app=default_app,
+            default_scripts=default_scripts,
+            mute_critical_alerts=mute_critical_alerts,
+            color=color,
+            operator_settings=operator_settings,
+            public_app_execution_limit_per_minute=public_app_execution_limit_per_minute,
+            error_handler_fallback_to_instance_alerts=error_handler_fallback_to_instance_alerts,
+        )
+
+        get_settings_response_200.additional_properties = d
+        return get_settings_response_200
+
+    @property
+    def additional_keys(self) -> List[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

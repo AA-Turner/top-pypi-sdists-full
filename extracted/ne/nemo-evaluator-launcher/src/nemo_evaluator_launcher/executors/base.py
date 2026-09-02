@@ -1,0 +1,178 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+"""Base executor interface and execution status types for nemo-evaluator-launcher.
+
+Defines the abstract interface for all executor implementations and common status types.
+"""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, Iterator, Optional, Tuple
+
+from omegaconf import DictConfig
+
+from nemo_evaluator_launcher.common.execdb import JobData
+from nemo_evaluator_launcher.common.logging_utils import logger
+
+
+class ExecutionState(Enum):
+    """Enumeration of possible execution states."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    FAILED = "failed"
+    SUCCESS = "success"
+    KILLED = "killed"
+
+
+@dataclass
+class ExecutionStatus:
+    """Represents the status of an execution."""
+
+    id: str
+    state: ExecutionState
+    progress: Optional[dict[str, Any]] = None
+
+
+class BaseExecutor(ABC):
+    @staticmethod
+    @abstractmethod
+    def execute_eval(cfg: DictConfig, dry_run: bool = False) -> str:
+        """Run an evaluation job using the provided configuration.
+
+        Args:
+            cfg: The configuration object for the evaluation run.
+            dry_run: If True, prepare scripts and save them without execution.
+
+        Returns:
+            str: The invocation ID for the evaluation run.
+
+        Raises:
+            NotImplementedError: If not implemented by a subclass.
+        """
+        raise NotImplementedError("Subclasses must implement this method")
+
+    @staticmethod
+    @abstractmethod
+    def get_status(id: str) -> list[ExecutionStatus]:
+        """Get the status of a job or invocation group by ID.
+
+        Args:
+            id: Unique job or invocation identifier.
+
+        Returns:
+            list[ExecutionStatus]: List of execution statuses for the job(s).
+
+        Raises:
+            NotImplementedError: If not implemented by a subclass.
+        """
+        raise NotImplementedError("Subclasses must implement this method")
+
+    @staticmethod
+    @abstractmethod
+    def kill_job(job_id: str) -> None:
+        """Kill a job by its ID.
+
+        Args:
+            job_id: The job ID to kill.
+
+        Raises:
+            ValueError: If job is not found or invalid.
+            RuntimeError: If job cannot be killed.
+
+        Raises:
+            NotImplementedError: If not implemented by a subclass.
+        """
+        raise NotImplementedError("Subclasses must implement this method")
+
+    @staticmethod
+    def resume_job(job_id: str) -> None:
+        """Resume a single job by its ID.
+
+        Args:
+            job_id: The job ID to resume.
+
+        Raises:
+            NotImplementedError: If not implemented by a subclass.
+        """
+        raise NotImplementedError("Subclasses optionally implement this method")
+
+    @classmethod
+    def resume_invocation(cls, invocation_id: str, jobs: Dict[str, JobData]) -> None:
+        """Resume all jobs in an invocation.
+
+        Default implementation calls ``resume_job`` for each job.  Executors
+        that need invocation-level logic (e.g. local sequential mode) should
+        override this method.
+
+        Args:
+            invocation_id: The resolved invocation ID.
+            jobs: Mapping of job_id -> JobData for every job in the invocation.
+        """
+        for job_id in jobs:
+            cls.resume_job(job_id)
+
+    @staticmethod
+    def get_kill_failure_message(
+        job_id: str, container_or_id: str, status: Optional[ExecutionState] = None
+    ) -> str:
+        """Generate an informative error message when kill fails based on job status.
+
+        Args:
+            job_id: The job ID that failed to kill.
+            container_or_id: Container name, SLURM job ID, or other identifier.
+            status: Optional execution state of the job.
+
+        Returns:
+            str: An informative error message with job status context.
+        """
+        if status == ExecutionState.SUCCESS:
+            return f"Could not find or kill job {job_id} ({container_or_id}) - job already completed successfully"
+        elif status == ExecutionState.FAILED:
+            return f"Could not find or kill job {job_id} ({container_or_id}) - job already failed"
+        elif status == ExecutionState.KILLED:
+            return f"Could not find or kill job {job_id} ({container_or_id}) - job was already killed"
+        # Generic error message
+        return f"Could not find or kill job {job_id} ({container_or_id})"
+
+    @staticmethod
+    def stream_logs(
+        id: str, executor_name: Optional[str] = None
+    ) -> Iterator[Tuple[str, str, str]]:
+        """Stream logs from a job or invocation group.
+
+        This is an optional method that executors can implement to provide log streaming.
+        If not implemented, it will log a warning and raise NotImplementedError.
+
+        Args:
+            id: Unique job identifier or invocation identifier.
+            executor_name: Optional executor name for warning messages. If not provided,
+                will attempt to infer from the calling context.
+
+        Yields:
+            Tuple[str, str, str]: Tuples of (job_id, task_name, log_line) for each log line.
+                Empty lines are yielded as empty strings.
+
+        Raises:
+            NotImplementedError: If the executor does not support log streaming.
+        """
+        executor_display_name = executor_name or "this executor"
+        logger.warning(
+            f"Log streaming is not yet implemented for executor '{executor_display_name}'. "
+            "Only 'local' executor currently supports log streaming."
+        )
+        raise NotImplementedError("This executor does not support log streaming")

@@ -36435,6 +36435,96 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.modify_vpc_attribute_with_options_async(request, runtime)
 
+    def modify_vpc_cidr_block_with_options(
+        self,
+        request: main_models.ModifyVpcCidrBlockRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ModifyVpcCidrBlockResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.original_cidr_block):
+            query['OriginalCidrBlock'] = request.original_cidr_block
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.target_cidr_block):
+            query['TargetCidrBlock'] = request.target_cidr_block
+        if not DaraCore.is_null(request.vpc_id):
+            query['VpcId'] = request.vpc_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ModifyVpcCidrBlock',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ModifyVpcCidrBlockResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def modify_vpc_cidr_block_with_options_async(
+        self,
+        request: main_models.ModifyVpcCidrBlockRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ModifyVpcCidrBlockResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.original_cidr_block):
+            query['OriginalCidrBlock'] = request.original_cidr_block
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.target_cidr_block):
+            query['TargetCidrBlock'] = request.target_cidr_block
+        if not DaraCore.is_null(request.vpc_id):
+            query['VpcId'] = request.vpc_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ModifyVpcCidrBlock',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ModifyVpcCidrBlockResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def modify_vpc_cidr_block(
+        self,
+        request: main_models.ModifyVpcCidrBlockRequest,
+    ) -> main_models.ModifyVpcCidrBlockResponse:
+        runtime = RuntimeOptions()
+        return self.modify_vpc_cidr_block_with_options(request, runtime)
+
+    async def modify_vpc_cidr_block_async(
+        self,
+        request: main_models.ModifyVpcCidrBlockRequest,
+    ) -> main_models.ModifyVpcCidrBlockResponse:
+        runtime = RuntimeOptions()
+        return await self.modify_vpc_cidr_block_with_options_async(request, runtime)
+
     def modify_vpc_prefix_list_with_options(
         self,
         request: main_models.ModifyVpcPrefixListRequest,

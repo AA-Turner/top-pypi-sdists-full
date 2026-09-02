@@ -96,7 +96,13 @@ class TestDistill:
         text = (tmp_path / "combo" / "SKILL.md").read_text(encoding="utf-8")
         assert frontmatter.parse(text)[0]["name"] == "combo"
         assert text.count("## Rules") == 1      # exact-duplicate line dropped
-        assert text.count("```text") == 1
+        # Each source's own fenced example is structural, not a duplicate
+        # heading — its opening/closing fences must both survive, balanced.
+        assert text.count("```text") == 2
+        assert text.count("diverge -> cluster -> converge") == 1
+        assert text.count("feat(parser): tolerate folded YAML scalars") == 1
+        fences = [ln for ln in text.splitlines() if ln.strip().startswith("```")]
+        assert len(fences) == 4 and len(fences) % 2 == 0
 
     def test_install_lands_in_store_as_local(self, boost, tapped):
         r = boost("distill", "tdd-workflow", "commit-messages", "--install")
@@ -331,6 +337,20 @@ class TestAbsorb:
         assert "installed absorbed-patterns" in r.out
         lock = json.loads(paths.lockfile_path().read_text(encoding="utf-8"))
         assert lock["skills"]["absorbed-patterns"]["tap"] == "local"
+        evs = journal.events(action="absorb")
+        assert evs[0]["subject"] == "absorbed-patterns"
+        assert evs[0]["patterns"] == 1
+        assert evs[0]["files"] == 1
+
+    def test_stdout_journals_too(self, boost, sandbox, tmp_path):
+        f = tmp_path / "h.jsonl"
+        f.write_text("\n".join(
+            [_history_line("please write docstrings for every function")] * 3), encoding="utf-8")
+        boost("absorb", "--history", f)
+        evs = journal.events(action="absorb")
+        assert evs[0]["subject"] == "absorbed-patterns"
+        assert evs[0]["patterns"] == 1
+        assert evs[0]["files"] == 1
 
     def test_ai_path(self, boost, sandbox, tmp_path, ai_on):
         ai_on(ask_author="---\nname: absorbed-patterns\ndescription: canned\n"
@@ -495,7 +515,7 @@ class TestFocus:
         boost("install", "jira-integration", "--no-deps")
         r = boost("focus", "brainstorming")
         assert "focus: brainstorming" in r.out
-        assert "(other 1 skills sidelined)" in r.out
+        assert "(other 1 skill sidelined)" in r.out
         jira_link = paths.home() / ".claude" / "skills" / "jira-integration"
         assert not jira_link.exists()
         assert (paths.home() / ".claude" / "skills" / "brainstorming").is_symlink()

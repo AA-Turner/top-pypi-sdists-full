@@ -81,9 +81,7 @@ class GitLabResourceDiscovery:
     def __init__(self, nango_ctx: NangoConnectionContext) -> None:
         self._nango_ctx = nango_ctx
 
-    async def discover(
-        self, workspace: DiscoveredWorkspace
-    ) -> DiscoveryResult[DiscoveredResource]:
+    async def discover(self, workspace: DiscoveredWorkspace) -> DiscoveryResult[DiscoveredResource]:
         group_id = workspace.provider_context["group_id"]  # type: ignore[index]
         transport = NangoProxyTransport(self._nango_ctx)
         async with httpx.AsyncClient(transport=transport) as client:
@@ -108,9 +106,9 @@ class GitLabResourceDiscovery:
 
                 for project in projects:
                     project_id = str(project["id"])
-                    display_name = project.get(
-                        "name_with_namespace"
-                    ) or project.get("path_with_namespace", "")
+                    display_name = project.get("name_with_namespace") or project.get(
+                        "path_with_namespace", ""
+                    )
 
                     connector_params = {
                         "project_id": project_id,
@@ -120,9 +118,7 @@ class GitLabResourceDiscovery:
                     namespace = project.get("namespace", {}) or {}
                     routing_metadata = {
                         "project_id": project_id,
-                        "path_with_namespace": project.get(
-                            "path_with_namespace", ""
-                        ),
+                        "path_with_namespace": project.get("path_with_namespace", ""),
                         "web_url": project.get("web_url", ""),
                         "namespace_id": str(namespace.get("id", "")),
                         "namespace_path": namespace.get("full_path", ""),

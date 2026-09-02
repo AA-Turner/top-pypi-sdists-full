@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tree-sitter-dart"
+description = "Dart grammar for tree-sitter (covers Flutter)"
+version = "0.1.0"
+authors = [{ name = "Efren Bautista" }]
+maintainers = [{ name = "Efren Bautista" }]
+keywords = ["incremental", "parsing", "tree-sitter", "dart", "flutter"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Software Development :: Compilers",
+  "Topic :: Text Processing :: Linguistic",
+  "Typing :: Typed"
+]
+requires-python = ">=3.8"
+license.text = "MIT"
+readme = "README.md"
+
+[project.urls]
+Homepage = "https://github.com/efrenbl/tree-sitter-dart"
+Repository = "https://github.com/efrenbl/tree-sitter-dart"
+Issues = "https://github.com/efrenbl/tree-sitter-dart/issues"
+
+[project.optional-dependencies]
+core = ["tree-sitter>=0.23"]
+
+[tool.cibuildwheel]
+# Build a single abi3 wheel per platform. The extension is compiled with
+# Py_LIMITED_API (floor 3.8) and tagged cp38-abi3 by setup.py's BdistWheel, so
+# one build on a current interpreter yields a wheel compatible with 3.8+.
+build = "cp312-*"
+build-frontend = "build"

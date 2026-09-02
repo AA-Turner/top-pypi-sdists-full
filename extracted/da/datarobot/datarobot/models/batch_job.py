@@ -25,7 +25,6 @@ Job       AbstractSpecificJob
                     +           +
         BatchPredictionJob    BatchMonitoringJob
 
-
 """
 
 from __future__ import annotations
@@ -202,8 +201,8 @@ class AbstractBatchJob(AbstractSpecificJob):
 
     @classmethod
     def validate_intake_settings(cls, input_intake_settings: Optional[IntakeSettings] = None) -> IntakeSettings:
-        """Validates intake settings based on type run specific trafaret check
-        Creates a copy in order to avoid mutating input data
+        """Validates intake settings based on type and runs a specific ``trafaret`` check.
+        Creates a copy to avoid mutating input data.
 
         :param input_intake_settings:
         :return: A validated copy of intake settings
@@ -276,8 +275,8 @@ class AbstractBatchJob(AbstractSpecificJob):
 
     @classmethod
     def validate_output_settings(cls, input_output_settings: Optional[OutputSettings] = None) -> OutputSettings:
-        """Validates output settings based on type run specific trafaret check
-        Creates a copy in order to avoid mutating input data
+        """Validates output settings based on type and runs a specific ``trafaret`` check.
+        Creates a copy to avoid mutating input data.
 
         :param input_output_settings:
         :return: A validated copy of output settings

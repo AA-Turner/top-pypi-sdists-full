@@ -1,0 +1,344 @@
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.delete_completed_job_response_200_raw_flow_failure_module import (
+        DeleteCompletedJobResponse200RawFlowFailureModule,
+    )
+    from ..models.delete_completed_job_response_200_raw_flow_flow_env import DeleteCompletedJobResponse200RawFlowFlowEnv
+    from ..models.delete_completed_job_response_200_raw_flow_groups_item import (
+        DeleteCompletedJobResponse200RawFlowGroupsItem,
+    )
+    from ..models.delete_completed_job_response_200_raw_flow_modules_item import (
+        DeleteCompletedJobResponse200RawFlowModulesItem,
+    )
+    from ..models.delete_completed_job_response_200_raw_flow_notes_item import (
+        DeleteCompletedJobResponse200RawFlowNotesItem,
+    )
+    from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module import (
+        DeleteCompletedJobResponse200RawFlowPreprocessorModule,
+    )
+
+
+T = TypeVar("T", bound="DeleteCompletedJobResponse200RawFlow")
+
+
+@_attrs_define
+class DeleteCompletedJobResponse200RawFlow:
+    """The flow structure containing modules and optional preprocessor/failure handlers
+
+    Attributes:
+        modules (List['DeleteCompletedJobResponse200RawFlowModulesItem']): Array of steps that execute in sequence. Each
+            step can be a script, subflow, loop, or branch
+        failure_module (Union[Unset, DeleteCompletedJobResponse200RawFlowFailureModule]): A single step in a flow. Can
+            be a script, subflow, loop, or branch
+        preprocessor_module (Union[Unset, DeleteCompletedJobResponse200RawFlowPreprocessorModule]): A single step in a
+            flow. Can be a script, subflow, loop, or branch
+        same_worker (Union[Unset, bool]): If true, all steps run on the same worker for better performance
+        preserve_step_tags (Union[Unset, bool]): If true and the flow runs on a custom worker tag, steps that declare
+            their own non-empty tag run on it instead of inheriting the flow tag. Steps without their own tag still inherit
+            the flow tag.
+        concurrent_limit (Union[Unset, float]): Maximum number of concurrent executions of this flow
+        concurrency_key (Union[Unset, str]): Expression to group concurrent executions (e.g., by user ID)
+        concurrency_time_window_s (Union[Unset, float]): Time window in seconds for concurrent_limit
+        debounce_delay_s (Union[Unset, int]): Delay in seconds to debounce flow executions
+        debounce_key (Union[Unset, str]): Expression to group debounced executions
+        debounce_args_to_accumulate (Union[Unset, List[str]]): Arguments to accumulate across debounced executions
+        max_total_debouncing_time (Union[Unset, int]): Maximum total time in seconds that a job can be debounced
+        max_total_debounces_amount (Union[Unset, int]): Maximum number of times a job can be debounced
+        skip_expr (Union[Unset, str]): JavaScript expression to conditionally skip the entire flow
+        cache_ttl (Union[Unset, float]): Cache duration in seconds for flow results
+        cache_ignore_s3_path (Union[Unset, bool]):
+        delete_after_secs (Union[Unset, int]): If set, delete the flow job's args, result and logs after this many
+            seconds following job completion
+        flow_env (Union[Unset, DeleteCompletedJobResponse200RawFlowFlowEnv]): Environment variables available to all
+            steps. Values can be strings, JSON values, or special references: '$var:path' (workspace variable) or
+            '$res:path' (resource).
+        priority (Union[Unset, float]): Execution priority (higher numbers run first)
+        early_return (Union[Unset, str]): JavaScript expression to return early from the flow
+        chat_input_enabled (Union[Unset, bool]): Whether this flow accepts chat-style input
+        notes (Union[Unset, List['DeleteCompletedJobResponse200RawFlowNotesItem']]): Sticky notes attached to the flow
+        groups (Union[Unset, List['DeleteCompletedJobResponse200RawFlowGroupsItem']]): Semantic groups of modules for
+            organizational purposes
+    """
+
+    modules: List["DeleteCompletedJobResponse200RawFlowModulesItem"]
+    failure_module: Union[Unset, "DeleteCompletedJobResponse200RawFlowFailureModule"] = UNSET
+    preprocessor_module: Union[Unset, "DeleteCompletedJobResponse200RawFlowPreprocessorModule"] = UNSET
+    same_worker: Union[Unset, bool] = UNSET
+    preserve_step_tags: Union[Unset, bool] = UNSET
+    concurrent_limit: Union[Unset, float] = UNSET
+    concurrency_key: Union[Unset, str] = UNSET
+    concurrency_time_window_s: Union[Unset, float] = UNSET
+    debounce_delay_s: Union[Unset, int] = UNSET
+    debounce_key: Union[Unset, str] = UNSET
+    debounce_args_to_accumulate: Union[Unset, List[str]] = UNSET
+    max_total_debouncing_time: Union[Unset, int] = UNSET
+    max_total_debounces_amount: Union[Unset, int] = UNSET
+    skip_expr: Union[Unset, str] = UNSET
+    cache_ttl: Union[Unset, float] = UNSET
+    cache_ignore_s3_path: Union[Unset, bool] = UNSET
+    delete_after_secs: Union[Unset, int] = UNSET
+    flow_env: Union[Unset, "DeleteCompletedJobResponse200RawFlowFlowEnv"] = UNSET
+    priority: Union[Unset, float] = UNSET
+    early_return: Union[Unset, str] = UNSET
+    chat_input_enabled: Union[Unset, bool] = UNSET
+    notes: Union[Unset, List["DeleteCompletedJobResponse200RawFlowNotesItem"]] = UNSET
+    groups: Union[Unset, List["DeleteCompletedJobResponse200RawFlowGroupsItem"]] = UNSET
+    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        modules = []
+        for modules_item_data in self.modules:
+            modules_item = modules_item_data.to_dict()
+
+            modules.append(modules_item)
+
+        failure_module: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.failure_module, Unset):
+            failure_module = self.failure_module.to_dict()
+
+        preprocessor_module: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.preprocessor_module, Unset):
+            preprocessor_module = self.preprocessor_module.to_dict()
+
+        same_worker = self.same_worker
+        preserve_step_tags = self.preserve_step_tags
+        concurrent_limit = self.concurrent_limit
+        concurrency_key = self.concurrency_key
+        concurrency_time_window_s = self.concurrency_time_window_s
+        debounce_delay_s = self.debounce_delay_s
+        debounce_key = self.debounce_key
+        debounce_args_to_accumulate: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.debounce_args_to_accumulate, Unset):
+            debounce_args_to_accumulate = self.debounce_args_to_accumulate
+
+        max_total_debouncing_time = self.max_total_debouncing_time
+        max_total_debounces_amount = self.max_total_debounces_amount
+        skip_expr = self.skip_expr
+        cache_ttl = self.cache_ttl
+        cache_ignore_s3_path = self.cache_ignore_s3_path
+        delete_after_secs = self.delete_after_secs
+        flow_env: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.flow_env, Unset):
+            flow_env = self.flow_env.to_dict()
+
+        priority = self.priority
+        early_return = self.early_return
+        chat_input_enabled = self.chat_input_enabled
+        notes: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.notes, Unset):
+            notes = []
+            for notes_item_data in self.notes:
+                notes_item = notes_item_data.to_dict()
+
+                notes.append(notes_item)
+
+        groups: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.groups, Unset):
+            groups = []
+            for groups_item_data in self.groups:
+                groups_item = groups_item_data.to_dict()
+
+                groups.append(groups_item)
+
+        field_dict: Dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "modules": modules,
+            }
+        )
+        if failure_module is not UNSET:
+            field_dict["failure_module"] = failure_module
+        if preprocessor_module is not UNSET:
+            field_dict["preprocessor_module"] = preprocessor_module
+        if same_worker is not UNSET:
+            field_dict["same_worker"] = same_worker
+        if preserve_step_tags is not UNSET:
+            field_dict["preserve_step_tags"] = preserve_step_tags
+        if concurrent_limit is not UNSET:
+            field_dict["concurrent_limit"] = concurrent_limit
+        if concurrency_key is not UNSET:
+            field_dict["concurrency_key"] = concurrency_key
+        if concurrency_time_window_s is not UNSET:
+            field_dict["concurrency_time_window_s"] = concurrency_time_window_s
+        if debounce_delay_s is not UNSET:
+            field_dict["debounce_delay_s"] = debounce_delay_s
+        if debounce_key is not UNSET:
+            field_dict["debounce_key"] = debounce_key
+        if debounce_args_to_accumulate is not UNSET:
+            field_dict["debounce_args_to_accumulate"] = debounce_args_to_accumulate
+        if max_total_debouncing_time is not UNSET:
+            field_dict["max_total_debouncing_time"] = max_total_debouncing_time
+        if max_total_debounces_amount is not UNSET:
+            field_dict["max_total_debounces_amount"] = max_total_debounces_amount
+        if skip_expr is not UNSET:
+            field_dict["skip_expr"] = skip_expr
+        if cache_ttl is not UNSET:
+            field_dict["cache_ttl"] = cache_ttl
+        if cache_ignore_s3_path is not UNSET:
+            field_dict["cache_ignore_s3_path"] = cache_ignore_s3_path
+        if delete_after_secs is not UNSET:
+            field_dict["delete_after_secs"] = delete_after_secs
+        if flow_env is not UNSET:
+            field_dict["flow_env"] = flow_env
+        if priority is not UNSET:
+            field_dict["priority"] = priority
+        if early_return is not UNSET:
+            field_dict["early_return"] = early_return
+        if chat_input_enabled is not UNSET:
+            field_dict["chat_input_enabled"] = chat_input_enabled
+        if notes is not UNSET:
+            field_dict["notes"] = notes
+        if groups is not UNSET:
+            field_dict["groups"] = groups
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.delete_completed_job_response_200_raw_flow_failure_module import (
+            DeleteCompletedJobResponse200RawFlowFailureModule,
+        )
+        from ..models.delete_completed_job_response_200_raw_flow_flow_env import (
+            DeleteCompletedJobResponse200RawFlowFlowEnv,
+        )
+        from ..models.delete_completed_job_response_200_raw_flow_groups_item import (
+            DeleteCompletedJobResponse200RawFlowGroupsItem,
+        )
+        from ..models.delete_completed_job_response_200_raw_flow_modules_item import (
+            DeleteCompletedJobResponse200RawFlowModulesItem,
+        )
+        from ..models.delete_completed_job_response_200_raw_flow_notes_item import (
+            DeleteCompletedJobResponse200RawFlowNotesItem,
+        )
+        from ..models.delete_completed_job_response_200_raw_flow_preprocessor_module import (
+            DeleteCompletedJobResponse200RawFlowPreprocessorModule,
+        )
+
+        d = src_dict.copy()
+        modules = []
+        _modules = d.pop("modules")
+        for modules_item_data in _modules:
+            modules_item = DeleteCompletedJobResponse200RawFlowModulesItem.from_dict(modules_item_data)
+
+            modules.append(modules_item)
+
+        _failure_module = d.pop("failure_module", UNSET)
+        failure_module: Union[Unset, DeleteCompletedJobResponse200RawFlowFailureModule]
+        if isinstance(_failure_module, Unset):
+            failure_module = UNSET
+        else:
+            failure_module = DeleteCompletedJobResponse200RawFlowFailureModule.from_dict(_failure_module)
+
+        _preprocessor_module = d.pop("preprocessor_module", UNSET)
+        preprocessor_module: Union[Unset, DeleteCompletedJobResponse200RawFlowPreprocessorModule]
+        if isinstance(_preprocessor_module, Unset):
+            preprocessor_module = UNSET
+        else:
+            preprocessor_module = DeleteCompletedJobResponse200RawFlowPreprocessorModule.from_dict(_preprocessor_module)
+
+        same_worker = d.pop("same_worker", UNSET)
+
+        preserve_step_tags = d.pop("preserve_step_tags", UNSET)
+
+        concurrent_limit = d.pop("concurrent_limit", UNSET)
+
+        concurrency_key = d.pop("concurrency_key", UNSET)
+
+        concurrency_time_window_s = d.pop("concurrency_time_window_s", UNSET)
+
+        debounce_delay_s = d.pop("debounce_delay_s", UNSET)
+
+        debounce_key = d.pop("debounce_key", UNSET)
+
+        debounce_args_to_accumulate = cast(List[str], d.pop("debounce_args_to_accumulate", UNSET))
+
+        max_total_debouncing_time = d.pop("max_total_debouncing_time", UNSET)
+
+        max_total_debounces_amount = d.pop("max_total_debounces_amount", UNSET)
+
+        skip_expr = d.pop("skip_expr", UNSET)
+
+        cache_ttl = d.pop("cache_ttl", UNSET)
+
+        cache_ignore_s3_path = d.pop("cache_ignore_s3_path", UNSET)
+
+        delete_after_secs = d.pop("delete_after_secs", UNSET)
+
+        _flow_env = d.pop("flow_env", UNSET)
+        flow_env: Union[Unset, DeleteCompletedJobResponse200RawFlowFlowEnv]
+        if isinstance(_flow_env, Unset):
+            flow_env = UNSET
+        else:
+            flow_env = DeleteCompletedJobResponse200RawFlowFlowEnv.from_dict(_flow_env)
+
+        priority = d.pop("priority", UNSET)
+
+        early_return = d.pop("early_return", UNSET)
+
+        chat_input_enabled = d.pop("chat_input_enabled", UNSET)
+
+        notes = []
+        _notes = d.pop("notes", UNSET)
+        for notes_item_data in _notes or []:
+            notes_item = DeleteCompletedJobResponse200RawFlowNotesItem.from_dict(notes_item_data)
+
+            notes.append(notes_item)
+
+        groups = []
+        _groups = d.pop("groups", UNSET)
+        for groups_item_data in _groups or []:
+            groups_item = DeleteCompletedJobResponse200RawFlowGroupsItem.from_dict(groups_item_data)
+
+            groups.append(groups_item)
+
+        delete_completed_job_response_200_raw_flow = cls(
+            modules=modules,
+            failure_module=failure_module,
+            preprocessor_module=preprocessor_module,
+            same_worker=same_worker,
+            preserve_step_tags=preserve_step_tags,
+            concurrent_limit=concurrent_limit,
+            concurrency_key=concurrency_key,
+            concurrency_time_window_s=concurrency_time_window_s,
+            debounce_delay_s=debounce_delay_s,
+            debounce_key=debounce_key,
+            debounce_args_to_accumulate=debounce_args_to_accumulate,
+            max_total_debouncing_time=max_total_debouncing_time,
+            max_total_debounces_amount=max_total_debounces_amount,
+            skip_expr=skip_expr,
+            cache_ttl=cache_ttl,
+            cache_ignore_s3_path=cache_ignore_s3_path,
+            delete_after_secs=delete_after_secs,
+            flow_env=flow_env,
+            priority=priority,
+            early_return=early_return,
+            chat_input_enabled=chat_input_enabled,
+            notes=notes,
+            groups=groups,
+        )
+
+        delete_completed_job_response_200_raw_flow.additional_properties = d
+        return delete_completed_job_response_200_raw_flow
+
+    @property
+    def additional_keys(self) -> List[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

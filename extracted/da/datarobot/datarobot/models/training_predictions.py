@@ -122,12 +122,13 @@ class TrainingPredictionsIterator(RowsIterator):
     """
     Lazily fetches training predictions from DataRobot API in chunks of specified size and then
     iterates rows from responses as named tuples. Each row represents a training prediction
-    computed for a dataset's row. Each named tuple has the following structure:
+    computed for a row in the dataset. Each named tuple has the following structure:
 
     Attributes
     ----------
     row_id : int
-        id of the record in original dataset for which training prediction is calculated
+        The ID of the record in the original dataset for which the training prediction was
+        calculated.
     partition_id : str or float
         The ID of the data partition that the row belongs to. "0.0" corresponds to the validation
         partition or backtest 1.
@@ -136,18 +137,18 @@ class TrainingPredictionsIterator(RowsIterator):
     prediction_values : list of dict
         An array of dictionaries with a schema described as ``PredictionValue``.
     timestamp : str or None
-        (New in version v2.11) an ISO string representing the time of the prediction
-        in time series project; may be None for non-time series projects
+        (New in version v2.11) An ISO string representing the time of the prediction in a time
+        series project. May be ``None`` for non-time series projects.
     forecast_point : str or None
-        (New in version v2.11) an ISO string representing the point in time
-        used as a basis to generate the predictions in time series project;
-        may be None for non-time series projects
+        (New in version v2.11) An ISO string representing the point in time used as a basis to
+        generate the predictions in a time series project. May be ``None`` for non-time series
+        projects.
     forecast_distance : str or None
-        (New in version v2.11) how many time steps are between the forecast point and the
-        timestamp in time series project; None for non-time series projects
+        (New in version v2.11) How many time steps are between the forecast point and the
+        timestamp in a time series project. ``None`` for non-time series projects.
     series_id : str or None
-        (New in version v2.11) the ID of the series in a multiseries project;
-        may be NaN for single series projects; None for non-time series projects
+        (New in version v2.11) The ID of the series in a multiseries project. May be NaN for
+        single series projects. ``None`` for non-time series projects.
     prediction_explanations : list of dict or None
         (New in version v2.21) The prediction explanations for each feature. The total elements in
         the array are bounded by ``max_explanations`` and feature count. Only present if prediction
@@ -270,14 +271,14 @@ class TrainingPredictions(APIObject):
     Attributes
     ----------
     project_id : str
-        id of the project the model belongs to
+        The ID of the project the model belongs to.
     model_id : str
-        id of the model
+        The ID of the model.
     prediction_id : str
-        id of generated predictions
+        The ID of generated predictions.
     data_subset : datarobot.enums.DATA_SUBSET
-        data set definition used to build predictions.
-        Choices are:
+        The data set definition used to build predictions.
+        Choices are:.
 
         - `datarobot.enums.DATA_SUBSET.ALL`
             for all data available. Not valid for models in datetime partitioned projects.
@@ -423,7 +424,7 @@ class TrainingPredictions(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project
+            The ID of the project.
 
         Returns
         -------
@@ -472,14 +473,14 @@ class TrainingPredictions(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         prediction_id : str
-            id of the prediction set
+            The ID of the prediction set.
 
         Returns
         -------
         :py:class:`TrainingPredictions`
-            object which is ready to operate with specified predictions
+            An object which is ready to operate with the specified predictions.
         """
         return cls(project_id, prediction_id)
 
@@ -490,12 +491,12 @@ class TrainingPredictions(APIObject):
         Parameters
         ----------
         batch_size : Optional[int]
-            maximum number of training prediction rows to fetch per request
+            The maximum number of training prediction rows to fetch per request.
 
         Returns
         -------
         iterator : :py:class:`TrainingPredictionsIterator`
-            an iterator which yields named tuples representing training prediction rows
+            An iterator which yields named tuples representing training prediction rows.
         """
         return TrainingPredictionsIterator(self._client, self.path, limit=batch_size)
 
@@ -504,25 +505,25 @@ class TrainingPredictions(APIObject):
         Retrieve all training prediction rows and return them as a pandas.DataFrame.
 
         Returned dataframe has the following structure:
-            - row_id : row id from the original dataset
-            - prediction : the model's prediction for this row
-            - class_<label> : the probability that the target is this class (only appears for
-              classification and multiclass projects)
-            - timestamp : the time of the prediction (only appears for out of time validation or
-              time series projects)
-            - forecast_point : the point in time used as a basis to generate the predictions
-              (only appears for time series projects)
-            - forecast_distance : how many time steps are between timestamp and forecast_point
-              (only appears for time series projects)
-            - series_id : he id of the series in a multiseries project
-              or None for a single series project
-              (only appears for time series projects)
+
+            - ``row_id`` : The row ID from the original dataset.
+            - prediction : The model's prediction for this row.
+            - ``class_<label>`` : The probability that the target is this class (only appears for
+              classification and multiclass projects).
+            - timestamp : The time of the prediction (only appears for out of time validation or
+              time series projects).
+            - ``forecast_point`` : The point in time used as a basis to generate the predictions
+              (only appears for time series projects).
+            - ``forecast_distance`` : How many time steps are between ``timestamp`` and
+              ``forecast_point`` (only appears for time series projects).
+            - ``series_id`` : The ID of the series in a multiseries project, or ``None`` for a
+              single series project (only appears for time series projects).
 
         Parameters
         ----------
         class_prefix : Optional[str]
             The prefix to append to labels in the final dataframe. Default is ``class_``
-            (e.g., apple -> class_apple)
+            (e.g., apple -> ``class_apple``).
         serializer : Optional[str]
             Serializer to use for the download. Options: ``json`` (default) or ``csv``.
 
@@ -721,15 +722,15 @@ class TrainingPredictions(APIObject):
 
     def download_to_csv(self, filename, encoding="utf-8", serializer="json"):
         """
-        Save training prediction rows into CSV file.
+        Saves the training prediction rows into a CSV file.
 
         Parameters
         ----------
         filename : str or file object
-            path or file object to save training prediction rows
+            The path or file object used to save training prediction rows.
         encoding : Optional[str]
-            A string representing the encoding to use in the output file, defaults to
-            'utf-8'
+            A string representing the encoding to use in the output file. Defaults to
+            ``utf-8``.
         serializer : Optional[str]
             Serializer to use for the download. Options: ``json`` (default) or ``csv``.
         """

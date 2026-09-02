@@ -1,6 +1,6 @@
 [project]
 name = "google-agents-cli"
-version = "1.4.2"
+version = "1.5.0"
 description = "Agents CLI — Agent Development Lifecycle toolchain for ADK"
 readme = "README.md"
 license = "Apache-2.0"
@@ -16,17 +16,27 @@ dependencies = [
   "PyYAML>=6.0.2,<7",
   "cookiecutter>=2.6.0,<3",
   "jinja2>=3.1.0",
-  "google-cloud-aiplatform[evaluation]>=1.156.0,<2",
+  "google-cloud-aiplatform[evaluation]>=1.165.0,<2",
   "google-cloud-resource-manager>=1.12.0",
   "google-auth[pyopenssl]>=2.47.0",
+  # pyOpenSSL 26.2 forbids mutating a used SSL Context; urllib3 does it per
+  # connection under google-auth's mTLS shim (urllib3#5107). Lift when fixed.
+  "pyopenssl<26.2",
   "rich>=13.7.0",
   "backoff>=2.2.1",
   "requests>=2.31.0",
   "a2a-sdk>=1.0,<2",
+  # Pin the a2a-sdk (>=5.29.5) .. aiplatform (<7) window so pip won't chase
+  # protobuf 7 and backtrack into old google-api-core (protobuf<5).
+  "protobuf>=5.29.5,<7",
   "tomlkit>=0.13.0,<1",
   "psutil>=5.9.0",
   "python-dotenv>=1.0.0",
   "pathspec>=0.12.1",
+  "filelock>=3.12,<4",
+  "packaging>=24",
+  # 2.10+: earlier versions emit `enum` beside `const`, which the schema sync test sees.
+  "pydantic>=2.10,<3",
 ]
 
 [project.urls]
@@ -53,7 +63,6 @@ include = [
   "src/google/agents/cli/scaffold/deployment_targets/",
   "src/google/agents/cli/scaffold/resources/",
   "src/google/agents/cli/scaffold/sample_data/",
-  "skills/",
 ]
 
 [project.optional-dependencies]
@@ -79,16 +88,27 @@ dev = [
     "pytest-rerunfailures>=15.0",
     "pytest-xdist>=3.6.1",
     "pytest-cov>=4.1.0",
+    "jsonschema>=4.20",
 ]
 
 [tool.ruff]
 line-length = 90
 target-version = "py311"
-include = ["src/google/agents/cli/**/*.py", "tests/**/*.py", "tools/**/*.py"]
+include = [
+  "src/google/agents/cli/**/*.py",
+  "tests/**/*.py",
+  "tools/**/*.py",
+  # First-party extensions ship real code; lint them like the rest.
+  "extensions/**/*.py",
+]
 exclude = [
     "src/google/agents/cli/scaffold/agents",
     "src/google/agents/cli/scaffold/base_templates",
     "src/google/agents/cli/scaffold/deployment_targets",
+    # Generated-project sources, linted by the project's own config (a
+    # different line length, and no `google` namespace on disk), not this one.
+    "extensions/*/template",
+    "src/google/agents/cli/skills/data",
     "tests/cicd/scripts",
 ]
 
@@ -111,10 +131,10 @@ ignore = ["E501", "C901", "RUF001", "UP036", "RUF067", "RUF069"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["PLR0917"]
-"src/google/agents/cli/_output.py" = ["TID251"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "rich.console.Console" = { msg = "Use `google.agents.cli._output.Console` instead to ensure project-wide defaults (soft_wrap=True) are applied." }
+"agentplatform.Client" = { msg = "Use `google.agents.cli._agent_platform.AgentPlatformClient` instead, so the client retries throttled requests." }
 
 [tool.ruff.lint.pylint]
 max-positional-args = 5
@@ -136,6 +156,7 @@ exclude = [
     "src/google/agents/cli/scaffold/agents/**",
     "src/google/agents/cli/scaffold/base_templates/**",
     "src/google/agents/cli/scaffold/deployment_targets/**",
+    "src/google/agents/cli/skills/data/**",
     "tests/cicd/scripts/**",
 ]
 

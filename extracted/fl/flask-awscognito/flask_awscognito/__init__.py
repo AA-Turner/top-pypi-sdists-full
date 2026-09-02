@@ -1,1 +1,0 @@
-from flask_awscognito.plugin import AWSCognitoAuthentication

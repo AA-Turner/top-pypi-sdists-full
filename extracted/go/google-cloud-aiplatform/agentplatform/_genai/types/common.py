@@ -322,6 +322,12 @@ class SandboxState(_common.CaseInSensitiveEnum):
     """Sandbox has terminated with underlying runtime failure."""
     STATE_DELETED = "STATE_DELETED"
     """Sandbox runtime has been deleted."""
+    STATE_PAUSED = "STATE_PAUSED"
+    """Sandbox runtime is paused."""
+    STATE_PAUSING = "STATE_PAUSING"
+    """Sandbox runtime is pausing."""
+    STATE_RESUMING = "STATE_RESUMING"
+    """Sandbox runtime is resuming."""
 
 
 class Protocol(_common.CaseInSensitiveEnum):
@@ -357,6 +363,23 @@ class PscAutomationState(_common.CaseInSensitiveEnum):
     """The PSC service automation is successful."""
     PSC_AUTOMATION_STATE_FAILED = "PSC_AUTOMATION_STATE_FAILED"
     """The PSC service automation has failed."""
+
+
+class SandboxEnvironmentTemplateState(_common.CaseInSensitiveEnum):
+    """Output only. The state of the sandbox environment template."""
+
+    UNSPECIFIED = "UNSPECIFIED"
+    """The default value. This value is unused."""
+    PROVISIONING = "PROVISIONING"
+    """Runtime resources are being allocated for the sandbox environment."""
+    ACTIVE = "ACTIVE"
+    """Sandbox runtime is ready for serving."""
+    DEPROVISIONING = "DEPROVISIONING"
+    """Sandbox runtime is halted, performing tear down tasks."""
+    DELETED = "DELETED"
+    """Sandbox has terminated with underlying runtime failure."""
+    FAILED = "FAILED"
+    """Sandbox has failed to provision."""
 
 
 class PostSnapshotAction(_common.CaseInSensitiveEnum):
@@ -17603,98 +17626,6 @@ SandboxEnvironmentTemplateEgressControlConfigOrDict = Union[
 ]
 
 
-class CreateSandboxEnvironmentTemplateConfig(_common.BaseModel):
-    """Config for creating a Sandbox Template."""
-
-    http_options: Optional[genai_types.HttpOptions] = Field(
-        default=None, description="""Used to override HTTP request options."""
-    )
-    wait_for_completion: Optional[bool] = Field(
-        default=True,
-        description="""Waits for the operation to complete before returning.""",
-    )
-    custom_container_environment: Optional[
-        SandboxEnvironmentTemplateCustomContainerEnvironment
-    ] = Field(
-        default=None,
-        description="""The custom container environment for the sandbox template.""",
-    )
-    default_container_environment: Optional[
-        SandboxEnvironmentTemplateDefaultContainerEnvironment
-    ] = Field(
-        default=None,
-        description="""The default container environment for the sandbox template.""",
-    )
-    egress_control_config: Optional[SandboxEnvironmentTemplateEgressControlConfig] = (
-        Field(
-            default=None,
-            description="""The egress control config for the sandbox template.""",
-        )
-    )
-
-
-class CreateSandboxEnvironmentTemplateConfigDict(TypedDict, total=False):
-    """Config for creating a Sandbox Template."""
-
-    http_options: Optional[genai_types.HttpOptions]
-    """Used to override HTTP request options."""
-
-    wait_for_completion: Optional[bool]
-    """Waits for the operation to complete before returning."""
-
-    custom_container_environment: Optional[
-        SandboxEnvironmentTemplateCustomContainerEnvironmentDict
-    ]
-    """The custom container environment for the sandbox template."""
-
-    default_container_environment: Optional[
-        SandboxEnvironmentTemplateDefaultContainerEnvironmentDict
-    ]
-    """The default container environment for the sandbox template."""
-
-    egress_control_config: Optional[SandboxEnvironmentTemplateEgressControlConfigDict]
-    """The egress control config for the sandbox template."""
-
-
-CreateSandboxEnvironmentTemplateConfigOrDict = Union[
-    CreateSandboxEnvironmentTemplateConfig, CreateSandboxEnvironmentTemplateConfigDict
-]
-
-
-class _CreateSandboxEnvironmentTemplateRequestParameters(_common.BaseModel):
-    """Parameters for creating Sandbox Environment Templates."""
-
-    name: Optional[str] = Field(
-        default=None,
-        description="""Name of the agent runtime to create the template under.""",
-    )
-    display_name: Optional[str] = Field(
-        default=None, description="""The display name of the sandbox template."""
-    )
-    config: Optional[CreateSandboxEnvironmentTemplateConfig] = Field(
-        default=None, description=""""""
-    )
-
-
-class _CreateSandboxEnvironmentTemplateRequestParametersDict(TypedDict, total=False):
-    """Parameters for creating Sandbox Environment Templates."""
-
-    name: Optional[str]
-    """Name of the agent runtime to create the template under."""
-
-    display_name: Optional[str]
-    """The display name of the sandbox template."""
-
-    config: Optional[CreateSandboxEnvironmentTemplateConfigDict]
-    """"""
-
-
-_CreateSandboxEnvironmentTemplateRequestParametersOrDict = Union[
-    _CreateSandboxEnvironmentTemplateRequestParameters,
-    _CreateSandboxEnvironmentTemplateRequestParametersDict,
-]
-
-
 class PSCAutomationConfig(_common.BaseModel):
     """PSC config that is used to automatically create PSC endpoints in the user projects."""
 
@@ -17798,6 +17729,105 @@ PrivateServiceConnectConfigOrDict = Union[
 ]
 
 
+class CreateSandboxEnvironmentTemplateConfig(_common.BaseModel):
+    """Config for creating a Sandbox Template."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Waits for the operation to complete before returning.""",
+    )
+    custom_container_environment: Optional[
+        SandboxEnvironmentTemplateCustomContainerEnvironment
+    ] = Field(
+        default=None,
+        description="""The custom container environment for the sandbox template.""",
+    )
+    default_container_environment: Optional[
+        SandboxEnvironmentTemplateDefaultContainerEnvironment
+    ] = Field(
+        default=None,
+        description="""The default container environment for the sandbox template.""",
+    )
+    egress_control_config: Optional[SandboxEnvironmentTemplateEgressControlConfig] = (
+        Field(
+            default=None,
+            description="""The egress control config for the sandbox template.""",
+        )
+    )
+    ingress_control_config: Optional[PrivateServiceConnectConfig] = Field(
+        default=None,
+        description="""The ingress control config for the sandbox template.""",
+    )
+
+
+class CreateSandboxEnvironmentTemplateConfigDict(TypedDict, total=False):
+    """Config for creating a Sandbox Template."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    wait_for_completion: Optional[bool]
+    """Waits for the operation to complete before returning."""
+
+    custom_container_environment: Optional[
+        SandboxEnvironmentTemplateCustomContainerEnvironmentDict
+    ]
+    """The custom container environment for the sandbox template."""
+
+    default_container_environment: Optional[
+        SandboxEnvironmentTemplateDefaultContainerEnvironmentDict
+    ]
+    """The default container environment for the sandbox template."""
+
+    egress_control_config: Optional[SandboxEnvironmentTemplateEgressControlConfigDict]
+    """The egress control config for the sandbox template."""
+
+    ingress_control_config: Optional[PrivateServiceConnectConfigDict]
+    """The ingress control config for the sandbox template."""
+
+
+CreateSandboxEnvironmentTemplateConfigOrDict = Union[
+    CreateSandboxEnvironmentTemplateConfig, CreateSandboxEnvironmentTemplateConfigDict
+]
+
+
+class _CreateSandboxEnvironmentTemplateRequestParameters(_common.BaseModel):
+    """Parameters for creating Sandbox Environment Templates."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Name of the agent runtime to create the template under.""",
+    )
+    display_name: Optional[str] = Field(
+        default=None, description="""The display name of the sandbox template."""
+    )
+    config: Optional[CreateSandboxEnvironmentTemplateConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _CreateSandboxEnvironmentTemplateRequestParametersDict(TypedDict, total=False):
+    """Parameters for creating Sandbox Environment Templates."""
+
+    name: Optional[str]
+    """Name of the agent runtime to create the template under."""
+
+    display_name: Optional[str]
+    """The display name of the sandbox template."""
+
+    config: Optional[CreateSandboxEnvironmentTemplateConfigDict]
+    """"""
+
+
+_CreateSandboxEnvironmentTemplateRequestParametersOrDict = Union[
+    _CreateSandboxEnvironmentTemplateRequestParameters,
+    _CreateSandboxEnvironmentTemplateRequestParametersDict,
+]
+
+
 class SandboxEnvironmentTemplate(_common.BaseModel):
     """A sandbox environment template."""
 
@@ -17831,16 +17861,7 @@ class SandboxEnvironmentTemplate(_common.BaseModel):
         default=None,
         description="""Identifier. The resource name of the SandboxEnvironmentTemplate. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/sandboxEnvironmentTemplates/{sandbox_environment_template}`""",
     )
-    state: Optional[
-        Literal[
-            "UNSPECIFIED",
-            "PROVISIONING",
-            "ACTIVE",
-            "DEPROVISIONING",
-            "DELETED",
-            "FAILED",
-        ]
-    ] = Field(
+    state: Optional[SandboxEnvironmentTemplateState] = Field(
         default=None,
         description="""Output only. The state of the sandbox environment template.""",
     )
@@ -17879,16 +17900,7 @@ class SandboxEnvironmentTemplateDict(TypedDict, total=False):
     name: Optional[str]
     """Identifier. The resource name of the SandboxEnvironmentTemplate. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/sandboxEnvironmentTemplates/{sandbox_environment_template}`"""
 
-    state: Optional[
-        Literal[
-            "UNSPECIFIED",
-            "PROVISIONING",
-            "ACTIVE",
-            "DEPROVISIONING",
-            "DELETED",
-            "FAILED",
-        ]
-    ]
+    state: Optional[SandboxEnvironmentTemplateState]
     """Output only. The state of the sandbox environment template."""
 
     update_time: Optional[datetime.datetime]

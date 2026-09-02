@@ -1,0 +1,978 @@
+from trilogy.constants import logger
+from trilogy.core.enums import (
+    Derivation,
+    JoinType,
+    Modifier,
+    SourceType,
+)
+from trilogy.core.models.build import (
+    BoolExpr,
+    BuildConcept,
+    BuildDatasource,
+    BuildGrain,
+    BuildOrderBy,
+    get_grouped_aggregate_wrapper,
+)
+from trilogy.core.models.build_environment import BuildEnvironment
+from trilogy.core.models.execute import BaseJoin, QueryDatasource, UnnestJoin
+from trilogy.core.processing.condition_utility import decompose_condition
+from trilogy.core.processing.grain_utility import (
+    anti_join_preserved_grain,
+    calculate_joined_pregrain,
+    condition_key_grain,
+    downgrade_join_for_condition,
+    downgrade_join_for_proofs,
+    grain_satisfied_by_pregrain,
+    has_condition_key_outside_grain,
+    non_null_proofs,
+)
+from trilogy.core.processing.join_resolution import (
+    _collect_deep_partial_addresses,
+    compute_outer_null_status,
+    get_node_joins,
+    prune_outer_join_pairs,
+    side_nullable,
+)
+from trilogy.core.processing.nodes.base_node import (
+    NodeJoin,
+    StrategyNode,
+    resolve_concept_map,
+    resolve_existence_map,
+)
+from trilogy.core.processing.utility import find_nullable_concepts
+from trilogy.utility import unique
+
+LOGGER_PREFIX = "[CONCEPT DETAIL - MERGE NODE]"
+
+
+def _abstract_output_grain(parent: StrategyNode, environment: BuildEnvironment) -> bool:
+    """A parent whose outputs sit at abstract grain is a single-row (`by *`)
+    aggregate: it has no join key and must be broadcast via a keyless FULL
+    join. Injecting a scoped-join key would re-grain it to that key, and the
+    renderer's grain-match collapse would then silently strip the aggregate
+    function (q23)."""
+    return BuildGrain.from_concepts(parent.output_concepts, environment).abstract
+
+
+def _feeds_only_existence(parent: StrategyNode, grandparent: StrategyNode) -> bool:
+    """Whether `grandparent` is reachable from `parent` only through an
+    existence subselect (a membership feeder) — a side channel, never a row
+    join, so nothing it carries counts as row availability on `parent`.
+    Mirrors ``StrategyNode._repoint_feeder_only_rows``'s feeder test: every
+    concept it supplies that `parent` demands is an existence concept (q29's
+    coalescing key member carried only by the membership rowset)."""
+    if not parent.existence_concepts:
+        return False
+    existence = {c.address for c in parent.existence_concepts}
+    outputs = {c.address for c in grandparent.output_concepts}
+    if not outputs & existence:
+        return False
+    demand = {c.address for c in parent.input_concepts} | {
+        c.address for c in parent.output_concepts
+    }
+    return all(addr in existence for addr in outputs & demand)
+
+
+def _renders_nonstandard_grouping(parent: StrategyNode) -> bool:
+    """A parent that renders `GROUP BY ROLLUP/CUBE/GROUPING SETS` takes its
+    GROUP BY from the aggregate wrapper's `by` list verbatim, so any column
+    surfaced on it that isn't one of those keys becomes a bare, ungrouped
+    projection — a binder error (q05). The key still reaches join inference
+    from the other side; this side keeps only its grouping keys."""
+    upstream = {
+        c.address for grandparent in parent.parents for c in grandparent.output_concepts
+    }
+    return any(
+        (wrapper := get_grouped_aggregate_wrapper(c)) is not None
+        and wrapper.grouping.nulls_grouping_keys
+        and c.address not in upstream
+        for c in parent.output_concepts
+    )
+
+
+def _has_applied_condition(source: QueryDatasource | BuildDatasource) -> bool:
+    if isinstance(source, QueryDatasource):
+        return bool(source.condition) or any(
+            _has_applied_condition(parent) for parent in source.datasources
+        )
+    return bool(source.where)
+
+
+def _collect_applied_conditions(source: QueryDatasource | BuildDatasource) -> list:
+    """All filter conditions applied anywhere within a parent branch's tree."""
+    out: list = []
+    if isinstance(source, QueryDatasource):
+        if source.condition is not None:
+            out.append(source.condition)
+        for parent in source.datasources:
+            out.extend(_collect_applied_conditions(parent))
+    return out
+
+
+def _key_equivalence_classes(pairs: list[tuple[str, str]]) -> list[set[str]]:
+    """Union-find the join-key address pairs into connected equivalence classes,
+    so a chain (`a=b`, `c=b`) yields the single class {a, b, c}."""
+    parent: dict[str, str] = {}
+
+    def find(x: str) -> str:
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for a, b in pairs:
+        parent[find(a)] = find(b)
+
+    classes: dict[str, set[str]] = {}
+    for addr in parent:
+        classes.setdefault(find(addr), set()).add(addr)
+    return list(classes.values())
+
+
+def deduplicate_nodes(
+    merged: dict[str, QueryDatasource | BuildDatasource],
+    logging_prefix: str,
+    environment: BuildEnvironment,
+) -> tuple[bool, dict[str, QueryDatasource | BuildDatasource], set[str]]:
+    duplicates = False
+    removed: set[str] = set()
+    set_map: dict[str, set[str]] = {}
+    for k, v in merged.items():
+        # Hidden concepts are excluded by ``resolve_concept_map`` for
+        # QueryDatasources, so a parent that hides a concept does not
+        # actually supply it downstream — don't let it shadow another
+        # parent that exposes the same concept publicly.
+        hidden = set(v.hidden_concepts) if isinstance(v, QueryDatasource) else set()
+        unique_outputs = [
+            # the concept may be a in a different environment for a rowset.
+            (environment.concepts.get(x.address) or x).address
+            for x in v.output_concepts
+            if x not in v.partial_concepts and x.address not in hidden
+        ]
+        set_map[k] = set(unique_outputs)
+    for k1, v1 in set_map.items():
+        found = False
+        for k2, v2 in set_map.items():
+            if k1 == k2:
+                continue
+            if (
+                v1.issubset(v2)
+                and merged[k1].grain.issubset(merged[k2].grain)
+                and not merged[k2].partial_concepts
+                and not merged[k1].partial_concepts
+                and not _has_applied_condition(merged[k2])
+                and not _has_applied_condition(merged[k1])
+                # a row-limited source is a proper row subset — never
+                # interchangeable with (or replaceable by) a superset source
+                and getattr(merged[k1], "limit", None) is None
+                and getattr(merged[k2], "limit", None) is None
+            ):
+                og = merged[k1]
+                subset_to = merged[k2]
+                logger.info(
+                    f"{logging_prefix}{LOGGER_PREFIX} extraneous parent node that is subset of another parent node {og.grain.issubset(subset_to.grain)} {og.grain.components} {subset_to.grain.components}"
+                )
+                merged = {k: v for k, v in merged.items() if k != k1}
+                removed.add(k1)
+                duplicates = True
+                found = True
+                break
+        if found:
+            break
+
+    return duplicates, merged, removed
+
+
+def deduplicate_nodes_and_joins(
+    joins: list[NodeJoin] | None,
+    merged: dict[str, QueryDatasource | BuildDatasource],
+    logging_prefix: str,
+    environment: BuildEnvironment,
+) -> tuple[list[NodeJoin] | None, dict[str, QueryDatasource | BuildDatasource]]:
+    # it's possible that we have more sources than we need
+    duplicates = True
+    while duplicates:
+        duplicates = False
+        duplicates, merged, removed = deduplicate_nodes(
+            merged, logging_prefix, environment=environment
+        )
+        # filter out any removed joins
+        if joins is not None:
+            joins = [
+                j
+                for j in joins
+                if j.left_node.resolve().identifier not in removed
+                and j.right_node.resolve().identifier not in removed
+            ]
+    return joins, merged
+
+
+class MergeNode(StrategyNode):
+    source_type = SourceType.MERGE
+
+    def __init__(
+        self,
+        input_concepts: list[BuildConcept],
+        output_concepts: list[BuildConcept],
+        environment,
+        whole_grain: bool = False,
+        parents: list["StrategyNode"] | None = None,
+        node_joins: list[NodeJoin] | None = None,
+        join_concepts: list | None = None,
+        force_join_type: JoinType | None = None,
+        partial_concepts: list[BuildConcept] | None = None,
+        rollup_concepts: list[BuildConcept] | None = None,
+        nullable_concepts: list[BuildConcept] | None = None,
+        force_group: bool | None = None,
+        depth: int = 0,
+        grain: BuildGrain | None = None,
+        conditions: BoolExpr | None = None,
+        preexisting_conditions: BoolExpr | None = None,
+        hidden_concepts: set[str] | None = None,
+        virtual_output_concepts: list[BuildConcept] | None = None,
+        existence_concepts: list[BuildConcept] | None = None,
+        ordering: BuildOrderBy | None = None,
+        preserve_parents: bool = False,
+        host_stitch: bool = False,
+    ):
+        super().__init__(
+            input_concepts=input_concepts,
+            output_concepts=output_concepts,
+            environment=environment,
+            whole_grain=whole_grain,
+            parents=parents,
+            depth=depth,
+            partial_concepts=partial_concepts,
+            rollup_concepts=rollup_concepts,
+            nullable_concepts=nullable_concepts,
+            force_group=force_group,
+            grain=grain,
+            conditions=conditions,
+            preexisting_conditions=preexisting_conditions,
+            hidden_concepts=hidden_concepts,
+            virtual_output_concepts=virtual_output_concepts,
+            existence_concepts=existence_concepts,
+            ordering=ordering,
+        )
+        self.join_concepts = join_concepts
+        self.force_join_type = force_join_type
+        self.node_joins: list[NodeJoin] | None = node_joins
+        # A deliberately-assembled multi-side merge (coalescing axis, presence
+        # probe): every parent is a distinct SIDE of a declared relation, so
+        # the single-parent/duplicate collapse shortcuts must not fire — same
+        # addresses across sides are different domains, not redundancy.
+        self.preserve_parents = preserve_parents
+        # An assembly stitch between sibling contributors: extension-family
+        # ownership (per_group span routing) applies, so join inference gets a
+        # host basis and preserves only the span owner. Mid-plan merges keep
+        # plain domain-preserving semantics.
+        self.host_stitch = host_stitch
+
+        final_joins: list[NodeJoin] = []
+        if self.node_joins is not None:
+            for join in self.node_joins:
+                if join.left_node.resolve().name == join.right_node.resolve().name:
+                    continue
+                final_joins.append(join)
+            self.node_joins = final_joins
+
+    def translate_node_joins(self, node_joins: list[NodeJoin]) -> list[BaseJoin]:
+        joins = []
+        for join in node_joins:
+            left = join.left_node.resolve()
+            right = join.right_node.resolve()
+            if left.identifier == right.identifier:
+                raise SyntaxError(f"Cannot join node {left.identifier} to itself")
+            # generator-authored joins carry no null-safety analysis; compute it
+            # here like inferred joins do (get_modifiers), else a nullable join
+            # key silently drops its NULL matches through the plain equality
+            modifiers = list(join.modifiers)
+            if (
+                Modifier.NULLABLE not in modifiers
+                and join.concepts
+                and all(
+                    side_nullable(concept, left) and side_nullable(concept, right)
+                    for concept in join.concepts
+                )
+            ):
+                modifiers.append(Modifier.NULLABLE)
+            joins.append(
+                BaseJoin(
+                    left_datasource=left,
+                    right_datasource=right,
+                    join_type=join.join_type,
+                    concepts=join.concepts,
+                    concept_pairs=join.concept_pairs,
+                    modifiers=modifiers,
+                )
+            )
+        return joins
+
+    def create_full_joins(self, dataset_list: list[QueryDatasource | BuildDatasource]):
+        joins = []
+        seen = set()
+        for left_value in dataset_list:
+            for right_value in dataset_list:
+                if left_value.identifier == right_value.identifier:
+                    continue
+                if left_value.identifier in seen and right_value.identifier in seen:
+                    continue
+                joins.append(
+                    BaseJoin(
+                        left_datasource=left_value,
+                        right_datasource=right_value,
+                        join_type=JoinType.FULL,
+                        concepts=[],
+                    )
+                )
+                seen.add(left_value.identifier)
+                seen.add(right_value.identifier)
+        return joins
+
+    def generate_joins(
+        self,
+        final_datasets,
+        final_joins: list[NodeJoin] | None,
+        pregrain: BuildGrain,
+        grain: BuildGrain,
+        environment: BuildEnvironment,
+    ) -> list[BaseJoin | UnnestJoin]:
+        # only finally, join between them for unique values
+        dataset_list: list[QueryDatasource | BuildDatasource] = sorted(
+            final_datasets,
+            key=lambda x: (-len(x.grain.components), x.identifier),
+        )
+
+        logger.info(
+            f"{self.logging_prefix}{LOGGER_PREFIX} Merge node has {len(dataset_list)} parents, starting merge"
+        )
+        if final_joins is None:
+            if not pregrain.components:
+                logger.info(
+                    f"{self.logging_prefix}{LOGGER_PREFIX} no grain components, doing full join"
+                )
+                joins = self.create_full_joins(dataset_list)
+            else:
+                logger.info(
+                    f"{self.logging_prefix}{LOGGER_PREFIX} inferring node joins to target grain {grain!s}"
+                )
+                # The host side is the one licensed to carry extension rows:
+                # when this node emits `~`-licensed keys, the side covering
+                # ALL of them owns every extension family, and a feeder
+                # exposing only the stitch key is not a host even though it
+                # covers the merge grain (its padding is join manufacture).
+                # With no licensed keys in play, grain coverage decides.
+                host_grain: set[str] | None = None
+                if self.host_stitch:
+                    licensed = {
+                        address
+                        for datasource in environment.datasources.values()
+                        for address in datasource.column_level_partial_addresses
+                    }
+                    licensed_outputs = {
+                        c.address for c in self.output_concepts if c.address in licensed
+                    }
+                    host_grain = licensed_outputs or set(grain.components)
+                # Domains this node emits: visible outputs and the grain,
+                # each expanded to its declared keys (a visible dim attribute
+                # demands its key's domain even when a later wrapper does the
+                # grouping). A `~` key outside this set licenses no extension
+                # rows here (get_join_type's fact-to-dim anchoring).
+                hidden = self.hidden_concepts or set()
+                demanded_domains: set[str] = set()
+                for concept in self.output_concepts:
+                    if concept.address in hidden:
+                        continue
+                    demanded_domains.add(concept.address)
+                    if concept.keys:
+                        demanded_domains |= set(concept.keys)
+                for component in grain.components:
+                    demanded_domains.add(component)
+                    component_concept = environment.concepts.get(component)
+                    if component_concept is not None and component_concept.keys:
+                        demanded_domains |= set(component_concept.keys)
+                joins = get_node_joins(
+                    dataset_list,
+                    environment=environment,
+                    host_grain=host_grain,
+                    demanded_domains=demanded_domains,
+                )
+        elif final_joins:
+            logger.info(
+                f"{self.logging_prefix}{LOGGER_PREFIX} translating provided node joins {len(final_joins)}"
+            )
+            joins = self.translate_node_joins(final_joins)
+        else:
+            logger.info(
+                f"{self.logging_prefix}{LOGGER_PREFIX} Final joins is not null {final_joins} but is empty, skipping join generation"
+            )
+            return []
+        if self.force_join_type is not None:
+            for j in joins:
+                if isinstance(j, BaseJoin):
+                    j.join_type = self.force_join_type
+        return joins
+
+    def _inject_scoped_join_key_exposure(self) -> None:
+        """Make every merged side expose its OWN member of each authored
+        coalescing join-key group (`union join a.k = b.k and a.d = b.d - 1`).
+
+        Join inference pairs the sides' visible outputs, so a side that
+        carries a member somewhere below but doesn't surface it (e.g. a basic
+        wrapper computing the derived member off a rowset drops the rowset's
+        plain co-key) silently loses that key from the join — cross-producting
+        the rows on whatever keys remain (q59). Only members available on the
+        side itself or its immediate parents are surfaced; a side unrelated to
+        a group is untouched."""
+        group_mates = self.environment.distinct_scoped_join_group_mates()
+        if not group_mates or self.node_joins is not None:
+            return
+        for parent in self.parents:
+            if _abstract_output_grain(parent, self.environment):
+                continue
+            if _renders_nonstandard_grouping(parent):
+                continue
+            outputs = {c.address for c in parent.output_concepts}
+            changed = False
+            for member in group_mates:
+                if member in outputs:
+                    if member in parent.hidden_concepts:
+                        parent.unhide_output_concepts(
+                            [c for c in parent.output_concepts if c.address == member],
+                            rebuild=False,
+                        )
+                        changed = True
+                    continue
+                available = any(
+                    c.address == member and c.address not in grandparent.hidden_concepts
+                    for grandparent in parent.parents
+                    if not _feeds_only_existence(parent, grandparent)
+                    for c in grandparent.output_concepts
+                )
+                if available:
+                    concept = self.environment.concepts.get(member)
+                    if concept is not None:
+                        parent.add_output_concept(concept, rebuild=False)
+                        changed = True
+            if changed:
+                parent.rebuild_cache()
+
+    def _tighten_joins_for_filtered_branches(
+        self,
+        joins: list[BaseJoin | UnnestJoin],
+        final_datasets: list[QueryDatasource | BuildDatasource],
+    ) -> None:
+        if self.preexisting_conditions is None:
+            return
+        rendered = list(decompose_condition(self.conditions)) if self.conditions else []
+        request_atoms = [
+            atom
+            for atom in decompose_condition(self.preexisting_conditions)
+            if not any(atom == r for r in rendered)
+        ]
+        if not request_atoms:
+            return
+        filtered_ids: set[str] = set()
+        for source in final_datasets:
+            applied = [
+                atom
+                for condition in _collect_applied_conditions(source)
+                for atom in decompose_condition(condition)
+            ]
+            if any(any(atom == a for a in applied) for atom in request_atoms):
+                filtered_ids.add(source.identifier)
+        if not filtered_ids:
+            return
+        # Authored coalescing (union/full) relations declare row intent: their
+        # arms are preserved BY DESIGN, and only the provably-row-identical
+        # narrowing pass may tighten them — the same registry veto
+        # `get_join_type` honors (the composite union-join rowset family keeps
+        # its return-arm rows against a sales-side filter).
+        coalescing = self.environment.domain_graph.outer_relation_keys() | set(
+            self.environment.domain_graph.coalescing_relation_members()
+        )
+        for join in joins:
+            if not isinstance(join, BaseJoin):
+                continue
+            join_addresses = {
+                address
+                for pair in join.concept_pairs or []
+                for address in (pair.left.address, pair.right.address)
+            } | {concept.address for concept in join.concepts or []}
+            if join_addresses & coalescing:
+                continue
+            left_ids = set()
+            if join.left_datasource is not None:
+                left_ids.add(join.left_datasource.identifier)
+            for pair in join.concept_pairs or []:
+                left_ids.add(pair.existing_datasource.identifier)
+            right_filtered = join.right_datasource.identifier in filtered_ids
+            left_filtered = bool(left_ids & filtered_ids)
+            if join.join_type == JoinType.FULL:
+                if right_filtered and left_filtered:
+                    join.join_type = JoinType.INNER
+                elif right_filtered:
+                    join.join_type = JoinType.RIGHT_OUTER
+                elif left_filtered:
+                    join.join_type = JoinType.LEFT_OUTER
+            elif (
+                join.join_type == JoinType.LEFT_OUTER
+                and right_filtered
+                or join.join_type == JoinType.RIGHT_OUTER
+                and left_filtered
+            ):
+                join.join_type = JoinType.INNER
+
+    def _resolve(self) -> QueryDatasource:
+        self._inject_scoped_join_key_exposure()
+        parent_sources: list[QueryDatasource | BuildDatasource] = [
+            p.resolve() for p in self.parents
+        ]
+        merged: dict[str, QueryDatasource | BuildDatasource] = {}
+        final_joins: list[NodeJoin] | None = self.node_joins
+        for source in parent_sources:
+            if source.identifier in merged:
+                logger.info(
+                    f"{self.logging_prefix}{LOGGER_PREFIX} merging parent node with {source.identifier} into existing"
+                )
+                merged[source.identifier] = merged[source.identifier] + source
+            else:
+                merged[source.identifier] = source
+
+        # it's possible that we have more sources than we need — unless every
+        # parent is a deliberate side of a coalescing relation (same addresses
+        # across sides are different domains, not redundancy)
+        if not self.preserve_parents:
+            final_joins, merged = deduplicate_nodes_and_joins(
+                final_joins, merged, self.logging_prefix, self.environment
+            )
+        # early exit if we can just return the parent
+        final_datasets: list[QueryDatasource | BuildDatasource] = sorted(
+            merged.values(), key=lambda source: source.identifier
+        )
+
+        merge_output_addresses = {c.address for c in self.output_concepts}
+        existence_addr_set = {c.address for c in self.existence_concepts}
+        # The coalescing (union/full) key members of this build. A semijoin
+        # feeder (a HAVING-membership existence source) is keyed on one of these
+        # when its probe filters the coalesced key itself; that key on the feeder
+        # is then incidental (the genuine union sides carry it), see below.
+        coalescing_members = self.environment.domain_graph.coalescing_relation_members()
+        existence_key_by_addr: dict[str, set[str]] = {
+            c.address: {k for k in (c.keys or set()) if k in coalescing_members}
+            for c in self.existence_concepts
+        }
+
+        def _is_existence_only(x: QueryDatasource | BuildDatasource) -> bool:
+            out_addrs = {y.address for y in x.output_concepts}
+            provided_existence = out_addrs & existence_addr_set
+            if not provided_existence:
+                return False
+            # Existence-only if every concept it provides that this merge
+            # actually emits as a row output is an existence concept. A source's
+            # incidental extra columns (e.g. a membership rowset's other
+            # measures) are unused here and must not promote it to a joined row
+            # source — doing so leaves it dangling in the FROM (it has no join
+            # key, only a subselect) yet feeding the SELECT list.
+            #
+            # A coalescing key member the feeder exposes only because it is the
+            # KEY of its OWN semijoin probe (a HAVING `... is not null` over the
+            # coalesced key) is likewise incidental: the genuine union sides
+            # carry the coalesced key and the feeder reaches its rows through the
+            # EXISTS subselect, not a row join. Promoting it to a row source pairs
+            # a key column the side never projects under the group canonical — a
+            # dangling merge column. (A feeder exposing OTHER coalescing keys, not
+            # its probe key, is a real bridge row source and stays a join
+            # candidate: q04's chained union join over per-customer rowsets.)
+            probe_keys: set[str] = set()
+            for addr in provided_existence:
+                probe_keys |= existence_key_by_addr.get(addr, set())
+            return all(
+                a in existence_addr_set or a in probe_keys
+                for a in out_addrs
+                if a in merge_output_addresses
+            )
+
+        existence_final = [x for x in final_datasets if _is_existence_only(x)]
+        # ``force_group is True`` means this merge exists to regroup its (finer)
+        # parent to the output grain — a deliberate regroup requested upstream
+        # (e.g. group_if_required_v2 collapsing a fan-out enrichment back to the
+        # aggregate grain). Returning a parent that merely covers the output
+        # *columns* would silently drop that group, so skip the short-circuits.
+        # ``preserve_parents`` marks a deliberate multi-side assembly (each
+        # parent a distinct side of a coalescing relation) — a covering parent
+        # is one side's domain, never "good enough" for the unified axis.
+        can_drop_merge = self.force_group is not True and not self.preserve_parents
+        if can_drop_merge and len(merged.keys()) == 1:
+            final: QueryDatasource | BuildDatasource = next(iter(merged.values()))
+            if (
+                {c.address for c in final.output_concepts}
+                == {c.address for c in self.output_concepts}
+                and not self.conditions
+                and not self.force_group
+                and isinstance(final, QueryDatasource)
+            ):
+                logger.info(
+                    f"{self.logging_prefix}{LOGGER_PREFIX} Merge node has only one parent with the same"
+                    " outputs as this merge node, dropping merge node "
+                )
+                # push up any conditions we need
+                final.ordering = self.ordering
+                return final
+
+        # if we have multiple candidates, see if one is good enough
+        for dataset in final_datasets if can_drop_merge else []:
+            if any(
+                other.identifier != dataset.identifier and _has_applied_condition(other)
+                for other in final_datasets
+            ):
+                continue
+            output_set = {
+                c.address
+                for c in dataset.output_concepts
+                if c.address not in [x.address for x in dataset.partial_concepts]
+            }
+            if (
+                all(c.address in output_set for c in self.all_concepts)
+                and not self.conditions
+                and not self.force_group
+                and isinstance(dataset, QueryDatasource)
+            ):
+                logger.info(
+                    f"{self.logging_prefix}{LOGGER_PREFIX} Merge node not required as parent node {dataset.source_type}"
+                    f" has all required output properties with partial {[c.address for c in dataset.partial_concepts]}"
+                    f" and self has no conditions ({self.conditions})"
+                )
+                dataset.ordering = self.ordering
+                return dataset
+
+        # Accumulate grain components from non-existence sources directly; we
+        # rebuild via from_concepts below, which drops where_clauses anyway,
+        # so a per-source BuildGrain accumulator would be wasted work.
+        raw_pregrain_components: set[str] = set()
+        for source in final_datasets:
+            if all(
+                x.address in self.existence_concepts for x in source.output_concepts
+            ):
+                logger.debug(
+                    f"{self.logging_prefix}{LOGGER_PREFIX} skipping existence-only source {source.identifier}"
+                )
+                continue
+            raw_pregrain_components.update(source.grain.components)
+            logger.debug(
+                f"{self.logging_prefix}{LOGGER_PREFIX} added grain {source.grain} from {source.identifier}; pregrain components now {raw_pregrain_components}"
+            )
+
+        raw_pregrain = BuildGrain.from_concepts(
+            raw_pregrain_components, environment=self.environment
+        )
+
+        grain = self.grain if self.grain else raw_pregrain
+        logger.info(
+            f"{self.logging_prefix}{LOGGER_PREFIX} has pre grain {raw_pregrain} and final merge node grain {grain}"
+        )
+        join_candidates = [x for x in final_datasets if x not in existence_final]
+        if len(join_candidates) > 1:
+            joins: list[BaseJoin | UnnestJoin] = self.generate_joins(
+                join_candidates, final_joins, raw_pregrain, grain, self.environment
+            )
+        else:
+            joins = []
+
+        logger.info(
+            f"{self.logging_prefix}{LOGGER_PREFIX} Final join count for CTE parent count {len(join_candidates)} is {len(joins)}"
+        )
+        for join in joins:
+            downgrade_join_for_condition(join, self.conditions, final_datasets)
+        # A query-level filter (e.g. a HAVING like ``customer_state > scaled``)
+        # is sometimes pushed into the single branch that exposes its columns
+        # rather than kept on this merge. It still constrains the FINAL output,
+        # so honor it here: any output concept it proves non-null must not be
+        # re-nulled by an outer join. Only for inferred-join merges — a
+        # MULTISELECT align supplies explicit ``node_joins`` whose FULL is
+        # intentional (each arm's rows survive even where the other arm, with
+        # its own HAVING, has none), so an arm-local proof must not force INNER.
+        if self.node_joins is None:
+            output_addresses = {c.address for c in self.output_concepts}
+            branch_proofs: set[str] = set()
+            for source in final_datasets:
+                for condition in _collect_applied_conditions(source):
+                    branch_proofs |= non_null_proofs(condition)
+            branch_proofs &= output_addresses
+            # A branch-local filter proves its column non-null, but that only
+            # constrains the FINAL output when no branch supplies the column
+            # completely. When one branch has it COMPLETE (non-partial) and
+            # another has it PARTIAL — e.g. a rowset's `where order_id...` over
+            # its base key outer-joined back to the unfiltered base — the merge
+            # legitimately spans rows outside the filter, so the outer join must
+            # keep them: the column is non-null in the filtered branch but not
+            # complete there. (A column complete on one branch and merely absent
+            # from the rest,  still
+            # forces INNER — it isn't partial anywhere.)
+            complete_addresses: set[str] = set()
+            partial_addresses: set[str] = set()
+            for source in final_datasets:
+                source_partial = _collect_deep_partial_addresses(source)
+                source_outputs = {c.address for c in source.output_concepts}
+                complete_addresses |= source_outputs - source_partial
+                partial_addresses |= source_outputs & source_partial
+            branch_proofs -= complete_addresses & partial_addresses
+            if branch_proofs:
+                for join in joins:
+                    downgrade_join_for_proofs(join, branch_proofs, final_datasets)
+            # A branch that carries an atom of this merge's PRE-APPLIED request
+            # WHERE (preexisting_conditions the merge itself does not
+            # re-render) is the population: every final row must have a match
+            # there, so a join that null-extends that branch resurrects rows
+            # the WHERE rejected (q30: the `state = 'GA'` branch outer-joined
+            # once its key's honest nullability stopped the INNER typing).
+            # Branch-local filters (a rowset's internal WHERE) are not request
+            # atoms and keep their deliberate preservation.
+            self._tighten_joins_for_filtered_branches(joins, final_datasets)
+        # Compute per-datasource NULL-ability based on the resolved join graph.
+        # Used to (a) order ``final_datasets`` so the preserved side wins
+        # ``resolve_concept_map``'s first-pass for shared concepts and
+        # (b) prune NULL-able-side ``ConceptPair`` entries from JOIN ON when
+        # a preserved alternative exists. Both reduce redundant ``coalesce``.
+        null_status = compute_outer_null_status(joins)
+        prune_outer_join_pairs(joins, null_status)
+        # ``full_join_concepts`` covers FULL JOINs only — both sides may be
+        # NULL, so source_map needs every input that supplies the address. For
+        # LEFT/RIGHT OUTER the preserved-side ordering above is sufficient.
+        full_join_concepts = []
+        for join in joins:
+            if isinstance(join, BaseJoin) and join.join_type == JoinType.FULL:
+                full_join_concepts += join.input_concepts
+        pregrain = BuildGrain.from_concepts(
+            calculate_joined_pregrain(
+                final_datasets, joins, grain, self.environment
+            ).components,
+            environment=self.environment,
+        )
+        pregrain += condition_key_grain(self.conditions, self.environment)
+        anti_grain = anti_join_preserved_grain(final_datasets, joins, self.conditions)
+        if anti_grain is not None:
+            grain = anti_grain
+            pregrain = anti_grain
+        logger.debug(
+            f"{self.logging_prefix}{LOGGER_PREFIX} effective joined pregrain is {pregrain}"
+        )
+        condition_key_requires_group = has_condition_key_outside_grain(
+            self.conditions, grain, self.environment
+        )
+
+        if self.force_group is True:
+            # A node already producing rowset outputs at a grain its parents
+            # satisfy must not regroup. TVF_UNION counts too: a UNION ALL stack
+            # defines its own (no-dedup) row semantics, so a MergeNode wrapping it
+            # at the stack grain must never collapse duplicate rows. (Formerly the
+            # rowset generator masked this by renaming the body's outputs to
+            # ROWSET-derived concepts in place; the wrapper path keeps the body's
+            # TVF_UNION outputs, so recognize them here.)
+            rowset_output = any(
+                concept.derivation in (Derivation.ROWSET, Derivation.TVF_UNION)
+                for concept in self.output_concepts
+            )
+            force_group = condition_key_requires_group or not (
+                rowset_output
+                and grain_satisfied_by_pregrain(pregrain, grain, self.environment)
+            )
+        elif self.whole_grain:
+            force_group = False
+        elif condition_key_requires_group:
+            force_group = True
+        elif self.force_group is False:
+            force_group = not grain_satisfied_by_pregrain(
+                pregrain, grain, self.environment
+            )
+        elif not grain_satisfied_by_pregrain(pregrain, grain, self.environment):
+            logger.info(
+                f"{self.logging_prefix}{LOGGER_PREFIX} no parents include full grain {grain} and pregrain {pregrain} does not match, assume must group to grain. Have {[str(d.grain) for d in final_datasets]}"
+            )
+            force_group = True
+        else:
+            force_group = None
+
+        qd_joins: list[BaseJoin | UnnestJoin] = [*joins]
+
+        # Preserved sides first — first-wins inside ``resolve_concept_map``
+        # naturally picks the always-non-NULL source when multiple datasources
+        # supply the same concept. Existence-only sources sort LAST: their
+        # columns are reachable only through a subselect (no join), so a row
+        # source_map entry pointing at one renders an unresolvable FROM alias
+        # whenever a genuinely-joined parent also supplies the concept. Ordering
+        # them last lets the joined parent win while still leaving the existence
+        # source as the fallback provider when nothing else supplies it.
+        ordered_datasets = sorted(
+            final_datasets,
+            key=lambda ds: (
+                ds in existence_final,
+                null_status.get(ds.identifier, 0),
+                ds.identifier,
+            ),
+        )
+        final_output_concepts = self.output_concepts
+
+        source_map = resolve_concept_map(
+            ordered_datasets,
+            targets=final_output_concepts,
+            inherited_inputs=self.input_concepts + self.existence_concepts,
+            full_joins=full_join_concepts,
+        )
+        node_existence_source_map = resolve_existence_map(
+            final_datasets, self.existence_concepts
+        )
+        # A membership-RHS concept (`... in (rowset.a, rowset.b)`) carried as an
+        # OUTPUT column but supplied ONLY by an existence feeder is not row data
+        # — the feeder is reachable solely through its subselect, never a join,
+        # so emitting it in the SELECT dangles the FROM (``Referenced table ...
+        # not found``). Drop it from the row outputs and row source_map. Gated
+        # on: (a) it is an actual output column (a concept that only feeds a
+        # subselect is not in ``output`` and must keep its source_map entry —
+        # some nodes render the subselect FROM the row map), and (b) the
+        # subselect can still resolve it via ``existence_source_map`` after
+        # removal. A genuinely-joined parent supplying it (e.g. a coalesced grain
+        # key) leaves it non-all-feeder — feeders sort last above — so it stays.
+        existence_only_rows = {
+            addr
+            for addr in existence_addr_set
+            if addr in merge_output_addresses
+            and addr in node_existence_source_map
+            and source_map.get(addr)
+            and all(s in existence_final for s in source_map[addr])
+        }
+        if existence_only_rows:
+            for addr in existence_only_rows:
+                source_map.pop(addr, None)
+            final_output_concepts = [
+                c for c in final_output_concepts if c.address not in existence_only_rows
+            ]
+        # Scoped OUTER joins can bind different physical key addresses for one
+        # merged key. A chain of joins (e.g. `a.k=b.k`, `c.k=b.k`) makes those
+        # addresses one equivalence class; the merged key on any output row is
+        # the coalesce of every present member, so each member must render from
+        # the union of all class sources — a pairwise merge would leave a 3-way
+        # class only partly coalesced (`a.k` never learning `c`'s source). Build
+        # the classes by union-find over every OUTER-join pair, then point every
+        # member's source_map at the class-wide source union. (Same-address keys
+        # are already handled by normal shared-column resolution.)
+        outer_pairs: list[tuple[str, str]] = [
+            (pair.left.address, pair.right.address)
+            for join in joins
+            if isinstance(join, BaseJoin)
+            and join.join_type
+            in (JoinType.LEFT_OUTER, JoinType.RIGHT_OUTER, JoinType.FULL)
+            for pair in join.concept_pairs or []
+            if pair.left.address != pair.right.address
+        ]
+        # An authored coalescing (union/full) key group is one merged key
+        # wherever its members co-appear, but a chained group (a=b=c) can reach
+        # this node with one pairing already fused a level down — this node's
+        # own joins only name (b,c), so (a) never learns c's source. Seed the
+        # classes with the authored groups' co-present members.
+        if outer_pairs:
+            present = set(source_map.keys())
+            for (
+                member,
+                group_mates,
+            ) in self.environment.distinct_scoped_join_group_mates().items():
+                if member not in present:
+                    continue
+                outer_pairs.extend(
+                    (member, mate) for mate in group_mates if mate in present
+                )
+        for key_class in _key_equivalence_classes(outer_pairs):
+            combined: set[BuildDatasource | QueryDatasource | UnnestJoin] = set()
+            for addr in key_class:
+                combined |= source_map.get(addr, set())
+            if len(combined) <= 1:
+                continue
+            for addr in key_class:
+                source_map[addr] = set(combined)
+        nullable_concepts = find_nullable_concepts(
+            source_map=source_map, joins=joins, datasources=final_datasets
+        )
+        rollup_concepts = unique(
+            self.rollup_concepts
+            + [
+                c
+                for source in final_datasets
+                if isinstance(source, QueryDatasource)
+                for c in source.rollup_concepts
+                if c.address in {out.address for out in final_output_concepts}
+            ],
+            "address",
+        )
+        if force_group:
+
+            grain = BuildGrain.from_concepts(
+                self.output_concepts, environment=self.environment
+            )
+            logger.info(
+                f"{self.logging_prefix}{LOGGER_PREFIX} forcing group by to achieve grain {grain}"
+            )
+        qds = QueryDatasource(
+            input_concepts=unique(self.input_concepts, "address"),
+            output_concepts=final_output_concepts,
+            datasources=final_datasets,
+            source_type=self.source_type,
+            source_map=source_map,
+            existence_source_map=node_existence_source_map,
+            joins=qd_joins,
+            grain=grain,
+            # union the join-analysis nullables (null-extended outer sides,
+            # nullable source columns) with node-level nullables — the latter
+            # carry inferred nullability for concepts COMPUTED at this node
+            # (e.g. a derived join key over a nullable column)
+            nullable_concepts=[
+                x
+                for x in final_output_concepts
+                if x.address in nullable_concepts
+                or any(x.address == n.address for n in self.nullable_concepts)
+            ],
+            partial_concepts=self.partial_concepts,
+            rollup_concepts=rollup_concepts,
+            force_group=force_group,
+            condition=self.conditions,
+            hidden_concepts=self.hidden_concepts,
+            ordering=self.ordering,
+        )
+        return qds
+
+    def copy(self) -> "MergeNode":
+        return type(self)(
+            input_concepts=list(self.input_concepts),
+            output_concepts=list(self.output_concepts),
+            environment=self.environment,
+            whole_grain=self.whole_grain,
+            parents=self.parents,
+            depth=self.depth,
+            partial_concepts=list(self.partial_concepts),
+            rollup_concepts=list(self.rollup_concepts),
+            force_group=self.force_group,
+            grain=self.grain,
+            conditions=self.conditions,
+            preexisting_conditions=self.preexisting_conditions,
+            nullable_concepts=list(self.nullable_concepts),
+            hidden_concepts=set(self.hidden_concepts),
+            virtual_output_concepts=list(self.virtual_output_concepts),
+            node_joins=list(self.node_joins) if self.node_joins else None,
+            join_concepts=list(self.join_concepts) if self.join_concepts else None,
+            force_join_type=self.force_join_type,
+            existence_concepts=list(self.existence_concepts),
+            ordering=self.ordering,
+            preserve_parents=self.preserve_parents,
+        )
+
+
+class MultiSelectMergeNode(MergeNode):
+    """The outer FULL JOIN of a multiselect's aligned arms.
+
+    A distinct type so the regroup pass (``group_if_required_v2``) can recognize
+    it unambiguously: this node is always already at the align-key grain and must
+    never be regrouped, even when hidden derive-arg columns inflate the joined
+    pregrain past that grain (forcing a GROUP BY would omit the raw aggregate
+    projections and produce invalid SQL). Inherits all behavior — the subclass
+    is purely a marker — and ``copy()`` preserves it via ``type(self)``.
+    """

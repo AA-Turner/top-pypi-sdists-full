@@ -76,7 +76,8 @@ class CollectionResponse(BaseModel):
     vector_count: Optional[StrictInt] = Field(default=None, description="Total number of vector entries across all documents in this collection. Computed as document_count * number_of_vector_indexes. Each document stores one vector per configured vector index (e.g. a collection with 1 embedding produces 1 vector per document).")
     taxonomy_count: Optional[StrictInt] = Field(default=None, description="Number of taxonomies connected to this collection")
     retriever_count: Optional[StrictInt] = Field(default=None, description="Number of retrievers connected to this collection")
-    __properties: ClassVar[List[str]] = ["collection_id", "collection_name", "description", "input_schema", "output_schema", "feature_extractor", "source", "source_bucket_schemas", "source_lineage", "vector_indexes", "payload_indexes", "embedding_task", "enabled", "metadata", "schedule", "trigger_id", "created_at", "updated_at", "lifecycle_state", "s3_vector_index", "last_lifecycle_transition", "tiering_rules", "document_count", "schema_version", "last_schema_sync", "schema_sync_enabled", "document_schema", "schema_validation", "taxonomy_applications", "cluster_applications", "alert_applications", "retriever_enrichments", "retriever_transform", "vector_count", "taxonomy_count", "retriever_count"]
+    warnings: Optional[List[StrictStr]] = Field(default=None, description="NOT REQUIRED. Non-fatal problems detected while creating the collection. The collection WAS created; these describe things that will make it produce nothing at run time. The case this exists for: input_mappings can name a field that is valid in the bucket SCHEMA and absent from the bucket's OBJECTS, because a sync with no schema_mapping writes its blob to the default property instead. Schema validation passes, the batch then finds nothing, and the batch error arrives long after the decision was made. A warning here reaches the caller while they can still change it.")
+    __properties: ClassVar[List[str]] = ["collection_id", "collection_name", "description", "input_schema", "output_schema", "feature_extractor", "source", "source_bucket_schemas", "source_lineage", "vector_indexes", "payload_indexes", "embedding_task", "enabled", "metadata", "schedule", "trigger_id", "created_at", "updated_at", "lifecycle_state", "s3_vector_index", "last_lifecycle_transition", "tiering_rules", "document_count", "schema_version", "last_schema_sync", "schema_sync_enabled", "document_schema", "schema_validation", "taxonomy_applications", "cluster_applications", "alert_applications", "retriever_enrichments", "retriever_transform", "vector_count", "taxonomy_count", "retriever_count", "warnings"]
 
     @field_validator('schema_validation')
     def schema_validation_validate_enum(cls, value):
@@ -246,7 +247,8 @@ class CollectionResponse(BaseModel):
             "retriever_transform": RetrieverTransformConfigOutput.from_dict(obj["retriever_transform"]) if obj.get("retriever_transform") is not None else None,
             "vector_count": obj.get("vector_count"),
             "taxonomy_count": obj.get("taxonomy_count"),
-            "retriever_count": obj.get("retriever_count")
+            "retriever_count": obj.get("retriever_count"),
+            "warnings": obj.get("warnings")
         })
         return _obj
 

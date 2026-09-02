@@ -29,6 +29,7 @@ __all__ = (
     "CapacityProviderScalingModeType",
     "CapacityProviderStateType",
     "CodeSigningPolicyType",
+    "DirectS3ReadType",
     "EndPointTypeType",
     "EventSourceMappingMetricType",
     "EventSourceMappingSystemLogLevelType",
@@ -105,6 +106,7 @@ CapacityProviderPredefinedMetricTypeType = Literal["LambdaCapacityProviderAverag
 CapacityProviderScalingModeType = Literal["Auto", "Manual"]
 CapacityProviderStateType = Literal["Active", "Deleting", "Failed", "Pending"]
 CodeSigningPolicyType = Literal["Enforce", "Warn"]
+DirectS3ReadType = Literal["AUTO", "DISABLED", "ENABLED"]
 EndPointTypeType = Literal["KAFKA_BOOTSTRAP_SERVERS"]
 EventSourceMappingMetricType = Literal["ErrorCount", "EventCount", "KafkaMetrics"]
 EventSourceMappingSystemLogLevelType = Literal["DEBUG", "INFO", "WARN"]

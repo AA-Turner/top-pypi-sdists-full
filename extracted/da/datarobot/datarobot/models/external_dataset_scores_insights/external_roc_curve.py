@@ -36,13 +36,13 @@ class ExternalRocCurve(APIObject, RocCurveThresholdMixin):
     Attributes
     ----------
     dataset_id: str
-        id of the prediction dataset with target or actual value column for unsupervised case
+        ID of the prediction dataset with target or actual value column for unsupervised case.
     roc_points: list of dict
-        List of precalculated metrics associated with thresholds for ROC curve.
+        A list of precalculated metrics associated with thresholds for ROC curve.
     negative_class_predictions: list of float
-        List of predictions from example for negative class
+        A list of predictions from example for negative class.
     positive_class_predictions: list of float
-        List of predictions from example for positive class
+        A list of predictions from example for positive class.
     """
 
     _path = "projects/{project_id}/models/{model_id}/datasetRocCurves/"
@@ -78,16 +78,15 @@ class ExternalRocCurve(APIObject, RocCurveThresholdMixin):
         Parameters
         ----------
         project_id: str
-            id of the project
+            ID of the project.
         model_id: str
-            if specified, only lift chart for this model will be retrieved
+            If specified, only the lift chart for this model is retrieved.
         dataset_id: Optional[str]
-            if specified, only lift chart for this dataset will be retrieved
+            If specified, only the lift chart for this dataset is retrieved.
         offset: Optional[int]
-            this many results will be skipped, default: 0
+            This many results will be skipped, default: 0.
         limit: Optional[int]
-            at most this many results are returned, default: 100, max 1000.
-            To return all results, specify 0
+            At most this many results are returned, default: 100, max 1000. To return all results, specify 0.
 
         Returns
         -------
@@ -110,11 +109,11 @@ class ExternalRocCurve(APIObject, RocCurveThresholdMixin):
         Parameters
         ----------
         project_id: str
-            project id
+            Project ID.
         model_id: str
-            model id
+            Model ID.
         dataset_id: str
-            prediction dataset id with target or actual value column for unsupervised case
+            Prediction dataset ID with target or actual value column for unsupervised case.
 
         Returns
         -------

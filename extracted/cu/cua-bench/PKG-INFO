@@ -1,0 +1,191 @@
+Metadata-Version: 2.4
+Name: cua-bench
+Version: 0.2.11
+Summary: Toolkit for computer-use RL environments and benchmarks
+Project-URL: Homepage, https://github.com/trycua/cua
+Project-URL: Documentation, https://docs.trycua.com
+Project-URL: Repository, https://github.com/trycua/cua
+Project-URL: Issues, https://github.com/trycua/cua/issues
+Author-email: TryCua <hello@trycua.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: agents,benchmarks,computer-use,gui-automation,reinforcement-learning,vlm
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: <3.14,>=3.12
+Requires-Dist: aiofiles>=23.0.0
+Requires-Dist: aiohttp>=3.9.0
+Requires-Dist: beautifulsoup4>=4.14.2
+Requires-Dist: cua-agent
+Requires-Dist: cua-computer>=0.4.19
+Requires-Dist: cua-core<0.4.0,>=0.3.0
+Requires-Dist: datasets>=3.0.0
+Requires-Dist: docker>=7.0.0
+Requires-Dist: html5lib>=1.1
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: matplotlib>=3.8.0
+Requires-Dist: numpy>=2.0.0
+Requires-Dist: pillow>=11.0.0
+Requires-Dist: playwright>=1.55.0
+Requires-Dist: psutil>=5.9.0
+Requires-Dist: pyquery>=2.0.1
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: rich>=14.2.0
+Requires-Dist: tqdm>=4.66.0
+Requires-Dist: websockets>=12.0
+Provides-Extra: agents
+Requires-Dist: anthropic>=0.26.0; extra == 'agents'
+Requires-Dist: cua-agent>=0.8.0; extra == 'agents'
+Provides-Extra: all
+Requires-Dist: anthropic>=0.26.0; extra == 'all'
+Requires-Dist: cua-agent>=0.8.0; extra == 'all'
+Requires-Dist: gcloud-aio-storage>=9.0.0; extra == 'all'
+Requires-Dist: google-cloud-batch>=0.17.0; extra == 'all'
+Requires-Dist: google-cloud-logging>=3.5.0; extra == 'all'
+Requires-Dist: google-cloud-storage>=2.10.0; extra == 'all'
+Requires-Dist: grpcio>=1.60.0; extra == 'all'
+Requires-Dist: opentelemetry-api>=1.20.0; extra == 'all'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == 'all'
+Requires-Dist: opentelemetry-sdk>=1.20.0; extra == 'all'
+Requires-Dist: playwright>=1.40.0; extra == 'all'
+Requires-Dist: pyspice>=1.5; extra == 'all'
+Provides-Extra: browser
+Requires-Dist: playwright>=1.40.0; extra == 'browser'
+Provides-Extra: cloud
+Requires-Dist: gcloud-aio-storage>=9.0.0; extra == 'cloud'
+Requires-Dist: google-cloud-batch>=0.17.0; extra == 'cloud'
+Requires-Dist: google-cloud-logging>=3.5.0; extra == 'cloud'
+Requires-Dist: google-cloud-storage>=2.10.0; extra == 'cloud'
+Requires-Dist: grpcio>=1.60.0; extra == 'cloud'
+Requires-Dist: opentelemetry-api>=1.20.0; extra == 'cloud'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == 'cloud'
+Requires-Dist: opentelemetry-sdk>=1.20.0; extra == 'cloud'
+Provides-Extra: daytona
+Requires-Dist: daytona-sdk>=0.1.0; extra == 'daytona'
+Provides-Extra: dev
+Requires-Dist: fastapi>=0.100.0; extra == 'dev'
+Requires-Dist: httpx>=0.27.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23.0; extra == 'dev'
+Requires-Dist: pytest>=8.0.0; extra == 'dev'
+Requires-Dist: ruff>=0.1.0; extra == 'dev'
+Requires-Dist: uvicorn>=0.30.0; extra == 'dev'
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api>=1.20.0; extra == 'otel'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == 'otel'
+Requires-Dist: opentelemetry-sdk>=1.20.0; extra == 'otel'
+Provides-Extra: packaging
+Requires-Dist: boto3>=1.26.0; extra == 'packaging'
+Provides-Extra: rl
+Requires-Dist: torch>=2.12.1; extra == 'rl'
+Requires-Dist: torchvision>=0.27.1; extra == 'rl'
+Requires-Dist: transformers<6.0,>=5.0.0rc3; extra == 'rl'
+Provides-Extra: server
+Requires-Dist: aiosqlite>=0.19.0; extra == 'server'
+Requires-Dist: fastapi>=0.100.0; extra == 'server'
+Requires-Dist: python-multipart>=0.0.6; extra == 'server'
+Requires-Dist: uvicorn>=0.30.0; extra == 'server'
+Provides-Extra: spice
+Requires-Dist: pyspice>=1.5; extra == 'spice'
+Provides-Extra: windows
+Requires-Dist: icoextract>=0.2.0; extra == 'windows'
+Requires-Dist: pypiwin32>=223; extra == 'windows'
+Description-Content-Type: text/markdown
+
+# cua-bench
+
+Framework for benchmarking Computer-Use Agents with verifiable cross-platform environments.
+
+**[Documentation](https://cua.ai/docs/cuabench)** - Installation, guides, and API reference.
+
+## Running Tests
+
+The test suite covers the core gym interface, worker system, and benchmark runners.
+
+### Install dev dependencies
+
+```bash
+uv pip install -e ".[dev,browser,server,rl]"
+```
+
+Note: The `browser` extra installs Playwright for e2e tests with the simulated provider.
+
+### Run all tests
+
+```bash
+uv run --with pytest pytest cua_bench/tests/ -v
+```
+
+### Run specific test modules
+
+```bash
+# Core gym interface (make, reset, step, evaluate)
+uv run --with pytest pytest cua_bench/tests/test_gym_interface.py -v
+
+# HTTP worker client (/reset, /step endpoints)
+uv run --with pytest pytest cua_bench/tests/test_worker_client.py -v
+
+# Worker server endpoints and action serialization
+uv run --with pytest pytest cua_bench/tests/test_worker_server.py -v
+
+# Benchmark runner functions
+uv run --with pytest pytest cua_bench/tests/test_run_benchmark.py -v
+
+# Worker manager (spawning/managing workers)
+uv run --with pytest pytest cua_bench/tests/test_worker_manager.py -v
+
+# Action parsing
+uv run --with pytest pytest cua_bench/tests/test_actions.py -v
+```
+
+### Run tests with coverage
+
+```bash
+uv run --with pytest --with pytest-cov pytest cua_bench/tests/ -v --cov=cua_bench --cov-report=term-missing
+```
+
+## Test Structure
+
+| Test Module              | What it Tests                                                     | Approach                                                                  |
+| ------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `test_gym_interface.py`  | Core Environment API: `make()`, `reset()`, `step()`, `evaluate()` | **E2E** - Real simulated (Playwright) environments                        |
+| `test_worker_client.py`  | HTTP client for worker servers (`CBEnvWorkerClient`)              | **Mock server** - Uses `@patch("requests.post")` to mock HTTP responses   |
+| `test_worker_server.py`  | FastAPI endpoints and action serialization                        | **Unit** - Action serialize/deserialize, request models, simple endpoints |
+| `test_run_benchmark.py`  | `run_benchmark()`, `run_single_task()`, `run_interactive()`       | **E2E** - Real simulated (Playwright) environments                        |
+| `test_worker_manager.py` | Workers + dataloader training loop                                | **E2E** - Real workers, real envs, mock model for actions                 |
+| `test_actions.py`        | Action string parsing (`repr_to_action()`)                        | **Unit** - Pure function tests                                            |
+
+### Test Approach Philosophy
+
+- **E2E tests** use real simulated (Playwright) environments. The `simulated` provider is fast enough for testing.
+- **Mock server tests** (`test_worker_client.py`) mock HTTP responses to test client logic in isolation.
+- **Mock model** (`test_worker_manager.py`) uses a mock model that returns simple actions to test the dataloader training loop without requiring a real ML model.
+
+## Infrastructure Benchmarking
+
+Measure the throughput of the worker infrastructure:
+
+```bash
+uv run python -m cua_bench.scripts.benchmark_workers --num_workers 16 --num_steps 10
+```
+
+Options:
+
+| Flag            | Default | Description                                    |
+| --------------- | ------- | ---------------------------------------------- |
+| `--num_workers` | 16      | Number of parallel workers                     |
+| `--num_steps`   | 10      | Steps per worker                               |
+| `--task_path`   | None    | Path to task directory (creates temp if empty) |
+
+Output:
+
+- Average reset time
+- Average step time
+- Average finish time
+- Step throughput (steps/sec)

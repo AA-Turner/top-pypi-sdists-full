@@ -61,7 +61,7 @@ class WordCloud(APIObject):
     Attributes
     ----------
     ngrams : list of dict
-        List of dicts with schema described as ``WordCloudNgram`` above.
+        A list of dicts with schema described as ``WordCloudNgram`` above.
     """
 
     _converter = t.Dict({
@@ -86,12 +86,12 @@ class WordCloud(APIObject):
         return f"WordCloud({len(self.ngrams)} ngrams)"
 
     def most_frequent(self, top_n: Optional[int] = 5) -> List[WordCloudNgram]:
-        """Return most frequent ngrams in the word cloud.
+        """Returns the most frequent ngrams in the word cloud.
 
         Parameters
         ----------
         top_n : int
-            Number of ngrams to return
+            Number of ngrams to return.
 
         Returns
         -------
@@ -103,12 +103,12 @@ class WordCloud(APIObject):
         return sorted(self.ngrams, key=lambda ngram: ngram["frequency"], reverse=True)[:top_n]
 
     def most_important(self, top_n: Optional[int] = 5) -> List[WordCloudNgram]:
-        """Return most important ngrams in the word cloud.
+        """Returns the most important ngrams in the word cloud.
 
         Parameters
         ----------
         top_n : int
-            Number of ngrams to return
+            Number of ngrams to return.
 
         Returns
         -------

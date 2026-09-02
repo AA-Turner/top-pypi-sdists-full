@@ -1,0 +1,378 @@
+from __future__ import annotations
+
+import gzip
+import logging
+import os
+import threading
+import types
+from datetime import date, datetime, time
+from decimal import Decimal
+from email.message import Message
+from email.utils import collapse_rfc2231_value
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, TypedDict, TypeVar
+
+import msgpack
+
+logger = logging.getLogger("kolo")
+
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
+
+
+class UserCodeCallSite(TypedDict):
+    line_number: int
+    call_frame_id: str
+
+
+class _ValueReference:
+    __slots__ = ("index",)
+
+    def __init__(self, index: int):
+        self.index = index
+
+
+def user_code_call_site(
+    call_frames: List[Tuple[types.FrameType, str]],
+    frame_id: str,
+) -> UserCodeCallSite | None:
+    count = len(call_frames)
+    if count == 0:
+        return None
+
+    call_frame, call_frame_id = call_frames[-1]
+
+    # If `frame_id` is set in a `return` frame, we want to skip it
+    if call_frame_id == frame_id:
+        if count == 1:
+            return None
+        call_frame, call_frame_id = call_frames[-2]
+
+    return {
+        "call_frame_id": call_frame_id,
+        "line_number": call_frame.f_lineno,
+    }
+
+
+Local = TypeVar("Local")
+
+
+SERIALIZE_PATH = os.path.normpath("kolo/serialize.py")
+
+
+# TODO: Make these threadlocals when we support multithreading
+QUERYSET_PATCHED = False
+IN_KOLO_PROFILER = False
+_PACKERS = threading.local()
+
+# Lazy-loaded Django QuerySet (to avoid importing Django at module load time)
+# This dramatically speeds up subprocess startup for emit --auto
+_QuerySet = None
+_QuerySet_checked = False
+
+
+def _get_queryset_class():
+    """Lazily import Django QuerySet, caching the result."""
+    global _QuerySet, _QuerySet_checked
+    if not _QuerySet_checked:
+        try:
+            from django.db.models import QuerySet
+
+            _QuerySet = QuerySet
+        except ImportError:
+            _QuerySet = None
+        _QuerySet_checked = True
+    return _QuerySet
+
+
+def monkeypatch_queryset_repr():
+    global QUERYSET_PATCHED
+    if QUERYSET_PATCHED:
+        return
+
+    try:
+        from django.db.models import QuerySet
+    except ImportError:  # pragma: no cover
+        QUERYSET_PATCHED = True
+        return
+
+    old_repr = QuerySet.__repr__
+
+    def new_repr(queryset):
+        if getattr(queryset, "_result_cache", None) is None and IN_KOLO_PROFILER:
+            return f"Unevaluated queryset for: {queryset.model}"
+        return old_repr(queryset)
+
+    QuerySet.__repr__ = new_repr  # type: ignore
+    QUERYSET_PATCHED = True
+
+
+def msgpack_encode_hook(obj):
+    try:
+        if isinstance(obj, tuple):
+            return msgpack.ExtType(6, _dump_msgpack(list(obj)))
+
+        if isinstance(obj, set):
+            return msgpack.ExtType(7, _dump_msgpack(list(obj)))
+
+        if isinstance(obj, frozenset):
+            return msgpack.ExtType(8, _dump_msgpack(list(obj)))
+
+        if isinstance(obj, dict):
+            return dict(obj)
+
+        if isinstance(obj, datetime):
+            return msgpack.ExtType(1, obj.isoformat().encode("utf-8"))
+
+        if isinstance(obj, date):
+            return msgpack.ExtType(2, obj.isoformat().encode("utf-8"))
+
+        if isinstance(obj, time):
+            return msgpack.ExtType(3, obj.isoformat().encode("utf-8"))
+
+        if isinstance(obj, int):
+            num_bytes = (obj.bit_length() + 7) // 8 + 1
+            return msgpack.ExtType(4, obj.to_bytes(num_bytes, "big", signed=True))
+
+        if isinstance(obj, Decimal):
+            return msgpack.ExtType(5, str(obj).encode("utf-8"))
+
+        # Check for Django QuerySet (lazy import to avoid loading Django at module load)
+        QuerySet = _get_queryset_class()
+        if QuerySet is not None and isinstance(obj, QuerySet):
+            if obj._result_cache is None:
+                data = f"Unevaluated queryset for: {obj.model}".encode("utf-8")
+                return msgpack.ExtType(0, data)
+
+        return msgpack.ExtType(0, repr(obj).encode("utf-8"))
+    except Exception:
+        path = f"{obj.__module__}.{type(obj).__qualname__}"
+        return msgpack.ExtType(127, path.encode("utf-8"))
+
+
+def msgpack_decode_hook(code, data):
+    if code == 0:
+        return data.decode("utf-8")
+    if code == 1:
+        return datetime.fromisoformat(data.decode("utf-8"))
+    if code == 2:
+        return date.fromisoformat(data.decode("utf-8"))
+    if code == 3:
+        return time.fromisoformat(data.decode("utf-8"))
+    if code == 4:
+        return int.from_bytes(data, "big", signed=True)
+    if code == 5:
+        return Decimal(data.decode("utf-8"))
+    if code == 6:
+        return tuple(load_msgpack(data))
+    if code == 7:
+        return set(load_msgpack(data))
+    if code == 8:
+        return frozenset(load_msgpack(data))
+    if code == 9:
+        if len(data) != 4:
+            raise ValueError("Invalid Kolo value reference")
+        return _ValueReference(int.from_bytes(data, "big"))
+    if code == 127:
+        data = data.decode("utf-8")
+        return f"KoloSerializationError: {data}"
+    raise ValueError(f"Unknown msgpack extension. Code: {code}")
+
+
+def _pack_with_msgpack(name: str, default, data):
+    stack_name = f"{name}_packers"
+    depth_name = f"{name}_depth"
+    packers = getattr(_PACKERS, stack_name, None)
+    if packers is None:
+        packers = []
+        setattr(_PACKERS, stack_name, packers)
+
+    depth = getattr(_PACKERS, depth_name, 0)
+    if depth == len(packers):
+        packers.append(
+            msgpack.Packer(default=default, strict_types=True, autoreset=True)
+        )
+
+    setattr(_PACKERS, depth_name, depth + 1)
+    try:
+        return packers[depth].pack(data)
+    finally:
+        setattr(_PACKERS, depth_name, depth)
+
+
+def _dump_msgpack(data):
+    return _pack_with_msgpack("default", msgpack_encode_hook, data)
+
+
+def dump_msgpack(data):
+    global IN_KOLO_PROFILER
+    IN_KOLO_PROFILER = True
+    try:
+        return _dump_msgpack(data)
+    finally:
+        IN_KOLO_PROFILER = False
+
+
+def msgpack_encode_hook_lightweight_repr(obj):
+    if isinstance(obj, tuple):
+        return msgpack.ExtType(6, dump_msgpack_lightweight_repr(list(obj)))
+
+    if isinstance(obj, set):
+        return msgpack.ExtType(7, dump_msgpack_lightweight_repr(list(obj)))
+
+    if isinstance(obj, frozenset):
+        return msgpack.ExtType(8, dump_msgpack_lightweight_repr(list(obj)))
+
+    if isinstance(obj, dict):
+        return dict(obj)
+
+    if isinstance(obj, datetime):
+        return msgpack.ExtType(1, obj.isoformat().encode("utf-8"))
+
+    if isinstance(obj, date):
+        return msgpack.ExtType(2, obj.isoformat().encode("utf-8"))
+
+    if isinstance(obj, time):
+        return msgpack.ExtType(3, obj.isoformat().encode("utf-8"))
+
+    if isinstance(obj, int):
+        num_bytes = (obj.bit_length() + 7) // 8 + 1
+        return msgpack.ExtType(4, obj.to_bytes(num_bytes, "big", signed=True))
+
+    if isinstance(obj, Decimal):
+        return msgpack.ExtType(5, str(obj).encode("utf-8"))
+
+    return msgpack.ExtType(
+        0, f"<{obj.__class__.__qualname__} object {id(obj)}>".encode("utf-8")
+    )
+
+
+def dump_msgpack_lightweight_repr(data):
+    return _pack_with_msgpack("lightweight", msgpack_encode_hook_lightweight_repr, data)
+
+
+def load_msgpack_value(data):
+    return msgpack.unpackb(data, strict_map_key=False, ext_hook=msgpack_decode_hook)
+
+
+def resolve_value_references(value, table):
+    if isinstance(value, _ValueReference):
+        try:
+            return table[value.index]
+        except (IndexError, KeyError) as exc:
+            raise ValueError(f"Invalid Kolo value reference: {value.index}") from exc
+    if isinstance(value, dict):
+        return {
+            resolve_value_references(key, table): resolve_value_references(item, table)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [resolve_value_references(item, table) for item in value]
+    if isinstance(value, tuple):
+        return tuple(resolve_value_references(item, table) for item in value)
+    if isinstance(value, set):
+        return {resolve_value_references(item, table) for item in value}
+    if isinstance(value, frozenset):
+        return frozenset(resolve_value_references(item, table) for item in value)
+    return value
+
+
+def load_msgpack(data):
+    return load_msgpack_value(data)
+
+
+def decode_header_value(bytes_or_str: bytes | str) -> str:
+    """
+    Convert a bytes header value to text.
+
+    Valid header values are expected to be ascii in modern times, but
+    ISO-8859-1 (latin1) has historically been allowed.
+
+    https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.4
+    """
+    if isinstance(bytes_or_str, bytes):
+        return bytes_or_str.decode("latin1")
+    return bytes_or_str
+
+
+def frame_path(frame: types.FrameType) -> str:
+    path = frame.f_code.co_filename
+    try:
+        relative_path = os.path.relpath(path)
+    except ValueError:  # pragma: no cover
+        relative_path = path
+    return f"{relative_path}:{frame.f_lineno}"
+
+
+class FramePathCache:
+    """Format frame paths relative to the directory where tracing started.
+
+    Code objects are held strongly for the lifetime of a tracing session.  Besides
+    making the cache safe from ``id`` reuse, this turns path normalization from a
+    per-event filesystem operation into a once-per-code-object operation.
+    """
+
+    def __init__(self) -> None:
+        self.root = os.getcwd()
+        self._paths: dict[int, tuple[types.CodeType, str]] = {}
+
+    def format(self, frame: types.FrameType) -> str:
+        return self.format_code(frame.f_code, frame.f_lineno)
+
+    def format_code(self, code: types.CodeType, lineno: int) -> str:
+        code_id = id(code)
+        try:
+            relative_path = self._paths[code_id][1]
+        except KeyError:
+            path = code.co_filename
+            if os.path.isabs(path):
+                try:
+                    relative_path = os.path.relpath(path, self.root)
+                except ValueError:  # pragma: no cover
+                    relative_path = path
+            else:
+                relative_path = os.path.normpath(path)
+            self._paths[code_id] = (code, relative_path)
+        return f"{relative_path}:{lineno}"
+
+
+def decode_body(body: Any, request_headers: Dict[str, str]) -> Any:
+    """Convert a request body into a json-serializable form."""
+    if isinstance(body, bytes):
+        content_type = request_headers.get("Content-Type", "")
+        m = Message()
+        m["content-type"] = content_type
+        charset = collapse_rfc2231_value(m.get_param("charset", "utf-8"))
+        try:
+            return body.decode(charset)
+        except UnicodeDecodeError:
+            return "<Binary request body>"
+    return body
+
+
+def get_content(response: HttpResponse | StreamingHttpResponse) -> str:
+    if response.streaming:
+        return "<Streaming Response>"
+
+    if TYPE_CHECKING:
+        assert isinstance(response, HttpResponse)
+    content_encoding = response.get("Content-Encoding")
+    if content_encoding == "gzip":
+        content = gzip.decompress(response.content)
+    else:
+        content = response.content
+    try:
+        return content.decode(response.charset)
+    except UnicodeDecodeError:
+        return f"<Response with invalid charset ({response.charset})>"
+
+
+def get_request_body(request: "HttpRequest") -> str:
+    from django.http.request import RawPostDataException
+
+    try:
+        return request.body.decode("utf-8")
+    except UnicodeDecodeError:  # pragma: no cover
+        return "<Binary request body>"
+    except RawPostDataException:
+        return "<Request data already read>"

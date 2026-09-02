@@ -49,9 +49,9 @@ class ExternalLiftChart(APIObject):
     Attributes
     ----------
     dataset_id: str
-        id of the prediction dataset with target or actual value column for unsupervised case
+        ID of the prediction dataset with target or actual value column for unsupervised case.
     bins: list of dict
-        List of dicts with schema described as ``LiftChartBin`` above.
+        A list of dicts with schema described as ``LiftChartBin`` above.
 
     """
 
@@ -80,16 +80,15 @@ class ExternalLiftChart(APIObject):
         Parameters
         ----------
         project_id: str
-            id of the project
+            ID of the project.
         model_id: str
-            if specified, only lift chart for this model will be retrieved
+            If specified, only the lift chart for this model is retrieved.
         dataset_id: Optional[str]
-            if specified, only lift chart for this dataset will be retrieved
+            If specified, only the lift chart for this dataset is retrieved.
         offset: Optional[int]
-            this many results will be skipped, default: 0
+            This many results will be skipped, default: 0.
         limit: Optional[int]
-            at most this many results are returned, default: 100, max 1000.
-            To return all results, specify 0
+            At most this many results are returned, default: 100, max 1000. To return all results, specify 0.
 
         Returns
         -------
@@ -112,11 +111,11 @@ class ExternalLiftChart(APIObject):
         Parameters
         ----------
         project_id: str
-            project id
+            Project ID.
         model_id: str
-            model id
+            Model ID.
         dataset_id: str
-            prediction dataset id with target or actual value column for unsupervised case
+            Prediction dataset ID with target or actual value column for unsupervised case.
 
         Returns
         -------

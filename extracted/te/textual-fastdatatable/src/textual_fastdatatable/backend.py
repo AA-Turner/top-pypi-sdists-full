@@ -1,0 +1,1167 @@
+from __future__ import annotations
+
+import sys
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import suppress
+from datetime import date, datetime
+from pathlib import Path
+from typing import Any, Generic, Literal, TypeVar, cast
+
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.lib as pal
+import pyarrow.types as pt
+
+AutoBackendType = Any
+
+try:
+    import polars as pl
+    import polars.datatypes as pld
+except ImportError:
+    _HAS_POLARS = False
+else:
+    _HAS_POLARS = True
+
+_RENDER_MARKUP_DEFAULT = False
+"""
+This is false only when there is no DataTable front-end is attached...
+as soon as the front-end is attached, the backend will take its value,
+unless column widths have already been computed, in which case the backend
+will raise an error.
+"""
+
+
+_REGISTERED_UDFS: set[str] = set()
+"""The scalar UDFs registered with Arrow so far, by name. Registering a name that is
+already taken raises — and drops a reference to the function registered under it, so
+that pyarrow segfaults a couple of calls later — so each name is registered once."""
+
+
+def _register_udf(
+    name: str,
+    func: Callable[..., Any],
+    in_type: pa.DataType,
+    out_type: pa.DataType,
+    summary: str,
+) -> str:
+    """Register `func` as an Arrow scalar UDF of one array, if it is not registered."""
+    if name not in _REGISTERED_UDFS:
+        with suppress(pal.ArrowKeyError):  # registered by someone else
+            pc.register_scalar_function(
+                func,
+                function_name=name,
+                function_doc={"summary": summary, "description": summary},
+                in_types={"arr": in_type},
+                out_type=out_type,
+            )
+        _REGISTERED_UDFS.add(name)
+    return name
+
+
+_MARKUP_PATTERN = r"\[[a-z#/@][^\[]*\]|\\\["
+"""A superset of the values rich renders as something other than themselves.
+
+`rich.markup.render` returns a value unchanged unless it contains a tag — the first
+branch, `rich.markup.RE_TAGS` with its lazy quantifier made greedy, which does not
+change whether it matches — or a `\\[` escape, which it unescapes to `[`. Matching
+more than that only costs a measurement; matching less measures a value wrong, so
+this has to stay wider than whatever rich does.
+"""
+
+LINE_BREAKS = frozenset("\r\n")
+"""Characters that end a value's first line. Restates `format.LINE_BREAK_PROG`,
+which this module cannot import (see `_measure_width`); the test below holds them
+in step."""
+
+_MARKER_WIDTH = 2
+"""Cells `format.MULTILINE_MARKER` takes. Restates `format.MULTILINE_MARKER_WIDTH`.
+
+Both are checked by `test_backends.test_line_breaks_match_the_formatters`."""
+
+_SCAN_BLOCK_SIZE = 1 << 20
+"""Bytes `_line_breaks_present` copies at a time, so scanning a large column does
+not double its memory."""
+
+
+def _measure_cells(arr: pa.Array, render_markup: bool) -> pa._PandasConvertible:
+    """The width, in cells, of every string in `arr`. Called through the UDFs below.
+
+    An ASCII character is one byte and one cell, so a single-line value with as many
+    bytes as it has characters — the common case — is measured by Arrow alone and never
+    touches Python.
+    Anything else has to be measured value by value, since a character can occupy two
+    cells (CJK, many emoji) or none (a combining mark), and markup renders at a width
+    its source says nothing about (`[dim]a[/]` is one cell, `[[red]]` two). Rich decides
+    what markup means, rather than a regex here approximating it: the whole value goes
+    to `measure_width`, which renders it exactly as the widget will. `measure_width`
+    (and rich with it) is imported at the first column that needs it, never for an
+    all-ASCII one that renders literally.
+    """
+    lengths = pc.utf8_length(arr)
+    # counting bytes is the cheap ASCII test: binary_length is offset arithmetic,
+    # while scanning for non-ASCII bytes (string_is_ascii) costs several times more
+    # than counting the characters does
+    byte_lengths = pc.binary_length(arr)
+    needs_measuring = pc.not_equal(byte_lengths, lengths)
+    # a row is one line tall, so a multi-line value renders as its first line plus the
+    # marker. The first break's position IS that first line's width, for the all-ASCII
+    # values measured here -- one byte and one cell per character.
+    breaks_in_column = _line_breaks_present(arr)  # "\n" and/or "\r", usually neither
+    if breaks_in_column:
+        # start at `lengths`, the position that leaves an unbroken value's width alone
+        first_break_index = lengths
+        for line_break in breaks_in_column:
+            index = pc.find_substring(arr, pattern=line_break)  # -1 where absent
+            first_break_index = pc.if_else(
+                pc.greater_equal(index, 0),
+                # min, so "a\r\nb" ends at the \r rather than at whichever ran last
+                pc.min_element_wise(index, first_break_index),
+                first_break_index,
+            )
+        # typed, so adding it does not widen an int32 count to an int64
+        marker_width = pa.scalar(_MARKER_WIDTH, type=lengths.type)
+        lengths = pc.if_else(
+            pc.less(first_break_index, lengths),
+            pc.add(first_break_index, marker_width),
+            lengths,
+        )
+    if render_markup:
+        # markup renders at a width its source says nothing about, so anything that
+        # could be markup goes to rich. Testing for "[" first keeps the regex off
+        # the columns that have no brackets at all, which is most of them.
+        if pc.any(pc.match_substring(arr, pattern="["), min_count=0).as_py():
+            needs_measuring = pc.or_(
+                needs_measuring, pc.match_substring_regex(arr, pattern=_MARKUP_PATTERN)
+            )
+    needs_measuring = needs_measuring.fill_null(False)
+    if not pc.any(needs_measuring, min_count=0).as_py():
+        return lengths
+
+    # only the values Arrow cannot measure have to be measured in Python, and only
+    # once each: Arrow maps the distinct measurements back over the rows. The rest
+    # are as wide as the character count Arrow already has.
+    values = arr.filter(needs_measuring)
+    distinct = pc.unique(values)
+    return pc.replace_with_mask(
+        lengths,
+        needs_measuring,
+        pc.take(
+            pa.array(
+                [
+                    _measure_width(value, render_markup=render_markup)
+                    for value in distinct.to_pylist()
+                ],
+                type=lengths.type,
+            ),
+            pc.index_in(values, value_set=distinct),
+        ),
+    )
+
+
+def _line_breaks_present(arr: pa.Array) -> frozenset[str]:
+    """Which of `LINE_BREAKS` occur in `arr` -- empty for almost every column.
+
+    A cheap gate, not an answer: it over-reports rather than under-reports, so use it
+    to skip work, never to conclude a value contains a break. Locating breaks per row
+    costs ~30ms per million values (`pc.find_substring`, once per break kind); reading
+    the same characters as bytes costs ~4ms.
+    """
+    # a string array is (validity, offsets, characters), and only validity is ever
+    # absent -- an empty, all-null or sliced array still carries a character buffer
+    characters = arr.buffers()[2]
+    assert characters is not None, f"{arr.type} is not a string array"
+
+    found: set[str] = set()
+    for start in range(0, characters.size, _SCAN_BLOCK_SIZE):
+        # Buffer.slice, unlike Array.slice, refuses a length past the end. The scan
+        # covers the whole buffer, so a sliced array sees its neighbours' characters
+        # too -- one of the ways this over-reports.
+        length = min(_SCAN_BLOCK_SIZE, characters.size - start)
+        block = characters.slice(start, length).to_pybytes()
+        # the breaks are ASCII, so no multi-byte character can contain their bytes
+        found.update(char for char in LINE_BREAKS - found if ord(char) in block)
+        if found == LINE_BREAKS:
+            break
+    return frozenset(found)
+
+
+def _cell_widths(_ctx: Any, arr: pa.Array) -> pa._PandasConvertible:
+    """Measure `arr` as the widget renders markup. Registered by `_measure_strings`."""
+    return _measure_cells(arr, render_markup=True)
+
+
+def _cell_widths_no_markup(_ctx: Any, arr: pa.Array) -> pa._PandasConvertible:
+    """Measure `arr` as the widget renders it literally. See `_measure_strings`.
+
+    A module-level function rather than a closure over the flag: a UDF is registered
+    under its name for the life of the process, so both variants have to be values
+    that outlive the call that registers them.
+    """
+    return _measure_cells(arr, render_markup=False)
+
+
+def _measure_strings(arr: pa._PandasConvertible, render_markup: bool) -> int:
+    """The width, in cells, of the widest string in `arr`, for column_content_widths.
+
+    Registers the matching `_cell_widths*` variant as a scalar UDF for the array's
+    type on first use, so that Arrow applies it a chunk at a time, and takes the
+    widest result.
+    """
+    udf_name = _register_udf(
+        f"tfdt_cell_width_{'markup' if render_markup else 'literal'}_{arr.type}",
+        _cell_widths if render_markup else _cell_widths_no_markup,
+        in_type=arr.type,
+        # the width of a large_string can overflow an int32, as its length can
+        out_type=pa.int64() if arr.type == pa.large_string() else pa.int32(),
+        summary="rendered width, in terminal cells",
+    )
+    try:
+        width: int = pc.max(pc.call_function(udf_name, [arr]).fill_null(0)).as_py()
+    except OverflowError:
+        width = 10
+    return width
+
+
+def _measure_width(value: Any, render_markup: bool = True) -> int:
+    """The rendered width of one value, for column_content_widths.
+
+    The widget measures column labels the same way, through the same function;
+    it is imported here (and rich with it, and the Console it builds) on first
+    call, so that importing this module costs nothing for consumers that never
+    measure anything.
+    """
+    from textual_fastdatatable.format import measure_width
+
+    return measure_width(value, render_markup=render_markup)
+
+
+_VALUE_BLOCK_SIZE = 100_000
+"""Values `_measure_display_text` converts to Python at a time.
+
+A block, not the column, so measuring never holds a Python object per row."""
+
+
+def _measure_display_text(blocks: Iterable[list[Any]], render_markup: bool) -> int:
+    """The widest rendering of a column Arrow cannot render as text, block by block.
+
+    `render_markup` is the table's, and reaches the one value type it changes: a
+    string, which renders literally without it, and so is escaped to be measured."""
+    from textual_fastdatatable.format import display_text
+
+    widest = 0
+    for values in blocks:
+        strings = pa.array(
+            [display_text(value, render_markup=render_markup) for value in values],
+            type=pa.string(),
+        )
+        # what `display_text` returns is markup, whatever it was told about strings
+        widest = max(widest, _measure_strings(strings, render_markup=True) or 0)
+    return widest
+
+
+def _extension_storage(arr: pa._PandasConvertible) -> pa._PandasConvertible:
+    """The values an extension array is stored as, chunk for chunk."""
+    storage_type = cast(pa.BaseExtensionType, arr.type).storage_type
+    if isinstance(arr, pa.ChunkedArray):
+        chunks = [cast(pa.ExtensionArray, chunk).storage for chunk in arr.chunks]
+        return pa.chunked_array(chunks, type=storage_type)
+    return cast(pa.ExtensionArray, arr).storage
+
+
+def _extension_value_is_its_storage(scalar: pa.Scalar) -> bool:
+    """Whether an extension type leaves its values as the storage's values.
+
+    True unless the scalar class overrides `as_py`, which is not the same as the two
+    comparing equal: `arrow.bool8`'s `True` equals its storage's `1` and renders `✓`."""
+    return type(scalar).as_py is pa.ExtensionScalar.as_py
+
+
+def _renders_at_a_fixed_width(value: Any) -> bool:
+    """Whether every value of this one's type renders as wide as it does."""
+    from textual_fastdatatable.format import FIXED_WIDTH_TYPES
+
+    return isinstance(value, FIXED_WIDTH_TYPES)
+
+
+def _arrow_casts_to_display_text(dtype: pa.DataType) -> bool:
+    """Whether Arrow's cast to string yields the text a cell shows for this type.
+
+    True only for the types stored as the characters they display; see AGENTS.md."""
+    if pt.is_dictionary(dtype):
+        return _arrow_casts_to_display_text(dtype.value_type)
+    return bool(
+        pt.is_string(dtype) or pt.is_large_string(dtype) or pt.is_string_view(dtype)
+    )
+
+
+def create_backend(
+    data: "AutoBackendType",
+    max_rows: int | None = None,
+    has_header: bool = False,
+    column_names: Sequence[str] | None = None,
+) -> DataTableBackend:
+    """Create a backend for `data`, picking the implementation from its type.
+
+    column_names: the labels the caller has for the data's columns, which are
+        applied to the backend in place of the ones the data carries (or lacks).
+        When passed:
+
+        - `data=None` builds an empty table with those columns, instead of
+          raising: a cursor that returned no rows still described its columns.
+        - `data` an empty sequence (or any table with no columns at all) builds
+          an empty table with those columns.
+        - record-shaped `data` uses them in place of `f0`, `f1`, .... If
+          `has_header` is also set, the first record is still consumed as a
+          header, but these names win over it.
+        - tabular `data` is renamed to them when there is one name per column.
+          A mismatched count means the data and the names disagree, and the data
+          wins.
+
+        Duplicate names are legal (`select 1 as a, 2 as a`) and reach
+        `ArrowBackend.source_data` verbatim. `ArrowBackend.data` de-duplicates
+        them (to `a`, `a0`), because a table's `to_pylist()`/`to_pydict()` drop
+        duplicate-named fields; `PolarsBackend` de-duplicates them everywhere,
+        as polars does not allow duplicate column names at all.
+
+        When `column_names` is not passed, every case behaves as it always has.
+    """
+    if data is None and column_names is not None:
+        return ArrowBackend(_empty_table(column_names), max_rows=max_rows)
+    if isinstance(data, pa.Table):
+        return ArrowBackend(data, max_rows=max_rows, column_names=column_names)
+    if isinstance(data, pa.RecordBatch):
+        return ArrowBackend.from_batches(
+            data, max_rows=max_rows, column_names=column_names
+        )
+    if _HAS_POLARS and isinstance(data, pl.DataFrame):
+        return PolarsBackend.from_dataframe(
+            data, max_rows=max_rows, column_names=column_names
+        )
+    if _is_pandas_dataframe(data):
+        return ArrowBackend.from_pandas(
+            data, max_rows=max_rows, column_names=column_names
+        )
+
+    if isinstance(data, Path) or isinstance(data, str):
+        data = Path(data)
+        if data.suffix in [".pqt", ".parquet"]:
+            return ArrowBackend.from_parquet(
+                data, max_rows=max_rows, column_names=column_names
+            )
+        if _HAS_POLARS:
+            return PolarsBackend.from_file_path(
+                data,
+                max_rows=max_rows,
+                has_header=has_header,
+                column_names=column_names,
+            )
+    if isinstance(data, Sequence) and not data:
+        return ArrowBackend(pa.table([]), max_rows=max_rows, column_names=column_names)
+    if isinstance(data, Sequence) and _is_iterable(data[0]):
+        return ArrowBackend.from_records(
+            data, max_rows=max_rows, has_header=has_header, column_names=column_names
+        )
+
+    if (
+        isinstance(data, Mapping)
+        and isinstance(next(iter(data.keys())), str)
+        and isinstance(next(iter(data.values())), Sequence)
+    ):
+        return ArrowBackend.from_pydict(
+            data, max_rows=max_rows, column_names=column_names
+        )
+
+    raise TypeError(
+        f"Cannot automatically create backend for data of type: {type(data)}. "
+        f"Data must be of type: Union[pa.Table, pa.RecordBatch, Path, str, "
+        "Sequence[Iterable[Any]], Mapping[str, Sequence[Any]], pl.DataFrame, "
+        "pd.DataFrame",
+    )
+
+
+def _empty_table(column_names: Sequence[str]) -> pa.Table:
+    """A table with the passed columns and no rows."""
+    return pa.Table.from_arrays(
+        [pa.array([], type=pa.string()) for _ in column_names],
+        names=list(column_names),
+    )
+
+
+def _relabel(data: pa.Table, column_names: Sequence[str]) -> pa.Table:
+    """Apply the caller's column names to an Arrow table.
+
+    A table with no columns described nothing, so it is replaced by an empty
+    table with the caller's columns. Otherwise the names are applied only if
+    there is one for each column: a mismatched count means the data and the
+    names disagree, and the data's own names win.
+    """
+    names = list(column_names)
+    if data.num_columns == 0:
+        return _empty_table(names)
+    if data.num_columns != len(names):
+        return data
+    return data.rename_columns(names)
+
+
+def _deduplicate(column_names: Sequence[str]) -> tuple[list[str], bool]:
+    """Make each name unique by suffixing repeats; also report if any changed."""
+    field_names: list[str] = []
+    renamed = False
+    for field in column_names:
+        n = 0
+        while field in field_names:
+            field = f"{field}{n}"
+            renamed = True
+            n += 1
+        field_names.append(field)
+    return field_names, renamed
+
+
+def _is_pandas_dataframe(data: Any) -> bool:
+    """Is this a pandas DataFrame?
+
+    Asks sys.modules rather than importing pandas: this package does not depend
+    on pandas, and anyone holding a DataFrame has already imported it.
+    """
+    pandas = sys.modules.get("pandas")
+    return pandas is not None and isinstance(data, pandas.DataFrame)
+
+
+def _is_iterable(item: Any) -> bool:
+    try:
+        iter(item)
+    except TypeError:
+        return False
+    else:
+        return True
+
+
+_TableTypeT = TypeVar("_TableTypeT")
+
+
+class DataTableBackend(ABC, Generic[_TableTypeT]):
+    data: _TableTypeT
+
+    @abstractmethod
+    def __init__(
+        self,
+        data: _TableTypeT,
+        max_rows: int | None = None,
+        column_names: Sequence[str] | None = None,
+    ) -> None:
+        self._render_markup: bool | None = None
+
+    @classmethod
+    @abstractmethod
+    def from_pydict(
+        cls,
+        data: Mapping[str, Sequence[Any]],
+        max_rows: int | None = None,
+        column_names: Sequence[str] | None = None,
+    ) -> "DataTableBackend":
+        pass
+
+    @property
+    @abstractmethod
+    def source_data(self) -> _TableTypeT:
+        """
+        Return the source data as an Arrow table
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def source_row_count(self) -> int:
+        """
+        The number of rows in the source data, before filtering down to max_rows
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def row_count(self) -> int:
+        """
+        The number of rows in backend's retained data, after filtering down to max_rows
+        """
+        pass
+
+    @property
+    def column_count(self) -> int:
+        return len(self.columns)
+
+    @property
+    @abstractmethod
+    def columns(self) -> Sequence[str]:
+        """
+        A list of column labels
+        """
+        pass
+
+    @property
+    def render_markup(self) -> bool:
+        """
+        If true, column content widths reflect the rendered width. If
+        accessed before being set, automatically sets to the default
+        value.
+        """
+        if self._render_markup is None:
+            self._render_markup = _RENDER_MARKUP_DEFAULT
+        return self._render_markup
+
+    @render_markup.setter
+    def render_markup(self, new_value: bool) -> None:
+        """
+        Set the render_markup property, but do NOT allow this to be changed
+        after it is set the first time.
+        """
+        if self._render_markup is not None and self._render_markup != new_value:
+            raise ValueError(
+                "Cannot change render_markup once set or accessed. "
+                f"Already set to {self._render_markup}"
+            )
+        self._render_markup = new_value
+
+    @property
+    @abstractmethod
+    def column_content_widths(self) -> Sequence[int]:
+        """
+        A list of integers corresponding to the widest utf8 string length
+        of any data in each column.
+        """
+        pass
+
+    @abstractmethod
+    def get_row_at(self, index: int) -> Sequence[Any]:
+        pass
+
+    @abstractmethod
+    def get_column_at(self, index: int) -> Sequence[Any]:
+        pass
+
+    @abstractmethod
+    def get_cell_at(self, row_index: int, column_index: int) -> Any:
+        pass
+
+    @abstractmethod
+    def append_column(self, label: str, default: Any | None = None) -> int:
+        """
+        Returns column index
+        """
+
+    @abstractmethod
+    def append_rows(self, records: Iterable[Iterable[Any]]) -> list[int]:
+        """
+        Returns new row indicies
+        """
+        pass
+
+    @abstractmethod
+    def drop_row(self, row_index: int) -> None:
+        pass
+
+    @abstractmethod
+    def update_cell(self, row_index: int, column_index: int, value: Any) -> None:
+        """
+        Raises IndexError if bad indicies
+        """
+
+    @abstractmethod
+    def sort(
+        self, by: list[tuple[str, Literal["ascending", "descending"]]] | str
+    ) -> None:
+        """
+        by: str sorts table by the data in the column with that name (asc).
+        by: list[tuple] sorts the table by the named column(s) with the directions
+            indicated.
+        """
+
+
+class ArrowBackend(DataTableBackend[pa.Table]):
+    def __init__(
+        self,
+        data: pa.Table,
+        max_rows: int | None = None,
+        column_names: Sequence[str] | None = None,
+    ) -> None:
+        # the caller's names are applied first, so that source_data carries them
+        # verbatim, duplicates and all.
+        if column_names is not None:
+            data = _relabel(data, column_names)
+        self._source_data = data
+
+        # Arrow allows duplicate field names, but a table's to_pylist() and
+        # to_pydict() methods will drop duplicate-named fields!
+        field_names, renamed = _deduplicate(data.column_names)
+        if renamed:
+            data = data.rename_columns(field_names)
+
+        self._source_row_count = data.num_rows
+        if max_rows is not None and max_rows < self._source_row_count:
+            self.data = data.slice(offset=0, length=max_rows)
+        else:
+            self.data = data
+        self._column_content_widths: list[int] = []
+        # default _render_markup to an "unset" value
+        self._render_markup = None
+
+    @staticmethod
+    def _pydict_from_records(
+        records: Sequence[Iterable[Any]], has_header: bool = False
+    ) -> dict[str, list[Any]]:
+        headers = (
+            records[0]
+            if has_header
+            else [f"f{i}" for i in range(len(list(records[0])))]
+        )
+        data = list(map(list, records[1:] if has_header else records))
+        pydict = {header: [row[i] for row in data] for i, header in enumerate(headers)}
+        return pydict
+
+    @staticmethod
+    def _handle_overflow(scalar: pa.Scalar) -> Any | None:
+        """
+        PyArrow may throw an OverflowError when casting arrow types
+        to python types; in some cases we can catch these and
+        present a sensible value in the data table; otherwise
+        we return None.
+        """
+        if pt.is_date32(scalar.type):
+            if scalar.value > 0:  # type: ignore[attr-defined]
+                return date.max
+            elif scalar.value <= 0:  # type: ignore[attr-defined]
+                return date.min
+        elif pt.is_date64(scalar.type):
+            if scalar.value > 0:  # type: ignore[attr-defined]
+                return date.max
+            elif scalar.value <= 0:  # type: ignore[attr-defined]
+                return date.min
+        elif pt.is_timestamp(scalar.type):
+            if scalar.value > 0:  # type: ignore[attr-defined]
+                return datetime.max
+            elif scalar.value <= 0:  # type: ignore[attr-defined]
+                return datetime.min
+
+        return None
+
+    @classmethod
+    def from_batches(
+        cls,
+        data: pa.RecordBatch,
+        max_rows: int | None = None,
+        column_names: Sequence[str] | None = None,
+    ) -> "ArrowBackend":
+        tbl = pa.Table.from_batches([data])
+        return cls(tbl, max_rows=max_rows, column_names=column_names)
+
+    @classmethod
+    def from_parquet(
+        cls,
+        path: Path | str,
+        max_rows: int | None = None,
+        column_names: Sequence[str] | None = None,
+    ) -> "ArrowBackend":
+        # deferred: parquet is the only pyarrow submodule not used elsewhere in
+        # this module, and it is expensive to import.
+        import pyarrow.parquet as pq
+
+        tbl = pq.read_table(str(path))
+        return cls(tbl, max_rows=max_rows, column_names=column_names)
+
+    @classmethod
+    def from_pandas(
+        cls,
+        frame: Any,
+        max_rows: int | None = None,
+        column_names: Sequence[str] | None = None,
+    ) -> "ArrowBackend":
+        """Create a backend from a pandas DataFrame.
+
+        The frame's index is not displayed; call `df.reset_index()` first to
+        show it as a column.
+        """
+        tbl = pa.Table.from_pandas(frame, preserve_index=False)
+        return cls(tbl, max_rows=max_rows, column_names=column_names)
+
+    @classmethod
+    def from_pydict(
+        cls,
+        data: Mapping[str, Sequence[Any]],
+        max_rows: int | None = None,
+        column_names: Sequence[str] | None = None,
+    ) -> "ArrowBackend":
+        try:
+            tbl = pa.Table.from_pydict(dict(data))
+        except (pal.ArrowInvalid, pal.ArrowTypeError):
+            # one or more fields has mixed types, like int and
+            # string. Cast all to string for safety
+            new_data = {
+                k: [str(val) if val is not None else None for val in v]
+                for k, v in data.items()
+            }
+            tbl = pa.Table.from_pydict(new_data)
+        return cls(tbl, max_rows=max_rows, column_names=column_names)
+
+    @classmethod
+    def from_records(
+        cls,
+        records: Sequence[Iterable[Any]],
+        has_header: bool = False,
+        max_rows: int | None = None,
+        column_names: Sequence[str] | None = None,
+    ) -> "ArrowBackend":
+        # column_names are applied by __init__, after the table is built: a
+        # pydict keyed by them would drop any duplicates among them.
+        pydict = cls._pydict_from_records(records, has_header)
+        return cls.from_pydict(pydict, max_rows=max_rows, column_names=column_names)
+
+    @property
+    def source_data(self) -> pa.Table:
+        return self._source_data
+
+    @property
+    def source_row_count(self) -> int:
+        return self._source_row_count
+
+    @property
+    def row_count(self) -> int:
+        return self.data.num_rows
+
+    @property
+    def column_count(self) -> int:
+        return self.data.num_columns
+
+    @property
+    def columns(self) -> Sequence[str]:
+        return self.data.column_names
+
+    @property
+    def column_content_widths(self) -> list[int]:
+        if not self._column_content_widths:
+            measurements = [self._measure(arr) for arr in self.data.columns]
+            # pc.max returns None for each column without rows; we need to return 0
+            # instead.
+            self._column_content_widths = [cw or 0 for cw in measurements]
+
+        return self._column_content_widths
+
+    def get_row_at(self, index: int) -> Sequence[Any]:
+        try:
+            row: dict[str, Any] = self.data.slice(index, length=1).to_pylist()[0]
+        except OverflowError:
+            return [
+                self._handle_overflow(self.data[i][index])
+                for i in range(len(self.columns))
+            ]
+        else:
+            return list(row.values())
+
+    def get_column_at(self, column_index: int) -> list[Any]:
+        try:
+            values = self.data[column_index].to_pylist()
+        except OverflowError:
+            # TODO: consider registering a scalar UDF here for parallel processing
+            return [self._handle_overflow(scalar) for scalar in self.data[column_index]]
+        else:
+            return values
+
+    def get_cell_at(self, row_index: int, column_index: int) -> Any:
+        scalar = self.data[column_index][row_index]
+        try:
+            value = scalar.as_py()
+        except OverflowError:
+            value = self._handle_overflow(scalar)
+        return value
+
+    def append_column(self, label: str, default: Any | None = None) -> int:
+        """
+        Returns column index
+        """
+        if default is None:
+            arr: pa.Array = pa.nulls(self.row_count)
+        else:
+            arr = pa.nulls(self.row_count, type=pa.string())
+            arr = arr.fill_null(str(default))
+
+        self.data = self.data.append_column(label, arr)
+        if self._column_content_widths:
+            self._column_content_widths.append(_measure_width(default))
+        return self.data.num_columns - 1
+
+    def append_rows(self, records: Iterable[Iterable[Any]]) -> list[int]:
+        rows = list(records)
+        indicies = list(range(self.row_count, self.row_count + len(rows)))
+        records_with_headers = [self.data.column_names, *rows]
+        pydict = self._pydict_from_records(records_with_headers, has_header=True)
+        old_rows = self.data.to_batches()
+        new_rows = pa.RecordBatch.from_pydict(
+            pydict,
+            schema=self.data.schema,
+        )
+        self.data = pa.Table.from_batches([*old_rows, new_rows])
+        self._reset_content_widths()
+        return indicies
+
+    def drop_row(self, row_index: int) -> None:
+        if row_index < 0 or row_index >= self.row_count:
+            raise IndexError(f"Can't drop row {row_index} of {self.row_count}")
+        above = self.data.slice(0, row_index).to_batches()
+        below = self.data.slice(row_index + 1).to_batches()
+        self.data = pa.Table.from_batches([*above, *below])
+        self._reset_content_widths()
+        pass
+
+    def update_cell(self, row_index: int, column_index: int, value: Any) -> None:
+        column = self.data.column(column_index)
+        pycolumn = self.get_column_at(column_index=column_index)
+        pycolumn[row_index] = value
+        new_type = pa.string() if pt.is_null(column.type) else column.type
+        self.data = self.data.set_column(
+            column_index,
+            self.data.column_names[column_index],
+            pa.array(pycolumn, type=new_type),
+        )
+        if self._column_content_widths:
+            self._column_content_widths[column_index] = max(
+                _measure_width(value),
+                self._column_content_widths[column_index],
+            )
+
+    def sort(
+        self, by: list[tuple[str, Literal["ascending", "descending"]]] | str
+    ) -> None:
+        """
+        by: str sorts table by the data in the column with that name (asc).
+        by: list[tuple] sorts the table by the named column(s) with the directions
+            indicated.
+        """
+        self.data = self.data.sort_by(by)
+
+    def _reset_content_widths(self) -> None:
+        self._column_content_widths = []
+
+    def _value_blocks(self, arr: pa._PandasConvertible) -> Iterator[list[Any]]:
+        """The column's values as Python, `_VALUE_BLOCK_SIZE` of them at a time."""
+        for offset in range(0, len(arr), _VALUE_BLOCK_SIZE):
+            block = arr.slice(offset, _VALUE_BLOCK_SIZE)
+            try:
+                yield block.to_pylist()
+            except OverflowError:
+                yield [self._handle_overflow(scalar) for scalar in block]
+
+    def _measure(self, arr: pa._PandasConvertible) -> int:
+        # an extension type is a storage type with a meaning attached, and which of
+        # the two a cell shows is the type's to say. Where the meaning is only an
+        # annotation -- `arrow.json`, `arrow.opaque`, and any type this pyarrow has
+        # no class for -- the value is the storage's value, so the storage is what
+        # gets measured, on whichever path suits it. Where it is not, the value is a
+        # Python object of its own, and `arrow.uuid`'s and `arrow.bool8`'s render at
+        # a width their type fixes, so one value measures the column. Anything else
+        # falls through to the value-by-value path below. A pyarrow that gives one of
+        # these a class of its own only costs a measurement; it cannot mismeasure.
+        if isinstance(arr.type, pa.BaseExtensionType):
+            present = arr.drop_null()
+            if not len(present):
+                return 0  # every value is null, and a null renders as the null_rep
+            scalar = present[0]
+            if _extension_value_is_its_storage(scalar):
+                return self._measure(_extension_storage(arr))
+            value = scalar.as_py()
+            if _renders_at_a_fixed_width(value):
+                return _measure_width(value)
+
+        # with some types we can measure the width more efficiently
+        if pt.is_boolean(arr.type):
+            return 7
+        elif pt.is_null(arr.type):
+            return 0
+        elif (
+            pt.is_integer(arr.type)
+            or pt.is_floating(arr.type)
+            or pt.is_decimal(arr.type)
+        ):
+            try:
+                col_max = pc.max(arr.fill_null(0)).as_py()
+            except OverflowError:
+                col_max = 9223372036854775807
+            try:
+                col_min = pc.min(arr.fill_null(0)).as_py()
+            except OverflowError:
+                col_min = -9223372036854775807
+            return max([_measure_width(el) for el in [col_max, col_min]])
+        elif pt.is_temporal(arr.type):
+            try:
+                value = arr.drop_null()[0].as_py()
+            except OverflowError:
+                return 26  # need space for the infinity sign and a space
+            except IndexError:
+                return 24
+            else:
+                # valid temporal types all have the same width for their type
+                return _measure_width(value)
+
+        # everything else is measured as the text it renders as. A column Arrow
+        # stores as text becomes that text in one cast, and is measured as the
+        # widget renders a string: as markup, or literally.
+        if _arrow_casts_to_display_text(arr.type):
+            arr = arr.cast(pa.string(), safe=False)
+            # Markup is not stripped first: measuring parses it, the way the
+            # widget renders it.
+            return _measure_strings(arr.fill_null(""), render_markup=self.render_markup)
+
+        # every other type -- binary, extension, nested, a dictionary of anything
+        # but strings -- is converted value by value, the way the widget converts
+        # it, since Arrow's own text for it is not what a cell shows (or, for the
+        # types it cannot cast at all, does not exist).
+        return _measure_display_text(self._value_blocks(arr), self.render_markup)
+
+
+if _HAS_POLARS:
+
+    class PolarsBackend(DataTableBackend[pl.DataFrame]):
+        @classmethod
+        def from_file_path(
+            cls,
+            path: Path,
+            max_rows: int | None = None,
+            has_header: bool = True,
+            column_names: Sequence[str] | None = None,
+        ) -> "PolarsBackend":
+            if path.suffix in [".arrow", ".feather"]:
+                tbl = pl.read_ipc(path)
+            elif path.suffix == ".arrows":
+                tbl = pl.read_ipc_stream(path)
+            elif path.suffix == ".json":
+                tbl = pl.read_json(path)
+            elif path.suffix == ".csv":
+                tbl = pl.read_csv(path, has_header=has_header)
+            else:
+                raise TypeError(
+                    f"Dont know how to load file type {path.suffix} for {path}"
+                )
+            return cls(tbl, max_rows=max_rows, column_names=column_names)
+
+        @classmethod
+        def from_pydict(
+            cls,
+            pydict: Mapping[str, Sequence[Any]],
+            max_rows: int | None = None,
+            column_names: Sequence[str] | None = None,
+        ) -> "PolarsBackend":
+            return cls(
+                pl.from_dict(pydict), max_rows=max_rows, column_names=column_names
+            )
+
+        @classmethod
+        def from_dataframe(
+            cls,
+            frame: pl.DataFrame,
+            max_rows: int | None = None,
+            column_names: Sequence[str] | None = None,
+        ) -> "PolarsBackend":
+            return cls(frame, max_rows=max_rows, column_names=column_names)
+
+        def __init__(
+            self,
+            data: pl.DataFrame,
+            max_rows: int | None = None,
+            column_names: Sequence[str] | None = None,
+        ) -> None:
+            self._source_data = data
+
+            names = list(data.columns)
+            # a mismatched count means the data and the caller's names disagree;
+            # the data wins.
+            if column_names is not None and len(column_names) == len(names):
+                names = list(column_names)
+
+            # Arrow allows duplicate field names, but a table's to_pylist() and
+            # to_pydict() methods will drop duplicate-named fields! polars does
+            # not allow them at all, so this de-duplication also reaches
+            # source_data, which is the same frame.
+            field_names, _ = _deduplicate(names)
+            data.columns = field_names
+
+            self._source_row_count = len(data)
+            if max_rows is not None and max_rows < self._source_row_count:
+                self.data = data.slice(offset=0, length=max_rows)
+            else:
+                self.data = data
+            self._column_content_widths: list[int] = []
+            self._render_markup = None
+
+        @property
+        def source_data(self) -> pl.DataFrame:
+            return self._source_data
+
+        @property
+        def source_row_count(self) -> int:
+            return self._source_row_count
+
+        @property
+        def row_count(self) -> int:
+            return len(self.data)
+
+        @property
+        def column_count(self) -> int:
+            return len(self.data.columns)
+
+        @property
+        def columns(self) -> Sequence[str]:
+            return self.data.columns
+
+        def get_row_at(self, index: int) -> Sequence[Any]:
+            if index < 0 or index >= len(self.data):
+                raise IndexError(
+                    f"Cannot get row={index} in table with {len(self.data)} rows "
+                    f"and {len(self.data.columns)} cols"
+                )
+            return list(self.data.slice(index, length=1).to_dicts()[0].values())
+
+        def get_column_at(self, column_index: int) -> Sequence[Any]:
+            if column_index < 0 or column_index >= len(self.data.columns):
+                raise IndexError(
+                    f"Cannot get column={column_index} in table with {len(self.data)} "
+                    f"rows and {len(self.data.columns)} cols."
+                )
+            # to_list(), not list(): a nested value is a python list, the way the
+            # Arrow backend and `get_row_at` give it, rather than a polars Series
+            return self.data.to_series(column_index).to_list()
+
+        def get_cell_at(self, row_index: int, column_index: int) -> Any:
+            if (
+                row_index >= len(self.data)
+                or row_index < 0
+                or column_index < 0
+                or column_index >= len(self.data.columns)
+            ):
+                raise IndexError(
+                    f"Cannot get cell at row={row_index} col={column_index} in table "
+                    f"with {len(self.data)} rows and {len(self.data.columns)} cols"
+                )
+            # sliced first, so that a nested value is converted -- to a python list,
+            # as `get_row_at` gives it -- without converting the whole column
+            return self.data.to_series(column_index).slice(row_index, 1).to_list()[0]
+
+        def drop_row(self, row_index: int) -> None:
+            if row_index < 0 or row_index >= self.row_count:
+                raise IndexError(f"Can't drop row {row_index} of {self.row_count}")
+            above = self.data.slice(0, row_index)
+            below = self.data.slice(row_index + 1)
+            self.data = pl.concat([above, below])
+            self._reset_content_widths()
+
+        def append_rows(self, records: Iterable[Iterable[Any]]) -> list[int]:
+            rows_to_add = pl.from_dicts(
+                [dict(zip(self.data.columns, row, strict=False)) for row in records]
+            )
+            indicies = list(range(self.row_count, self.row_count + len(rows_to_add)))
+            self.data = pl.concat([self.data, rows_to_add])
+            self._reset_content_widths()
+            return indicies
+
+        def append_column(self, label: str, default: Any | None = None) -> int:
+            """
+            Returns column index
+            """
+            self.data = self.data.with_columns(
+                pl.Series([default])
+                .extend_constant(default, self.row_count - 1)
+                .alias(label)
+            )
+            if self._column_content_widths:
+                self._column_content_widths.append(_measure_width(default))
+            return len(self.data.columns) - 1
+
+        def _reset_content_widths(self) -> None:
+            self._column_content_widths = []
+
+        def update_cell(self, row_index: int, column_index: int, value: Any) -> None:
+            if row_index >= len(self.data) or column_index >= len(self.data.columns):
+                raise IndexError(
+                    f"Cannot update cell at row={row_index} col={column_index} in "
+                    f"table with {len(self.data)} rows and "
+                    f"{len(self.data.columns)} cols"
+                )
+            col_name = self.data.columns[column_index]
+            self.data = self.data.with_columns(
+                self.data.to_series(column_index)
+                .scatter(row_index, value)
+                .alias(col_name)
+            )
+            if self._column_content_widths:
+                self._column_content_widths[column_index] = max(
+                    _measure_width(value),
+                    self._column_content_widths[column_index],
+                )
+
+        @property
+        def column_content_widths(self) -> list[int]:
+            if not self._column_content_widths:
+                measurements = [
+                    self._measure(self.data[arr]) for arr in self.data.columns
+                ]
+                # pc.max returns None for each column without rows; we need to return 0
+                # instead.
+                self._column_content_widths = [cw or 0 for cw in measurements]
+
+            return self._column_content_widths
+
+        def _measure(self, arr: pl.Series) -> int:
+            # with some types we can measure the width more efficiently
+            dtype = arr.dtype
+            if dtype == pld.Categorical():
+                return self._measure(arr.cat.get_categories())
+
+            if dtype.is_decimal() or dtype.is_float() or dtype.is_integer():
+                col_max = arr.max()
+                col_min = arr.min()
+                return max([_measure_width(el) for el in [col_max, col_min]])
+            if dtype.is_temporal():
+                try:
+                    value = arr.drop_nulls()[0]
+                except IndexError:
+                    return 0
+                else:
+                    return _measure_width(value)
+            if dtype.is_(pld.Boolean()):
+                return 7
+
+            # everything else is measured as the text it renders as, and only the
+            # types polars stores as text can be cast to that text: it raises for a
+            # binary or a nested column, and has its own idea of a struct.
+            if dtype == pld.String() or isinstance(dtype, pld.Enum):
+                arr = arr.cast(
+                    pl.Utf8(),
+                    strict=False,
+                )
+
+                # measured through Arrow, so that both backends measure the same way
+                return _measure_strings(
+                    arr.fill_null("<null>").to_arrow(), render_markup=self.render_markup
+                )
+
+            # the rest go to Python, value by value, the way the widget converts them
+            return _measure_display_text(
+                (
+                    arr.slice(offset, _VALUE_BLOCK_SIZE).to_list()
+                    for offset in range(0, len(arr), _VALUE_BLOCK_SIZE)
+                ),
+                self.render_markup,
+            )
+
+        def sort(
+            self, by: list[tuple[str, Literal["ascending", "descending"]]] | str
+        ) -> None:
+            """
+            by: str sorts table by the data in the column with that name (asc).
+            by: list[tuple] sorts the table by the named column(s) with the directions
+                indicated.
+            """
+            if isinstance(by, str):
+                cols = [by]
+                typs = [False]
+            else:
+                cols = [x for x, _ in by]
+                typs = [x == "descending" for _, x in by]
+            self.data = self.data.sort(cols, descending=typs)

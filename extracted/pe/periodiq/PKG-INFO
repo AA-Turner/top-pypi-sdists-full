@@ -1,0 +1,81 @@
+Metadata-Version: 2.4
+Name: periodiq
+Version: 0.14.0
+Summary: Simple Scheduler for Dramatiq Task Queue
+Author: Étienne BERSAC
+License-Expression: LGPL-3.0-or-later
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: dramatiq>=1.5
+Requires-Dist: pendulum>=2.0,<4
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# Simple Scheduler for Dramatiq Task Queue
+
+[dramatiq](https://dramatiq.io) task queue is great but lacks a scheduler. This
+project fills the gap.
+
+
+## Features
+
+- Cron-like scheduling.
+- Single process.
+- Fast and simple implementation.
+- Easy on resources using SIGALRM.
+- No dependencies except dramatiq ones.
+- CLI consistent with dramatiq.
+- Skip outdated message.
+
+
+## Installation
+
+periodiq is licensed under LGPL 3.0+. Please see [COPYING] and [COPYING.LESSER]
+for licensing details.
+
+[COPYING]: https://gitlab.com/bersace/periodiq/-/bloc/master/COPYING
+[COPYING.LESSER]: https://gitlab.com/bersace/periodiq/-/bloc/master/COPYING.LESSER
+
+``` console
+$ pip install periodiq
+```
+
+Declare periodic tasks like this:
+
+``` python
+# filename: app.py
+
+import dramatiq
+from periodiq import PeriodiqMiddleware, cron
+
+broker.add_middleware(PeriodiqMiddleware(skip_delay=30))
+
+@dramatiq.actor(periodic=cron('0 * * * *'))
+def hourly():
+    # Do something each hour…
+    ...
+```
+
+Then, run scheduler with:
+
+``` console
+$ periodiq -v app
+[INFO] Starting Periodiq, a simple scheduler for Dramatiq.
+[INFO] Registered periodic actors:
+[INFO]
+[INFO]     m h dom mon dow          module:actor@queue
+[INFO]     ------------------------ ------------------
+[INFO]     0 * * * *                app:hourly@default
+[INFO]
+...
+```
+
+
+## Support
+
+If you need help or found a bug, consider [opening a GitLab
+issue](https://gitlab.com/bersace/periodiq/issues/new) on the project. French
+and English spoken.

@@ -72,7 +72,7 @@ class DatasetInfo(APIObject):
     columns : str
          The list of column names in the dataset.
     dialect : str
-         The sql dialect associated with the dataset (e.g., Snowflake, BigQuery, Spark).
+         The SQL dialect associated with the dataset (e.g., Snowflake, BigQuery, Spark).
     version : int
          The version of the dataset definition information.
     data_store_id : str
@@ -172,7 +172,7 @@ class DatasetDefinitionInfoHistory(APIObject):
     @classmethod
     def list(cls, dataset_definition_id: str) -> List[DatasetDefinitionInfoHistory]:
         """
-        List all dataset definition info history
+        Returns a list of all dataset definition info history.
 
         Parameters
         ----------
@@ -350,7 +350,7 @@ class DatasetDefinition(APIObject):
     @classmethod
     def list(cls) -> List[DatasetDefinition]:
         """
-        List all dataset definitions
+        Returns a list of all dataset definitions.
 
         Returns
         -------
@@ -370,7 +370,7 @@ class DatasetDefinition(APIObject):
         dataset_definition_id: str
             The ID of the dataset definition.
         max_wait: Optional[int]
-            Time in seconds after which analyze is considered unsuccessful
+            Time in seconds after which analyze is considered unsuccessful.
 
         """
         path = cls._path_with_id.format(dataset_definition_id) + "analyze/"
@@ -384,7 +384,7 @@ class DatasetDefinition(APIObject):
     @classmethod
     def list_versions(cls, dataset_definition_id: str) -> List[DatasetDefinitionInfoHistory]:
         """
-        List all info history of the dataset definition.
+        Returns a list of all info history of the dataset definition.
 
         Parameters
         ----------
@@ -405,7 +405,7 @@ class RowsChunkDefinition(APIObject):
     Attributes
     ----------
     order_by_columns : List[str]
-         List of the sorting column names.
+         A list of the sorting column names.
     is_descending_order : bool
          The sorting order. Defaults to False, ordering from smallest to largest.
     target_column : str
@@ -631,7 +631,7 @@ class ChunkDefinition(APIObject):
         chunking_strategy_type: str
             The chunking strategy type, either 'features' or 'rows'.
         order_by_columns: List[str]
-            List of the sorting column names.
+            A list of the sorting column names.
         is_descending_order: bool
             The sorting order. Defaults to False, ordering from smallest to largest.
         target_column: str
@@ -734,7 +734,7 @@ class ChunkDefinition(APIObject):
     @classmethod
     def list(cls, dataset_definition_id: str) -> List[ChunkDefinition]:
         """
-        List all chunk definitions
+        Returns a list of all chunk definitions.
 
         Parameters
         ----------
@@ -759,9 +759,9 @@ class ChunkDefinition(APIObject):
         dataset_definition_id: str
             The ID of the dataset definition.
         chunk_definition_id: str
-            The ID of the chunk definition
+            The ID of the chunk definition.
         max_wait: Optional[int]
-            Time in seconds after which analyze is considered unsuccessful
+            Time in seconds after which analyze is considered unsuccessful.
 
         """
         path = cls._path_with_id.format(dataset_definition_id, chunk_definition_id) + "analyze/"
@@ -801,7 +801,7 @@ class ChunkDefinition(APIObject):
         name: str
             The optional custom name of the chunk definition.
         order_by_columns: List[str]
-            List of the sorting column names.
+            A list of the sorting column names.
         is_descending_order: bool
             The sorting order. Defaults to False, ordering from smallest to largest.
         target_column: str

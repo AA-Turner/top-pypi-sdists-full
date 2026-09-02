@@ -102,9 +102,7 @@ class TestResourceDiscovererRegistration:
         register_resource_discoverer("jira", _dummy_factory)
         register_resource_discoverer("linear", _dummy_factory)
         register_resource_discoverer("gitlab", _dummy_factory)
-        assert registered_resource_providers() == frozenset(
-            {"jira", "linear", "gitlab"}
-        )
+        assert registered_resource_providers() == frozenset({"jira", "linear", "gitlab"})
 
     def test_introspection_empty(self) -> None:
         assert registered_resource_providers() == frozenset()

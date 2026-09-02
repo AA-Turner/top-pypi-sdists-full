@@ -86,9 +86,9 @@ class OtelSingleMetricValue(APIObject):
     Attributes
     ----------
     otel_name:
-        The OTel metric name.
+        The ``OTel`` metric name.
     time_buckets: List[OtelSingleMetricTimeBucket]
-        List of single metric time bucket values.
+        A list of single metric time bucket values.
     display_name: Optional[str]
         The display name of the metric.
     aggregation: Optional[str]
@@ -149,18 +149,18 @@ class OtelSingleMetricValue(APIObject):
         end_time: Optional[datetime | date | str] = None,
         percentile: Optional[float] = None,
     ) -> OtelSingleMetricValue:
-        """List OpenTelemetry metric with time-bucket values.
+        """Returns a list of OpenTelemetry metrics with time-bucket values.
 
         .. versionadded:: v3.12
 
         Parameters
         ----------
         entity_type: str
-            The entity type of the reported metrics (e.g., deployment, or use_case).
+            The entity type of the reported metrics (e.g., deployment or ``use_case``).
         entity_id: str
             The entity ID of the reported metrics (e.g., `123456`).
         otel_name: str
-            The OTel metric name.
+            The ``OTel`` metric name.
         aggregation: str
             The aggregation to use for getting metric data.
         resolution: Optional[OtelMetricResolution]

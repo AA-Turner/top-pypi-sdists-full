@@ -74,14 +74,14 @@ class OtelMetricSummary(APIObject):
         search: Optional[str] = None,
         metric_type: Optional[str] = None,
     ) -> List[OtelMetricSummary]:
-        """List OpenTelemetry metric summary information.
+        """Returns a list of OpenTelemetry metric summary information.
 
         .. versionadded:: v3.9
 
         Parameters
         ----------
         entity_type: str
-            The entity type of the reported metrics (e.g., deployment, or use_case).
+            The entity type of the reported metrics (e.g., deployment or ``use_case``).
         entity_id: str
             The entity ID of the reported metrics (e.g., `123456`).
         search: Optional[str]

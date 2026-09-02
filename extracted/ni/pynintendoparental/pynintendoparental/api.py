@@ -1,0 +1,205 @@
+"""API handler."""
+
+import aiohttp
+from pynintendoauth.exceptions import HttpException
+
+from .authenticator import Authenticator
+from .const import (
+    _LOGGER,
+    BASE_URL,
+    DEVICE_MODEL,
+    ENDPOINTS,
+    MOBILE_APP_BUILD,
+    MOBILE_APP_PKG,
+    MOBILE_APP_VERSION,
+    OS_NAME,
+    OS_VERSION,
+    USER_AGENT,
+)
+
+
+def _check_http_success(status: int) -> bool:
+    return status >= 200 and status < 300
+
+
+class Api:
+    """Nintendo Parental Controls API."""
+
+    def __init__(self, auth, tz, lang):
+        """INIT"""
+        self._auth: Authenticator = auth
+        self._tz = tz
+        self._language = lang
+
+    @property
+    def account_id(self):
+        """Return the account id."""
+        return self._auth.account_id
+
+    @property
+    def _headers(self) -> dict:
+        """Return web request headers."""
+        return {
+            "User-Agent": USER_AGENT,
+            "X-Moon-App-Id": MOBILE_APP_PKG,
+            "X-Moon-Os": OS_NAME,
+            "X-Moon-Os-Version": OS_VERSION,
+            "X-Moon-Model": DEVICE_MODEL,
+            "X-Moon-App-Display-Version": MOBILE_APP_VERSION,
+            "X-Moon-App-Internal-Version": MOBILE_APP_BUILD,
+            "X-Moon-TimeZone": self._tz,
+            "X-Moon-Os-Language": self._language,
+            "X-Moon-App-Language": self._language,
+            "Authorization": self._auth.access_token,
+        }
+
+    async def send_request(self, endpoint: str, body: object = None, **kwargs):
+        """Sends a request to a given endpoint."""
+        _LOGGER.debug("Sending request to %s", endpoint)
+        # Get the endpoint from the endpoints map
+        e_point = ENDPOINTS.get(endpoint, None)
+        if e_point is None:
+            raise ValueError("Endpoint does not exist")
+        # format the URL using the kwargs
+        url = e_point.get("url").format(BASE_URL=BASE_URL, **kwargs)
+        _LOGGER.debug("Built URL %s", url)
+        # now send the HTTP request
+        resp: dict = {"status": 0, "text": "", "json": "", "headers": ""}
+        response = await self._auth.async_authenticated_request(
+            method=e_point.get("method"), url=url, headers=self._headers, body=body
+        )
+        _LOGGER.debug(
+            "%s request to %s status code %s",
+            e_point.get("method"),
+            url,
+            response.status,
+        )
+        if not _check_http_success(response.status):
+            if response.content_type == "application/problem+json":
+                try:
+                    error: dict = await response.json()
+                    if "detail" in error:
+                        raise HttpException(response.status, error["detail"], error.get("errorCode"))
+                except (aiohttp.ContentTypeError, ValueError):
+                    # Fall through to the generic exception below on parsing failure.
+                    pass
+            raise HttpException(response.status, await response.text())
+
+        resp["status"] = response.status
+        resp["text"] = await response.text()
+        try:
+            resp["json"] = await response.json()
+        except (aiohttp.ContentTypeError, ValueError) as e:
+            _LOGGER.warning(
+                """Failed to decode JSON response from %s.
+                Status: %s, Error: %s.
+                Response text: %s...""",
+                url,
+                response.status,
+                e,
+                resp["text"][:200],
+            )
+            resp["json"] = {}
+        resp["headers"] = response.headers
+
+        # now return the resp dict
+        return resp
+
+    async def async_get_account_devices(self) -> dict:
+        """Get account devices."""
+        return await self.send_request(endpoint="get_account_devices")
+
+    async def async_get_account_device(self, device_id: str) -> dict:
+        """Get account device."""
+        return await self.send_request(endpoint="get_account_device", DEVICE_ID=device_id)
+
+    async def async_get_device_daily_summaries(self, device_id: str) -> dict:
+        """Get device daily summaries."""
+        return await self.send_request(endpoint="get_device_daily_summaries", DEVICE_ID=device_id)
+
+    async def async_get_device_monthly_summaries(self, device_id: str) -> dict:
+        """Get device monthly summaries."""
+        return await self.send_request(endpoint="get_device_monthly_summaries", DEVICE_ID=device_id)
+
+    async def async_get_device_parental_control_setting(self, device_id: str) -> dict:
+        """Get device parental control setting."""
+        return await self.send_request(endpoint="get_device_parental_control_setting", DEVICE_ID=device_id)
+
+    async def async_get_device_monthly_summary(self, device_id: str, year: int, month: int) -> dict:
+        """Get device monthly summary."""
+        return await self.send_request(
+            endpoint="get_device_monthly_summary",
+            DEVICE_ID=device_id,
+            YEAR=year,
+            MONTH=f"{month:02d}",
+        )
+
+    async def async_update_restriction_level(self, device_id: str, parental_control_setting: dict) -> dict:
+        """Update device restriction level."""
+        allowed_keys = (
+            "whitelistedApplicationList",
+            "functionalRestrictionLevel",
+        )
+        settings = {
+            "deviceId": device_id,
+            "customSettings": parental_control_setting.get("customSettings", {}),
+            "parentalControlSettingEtag": parental_control_setting.get("etag"),
+            "vrRestrictionEtag": parental_control_setting.get("customSettings", {}).get("vrRestrictionEtag"),
+            **{key: parental_control_setting.get(key) for key in allowed_keys},
+        }
+        return await self.send_request(endpoint="update_restriction_level", body=settings)
+
+    async def async_update_play_timer(self, device_id: str, play_timer_regulations: dict) -> dict:
+        """Update device play timer settings."""
+        allowed_ptr_keys = (
+            "timerMode",
+            "restrictionMode",
+            "dailyRegulations",
+            "eachDayOfTheWeekRegulations",
+        )
+        settings = {
+            "deviceId": device_id,
+            "playTimerRegulations": {key: play_timer_regulations.get(key) for key in allowed_ptr_keys},
+        }
+        return await self.send_request(endpoint="update_play_timer", body=settings)
+
+    async def async_update_unlock_code(self, new_code: str, device_id: str) -> dict:
+        """Update device unlock code."""
+        return await self.send_request(
+            endpoint="update_unlock_code",
+            body={"deviceId": device_id, "unlockCode": str(new_code)},
+        )
+
+    async def async_confirm_extra_playing_time(
+        self, device_id: str, additional_time: int, with_bedtime: bool
+    ) -> dict:
+        """Confirm (grant) extra playing time for the current day.
+
+        Args:
+            device_id: The Nintendo device ID.
+            additional_time: Number of additional minutes to grant.
+            with_bedtime: When True, the bonus is granted relative to the
+                bedtime limit; when False it extends the inOneDay play limit.
+        """
+        body = {
+            "deviceId": device_id,
+            "additionalTime": additional_time,
+            "withBedtime": with_bedtime,
+        }
+        return await self.send_request(endpoint="confirm_extra_playing_time", body=body)
+
+    async def async_update_extra_playing_time(self, device_id: str, additional_time: int | None = None, cancel: bool = False) -> dict:
+        """Add or cancel extra playing time via the daily inOneDay limit (no-bedtime path)."""
+        body = {
+            "deviceId": device_id,
+        }
+        if cancel:
+            body["status"] = "TO_CANCELLED"
+        elif additional_time == -1 and not cancel:
+            body["status"] = "TO_INFINITY"
+        elif additional_time is not None:
+            body["additionalTime"] = additional_time
+            body["status"] = "TO_ADDED"
+        else:
+            raise ValueError("Additional time must be provided if not canceling")
+        return await self.send_request(endpoint="update_extra_playing_time", body=body)

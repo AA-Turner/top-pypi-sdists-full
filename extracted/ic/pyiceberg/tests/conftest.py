@@ -27,7 +27,6 @@ retrieved using `request.getfixturevalue(fixture_name)`.
 
 import os
 import re
-import socket
 import string
 import time
 import uuid
@@ -40,17 +39,15 @@ from typing import (
     TYPE_CHECKING,
     Any,
 )
+from unittest import mock
 
 import boto3
 import pytest
 from moto import mock_aws
 from pydantic_core import to_json
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf
 
 from pyiceberg.catalog import Catalog, load_catalog
-from pyiceberg.catalog.memory import InMemoryCatalog
-from pyiceberg.catalog.noop import NoopCatalog
-from pyiceberg.catalog.sql import SqlCatalog
 from pyiceberg.expressions import BoundReference
 from pyiceberg.io import (
     ADLS_ACCOUNT_KEY,
@@ -97,6 +94,7 @@ from pyiceberg.types import (
     UUIDType,
 )
 from pyiceberg.utils.datetime import datetime_to_millis
+from pyiceberg.utils.properties import property_as_bool
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -110,6 +108,20 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:
         if not any(item.iter_markers()):
             item.add_marker("unmarked")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _isolate_pyiceberg_config() -> None:
+    """Make test runs ignore your local PyIceberg config.
+
+    Without this, tests will attempt to resolve a local ~/.pyiceberg.yaml while running pytest.
+    This replaces the global catalog config once at session start with an env-only config.
+    """
+    import pyiceberg.catalog as _catalog_module
+    from pyiceberg.utils.config import Config
+
+    with mock.patch.object(Config, "_from_configuration_files", return_value=None):
+        _catalog_module._ENV_CONFIG = Config()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -156,6 +168,20 @@ def table_schema_simple() -> Schema:
         NestedField(field_id=3, name="baz", field_type=BooleanType(), required=False),
         schema_id=1,
         identifier_field_ids=[2],
+    )
+
+
+@pytest.fixture(scope="session")
+def arrow_table_simple() -> "pa.Table":
+    """Pyarrow table that pairs with `table_schema_simple` (3 rows, no nulls)."""
+    import pyarrow as pa
+
+    return pa.table(
+        {
+            "foo": ["a", "b", "c"],
+            "bar": pa.array([1, 2, 3], type=pa.int32()),
+            "baz": [True, False, True],
+        }
     )
 
 
@@ -1120,6 +1146,82 @@ def table_metadata_v2_with_fixed_and_decimal_types() -> dict[str, Any]:
 @pytest.fixture
 def table_metadata_v2_with_statistics() -> dict[str, Any]:
     return TABLE_METADATA_V2_WITH_STATISTICS
+
+
+@pytest.fixture
+def example_view_metadata_v1() -> dict[str, Any]:
+    return {
+        "view-uuid": "a20125c8-7284-442c-9aea-15fee620737c",
+        "format-version": 1,
+        "location": "s3://bucket/test/location/test_view",
+        "current-version-id": 1,
+        "versions": [
+            {
+                "version-id": 1,
+                "timestamp-ms": 1602638573874,
+                "schema-id": 1,
+                "summary": {"engine-name": "spark", "engineVersion": "3.3"},
+                "representations": [
+                    {
+                        "type": "sql",
+                        "sql": "SELECT * FROM prod.db.table",
+                        "dialect": "spark",
+                    }
+                ],
+                "default-namespace": ["default"],
+            }
+        ],
+        "schemas": [
+            {
+                "type": "struct",
+                "schema-id": 1,
+                "fields": [
+                    {"id": 1, "name": "x", "required": True, "type": "long"},
+                    {"id": 2, "name": "y", "required": True, "type": "long", "doc": "comment"},
+                    {"id": 3, "name": "z", "required": True, "type": "long"},
+                ],
+            }
+        ],
+        "version-log": [{"timestamp-ms": 1602638573874, "version-id": 1}],
+        "properties": {"comment": "this is a test view"},
+    }
+
+
+@pytest.fixture
+def example_view_metadata_v1_multiple_versions() -> dict[str, Any]:
+    return {
+        "view-uuid": "a20125c8-7284-442c-9aea-15fee620737c",
+        "format-version": 1,
+        "location": "s3://bucket/test/location/test_view",
+        "current-version-id": 2,
+        "versions": [
+            {
+                "version-id": 1,
+                "timestamp-ms": 1602638573874,
+                "schema-id": 1,
+                "summary": {},
+                "representations": [{"type": "sql", "sql": "SELECT 1", "dialect": "spark"}],
+                "default-namespace": ["default"],
+            },
+            {
+                "version-id": 2,
+                "timestamp-ms": 1602638573875,
+                "schema-id": 2,
+                "summary": {},
+                "representations": [{"type": "sql", "sql": "SELECT 2", "dialect": "spark"}],
+                "default-namespace": ["default"],
+            },
+        ],
+        "schemas": [
+            {"type": "struct", "schema-id": 1, "fields": [{"id": 1, "name": "a", "required": True, "type": "long"}]},
+            {"type": "struct", "schema-id": 2, "fields": [{"id": 2, "name": "b", "required": True, "type": "string"}]},
+        ],
+        "version-log": [
+            {"timestamp-ms": 1602638573874, "version-id": 1},
+            {"timestamp-ms": 1602638573875, "version-id": 2},
+        ],
+        "properties": {},
+    }
 
 
 @pytest.fixture
@@ -2238,14 +2340,14 @@ def fixture_aws_credentials() -> Generator[None, None, None]:
 
 
 @pytest.fixture(scope="session")
-def moto_server() -> "ThreadedMotoServer":
+def moto_server() -> Generator["ThreadedMotoServer", None, None]:
     from moto.server import ThreadedMotoServer
 
-    server = ThreadedMotoServer(ip_address="localhost", port=5001)
-
-    # this will throw an exception if the port is already in use
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((server._ip_address, server._port))
+    # Bind to port 0 so the OS assigns a free ephemeral port. A hardcoded port
+    # collides when tests run in parallel (e.g. on shared CI agents) or when a
+    # previous run leaves the port in TIME_WAIT, raising
+    # "OSError: [Errno 98] Address already in use".
+    server = ThreadedMotoServer(ip_address="localhost", port=0)
 
     server.start()
     yield server
@@ -2254,7 +2356,8 @@ def moto_server() -> "ThreadedMotoServer":
 
 @pytest.fixture(scope="session")
 def moto_endpoint_url(moto_server: "ThreadedMotoServer") -> str:
-    _url = f"http://{moto_server._ip_address}:{moto_server._port}"
+    host, port = moto_server.get_host_and_port()
+    _url = f"http://{host}:{port}"
     return _url
 
 
@@ -2285,7 +2388,7 @@ def empty_home_dir_path(tmp_path_factory: pytest.TempPathFactory) -> str:
     return home_path
 
 
-RANDOM_LENGTH = 20
+RANDOM_LENGTH = 8  # Keep short to stay within Windows MAX_PATH (260 chars)
 NUM_TABLES = 2
 
 
@@ -2299,6 +2402,13 @@ def table_name() -> str:
 @pytest.fixture()
 def table_list(table_name: str) -> list[str]:
     return [f"{table_name}_{idx}" for idx in range(NUM_TABLES)]
+
+
+@pytest.fixture()
+def view_name() -> str:
+    prefix = "my_iceberg_view-"
+    random_tag = "".join(choice(string.ascii_letters) for _ in range(RANDOM_LENGTH))
+    return (prefix + random_tag).lower()
 
 
 @pytest.fixture()
@@ -2335,15 +2445,15 @@ def hierarchical_namespace_list(hierarchical_namespace_name: str) -> list[str]:
 
 BUCKET_NAME = "test_bucket"
 TABLE_METADATA_LOCATION_REGEX = re.compile(
-    r"""s3://test_bucket/my_iceberg_database-[a-z]{20}.db/
-    my_iceberg_table-[a-z]{20}/metadata/
+    r"""s3://test_bucket/my_iceberg_database-[a-z]{8}.db/
+    my_iceberg_table-[a-z]{8}/metadata/
     [0-9]{5}-[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}.metadata.json""",
     re.X,
 )
 
 BQ_TABLE_METADATA_LOCATION_REGEX = re.compile(
-    r"""gs://alexstephen-test-bq-bucket/my_iceberg_database_[a-z]{20}.db/
-    my_iceberg_table-[a-z]{20}/metadata/
+    r"""gs://alexstephen-test-bq-bucket/my_iceberg_database_[a-z]{8}.db/
+    my_iceberg_table-[a-z]{8}/metadata/
     [0-9]{5}-[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}.metadata.json""",
     re.X,
 )
@@ -2414,6 +2524,11 @@ def clean_up(test_catalog: Catalog) -> None:
         if "my_iceberg_database-" in database_name:
             for identifier in test_catalog.list_tables(database_name):
                 test_catalog.drop_table(identifier)
+            try:
+                for identifier in test_catalog.list_views(database_name):
+                    test_catalog.drop_view(identifier)
+            except NotImplementedError:
+                pass
             test_catalog.drop_namespace(database_name)
 
 
@@ -2476,6 +2591,8 @@ def warehouse(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture
 def table_v1(example_table_metadata_v1: dict[str, Any]) -> Table:
+    from pyiceberg.catalog.noop import NoopCatalog
+
     table_metadata = TableMetadataV1(**example_table_metadata_v1)
     return Table(
         identifier=("database", "table"),
@@ -2488,6 +2605,8 @@ def table_v1(example_table_metadata_v1: dict[str, Any]) -> Table:
 
 @pytest.fixture
 def table_v2(example_table_metadata_v2: dict[str, Any]) -> Table:
+    from pyiceberg.catalog.noop import NoopCatalog
+
     table_metadata = TableMetadataV2(**example_table_metadata_v2)
     return Table(
         identifier=("database", "table"),
@@ -2500,6 +2619,8 @@ def table_v2(example_table_metadata_v2: dict[str, Any]) -> Table:
 
 @pytest.fixture
 def table_v3(example_table_metadata_v3: dict[str, Any]) -> Table:
+    from pyiceberg.catalog.noop import NoopCatalog
+
     table_metadata = TableMetadataV3(**example_table_metadata_v3)
     return Table(
         identifier=("database", "table"),
@@ -2513,6 +2634,8 @@ def table_v3(example_table_metadata_v3: dict[str, Any]) -> Table:
 @pytest.fixture
 def table_v2_orc(example_table_metadata_v2: dict[str, Any]) -> Table:
     import copy
+
+    from pyiceberg.catalog.noop import NoopCatalog
 
     metadata_dict = copy.deepcopy(example_table_metadata_v2)
     if not metadata_dict["properties"]:
@@ -2532,6 +2655,8 @@ def table_v2_orc(example_table_metadata_v2: dict[str, Any]) -> Table:
 def table_v2_with_fixed_and_decimal_types(
     table_metadata_v2_with_fixed_and_decimal_types: dict[str, Any],
 ) -> Table:
+    from pyiceberg.catalog.noop import NoopCatalog
+
     table_metadata = TableMetadataV2(
         **table_metadata_v2_with_fixed_and_decimal_types,
     )
@@ -2546,6 +2671,8 @@ def table_v2_with_fixed_and_decimal_types(
 
 @pytest.fixture
 def table_v2_with_extensive_snapshots(example_table_metadata_v2_with_extensive_snapshots: dict[str, Any]) -> Table:
+    from pyiceberg.catalog.noop import NoopCatalog
+
     table_metadata = TableMetadataV2(**example_table_metadata_v2_with_extensive_snapshots)
     return Table(
         identifier=("database", "table"),
@@ -2558,6 +2685,8 @@ def table_v2_with_extensive_snapshots(example_table_metadata_v2_with_extensive_s
 
 @pytest.fixture
 def table_v2_with_statistics(table_metadata_v2_with_statistics: dict[str, Any]) -> Table:
+    from pyiceberg.catalog.noop import NoopCatalog
+
     table_metadata = TableMetadataV2(**table_metadata_v2_with_statistics)
     return Table(
         identifier=("database", "table"),
@@ -2963,6 +3092,15 @@ def pyarrow_table_with_promoted_types(pyarrow_schema_with_promoted_types: "pa.Sc
     )
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    # Disable Ray's automatic uv environment propagation to workers.
+    # When tests are invoked via `uv run`, Ray detects the wrapper and tries
+    # to package the working directory for remote workers, which is unnecessary
+    # and problematic in local single-node test mode
+    # See https://docs.ray.io/en/latest/_modules/ray/_private/worker.html
+    os.environ["RAY_ENABLE_UV_RUN_RUNTIME_ENV"] = "0"
+
+
 @pytest.fixture(scope="session")
 def ray_session() -> Generator[Any, None, None]:
     """Fixture to manage Ray initialization and shutdown for tests."""
@@ -2970,7 +3108,6 @@ def ray_session() -> Generator[Any, None, None]:
 
     ray.init(
         ignore_reinit_error=True,
-        runtime_env={"working_dir": None},  # Prevent Ray from serializing the working directory to workers
     )
     yield ray
     ray.shutdown()
@@ -2979,11 +3116,15 @@ def ray_session() -> Generator[Any, None, None]:
 # Catalog fixtures
 
 
-def _create_memory_catalog(name: str, warehouse: Path) -> InMemoryCatalog:
+def _create_memory_catalog(name: str, warehouse: Path) -> Catalog:
+    from pyiceberg.catalog.memory import InMemoryCatalog
+
     return InMemoryCatalog(name, warehouse=f"file://{warehouse}")
 
 
-def _create_sql_catalog(name: str, warehouse: Path) -> SqlCatalog:
+def _create_sql_catalog(name: str, warehouse: Path) -> Catalog:
+    from pyiceberg.catalog.sql import SqlCatalog
+
     catalog = SqlCatalog(
         name,
         uri="sqlite:///:memory:",
@@ -2993,9 +3134,11 @@ def _create_sql_catalog(name: str, warehouse: Path) -> SqlCatalog:
     return catalog
 
 
-def _create_sql_without_rowcount_catalog(name: str, warehouse: Path) -> SqlCatalog:
+def _create_sql_without_rowcount_catalog(name: str, warehouse: Path) -> Catalog:
+    from pyiceberg.catalog.sql import SqlCatalog
+
     props = {
-        "uri": f"sqlite:////{warehouse}/sql-catalog",
+        "uri": f"sqlite:///{warehouse.as_posix()}/sql-catalog",
         "warehouse": f"file://{warehouse}",
     }
     catalog = SqlCatalog(name, **props)
@@ -3080,11 +3223,10 @@ def fixed_test_table_namespace() -> Identifier:
 
 
 @pytest.fixture(
-    scope="session",
     params=[
-        lazy_fixture("fixed_test_table_identifier"),
-        lazy_fixture("random_table_identifier"),
-        lazy_fixture("random_hierarchical_identifier"),
+        lf("fixed_test_table_identifier"),
+        lf("random_table_identifier"),
+        lf("random_hierarchical_identifier"),
     ],
 )
 def test_table_identifier(request: pytest.FixtureRequest) -> Identifier:
@@ -3092,11 +3234,10 @@ def test_table_identifier(request: pytest.FixtureRequest) -> Identifier:
 
 
 @pytest.fixture(
-    scope="session",
     params=[
-        lazy_fixture("another_fixed_test_table_identifier"),
-        lazy_fixture("another_random_table_identifier"),
-        lazy_fixture("another_random_hierarchical_identifier"),
+        lf("another_fixed_test_table_identifier"),
+        lf("another_random_table_identifier"),
+        lf("another_random_hierarchical_identifier"),
     ],
 )
 def another_table_identifier(request: pytest.FixtureRequest) -> Identifier:
@@ -3105,9 +3246,9 @@ def another_table_identifier(request: pytest.FixtureRequest) -> Identifier:
 
 @pytest.fixture(
     params=[
-        lazy_fixture("database_name"),
-        lazy_fixture("hierarchical_namespace_name"),
-        lazy_fixture("fixed_test_table_namespace"),
+        lf("database_name"),
+        lf("hierarchical_namespace_name"),
+        lf("fixed_test_table_namespace"),
     ],
 )
 def test_namespace(request: pytest.FixtureRequest) -> Identifier:
@@ -3130,3 +3271,86 @@ def test_table_properties() -> dict[str, str]:
         "key1": "value1",
         "key2": "value2",
     }
+
+
+def does_support_purge_table(catalog: Catalog) -> bool:
+    from pyiceberg.catalog.noop import NoopCatalog
+    from pyiceberg.catalog.rest import RestCatalog
+
+    if isinstance(catalog, RestCatalog):
+        return property_as_bool(catalog.properties, "supports_purge_table", True)
+    from pyiceberg.catalog.hive import HiveCatalog
+
+    if isinstance(catalog, (HiveCatalog, NoopCatalog)):
+        return False
+    return True
+
+
+def does_support_atomic_concurrent_updates(catalog: Catalog) -> bool:
+    from pyiceberg.catalog.noop import NoopCatalog
+    from pyiceberg.catalog.rest import RestCatalog
+
+    if isinstance(catalog, RestCatalog):
+        return property_as_bool(catalog.properties, "supports_atomic_concurrent_updates", True)
+    from pyiceberg.catalog.hive import HiveCatalog
+
+    if isinstance(catalog, (HiveCatalog, NoopCatalog)):
+        return False
+    return True
+
+
+def does_support_nested_namespaces(catalog: Catalog) -> bool:
+    from pyiceberg.catalog.dynamodb import DynamoDbCatalog
+    from pyiceberg.catalog.glue import GlueCatalog
+    from pyiceberg.catalog.noop import NoopCatalog
+    from pyiceberg.catalog.rest import RestCatalog
+
+    if isinstance(catalog, RestCatalog):
+        return property_as_bool(catalog.properties, "supports_nested_namespaces", True)
+    from pyiceberg.catalog.bigquery_metastore import BigQueryMetastoreCatalog
+    from pyiceberg.catalog.hive import HiveCatalog
+
+    if isinstance(catalog, (HiveCatalog, BigQueryMetastoreCatalog, NoopCatalog, GlueCatalog, DynamoDbCatalog)):
+        return False
+    return True
+
+
+def does_support_schema_evolution(catalog: Catalog) -> bool:
+    from pyiceberg.catalog.noop import NoopCatalog
+    from pyiceberg.catalog.rest import RestCatalog
+
+    if isinstance(catalog, RestCatalog):
+        return property_as_bool(catalog.properties, "supports_schema_evolution", True)
+    from pyiceberg.catalog.hive import HiveCatalog
+
+    if isinstance(catalog, (HiveCatalog, NoopCatalog)):
+        return False
+    return True
+
+
+def does_support_slash_in_identifier(catalog: Catalog) -> bool:
+    from pyiceberg.catalog.noop import NoopCatalog
+    from pyiceberg.catalog.rest import RestCatalog
+    from pyiceberg.catalog.sql import SqlCatalog
+
+    if isinstance(catalog, RestCatalog):
+        return property_as_bool(catalog.properties, "supports_slash_in_identifier", False)
+    from pyiceberg.catalog.hive import HiveCatalog
+
+    if isinstance(catalog, (HiveCatalog, NoopCatalog, SqlCatalog)):
+        return False
+    return True
+
+
+def does_support_dot_in_identifier(catalog: Catalog) -> bool:
+    from pyiceberg.catalog.noop import NoopCatalog
+    from pyiceberg.catalog.rest import RestCatalog
+    from pyiceberg.catalog.sql import SqlCatalog
+
+    if isinstance(catalog, RestCatalog):
+        return property_as_bool(catalog.properties, "supports_dot_in_identifier", True)
+    from pyiceberg.catalog.hive import HiveCatalog
+
+    if isinstance(catalog, (HiveCatalog, NoopCatalog, SqlCatalog)):
+        return False
+    return True

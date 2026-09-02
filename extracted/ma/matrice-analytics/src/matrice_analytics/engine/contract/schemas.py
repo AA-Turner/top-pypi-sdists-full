@@ -213,7 +213,9 @@ STREAM_TIME_FORMATS: Final[tuple[str, ...]] = (
 RFC3339 (contract Section 3.3) -- do not "fix" it.
 """
 
-_RFC3339Z_RE: Final[re.Pattern[str]] = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$")
+_RFC3339Z_RE: Final[re.Pattern[str]] = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +237,9 @@ def _as_utc_datetime(value: datetime | int | float) -> datetime:
         raise TypeError("timestamp must be a datetime, epoch seconds or a string")
     if isinstance(value, (int, float)):
         return datetime.fromtimestamp(float(value), tz=timezone.utc)
-    raise TypeError(f"timestamp must be a datetime, epoch seconds or a string, got {type(value).__name__}")
+    raise TypeError(
+        f"timestamp must be a datetime, epoch seconds or a string, got {type(value).__name__}"
+    )
 
 
 def _parse_rfc3339_any(text: str) -> datetime:
@@ -299,7 +303,9 @@ def parse_rfc3339z(text: str) -> datetime:
             (BE-6).
     """
     if not isinstance(text, str) or not _RFC3339Z_RE.match(text.strip()):
-        raise ValueError(f"{text!r} is not RFC3339 with a 'Z' suffix (expected e.g. '2026-03-16T00:05:00Z')")
+        raise ValueError(
+            f"{text!r} is not RFC3339 with a 'Z' suffix (expected e.g. '2026-03-16T00:05:00Z')"
+        )
     return _parse_rfc3339_any(text)
 
 
@@ -508,7 +514,9 @@ def parse_agg_type(value: object) -> AggType:
     if isinstance(value, AggType):
         return value
     if not isinstance(value, str):
-        raise ValueError(f"agg_type must be a string, got {type(value).__name__}; legal values: {_legal(AggType)}")
+        raise ValueError(
+            f"agg_type must be a string, got {type(value).__name__}; legal values: {_legal(AggType)}"
+        )
     text = value.strip().lower()
     if text in AggType.__members__:
         return AggType(text)
@@ -550,7 +558,9 @@ def parse_category(value: object) -> Category:
     if isinstance(value, Category):
         return value
     if not isinstance(value, str):
-        raise ValueError(f"category must be a string, got {type(value).__name__}; legal values: {_legal(Category)}")
+        raise ValueError(
+            f"category must be a string, got {type(value).__name__}; legal values: {_legal(Category)}"
+        )
     text = value.strip().upper()
     if text in Category.__members__:
         return Category(text)
@@ -706,7 +716,9 @@ WireFloat = Annotated[float, BeforeValidator(_wire_number)]
 
 AggTypeField = Annotated[AggType, BeforeValidator(parse_agg_type)]
 CategoryField = Annotated[Category, BeforeValidator(parse_category)]
-IncidentCategoryField = Annotated[Union[Category, Literal[""]], BeforeValidator(parse_incident_category)]
+IncidentCategoryField = Annotated[
+    Union[Category, Literal[""]], BeforeValidator(parse_incident_category)
+]
 SeverityField = Annotated[Severity, BeforeValidator(parse_severity)]
 
 
@@ -779,7 +791,9 @@ class MetricEntry(_WireModel):
     def _zone_must_be_non_empty(cls, value: str) -> str:
         """Reject the legacy ``"__global__"`` sentinel and empty zones (PY-6)."""
         if not value.strip():
-            raise ValueError(f"metrics[].zone must be non-empty; use {GLOBAL_ZONE!r} for single-bucket apps")
+            raise ValueError(
+                f"metrics[].zone must be non-empty; use {GLOBAL_ZONE!r} for single-bucket apps"
+            )
         if value == "__global__":
             raise ValueError(
                 "zone '__global__' is the legacy sentinel (PY-6); use 'global'. "
@@ -896,7 +910,9 @@ class TrackingStats(_WireModel):
     def _reset_timestamp_is_rfc3339z_or_blank(cls, value: str) -> str:
         """``reset_timestamp`` is optional, but if present it must parse."""
         if value and not is_rfc3339z(value):
-            raise ValueError(f"tracking_stats.reset_timestamp {value!r} must be RFC3339 with a 'Z' suffix, or ''")
+            raise ValueError(
+                f"tracking_stats.reset_timestamp {value!r} must be RFC3339 with a 'Z' suffix, or ''"
+            )
         return value
 
 
@@ -911,7 +927,9 @@ class AggregationResult(_WireModel):
     """
 
     camera_id: WireStr = Field(
-        description=("Drives team resolution and zone lookup. Empty means the row is ingested with teamId=''."),
+        description=(
+            "Drives team resolution and zone lookup. Empty means the row is ingested with teamId=''."
+        ),
     )
     camera_name: WireStr
     app_deployment_id: WireStr = Field(
@@ -1108,7 +1126,9 @@ class Incident(_WireModel):
     def _end_time_is_rfc3339z_or_blank(cls, value: str) -> str:
         """``""`` means open; anything else must parse or the incident never closes."""
         if value and not is_rfc3339z(value):
-            raise ValueError(f"incidents[].end_time {value!r} must be '' (open) or RFC3339 with a 'Z' suffix (close)")
+            raise ValueError(
+                f"incidents[].end_time {value!r} must be '' (open) or RFC3339 with a 'Z' suffix (close)"
+            )
         return value
 
 
@@ -1271,6 +1291,15 @@ class Detection(_WireModel):
             "This detection's mask, RLE-encoded, when the producer sent one as a ready-to-emit "
             "encoding. Absent for a detector-only stream and for a polygon/area-only mask -- "
             "never a decoded polygon or pixel array (contract 04 §5.1)."
+        ),
+    )
+    is_blur: bool | None = Field(
+        default=None,
+        description=(
+            "App-specific opt-in flag, not part of the base contract. Unset (and therefore "
+            "omitted from the payload, same as an unset track_id) for every app except the "
+            "ones whose custom stage explicitly sets it via PrimitiveOutput.wire_detections -- "
+            "e.g. Face Blur, which marks every published detection True."
         ),
     )
 

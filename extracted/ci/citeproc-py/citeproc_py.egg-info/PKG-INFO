@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: citeproc-py
-Version: 0.11.0
+Version: 0.11.1
 Summary: Citations and bibliography formatter
 Author-email: Brecht Machiels <brecht@mos6581.org>
 License-Expression: BSD-2-Clause-Views
@@ -37,6 +37,7 @@ Provides-Extra: full
 Requires-Dist: citeproc-py-styles; extra == "full"
 Provides-Extra: tests
 Requires-Dist: citeproc-py-styles; extra == "tests"
+Requires-Dist: tox; extra == "tests"
 Dynamic: license-file
 
 # citeproc-py
@@ -117,19 +118,20 @@ git submodule update --init
 
 Then install with
 ```bash
-pip install --editable .
+pip install --editable .[tests]
 ```
 
-Then move to the `tests` directory and run
+You can run all the tests using tox:
 ```bash
-python citeproc-test.py
+tox run -e py314
 ```
 
-Run
+Or you can manually run citeproc-test tests using
 ```bash
-citeproc-test.py --help
+python tests/citeproc-test.py
 ```
-to see its usage information. The first time
+
+The first time
 you run the script it will clone the
 [citeproc-test suite](https://github.com/citation-style-language/test-suite) repository into the
 `tests` directory and checkout the last tested version. By default failed tests are
@@ -140,6 +142,24 @@ If you want git to fully ignore the submodule, you can type
 ```bash
 git update-index --assume-unchanged citeproc/data/schema
 ```
+
+# v0.11.1 (Tue Sep 01 2026)
+
+#### 🐛 Bug Fix
+
+- Contributing: update contributing guidelines [#214](https://github.com/citeproc-py/citeproc-py/pull/214) ([@tmorrell](https://github.com/tmorrell))
+- coverage: ignore _version.py [#214](https://github.com/citeproc-py/citeproc-py/pull/214) ([@tmorrell](https://github.com/tmorrell))
+- tests: recommend tox and modernize coveralls setup [#214](https://github.com/citeproc-py/citeproc-py/pull/214) ([@tmorrell](https://github.com/tmorrell))
+
+#### 🏠 Internal
+
+- tests: remove global, ancient python code, and deprecated load_module [#213](https://github.com/citeproc-py/citeproc-py/pull/213) ([@tmorrell](https://github.com/tmorrell))
+
+#### Authors: 1
+
+- Tom Morrell ([@tmorrell](https://github.com/tmorrell))
+
+---
 
 # v0.11.0 (Thu Aug 20 2026)
 

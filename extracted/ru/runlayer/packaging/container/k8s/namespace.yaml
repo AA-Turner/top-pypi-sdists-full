@@ -1,0 +1,10 @@
+# Dedicated namespace for the Runlayer AI Watch scanner.
+# Optional — you may deploy into an existing namespace instead; if so, drop
+# this file from the kustomization and set `namespace:` there to your ns.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: runlayer
+  labels:
+    app.kubernetes.io/name: runlayer-aiwatch
+    app.kubernetes.io/part-of: runlayer

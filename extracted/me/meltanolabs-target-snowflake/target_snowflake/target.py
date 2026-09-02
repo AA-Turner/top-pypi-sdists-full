@@ -1,11 +1,15 @@
+# Copyright (C) 2026 Meltano.
+
 """Snowflake target class."""
 
 from __future__ import annotations
 
 import logging.config
+import typing as t
 
 import click
 from singer_sdk import typing as th
+from singer_sdk.helpers.capabilities import CapabilitiesEnum, PluginCapabilities
 from singer_sdk.sql.target import SQLTarget
 
 from target_snowflake.connector import DEFAULT_TIMESTAMP_TYPE, SnowflakeTimestampType
@@ -126,9 +130,63 @@ class TargetSnowflake(SQLTarget):
             default=DEFAULT_TIMESTAMP_TYPE.name,
             description="Snowflake timestamp type to use for date-time properties.",
         ),
+        th.Property(
+            "uuid_format",
+            th.StringType,
+            allowed_values=["native", "string"],
+            default="native",
+            description=(
+                "Snowflake column type/value format for `format: uuid` string properties. "
+                "'native' (default) uses SQLAlchemy's native UUID type, which compiles to CHAR(32) on Snowflake "
+                "and strips dashes from the value. "
+                "'string' uses a STRING(36) column and writes the value as-is, preserving dashes."
+            ),
+        ),
+        th.Property(
+            "quoted_identifiers_ignore_case",
+            th.BooleanType,
+            default=True,
+            description=(
+                "Whether letters in double-quoted object identifiers are stored and resolved as uppercase letters."
+            ),
+        ),
+        th.Property(
+            "normalise_casing",
+            th.BooleanType,
+            default=False,
+            description="Whether to normalise identifiers into snake_case.",
+        ),
+        th.Property(
+            "use_raw_stream_names",
+            th.BooleanType,
+            default=False,
+            description=(
+                "Whether to use raw stream names as table names instead of informal Singer convention as last "
+                "hyphen-separated part of stream name."
+            ),
+        ),
+        th.Property(
+            "load_method",
+            th.StringType,
+            allowed_values=["upsert", "overwrite"],
+            default="upsert",
+            description=(
+                "Controls how records are written to the destination table. "
+                "'upsert' (default) uses MERGE INTO, matching on key properties to update "
+                "existing rows and insert new ones. "
+                "'overwrite' truncates the table then uses COPY INTO, replacing all existing "
+                "rows — faster for initial loads but destructive if run on a populated table."
+            ),
+        ),
     ).to_dict()
 
     default_sink_class = SnowflakeSink
+
+    #: A list of capabilities supported by this target.
+    capabilities: t.ClassVar[list[CapabilitiesEnum]] = [
+        *SQLTarget.capabilities,
+        PluginCapabilities.BATCH,
+    ]
 
     @classmethod
     def cb_initialize(

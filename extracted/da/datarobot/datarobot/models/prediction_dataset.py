@@ -41,17 +41,17 @@ class PredictionDataset(APIObject):
     Attributes
     ----------
     id : str
-        the ID of the dataset
+        The ID of the dataset.
     project_id : str
-        the ID of the project the dataset belongs to
+        The ID of the project the dataset belongs to.
     created : str
-        the time the dataset was created
+        The time the dataset was created.
     name : str
-        the name of the dataset
+        The name of the dataset.
     num_rows : int
-        the number of rows in the dataset
+        The number of rows in the dataset.
     num_columns : int
-        the number of columns in the dataset
+        The number of columns in the dataset.
     forecast_point : datetime.datetime or None
         For time series projects only. This is the default point relative to which predictions will
         be generated, based on the forecast window of the project.  See the time series
@@ -72,7 +72,7 @@ class PredictionDataset(APIObject):
         If omitted or False, missing values are not allowed.
     data_quality_warnings : dict, optional
         (New in version v2.15) A dictionary that contains available warnings about potential
-        problems in this prediction dataset. Available warnings include:
+        problems in this prediction dataset.
 
          - has_kia_missing_values_in_forecast_window (`bool`)
             Applicable for time series projects. If True, known in advance features
@@ -103,13 +103,13 @@ class PredictionDataset(APIObject):
         column which will be used to calculate the classification metrics and insights.
     detected_actual_value_columns : list of dict, optional
         (New in version v2.21) For unsupervised projects only, list of detected actual value
-        columns information containing missing count and name for each column.
+        columns information containing missing count and name for each column..
     contains_target_values : Optional[bool]
         (New in version v2.21)  Only for supervised projects. If True, dataset contains target
-        values and can be used to calculate the classification metrics and insights.
+        values and can be used to calculate the classification metrics and insights..
     secondary_datasets_config_id: string or None, optional
-        (New in version v2.23) The Id of the alternative secondary dataset config
-        to use during prediction for Feature discovery project.
+        (New in version v2.23) The ID of the alternative secondary dataset config
+        to use during prediction for Feature discovery project..
     """
 
     _path_template = "projects/{}/predictionDatasets/{}/"
@@ -198,14 +198,14 @@ class PredictionDataset(APIObject):
         Parameters
         ----------
         project_id:
-            the ID of the project to query
+            The ID of the project to query.
         dataset_id:
-            the ID of the dataset to retrieve
+            The ID of the dataset to retrieve.
 
         Returns
         -------
         dataset: PredictionDataset
-            A dataset uploaded to make predictions
+            A dataset uploaded to make predictions.
         """
         path = cls._path_template.format(project_id, dataset_id)
         return cls.from_location(path)

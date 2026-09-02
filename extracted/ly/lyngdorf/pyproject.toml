@@ -1,0 +1,91 @@
+[tool.poetry]
+name = "lyngdorf"
+version = "2.1.0"
+description = "Library to control a Lyngdorf A/V processor"
+authors = ["Alex Fishlock <alex.fishlock@racingjag.com>"]
+license = "MIT"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.poetry.urls]
+Homepage = "https://github.com/fishloa/lyngdorf"
+Issues = "https://github.com/fishloa/lyngdorf/issues"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiohttp = ">=3.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.0"
+black = "^26.0.0"
+pytest-asyncio = "^1.0.0"
+ruff = "^0.15.0"
+mypy = "^1.19.1"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.mypy]
+python_version = "3.11"
+# The whole package is now checked to `--strict` (spec D3, #49). WP0's
+# per-module override block, which enrolled each 2.0 module as it was
+# written, has done its job and is gone. `strict = true` is still not
+# used: the flags are enumerated so a future per-module exemption cannot
+# reintroduce WP0's measured global-leak bug.
+warn_unused_configs = true
+warn_redundant_casts = true
+strict_bytes = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
+# Home Assistant's generated mypy.ini sets this, and a library has no
+# business reasoning about a consumer's dead code while running a weaker
+# check than the consumer does. Adopted after a shape shipped here that
+# would have forced a None guard their gate then rejected as unreachable.
+warn_unreachable = true
+
+# The D9 shim mixin (_CompatShims) uses TYPE_CHECKING to inherit from
+# LyngdorfReceiver's full surface, but the import cycle
+# (_compat.py → receiver.py → _compat.py) means mypy sees the base as
+# Any under strict; the attr-defined and no-any-return cures are worse
+# than the problem (they'd mask real bugs). This override exactly
+# replicates the 1.x state: _compat.py ships typed in the wheel (it
+# carries no type: ignore comments), but strict does not enforce
+# concrete-attribute resolution across the mixin boundary.
+[[tool.mypy.overrides]]
+module = "lyngdorf._compat"
+disable_error_code = "attr-defined, no-any-return"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

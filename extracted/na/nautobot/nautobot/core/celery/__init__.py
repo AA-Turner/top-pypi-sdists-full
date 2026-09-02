@@ -1,0 +1,391 @@
+import json
+import logging
+import os
+from pathlib import Path
+import shutil
+import sys
+
+from celery import bootsteps, Celery, shared_task, signals
+from celery.app.log import TaskFormatter
+from celery.utils.log import get_logger
+from celery.worker.state import revoked as canceled_tasks
+from django.apps import apps
+from django.conf import settings
+from django.db.utils import OperationalError, ProgrammingError
+from kombu.serialization import register
+from prometheus_client import CollectorRegistry, multiprocess, start_http_server
+
+from nautobot import add_failure_logger, add_success_logger
+from nautobot.core.celery.control import discard_git_repository, refresh_git_repository  # noqa: F401  # unused-import
+from nautobot.core.celery.encoders import NautobotKombuJSONEncoder
+from nautobot.core.celery.log import NautobotDatabaseHandler
+from nautobot.core.utils.module_loading import import_modules_privately, import_string_optional
+from nautobot.extras.registry import registry, registry_jobs_lock
+
+logger = logging.getLogger(__name__)
+
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "nautobot_config")
+
+
+class NautobotCelery(Celery):
+    task_cls = "nautobot.core.celery.task:NautobotTask"
+
+
+app = NautobotCelery("nautobot")
+
+# Using a string here means the worker doesn't have to serialize
+# the configuration object to child processes.
+# - namespace='CELERY' means all celery-related configuration keys
+#   should have a `CELERY_` prefix.
+app.config_from_object("django.conf:settings", namespace="CELERY")
+
+# Load task modules from all registered Django apps.
+app.autodiscover_tasks()
+
+
+def _get_celery_queue_items(queue_name):
+    """Return the task IDs of all messages currently sitting in a Celery broker queue.
+
+    Uses Celery's own broker connection (rather than connecting directly to Redis)
+    and reads the raw queue contents via `LRANGE`. Each message is a JSON-encoded
+    Celery envelope; the task ID lives at `headers.id`.
+
+    Args:
+        queue_name: The name of the broker queue to read.
+
+    Returns:
+        A list of task ID strings, in queue order (head to tail).
+    """
+    with app.connection_for_read() as conn:
+        with conn.channel() as channel:
+            # kombu's redis transport exposes the live redis-py client for this channel
+            client = channel.client
+            raw_tasks = client.lrange(queue_name, 0, -1)
+
+    decoded = []
+    for raw in raw_tasks:
+        # channel.client does NOT decode_responses, so raw is bytes
+        task = json.loads(raw)
+        decoded.append(task["headers"]["id"])
+    return decoded
+
+
+@signals.worker_process_init.connect
+def install_otel_exporters(sender=None, **kwargs):
+    """Create the OpenTelemetry OTLP exporters in each forked Celery worker child.
+
+    Celery's prefork pool forks child worker processes after `instrument()` has already run in the
+    parent. The OTLP gRPC exporter's channel spins up fork-unsafe C-core threads/fds at construction,
+    so a channel built in the parent is inherited broken by children and segfaults on export.
+    `instrument()` therefore defers exporter creation; this handler installs the exporters per child
+    on `worker_process_init` (fired inside each forked child). `install_exporters()` is idempotent.
+
+    Connected via the `worker_process_init` signal; not intended to be called directly.
+    """
+    if not settings.OTEL_PYTHON_DJANGO_INSTRUMENT:
+        return
+    from nautobot.core.cli.opentelemetry import install_exporters
+
+    install_exporters()
+
+
+@signals.beat_init.connect
+def install_otel_exporters_beat(sender=None, **kwargs):
+    """Create the OpenTelemetry OTLP exporters in the Celery beat scheduler process.
+
+    Unlike `worker`, `beat` is a single, non-forking process, so `worker_process_init` never fires
+    for it and the CLI entrypoint deliberately skips in-process exporter creation for every `celery`
+    subcommand (it cannot tell `beat` from `worker` without exporting pre-fork in the worker case).
+    Without this handler `instrument()` would run but no exporter would ever be attached, silently
+    dropping all of beat's telemetry. `beat_init` fires in beat's own process where in-process gRPC
+    channel creation is safe (nothing forks after it). `install_exporters()` is idempotent.
+
+    Connected via the `beat_init` signal; not intended to be called directly.
+    """
+    if not settings.OTEL_PYTHON_DJANGO_INSTRUMENT:
+        return
+    from nautobot.core.cli.opentelemetry import install_exporters
+
+    install_exporters()
+
+
+@signals.worker_ready.connect
+def load_canceled_on_start(sender=None, **kwargs):
+    """Re-apply the in-memory canceled set when a Celery worker boots.
+
+    Celery's canceled set lives in worker memory (`celery.worker.state.revoked`)
+    and is lost on restart. If a job was marked REVOKED in the DB while the
+    worker was down, the message could still be sitting in the broker queue
+    and would be picked up and executed on next start.
+
+    This handler runs once per worker on `worker_ready`: it reads every queue
+    the worker is consuming, finds messages whose `JobResult` is already in
+    REVOKED status, and adds those task IDs back to the in-memory canceled
+    set so Celery skips them when it dequeues them.
+
+    Connected via the `worker_ready` signal; not intended to be called directly.
+    """
+
+    from nautobot.extras.jobs import JobResult
+
+    queue_names = [q.name for q in sender.task_consumer.queues]
+    all_ids = []
+    for qname in queue_names:
+        all_ids.extend(_get_celery_queue_items(qname))
+
+    ids = JobResult.objects.filter(
+        status="REVOKED",
+        id__in=all_ids,
+    ).values_list("id", flat=True)
+
+    for tid in ids:
+        canceled_tasks.add(str(tid))
+
+
+@signals.import_modules.connect
+def import_jobs(sender=None, **kwargs):
+    """
+    Import system Jobs into Nautobot as well as Jobs from JOBS_ROOT and GIT_ROOT.
+    Import app-provided jobs if the app provides dynamic jobs.
+
+    Note that app-provided jobs are automatically imported at startup time via NautobotAppConfig.ready()
+    """
+    with registry_jobs_lock:
+        import nautobot.core.jobs
+        import nautobot.ipam.jobs  # noqa: F401
+
+        _import_jobs_from_jobs_root()
+        _import_dynamic_jobs_from_apps()
+
+        try:
+            _import_jobs_from_git_repositories()
+        except (
+            OperationalError,  # Database not present, as may be the case when running pylint-nautobot
+            ProgrammingError,  # Database not ready yet, as may be the case on initial startup and migration
+        ):
+            pass
+
+
+def _import_jobs_from_jobs_root():
+    """
+    (Re)import all modules in settings.JOBS_ROOT.
+    """
+    if not (settings.JOBS_ROOT and os.path.isdir(settings.JOBS_ROOT)):
+        return
+
+    # Flush any previously loaded non-system, non-App Jobs
+    for job_class_path in list(registry["jobs"]):
+        if job_class_path.startswith("nautobot."):
+            # System job
+            continue
+        if any(job_class_path.startswith(f"{app_name}.") for app_name in settings.PLUGINS):
+            # App provided job
+            continue
+        try:
+            from nautobot.extras.models import GitRepository
+
+            if any(
+                job_class_path.startswith(f"{repo.slug}.")
+                for repo in GitRepository.objects.filter(provided_contents__contains="extras.job")
+            ):
+                # Git provided job
+                continue
+        except ProgrammingError:  # Database not ready yet, as may be the case on initial startup and migration
+            pass
+        # Else, it's presumably a JOBS_ROOT job
+        registry["jobs"].pop(job_class_path, None)
+
+    # Load all modules in JOBS_ROOT
+    import_modules_privately(path=os.path.realpath(settings.JOBS_ROOT))
+
+
+def _import_jobs_from_git_repositories():
+    git_root = os.path.realpath(settings.GIT_ROOT)
+    if not (git_root and os.path.exists(git_root)):
+        return
+
+    from nautobot.extras.models import GitRepository
+
+    # Make sure there are no git clones in GIT_ROOT that *aren't* tracked by a GitRepository;
+    # for example, maybe a GitRepository was deleted while this worker process wasn't running?
+    for filename in os.listdir(git_root):
+        filepath = os.path.join(git_root, filename)
+        if (
+            os.path.isdir(filepath)
+            and os.path.isdir(os.path.join(filepath, ".git"))
+            and not GitRepository.objects.filter(slug=filename).exists()
+        ):
+            logger.warning("Deleting unmanaged (leftover?) Git repository clone at %s", filepath)
+            shutil.rmtree(filepath, ignore_errors=True)
+
+    # Make sure all GitRepository records that include Jobs have up-to-date git clones, and load their jobs
+    for repo in GitRepository.objects.filter(provided_contents__contains="extras.job"):
+        refresh_git_repository(state=None, repository_pk=repo.pk, head=repo.current_head)
+
+
+def _import_dynamic_jobs_from_apps():
+    for app_name in settings.PLUGINS:
+        app_config = apps.get_app_config(app_name)
+        if not getattr(app_config, "provides_dynamic_jobs", False):
+            continue
+
+        # Unload job modules from sys.modules if they were previously loaded
+        app_jobs = getattr(app_config, "features", {}).get("jobs", [])
+        for job in app_jobs:
+            if job.__module__ in sys.modules:
+                del sys.modules[job.__module__]
+
+        # Load app jobs
+        app_config.features["jobs"] = import_string_optional(f"{app_config.__module__}.{app_config.jobs}")
+
+
+def add_nautobot_log_handler(logger_instance, log_format=None):
+    """Add NautobotDatabaseHandler to logger and update logger level filtering to send all log levels to our handler."""
+    if any(isinstance(h, NautobotDatabaseHandler) for h in logger_instance.handlers):
+        return
+    if logger_instance.level not in (logging.NOTSET, logging.DEBUG):
+        for handler in logger_instance.handlers:
+            handler.setLevel(logger_instance.level)
+    logger_instance.setLevel(logging.DEBUG)
+
+    if log_format is None:
+        log_format = app.conf.worker_task_log_format
+    handler = NautobotDatabaseHandler()
+    handler.setFormatter(TaskFormatter(log_format, use_color=False))
+    logger_instance.addHandler(handler)
+
+
+@signals.after_setup_logger.connect
+def setup_nautobot_global_logging(logger, **kwargs):  # pylint: disable=redefined-outer-name
+    """Add SUCCESS and FAILURE logs to celery global logger."""
+    logger.success = add_success_logger()
+    logger.failure = add_failure_logger()
+
+
+@signals.after_setup_task_logger.connect
+def setup_nautobot_task_logging(logger, **kwargs):  # pylint: disable=redefined-outer-name
+    """Add SUCCESS and FAILURE logs to celery task logger."""
+    logger.success = add_success_logger()
+    logger.failure = add_failure_logger()
+
+
+@signals.celeryd_after_setup.connect
+def setup_nautobot_job_logging(sender, instance, conf, **kwargs):
+    """Add nautobot database logging handler to celery stdout/stderr redirect logger and celery task logger."""
+    task_logger = get_logger("celery.task")
+    add_nautobot_log_handler(task_logger)
+    if conf.worker_redirect_stdouts:
+        redirect_logger = get_logger("celery.redirected")
+        add_nautobot_log_handler(redirect_logger)
+
+
+@signals.worker_ready.connect
+def setup_prometheus(**kwargs):
+    """This sets up an HTTP server to serve prometheus metrics from the celery workers."""
+    # Don't set up the server if the port is undefined
+    if not settings.CELERY_WORKER_PROMETHEUS_PORTS:
+        return
+
+    logger.info("Setting up prometheus metrics HTTP server for celery worker.")
+
+    # Ensure that the multiprocess coordination directory exists. Note that we explicitly don't clear this directory
+    # out because the worker might share its filesystem with the core app or another worker. The multiprocess
+    # mechanism from prometheus-client takes care of this.
+    multiprocess_coordination_directory = Path(os.environ["prometheus_multiproc_dir"])
+    multiprocess_coordination_directory.mkdir(parents=True, exist_ok=True)
+
+    # Set up the collector registry
+    collector_registry = CollectorRegistry()
+    multiprocess.MultiProcessCollector(collector_registry, path=multiprocess_coordination_directory)
+    for port in settings.CELERY_WORKER_PROMETHEUS_PORTS:
+        try:
+            start_http_server(port, registry=collector_registry)
+            break
+        except OSError:
+            continue
+    else:
+        logger.warning("Cannot export Prometheus metrics from worker, no available ports in range.")
+
+
+# Encoder function
+def _dumps(obj):
+    return json.dumps(obj, cls=NautobotKombuJSONEncoder, ensure_ascii=False)
+
+
+# Decoder function
+def _loads(obj):
+    return json.loads(obj)
+
+
+# Register the custom serialization type
+register("nautobot_json", _dumps, _loads, content_type="application/x-nautobot-json", content_encoding="utf-8")
+
+
+#
+# nautobot_task
+#
+# By exposing `shared_task` within our own namespace, we leave the door open to
+# extending and expanding the usage and meaning of shared_task without having
+# to undergo further refactoring of task's decorators. We could also transparently
+# swap out shared_task to a custom base task.
+#
+
+nautobot_task = shared_task
+
+
+registry["jobs"] = {}
+
+
+def register_jobs(*jobs):
+    """
+    Method to register jobs - with Celery in Nautobot 2.0 through 2.2.2, with Nautobot itself in 2.2.3 and later.
+    """
+    for job in jobs:
+        if job.class_path not in registry["jobs"]:
+            registry["jobs"][job.class_path] = job
+
+
+@signals.worker_ready.connect
+def worker_ready(**_):
+    if not settings.CELERY_HEALTH_PROBES_AS_FILES:
+        return
+    WORKER_READINESS_FILE = Path(settings.CELERY_WORKER_READINESS_FILE)
+    WORKER_READINESS_FILE.touch(exist_ok=True)
+
+
+@signals.worker_shutdown.connect
+def worker_shutdown(**_):
+    if not settings.CELERY_HEALTH_PROBES_AS_FILES:
+        return
+    WORKER_READINESS_FILE = Path(settings.CELERY_WORKER_READINESS_FILE)
+    WORKER_READINESS_FILE.unlink(missing_ok=True)
+
+
+class LivenessProbe(bootsteps.StartStopStep):
+    requires = {"celery.worker.consumer.connection:Connection"}
+
+    def __init__(self, parent, **kwargs):
+        self.requests = []
+        self.tref = None
+        self.WORKER_HEARTBEAT_FILE = Path(settings.CELERY_WORKER_HEARTBEAT_FILE)
+
+    def start(self, parent):
+        if not settings.CELERY_HEALTH_PROBES_AS_FILES:
+            return
+        # This is a 1-second interval.
+        self.tref = parent.timer.call_repeatedly(
+            1.0,
+            self.update_worker_heartbeat_file,
+            (parent,),
+            priority=10,
+        )
+
+    def stop(self, parent):
+        self.WORKER_HEARTBEAT_FILE.unlink(missing_ok=True)
+
+    def update_worker_heartbeat_file(self, parent):
+        self.WORKER_HEARTBEAT_FILE.touch(exist_ok=True)
+
+
+app.steps["consumer"].add(LivenessProbe)

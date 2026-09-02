@@ -18,7 +18,7 @@ from datarobot.models.api_object import APIObject
 
 class UserLimits(APIObject):
     """
-    Counts for user limits for LLM APIs and vector databases.
+    Counts for user limits for ``LLM`` ``APIs`` and vector databases.
     """
 
     _llm_path = "api/v2/genai/userLimits/llmApiCalls/"
@@ -39,6 +39,6 @@ class UserLimits(APIObject):
 
     @classmethod
     def get_llm_requests_count(cls) -> APIObject:
-        """Get the count of LLMs requests made by the user."""
+        """Get the count of ``LLM`` requests made by the user."""
         url = f"{cls._client.domain}/{cls._llm_path}"
         return cls.from_location(url)

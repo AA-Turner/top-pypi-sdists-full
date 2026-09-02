@@ -1,0 +1,311 @@
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from trilogy.core import graph as nx
+
+from trilogy.core.enums import Derivation, Granularity, JoinType, Purpose
+from trilogy.core.models.author import ConceptRef
+from trilogy.core.models.build import (
+    BuildConcept,
+    BuildDatasource,
+    BuildGrain,
+)
+from trilogy.core.models.execute import (
+    CTE,
+    BaseJoin,
+    QueryDatasource,
+    UnionCTE,
+    UnnestJoin,
+)
+from trilogy.core.statements.author import MultiSelectStatement, SelectStatement
+from trilogy.core.statements.execute import ProcessedQuery
+
+
+class NodeType(Enum):
+    CONCEPT = 1
+    NODE = 2
+
+
+@dataclass
+class GroupRequiredResponse:
+    target: BuildGrain
+    upstream: BuildGrain
+    required: bool
+
+
+def padding(x: int) -> str:
+    return "\t" * x
+
+
+def calculate_graph_relevance(
+    g: nx.Graph | nx.DiGraph, subset_nodes: set[str], concepts: set[BuildConcept]
+) -> int:
+    """Calculate the relevance of each node in a graph.
+    Relevance is used to prune irrelevant nodes from the graph.
+    """
+    concept_lookup = {c.address: c for c in concepts}
+    relevance = 0
+    for node in g.nodes:
+        if node not in subset_nodes:
+            continue
+        if g.nodes[node]["type"] != NodeType.CONCEPT:
+            continue
+        concept = concept_lookup[node]
+        # a single row concept can always be crossjoined
+        if concept.granularity == Granularity.SINGLE_ROW:
+            continue
+        if concept.derivation == Derivation.CONSTANT:
+            continue
+        # if it's an aggregate up to an arbitrary grain, it can be joined in later
+        if concept.purpose == Purpose.METRIC:
+            if not concept.grain:
+                continue
+            if len(concept.grain.components) == 0:
+                continue
+        if concept.grain and len(concept.grain.components) > 0:
+            relevance += 1
+            continue
+        # Added 2023-10-18 since we seemed to be strangely dropping things
+        relevance += 1
+    return relevance
+
+
+def get_disconnected_components(
+    concept_map: dict[str, set[BuildConcept]],
+) -> tuple[int, list]:
+    """Find if any of the datasources are not linked"""
+    from trilogy.core import graph as nx
+
+    graph = nx.Graph()
+    all_concepts = set()
+    for datasource, concepts in concept_map.items():
+        graph.add_node(datasource, type=NodeType.NODE)
+        for concept in concepts:
+            graph.add_node(concept.address, type=NodeType.CONCEPT)
+            graph.add_edge(datasource, concept.address)
+            all_concepts.add(concept)
+    sub_graphs = list(nx.connected_components(graph))
+    sub_graphs = [
+        x for x in sub_graphs if calculate_graph_relevance(graph, x, all_concepts) > 0
+    ]
+    return len(sub_graphs), sub_graphs
+
+
+_EMPTY_ADDRS: frozenset[str] = frozenset()
+
+
+def find_nullable_concepts(
+    source_map: dict[str, set[BuildDatasource | QueryDatasource | UnnestJoin]],
+    datasources: list[BuildDatasource | QueryDatasource],
+    joins: list[BaseJoin | UnnestJoin],
+) -> list[str]:
+    """Give a set of datasources and joins, find the concepts
+    that may contain nulls in the output set.
+    """
+    nullable_datasources = set()
+    # ``identifier`` is an expensive recursive property; resolve it once per
+    # datasource and reuse it everywhere below. The source_map loop alone
+    # would otherwise re-derive it O(source_map x datasources) times.
+    ds_idents: list[tuple[BuildDatasource | QueryDatasource, str]] = [
+        (x, x.identifier) for x in datasources
+    ]
+    typed_idents = [
+        (x, i)
+        for x, i in ds_idents
+        if isinstance(x, (BuildDatasource, QueryDatasource))
+    ]
+    datasource_map = {i: x for x, i in typed_idents}
+
+    # pre-build address sets for O(1) lookup in inner loops. Include each
+    # nullable concept's pseudonyms so a column whose ``Modifier.NULLABLE``
+    # only sits on the pre-merge address (e.g. ``store_sales.date.id``) is
+    # still detected when the caller looks it up under the merged target
+    # (``date.id``). Without this, ``MERGE store_sales.date.* into ~date.*``
+    # would silently strip nullability off the merged join key.
+    def _expanded_nullable_addrs(ds) -> set[str]:
+        out: set[str] = set()
+        for c in ds.nullable_concepts:
+            out.add(c.address)
+            out.update(c.pseudonyms)
+        return out
+
+    nullable_addrs: dict[str, set[str]] = {
+        i: _expanded_nullable_addrs(x) for x, i in typed_idents
+    }
+    output_addrs: dict[str, set[str]] = {
+        i: {c.address for c in x.output_concepts} for x, i in typed_idents
+    }
+    # Joins are emitted left-deep: each entry adds its ``right`` datasource to a
+    # growing left input whose ``left_datasource`` is recorded as None. A FULL
+    # (or RIGHT) join null-extends that ENTIRE accumulated left input, not just
+    # the immediate operand — e.g. in `m1 INNER f FULL m2`, an m2-only row leaves
+    # BOTH m1 and f NULL. Seed the accumulator with the anchor(s) (datasources
+    # that never appear as a ``right``) and grow it in join order.
+    base_joins = [j for j in joins if isinstance(j, BaseJoin)]
+    right_ids = {j.right_datasource.identifier for j in base_joins}
+    accumulated_left: set[str] = {i for _, i in typed_idents if i not in right_ids}
+    for join in joins:
+        is_on_nullable_condition = False
+        if not isinstance(join, BaseJoin):
+            continue
+        right_id = join.right_datasource.identifier
+        # The JOIN type itself can introduce NULLs. LEFT/RIGHT/FULL outer
+        # joins make the corresponding side's concepts nullable in the
+        # output, regardless of the source's own nullability.
+        if join.join_type in (JoinType.LEFT_OUTER, JoinType.FULL):
+            right_ds = datasource_map.get(right_id)
+            if right_ds is not None:
+                nullable_datasources.add(right_ds)
+        if join.join_type in (JoinType.RIGHT_OUTER, JoinType.FULL):
+            for left_id_acc in accumulated_left:
+                left_ds = datasource_map.get(left_id_acc)
+                if left_ds is not None:
+                    nullable_datasources.add(left_ds)
+        accumulated_left.add(right_id)
+        if not join.concept_pairs:
+            continue
+        # left_datasource is constant across the pair loop; identifier never
+        # returns None, so a None here means left_datasource itself is None.
+        left_id = (
+            join.left_datasource.identifier
+            if join.left_datasource is not None
+            else None
+        )
+        right_nullables = nullable_addrs.get(right_id, _EMPTY_ADDRS)
+        for pair in join.concept_pairs:
+            if pair.right.address in right_nullables:
+                is_on_nullable_condition = True
+                break
+            left_check = (
+                left_id if left_id is not None else pair.existing_datasource.identifier
+            )
+            if pair.left.address in nullable_addrs.get(left_check, _EMPTY_ADDRS):
+                is_on_nullable_condition = True
+                break
+        if is_on_nullable_condition:
+            # right_id can be a synthetic self-join-key pseudonym datasource
+            # absent from datasource_map — guard like the outer-join cases above.
+            right_ds = datasource_map.get(right_id)
+            if right_ds is not None:
+                nullable_datasources.add(right_ds)
+    final_nullable = set()
+
+    for k, v in source_map.items():
+        local_nullable = [
+            x for x, i in ds_idents if k in nullable_addrs.get(i, _EMPTY_ADDRS)
+        ]
+        nullable_matches = [
+            k in nullable_addrs.get(i, _EMPTY_ADDRS)
+            for x, i in ds_idents
+            if k in output_addrs.get(i, _EMPTY_ADDRS)
+        ]
+        if all(nullable_matches) and len(nullable_matches) > 0:
+            final_nullable.add(k)
+        all_ds = set(local_nullable).union(nullable_datasources)
+        if nullable_datasources and set(v).issubset(all_ds):
+            final_nullable.add(k)
+    return sorted(final_nullable)
+
+
+def _resolve_output_target(
+    cte: CTE | UnionCTE,
+    target: BuildConcept | ConceptRef,
+    scoped_merge_map: dict[str, str],
+) -> tuple[BuildConcept, bool] | None:
+    """The CTE column that renders `target`, and whether it must be re-aliased
+    to the written name. None when the CTE cannot render it at all."""
+    mapping = {x.address: x for x in cte.output_columns}
+    if target.address in mapping:
+        return mapping[target.address], False
+    for oc in cte.output_columns:
+        if target.address in oc.pseudonyms:
+            return oc, True
+    # an in-query JOIN collapses a source onto its canonical target; the
+    # target's column is present, render it under the written source name
+    canonical = scoped_merge_map.get(target.address)
+    if canonical is not None and canonical in mapping:
+        return mapping[canonical], True
+    return None
+
+
+def unrenderable_outputs(
+    cte: CTE | UnionCTE,
+    targets: Sequence[BuildConcept | ConceptRef],
+    scoped_merge_map: dict[str, str] | None = None,
+) -> list[str]:
+    """Target addresses `sort_select_output` would silently omit from the
+    projection. A caller that cannot tolerate a short SELECT — a persist writes
+    positionally, so a missing column shifts every later one — asks here and
+    fails naming the column instead."""
+    merge_map = scoped_merge_map or {}
+    return [
+        target.address
+        for target in targets
+        if _resolve_output_target(cte, target, merge_map) is None
+    ]
+
+
+def sort_select_output_processed(
+    cte: CTE | UnionCTE, query: SelectStatement | MultiSelectStatement | ProcessedQuery
+) -> CTE | UnionCTE:
+    if isinstance(query, ProcessedQuery):
+        targets = query.output_columns
+        hidden = query.hidden_columns
+    else:
+        targets = query.output_components
+        hidden = query.hidden_components
+
+    output_addresses = {c.address for c in targets}
+    scoped_merge_map: dict[str, str] = (
+        query.scoped_merge_map if isinstance(query, ProcessedQuery) else {}
+    )
+
+    def render_as(target, oc: BuildConcept) -> BuildConcept:
+        # render `oc`'s column under the originally-written `target` name
+        if target.address not in cte.source_map and oc.address in cte.source_map:
+            cte.source_map[target.address] = list(cte.source_map[oc.address])
+        return BuildConcept(
+            name=target.name,
+            canonical_name=target.name,
+            namespace=target.namespace,
+            pseudonyms={oc.address},
+            datatype=oc.datatype,
+            purpose=oc.purpose,
+            grain=oc.grain,
+            build_is_aggregate=oc.build_is_aggregate,
+        )
+
+    new_output: list[BuildConcept] = []
+    for x in targets:
+        # A target the CTE cannot render is dropped here; `unrenderable_outputs`
+        # is the same resolution, asked ahead of time by callers that must fail
+        # rather than emit a short projection.
+        resolved = _resolve_output_target(cte, x, scoped_merge_map)
+        if resolved is None:
+            continue
+        source, rename = resolved
+        new_output.append(render_as(x, source) if rename else source)
+
+    for oc in cte.output_columns:
+        # add hidden back
+        if oc.address not in output_addresses:
+            new_output.append(oc)
+
+    cte.hidden_concepts = {
+        c.address
+        for c in cte.output_columns
+        if (c.address not in targets or c.address in hidden)
+    }
+    cte.output_columns = new_output
+    return cte
+
+
+def sort_select_output(
+    cte: CTE | UnionCTE, query: SelectStatement | MultiSelectStatement | ProcessedQuery
+) -> CTE | UnionCTE:
+    return sort_select_output_processed(cte, query)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gocardless_pro
-Version: 3.6.4
+Version: 3.7.0
 Summary: A client library for the GoCardless API.
 Home-page: https://github.com/gocardless/gocardless-pro-python
 Author: GoCardless

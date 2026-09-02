@@ -1,0 +1,35 @@
+from novita_sandbox.core import Sandbox
+
+
+def test_send_stdin_to_process(sandbox: Sandbox):
+    cmd = sandbox.commands.run("cat", background=True, stdin=True)
+    sandbox.commands.send_stdin(cmd.pid, "Hello, World!")
+
+    for stdout, _, _ in cmd:
+        assert stdout == "Hello, World!"
+        break
+
+
+def test_send_empty_stdin_to_process(sandbox: Sandbox):
+    cmd = sandbox.commands.run("cat", background=True, stdin=True)
+    sandbox.commands.send_stdin(cmd.pid, "")
+    cmd.kill()
+    assert cmd._stdout == ""
+
+
+def test_send_special_characters_to_process(sandbox: Sandbox):
+    cmd = sandbox.commands.run("cat", background=True, stdin=True)
+    sandbox.commands.send_stdin(cmd.pid, "!@#$%^&*()_+")
+
+    for stdout, _, _ in cmd:
+        assert stdout == "!@#$%^&*()_+"
+        break
+
+
+def test_send_multiline_string_to_process(sandbox: Sandbox):
+    cmd = sandbox.commands.run("cat", background=True, stdin=True)
+    sandbox.commands.send_stdin(cmd.pid, "Hello,\nWorld!")
+
+    for stdout, _, _ in cmd:
+        assert stdout == "Hello,\nWorld!"
+        break

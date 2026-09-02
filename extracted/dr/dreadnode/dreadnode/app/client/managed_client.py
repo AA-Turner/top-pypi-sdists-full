@@ -27,7 +27,6 @@ from dreadnode.app.client.runtime_client import (
     DEFAULT_RUNTIME_HOST,
     DEFAULT_RUNTIME_PORT,
     DEFAULT_RUNTIME_URL,
-    REMOTE_HEALTH_TIMEOUT_SECONDS,
     RuntimeClient,
 )
 from dreadnode.app.client.transports import StreamingASGITransport
@@ -177,7 +176,7 @@ class ManagedRuntimeClient(RuntimeClient):
 
             if not self.auto_start:
                 try:
-                    await self._probe_health(REMOTE_HEALTH_TIMEOUT_SECONDS)
+                    await self._await_ready()
                 except RuntimeError as exc:
                     raise RuntimeError(
                         f"{exc}\n\nThe --server flag overrides the local runtime endpoint, "
@@ -189,6 +188,7 @@ class ManagedRuntimeClient(RuntimeClient):
                 return
 
             if await self._is_healthy():
+                await self._await_ready()
                 logger.info("Server start | mode=external | url={}", self.server_url)
                 self._mark_started()
                 return
@@ -409,6 +409,13 @@ class ManagedRuntimeClient(RuntimeClient):
         future = asyncio.run_coroutine_threadsafe(self._lifecycle_ctx.__aenter__(), server_loop)
         await asyncio.to_thread(future.result)
 
+        # `initialize_app` above already configured scope and populated the
+        # registry, so this runtime really is ready. Deferred startup — which
+        # normally owns this state — never runs here because in-process mode
+        # sets `lifespan="off"` and drives `server_lifecycle` itself, so say so
+        # explicitly or `/api/health` would report `configuring` forever.
+        state.startup.mark_ready()
+
         self._http_client = self._create_http_client(transport=transport)
 
     @staticmethod
@@ -602,8 +609,10 @@ class ManagedRuntimeClient(RuntimeClient):
                     f"Local Dreadnode server exited with status {self._owned_process.returncode}.{details}"
                 )
             if await self._is_healthy():
+                remaining = max(deadline - time.monotonic(), 0.0)
+                await self._await_ready(budget=remaining)
                 elapsed = time.monotonic() - start_time
-                logger.info("Server healthy | attempts={} | elapsed={:.1f}s", attempts, elapsed)
+                logger.info("Server ready | attempts={} | elapsed={:.1f}s", attempts, elapsed)
                 return
             await asyncio.sleep(0.1)
 

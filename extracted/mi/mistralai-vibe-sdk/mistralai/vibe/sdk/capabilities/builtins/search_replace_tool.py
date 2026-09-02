@@ -5,13 +5,16 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, JsonValue, StringConstraints
 
 from mistralai.vibe.sdk.capabilities import ToolResult, tool
-from mistralai.vibe.sdk.capabilities.builtins.search_replace_preview import replace_with_preview
-from mistralai.vibe.sdk.capabilities.utils import candidate_encodings, resolve_path
+from mistralai.vibe.sdk.capabilities.builtins.search_replace_preview import (
+    preview_fits,
+    replace_with_preview,
+)
+from mistralai.vibe.sdk.capabilities.builtins.text_file import read_text_file
+from mistralai.vibe.sdk.capabilities.utils import resolve_path
 
-SNIFF_BYTES = 4_096
 MAX_EDIT_FILE_SIZE_BYTES = 512 * 1_024 * 1_024
 SEARCH_REPLACE_ANNOTATION_KEY = "mistralai.vibe.sdk.search_replace"
 
@@ -88,54 +91,7 @@ def search_replace(
     except (OSError, RuntimeError) as exc:
         raise ValueError(f"Error resolving path {args.file_path!r}: {exc}") from exc
 
-    try:
-        file_status = file_path.stat()
-    except FileNotFoundError as exc:
-        raise ValueError(f"File not found at: {file_path}") from exc
-    except OSError as exc:
-        raise ValueError(f"Error reading {file_path}: {exc}") from exc
-    if stat.S_ISDIR(file_status.st_mode):
-        raise ValueError(f"Path is a directory, not a file: {file_path}")
-    if not stat.S_ISREG(file_status.st_mode):
-        raise ValueError(f"Path is not a regular file: {file_path}")
-
-    try:
-        with file_path.open("rb") as handle:
-            opened_file_status = os.fstat(handle.fileno())
-            if not stat.S_ISREG(opened_file_status.st_mode):
-                raise ValueError(f"Path is not a regular file: {file_path}")
-            if opened_file_status.st_size > ctx.max_file_size_bytes:
-                raise ValueError(
-                    f"File exceeds {ctx.max_file_size_bytes} byte edit limit: {file_path}"
-                )
-            raw = handle.read(ctx.max_file_size_bytes + 1)
-    except FileNotFoundError as exc:
-        raise ValueError(f"File not found at: {file_path}") from exc
-    except IsADirectoryError as exc:
-        raise ValueError(f"Path is a directory, not a file: {file_path}") from exc
-    except OSError as exc:
-        raise ValueError(f"Error reading {file_path}: {exc}") from exc
-    if len(raw) > ctx.max_file_size_bytes:
-        raise ValueError(f"File exceeds {ctx.max_file_size_bytes} byte edit limit: {file_path}")
-
-    original, encoding = None, None
-    for encoding in candidate_encodings(raw[:SNIFF_BYTES]):
-        try:
-            original = raw.decode(encoding, errors="strict")
-            # check if content looks binary (contains control characters other than whitespace)
-            if any(
-                character not in "\t\n\r\v\f\x1c\x1d\x1e\x85"
-                and (ord(character) < 32 or 127 <= ord(character) <= 159)
-                for character in original[:SNIFF_BYTES]
-            ):
-                raise ValueError(f"Binary files are not supported: {file_path}")
-            if encoding not in {"utf-16", "utf-32"} and b"\x00" in raw:
-                raise ValueError(f"Binary files are not supported: {file_path}")
-            break
-        except UnicodeDecodeError:
-            continue
-    if original is None:
-        raise ValueError(f"Could not decode text file with supported encodings: {file_path}")
+    original, encoding = read_text_file(file_path, max_bytes=ctx.max_file_size_bytes)
 
     updated = original
     preview_blocks: list[SearchReplacePreviewBlock] = []
@@ -180,15 +136,18 @@ def search_replace(
     annotation = SearchReplaceAnnotations(
         blocks=preview_blocks,
     )
+    annotations: dict[str, JsonValue] = (
+        {SEARCH_REPLACE_ANNOTATION_KEY: annotation.model_dump(mode="json")}
+        if preview_fits(annotation.blocks)
+        else {}
+    )
     result = ToolResult(
         value=SearchReplaceResult(
             file=str(file_path),
             lines_changed=lines_changed,
             warnings=warnings,
         ),
-        annotations={
-            SEARCH_REPLACE_ANNOTATION_KEY: annotation.model_dump(mode="json"),
-        },
+        annotations=annotations,
     )
 
     if not file_changed:

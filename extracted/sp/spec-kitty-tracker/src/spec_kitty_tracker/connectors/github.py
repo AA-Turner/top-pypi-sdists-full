@@ -18,7 +18,11 @@ import httpx
 from spec_kitty_tracker.capabilities import TrackerCapabilities
 from spec_kitty_tracker.connectors.base_http import HTTPConnectorBase
 from spec_kitty_tracker.errors import CapabilityNotSupportedError, ConnectorConfigError
-from spec_kitty_tracker.mapping import github_state_to_status, parse_datetime, status_to_github_state
+from spec_kitty_tracker.mapping import (
+    github_state_to_status,
+    parse_datetime,
+    status_to_github_state,
+)
 from spec_kitty_tracker.models import (
     CanonicalIssue,
     CanonicalIssueType,
@@ -210,18 +214,23 @@ class GitHubConnector(HTTPConnectorBase):
                     event_id=str(item.get("id")),
                     event_type=TrackerEventType.UPDATED,
                     issue_ref=ref,
-                    timestamp=parse_datetime(item.get("created_at"))
-                    or utcnow(),
+                    timestamp=parse_datetime(item.get("created_at")) or utcnow(),
                     payload=dict(item),
                 )
             )
 
-        next_cursor = str(page_num + 1) if len(payload.get("items", [])) == min(limit, 100) else None
+        next_cursor = (
+            str(page_num + 1) if len(payload.get("items", [])) == min(limit, 100) else None
+        )
         return events, SyncCheckpoint(cursor=next_cursor)
 
     def _to_canonical(self, payload: Mapping[str, Any]) -> CanonicalIssue:
         labels = [str(item.get("name")) for item in payload.get("labels", []) if item.get("name")]
-        issue_type = CanonicalIssueType.BUG if any(label.lower() == "bug" for label in labels) else CanonicalIssueType.TASK
+        issue_type = (
+            CanonicalIssueType.BUG
+            if any(label.lower() == "bug" for label in labels)
+            else CanonicalIssueType.TASK
+        )
 
         return CanonicalIssue(
             ref=ExternalRef(
@@ -246,4 +255,3 @@ class GitHubConnector(HTTPConnectorBase):
             updated_at=parse_datetime(payload.get("updated_at")),
             raw=dict(payload),
         )
-

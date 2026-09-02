@@ -171,7 +171,7 @@ class NotebookScheduledJob(APIObject):
         statuses: Optional[List[ScheduleStatus]] = None,
     ) -> List[NotebookScheduledJob]:
         """
-        List all NotebookScheduledJobs available to the user.
+        Returns a list of all NotebookScheduledJobs available to the user.
 
         Parameters
         ----------
@@ -265,7 +265,7 @@ class NotebookScheduledJob(APIObject):
         Returns
         -------
         revision_id : str
-            Returns either revision ID or message describing current state.
+            The revision ID, or a message describing the current state.
 
         Examples
         --------

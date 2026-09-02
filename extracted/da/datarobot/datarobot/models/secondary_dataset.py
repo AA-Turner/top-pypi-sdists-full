@@ -54,16 +54,16 @@ if TYPE_CHECKING:
 
 
 class DatasetConfiguration:
-    """Specify a dataset configuration
+    """Specifies a dataset configuration.
 
     .. versionadded:: v2.20
 
     Attributes
     ----------
     feature_engineering_graph_id: str
-        Id of the feature engineering graph
+        The ID of the feature engineering graph.
     secondary_datasets: list of SecondaryDataset
-        List of secondary datasets
+        A list of secondary datasets.
     """
 
     def __init__(
@@ -83,18 +83,18 @@ class DatasetConfiguration:
 
 
 class DatasetsCredentials:
-    """Credentials of the JDBC/ dynamic based secondary datasets
+    """Credentials of the JDBC/dynamic-based secondary datasets.
 
     .. versionadded:: v2.23
 
     Attributes
     ----------
     credential_id: str
-        Id of credential store
+        The ID of the credential store.
     catalog_version_id: str
-        Catalog version Id of the secondary dataset
+        The catalog version ID of the secondary dataset.
     url: Optional[str]
-        JDBC connection URL for the dataset
+        The JDBC connection URL for the dataset.
     """
 
     def __init__(
@@ -116,37 +116,37 @@ class DatasetsCredentials:
 
 
 class SecondaryDatasetConfigurations(APIObject):
-    """Create secondary dataset configurations for a given project
+    """Creates the secondary dataset configurations for a given project.
 
     .. versionadded:: v2.20
 
     Attributes
     ----------
     id : str
-        Id of this secondary dataset configuration
+        The ID of this secondary dataset configuration.
     project_id : str
-        Id of the associated project.
+        The ID of the associated project.
     config: list of DatasetConfiguration (Deprecated in version v2.23)
-        List of secondary dataset configurations
+        A list of secondary dataset configurations.
     secondary_datasets: list of SecondaryDataset (new in v2.23)
-        List of secondary datasets (secondaryDataset)
+        A list of secondary datasets (``secondaryDataset``).
     name: str
-        Verbose name of the SecondaryDatasetConfig. null if it wasn't specified.
+        The verbose name of the SecondaryDatasetConfig. ``null`` if it was not specified.
     created: datetime.datetime
-        DR-formatted datetime. null for legacy (before DR 6.0) db records.
+        A DataRobot-formatted datetime. ``null`` for legacy (before DR 6.0) database records.
     creator_user_id: str
-        Id of the user created this config.
+        The ID of the user who created this configuration.
     creator_full_name: str
-        fullname or email of the user created this config.
+        The full name or email of the user who created this configuration.
     featurelist_id: Optional[str]
-        Id of the feature list. null if it wasn't specified.
+        The ID of the feature list. ``null`` if it was not specified.
     credential_ids: Optional[list of DatasetsCredentials]
-        credentials used by the secondary datasets if the datasets used
-        in the configuration are from datasource
+        The credentials used by the secondary datasets if the datasets used
+        in the configuration are from a data source.
     is_default: Optional[bool]
-        Boolean flag if default config created during feature discovery aim
+        A ``bool`` flag indicating whether the default configuration was created during feature discovery AIM.
     project_version: Optional[str]
-        Version of project when its created (Release version)
+        The version of the project when it was created (release version).
     """
 
     _base_url = "projects/{}/secondaryDatasetsConfigurations/"
@@ -290,30 +290,30 @@ class SecondaryDatasetConfigurations(APIObject):
         name: str,
         featurelist_id: Optional[str] = None,
     ) -> SecondaryDatasetConfigurations:
-        """create secondary dataset configurations
+        """Create the secondary dataset configurations.
 
         .. versionadded:: v2.20
 
         Parameters
         ----------
         project_id : str
-            id of the associated project.
+            The ID of the associated project.
         secondary_datasets: list of SecondaryDataset (New in version v2.23)
-            list of secondary datasets used by the configuration
-            each element is a ``datarobot.helpers.feature_discovery.SecondaryDataset``
+            A list of secondary datasets used by the configuration.
+            Each element is a ``datarobot.helpers.feature_discovery.SecondaryDataset``.
         name: str (New in version v2.23)
-            Name of the secondary datasets configuration
+            The name of the secondary datasets configuration.
         featurelist_id: str, or None (New in version v2.23)
-            Id of the featurelist
+            The ID of the feature list.
 
         Returns
         -------
-        an instance of SecondaryDatasetConfigurations
+        An instance of SecondaryDatasetConfigurations.
 
         Raises
         ------
         ClientError
-            raised if incorrect configuration parameters are provided
+            Raised if incorrect configuration parameters are provided.
 
         Examples
         --------
@@ -378,14 +378,14 @@ class SecondaryDatasetConfigurations(APIObject):
             )
 
     def delete(self) -> None:
-        """Removes the Secondary datasets configuration
+        """Removes the secondary datasets configuration.
 
         .. versionadded:: v2.21
 
         Raises
         ------
         ClientError
-            Raised if an invalid or already deleted secondary dataset config id is provided
+            Raised if an invalid or already deleted secondary dataset configuration ID is provided.
 
         Examples
         --------
@@ -400,14 +400,14 @@ class SecondaryDatasetConfigurations(APIObject):
         self._client.delete(f"{url}{self.id}/")
 
     def get(self) -> SecondaryDatasetConfigurations:
-        """Retrieve a single secondary dataset configuration for a given id
+        """Retrieve a single secondary dataset configuration for a given ID.
 
         .. versionadded:: v2.21
 
         Returns
         -------
         secondary_dataset_configurations : SecondaryDatasetConfigurations
-            The requested secondary dataset configurations
+            The requested secondary dataset configuration.
 
         Examples
         --------
@@ -455,21 +455,21 @@ class SecondaryDatasetConfigurations(APIObject):
         limit: Optional[int] = None,
         offset: Optional[int] = None,
     ) -> List[SecondaryDatasetConfigurations]:
-        """Returns list of secondary dataset configurations.
+        """Returns a list of secondary dataset configurations.
 
         .. versionadded:: v2.23
 
         Parameters
         ----------
         project_id: str
-            The Id of project
+            The ID of the project.
         featurelist_id: Optional[str]
-            Id of the feature list to filter the secondary datasets configurations
+            The ID of the feature list to filter the secondary datasets configurations.
 
         Returns
         -------
         secondary_dataset_configurations : list of SecondaryDatasetConfigurations
-            The requested list of secondary dataset configurations for a given project
+            The requested list of secondary dataset configurations for a given project.
 
         Examples
         --------

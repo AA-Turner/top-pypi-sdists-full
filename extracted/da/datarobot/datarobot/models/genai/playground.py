@@ -200,7 +200,7 @@ class Playground(APIObject):
         sort: Optional[str] = None,
     ) -> List[Playground]:
         """
-        List all playgrounds available to the user. If the use_case is specified or can be
+        Returns a list of all playgrounds available to the user. If the ``use_case`` is specified or can be
         inferred from the Context then the results are restricted to the playgrounds
         associated with the UseCase.
 

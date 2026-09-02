@@ -29,138 +29,139 @@ class RelationshipsConfiguration(APIObject):
     Attributes
     ----------
     id : str
-        Id of the created relationships configuration
+        The ID of the created relationships configuration.
     dataset_definitions: list
-        Each element is a dataset_definitions for a dataset.
+        Each element is a ``dataset_definitions`` entry for a dataset.
     relationships: list
-        Each element is a relationship between two datasets
+        Each element is a relationship between two datasets.
     feature_discovery_mode: str
-        Mode of feature discovery. Supported values are 'default' and 'manual'
+        Mode of feature discovery. Supported values are 'default' and 'manual'.
     feature_discovery_settings: list
-        List of feature discovery settings used to customize the feature discovery process
+        A list of feature discovery settings used to customize the feature discovery process.
 
     The `dataset_definitions` structure is
 
     identifier: str
-        Alias of the dataset (used directly as part of the generated feature names)
+        Alias of the dataset (used directly as part of the generated feature names).
     catalog_id: str, or None
-        Identifier of the catalog item
+        Identifier of the catalog item.
     catalog_version_id: str
-        Identifier of the catalog item version
+        Identifier of the catalog item version.
     primary_temporal_key: Optional[str]
-        Name of the column indicating time of record creation
+        Name of the column indicating time of record creation.
     feature_list_id: Optional[str]
         Identifier of the feature list. This decides which columns in the dataset are
-        used for feature generation
+        used for feature generation.
     snapshot_policy: str
-        Policy to use  when creating a project or making predictions.
+        Policy to use when creating a project or making predictions.
         Must be one of the following values:
-        'specified': Use specific snapshot specified by catalogVersionId
-        'latest': Use latest snapshot from the same catalog item
-        'dynamic': Get data from the source (only applicable for JDBC datasets)
+        'specified': Use specific snapshot specified by catalogVersionId.
+        'latest': Use latest snapshot from the same catalog item.
+        'dynamic': Get the data from the source (only applicable for JDBC datasets).
     feature_lists: list
-        List of feature list info
+        A list of feature list info.
     data_source: dict
-        Data source info if the dataset is from data source
+        Data source info if the dataset is from a data source.
     data_sources: list
-        List of Data source details for a JDBC datasets
+        A list of data source details for JDBC datasets.
     is_deleted: Optional[bool]
-        Whether the dataset is deleted or not
+        Whether the dataset is deleted.
 
-    The `data source info` structured is
+    The `data source info` structure is
 
     data_store_id: str
-        Id of the data store.
+        The ID of the data store.
     data_store_name : str
-         User-friendly name of the data store.
+        User-friendly name of the data store.
     url : str
-        Url used to connect to the data store.
+        URL used to connect to the data store.
     dbtable : str
         Name of table from the data store.
     schema: str
-        Schema definition of the table from the data store
+        Schema definition of the table from the data store.
     catalog: str
         Catalog name of the data source.
 
     The `feature list info` structure is
 
     id : str
-        Id of the featurelist
+        The ID of the feature list.
     name : str
-        Name of the featurelist
+        Name of the feature list.
     features : List[str]
-        Names of all the Features in the featurelist
+        Names of all the features in the feature list.
     dataset_id : str
-        Project the featurelist belongs to
+        The project the feature list belongs to.
     creation_date : datetime.datetime
-        When the featurelist was created
+        When the feature list was created.
     user_created : bool
-        Whether the featurelist was created by a user or by DataRobot automation
+        Whether the feature list was created by a user or by DataRobot automation.
     created_by: str
-        Name of user who created it
+        Name of user who created it.
     description : str
-        Description of the featurelist.  Can be updated by the user
-        and may be supplied by default for DataRobot-created featurelists.
+        Description of the feature list. Can be updated by the user
+        and may be supplied by default for DataRobot-created feature lists.
     dataset_id: str
-        Dataset which is associated with the feature list
+        The dataset associated with the feature list.
     dataset_version_id: str or None
-        Version of the dataset which is associated with feature list.
-        Only relevant for Informative features
+        Version of the dataset associated with the feature list.
+        Only relevant for Informative features.
 
     The `relationships` schema is
 
     dataset1_identifier: str or None
         Identifier of the first dataset in this relationship.
-        This is specified in the identifier field of dataset_definition structure.
+        This is specified in the identifier field of the ``dataset_definition`` structure.
         If None, then the relationship is with the primary dataset.
     dataset2_identifier: str
         Identifier of the second dataset in this relationship.
-        This is specified in the identifier field of dataset_definition schema.
+        This is specified in the identifier field of the ``dataset_definition`` schema.
     dataset1_keys: List[str] (max length: 10 min length: 1)
-        Column(s) from the first dataset which are used to join to the second dataset
+        Column(s) from the first dataset which are used to join to the second dataset.
     dataset2_keys: List[str]
-        (max length: 10 min length: 1)
-        Column(s) from the second dataset that are used to join to the first dataset
+        Column(s) from the second dataset that are used to join to the first dataset (max length: 10,
+        min length: 1).
     time_unit: str, or None
         Time unit of the feature derivation window. Supported
         values are MILLISECOND, SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR.
         If present, the feature engineering Graph will perform time-aware joins.
     feature_derivation_window_start: int, or None
-        How many time_units of each dataset's primary temporal key into the past relative
-        to the datetimePartitionColumn the feature derivation window should begin.
-        Will be a negative integer,
+        How many ``time_units`` of the primary temporal key for each dataset into the past
+        relative to the ``datetimePartitionColumn`` the feature derivation window should begin.
+        Will be a negative integer.
         If present, the feature engineering Graph will perform time-aware joins.
     feature_derivation_window_end: int or None
-        How many timeUnits of each dataset's record
-        primary temporal key into the past relative to the datetimePartitionColumn the
-        feature derivation window should end.  Will be a non-positive integer, if present.
+        How many ``timeUnits`` of each dataset record primary temporal key into the past
+        relative to the ``datetimePartitionColumn`` the feature derivation window should end.
+        Will be a non-positive integer, if present.
         If present, the feature engineering Graph will perform time-aware joins.
     feature_derivation_window_time_unit: int or None
         Time unit of the feature derivation window. Supported values are
-        MILLISECOND, SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR
+        MILLISECOND, SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR.
         If present, time-aware joins will be used.
         Only applicable when dataset1Identifier is not provided.
     feature_derivation_windows: list of dict, or None
-        List of feature derivation windows settings. If present, time-aware joins will be used.
-        Only allowed when feature_derivation_window_start,
-        feature_derivation_window_end and feature_derivation_window_time_unit are not provided.
+        A list of feature derivation windows settings. If present, time-aware joins will be used.
+        Only allowed when ``feature_derivation_window_start``,
+        ``feature_derivation_window_end``, and ``feature_derivation_window_time_unit`` are not
+        provided.
     prediction_point_rounding: int, or None
-        Closest value of prediction_point_rounding_time_unit to round the prediction point
+        Closest value of ``prediction_point_rounding_time_unit`` to round the prediction point
         into the past when applying the feature derivation window. Will be a positive integer,
-        if present.Only applicable when dataset1_identifier is not provided.
+        if present. Only applicable when ``dataset1_identifier`` is not provided.
     prediction_point_rounding_time_unit: str, or None
-        time unit of the prediction point rounding. Supported values are
-        MILLISECOND, SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR
-        Only applicable when dataset1_identifier is not provided.
+        The time unit of the prediction point rounding. Supported values are
+        MILLISECOND, SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER, YEAR.
+        Only applicable when ``dataset1_identifier`` is not provided.
 
     The `feature_derivation_windows` is a list of dictionary with schema:
         start: int
-            How many time_units of each dataset's primary temporal key into the past relative
-            to the datetimePartitionColumn the feature derivation window should begin.
+            How many ``time_units`` of the primary temporal key for each dataset into the past
+            relative to the ``datetimePartitionColumn`` the feature derivation window should
+            begin.
         end: int
-            How many timeUnits of each dataset's record
-            primary temporal key into the past relative to the datetimePartitionColumn the
-            feature derivation window should end.
+            How many ``timeUnits`` of each dataset record primary temporal key into the past
+            relative to the ``datetimePartitionColumn`` the feature derivation window should end.
         unit: str
             Time unit of the feature derivation window.
             One of ``datarobot.enums.AllowedTimeUnitsSAFER``.
@@ -168,9 +169,9 @@ class RelationshipsConfiguration(APIObject):
     The `feature_discovery_settings` structure is:
 
     name: str
-        Name of the feature discovery setting
+        Name of the feature discovery setting.
     value: bool
-        Value of the feature discovery setting
+        Value of the feature discovery setting.
 
     To see the list of possible settings, create a RelationshipConfiguration without specifying
     settings and check its `feature_discovery_settings` attribute, which is a list of possible
@@ -263,9 +264,9 @@ class RelationshipsConfiguration(APIObject):
         Parameters
         ----------
         dataset_definitions: list of DatasetDefinition
-            Each element is a ``datarobot.helpers.feature_discovery.DatasetDefinition``
+            Each element is a ``datarobot.helpers.feature_discovery.DatasetDefinition``.
         relationships: list of Relationship
-            Each element is a ``datarobot.helpers.feature_discovery.Relationship``
+            Each element is a ``datarobot.helpers.feature_discovery.Relationship``.
         feature_discovery_settings : Optional[List[FeatureDiscoverySetting]]
             Each element is a dictionary or a
             ``datarobot.helpers.feature_discovery.FeatureDiscoverySetting``. If not provided,
@@ -274,7 +275,7 @@ class RelationshipsConfiguration(APIObject):
         Returns
         -------
         relationships_configuration: RelationshipsConfiguration
-            Created relationships configuration
+            The created relationships configuration.
 
         Examples
         --------
@@ -340,17 +341,17 @@ class RelationshipsConfiguration(APIObject):
         return RelationshipsConfiguration.from_server_data(response)
 
     def get(self) -> RelationshipsConfiguration:
-        """Retrieve the Relationships configuration for a given id
+        """Retrieve the Relationships configuration for a given ID.
 
         Returns
         -------
         relationships_configuration: RelationshipsConfiguration
-            The requested relationships configuration
+            The requested relationships configuration.
 
         Raises
         ------
         ClientError
-            Raised if an invalid relationships config id is provided.
+            Raised if an invalid relationships config ID is provided.
 
         Examples
         --------
@@ -372,9 +373,9 @@ class RelationshipsConfiguration(APIObject):
         Parameters
         ----------
         dataset_definitions: List[DatasetDefinition]
-            Each element is a ``datarobot.helpers.feature_discovery.DatasetDefinition``
+            Each element is a ``datarobot.helpers.feature_discovery.DatasetDefinition``.
         relationships: List[Relationship]
-            Each element is a ``datarobot.helpers.feature_discovery.Relationship``
+            Each element is a ``datarobot.helpers.feature_discovery.Relationship``.
         feature_discovery_settings : Optional[List[FeatureDiscoverySetting]]
             Each element is a dictionary or a
             ``datarobot.helpers.feature_discovery.FeatureDiscoverySetting``. If not provided,
@@ -383,7 +384,7 @@ class RelationshipsConfiguration(APIObject):
         Returns
         -------
         relationships_configuration: RelationshipsConfiguration
-            the updated relationships configuration
+            The updated relationships configuration.
         """
         payload_dataset_definition = []
         for dd in dataset_definitions:
@@ -424,7 +425,7 @@ class RelationshipsConfiguration(APIObject):
         Raises
         ------
         ClientError
-            Raised if an invalid relationships config id is provided.
+            Raised if an invalid relationships config ID is provided.
 
         Examples
         --------

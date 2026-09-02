@@ -32,7 +32,9 @@ async def test_sync_pull_external_authoritative() -> None:
     connector = InMemoryConnector(name="jira", workspace="demo")
     store = InMemoryIssueStore()
 
-    remote = _make_issue(issue_id="DEMO-1", title="Remote Title", status=CanonicalStatus.IN_PROGRESS)
+    remote = _make_issue(
+        issue_id="DEMO-1", title="Remote Title", status=CanonicalStatus.IN_PROGRESS
+    )
     await connector.create_issue(remote)
 
     local = _make_issue(issue_id="DEMO-1", title="Local Title", status=CanonicalStatus.TODO)
@@ -94,7 +96,9 @@ async def test_sync_manual_review_strict_mode() -> None:
     await connector.create_issue(
         _make_issue(issue_id="DEMO-3", title="Remote", status=CanonicalStatus.TODO)
     )
-    await store.upsert_issue(_make_issue(issue_id="DEMO-3", title="Local", status=CanonicalStatus.TODO))
+    await store.upsert_issue(
+        _make_issue(issue_id="DEMO-3", title="Local", status=CanonicalStatus.TODO)
+    )
 
     engine = SyncEngine(
         connector=connector,

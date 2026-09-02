@@ -111,8 +111,6 @@ class SharedPasswordAuthenticator(Authenticator):
 
         Based on the password used, assign the user a set of groups.
         Key is the password, and value is the list of groups that should be assigned.
-
-        .. versionadded: 5.5
         """,
     )
 
@@ -124,7 +122,7 @@ class SharedPasswordAuthenticator(Authenticator):
 
         if not new:
             # Not set, is ok
-            return new
+            return
 
         if not self.manage_groups:
             # It is always a mistake to have password_groups set without manage_groups set

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: anthropic
-Version: 1.2.0
+Version: 1.3.0
 Summary: The official Python library for the anthropic API
 Project-URL: Homepage, https://github.com/anthropics/anthropic-sdk-python
 Project-URL: Repository, https://github.com/anthropics/anthropic-sdk-python

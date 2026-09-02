@@ -1,0 +1,1405 @@
+"""Click-based CLI for csp-toolkit."""
+
+from __future__ import annotations
+
+import json
+import sys
+
+import click
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
+
+from .analyzer import analyze, score_policy
+from .bypass import find_bypasses
+from .effective import combine_enforced_header_policies
+from .export_ops import format_findings_sarif_json, format_findings_stable_json
+from .diff import diff_headers
+from .discover import discover_resources, generate_csp
+from .fetcher import FetchResult, fetch_csp
+from .generator import CSPBuilder
+from .models import Policy, Severity
+from .probes import (
+    NonceReuseStatus,
+    analyze_report_uri,
+    check_header_injection,
+    detect_nonce_reuse,
+)
+from .tracker import check_evolution, load_history
+from .output import (
+    format_findings_detail,
+    format_findings_json,
+    format_findings_rich,
+    format_grade,
+    format_policy_summary,
+    format_security_headers,
+)
+from .parser import parse
+from .violations import (
+    ai_enhance_violations,
+    build_patched_csp,
+    parse_violations_json,
+    suggest_violation_fixes,
+    violations_summary_json,
+)
+from .scanner import results_to_csv, results_to_json, scan_urls
+from .subdomain import check_subdomains
+from ._version import __version__
+
+
+console = Console()
+
+
+def _fetch_policy_source_label(index: int, result: FetchResult) -> str:
+    """Human-readable origin for policy at ``index`` (headers, then meta)."""
+    n_enf = len(result.csp_headers)
+    n_ro = len(result.csp_report_only_headers)
+    if index < n_enf:
+        return f"header #{index + 1}" if n_enf > 1 else "header"
+    if index < n_enf + n_ro:
+        j = index - n_enf
+        return f"Report-Only header #{j + 1}" if n_ro > 1 else "Report-Only header"
+    return "meta tag"
+
+
+def _policy_with_reporting(policies: list[Policy]) -> Policy:
+    """Prefer a policy that declares ``report-uri`` or ``report-to``."""
+    for p in policies:
+        if p.get_directive("report-uri") or p.get_directive("report-to"):
+            return p
+    return policies[0]
+
+
+def _read_csp_input(csp: str | None, file: str | None) -> str:
+    """Read CSP from argument or file."""
+    if file:
+        if file == "-":
+            return sys.stdin.read().strip()
+        with open(file) as f:
+            return f.read().strip()
+    if csp:
+        return csp
+    click.echo("Error: provide a CSP string or --file", err=True)
+    sys.exit(1)
+
+
+# Ordered most severe first; used by --fail-on threshold comparisons.
+_SEVERITY_ORDER = [
+    Severity.CRITICAL,
+    Severity.HIGH,
+    Severity.MEDIUM,
+    Severity.LOW,
+    Severity.INFO,
+]
+
+# Ordered best first; used by --min-grade threshold comparisons.
+_GRADE_ORDER = ["A+", "A", "B", "C", "D", "F"]
+
+FAIL_ON_CHOICES = [s.value for s in _SEVERITY_ORDER] + ["none"]
+
+# Exit code for a violated policy gate. Deliberately not 1 (runtime error) or 2
+# (Click usage error) so CI can tell a real failure from a policy regression.
+GATE_EXIT_CODE = 3
+
+
+def _findings_at_or_above(findings: list, threshold: str) -> list:
+    """Return findings whose severity is at least as severe as *threshold*."""
+    if threshold == "none":
+        return []
+    cutoff = _SEVERITY_ORDER.index(Severity(threshold))
+    return [f for f in findings if _SEVERITY_ORDER.index(f.severity) <= cutoff]
+
+
+def _grade_below(grade: str, minimum: str) -> bool:
+    """True when *grade* is worse than *minimum* (both letter grades)."""
+    return _GRADE_ORDER.index(grade) > _GRADE_ORDER.index(minimum)
+
+
+def _apply_gate(
+    findings: list,
+    *,
+    fail_on: str | None,
+    min_grade: str | None,
+    grade: str | None,
+    label: str = "",
+) -> bool:
+    """Report gate violations on stderr. Returns True if any gate failed."""
+    failed = False
+    prefix = f"{label}: " if label else ""
+
+    if fail_on:
+        offending = _findings_at_or_above(findings, fail_on)
+        if offending:
+            counts: dict[str, int] = {}
+            for f in offending:
+                counts[f.severity.value] = counts.get(f.severity.value, 0) + 1
+            detail = ", ".join(
+                f"{counts[s.value]} {s.value}" for s in _SEVERITY_ORDER if s.value in counts
+            )
+            click.echo(
+                f"{prefix}FAIL: {len(offending)} finding(s) at or above '{fail_on}' ({detail})",
+                err=True,
+            )
+            failed = True
+
+    if min_grade and grade is not None and _grade_below(grade, min_grade):
+        click.echo(
+            f"{prefix}FAIL: grade {grade} is below the required minimum {min_grade}", err=True
+        )
+        failed = True
+
+    return failed
+
+
+def _gate_policy(
+    policy: Policy,
+    findings: list,
+    *,
+    fail_on: str | None,
+    min_grade: str | None,
+    grade: str | None,
+    label: str = "",
+) -> bool:
+    """Apply gates to one policy, skipping Report-Only.
+
+    A Report-Only header is advisory — the browser reports violations but blocks
+    nothing — so a weakness in one is not exploitable and must never fail a
+    build. Findings are still reported.
+    """
+    if policy.report_only:
+        if fail_on or min_grade:
+            prefix = f"{label}: " if label else ""
+            click.echo(f"{prefix}skipping gate for Report-Only policy", err=True)
+        return False
+    return _apply_gate(findings, fail_on=fail_on, min_grade=min_grade, grade=grade, label=label)
+
+
+def _write_output(text: str, output_path: str | None) -> None:
+    """Write machine-readable output to a file, or stdout when no path is given."""
+    if output_path:
+        with open(output_path, "w") as fh:
+            fh.write(text + "\n")
+    else:
+        click.echo(text)
+
+
+def _output_findings(
+    findings: list,
+    fmt: str,
+    *,
+    stable_json_tool: str = "csp_analyze",
+    output_path: str | None = None,
+) -> None:
+    """Output findings in the requested format.
+
+    *output_path* redirects machine-readable formats to a file; console formats
+    always render to the terminal.
+    """
+    if fmt == "json":
+        _write_output(format_findings_json(findings), output_path)
+    elif fmt == "json-v1":
+        _write_output(format_findings_stable_json(findings, tool=stable_json_tool), output_path)
+    elif fmt == "sarif":
+        _write_output(format_findings_sarif_json(findings), output_path)
+    elif fmt == "detail":
+        format_findings_detail(findings, console)
+    else:
+        format_findings_rich(findings, console)
+
+
+_GRADE_COLORS = {
+    "A+": "bold green",
+    "A": "green",
+    "B": "yellow",
+    "C": "yellow",
+    "D": "red",
+    "F": "bold red",
+    "-": "dim",
+    "?": "dim",
+}
+
+
+@click.group()
+@click.version_option(version=__version__, prog_name="csp-toolkit")
+def main():
+    """CSP Toolkit — Parse, analyze, generate, and find bypasses in Content Security Policy headers."""
+
+
+@main.command()
+@click.argument("csp", required=False)
+@click.option("--file", "-f", "file_path", help="Read CSP from file (use - for stdin)")
+@click.option(
+    "--format",
+    "-o",
+    "fmt",
+    type=click.Choice(["table", "detail", "json", "json-v1", "sarif"]),
+    default="table",
+)
+@click.option("--report-only", is_flag=True, help="Treat as Report-Only header")
+@click.option(
+    "--fail-on",
+    type=click.Choice(FAIL_ON_CHOICES),
+    default=None,
+    help="Exit non-zero if any finding is at or above this severity",
+)
+@click.option(
+    "--min-grade",
+    type=click.Choice(_GRADE_ORDER),
+    default=None,
+    help="Exit non-zero if the policy grade is below this letter grade",
+)
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+    help="Write json/json-v1/sarif output to this file instead of stdout",
+)
+def analyze_cmd(
+    csp: str | None,
+    file_path: str | None,
+    fmt: str,
+    report_only: bool,
+    fail_on: str | None,
+    min_grade: str | None,
+    output_path: str | None,
+):
+    """Analyze a CSP header for weaknesses."""
+    raw = _read_csp_input(csp, file_path)
+    policy = parse(raw, report_only=report_only)
+
+    findings = analyze(policy)
+    grade, score = score_policy(policy)
+
+    if fmt in ("json-v1", "sarif"):
+        _output_findings(findings, fmt, stable_json_tool="csp_analyze", output_path=output_path)
+        if _gate_policy(policy, findings, fail_on=fail_on, min_grade=min_grade, grade=grade):
+            sys.exit(GATE_EXIT_CODE)
+        return
+
+    console.print()
+    format_policy_summary(policy, console)
+    console.print()
+
+    _output_findings(findings, fmt, stable_json_tool="csp_analyze", output_path=output_path)
+
+    # Grade and summary
+    if fmt != "json":
+        format_grade(grade, score, console)
+
+        counts = {}
+        for f in findings:
+            counts[f.severity.value] = counts.get(f.severity.value, 0) + 1
+        if counts:
+            parts = [f"{v} {k}" for k, v in counts.items()]
+            console.print(f"[bold]Total: {len(findings)} findings[/bold] ({', '.join(parts)})")
+
+    if _gate_policy(policy, findings, fail_on=fail_on, min_grade=min_grade, grade=grade):
+        sys.exit(GATE_EXIT_CODE)
+
+
+@main.command()
+@click.argument("urls", nargs=-1, required=True)
+@click.option(
+    "--analyze/--no-analyze", "do_analyze", default=False, help="Run analyzer on fetched policy"
+)
+@click.option(
+    "--bypass/--no-bypass", "do_bypass", default=False, help="Run bypass finder on fetched policy"
+)
+@click.option("--all", "do_all", is_flag=True, help="Run both analyzer and bypass finder")
+@click.option(
+    "--format",
+    "-o",
+    "fmt",
+    type=click.Choice(["table", "detail", "json", "json-v1", "sarif"]),
+    default="table",
+)
+@click.option("--no-verify-ssl", is_flag=True, help="Skip SSL certificate verification")
+@click.option("--check-live", is_flag=True, help="Probe JSONP endpoints to verify they are live")
+@click.option(
+    "--probe-delay",
+    type=float,
+    default=0.0,
+    help="Seconds to sleep between live probes (politeness; only with --check-live)",
+)
+@click.option(
+    "--fail-on",
+    type=click.Choice(FAIL_ON_CHOICES),
+    default=None,
+    help="Exit non-zero if any finding is at or above this severity (implies --analyze)",
+)
+@click.option(
+    "--min-grade",
+    type=click.Choice(_GRADE_ORDER),
+    default=None,
+    help="Exit non-zero if any policy grade is below this letter grade (implies --analyze)",
+)
+@click.option(
+    "--fail-on-missing-csp",
+    is_flag=True,
+    help="Exit non-zero if a URL serves no CSP header at all",
+)
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+    help="Write json/json-v1/sarif findings to this file instead of stdout",
+)
+def fetch(
+    urls: tuple[str, ...],
+    do_analyze: bool,
+    do_bypass: bool,
+    do_all: bool,
+    fmt: str,
+    no_verify_ssl: bool,
+    check_live: bool,
+    probe_delay: float,
+    fail_on: str | None,
+    min_grade: str | None,
+    fail_on_missing_csp: bool,
+    output_path: str | None,
+):
+    """Fetch and display CSP headers from one or more URLs."""
+    gating = fail_on is not None or min_grade is not None
+    if gating:
+        do_analyze = True
+
+    gate_failed = False
+    # Findings are pooled across URLs/policies so a single --output file covers the whole run.
+    collected: list = []
+
+    for url_idx, url in enumerate(urls):
+        if url_idx > 0:
+            console.print("\n" + "=" * 70 + "\n")
+
+        try:
+            result = fetch_csp(url, verify_ssl=not no_verify_ssl)
+        except Exception as e:
+            console.print(f"[red]Error fetching {url}: {e}[/red]")
+            if gating or fail_on_missing_csp:
+                click.echo(f"{url}: FAIL: fetch error: {e}", err=True)
+                gate_failed = True
+            continue
+
+        console.print(f"\n[bold]URL:[/bold] {result.url}")
+        if result.final_url != result.url:
+            console.print(f"[bold]Redirected to:[/bold] {result.final_url}")
+        console.print(f"[bold]Status:[/bold] {result.status_code}")
+
+        if not result.policies:
+            console.print("\n[yellow]No CSP found on this page.[/yellow]")
+            format_security_headers(result.security_headers, console)
+            if fail_on_missing_csp:
+                click.echo(f"{url}: FAIL: no CSP header served", err=True)
+                gate_failed = True
+            continue
+
+        for i, policy in enumerate(result.policies):
+            label = "Report-Only" if policy.report_only else "Enforced"
+            source = _fetch_policy_source_label(i, result)
+            console.print(f"\n[bold]Policy #{i + 1} ({label}, from {source}):[/bold]")
+            format_policy_summary(policy, console)
+
+            if do_all or do_analyze:
+                console.print("\n[bold]Analysis:[/bold]")
+                findings = analyze(policy)
+                collected.extend(findings)
+                if not output_path:
+                    _output_findings(findings, fmt, stable_json_tool="csp_analyze")
+
+                grade, score = score_policy(policy)
+                if fmt not in ("json", "json-v1", "sarif"):
+                    format_grade(grade, score, console)
+
+                if gating and _gate_policy(
+                    policy,
+                    findings,
+                    fail_on=fail_on,
+                    min_grade=min_grade,
+                    grade=grade,
+                    label=f"{url} (policy #{i + 1})",
+                ):
+                    gate_failed = True
+
+            if do_all or do_bypass:
+                console.print("\n[bold]Bypass Findings:[/bold]")
+                bypasses = find_bypasses(policy, check_live=check_live, probe_delay=probe_delay)
+                collected.extend(bypasses)
+                if not output_path:
+                    _output_findings(bypasses, fmt, stable_json_tool="csp_bypass")
+
+        if result.security_headers:
+            console.print()
+            format_security_headers(result.security_headers, console)
+
+    if output_path:
+        _output_findings(collected, fmt, stable_json_tool="csp_analyze", output_path=output_path)
+
+    if gate_failed:
+        sys.exit(GATE_EXIT_CODE)
+
+
+@main.command("bypass")
+@click.argument("csp", required=False)
+@click.option("--file", "-f", "file_path", help="Read CSP from file (use - for stdin)")
+@click.option(
+    "--format",
+    "-o",
+    "fmt",
+    type=click.Choice(["table", "detail", "json", "json-v1", "sarif"]),
+    default="detail",
+)
+@click.option("--check-live", is_flag=True, help="Probe JSONP endpoints to verify they are live")
+@click.option(
+    "--probe-delay",
+    type=float,
+    default=0.0,
+    help="Seconds to sleep between live probes (politeness; only with --check-live)",
+)
+def bypass_cmd(
+    csp: str | None,
+    file_path: str | None,
+    fmt: str,
+    check_live: bool,
+    probe_delay: float,
+):
+    """Find potential CSP bypasses."""
+    raw = _read_csp_input(csp, file_path)
+    policy = parse(raw)
+
+    findings = find_bypasses(policy, check_live=check_live, probe_delay=probe_delay)
+    _output_findings(findings, fmt, stable_json_tool="csp_bypass")
+
+    if fmt not in ("json", "json-v1", "sarif"):
+        if findings:
+            console.print(f"\n[bold]Total: {len(findings)} potential bypasses found[/bold]")
+        else:
+            console.print("\n[green]No known bypasses found for this policy.[/green]")
+
+
+@main.command()
+@click.option("--preset", type=click.Choice(["strict", "moderate", "permissive"]), default="strict")
+@click.option(
+    "--add-source",
+    multiple=True,
+    help="Add source: 'directive source' (e.g. 'script-src cdn.example.com')",
+)
+@click.option(
+    "--format",
+    "-o",
+    "fmt",
+    type=click.Choice(["header", "meta", "nginx", "apache"]),
+    default="header",
+)
+@click.option("--nonce", help="Nonce value for strict preset (auto-generated if not provided)")
+def generate(preset: str, add_source: tuple[str, ...], fmt: str, nonce: str | None):
+    """Generate a CSP header from a preset."""
+    builders = {
+        "strict": lambda: CSPBuilder.strict(nonce=nonce),
+        "moderate": CSPBuilder.moderate,
+        "permissive": CSPBuilder.permissive,
+    }
+    builder = builders[preset]()
+
+    for src_spec in add_source:
+        parts = src_spec.split(None, 1)
+        if len(parts) != 2:
+            console.print(
+                f"[red]Invalid --add-source format: '{src_spec}'. Use 'directive source'.[/red]"
+            )
+            sys.exit(1)
+        builder.add_source(parts[0], parts[1])
+
+    formatters = {
+        "header": builder.build,
+        "meta": builder.build_meta,
+        "nginx": builder.build_nginx,
+        "apache": builder.build_apache,
+    }
+    click.echo(formatters[fmt]())
+
+
+@main.command()
+@click.argument("urls", nargs=-1)
+@click.option("--file", "-f", "file_path", help="Read URLs from file (one per line)")
+@click.option("--format", "-o", "fmt", type=click.Choice(["table", "csv", "json"]), default="table")
+@click.option("--no-verify-ssl", is_flag=True, help="Skip SSL certificate verification")
+@click.option("--timeout", type=float, default=10.0, help="HTTP timeout per request (seconds)")
+def scan(
+    urls: tuple[str, ...], file_path: str | None, fmt: str, no_verify_ssl: bool, timeout: float
+):
+    """Scan multiple URLs and rank by CSP weakness.
+
+    Accepts URLs as arguments or from a file (one URL per line).
+    Results are sorted weakest-first for easy target prioritization.
+    """
+    url_list = list(urls)
+    if file_path:
+        if file_path == "-":
+            url_list.extend(line.strip() for line in sys.stdin if line.strip())
+        else:
+            with open(file_path) as f:
+                url_list.extend(line.strip() for line in f if line.strip())
+
+    if not url_list:
+        click.echo("Error: provide URLs as arguments or via --file", err=True)
+        sys.exit(1)
+
+    console.print(f"[bold]Scanning {len(url_list)} URLs...[/bold]\n")
+
+    results = scan_urls(url_list, timeout=timeout, verify_ssl=not no_verify_ssl)
+
+    if fmt == "csv":
+        click.echo(results_to_csv(results))
+    elif fmt == "json":
+        click.echo(results_to_json(results))
+    else:
+        table = Table(title=f"CSP Scan Results ({len(results)} URLs)", show_lines=True)
+        table.add_column("Grade", width=5, justify="center")
+        table.add_column("Score", width=5, justify="right")
+        table.add_column("URL", ratio=1)
+        table.add_column("Mode", width=12)
+        table.add_column("Findings", width=8, justify="right")
+        table.add_column("Bypasses", width=8, justify="right")
+        table.add_column("Crit/High", width=9, justify="right")
+
+        for r in results:
+            if r.error:
+                table.add_row("?", "-", r.url, "[red]error[/red]", "-", "-", "-")
+                continue
+
+            color = _GRADE_COLORS.get(r.grade, "white")
+            grade_text = Text(r.grade, style=color)
+            score_text = str(r.score) if r.has_csp else "-"
+            mode = r.policy_mode
+            if mode == "none":
+                mode = "[yellow]no CSP[/yellow]"
+            elif mode == "report-only":
+                mode = "[dim]report-only[/dim]"
+
+            crit_high = f"{r.num_critical}/{r.num_high}" if r.has_csp else "-"
+            findings = str(r.num_findings) if r.has_csp else "-"
+            bypasses = str(r.num_bypasses) if r.has_csp else "-"
+
+            table.add_row(grade_text, score_text, r.url, mode, findings, bypasses, crit_high)
+
+        console.print(table)
+
+        # Summary
+        with_csp = sum(1 for r in results if r.has_csp)
+        no_csp = sum(1 for r in results if not r.has_csp and not r.error)
+        errors = sum(1 for r in results if r.error)
+        console.print(
+            f"\n[bold]{with_csp}[/bold] with CSP, [bold]{no_csp}[/bold] without CSP, [bold]{errors}[/bold] errors"
+        )
+
+
+@main.command("diff")
+@click.argument("old_csp")
+@click.argument("new_csp")
+@click.option("--old-file", help="Read old CSP from file instead of argument")
+@click.option("--new-file", help="Read new CSP from file instead of argument")
+@click.option("--format", "-o", "fmt", type=click.Choice(["table", "json"]), default="table")
+def diff_cmd(old_csp: str, new_csp: str, old_file: str | None, new_file: str | None, fmt: str):
+    """Compare two CSP policies and show differences.
+
+    Pass two CSP strings as arguments, or use --old-file / --new-file.
+    Use URLs as arguments to fetch and compare live policies.
+    """
+    # Resolve inputs — support URLs, files, or raw strings
+    old_raw = _resolve_diff_input(old_csp, old_file)
+    new_raw = _resolve_diff_input(new_csp, new_file)
+
+    result = diff_headers(old_raw, new_raw)
+
+    if fmt == "json":
+        import json
+
+        data = {
+            "has_changes": result.has_changes,
+            "added": [
+                {"directive": c.directive, "sources": c.new_sources}
+                for c in result.added_directives
+            ],
+            "removed": [
+                {"directive": c.directive, "sources": c.old_sources}
+                for c in result.removed_directives
+            ],
+            "modified": [
+                {
+                    "directive": c.directive,
+                    "added_sources": c.added_sources,
+                    "removed_sources": c.removed_sources,
+                }
+                for c in result.modified_directives
+            ],
+            "unchanged": result.unchanged_directives,
+            "weakened": [c.directive for c in result.weakened],
+            "strengthened": [c.directive for c in result.strengthened],
+        }
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    if not result.has_changes:
+        console.print("[green]Policies are identical.[/green]")
+        return
+
+    # Score both
+    old_policy = parse(old_raw)
+    new_policy = parse(new_raw)
+    old_grade, old_score = score_policy(old_policy)
+    new_grade, new_score = score_policy(new_policy)
+
+    delta = new_score - old_score
+    delta_str = f"+{delta}" if delta > 0 else str(delta)
+    delta_color = "green" if delta > 0 else ("red" if delta < 0 else "dim")
+    console.print(
+        f"\n[bold]Score:[/bold] {old_grade} ({old_score}) → {new_grade} ({new_score}) [{delta_color}]({delta_str})[/{delta_color}]"
+    )
+
+    if result.added_directives:
+        console.print(
+            f"\n[green][bold]Added directives ({len(result.added_directives)}):[/bold][/green]"
+        )
+        for c in result.added_directives:
+            console.print(f"  [green]+ {c.directive}[/green]: {' '.join(c.new_sources)}")
+
+    if result.removed_directives:
+        console.print(
+            f"\n[red][bold]Removed directives ({len(result.removed_directives)}):[/bold][/red]"
+        )
+        for c in result.removed_directives:
+            console.print(f"  [red]- {c.directive}[/red]: {' '.join(c.old_sources)}")
+
+    if result.modified_directives:
+        console.print(
+            f"\n[yellow][bold]Modified directives ({len(result.modified_directives)}):[/bold][/yellow]"
+        )
+        for c in result.modified_directives:
+            console.print(f"  [bold]{c.directive}[/bold]:")
+            for src in c.added_sources:
+                console.print(f"    [green]+ {src}[/green]")
+            for src in c.removed_sources:
+                console.print(f"    [red]- {src}[/red]")
+
+    if result.unchanged_directives:
+        console.print(f"\n[dim]Unchanged: {', '.join(result.unchanged_directives)}[/dim]")
+
+    # Warnings
+    weakened = result.weakened
+    if weakened:
+        console.print(
+            f"\n[bold red]Warning: Policy WEAKENED in {len(weakened)} directive(s):[/bold red]"
+        )
+        for c in weakened:
+            console.print(f"  [red]{c.directive}[/red] ({c.change_type})")
+
+    strengthened = result.strengthened
+    if strengthened:
+        console.print(
+            f"\n[bold green]Policy strengthened in {len(strengthened)} directive(s):[/bold green]"
+        )
+        for c in strengthened:
+            console.print(f"  [green]{c.directive}[/green] ({c.change_type})")
+
+
+def _resolve_diff_input(value: str, file_path: str | None) -> str:
+    """Resolve a diff input — could be a file path, URL, or raw CSP string."""
+    if file_path:
+        with open(file_path) as f:
+            return f.read().strip()
+
+    # Check if it looks like a URL
+    if value.startswith("https://") or value.startswith("http://"):
+        result = fetch_csp(value)
+        if result.policies:
+            # Use first enforced, or first available
+            enforced = [p for p in result.policies if not p.report_only]
+            policy = enforced[0] if enforced else result.policies[0]
+            return str(policy)
+        console.print(f"[yellow]No CSP found at {value}[/yellow]")
+        return ""
+
+    return value
+
+
+@main.command()
+@click.argument("domain")
+@click.option("--prefixes", "-p", help="Comma-separated subdomain prefixes (overrides defaults)")
+@click.option("--format", "-o", "fmt", type=click.Choice(["table", "csv", "json"]), default="table")
+@click.option("--no-verify-ssl", is_flag=True, help="Skip SSL certificate verification")
+@click.option("--timeout", type=float, default=8.0, help="HTTP timeout per request (seconds)")
+def subdomains(domain: str, prefixes: str | None, fmt: str, no_verify_ssl: bool, timeout: float):
+    """Check CSP across subdomains to find weak ones.
+
+    Checks common subdomains (www, api, app, staging, admin, etc.)
+    and ranks them by CSP weakness.
+    """
+    prefix_list = prefixes.split(",") if prefixes else None
+
+    console.print(f"[bold]Checking subdomains of {domain}...[/bold]\n")
+
+    results = check_subdomains(
+        domain,
+        prefixes=prefix_list,
+        timeout=timeout,
+        verify_ssl=not no_verify_ssl,
+    )
+
+    if not results:
+        console.print("[yellow]No reachable subdomains found.[/yellow]")
+        return
+
+    if fmt == "json":
+        import json
+
+        data = [
+            {
+                "subdomain": r.subdomain,
+                "url": r.url,
+                "has_csp": r.scan.has_csp,
+                "grade": r.scan.grade,
+                "score": r.scan.score,
+                "findings": r.scan.num_findings,
+                "bypasses": r.scan.num_bypasses,
+                "mode": r.scan.policy_mode,
+            }
+            for r in results
+        ]
+        click.echo(json.dumps(data, indent=2))
+    elif fmt == "csv":
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["subdomain", "grade", "score", "findings", "bypasses", "mode"])
+        for r in results:
+            writer.writerow(
+                [
+                    r.subdomain,
+                    r.scan.grade,
+                    r.scan.score,
+                    r.scan.num_findings,
+                    r.scan.num_bypasses,
+                    r.scan.policy_mode,
+                ]
+            )
+        click.echo(output.getvalue())
+    else:
+        table = Table(title=f"Subdomain CSP Analysis — {domain}", show_lines=True)
+        table.add_column("Grade", width=5, justify="center")
+        table.add_column("Score", width=5, justify="right")
+        table.add_column("Subdomain", ratio=1)
+        table.add_column("Mode", width=12)
+        table.add_column("Findings", width=8, justify="right")
+        table.add_column("Bypasses", width=8, justify="right")
+
+        for r in results:
+            s = r.scan
+            color = _GRADE_COLORS.get(s.grade, "white")
+            grade_text = Text(s.grade, style=color)
+            score_text = str(s.score) if s.has_csp else "-"
+            mode = s.policy_mode
+            if mode == "none":
+                mode = "[yellow]no CSP[/yellow]"
+            elif mode == "report-only":
+                mode = "[dim]report-only[/dim]"
+
+            table.add_row(
+                grade_text,
+                score_text,
+                r.subdomain,
+                mode,
+                str(s.num_findings) if s.has_csp else "-",
+                str(s.num_bypasses) if s.has_csp else "-",
+            )
+
+        console.print(table)
+
+        with_csp = sum(1 for r in results if r.scan.has_csp)
+        no_csp = sum(1 for r in results if not r.scan.has_csp)
+        console.print(
+            f"\n[bold]{len(results)}[/bold] reachable, [bold]{with_csp}[/bold] with CSP, [bold]{no_csp}[/bold] without CSP"
+        )
+
+
+@main.command()
+@click.argument("urls", nargs=-1)
+@click.option("--file", "-f", "file_path", help="Read URLs from file (one per line)")
+@click.option("--timeout", type=float, default=10.0)
+def monitor(urls: tuple[str, ...], file_path: str | None, timeout: float):
+    """Track CSP changes over time. Run periodically to detect policy evolution.
+
+    Stores snapshots in ~/.csp-toolkit/snapshots/ and alerts on changes.
+    """
+    url_list = list(urls)
+    if file_path:
+        if file_path == "-":
+            url_list.extend(line.strip() for line in sys.stdin if line.strip())
+        else:
+            with open(file_path) as f:
+                url_list.extend(line.strip() for line in f if line.strip())
+
+    if not url_list:
+        click.echo("Error: provide URLs as arguments or via --file", err=True)
+        sys.exit(1)
+
+    results = check_evolution(url_list, timeout=timeout)
+
+    for snap, alert in results:
+        if alert is None:
+            console.print(f"[red]Error checking {snap.url}[/red]")
+            continue
+
+        grade_color = _GRADE_COLORS.get(snap.grade, "white")
+
+        if alert.alert_type == "new" and alert.old_snapshot is alert.new_snapshot:
+            console.print(
+                f"[bold]{snap.url}[/bold]: [{grade_color}]{snap.grade} ({snap.score})[/{grade_color}] [dim](first snapshot)[/dim]"
+            )
+        elif alert.alert_type == "weakened":
+            old = alert.old_snapshot
+            console.print(
+                f"[bold red]WEAKENED[/bold red] {snap.url}: {old.grade}({old.score}) → [{grade_color}]{snap.grade}({snap.score})[/{grade_color}]"
+            )
+            for c in alert.diff.weakened:
+                console.print(f"  [red]  {c.directive} ({c.change_type})[/red]")
+        elif alert.alert_type == "strengthened":
+            old = alert.old_snapshot
+            console.print(
+                f"[bold green]STRENGTHENED[/bold green] {snap.url}: {old.grade}({old.score}) → [{grade_color}]{snap.grade}({snap.score})[/{grade_color}]"
+            )
+        elif alert.alert_type == "csp_removed":
+            console.print(
+                f"[bold red]CSP REMOVED[/bold red] {snap.url}: CSP header no longer present!"
+            )
+        elif alert.alert_type == "changed":
+            old = alert.old_snapshot
+            console.print(
+                f"[yellow]CHANGED[/yellow] {snap.url}: {old.grade}({old.score}) → [{grade_color}]{snap.grade}({snap.score})[/{grade_color}]"
+            )
+        else:
+            console.print(
+                f"[dim]No change[/dim] {snap.url}: [{grade_color}]{snap.grade} ({snap.score})[/{grade_color}]"
+            )
+
+
+@main.command("history")
+@click.argument("url")
+def history_cmd(url: str):
+    """Show CSP snapshot history for a URL."""
+    snapshots = load_history(url)
+    if not snapshots:
+        console.print(f"[yellow]No snapshots found for {url}[/yellow]")
+        console.print("[dim]Run 'csp-toolkit monitor' first to take snapshots.[/dim]")
+        return
+
+    table = Table(title=f"CSP History — {url}")
+    table.add_column("Timestamp", width=20)
+    table.add_column("Grade", width=5, justify="center")
+    table.add_column("Score", width=5, justify="right")
+    table.add_column("Mode", width=12)
+    table.add_column("CSP (truncated)", ratio=1)
+
+    for snap in snapshots:
+        ts = snap.timestamp[:19].replace("T", " ")
+        color = _GRADE_COLORS.get(snap.grade, "white")
+        grade_text = Text(snap.grade, style=color)
+        mode = "report-only" if snap.report_only else "enforced"
+        csp_trunc = (
+            snap.csp_raw[:80] + "..." if len(snap.csp_raw) > 80 else (snap.csp_raw or "(no CSP)")
+        )
+        table.add_row(ts, grade_text, str(snap.score), mode, csp_trunc)
+
+    console.print(table)
+
+
+@main.command("nonce-check")
+@click.argument("url")
+@click.option("--requests", "-n", type=int, default=5, help="Number of requests to make")
+@click.option("--no-verify-ssl", is_flag=True)
+def nonce_check(url: str, requests: int, no_verify_ssl: bool):
+    """Check if a URL reuses CSP nonces (static nonce = CSP bypass)."""
+    console.print(f"[bold]Checking nonce reuse on {url} ({requests} requests)...[/bold]\n")
+
+    result = detect_nonce_reuse(url, num_requests=requests, verify_ssl=not no_verify_ssl)
+
+    if result.status == NonceReuseStatus.FETCH_FAILED:
+        console.print("[yellow]Could not reach the URL — no HTTP responses received.[/yellow]")
+        if result.last_error:
+            console.print(f"[dim]{result.last_error}[/dim]")
+        return
+
+    if result.status == NonceReuseStatus.NO_NONCE:
+        console.print(
+            "[dim]No nonces found in CSP headers "
+            f"({result.http_responses} successful response(s), policy has no nonce sources).[/dim]"
+        )
+        return
+
+    if result.is_static:
+        console.print("[bold red]VULNERABLE: Static nonce detected![/bold red]")
+        console.print(f"  Directive: {result.directive}")
+        console.print(
+            f"  Nonce value: '{result.nonces_found[0]}' (same across {result.num_requests} requests)"
+        )
+        console.print(
+            "  Impact: Attacker can reuse this nonce to bypass CSP nonce-based protection."
+        )
+    else:
+        unique = len(set(result.nonces_found))
+        console.print("[green]Nonces are rotating correctly.[/green]")
+        console.print(f"  Directive: {result.directive}")
+        console.print(f"  {unique} unique nonces across {len(result.nonces_found)} requests")
+
+
+@main.command("header-inject")
+@click.argument("url")
+@click.option("--no-verify-ssl", is_flag=True)
+def header_inject(url: str, no_verify_ssl: bool):
+    """Test for CSP header injection via CRLF injection vectors."""
+    console.print(f"[bold]Testing header injection on {url}...[/bold]\n")
+
+    result = check_header_injection(url, verify_ssl=not no_verify_ssl)
+
+    if result.vulnerable:
+        console.print("[bold red]VULNERABLE: Header injection detected![/bold red]")
+        console.print(f"  Technique: {result.technique}")
+        console.print(f"  {result.details}")
+    else:
+        console.print("[green]No header injection vectors detected.[/green]")
+
+
+@main.command("report-uri")
+@click.argument("csp", required=False)
+@click.option("--file", "-f", "file_path", help="Read CSP from file")
+@click.option("--url", "fetch_url", help="Fetch CSP from URL first")
+@click.option("--no-verify-ssl", is_flag=True)
+def report_uri_cmd(
+    csp: str | None, file_path: str | None, fetch_url: str | None, no_verify_ssl: bool
+):
+    """Analyze the report-uri/report-to endpoint in a CSP policy."""
+    if fetch_url:
+        result = fetch_csp(fetch_url, verify_ssl=not no_verify_ssl)
+        if not result.policies:
+            console.print(f"[yellow]No CSP found at {fetch_url}[/yellow]")
+            return
+        policy = _policy_with_reporting(result.policies)
+    else:
+        raw = _read_csp_input(csp, file_path)
+        policy = parse(raw)
+
+    console.print("[bold]Analyzing report-uri/report-to...[/bold]\n")
+
+    result = analyze_report_uri(policy, verify_ssl=not no_verify_ssl)
+
+    if not result.report_uri and not result.report_to:
+        console.print("[yellow]No report-uri or report-to directive found in this policy.[/yellow]")
+        return
+
+    if result.report_uri:
+        console.print(f"[bold]report-uri:[/bold] {result.report_uri}")
+        if result.uri_reachable is True:
+            console.print(f"  [green]Reachable[/green] (HTTP {result.uri_status_code})")
+            if result.accepts_post:
+                console.print("  [green]Accepts POST[/green] with CSP violation reports")
+            else:
+                console.print(
+                    "  [yellow]Does NOT accept POST[/yellow] — reports may not be collected"
+                )
+        elif result.uri_reachable is False:
+            console.print("  [red]NOT reachable[/red] — violation reports are being lost")
+
+    if result.report_to:
+        console.print(
+            f"[bold]report-to:[/bold] {result.report_to} [dim](group name — endpoint configured via Report-To header)[/dim]"
+        )
+
+
+@main.command("effective")
+@click.option("--file", "-f", "file_path", required=True, help="File with one CSP per line")
+@click.option(
+    "--format",
+    "-o",
+    "fmt",
+    type=click.Choice(["table", "detail", "json"]),
+    default="table",
+)
+def effective_cmd(file_path: str, fmt: str):
+    """Combine multiple CSP strings as stacked enforced headers (intersection heuristic)."""
+    with open(file_path) as f:
+        lines = f.read().splitlines()
+    strings = [ln.strip() for ln in lines if ln.strip()]
+    if len(strings) < 2:
+        click.echo("Error: provide at least two non-empty CSP lines in the file", err=True)
+        sys.exit(1)
+    combined, warnings = combine_enforced_header_policies(strings)
+    if fmt == "json":
+        click.echo(json.dumps({"combined": combined.raw, "warnings": warnings}, indent=2))
+        return
+    console.print("[bold]Combined policy[/bold] (intersection heuristic)\n")
+    for w in warnings:
+        console.print(f"[yellow]{w}[/yellow]")
+    if fmt == "detail":
+        from .output import format_policy_summary
+
+        format_policy_summary(combined, console)
+        return
+    console.print(combined.raw)
+
+
+@main.command("violations")
+@click.argument("path")
+@click.option("--csp", "csp_raw", help="CSP header string to evaluate against violations")
+@click.option("--csp-file", help="Read CSP header string from file")
+@click.option(
+    "--fix-mode",
+    type=click.Choice(["suggest", "patch"]),
+    default="suggest",
+    show_default=True,
+    help="In patch mode, also emit a patched CSP draft when CSP is provided.",
+)
+@click.option(
+    "--write-patch",
+    "write_patch_path",
+    help="Write patched CSP draft to this file (requires --fix-mode patch and --csp/--csp-file).",
+)
+@click.option(
+    "--ai-enhance",
+    is_flag=True,
+    help="Use AI to provide enhanced explanations and recommendations (requires ANTHROPIC_API_KEY).",
+)
+@click.option(
+    "--context",
+    help="Business context for AI analysis (e.g., 'e-commerce', 'saas', 'media-site').",
+)
+@click.option(
+    "--format",
+    "-o",
+    "fmt",
+    type=click.Choice(["table", "json"]),
+    default="table",
+)
+def violations_cmd(
+    path: str,
+    csp_raw: str | None,
+    csp_file: str | None,
+    fix_mode: str,
+    write_patch_path: str | None,
+    ai_enhance: bool,
+    context: str | None,
+    fmt: str,
+):
+    """Summarize CSP violations and suggest policy fixes (with --csp/--csp-file)."""
+    with open(path) as f:
+        text = f.read()
+    violations = parse_violations_json(text)
+    if not violations:
+        console.print("[yellow]No violation reports found.[/yellow]")
+        return
+    summary = violations_summary_json(violations)
+
+    policy = None
+    if csp_file:
+        with open(csp_file) as f:
+            csp_raw = f.read().strip()
+    if csp_raw:
+        policy = parse(csp_raw)
+    suggestions = suggest_violation_fixes(violations, policy) if policy else []
+    patched_csp = build_patched_csp(policy, suggestions) if policy and fix_mode == "patch" else None
+
+    # AI Enhancement
+    ai_analysis = None
+    if ai_enhance:
+        ai_analysis = ai_enhance_violations(violations, policy, context)
+    if write_patch_path and patched_csp is None:
+        click.echo(
+            "Error: --write-patch requires --fix-mode patch and a CSP via --csp/--csp-file.",
+            err=True,
+        )
+        sys.exit(1)
+    if write_patch_path and patched_csp is not None:
+        with open(write_patch_path, "w") as f:
+            f.write(patched_csp + "\n")
+
+    if fmt == "json":
+        payload = {"summary": summary}
+        if policy:
+            payload["csp"] = str(policy)
+            payload["suggestions"] = suggestions
+            if patched_csp is not None:
+                payload["patched_csp"] = patched_csp
+                if write_patch_path:
+                    payload["patched_csp_written_to"] = write_patch_path
+        if ai_analysis:
+            payload["ai_analysis"] = ai_analysis
+        click.echo(json.dumps(payload, indent=2))
+        return
+
+    console.print(f"[bold]{summary['count']} violation report(s)[/bold]\n")
+    table = Table(title="Grouped violations", show_lines=True)
+    table.add_column("blocked-uri", ratio=1)
+    table.add_column("effective", width=18)
+    table.add_column("violated", width=18)
+    table.add_column("count", justify="right", width=6)
+    for g in summary["groups"]:
+        table.add_row(
+            g["blocked_uri"] or "—",
+            g["effective_directive"] or "—",
+            g["violated_directive"] or "—",
+            str(g["count"]),
+        )
+    console.print(table)
+    if policy:
+        console.print("\n[bold]Suggested fixes (based on supplied CSP):[/bold]")
+        sugg_table = Table(show_lines=True)
+        sugg_table.add_column("directive", width=18)
+        sugg_table.add_column("blocked-uri", ratio=1)
+        sugg_table.add_column("suggested source", ratio=1)
+        sugg_table.add_column("count", justify="right", width=6)
+        sugg_table.add_column("action", width=24)
+        for s in suggestions:
+            action = str(s["action"])
+            if s["already_allowed"]:
+                action = "[green]already allowed[/green]"
+            elif action == "consider_adding_source":
+                action = "[yellow]consider adding source[/yellow]"
+            else:
+                action = "[dim]manual review[/dim]"
+            sugg_table.add_row(
+                str(s["directive"]),
+                str(s["blocked_uri"] or "—"),
+                str(s["suggested_source"] or "—"),
+                str(s["count"]),
+                action,
+            )
+        console.print(sugg_table)
+        console.print(
+            "[dim]Tip: prefer nonce/hash updates for inline script/style instead of relying on "
+            "'unsafe-inline'.[/dim]"
+        )
+        if patched_csp is not None:
+            console.print("\n[bold]Patched CSP draft:[/bold]")
+            console.print(patched_csp)
+            if write_patch_path:
+                console.print(f"[dim]Wrote patched CSP to {write_patch_path}[/dim]")
+
+    # AI Analysis Output
+    if ai_analysis:
+        if ai_analysis.get("enhanced"):
+            console.print("\n[bold magenta]🤖 AI Analysis[/bold magenta]")
+
+            # Explanation
+            explanation = ai_analysis.get("explanation", "")
+            if explanation:
+                console.print(f"\n[bold]Explanation:[/bold]\n{explanation}")
+
+            # Security Impact
+            security_impact = ai_analysis.get("security_impact", "")
+            if security_impact:
+                console.print(f"\n[bold]Security Impact:[/bold]\n{security_impact}")
+
+            # Implementation Notes
+            impl_notes = ai_analysis.get("implementation_notes", [])
+            if impl_notes:
+                console.print("\n[bold]Implementation Notes:[/bold]")
+                for note in impl_notes:
+                    console.print(f"  • {note}")
+
+            # Risk Assessment
+            risk = ai_analysis.get("risk_assessment", "medium")
+            risk_colors = {
+                "low": "green",
+                "medium": "yellow",
+                "high": "red",
+                "critical": "bold red",
+            }
+            risk_color = risk_colors.get(risk.lower(), "yellow")
+            console.print(f"\n[bold]Risk Level:[/bold] [{risk_color}]{risk.upper()}[/{risk_color}]")
+        else:
+            # Show error if AI enhancement failed
+            error = ai_analysis.get("error", "Unknown AI enhancement error")
+            console.print(f"\n[yellow]AI Enhancement: {error}[/yellow]")
+
+    console.print("\n[dim]Sample (first reports):[/dim]")
+    for v in violations[:10]:
+        bu = v.get("blocked-uri") or v.get("blocked_uri") or "—"
+        console.print(f"  [cyan]{bu}[/cyan]")
+
+
+@main.command()
+@click.argument("url")
+@click.option(
+    "--depth",
+    "-d",
+    type=int,
+    default=0,
+    help="Crawl depth (0=single page, 1+=follow same-origin links)",
+)
+@click.option("--max-pages", type=int, default=50, help="Maximum pages to crawl")
+@click.option(
+    "--format",
+    "-o",
+    "fmt",
+    type=click.Choice(["header", "nginx", "apache", "meta", "json"]),
+    default="header",
+)
+@click.option("--nonce", help="Use a specific nonce for inline scripts/styles")
+@click.option(
+    "--auto-nonce", is_flag=True, help="Generate a nonce automatically and show which tags need it"
+)
+@click.option(
+    "--hash",
+    "use_hashes",
+    is_flag=True,
+    help="Use SHA-256 hashes for inline scripts/styles (most secure)",
+)
+@click.option(
+    "--analyze/--no-analyze", "do_analyze", default=False, help="Run analyzer on the generated CSP"
+)
+@click.option("--no-verify-ssl", is_flag=True, help="Skip SSL certificate verification")
+@click.option("--timeout", type=float, default=10.0)
+def auto(
+    url: str,
+    depth: int,
+    max_pages: int,
+    fmt: str,
+    nonce: str | None,
+    auto_nonce: bool,
+    use_hashes: bool,
+    do_analyze: bool,
+    no_verify_ssl: bool,
+    timeout: float,
+):
+    """Auto-generate a CSP by crawling a website and discovering its resources.
+
+    Fetches the page (and optionally follows links), finds all scripts, styles,
+    images, fonts, frames, and other resources, then generates a tailored CSP
+    that whitelists exactly the origins the site needs.
+    """
+    console.print(f"[bold]Discovering resources on {url}...[/bold]")
+    if depth > 0:
+        console.print(f"[dim]Crawling up to {depth} level(s) deep, max {max_pages} pages[/dim]")
+
+    resources = discover_resources(
+        url,
+        depth=depth,
+        max_pages=max_pages,
+        timeout=timeout,
+        verify_ssl=not no_verify_ssl,
+    )
+
+    console.print(f"[bold]Crawled {resources.pages_crawled} page(s)[/bold]\n")
+
+    if resources.pages_crawled == 0:
+        console.print("[red]Could not fetch the URL.[/red]")
+        return
+
+    # Show discovered resources summary
+    console.print("[bold]Discovered resources:[/bold]")
+    _print_origins("script-src", resources.script_origins, resources.has_inline_scripts)
+    _print_origins(
+        "style-src",
+        resources.style_origins,
+        resources.has_inline_styles or resources.has_inline_style_attrs,
+    )
+    _print_origins("img-src", resources.img_origins)
+    _print_origins("font-src", resources.font_origins)
+    _print_origins("connect-src", resources.connect_origins)
+    _print_origins("media-src", resources.media_origins)
+    _print_origins("frame-src", resources.frame_origins)
+    _print_origins("object-src", resources.object_origins)
+    _print_origins("form-action", resources.form_origins)
+    _print_origins("manifest-src", resources.manifest_origins)
+
+    # Generate CSP
+    builder = generate_csp(resources, nonce=nonce, use_hashes=use_hashes, auto_nonce=auto_nonce)
+    console.print()
+
+    if fmt == "json":
+        import json
+
+        data = resources.to_dict()
+        data["generated_csp"] = builder.build()
+        data["generated_csp_nginx"] = builder.build_nginx()
+        data["generated_csp_apache"] = builder.build_apache()
+        click.echo(json.dumps(data, indent=2))
+    else:
+        formatters = {
+            "header": builder.build,
+            "nginx": builder.build_nginx,
+            "apache": builder.build_apache,
+            "meta": builder.build_meta,
+        }
+        console.print("[bold]Generated CSP:[/bold]")
+        click.echo(formatters[fmt]())
+
+    # Show inline content details when using hashes or nonces
+    if use_hashes and (resources.inline_scripts or resources.inline_styles):
+        console.print("\n[bold]Inline content hashes:[/bold]")
+        for ic in resources.inline_scripts:
+            preview = ic.content.strip()[:60].replace("\n", " ")
+            console.print(f"  [cyan]<script>[/cyan] {ic.sha256}")
+            console.print(f"    [dim]{preview}...[/dim]")
+        for ic in resources.inline_styles:
+            preview = ic.content.strip()[:60].replace("\n", " ")
+            console.print(f"  [cyan]<style>[/cyan] {ic.sha256}")
+            console.print(f"    [dim]{preview}...[/dim]")
+        if resources.has_inline_style_attrs:
+            console.print(
+                "\n[yellow]Note: Inline style= attributes found. These cannot use hashes — 'unsafe-hashes' was added.[/yellow]"
+            )
+
+    if (auto_nonce or nonce) and (resources.inline_scripts or resources.inline_styles):
+        nonce_val = (
+            resources.inline_scripts[0].nonce
+            if resources.inline_scripts
+            else (resources.inline_styles[0].nonce if resources.inline_styles else None)
+        )
+        if nonce_val:
+            console.print(f"\n[bold]Nonce value:[/bold] {nonce_val}")
+            console.print("[bold]Add this attribute to your inline tags:[/bold]")
+            if resources.inline_scripts:
+                console.print(
+                    f'  [cyan]<script nonce="{nonce_val}">[/cyan] — {len(resources.inline_scripts)} inline script(s)'
+                )
+            if resources.inline_styles:
+                console.print(
+                    f'  [cyan]<style nonce="{nonce_val}">[/cyan] — {len(resources.inline_styles)} inline style(s)'
+                )
+
+    # Warnings when using unsafe-inline
+    using_unsafe = not nonce and not auto_nonce and not use_hashes
+    if resources.has_inline_scripts and using_unsafe:
+        console.print(
+            "\n[yellow]Note: Inline scripts detected. 'unsafe-inline' was added to script-src.[/yellow]"
+        )
+        console.print("[yellow]For better security, use --auto-nonce, --nonce, or --hash.[/yellow]")
+    if (resources.has_inline_styles or resources.has_inline_style_attrs) and using_unsafe:
+        console.print(
+            "\n[yellow]Note: Inline styles detected. 'unsafe-inline' was added to style-src.[/yellow]"
+        )
+        console.print("[yellow]For better security, use --auto-nonce, --nonce, or --hash.[/yellow]")
+
+    # Optional analysis
+    if do_analyze:
+        csp_str = builder.build()
+        policy = parse(csp_str)
+        console.print("\n[bold]Analysis of generated CSP:[/bold]")
+        findings = analyze(policy)
+        _output_findings(findings, "table")
+        grade, score = score_policy(policy)
+        format_grade(grade, score, console)
+
+
+def _print_origins(directive: str, origins: set[str], has_inline: bool = False) -> None:
+    """Print discovered origins for a directive."""
+    if not origins and not has_inline:
+        return
+    parts = ["'self'"]
+    if has_inline:
+        parts.append("[yellow]+ inline[/yellow]")
+    parts.extend(sorted(origins))
+    console.print(f"  [bold]{directive}:[/bold] {' '.join(parts)}")

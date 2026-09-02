@@ -1,0 +1,111 @@
+name: main
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: 3
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    needs: [check-integration-test-trigger]
+    env:
+      DISPLAY: :99
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        pyodide-version: ["0.28.0"]
+        test-config: [
+            # FIXME: recent version of chrome gets timeout
+            { runner: selenium, runtime: chrome, runtime-version: "125" },
+            { runner: selenium, runtime: node, runtime-version: "22" },
+          ]
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: 3.13
+
+      - uses: pyodide/pyodide-actions/download-pyodide@012fa537869d343726d01863a34b773fc4d96a14 # v2
+        with:
+          version: ${{ matrix.pyodide-version }}
+          to: dist
+
+      - uses: pyodide/pyodide-actions/install-browser@012fa537869d343726d01863a34b773fc4d96a14 # v2
+        with:
+          runner: ${{ matrix.test-config.runner }}
+          browser: ${{ matrix.test-config.runtime }}
+          browser-version: ${{ matrix.test-config.runtime-version }}
+
+      - name: Install requirements
+        shell: bash -l {0}
+        run: |
+          python3 -m pip install -e .[test]
+
+      - name: Run tests
+        shell: bash -l {0}
+        run: |
+          pytest -v tests \
+            --cov=micropip \
+            --durations=10 \
+            --dist-dir=./dist/ \
+            --maxfail=15 \
+            --runner=${{ matrix.test-config.runner }} \
+            --rt ${{ matrix.test-config.runtime }}
+
+      - name: Run integration tests
+        if: needs.check-integration-test-trigger.outputs.run-integration-test
+        shell: bash -l {0}
+        run: |
+          pytest -v tests/integration \
+            --integration \
+            --cov=micropip \
+            --durations=10 \
+            --dist-dir=./dist/ \
+            --maxfail=15 \
+            --runner=${{ matrix.test-config.runner }} \
+            --rt ${{ matrix.test-config.runtime }}
+
+      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        if: ${{ github.event.repo.name == 'pyodide/micropip' || github.event_name == 'pull_request' }}
+        with:
+          fail_ci_if_error: false
+
+  check-integration-test-trigger:
+    name: test-integration-test-trigger
+    runs-on: ubuntu-latest
+    outputs:
+      run-integration-test: ${{ steps.check-integration-test-trigger.outputs.trigger }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
+
+      - id: check-integration-test-trigger
+        name: Check integration test trigger
+        shell: bash
+        run: |
+          set -e -x
+
+          COMMIT_MSG=$(git log --no-merges -1 --oneline)
+
+          # The integration tests will be triggered on push or on pull_request when the commit
+          # message contains "[integration]" or if it is pushed to main branch.
+          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ||
+                "$COMMIT_MSG" =~ \[integration\] ]]; then
+              echo "trigger=true" >> "$GITHUB_OUTPUT"
+          fi

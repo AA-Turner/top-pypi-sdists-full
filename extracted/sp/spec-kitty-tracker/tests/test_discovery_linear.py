@@ -21,12 +21,9 @@ from spec_kitty_tracker.discovery.registry import (
     get_workspace_discoverer,
 )
 from spec_kitty_tracker.discovery.types import (
-    DiscoveredResource,
     DiscoveredWorkspace,
-    DiscoveryResult,
 )
 from spec_kitty_tracker.nango import NangoConnectionContext
-
 
 # ---------------------------------------------------------------------------
 # Helpers

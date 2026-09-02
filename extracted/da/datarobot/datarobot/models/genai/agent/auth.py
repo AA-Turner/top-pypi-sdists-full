@@ -121,7 +121,7 @@ class OAuthAccessTokenProvider:
         raise ValueError(f"No identity found for provider '{provider_type}'.")
 
     def get_token(self, auth_type: ToolAuth, provider_type: Optional[str] = None) -> str:
-        """Get OAuth access token using the specified method."""
+        """Get an OAuth access token using the specified method."""
         identity = self._get_identity(provider_type)
         oauth_client = DataRobotOAuthClient()
 

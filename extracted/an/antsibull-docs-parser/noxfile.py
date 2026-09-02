@@ -33,12 +33,12 @@ def install(session: nox.Session, *args, editable=False, **kwargs):
     session.install(*args, "-U", **kwargs)
 
 
-@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"])
+@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"])
 def test(session: nox.Session):
     install(session, ".[test, coverage]", editable=True)
     covfile = Path(session.create_tmp(), ".coverage")
     more_args = []
-    if session.python in {"3.11", "3.12", "3.13"}:
+    if session.python not in {"3.9", "3.10"}:
         more_args.append("--error-for-skips")
     session.run(
         "pytest",
@@ -186,7 +186,9 @@ def bump(session: nox.Session):
             fragment_file,
             external=True,
         )
-        session.run("git", "commit", "-m", f"Prepare {version}.", external=True)
+        session.run(
+            "git", "commit", "-m", f"Prepare {version}.", "--gpg-sign", external=True
+        )
     session.run("antsibull-changelog", "release")
     session.run(
         "git",
@@ -195,17 +197,21 @@ def bump(session: nox.Session):
         "CHANGELOG.rst",
         "changelogs/changelog.yaml",
         "changelogs/fragments/",
+        "docs/changelog.md",
         # __init__.py is not committed in the last step
         # when the release_summary fragment is created manually
         "src/antsibull_docs_parser/__init__.py",
         external=True,
     )
     install(session, ".")  # Smoke test
-    session.run("git", "commit", "-m", f"Release {version}.", external=True)
+    session.run(
+        "git", "commit", "-m", f"Release {version}.", "--gpg-sign", external=True
+    )
     session.run(
         "git",
         "tag",
         "-a",
+        "-s",
         "-m",
         f"antsibull-docs-parser {version}",
         "--edit",
@@ -224,4 +230,12 @@ def publish(session: nox.Session):
     session.run("hatch", "publish", *session.posargs)
     session.run("hatch", "version", "post")
     session.run("git", "add", "src/antsibull_docs_parser/__init__.py", external=True)
-    session.run("git", "commit", "-m", "Post-release version bump.", external=True)
+    session.run(
+        "git", "commit", "-m", "Post-release version bump.", "--gpg-sign", external=True
+    )
+
+
+@nox.session
+def mkdocs(session: nox.Session):
+    session.install("-r", "docs-requirements.txt")
+    session.run("mkdocs", *(session.posargs or ["build"]))

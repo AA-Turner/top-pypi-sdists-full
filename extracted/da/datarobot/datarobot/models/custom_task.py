@@ -35,16 +35,16 @@ class CustomTask(APIObject):
     Attributes
     ----------
     id: str
-        id of the custom task
+        The ID of the custom task.
     name: str
-        name of the custom task
+        The name of the custom task.
     language: str
-        programming language of the custom task.
-        Can be "python", "r", "java" or "other"
+        Programming language of the custom task.
+        Can be "python", "r", "java", or "other".
     description: str
-        description of the custom task
+        The description of the custom task.
     target_type: datarobot.enums.CUSTOM_TASK_TARGET_TYPE
-        the target type of the custom task. One of:
+        The target type of the custom task. One of the following.
 
         - `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.BINARY`
         - `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.REGRESSION`
@@ -52,19 +52,19 @@ class CustomTask(APIObject):
         - `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.ANOMALY`
         - `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.TRANSFORM`
     latest_version: datarobot.CustomTaskVersion or None
-        latest version of the custom task if the task has a latest version. If the
-        latest version is None, the custom task is not ready for use in user blueprints.
-        You must create its first CustomTaskVersion before you can use the CustomTask
+        The latest version of the custom task if the task has a latest version.
+        If the latest version is None, the custom task is not ready for use in user blueprints.
+        You must create its first CustomTaskVersion before you can use the CustomTask.
     created_by: str
         The username of the user who created the custom task.
     updated_at: str
         An ISO-8601 formatted timestamp of when the custom task was updated.
     created_at: str
-        ISO-8601 formatted timestamp of when the custom task was created
+        An ISO-8601 formatted timestamp of when the custom task was created.
     calibrate_predictions: bool
-        whether anomaly predictions should be calibrated to be between 0 and 1 by DR.
-        only applies to custom estimators with target type
-        `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.ANOMALY`
+        Whether anomaly predictions should be calibrated to be between 0 and 1 by DR.
+        Only applies to custom estimators with target type
+        `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.ANOMALY`.
     """
 
     _path = "customTasks/"
@@ -132,35 +132,35 @@ class CustomTask(APIObject):
 
     @classmethod
     def list(cls, order_by: Optional[str] = None, search_for: Optional[str] = None) -> List[CustomTask]:
-        """List custom tasks available to the user.
+        """List the custom tasks available to the user.
 
         .. versionadded:: v2.26
 
         Parameters
         ----------
         search_for: Optional[str]
-            string for filtering custom tasks - only tasks that contain the
-            string in name or description will be returned.
-            If not specified, all custom task will be returned
+            String for filtering custom tasks. Only tasks that contain the
+            string in name or description are returned.
+            If not specified, all custom tasks are returned.
         order_by: Optional[str]
-            property to sort custom tasks by.
+            Property to sort custom tasks by.
             Supported properties are "created" and "updated".
             Prefix the attribute name with a dash to sort in descending order,
-            e.g., order_by='-created'.
-            By default, the order_by parameter is None which will result in
-            custom tasks being returned in order of creation time descending
+            e.g., ``order_by='-created'``.
+            By default, the ``order_by`` parameter is None, which returns
+            custom tasks in order of creation time descending.
 
         Returns
         -------
         List[CustomTask]
-            a list of custom tasks.
+            A list of custom tasks.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         payload = {
             "order_by": order_by,
@@ -171,26 +171,26 @@ class CustomTask(APIObject):
 
     @classmethod
     def get(cls, custom_task_id: str) -> CustomTask:
-        """Get custom task by id.
+        """Get the custom task by ID.
 
         .. versionadded:: v2.26
 
         Parameters
         ----------
         custom_task_id: str
-            id of the custom task
+            The ID of the custom task.
 
         Returns
         -------
         CustomTask
-            retrieved custom task
+            The retrieved custom task.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = f"{cls._path}{custom_task_id}/"
         data = cls._client.get(path).json()
@@ -205,7 +205,7 @@ class CustomTask(APIObject):
         Parameters
         ----------
         custom_task_id: str
-            id of the custom task to copy
+            The ID of the custom task to copy.
 
         Returns
         -------
@@ -214,9 +214,9 @@ class CustomTask(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         path = f"{cls._path}fromCustomTask/"
         response = cls._client.post(path, data={"custom_task_id": custom_task_id})
@@ -241,9 +241,9 @@ class CustomTask(APIObject):
         Parameters
         ----------
         name: str
-            name of the custom task
+            The name of the custom task.
         target_type: datarobot.enums.CUSTOM_TASK_TARGET_TYPE
-            the target typed based on the following values. Anything else will raise an error
+            The target type based on the following values. Anything else raises an error.
 
             - `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.BINARY`
             - `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.REGRESSION`
@@ -251,22 +251,22 @@ class CustomTask(APIObject):
             - `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.ANOMALY`
             - `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.TRANSFORM`
         language: Optional[str]
-            programming language of the custom task.
-            Can be "python", "r", "java" or "other"
+            Programming language of the custom task.
+            Can be "python", "r", "java", or "other".
         description: Optional[str]
-            description of the custom task
+            The description of the custom task.
         calibrate_predictions: Optional[bool]
-            whether anomaly predictions should be calibrated to be between 0 and 1 by DR.
-            if None, uses default value from DR app (True).
-            only applies to custom estimators with target type
-            `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.ANOMALY`
+            Whether anomaly predictions should be calibrated to be between 0 and 1 by DR.
+            If None, uses default value from DR app (True).
+            Only applies to custom estimators with target type
+            `datarobot.enums.CUSTOM_TASK_TARGET_TYPE.ANOMALY`.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -298,25 +298,25 @@ class CustomTask(APIObject):
         description: Optional[str] = None,
         **kwargs,
     ) -> None:
-        """Update custom task properties.
+        """Update the custom task properties.
 
         .. versionadded:: v2.26
 
         Parameters
         ----------
         name: Optional[str]
-            new custom task name
+            The new custom task name.
         language: Optional[str]
-            new custom task programming language
+            The new custom task programming language.
         description: Optional[str]
-            new custom task description
+            The new custom task description.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         payload = {k: v for k, v in kwargs.items()}  # pylint: disable=unnecessary-comprehension
         for k, v in [("name", name), ("language", language), ("description", description)]:
@@ -329,32 +329,32 @@ class CustomTask(APIObject):
         self._update_values(new_obj)
 
     def refresh(self) -> None:
-        """Update custom task with the latest data from server.
+        """Update the custom task with the latest data from the server.
 
         .. versionadded:: v2.26
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         new_object = self.get(self.id)
         self._update_values(new_object)
 
     def delete(self) -> None:
-        """Delete custom task.
+        """Delete the custom task.
 
         .. versionadded:: v2.26
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         url = f"{self._path}{self.id}/"
         self._client.delete(url)
@@ -367,14 +367,14 @@ class CustomTask(APIObject):
         Parameters
         ----------
         file_path: str
-            the full path of the target zip file
+            The full path of the target zip file.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = f"{self._path}{self.id}/download/"
         response = self._client.get(path)
@@ -406,9 +406,9 @@ class CustomTask(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Examples
         --------

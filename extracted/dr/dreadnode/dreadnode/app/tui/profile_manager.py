@@ -192,7 +192,7 @@ class ProfileRuntimePort(t.Protocol):
 
     async def refresh_skill_names(self) -> None: ...
 
-    async def resume_requested_session(self) -> None: ...
+    async def resume_requested_session(self) -> bool: ...
 
     async def create_new_session(
         self,
@@ -774,7 +774,14 @@ class BootAndAuthRecoveryController:
                 return
 
             if resume_session_id:
-                await self._runtime.resume_requested_session()
+                resumed = await self._runtime.resume_requested_session()
+                if not resumed:
+                    self._state.set_authenticated(False)
+                    self._state.set_runtime_connected(False)
+                    self._ui.set_connection_status(STATUS_CONNECTION_FAILED)
+                    self._ui.set_status(STATUS_CONNECTION_FAILED, busy=False)
+                    self._ui.set_composer_enabled(False)
+                    return
             else:
                 self._state.set_active_session_id(None)
                 self._ui.sync_conversation()

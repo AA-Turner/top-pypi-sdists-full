@@ -1,15 +1,10 @@
 """Tests for utilities"""
 
 import asyncio
-import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import aclosing
 from unittest.mock import Mock
-
-if sys.version_info >= (3, 10):
-    from contextlib import aclosing
-else:
-    from async_generator import aclosing
 
 import pytest
 from tornado import gen
@@ -245,3 +240,16 @@ def test_subdomain_hook_legacy(name, expected):
 def test_get_accepted_mimetype(accept_header, choices, expected):
     accepted = utils.get_accepted_mimetype(accept_header, choices=choices)
     assert accepted == expected
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("this is a 🐧", "'this is a 🐧'"),
+        ("a\n\t\\b!<>", "'a\\n\\t\\\\b!<>'"),
+        ("x" * 1025, "'" + "x" * 1021 + " …"),
+        (object, "<class 'object'>"),
+    ],
+)
+def test_safe_log(value, expected):
+    assert utils.safe_log(value) == expected

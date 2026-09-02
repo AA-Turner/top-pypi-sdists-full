@@ -1,0 +1,8 @@
+debug: True
+allowed_hosts:
+   - name: domain.com
+   - name: example.com
+database: 
+  password: <file:database_password>
+  user: 
+    username: <file:database_username>

@@ -20,7 +20,6 @@ from spec_kitty_tracker.hosted import (
 from spec_kitty_tracker.nango import NANGO_MANAGED_TOKEN, NangoConnectionContext, NangoProxyAdapter
 from spec_kitty_tracker.protocols import TaskTrackerConnector
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

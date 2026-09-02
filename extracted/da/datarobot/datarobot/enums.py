@@ -79,7 +79,15 @@ class VALIDATION_TYPE:
 
 CUSTOM_TASK_LANGUAGE = enum(PYTHON="python", R="r", JAVA="java", OTHER="other")
 
-DATA_STORE_TABLE_TYPE = enum(TABLE="TABLE", VIEW="VIEW")
+
+class DATA_STORE_TABLE_TYPE(StrEnum):
+    """The type of a table available through a data store."""
+
+    #: A table.
+    TABLE = "TABLE"
+    #: A view.
+    VIEW = "VIEW"
+
 
 SCORING_TYPE = enum(cross_validation="crossValidation", validation="validation")
 

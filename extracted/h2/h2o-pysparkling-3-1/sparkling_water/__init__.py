@@ -1,1 +1,0 @@
-# Sparkling-water JAR holder for pySparkling module.

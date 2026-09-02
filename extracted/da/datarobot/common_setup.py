@@ -65,6 +65,9 @@ Extra
 
 {pip_package_name} has the following optional groups:
 
+- `application-utils` (requires Python 3.11+): Light async ORM over the
+    DataRobot Agentic Memory Service, plus an AG-UI chat-history layer (models, repositories, and AG-UI event storage).
+    This can be used in DataRobot Custom Applications and Agent Workflows.
 - `auth` (requires Python 3.9+): Provides an abstraction to handle OAuth2 authentication with DataRobot API (11.1+).
     This can be used in DataRobot Custom Applications and on its own.
 - `auth-authlib` (requires Python 3.9+): OAuth2 authentication handling via Authlib.
@@ -112,6 +115,7 @@ DEFAULT_CLASSIFIERS = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 
@@ -136,8 +140,14 @@ _mypy_require = [
 ]
 
 images_require = [
-    "Pillow==10.4.0; python_version >= '3.8'",
+    # Pillow has no prebuilt wheel for cp314 before 11.3.0, so pip builds it from
+    # source. The CI test image's Dockerfile only installs libjpeg-dev/zlib1g-dev,
+    # not libtiff-dev, so a from-source 10.4.0 build silently loses TIFF support
+    # (OSError: encoder libtiff not available) instead of failing the build.
+    # 11.3.0+ ships a prebuilt manylinux wheel with libtiff already compiled in.
+    "Pillow==10.4.0; python_version >= '3.8' and python_version < '3.14'",
     "Pillow==9.5.0; python_version < '3.8'",
+    "Pillow>=11.3.0; python_version >= '3.14'",
 ]
 
 databricks_require = ["databricks-connect>=13.0"]
@@ -172,9 +182,38 @@ otel_require = [
     "opentelemetry-sdk>=1.33.0,<2.0.0",
 ]
 
+# application-utils: light async ORM over the DataRobot Agentic Memory Service (the
+# `persistence` sub-package) plus the `chat_history` layer, which includes the AG-UI storage
+# layer over `ag-ui-protocol`. Standalone leaf — depends only on httpx, pydantic, and
+# ag-ui-protocol (no DataRobot SDK or OTel weight). Requires Python 3.11+ — excluded from the
+# 3.7/3.8 vermin gates in vermin.ini and checked at 3.11 by `make vermin-application-utils`.
+# The `python_version` markers keep a sub-3.11 `pip install datarobot[application-utils]` from
+# resolving these deps at all; `datarobot/application_utils/__init__.py` turns that into an
+# explicit error. The `~=0.1.15` compatible-release pin lets a standalone install track 0.1.x
+# agent-message protocol updates; keep it aligned with all consumers of AG-UI messages.
+application_utils_require = [
+    "httpx>=0.28.1 ; python_version >= '3.11'",
+    "pydantic>=2.6.1 ; python_version >= '3.11'",
+    "ag-ui-protocol~=0.1.15 ; python_version >= '3.11'",
+]
+
+# The same deps without the `python_version` markers, for `[lint]` only. The Lint stage
+# runs on 3.9 (.harness/Lint.yaml), where the markers above resolve to nothing -- so
+# `ag-ui-protocol` would not be installed and `make mypy-application-utils` would check
+# the AG-UI layer against `Any` (`ignore_missing_imports`), failing on `Any` subclasses
+# and "unused" ignores that are needed once the real types resolve. These are all
+# pure-Python and support 3.9, so installing them under a 3.9 interpreter is fine; the
+# shipped `[application-utils]` extra keeps its 3.11 markers, which are what make a
+# sub-3.11 install resolve to nothing.
+application_utils_lint_require = [
+    "httpx>=0.28.1",
+    "pydantic>=2.6.1",
+    "ag-ui-protocol~=0.1.15",
+]
+
 lint_require = (
     [
-        "ruff==0.15.22",
+        "ruff==0.16.0",
         "vermin>=1.8.0",
     ]
     + _mypy_require
@@ -184,15 +223,25 @@ lint_require = (
     + core_require
     + files_require
     + query_engine_require
+    + application_utils_lint_require
 )
 
 tests_require = (
     [
         "pytest>=7.3.0,<8.0.0 ; python_version < '3.8'",
-        "pytest>=8.3.0,<8.4.0 ; python_version >= '3.8'",
+        "pytest>=8.3.0,<8.4.0 ; python_version >= '3.8' and python_version < '3.14'",
+        # 8.3.x (last release 8.3.5) predates Python 3.14 and never declares support for it
+        # in its classifiers/requires-python metadata. 8.4.0 is the first release to
+        # officially declare 3.9-3.14 support, so pin to it under 3.14 to close that gap.
+        "pytest>=8.4.0 ; python_version >= '3.14'",
         "pytest-cov",
         "responses==0.21",
-        "pytest-asyncio==0.21.1",
+        # pytest-asyncio 0.21.1 calls the now-deprecated asyncio.iscoroutinefunction()
+        # during collection for every test item, which balloons memory under Python 3.14
+        # (see CFX-7752). 1.0.0 fixes that but requires python_version >= 3.9, so it can't
+        # be used unconditionally - this repo still tests 3.7/3.8.
+        "pytest-asyncio==0.21.1; python_version < '3.14'",
+        "pytest-asyncio==1.0.0; python_version >= '3.14'",
         "pyarrow",
         "pymarkdownlnt",
     ]
@@ -201,6 +250,7 @@ tests_require = (
     + auth_test_require
     + files_require
     + query_engine_require
+    + application_utils_require
 )
 
 docs_require = [
@@ -271,7 +321,15 @@ common_setup_kwargs = dict(
     },
     license="DataRobot Tool and Utility Agreement",
     packages=None,
+    # Top-level so the dr plugin manifest skips the SDK import.
+    py_modules=["_dr_dev_plugin"],
     package_data={"datarobot": ["py.typed"]},
+    entry_points={
+        "console_scripts": [
+            "drdev = datarobot.core.dev:cli_main",
+            "dr-dev = _dr_dev_plugin:main",
+        ],
+    },
     python_requires=">=3.7",
     long_description=None,
     classifiers=None,
@@ -303,6 +361,7 @@ common_setup_kwargs = dict(
         "fs": files_require,
         "otel": otel_require,
         "query-engine": query_engine_require,
+        "application-utils": application_utils_require,
         "pipelines": pipelines_require,
     },
 )

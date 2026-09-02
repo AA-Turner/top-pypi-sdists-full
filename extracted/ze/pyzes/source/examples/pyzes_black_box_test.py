@@ -1,0 +1,1528 @@
+#!/usr/bin/env python3
+##
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+#
+##
+
+##
+# Python Black Box Test for pyzes.py - Level Zero Sysman Python Bindings
+##
+
+import argparse
+import os
+import sys
+import time
+from ctypes import *
+
+# Add the source directory to Python path so we can import pyzes
+script_dir = os.path.dirname(os.path.abspath(__file__))
+source_dir = os.path.join(script_dir, "..")
+source_dir = os.path.abspath(source_dir)
+if source_dir not in sys.path:
+    sys.path.insert(0, source_dir)
+
+# Import the pyzes module
+try:
+    import pyzes as pz
+except ImportError as e:
+    print("Error: Could not import pyzes module")
+    print(f"Import error: {e}")
+    print(f"Make sure pyzes.py is in the source directory: {source_dir}")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Script directory: {script_dir}")
+    print(f"Source directory: {source_dir}")
+    sys.exit(1)
+
+
+# Setup environment and path for pyzes module
+def setup_environment():
+    """Setup Python path and environment for pyzes module"""
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Add script directory to Python path if not already there
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+        print(f"Added {script_dir} to Python path")
+
+    # Set PYTHONPATH environment variable for completeness
+    current_pythonpath = os.environ.get("PYTHONPATH", "")
+    if script_dir not in current_pythonpath:
+        if current_pythonpath:
+            os.environ["PYTHONPATH"] = f"{script_dir}{os.pathsep}{current_pythonpath}"
+        else:
+            os.environ["PYTHONPATH"] = script_dir
+
+
+setup_environment()
+
+verbose = True
+ZE_RESULT_NAMES = {
+    value: name
+    for name, value in vars(pz).items()
+    if name.startswith("ZE_RESULT_") and isinstance(value, int)
+}
+
+
+def get_result_string(result):
+    """Convert ze_result_t value to enum name."""
+    return ZE_RESULT_NAMES.get(result, f"UNKNOWN_ZE_RESULT_{result}")
+
+
+def check_rc(label, rc):
+    """Check return code and exit on error"""
+    if rc != pz.ZE_RESULT_SUCCESS:
+        print(f"ERROR: {label} failed with {get_result_string(rc)}")
+        return False
+    return True
+
+
+def print_error(func_name, error_msg):
+    """Print error message in a consistent format"""
+    print(f"ERROR: {func_name}: {error_msg}")
+
+
+def print_verbose(message):
+    """Print message only if verbose mode is enabled"""
+    if verbose:
+        print(message)
+
+
+def get_memory_type_string(mem_type):
+    """Convert memory type enum to string"""
+    type_map = {
+        pz.ZES_MEM_TYPE_HBM: "ZES_MEM_TYPE_HBM",
+        pz.ZES_MEM_TYPE_DDR: "ZES_MEM_TYPE_DDR",
+        pz.ZES_MEM_TYPE_DDR3: "ZES_MEM_TYPE_DDR3",
+        pz.ZES_MEM_TYPE_DDR4: "ZES_MEM_TYPE_DDR4",
+        pz.ZES_MEM_TYPE_DDR5: "ZES_MEM_TYPE_DDR5",
+        pz.ZES_MEM_TYPE_LPDDR: "ZES_MEM_TYPE_LPDDR",
+        pz.ZES_MEM_TYPE_LPDDR3: "ZES_MEM_TYPE_LPDDR3",
+        pz.ZES_MEM_TYPE_LPDDR4: "ZES_MEM_TYPE_LPDDR4",
+        pz.ZES_MEM_TYPE_LPDDR5: "ZES_MEM_TYPE_LPDDR5",
+        pz.ZES_MEM_TYPE_SRAM: "ZES_MEM_TYPE_SRAM",
+        pz.ZES_MEM_TYPE_L1: "ZES_MEM_TYPE_L1",
+        pz.ZES_MEM_TYPE_L3: "ZES_MEM_TYPE_L3",
+        pz.ZES_MEM_TYPE_GRF: "ZES_MEM_TYPE_GRF",
+        pz.ZES_MEM_TYPE_SLM: "ZES_MEM_TYPE_SLM",
+        pz.ZES_MEM_TYPE_GDDR4: "ZES_MEM_TYPE_GDDR4",
+        pz.ZES_MEM_TYPE_GDDR5: "ZES_MEM_TYPE_GDDR5",
+        pz.ZES_MEM_TYPE_GDDR5X: "ZES_MEM_TYPE_GDDR5X",
+        pz.ZES_MEM_TYPE_GDDR6: "ZES_MEM_TYPE_GDDR6",
+        pz.ZES_MEM_TYPE_GDDR6X: "ZES_MEM_TYPE_GDDR6X",
+        pz.ZES_MEM_TYPE_GDDR7: "ZES_MEM_TYPE_GDDR7",
+    }
+    return type_map.get(mem_type, f"UNKNOWN_TYPE_{mem_type}")
+
+
+def get_memory_location_string(mem_loc):
+    """Convert memory location enum to string"""
+    loc_map = {
+        pz.ZES_MEM_LOC_SYSTEM: "ZES_MEM_LOC_SYSTEM",
+        pz.ZES_MEM_LOC_DEVICE: "ZES_MEM_LOC_DEVICE",
+    }
+    return loc_map.get(mem_loc, f"UNKNOWN_LOCATION_{mem_loc}")
+
+
+def get_memory_health_string(mem_health):
+    """Convert memory health enum to string"""
+    health_map = {
+        pz.ZES_MEM_HEALTH_UNKNOWN: "ZES_MEM_HEALTH_UNKNOWN",
+        pz.ZES_MEM_HEALTH_OK: "ZES_MEM_HEALTH_OK",
+        pz.ZES_MEM_HEALTH_DEGRADED: "ZES_MEM_HEALTH_DEGRADED",
+        pz.ZES_MEM_HEALTH_CRITICAL: "ZES_MEM_HEALTH_CRITICAL",
+        pz.ZES_MEM_HEALTH_REPLACE: "ZES_MEM_HEALTH_REPLACE",
+    }
+    return health_map.get(mem_health, f"UNKNOWN_HEALTH_{mem_health}")
+
+
+def get_device_type_string(device_type):
+    """Convert device type enum to string"""
+    type_map = {
+        pz.ZES_DEVICE_TYPE_GPU: "ZES_DEVICE_TYPE_GPU",
+        pz.ZES_DEVICE_TYPE_CPU: "ZES_DEVICE_TYPE_CPU",
+        pz.ZES_DEVICE_TYPE_FPGA: "ZES_DEVICE_TYPE_FPGA",
+        pz.ZES_DEVICE_TYPE_MCA: "ZES_DEVICE_TYPE_MCA",
+        pz.ZES_DEVICE_TYPE_VPU: "ZES_DEVICE_TYPE_VPU",
+    }
+    return type_map.get(device_type, f"UNKNOWN_DEVICE_TYPE_{device_type}")
+
+
+def get_pci_link_status_string(link_status):
+    """Convert PCI link status enum to string"""
+    status_map = {
+        pz.ZES_PCI_LINK_STATUS_UNKNOWN: "ZES_PCI_LINK_STATUS_UNKNOWN",
+        pz.ZES_PCI_LINK_STATUS_GOOD: "ZES_PCI_LINK_STATUS_GOOD",
+        pz.ZES_PCI_LINK_STATUS_QUALITY_ISSUES: "ZES_PCI_LINK_STATUS_QUALITY_ISSUES",
+        pz.ZES_PCI_LINK_STATUS_STABILITY_ISSUES: "ZES_PCI_LINK_STATUS_STABILITY_ISSUES",
+    }
+    return status_map.get(link_status, f"UNKNOWN_PCI_LINK_STATUS_{link_status}")
+
+
+def get_pci_quality_issues_string(quality_issues):
+    """Convert PCI quality issue flags to string"""
+    if quality_issues == 0:
+        return "None"
+
+    issues = []
+    if quality_issues & pz.ZES_PCI_LINK_QUAL_ISSUE_FLAG_REPLAYS:
+        issues.append("REPLAYS")
+    if quality_issues & pz.ZES_PCI_LINK_QUAL_ISSUE_FLAG_SPEED:
+        issues.append("SPEED")
+    return " | ".join(issues)
+
+
+def get_pci_stability_issues_string(stability_issues):
+    """Convert PCI stability issue flags to string"""
+    if stability_issues == 0:
+        return "None"
+
+    issues = []
+    if stability_issues & pz.ZES_PCI_LINK_STAB_ISSUE_FLAG_RETRAINING:
+        issues.append("RETRAINING")
+    return " | ".join(issues)
+
+
+def get_frequency_domain_string(freq_domain):
+    """Convert frequency domain enum to string"""
+    domain_map = {
+        pz.ZES_FREQ_DOMAIN_GPU: "ZES_FREQ_DOMAIN_GPU",
+        pz.ZES_FREQ_DOMAIN_MEMORY: "ZES_FREQ_DOMAIN_MEMORY",
+        pz.ZES_FREQ_DOMAIN_MEDIA: "ZES_FREQ_DOMAIN_MEDIA",
+    }
+    return domain_map.get(freq_domain, f"UNKNOWN_FREQ_DOMAIN_{freq_domain}")
+
+
+def get_throttle_reasons_string(throttle_reasons):
+    """Convert throttle reason flags to human-readable string"""
+    if throttle_reasons == 0:
+        return "None (not throttled)"
+
+    reasons = []
+    if throttle_reasons & pz.ZES_FREQ_THROTTLE_REASON_FLAG_AVE_PWR_CAP:
+        reasons.append("AVE_PWR_CAP")
+    if throttle_reasons & pz.ZES_FREQ_THROTTLE_REASON_FLAG_BURST_PWR_CAP:
+        reasons.append("BURST_PWR_CAP")
+    if throttle_reasons & pz.ZES_FREQ_THROTTLE_REASON_FLAG_CURRENT_LIMIT:
+        reasons.append("CURRENT_LIMIT")
+    if throttle_reasons & pz.ZES_FREQ_THROTTLE_REASON_FLAG_THERMAL_LIMIT:
+        reasons.append("THERMAL_LIMIT")
+    if throttle_reasons & pz.ZES_FREQ_THROTTLE_REASON_FLAG_PSU_ALERT:
+        reasons.append("PSU_ALERT")
+    if throttle_reasons & pz.ZES_FREQ_THROTTLE_REASON_FLAG_SW_RANGE:
+        reasons.append("SW_RANGE")
+    if throttle_reasons & pz.ZES_FREQ_THROTTLE_REASON_FLAG_HW_RANGE:
+        reasons.append("HW_RANGE")
+
+    return " | ".join(reasons)
+
+
+def get_temperature_sensor_string(temp_sensor):
+    """Convert temperature sensor enum to string"""
+    sensor_map = {
+        pz.ZES_TEMP_SENSORS_GLOBAL: "ZES_TEMP_SENSORS_GLOBAL",
+        pz.ZES_TEMP_SENSORS_GPU: "ZES_TEMP_SENSORS_GPU",
+        pz.ZES_TEMP_SENSORS_MEMORY: "ZES_TEMP_SENSORS_MEMORY",
+        pz.ZES_TEMP_SENSORS_GLOBAL_MIN: "ZES_TEMP_SENSORS_GLOBAL_MIN",
+        pz.ZES_TEMP_SENSORS_VOLTAGE_REGULATOR: "ZES_TEMP_SENSORS_VOLTAGE_REGULATOR",
+        pz.ZES_TEMP_SENSORS_GPU_MIN: "ZES_TEMP_SENSORS_GPU_MIN",
+        pz.ZES_TEMP_SENSORS_MEMORY_MIN: "ZES_TEMP_SENSORS_MEMORY_MIN",
+    }
+    return sensor_map.get(temp_sensor, f"UNKNOWN_TEMP_SENSOR_{temp_sensor}")
+
+
+def get_engine_type_string(engine_type):
+    """Convert engine type enum to string"""
+    type_map = {
+        pz.ZES_ENGINE_GROUP_ALL: "ZES_ENGINE_GROUP_ALL",
+        pz.ZES_ENGINE_GROUP_COMPUTE_ALL: "ZES_ENGINE_GROUP_COMPUTE_ALL",
+        pz.ZES_ENGINE_GROUP_MEDIA_ALL: "ZES_ENGINE_GROUP_MEDIA_ALL",
+        pz.ZES_ENGINE_GROUP_COPY_ALL: "ZES_ENGINE_GROUP_COPY_ALL",
+        pz.ZES_ENGINE_GROUP_COMPUTE_SINGLE: "ZES_ENGINE_GROUP_COMPUTE_SINGLE",
+        pz.ZES_ENGINE_GROUP_RENDER_SINGLE: "ZES_ENGINE_GROUP_RENDER_SINGLE",
+        pz.ZES_ENGINE_GROUP_MEDIA_DECODE_SINGLE: "ZES_ENGINE_GROUP_MEDIA_DECODE_SINGLE",
+        pz.ZES_ENGINE_GROUP_MEDIA_ENCODE_SINGLE: "ZES_ENGINE_GROUP_MEDIA_ENCODE_SINGLE",
+        pz.ZES_ENGINE_GROUP_COPY_SINGLE: "ZES_ENGINE_GROUP_COPY_SINGLE",
+        pz.ZES_ENGINE_GROUP_MEDIA_ENHANCEMENT_SINGLE: "ZES_ENGINE_GROUP_MEDIA_ENHANCEMENT_SINGLE",
+        pz.ZES_ENGINE_GROUP_3D_SINGLE: "ZES_ENGINE_GROUP_3D_SINGLE",
+        pz.ZES_ENGINE_GROUP_3D_RENDER_COMPUTE_ALL: "ZES_ENGINE_GROUP_3D_RENDER_COMPUTE_ALL",
+        pz.ZES_ENGINE_GROUP_RENDER_ALL: "ZES_ENGINE_GROUP_RENDER_ALL",
+        pz.ZES_ENGINE_GROUP_3D_ALL: "ZES_ENGINE_GROUP_3D_ALL",
+        pz.ZES_ENGINE_GROUP_MEDIA_CODEC_SINGLE: "ZES_ENGINE_GROUP_MEDIA_CODEC_SINGLE",
+    }
+    return type_map.get(engine_type, f"UNKNOWN_ENGINE_TYPE_{engine_type}")
+
+
+def get_power_domain_string(power_domain):
+    """Convert power domain enum to string"""
+    domain_map = {
+        pz.ZES_POWER_DOMAIN_UNKNOWN: "ZES_POWER_DOMAIN_UNKNOWN",
+        pz.ZES_POWER_DOMAIN_CARD: "ZES_POWER_DOMAIN_CARD",
+        pz.ZES_POWER_DOMAIN_PACKAGE: "ZES_POWER_DOMAIN_PACKAGE",
+        pz.ZES_POWER_DOMAIN_STACK: "ZES_POWER_DOMAIN_STACK",
+        pz.ZES_POWER_DOMAIN_MEMORY: "ZES_POWER_DOMAIN_MEMORY",
+        pz.ZES_POWER_DOMAIN_GPU: "ZES_POWER_DOMAIN_GPU",
+    }
+    return domain_map.get(power_domain, f"UNKNOWN_POWER_DOMAIN_{power_domain}")
+
+
+def get_power_level_string(power_level):
+    """Convert power level enum to string"""
+    level_map = {
+        pz.ZES_POWER_LEVEL_UNKNOWN: "ZES_POWER_LEVEL_UNKNOWN",
+        pz.ZES_POWER_LEVEL_SUSTAINED: "ZES_POWER_LEVEL_SUSTAINED",
+        pz.ZES_POWER_LEVEL_BURST: "ZES_POWER_LEVEL_BURST",
+        pz.ZES_POWER_LEVEL_PEAK: "ZES_POWER_LEVEL_PEAK",
+        pz.ZES_POWER_LEVEL_INSTANTANEOUS: "ZES_POWER_LEVEL_INSTANTANEOUS",
+    }
+    return level_map.get(power_level, f"UNKNOWN_POWER_LEVEL_{power_level}")
+
+
+def get_power_source_string(power_source):
+    """Convert power source enum to string"""
+    source_map = {
+        pz.ZES_POWER_SOURCE_ANY: "ZES_POWER_SOURCE_ANY",
+        pz.ZES_POWER_SOURCE_MAINS: "ZES_POWER_SOURCE_MAINS",
+        pz.ZES_POWER_SOURCE_BATTERY: "ZES_POWER_SOURCE_BATTERY",
+    }
+    return source_map.get(power_source, f"UNKNOWN_POWER_SOURCE_{power_source}")
+
+
+def get_limit_unit_string(limit_unit):
+    """Convert power limit unit enum to string"""
+    unit_map = {
+        pz.ZES_LIMIT_UNIT_UNKNOWN: "ZES_LIMIT_UNIT_UNKNOWN",
+        pz.ZES_LIMIT_UNIT_CURRENT: "ZES_LIMIT_UNIT_CURRENT",
+        pz.ZES_LIMIT_UNIT_POWER: "ZES_LIMIT_UNIT_POWER",
+    }
+    return unit_map.get(limit_unit, f"UNKNOWN_LIMIT_UNIT_{limit_unit}")
+
+
+def get_ecc_state_string(ecc_state):
+    """Convert ECC state enum to string"""
+    state_map = {
+        pz.ZES_DEVICE_ECC_STATE_UNAVAILABLE: "ZES_DEVICE_ECC_STATE_UNAVAILABLE",
+        pz.ZES_DEVICE_ECC_STATE_ENABLED: "ZES_DEVICE_ECC_STATE_ENABLED",
+        pz.ZES_DEVICE_ECC_STATE_DISABLED: "ZES_DEVICE_ECC_STATE_DISABLED",
+    }
+    return state_map.get(ecc_state, f"UNKNOWN_ECC_STATE_{ecc_state}")
+
+
+def get_device_action_string(action):
+    """Convert device action enum to string"""
+    action_map = {
+        pz.ZES_DEVICE_ACTION_NONE: "ZES_DEVICE_ACTION_NONE",
+        pz.ZES_DEVICE_ACTION_WARM_CARD_RESET: "ZES_DEVICE_ACTION_WARM_CARD_RESET",
+        pz.ZES_DEVICE_ACTION_COLD_CARD_RESET: "ZES_DEVICE_ACTION_COLD_CARD_RESET",
+        pz.ZES_DEVICE_ACTION_COLD_SYSTEM_REBOOT: "ZES_DEVICE_ACTION_COLD_SYSTEM_REBOOT",
+    }
+    return action_map.get(action, f"UNKNOWN_DEVICE_ACTION_{action}")
+
+
+def is_root_user():
+    """Return whether the current user has root privileges on platforms that support it"""
+    geteuid = getattr(os, "geteuid", None)
+    return bool(geteuid and geteuid() == 0)
+
+
+def check_rc_allow_action_required(label, rc):
+    """Accept ZE_RESULT_SUCCESS and ZE_RESULT_WARNING_ACTION_REQUIRED"""
+    if rc in (pz.ZE_RESULT_SUCCESS, pz.ZE_RESULT_WARNING_ACTION_REQUIRED):
+        return True
+    print(f"ERROR: {label} failed with {get_result_string(rc)}")
+    return False
+
+
+def initialize_sysman_and_get_devices():
+    """Initialize Sysman and enumerate drivers/devices. Returns (drivers, driver_count, devices, device_count)."""
+    if not initialize_sysman():
+        return None, 0, None, 0
+
+    # Get drivers
+    driver_info = get_drivers()
+    if driver_info is None:
+        return None, 0, None, 0
+
+    drivers, driver_count = driver_info
+
+    if driver_count == 0:
+        return drivers, driver_count, None, 0
+
+    # Get devices for the first driver
+    device_info = get_devices(drivers[0])
+    if device_info is None:
+        return drivers, driver_count, None, 0
+
+    devices, device_count = device_info
+    return drivers, driver_count, devices, device_count
+
+
+def initialize_sysman():
+    """Initialize the Sysman interface"""
+    print_verbose("Initializing Sysman...")
+    rc = pz.zesInit(0)
+    if not check_rc("zesInit", rc):
+        return False
+    print_verbose("Sysman initialization successful")
+    return True
+
+
+def get_drivers():
+    """Get all available drivers"""
+    print_verbose("Getting driver count...")
+    driver_count = c_uint32(0)
+    rc = pz.zesDriverGet(byref(driver_count), None)
+    if not check_rc("zesDriverGet(count)", rc):
+        return None
+
+    if driver_count.value == 0:
+        print("No drivers found")
+        return None
+
+    print_verbose(f"Found {driver_count.value} driver(s)")
+
+    # Allocate array for driver handles
+    DriverArray = pz.zes_driver_handle_t * driver_count.value
+    drivers = DriverArray()
+
+    rc = pz.zesDriverGet(byref(driver_count), drivers)
+    if not check_rc("zesDriverGet(handles)", rc):
+        return None
+
+    return drivers, driver_count.value
+
+
+def get_devices(driver_handle):
+    """Get all devices for a given driver"""
+    print_verbose("Getting device count...")
+    device_count = c_uint32(0)
+    rc = pz.zesDeviceGet(driver_handle, byref(device_count), None)
+    if not check_rc("zesDeviceGet(count)", rc):
+        return None
+
+    if device_count.value == 0:
+        print("No devices found")
+        return None
+
+    print_verbose(f"Found {device_count.value} device(s)")
+
+    # Allocate array for device handles
+    DeviceArray = pz.zes_device_handle_t * device_count.value
+    devices = DeviceArray()
+
+    rc = pz.zesDeviceGet(driver_handle, byref(device_count), devices)
+    if not check_rc("zesDeviceGet(handles)", rc):
+        return None
+
+    return devices, device_count.value
+
+
+def test_global_operation(driver_handle, device_handle, device_index):
+    """Test global device operations: properties retrieval, UUID mapping, and device processes state"""
+    print(f"\n---- Device {device_index} Global Operations Test ----")
+
+    # Test Device Properties
+    print_verbose("=== Device Properties Test ===")
+
+    # Initialize properties structure
+    properties = pz.zes_device_properties_t()
+    properties.stype = pz.ZES_STRUCTURE_TYPE_DEVICE_PROPERTIES
+    properties.pNext = None
+
+    rc = pz.zesDeviceGetProperties(device_handle, byref(properties))
+    if not check_rc(f"zesDeviceGetProperties(device {device_index})", rc):
+        return False
+
+    print_verbose("Device Properties:")
+    print_verbose(
+        f"  Serial Number: {properties.serialNumber.decode('utf-8', errors='ignore')}"
+    )
+    print_verbose(
+        f"  Board Number: {properties.boardNumber.decode('utf-8', errors='ignore')}"
+    )
+    print_verbose(
+        f"  Brand Name: {properties.brandName.decode('utf-8', errors='ignore')}"
+    )
+    print_verbose(
+        f"  Model Name: {properties.modelName.decode('utf-8', errors='ignore')}"
+    )
+    print_verbose(
+        f"  Vendor Name: {properties.vendorName.decode('utf-8', errors='ignore')}"
+    )
+    print_verbose(
+        f"  Driver Version: {properties.driverVersion.decode('utf-8', errors='ignore')}"
+    )
+    print_verbose(f"  Number of Subdevices: {properties.numSubdevices}")
+    print_verbose(
+        f"  Core Device Name: {properties.core.name.decode('utf-8', errors='ignore')}"
+    )
+    print_verbose(f"  Core Device Type: {get_device_type_string(properties.core.type)}")
+    print_verbose(
+        f"  Core UUID: {'-'.join(f'{properties.core.uuid.id[i]:02x}' for i in range(16))}"
+    )
+    print_verbose(f"  Vendor ID: 0x{properties.core.vendorId:04X}")
+    print_verbose(f"  Device ID: 0x{properties.core.deviceId:04X}")
+
+    # Test Subdevice Properties (Experimental API)
+    print_verbose("\n=== Subdevice Properties Test (Experimental) ===")
+    if properties.numSubdevices > 0:
+        # First call to get count
+        subdevice_count = c_uint32(0)
+        rc = pz.zesDeviceGetSubDevicePropertiesExp(
+            device_handle, byref(subdevice_count), None
+        )
+        if check_rc(
+            f"zesDeviceGetSubDevicePropertiesExp(device {device_index}, count)", rc
+        ):
+            print_verbose(f"Number of subdevices: {subdevice_count.value}")
+
+            if subdevice_count.value > 0:
+                # Allocate array for subdevice properties
+                SubdevicePropsArray = (
+                    pz.zes_subdevice_exp_properties_t * subdevice_count.value
+                )
+                subdevice_props = SubdevicePropsArray()
+
+                # Initialize each structure
+                for i in range(subdevice_count.value):
+                    subdevice_props[i].stype = (
+                        pz.ZES_STRUCTURE_TYPE_SUBDEVICE_EXP_PROPERTIES
+                    )
+                    subdevice_props[i].pNext = None
+
+                # Second call to get properties
+                rc = pz.zesDeviceGetSubDevicePropertiesExp(
+                    device_handle, byref(subdevice_count), subdevice_props
+                )
+                if check_rc(
+                    f"zesDeviceGetSubDevicePropertiesExp(device {device_index}, properties)",
+                    rc,
+                ):
+                    for i in range(subdevice_count.value):
+                        prop = subdevice_props[i]
+                        print_verbose(f"  Subdevice {i}:")
+                        print_verbose(f"    Subdevice ID: {prop.subdeviceId}")
+                        print_verbose(
+                            f"    UUID: {'-'.join(f'{prop.uuid.id[j]:02x}' for j in range(16))}"
+                        )
+        else:
+            print_verbose("Subdevice properties API not supported or failed")
+    else:
+        print_verbose("No subdevices present on this device")
+
+    # Test UUID mapping using the properties we just retrieved
+    print_verbose("\nUUID Mapping Test:")
+    try:
+        # Convert core UUID to zes_uuid_t
+        core_uuid = pz.zes_uuid_t()
+        for i in range(min(len(properties.core.uuid.id), len(core_uuid.id))):
+            core_uuid.id[i] = properties.core.uuid.id[i]
+
+        # Test UUID mapping
+        mapped_device = pz.zes_device_handle_t()
+        on_subdevice = pz.ze_bool_t()
+        subdevice_id = c_uint32()
+
+        ret = pz.zesDriverGetDeviceByUuidExp(
+            driver_handle,
+            core_uuid,
+            byref(mapped_device),
+            byref(on_subdevice),
+            byref(subdevice_id),
+        )
+
+        if ret == pz.ZE_RESULT_SUCCESS:
+            print_verbose("  UUID mapping successful")
+            print_verbose(
+                f"  Same handle: {mapped_device.value == device_handle.value}"
+            )
+            print_verbose(f"  On subdevice: {bool(on_subdevice.value)}")
+            print_verbose(f"  Subdevice ID: {subdevice_id.value}")
+        else:
+            print_verbose(f"  UUID mapping failed with {get_result_string(ret)}")
+
+    except Exception:
+        print_verbose("  UUID mapping test failed with exception")
+
+    # Test Device Processes
+    print_verbose("\n=== Device Processes Test ===")
+
+    process_count = c_uint32(0)
+    rc = pz.zesDeviceProcessesGetState(device_handle, byref(process_count), None)
+    if not check_rc(f"zesDeviceProcessesGetState(device {device_index}, count)", rc):
+        return False
+
+    if process_count.value == 0:
+        print_verbose("No active processes found on this device")
+    else:
+        print_verbose(f"Found {process_count.value} active process(es)")
+
+        # Allocate array for process states
+        ProcessArray = pz.zes_process_state_t * process_count.value
+        processes = ProcessArray()
+
+        for i in range(process_count.value):
+            processes[i].stype = pz.ZES_STRUCTURE_TYPE_PROCESS_STATE
+            processes[i].pNext = None
+
+        rc = pz.zesDeviceProcessesGetState(
+            device_handle, byref(process_count), processes
+        )
+        if not check_rc(
+            f"zesDeviceProcessesGetState(device {device_index}, handles)", rc
+        ):
+            return False
+
+        for i in range(process_count.value):
+            process = processes[i]
+            print_verbose(f"  Process {i}:")
+            print_verbose(f"    PID: {process.processId}")
+            print_verbose(f"    Memory Size: {process.memSize} bytes")
+            print_verbose(f"    Shared Memory Size: {process.sharedSize} bytes")
+            print_verbose(f"    Engine Type Flags: 0x{process.engines:08X}")
+
+    return True
+
+
+def test_pci_module(device_handle, device_index):
+    """Test PCI properties, state, and stats operations"""
+    print(f"\n---- Device {device_index} PCI Test ----")
+
+    properties = pz.zes_pci_properties_t()
+    properties.stype = pz.ZES_STRUCTURE_TYPE_PCI_PROPERTIES
+    properties.pNext = None
+
+    rc = pz.zesDevicePciGetProperties(device_handle, byref(properties))
+    if not check_rc(f"zesDevicePciGetProperties(device {device_index})", rc):
+        return False
+
+    print_verbose("PCI Properties:")
+    print_verbose(f"  Domain: 0x{properties.address.domain:X}")
+    print_verbose(f"  Bus: 0x{properties.address.bus:X}")
+    print_verbose(f"  Device: 0x{properties.address.device:X}")
+    print_verbose(f"  Function: 0x{properties.address.function:X}")
+    print_verbose(f"  Max Gen: {properties.maxSpeed.gen}")
+    print_verbose(f"  Max Width: {properties.maxSpeed.width}")
+    print_verbose(f"  Max Bandwidth: {properties.maxSpeed.maxBandwidth}")
+    print_verbose(
+        f"  Have Bandwidth Counters: {bool(properties.haveBandwidthCounters)}"
+    )
+    print_verbose(f"  Have Packet Counters: {bool(properties.havePacketCounters)}")
+    print_verbose(f"  Have Replay Counters: {bool(properties.haveReplayCounters)}")
+
+    state = pz.zes_pci_state_t()
+    state.stype = pz.ZES_STRUCTURE_TYPE_PCI_STATE
+    state.pNext = None
+
+    rc = pz.zesDevicePciGetState(device_handle, byref(state))
+    if not check_rc(f"zesDevicePciGetState(device {device_index})", rc):
+        return False
+
+    print_verbose("PCI State:")
+    print_verbose(f"  Link Status: {get_pci_link_status_string(state.status)}")
+    print_verbose(
+        f"  Quality Issues: {get_pci_quality_issues_string(state.qualityIssues)}"
+    )
+    print_verbose(
+        f"  Stability Issues: {get_pci_stability_issues_string(state.stabilityIssues)}"
+    )
+    print_verbose(f"  Current Gen: {state.speed.gen}")
+    print_verbose(f"  Current Width: {state.speed.width}")
+    print_verbose(f"  Current Max Bandwidth: {state.speed.maxBandwidth}")
+
+    stats = pz.zes_pci_stats_t()
+    rc = pz.zesDevicePciGetStats(device_handle, byref(stats))
+    if not check_rc(f"zesDevicePciGetStats(device {device_index})", rc):
+        return False
+
+    print_verbose("PCI Stats:")
+    if properties.haveReplayCounters:
+        print_verbose(f"  Replay Counter: {stats.replayCounter}")
+    if properties.havePacketCounters:
+        print_verbose(f"  Packet Counter: {stats.packetCounter}")
+    if properties.haveBandwidthCounters:
+        print_verbose(f"  RX Counter: {stats.rxCounter}")
+        print_verbose(f"  TX Counter: {stats.txCounter}")
+    print_verbose(f"  Timestamp: {stats.timestamp}")
+    print_verbose(f"  Current Gen: {stats.speed.gen}")
+    print_verbose(f"  Current Width: {stats.speed.width}")
+    print_verbose(f"  Current Max Bandwidth: {stats.speed.maxBandwidth}")
+
+    return True
+
+
+def test_ecc_module(device_handle, device_index):
+    """Test ECC availability, configurability, state, and set-state operations"""
+    print(f"\n---- Device {device_index} ECC Test ----")
+
+    ecc_available = pz.ze_bool_t(0)
+    rc = pz.zesDeviceEccAvailable(device_handle, byref(ecc_available))
+    if not check_rc(f"zesDeviceEccAvailable(device {device_index})", rc):
+        return False
+
+    print_verbose(f"ECC Available: {bool(ecc_available.value)}")
+    if not ecc_available.value:
+        print_verbose("ECC is not available on this device")
+        return True
+
+    ecc_configurable = pz.ze_bool_t(0)
+    rc = pz.zesDeviceEccConfigurable(device_handle, byref(ecc_configurable))
+    if not check_rc(f"zesDeviceEccConfigurable(device {device_index})", rc):
+        return False
+
+    print_verbose(f"ECC Configurable: {bool(ecc_configurable.value)}")
+
+    get_state = pz.zes_device_ecc_properties_t()
+    get_state.stype = pz.ZES_STRUCTURE_TYPE_DEVICE_ECC_PROPERTIES
+    get_state.pNext = None
+
+    rc = pz.zesDeviceGetEccState(device_handle, byref(get_state))
+    if not check_rc(f"zesDeviceGetEccState(device {device_index})", rc):
+        return False
+
+    print_verbose("ECC State:")
+    print_verbose(f"  Current State: {get_ecc_state_string(get_state.currentState)}")
+    print_verbose(f"  Pending State: {get_ecc_state_string(get_state.pendingState)}")
+    print_verbose(
+        f"  Pending Action: {get_device_action_string(get_state.pendingAction)}"
+    )
+
+    if not ecc_configurable.value:
+        print_verbose("ECC is not configurable on this device")
+        return True
+
+    if not is_root_user():
+        print_verbose(
+            "Skipping zesDeviceSetEccState test due to insufficient permissions"
+        )
+        return True
+
+    restore_state = get_state.pendingState
+    if restore_state not in (
+        pz.ZES_DEVICE_ECC_STATE_ENABLED,
+        pz.ZES_DEVICE_ECC_STATE_DISABLED,
+    ):
+        restore_state = get_state.currentState
+
+    if restore_state == pz.ZES_DEVICE_ECC_STATE_ENABLED:
+        test_state = pz.ZES_DEVICE_ECC_STATE_DISABLED
+    else:
+        test_state = pz.ZES_DEVICE_ECC_STATE_ENABLED
+
+    new_state = pz.zes_device_ecc_desc_t()
+    new_state.stype = pz.ZES_STRUCTURE_TYPE_DEVICE_ECC_DESC
+    new_state.pNext = None
+    new_state.state = test_state
+
+    set_state = pz.zes_device_ecc_properties_t()
+    set_state.stype = pz.ZES_STRUCTURE_TYPE_DEVICE_ECC_PROPERTIES
+    set_state.pNext = None
+
+    rc = pz.zesDeviceSetEccState(device_handle, byref(new_state), byref(set_state))
+    if not check_rc_allow_action_required(
+        f"zesDeviceSetEccState(device {device_index}, test)", rc
+    ):
+        return False
+
+    print_verbose("ECC Set State Result:")
+    print_verbose(f"  Current State: {get_ecc_state_string(set_state.currentState)}")
+    print_verbose(f"  Pending State: {get_ecc_state_string(set_state.pendingState)}")
+    print_verbose(
+        f"  Pending Action: {get_device_action_string(set_state.pendingAction)}"
+    )
+
+    if restore_state != test_state:
+        new_state.state = restore_state
+        rc = pz.zesDeviceSetEccState(device_handle, byref(new_state), byref(set_state))
+        if not check_rc_allow_action_required(
+            f"zesDeviceSetEccState(device {device_index}, restore)", rc
+        ):
+            return False
+        print_verbose("ECC configuration restored to original state")
+
+    return True
+
+
+def test_device_processes(device_handle, device_index):
+    """Test device processes state"""
+    print(f"\n---- Device {device_index} Processes Test ----")
+
+    process_count = c_uint32(0)
+    rc = pz.zesDeviceProcessesGetState(device_handle, byref(process_count), None)
+    if not check_rc(f"zesDeviceProcessesGetState(device {device_index}, count)", rc):
+        return False
+
+    if process_count.value == 0:
+        print_verbose("No active processes found on this device")
+        return True
+
+    print_verbose(f"Found {process_count.value} active process(es)")
+
+    # Allocate array for process states
+    ProcessArray = pz.zes_process_state_t * process_count.value
+    processes = ProcessArray()
+
+    for i in range(process_count.value):
+        processes[i].stype = pz.ZES_STRUCTURE_TYPE_PROCESS_STATE
+        processes[i].pNext = None
+
+    rc = pz.zesDeviceProcessesGetState(device_handle, byref(process_count), processes)
+    if not check_rc(f"zesDeviceProcessesGetState(device {device_index}, handles)", rc):
+        return False
+
+    for i in range(process_count.value):
+        process = processes[i]
+        print_verbose(f"  Process {i}:")
+        print_verbose(f"    PID: {process.processId}")
+        print_verbose(f"    Memory Size: {process.memSize} bytes")
+        print_verbose(f"    Shared Memory Size: {process.sharedSize} bytes")
+        print_verbose(f"    Engine Type Flags: 0x{process.engines:08X}")
+
+    return True
+
+
+def test_engine_modules(device_handle, device_index):
+    """Test engine module enumeration and operations"""
+    print(f"\n---- Device {device_index} Engine Modules Test ----")
+
+    # Get engine module count
+    engine_count = c_uint32(0)
+    rc = pz.zesDeviceEnumEngineGroups(device_handle, byref(engine_count), None)
+    if not check_rc(f"zesDeviceEnumEngineGroups(device {device_index}, count)", rc):
+        return False
+
+    if engine_count.value == 0:
+        print_verbose("No engine modules found on this device")
+        return True
+
+    print_verbose(f"Found {engine_count.value} engine module(s)")
+
+    # Allocate array for engine handles
+    EngineArray = pz.zes_engine_handle_t * engine_count.value
+    engine_handles = EngineArray()
+
+    rc = pz.zesDeviceEnumEngineGroups(
+        device_handle, byref(engine_count), engine_handles
+    )
+    if not check_rc(f"zesDeviceEnumEngineGroups(device {device_index}, handles)", rc):
+        return False
+
+    for iteration in range(10):
+        print(f"  Iteration {iteration}")
+        # Test each engine module
+        for i in range(engine_count.value):
+            print_verbose(f"\n  Engine Module {i}:")
+
+            # Test engine properties
+            props = pz.zes_engine_properties_t()
+            props.stype = pz.ZES_STRUCTURE_TYPE_ENGINE_PROPERTIES
+            props.pNext = None
+
+            rc = pz.zesEngineGetProperties(engine_handles[i], byref(props))
+            if not check_rc(f"zesEngineGetProperties(engine {i})", rc):
+                continue
+
+            print_verbose(f"      Type: {get_engine_type_string(props.type)}")
+            if props.onSubdevice:
+                print_verbose(f"      Subdevice ID: {props.subdeviceId}")
+
+            engineStats = pz.zes_engine_stats_t()
+            rc = pz.zesEngineGetActivity(engine_handles[i], byref(engineStats))
+            if not check_rc(f"zesEngineGetActivity(engine {i})", rc):
+                continue
+
+            print_verbose("      Activity:")
+            print_verbose(f"        Active Time: {engineStats.activeTime}")
+            print_verbose(f"        Timestamp: {engineStats.timestamp}")
+
+    return True
+
+
+def test_memory_modules(device_handle, device_index):
+    """Test memory module enumeration and operations"""
+    print(f"\n---- Device {device_index} Memory Modules Test ----")
+
+    # Get memory module count
+    mem_count = c_uint32(0)
+    rc = pz.zesDeviceEnumMemoryModules(device_handle, byref(mem_count), None)
+    if not check_rc(f"zesDeviceEnumMemoryModules(device {device_index}, count)", rc):
+        return False
+
+    if mem_count.value == 0:
+        print_verbose("No memory modules found on this device")
+        return True
+
+    print_verbose(f"Found {mem_count.value} memory module(s)")
+
+    # Allocate array for memory handles
+    MemoryArray = pz.zes_mem_handle_t * mem_count.value
+    mem_handles = MemoryArray()
+
+    rc = pz.zesDeviceEnumMemoryModules(device_handle, byref(mem_count), mem_handles)
+    if not check_rc(f"zesDeviceEnumMemoryModules(device {device_index}, handles)", rc):
+        return False
+
+    # Test each memory module
+    for i in range(mem_count.value):
+        print_verbose(f"\n  Memory Module {i}:")
+
+        # Test memory properties
+        props = pz.zes_mem_properties_t()
+        props.stype = pz.ZES_STRUCTURE_TYPE_MEM_PROPERTIES
+        props.pNext = None
+
+        rc = pz.zesMemoryGetProperties(mem_handles[i], byref(props))
+        if not check_rc(f"zesMemoryGetProperties(memory {i})", rc):
+            continue
+
+        print_verbose("    Properties:")
+        print_verbose(f"      Type: {get_memory_type_string(props.type)}")
+        print_verbose(f"      Location: {get_memory_location_string(props.location)}")
+        print_verbose(f"      Physical Size: {props.physicalSize} bytes")
+        print_verbose(
+            f"      Bus Width: {props.busWidth} bits"
+            if props.busWidth != -1
+            else "      Bus Width: Unknown"
+        )
+        print_verbose(
+            f"      Num Channels: {props.numChannels}"
+            if props.numChannels != -1
+            else "      Num Channels: Unknown"
+        )
+        print_verbose(f"      On Subdevice: {bool(props.onSubdevice)}")
+        if props.onSubdevice:
+            print_verbose(f"      Subdevice ID: {props.subdeviceId}")
+
+        # Test memory state
+        state = pz.zes_mem_state_t()
+        state.stype = pz.ZES_STRUCTURE_TYPE_MEM_STATE
+        state.pNext = None
+
+        rc = pz.zesMemoryGetState(mem_handles[i], byref(state))
+        if not check_rc(f"zesMemoryGetState(memory {i})", rc):
+            continue
+
+        print_verbose("    State:")
+        print_verbose(f"      Health: {get_memory_health_string(state.health)}")
+        print_verbose(f"      Free: {state.free} bytes")
+        print_verbose(f"      Size: {state.size} bytes")
+        print_verbose(f"      Used: {state.size - state.free} bytes")
+        if state.size > 0:
+            usage_percent = ((state.size - state.free) / state.size) * 100
+            print_verbose(f"      Usage: {usage_percent:.1f}%")
+
+        # Test memory bandwidth
+        bandwidth = pz.zes_mem_bandwidth_t()
+
+        rc = pz.zesMemoryGetBandwidth(mem_handles[i], byref(bandwidth))
+        if not check_rc(f"zesMemoryGetBandwidth(memory {i})", rc):
+            continue
+
+        print_verbose("    Bandwidth:")
+        print_verbose(f"      Read Counter: {bandwidth.readCounter} bytes")
+        print_verbose(f"      Write Counter: {bandwidth.writeCounter} bytes")
+        print_verbose(f"      Max Bandwidth: {bandwidth.maxBandwidth} bytes/sec")
+        print_verbose(f"      Timestamp: {bandwidth.timestamp} microseconds")
+
+    return True
+
+
+def test_power_module(device_handle, device_index):
+    """Test power domain enumeration, properties, energy-derived power, and power limit extension operations"""
+    print(f"\n---- Device {device_index} Power Domains Test ----")
+
+    # Get power domain count
+    power_count = c_uint32(0)
+    rc = pz.zesDeviceEnumPowerDomains(device_handle, byref(power_count), None)
+    if not check_rc(f"zesDeviceEnumPowerDomains(device {device_index}, count)", rc):
+        return False
+
+    if power_count.value == 0:
+        print_verbose("No power domains found on this device")
+        return True
+
+    print_verbose(f"Found {power_count.value} power domain(s)")
+
+    # Allocate array for power handles
+    PowerArray = pz.zes_pwr_handle_t * power_count.value
+    power_handles = PowerArray()
+
+    rc = pz.zesDeviceEnumPowerDomains(device_handle, byref(power_count), power_handles)
+    if not check_rc(f"zesDeviceEnumPowerDomains(device {device_index}, handles)", rc):
+        return False
+
+    # Test each power domain
+    for i in range(power_count.value):
+        print_verbose(f"\n  Power Domain {i}:")
+
+        default_limit = pz.zes_power_limit_ext_desc_t()
+        ext_properties = pz.zes_power_ext_properties_t()
+        ext_properties.stype = pz.ZES_STRUCTURE_TYPE_POWER_EXT_PROPERTIES
+        ext_properties.pNext = None
+        ext_properties.defaultLimit = pointer(default_limit)
+
+        properties = pz.zes_power_properties_t()
+        properties.stype = pz.ZES_STRUCTURE_TYPE_POWER_PROPERTIES
+        properties.pNext = cast(pointer(ext_properties), c_void_p)
+
+        rc = pz.zesPowerGetProperties(power_handles[i], byref(properties))
+        if not check_rc(f"zesPowerGetProperties(power {i})", rc):
+            continue
+
+        print_verbose("    Power Properties:")
+        print_verbose(f"      On Subdevice: {bool(properties.onSubdevice)}")
+        if properties.onSubdevice:
+            print_verbose(f"      Subdevice ID: {properties.subdeviceId}")
+        print_verbose(f"      Can Control: {bool(properties.canControl)}")
+        print_verbose(
+            f"      Energy Threshold Supported: {bool(properties.isEnergyThresholdSupported)}"
+        )
+        print_verbose(f"      Default Limit: {properties.defaultLimit}")
+        print_verbose(f"      Min Limit: {properties.minLimit}")
+        print_verbose(f"      Max Limit: {properties.maxLimit}")
+        print_verbose(f"      Domain: {get_power_domain_string(ext_properties.domain)}")
+
+        limit_descs = None
+        limit_count = c_uint32(0)
+        if not properties.onSubdevice:
+            rc = pz.zesPowerGetLimitsExt(power_handles[i], byref(limit_count), None)
+            if not check_rc(f"zesPowerGetLimitsExt(power {i}, count)", rc):
+                continue
+
+            print_verbose(f"    Power Limit Descriptor Count: {limit_count.value}")
+
+            if limit_count.value > 0:
+                PowerLimitArray = pz.zes_power_limit_ext_desc_t * limit_count.value
+                limit_descs = PowerLimitArray()
+
+                for limit_index in range(limit_count.value):
+                    limit_descs[limit_index].stype = (
+                        pz.ZES_STRUCTURE_TYPE_POWER_LIMIT_EXT_DESC
+                    )
+                    limit_descs[limit_index].pNext = None
+
+                rc = pz.zesPowerGetLimitsExt(
+                    power_handles[i], byref(limit_count), limit_descs
+                )
+                if not check_rc(f"zesPowerGetLimitsExt(power {i}, descriptors)", rc):
+                    continue
+
+                print_verbose("    Power Limit Descriptors:")
+                for limit_index in range(limit_count.value):
+                    limit_desc = limit_descs[limit_index]
+                    print_verbose(f"      Descriptor {limit_index}:")
+                    print_verbose(
+                        f"        Level: {get_power_level_string(limit_desc.level)}"
+                    )
+                    print_verbose(
+                        f"        Source: {get_power_source_string(limit_desc.source)}"
+                    )
+                    print_verbose(
+                        f"        Limit Unit: {get_limit_unit_string(limit_desc.limitUnit)}"
+                    )
+                    print_verbose(
+                        f"        Enabled State Locked: {bool(limit_desc.enabledStateLocked)}"
+                    )
+                    print_verbose(f"        Enabled: {bool(limit_desc.enabled)}")
+                    print_verbose(
+                        f"        Interval Value Locked: {bool(limit_desc.intervalValueLocked)}"
+                    )
+                    print_verbose(f"        Interval: {limit_desc.interval}")
+                    print_verbose(
+                        f"        Limit Value Locked: {bool(limit_desc.limitValueLocked)}"
+                    )
+                    print_verbose(f"        Limit: {limit_desc.limit}")
+
+        energy_counter1 = pz.zes_power_energy_counter_t()
+        rc = pz.zesPowerGetEnergyCounter(power_handles[i], byref(energy_counter1))
+        if not check_rc(f"zesPowerGetEnergyCounter(power {i}, first)", rc):
+            continue
+
+        time.sleep(1)
+
+        energy_counter2 = pz.zes_power_energy_counter_t()
+        rc = pz.zesPowerGetEnergyCounter(power_handles[i], byref(energy_counter2))
+        if not check_rc(f"zesPowerGetEnergyCounter(power {i}, second)", rc):
+            continue
+
+        energy_delta = energy_counter2.energy - energy_counter1.energy
+        time_delta = energy_counter2.timestamp - energy_counter1.timestamp
+        if time_delta > 0:
+            power_watt = energy_delta / time_delta
+            device_scope = "subDevice" if properties.onSubdevice else "rootDevice"
+            print_verbose(f"    Current Power: {power_watt:.6f} W for {device_scope}")
+        else:
+            print_verbose("    Current Power: unavailable due to zero delta time")
+
+        if properties.onSubdevice or limit_descs is None:
+            continue
+
+        if not is_root_user():
+            print_verbose(
+                "    Skipping zesPowerSetLimitsExt due to insufficient permissions"
+            )
+            continue
+
+        set_count = c_uint32(limit_count.value)
+        rc = pz.zesPowerSetLimitsExt(power_handles[i], byref(set_count), limit_descs)
+        if not check_rc(f"zesPowerSetLimitsExt(power {i})", rc):
+            return False
+
+        print_verbose("    Set power limit successfully")
+
+    return True
+
+
+def test_frequency_domains(device_handle, device_index):
+    """Test frequency domain enumeration and state, range, and clock operations"""
+    print(f"\n---- Device {device_index} Frequency Domains Test ----")
+
+    # Get frequency domain count
+    freq_count = c_uint32(0)
+    rc = pz.zesDeviceEnumFrequencyDomains(device_handle, byref(freq_count), None)
+    if not check_rc(f"zesDeviceEnumFrequencyDomains(device {device_index}, count)", rc):
+        return False
+
+    if freq_count.value == 0:
+        print_verbose("No frequency domains found on this device")
+        return True
+
+    print_verbose(f"Found {freq_count.value} frequency domain(s)")
+
+    # Allocate array for frequency handles
+    FrequencyArray = pz.zes_freq_handle_t * freq_count.value
+    freq_handles = FrequencyArray()
+
+    rc = pz.zesDeviceEnumFrequencyDomains(
+        device_handle, byref(freq_count), freq_handles
+    )
+    if not check_rc(
+        f"zesDeviceEnumFrequencyDomains(device {device_index}, handles)", rc
+    ):
+        return False
+
+    # Test each frequency domain
+    for i in range(freq_count.value):
+        print_verbose(f"\n  Frequency Domain {i}:")
+
+        freq_properties = pz.zes_freq_properties_t()
+        freq_properties.stype = pz.ZES_STRUCTURE_TYPE_FREQ_PROPERTIES
+        freq_properties.pNext = None
+
+        rc = pz.zesFrequencyGetProperties(freq_handles[i], byref(freq_properties))
+        if not check_rc(f"zesFrequencyGetProperties(frequency {i})", rc):
+            continue
+
+        print_verbose("    Frequency Properties:")
+        print_verbose(
+            f"      Type: {get_frequency_domain_string(freq_properties.type)}"
+        )
+        print_verbose(f"      Can Control: {bool(freq_properties.canControl)}")
+        print_verbose(
+            "      Throttle Event Supported: "
+            f"{bool(freq_properties.isThrottleEventSupported)}"
+        )
+        print_verbose(f"      Minimum Frequency: {freq_properties.min:.1f} MHz")
+        print_verbose(f"      Maximum Frequency: {freq_properties.max:.1f} MHz")
+        if freq_properties.onSubdevice:
+            print_verbose(f"      Subdevice ID: {freq_properties.subdeviceId}")
+
+        available_clock_count = c_uint32(0)
+        rc = pz.zesFrequencyGetAvailableClocks(
+            freq_handles[i], byref(available_clock_count), None
+        )
+        if not check_rc(f"zesFrequencyGetAvailableClocks(frequency {i}, count)", rc):
+            continue
+
+        available_clocks = None
+        if available_clock_count.value > 0:
+            AvailableClockArray = c_double * available_clock_count.value
+            available_clocks = AvailableClockArray()
+            rc = pz.zesFrequencyGetAvailableClocks(
+                freq_handles[i], byref(available_clock_count), available_clocks
+            )
+            if not check_rc(
+                f"zesFrequencyGetAvailableClocks(frequency {i}, clocks)", rc
+            ):
+                continue
+
+            print_verbose("    Available Clocks:")
+            for clock_index in range(available_clock_count.value):
+                print_verbose(f"      {available_clocks[clock_index]:.1f} MHz")
+
+        freq_range = pz.zes_freq_range_t()
+        rc = pz.zesFrequencyGetRange(freq_handles[i], byref(freq_range))
+        if not check_rc(f"zesFrequencyGetRange(frequency {i})", rc):
+            continue
+
+        print_verbose("    Frequency Range:")
+        print_verbose(f"      Min: {freq_range.min:.1f} MHz")
+        print_verbose(f"      Max: {freq_range.max:.1f} MHz")
+
+        # Test frequency state
+        freq_state = pz.zes_freq_state_t()
+        freq_state.stype = pz.ZES_STRUCTURE_TYPE_FREQ_STATE
+        freq_state.pNext = None
+
+        rc = pz.zesFrequencyGetState(freq_handles[i], byref(freq_state))
+        if not check_rc(f"zesFrequencyGetState(frequency {i})", rc):
+            continue
+
+        print_verbose("    Frequency State:")
+        print_verbose(
+            f"      Current Voltage: {freq_state.currentVoltage:.3f} V"
+            if freq_state.currentVoltage >= 0
+            else "      Current Voltage: Unknown"
+        )
+        print_verbose(
+            f"      Requested Frequency: {freq_state.request:.1f} MHz"
+            if freq_state.request >= 0
+            else "      Requested Frequency: Unknown"
+        )
+        print_verbose(
+            f"      TDP Frequency: {freq_state.tdp:.1f} MHz"
+            if freq_state.tdp >= 0
+            else "      TDP Frequency: Unknown"
+        )
+        print_verbose(
+            f"      Efficient Frequency: {freq_state.efficient:.1f} MHz"
+            if freq_state.efficient >= 0
+            else "      Efficient Frequency: Unknown"
+        )
+        print_verbose(
+            f"      Actual Frequency: {freq_state.actual:.1f} MHz"
+            if freq_state.actual >= 0
+            else "      Actual Frequency: Unknown"
+        )
+        print_verbose(
+            f"      Throttle Reasons: {get_throttle_reasons_string(freq_state.throttleReasons)}"
+        )
+
+        if available_clocks is None or available_clock_count.value == 0:
+            continue
+
+        if not is_root_user():
+            print_verbose(
+                "    Skipping zesFrequencySetRange test due to insufficient permissions"
+            )
+            continue
+
+        original_range = pz.zes_freq_range_t()
+        original_range.min = freq_range.min
+        original_range.max = freq_range.max
+
+        test_range = pz.zes_freq_range_t()
+        test_range.min = available_clocks[0]
+        test_range.max = available_clocks[0]
+
+        rc = pz.zesFrequencySetRange(freq_handles[i], byref(test_range))
+        if not check_rc(f"zesFrequencySetRange(frequency {i}, test)", rc):
+            return False
+
+        verify_range = pz.zes_freq_range_t()
+        rc = pz.zesFrequencyGetRange(freq_handles[i], byref(verify_range))
+        if not check_rc(f"zesFrequencyGetRange(frequency {i}, verify)", rc):
+            return False
+
+        print_verbose("    Frequency Range After Set:")
+        print_verbose(f"      Min: {verify_range.min:.1f} MHz")
+        print_verbose(f"      Max: {verify_range.max:.1f} MHz")
+
+        rc = pz.zesFrequencySetRange(freq_handles[i], byref(original_range))
+        if not check_rc(f"zesFrequencySetRange(frequency {i}, restore)", rc):
+            return False
+
+        restored_range = pz.zes_freq_range_t()
+        rc = pz.zesFrequencyGetRange(freq_handles[i], byref(restored_range))
+        if not check_rc(f"zesFrequencyGetRange(frequency {i}, restored)", rc):
+            return False
+
+        print_verbose("    Frequency Range Restored:")
+        print_verbose(f"      Min: {restored_range.min:.1f} MHz")
+        print_verbose(f"      Max: {restored_range.max:.1f} MHz")
+
+    return True
+
+
+def test_temperature_sensors(device_handle, device_index):
+    """Test temperature sensor enumeration and state operations"""
+    print(f"\n---- Device {device_index} Temperature Sensors Test ----")
+
+    # Get temperature sensor count
+    temp_count = c_uint32(0)
+    rc = pz.zesDeviceEnumTemperatureSensors(device_handle, byref(temp_count), None)
+    if not check_rc(
+        f"zesDeviceEnumTemperatureSensors(device {device_index}, count)", rc
+    ):
+        return False
+
+    if temp_count.value == 0:
+        print_verbose("No temperature sensors found on this device")
+        return True
+
+    print_verbose(f"Found {temp_count.value} temperature sensor(s)")
+
+    # Allocate array for temperature handles
+    TemperatureArray = pz.zes_temp_handle_t * temp_count.value
+    temp_handles = TemperatureArray()
+
+    rc = pz.zesDeviceEnumTemperatureSensors(
+        device_handle, byref(temp_count), temp_handles
+    )
+    if not check_rc(
+        f"zesDeviceEnumTemperatureSensors(device {device_index}, handles)", rc
+    ):
+        return False
+
+    # Test each temperature sensor
+    for i in range(temp_count.value):
+        print_verbose(f"\n  Temperature Sensor {i}:")
+
+        # Test temperature properties
+        temp_props = pz.zes_temp_properties_t()
+        temp_props.stype = pz.ZES_STRUCTURE_TYPE_TEMP_PROPERTIES
+        temp_props.pNext = None
+
+        rc = pz.zesTemperatureGetProperties(temp_handles[i], byref(temp_props))
+        if not check_rc(f"zesTemperatureGetProperties(temperature {i})", rc):
+            continue
+
+        print_verbose("    Temperature Properties:")
+        print_verbose(f"      Type: {get_temperature_sensor_string(temp_props.type)}")
+        print_verbose(f"      On Subdevice: {bool(temp_props.onSubdevice)}")
+        if temp_props.onSubdevice:
+            print_verbose(f"      Subdevice ID: {temp_props.subdeviceId}")
+        print_verbose(
+            f"      Max Temperature: {temp_props.maxTemperature:.1f} °C"
+            if temp_props.maxTemperature >= 0
+            else "      Max Temperature: Unknown"
+        )
+        print_verbose(
+            f"      Critical Temp Supported: {bool(temp_props.isCriticalTempSupported)}"
+        )
+        print_verbose(
+            f"      Threshold 1 Supported: {bool(temp_props.isThreshold1Supported)}"
+        )
+        print_verbose(
+            f"      Threshold 2 Supported: {bool(temp_props.isThreshold2Supported)}"
+        )
+
+        # Test temperature state - this is the main function we're demonstrating
+        temperature = c_double(0.0)
+        rc = pz.zesTemperatureGetState(temp_handles[i], byref(temperature))
+        if not check_rc(f"zesTemperatureGetState(temperature {i})", rc):
+            continue
+
+        print_verbose(f"    Current Temperature: {temperature.value:.1f} °C")
+
+        # Test temperature configuration if supported
+        temp_config = pz.zes_temp_config_t()
+        temp_config.stype = pz.ZES_STRUCTURE_TYPE_TEMP_CONFIG
+        temp_config.pNext = None
+
+        rc = pz.zesTemperatureGetConfig(temp_handles[i], byref(temp_config))
+        if rc == pz.ZE_RESULT_SUCCESS:
+            print_verbose("    Temperature Config:")
+            print_verbose(f"      Critical Enabled: {bool(temp_config.enableCritical)}")
+            print_verbose(
+                f"      Threshold 1: {temp_config.threshold1.threshold:.1f} °C"
+                if temp_config.threshold1.threshold >= 0
+                else "      Threshold 1: Not set"
+            )
+            print_verbose(
+                f"      Threshold 2: {temp_config.threshold2.threshold:.1f} °C"
+                if temp_config.threshold2.threshold >= 0
+                else "      Threshold 2: Not set"
+            )
+        else:
+            print_verbose(
+                f"    Temperature Config: Not available ({get_result_string(rc)})"
+            )
+
+    return True
+
+
+def run_all_tests():
+    """Run all black box tests"""
+    print("=== Python Level Zero Sysman Black Box Test ===")
+
+    # Get drivers
+    driver_info = get_drivers()
+    if driver_info is None:
+        return False
+
+    drivers, driver_count = driver_info
+
+    # Test each driver
+    for driver_idx in range(driver_count):
+        print(f"\n=== Driver {driver_idx} Tests ===")
+
+        # Get devices for this driver
+        device_info = get_devices(drivers[driver_idx])
+        if device_info is None:
+            print(f"No devices found for driver {driver_idx}")
+            continue
+
+        devices, device_count = device_info
+
+        # Test each device
+        for device_idx in range(device_count):
+            print(f"\n--- Device {device_idx} ---")
+
+            # Test global device operations (properties and processes)
+            test_global_operation(drivers[driver_idx], devices[device_idx], device_idx)
+
+            # Test PCI module
+            test_pci_module(devices[device_idx], device_idx)
+
+            # Test ECC module
+            test_ecc_module(devices[device_idx], device_idx)
+
+            # Test memory modules
+            test_memory_modules(devices[device_idx], device_idx)
+
+            # Test power domains
+            test_power_module(devices[device_idx], device_idx)
+
+            # Test frequency domains
+            test_frequency_domains(devices[device_idx], device_idx)
+
+            # Test temperature sensors
+            test_temperature_sensors(devices[device_idx], device_idx)
+
+            # Test engine modules
+            test_engine_modules(devices[device_idx], device_idx)
+
+    print("\n=== Test Completed ===")
+    return True
+
+
+def main():
+    """Main function"""
+    parser = argparse.ArgumentParser(
+        description="Python Level Zero Sysman Black Box Test",
+        epilog="""Examples:
+  %(prog)s -a                 # Run all tests
+  %(prog)s -m                 # Memory tests only
+  %(prog)s -g                 # Global operations (device properties and processes) only
+  %(prog)s -p                 # PCI tests only
+  %(prog)s -C                 # ECC tests only
+  %(prog)s -o                 # Power tests only
+  %(prog)s -f                 # Frequency tests only
+  %(prog)s -t                 # Temperature tests only
+  %(prog)s -e                 # Engine tests only
+  %(prog)s -h                 # Show help message""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument("-a", "--all", action="store_true", help="Run all tests")
+    parser.add_argument(
+        "-m", "--memory", action="store_true", help="Run only memory-related tests"
+    )
+    parser.add_argument(
+        "-g",
+        "--global",
+        action="store_true",
+        help="Run only global operations (device properties and processes)",
+    )
+    parser.add_argument(
+        "-o", "--power", action="store_true", help="Run only power-related tests"
+    )
+    parser.add_argument("-p", "--pci", action="store_true", help="Run only PCI tests")
+    parser.add_argument("-C", "--ecc", action="store_true", help="Run only ECC tests")
+    parser.add_argument(
+        "-f",
+        "--frequency",
+        action="store_true",
+        help="Run only frequency-related tests",
+    )
+    parser.add_argument(
+        "-t",
+        "--temperature",
+        action="store_true",
+        help="Run only temperature sensor tests",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version="Python Level Zero Sysman Black Box Test v1.0",
+    )
+    parser.add_argument("-e", "--engine", action="store_true", help="Run engine tests ")
+
+    args = parser.parse_args()
+
+    # Check if any specific test is requested
+    specific_test = (
+        args.memory
+        or getattr(args, "global", False)
+        or args.pci
+        or args.ecc
+        or args.power
+        or args.frequency
+        or args.temperature
+        or args.engine
+        or args.all
+    )
+
+    # If no arguments provided, show help and exit
+    if not specific_test:
+        parser.print_help()
+        return 0
+
+    # Initialize Sysman and get devices
+    drivers, driver_count, devices, device_count = initialize_sysman_and_get_devices()
+    try:
+        if args.all:
+            # Run all tests
+            success = run_all_tests()
+        else:
+            # Run specific tests
+            print("=== Python Level Zero Sysman Selective Black Box Test ===")
+
+            if not drivers or driver_count == 0:
+                print("No drivers available for testing")
+                return 1
+
+            if not devices or device_count == 0:
+                print("No devices available for testing")
+                return 1
+
+            # Run selected tests on all devices
+            for device_idx in range(device_count):
+                if getattr(args, "global", False):
+                    test_global_operation(drivers[0], devices[device_idx], device_idx)
+
+                if args.pci:
+                    test_pci_module(devices[device_idx], device_idx)
+
+                if args.ecc:
+                    test_ecc_module(devices[device_idx], device_idx)
+
+                if args.memory:
+                    test_memory_modules(devices[device_idx], device_idx)
+
+                if args.engine:
+                    test_engine_modules(devices[device_idx], device_idx)
+
+                if args.power:
+                    test_power_module(devices[device_idx], device_idx)
+
+                if args.frequency:
+                    test_frequency_domains(devices[device_idx], device_idx)
+
+                if args.temperature:
+                    test_temperature_sensors(devices[device_idx], device_idx)
+
+            success = True
+
+        return 0 if success else 1
+
+    except Exception as e:
+        print(f"Unhandled exception: {e}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

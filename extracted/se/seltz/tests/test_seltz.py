@@ -14,6 +14,7 @@ from seltz import (
     SearchResponse,
     Seltz,
 )
+from seltz.services.monitor_service import MonitorService
 from seltz.exceptions import (
     SeltzAPIError,
     SeltzAuthenticationError,
@@ -84,6 +85,14 @@ def test_search_service_initialized():
     """Initialize the search service on construction."""
     client = Seltz(api_key="test-key")
     assert client._search is not None
+
+
+def test_monitor_service_initialized():
+    """Initialize the monitor service on construction and expose it."""
+    client = Seltz(api_key="test-key")
+    assert client._monitor is not None
+    assert client.monitor is client._monitor
+    assert isinstance(client.monitor, MonitorService)
 
 
 @pytest.mark.parametrize("scope", ["news"])

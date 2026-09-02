@@ -1,0 +1,525 @@
+"""
+PR workflow orchestration for agdt-setup.
+
+When ``agdt-setup`` modifies repository files, this module isolates those
+changes on a dedicated ``chore/agdt-setup-{version}`` branch, commits them,
+pushes the branch, and creates a pull request.  The workflow records the
+user's original branch and any stashed changes and makes a best effort to
+restore them afterwards, emitting warnings and manual recovery instructions
+if restoration fails.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+import time
+from collections.abc import Callable
+from pathlib import Path
+
+from typing_extensions import TypedDict
+
+from agentic_devtools.cli.git.core import run_git
+
+
+class PrWorkflowResult(TypedDict):
+    """Result of the PR workflow orchestration."""
+
+    success: bool
+    branch_created: str | None
+    pr_created: bool
+    message: str
+
+
+_MAX_BRANCH_SUFFIX_ATTEMPTS = 10
+
+
+def _get_status_snapshot() -> str | None:
+    """Return a snapshot of tracked and untracked git status for rollback verification."""
+    status_result = run_git("status", "--porcelain=v1", "--untracked-files=all", "-z", check=False)
+    if status_result.returncode != 0:
+        return None
+    return status_result.stdout
+
+
+def _list_untracked_paths() -> set[str] | None:
+    """Return the current untracked paths as git-relative strings."""
+    untracked_result = run_git("ls-files", "--others", "--exclude-standard", "-z", check=False)
+    if untracked_result.returncode != 0:
+        return None
+    return {path for path in untracked_result.stdout.split("\0") if path}
+
+
+def _remove_untracked_paths(paths: set[str]) -> bool:
+    """Remove untracked paths restored by a failed stash pop."""
+    for relative_path in sorted(paths, key=lambda path: len(Path(path).parts), reverse=True):
+        path = Path(relative_path)
+        try:
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            elif path.exists() or path.is_symlink():
+                path.unlink()
+        except OSError:
+            return False
+    return True
+
+
+def _build_stash_push_args() -> list[str]:
+    """Build a stash push command that excludes agdt-generated files from the auto-stash."""
+    return [
+        "stash",
+        "push",
+        "--include-untracked",
+        "-m",
+        "agdt-setup: auto-stash",
+        "--",
+        ".",
+        ":(exclude).agdt/**",
+        ":(exclude).github/agents/agdt.*",
+        ":(exclude).github/prompts/agdt.*",
+    ]
+
+
+def _restore_stashed_changes(stash_ref: str) -> bool:
+    """Restore the user's auto-stash and verify rollback after conflicts.
+
+    On ``git stash pop`` conflicts, snapshots pre-pop status, removes untracked
+    paths introduced by the failed pop, and only reports rollback success when
+    the post-rollback status matches the pre-pop snapshot.
+    """
+    status_before_pop = _get_status_snapshot()
+    untracked_before_pop = _list_untracked_paths()
+
+    pop_result = run_git("stash", "pop", stash_ref, check=False)
+    if pop_result.returncode == 0:
+        return True
+
+    print(
+        "Warning: Could not auto-restore stashed changes. Trying to roll back "
+        "the partial restore so no conflict markers are written.",
+        file=sys.stderr,
+    )
+
+    untracked_after_failed_pop = _list_untracked_paths()
+    reset_result = run_git("reset", "--merge", check=False)
+    checkout_result = run_git("checkout", "--merge", "--", ".", check=False)
+    introduced_untracked: set[str] = set()
+    if untracked_before_pop is not None and untracked_after_failed_pop is not None:
+        introduced_untracked = untracked_after_failed_pop - untracked_before_pop
+    cleanup_result = _remove_untracked_paths(introduced_untracked)
+    status_after_rollback = _get_status_snapshot()
+    if (
+        reset_result.returncode == 0
+        and checkout_result.returncode == 0
+        and cleanup_result
+        and status_before_pop is not None
+        and status_after_rollback == status_before_pop
+    ):
+        print(
+            "Warning: rollback succeeded; partial restore was discarded.",
+            file=sys.stderr,
+        )
+        return False
+
+    print(
+        "Warning: rollback could not be verified; manual recovery is required.",
+        file=sys.stderr,
+    )
+    return False
+
+
+def _resolve_branch_name(version: str) -> str:
+    """Return a unique ``chore/agdt-setup-{version}`` branch name.
+
+    Checks both local refs and the remote for collisions and appends
+    ``-2``, ``-3``, … until an unused name is found.  Gives up after
+    :data:`_MAX_BRANCH_SUFFIX_ATTEMPTS` and falls back to a
+    timestamp-based suffix to guarantee termination (e.g. when
+    ``git ls-remote`` keeps failing due to network/auth issues).
+    """
+    base = f"chore/agdt-setup-{version}"
+    candidate = base
+
+    suffix = 1
+    while suffix <= _MAX_BRANCH_SUFFIX_ATTEMPTS:
+        # Check local
+        local_check = run_git("rev-parse", "--verify", candidate, check=False)
+        if local_check.returncode != 0:
+            # Not found locally — check remote
+            remote_check = run_git("ls-remote", "--heads", "origin", candidate, check=False)
+            if remote_check.returncode != 0:
+                # ls-remote failed (network/auth) — treat name as taken to be safe
+                print(
+                    f"Warning: 'git ls-remote' failed for '{candidate}' — skipping this name.",
+                    file=sys.stderr,
+                )
+            elif not remote_check.stdout.strip():
+                return candidate
+
+        # Name is taken; try next suffix
+        suffix += 1
+        candidate = f"{base}-{suffix}"
+
+    # Exhausted all suffix attempts — fall back to a timestamp suffix
+    # so agdt-setup can proceed without hanging.
+    fallback = f"{base}-{int(time.time())}"
+    print(
+        f"Warning: Could not find a free branch name after {_MAX_BRANCH_SUFFIX_ATTEMPTS} "
+        f"attempts — using timestamp fallback '{fallback}'.",
+        file=sys.stderr,
+    )
+    return fallback
+
+
+def run_setup_with_pr_workflow(
+    setup_fn: Callable[[], None],
+    version: str,
+) -> PrWorkflowResult:
+    """Run *setup_fn* inside a branch-and-PR workflow.
+
+    1. Fetch ``origin/main`` (fallback to normal run on failure).
+    2. Stash uncommitted local changes.
+    3. Checkout ``origin/main`` detached.
+    4. Execute *setup_fn*.
+    5. If files changed → create branch, commit, push, open PR.
+    6. Restore the user's original branch and pop the stash.
+
+    Returns a :class:`PrWorkflowResult` describing what happened.
+    """
+    # Step 1 — fetch origin/main
+    fetch_result = run_git("fetch", "origin", "main", check=False)
+    if fetch_result.returncode != 0:
+        print(
+            "Warning: 'git fetch origin main' failed — running setup without PR workflow.",
+            file=sys.stderr,
+        )
+        setup_fn()
+        return PrWorkflowResult(
+            success=True,
+            branch_created=None,
+            pr_created=False,
+            message="Fetch failed; setup ran without PR workflow.",
+        )
+
+    # Step 2 — record current branch
+    branch_result = run_git("rev-parse", "--abbrev-ref", "HEAD", check=False)
+    original_branch = branch_result.stdout.strip() if branch_result.returncode == 0 else ""
+    if not original_branch or original_branch == "HEAD":
+        print(
+            "Warning: Detached HEAD detected — running setup without PR workflow.",
+            file=sys.stderr,
+        )
+        setup_fn()
+        return PrWorkflowResult(
+            success=True,
+            branch_created=None,
+            pr_created=False,
+            message="Detached HEAD; setup ran without PR workflow.",
+        )
+
+    # Step 3 — stash local changes
+    stash_list_before = run_git("stash", "list", check=False)
+    before_count = len(stash_list_before.stdout.strip().splitlines()) if stash_list_before.stdout.strip() else 0
+
+    stash_push = run_git(*_build_stash_push_args(), check=False)
+    if stash_push.returncode != 0:
+        # Stashing can fail during an in-progress merge/rebase.  Fall back
+        # to running setup without the PR workflow so we don't risk
+        # detaching HEAD with a dirty/conflicted working tree.
+        stash_err = stash_push.stderr.strip()
+        print(
+            f"Warning: 'git stash push' failed{f': {stash_err}' if stash_err else ''} "
+            "— running setup without PR workflow.",
+            file=sys.stderr,
+        )
+        setup_fn()
+        return PrWorkflowResult(
+            success=True,
+            branch_created=None,
+            pr_created=False,
+            message="Stash failed; setup ran without PR workflow.",
+        )
+
+    stash_list_after = run_git("stash", "list", check=False)
+    after_count = len(stash_list_after.stdout.strip().splitlines()) if stash_list_after.stdout.strip() else 0
+    did_stash = after_count > before_count
+
+    branch_created: str | None = None
+    pr_created = False
+    message = "No file changes detected."
+    emergency_stash_created = False
+    temporary_branch_name: str | None = None
+    should_delete_temporary_branch = False
+    branch_restored = False
+
+    try:
+        # Step 4 — checkout origin/main detached
+        checkout_result = run_git("checkout", "origin/main", "--detach", check=False)
+        if checkout_result.returncode != 0:
+            print(
+                "Warning: Could not checkout origin/main — running setup on current branch.",
+                file=sys.stderr,
+            )
+            # Pop the auto-stash so setup_fn() runs with the user's
+            # uncommitted changes present (same as running without the
+            # PR workflow).  Always clear did_stash after this attempt to
+            # avoid a second automatic 'git stash pop' in the finally
+            # block; on failure we still print manual recovery instructions.
+            if did_stash:
+                if not _restore_stashed_changes("stash@{0}"):
+                    did_stash = False
+                    raise RuntimeError("Could not restore stashed changes cleanly.")
+                did_stash = False
+            setup_fn()
+            return PrWorkflowResult(
+                success=True,
+                branch_created=None,
+                pr_created=False,
+                message="Could not checkout origin/main; setup ran on current branch.",
+            )
+
+        # Step 5 — run setup
+        setup_fn()
+
+        # Step 6 — check for changes
+        status_result = run_git("status", "--porcelain", check=False)
+        has_changes = bool(status_result.stdout.strip())
+
+        if has_changes:
+            # Step 6b — idempotency check: stage everything and compare
+            # the resulting tree against origin/main.  If the tree is
+            # identical, the setup produced the same content that is
+            # already in main (e.g. a previous setup PR was merged).
+            idempotent = False
+            add_result = run_git("add", ".", check=False)
+            if add_result.returncode == 0:
+                staged_tree = run_git("write-tree", check=False)
+                main_tree = run_git("rev-parse", "origin/main^{tree}", check=False)
+                if (
+                    staged_tree.returncode == 0
+                    and main_tree.returncode == 0
+                    and staged_tree.stdout.strip() == main_tree.stdout.strip()
+                ):
+                    idempotent = True
+            # Always reset the index after the idempotency probe so the
+            # branch creation flow can re-stage cleanly.
+            run_git("reset", "HEAD", check=False)
+            if idempotent:
+                message = "No new changes — setup output matches origin/main (already merged)."
+            else:
+                # Step 7 — create branch, commit, push
+                # All git operations use check=False because the PR workflow is
+                # best-effort: a failure here must not terminate agdt-setup.
+                branch_name = _resolve_branch_name(version)
+                create_branch = run_git("checkout", "-b", branch_name, check=False)
+                if create_branch.returncode != 0:
+                    print(
+                        f"Error: Could not create branch '{branch_name}': {create_branch.stderr.strip()}",
+                        file=sys.stderr,
+                    )
+                    message = f"Failed to create branch '{branch_name}'."
+                else:
+                    temporary_branch_name = branch_name
+                    commit_msg = f"chore: agdt-setup v{version}"
+                    add_result = run_git("add", ".", check=False)
+                    if add_result.returncode != 0:
+                        print(
+                            f"Error: 'git add .' failed: {add_result.stderr.strip()}",
+                            file=sys.stderr,
+                        )
+                        message = "Failed to stage changes."
+                    else:
+                        commit_result = run_git("commit", "-m", commit_msg, check=False)
+                        if commit_result.returncode != 0:
+                            diff_after = run_git("diff", "--cached", "--quiet", check=False)
+                            if diff_after.returncode == 0:
+                                status_after = run_git("status", "--porcelain", check=False)
+                                if status_after.returncode == 0 and not status_after.stdout.strip():
+                                    print(
+                                        "  ℹ Commit aborted by hooks or empty diff; treating as idempotent no-op.",
+                                        file=sys.stderr,
+                                    )
+                                    message = (
+                                        "No new changes — setup output matches origin/main "
+                                        "(already merged or formatted away)."
+                                    )
+                                    should_delete_temporary_branch = True
+                                else:
+                                    print(
+                                        f"Error: 'git commit' failed: {commit_result.stderr.strip()}",
+                                        file=sys.stderr,
+                                    )
+                                    message = "Failed to commit changes."
+                            else:
+                                print(
+                                    f"Error: 'git commit' failed: {commit_result.stderr.strip()}",
+                                    file=sys.stderr,
+                                )
+                                message = "Failed to commit changes."
+                        else:
+                            branch_created = branch_name
+
+                            push_result = run_git("push", "--set-upstream", "origin", branch_name, check=False)
+                            if push_result.returncode != 0:
+                                print(
+                                    f"Error: Failed to push branch '{branch_name}': {push_result.stderr.strip()}",
+                                    file=sys.stderr,
+                                )
+                                message = f"Branch '{branch_name}' created and committed but push failed."
+                            else:
+                                # Step 8 — create PR synchronously
+                                try:
+                                    from agentic_devtools.cli.azure_devops.commands import (
+                                        create_pull_request,
+                                    )
+                                    from agentic_devtools.state import get_value, set_value
+
+                                    # Preserve existing state so we can restore it
+                                    prev_source_branch = get_value("source_branch")
+                                    prev_title = get_value("title")
+                                    prev_draft = get_value("draft")
+
+                                    # Propagate SSL verification disable to az CLI
+                                    # so PR creation works on corporate networks.
+                                    prev_az_ssl = os.environ.get("AZURE_CLI_DISABLE_CONNECTION_VERIFICATION")
+                                    if os.environ.get("AGDT_NO_VERIFY_SSL"):
+                                        os.environ["AZURE_CLI_DISABLE_CONNECTION_VERIFICATION"] = "1"
+
+                                    try:
+                                        pr_title = f"chore: agdt-setup v{version}"
+                                        set_value("source_branch", branch_name)
+                                        set_value("title", pr_title)
+                                        set_value("draft", "false")
+
+                                        create_pull_request()
+                                        pr_created = True
+                                        message = f"PR created from branch '{branch_name}'."
+                                    finally:
+                                        # Restore az CLI SSL state FIRST — before
+                                        # potentially failing state writes so a
+                                        # set_value() I/O error cannot leave SSL
+                                        # verification disabled for the process.
+                                        if prev_az_ssl is None:
+                                            os.environ.pop("AZURE_CLI_DISABLE_CONNECTION_VERIFICATION", None)
+                                        else:
+                                            os.environ["AZURE_CLI_DISABLE_CONNECTION_VERIFICATION"] = prev_az_ssl
+                                        # Restore prior state values (None when previously unset)
+                                        set_value("source_branch", prev_source_branch)
+                                        set_value("title", prev_title)
+                                        set_value("draft", prev_draft)
+                                except SystemExit as exc:
+                                    # create_pull_request() calls sys.exit() on
+                                    # validation/az failures — treat as non-fatal.
+                                    print(
+                                        f"Warning: PR creation failed ({exc}) — branch '{branch_name}' was pushed.",
+                                        file=sys.stderr,
+                                    )
+                                    message = f"Branch '{branch_name}' pushed but PR creation failed."
+                                except Exception as exc:  # noqa: BLE001
+                                    print(
+                                        f"Warning: PR creation failed ({exc}) — branch '{branch_name}' was pushed.",
+                                        file=sys.stderr,
+                                    )
+                                    message = f"Branch '{branch_name}' pushed but PR creation failed."
+    finally:
+        # Step 12 — restore original branch
+        restore = run_git("checkout", original_branch, check=False)
+        if restore.returncode == 0:
+            branch_restored = True
+        else:
+            # The checkout may have failed because setup_fn() left
+            # uncommitted changes in the working tree (e.g. when
+            # checkout -b / add / commit failed partway through).
+            # Stash those changes and retry so the user gets back to
+            # their original branch.
+            stash_before_emergency = run_git("stash", "list", check=False)
+            before_emergency_count = (
+                len(stash_before_emergency.stdout.strip().splitlines()) if stash_before_emergency.stdout.strip() else 0
+            )
+            emergency_stash = run_git(
+                "stash",
+                "push",
+                "--include-untracked",
+                "-m",
+                "agdt-setup: uncommitted changes blocking branch restore",
+                check=False,
+            )
+            if emergency_stash.returncode == 0:
+                # Verify a new stash entry was actually created (git stash push
+                # returns 0 even when there are no changes to stash).
+                stash_after_emergency = run_git("stash", "list", check=False)
+                after_emergency_count = (
+                    len(stash_after_emergency.stdout.strip().splitlines())
+                    if stash_after_emergency.stdout.strip()
+                    else 0
+                )
+                emergency_stash_created = after_emergency_count > before_emergency_count
+                retry = run_git("checkout", original_branch, check=False)
+                if retry.returncode == 0:
+                    branch_restored = True
+                    if emergency_stash_created:
+                        print(
+                            f"Warning: Uncommitted setup changes were stashed to restore "
+                            f"branch '{original_branch}'. Run 'git stash list' to see them.",
+                            file=sys.stderr,
+                        )
+                else:
+                    if emergency_stash_created:
+                        print(
+                            f"Warning: Could not restore branch '{original_branch}' "
+                            f"even after stashing uncommitted changes. "
+                            f"Run 'git checkout {original_branch}' manually.",
+                            file=sys.stderr,
+                        )
+                    else:
+                        print(
+                            f"Warning: Could not restore branch '{original_branch}'. "
+                            f"Run 'git checkout {original_branch}' manually.",
+                            file=sys.stderr,
+                        )
+            else:
+                print(
+                    f"Warning: Could not restore branch '{original_branch}'. "
+                    f"Run 'git checkout {original_branch}' manually.",
+                    file=sys.stderr,
+                )
+        if branch_restored and should_delete_temporary_branch and temporary_branch_name:
+            delete_branch = run_git("branch", "-D", temporary_branch_name, check=False)
+            if delete_branch.returncode != 0:
+                print(
+                    f"Warning: Could not delete temporary branch '{temporary_branch_name}'.",
+                    file=sys.stderr,
+                )
+
+        # Step 13 — pop the user's original auto-stash.
+        # Only pop when the original branch was successfully restored;
+        # otherwise the stash would be applied onto the wrong branch
+        # (detached HEAD or the temporary setup branch).
+        if did_stash:
+            if not branch_restored:
+                print(
+                    "Warning: Skipping stash pop because the original branch could not be restored. "
+                    "Your changes are still saved in git stash. "
+                    "Run 'git stash list' to see them and restore manually after "
+                    "running 'git checkout <your-branch>'.",
+                    file=sys.stderr,
+                )
+            else:
+                # If an emergency stash was created above (to unblock branch
+                # restore), it sits at stash@{0} and the user's auto-stash has
+                # been pushed down to stash@{1}.  Pop the correct entry.
+                stash_ref = "stash@{0}"
+                if emergency_stash_created:
+                    stash_ref = "stash@{1}"
+                if not _restore_stashed_changes(stash_ref):
+                    raise RuntimeError("Could not restore stashed changes cleanly.")
+        if not branch_restored:
+            raise RuntimeError(f"Could not restore original branch '{original_branch}'.")
+
+    return PrWorkflowResult(
+        success=True,
+        branch_created=branch_created,
+        pr_created=pr_created,
+        message=message,
+    )

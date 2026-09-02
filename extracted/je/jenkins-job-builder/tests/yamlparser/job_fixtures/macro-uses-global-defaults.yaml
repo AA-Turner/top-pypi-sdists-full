@@ -1,0 +1,34 @@
+# Macros use global defaults.
+
+- defaults:
+    name: global
+    global_param: sample global param value
+
+- builder:
+    name: builder-without-params
+    builders:
+    - shell: |
+        echo "builder-without-params: Should be expanded: {global_param}"
+    - shell: !include-raw-expand: macro-uses-global-defaults.yaml.inc
+
+- builder:
+    name: builder-with-params
+    builders:
+    - shell: |
+        echo "builder-with-params: Should be expanded: {param}"
+    - shell: |
+        echo "builder-with-params: Should be expanded: {global_param}"
+    - shell: !include-raw-expand: macro-uses-global-defaults.yaml.inc
+
+- job-template:
+    name: sample-job-template
+    display-name: sample-job-template
+    builders:
+    - builder-without-params
+    - builder-with-params:
+        param: sample macro param value
+
+- project:
+    name: sample-project
+    jobs:
+    - sample-job-template

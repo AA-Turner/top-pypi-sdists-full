@@ -1,0 +1,59 @@
+[build-system]
+requires = [
+    "wheel",
+    "ninja",
+    "numpy",
+    "meson-python>=0.14.0",
+    "meson>=1.6,<1.11",
+    "shiboken6==6.11.1",
+    "pyside6==6.11.1",
+    "shiboken6_generator==6.11.1"
+]
+build-backend = 'mesonpy'
+
+[project]
+name = "SciQLopPlots"
+description="SciQLop plot API based on QCustomPlot"
+authors = [{name="Alexis Jeandet", email="alexis.jeandet@member.fsf.org"}]
+summary = "SciQLop plot API based on QCustomPlot"
+requires-python=">=3.10, <3.15"
+license = {file="COPYING"}
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = ['numpy', 'pyside6==6.11.1', 'shiboken6==6.11.1']
+
+dynamic = [
+  'version',
+]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-qt", "pytest-timeout", "hypothesis", "python-dateutil", "numpy"]
+
+[project.urls]
+homepage = "https://github.com/SciQLop/SciQLopPlots"
+
+
+[tool.meson-python.args]
+install = ['--tags=runtime,python-runtime']
+setup = ['-Doptimization=3', '-Dcpp_std=c++20', '-Dbuildtype=release', '--vsenv', '--unity=on', '-Dwith_tests=false']
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+pythonpath = ["tests/integration"]
+
+[tool.cibuildwheel]
+archs = ["auto"]
+build-frontend = "default"
+
+

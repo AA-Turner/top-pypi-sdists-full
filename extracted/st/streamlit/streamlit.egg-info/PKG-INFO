@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit
-Version: 1.62.0
+Version: 1.63.0
 Summary: A faster way to build and share data apps
 Author-email: Snowflake Inc <hello@streamlit.io>
 License-Expression: Apache-2.0
@@ -29,7 +29,6 @@ Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: altair!=5.4.0,!=5.4.1,<7,>=5.0.0
-Requires-Dist: blinker<2,>=1.5.0
 Requires-Dist: click<9,>=7.0
 Requires-Dist: numpy<3,>=1.23
 Requires-Dist: packaging>=20

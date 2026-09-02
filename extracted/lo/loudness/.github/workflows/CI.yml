@@ -1,0 +1,93 @@
+name: build-wheels
+
+on:
+  push:
+    branches: ['main', 'master']
+    tags: ['v*']
+    paths-ignore: ["**/**.md"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  wheels:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux-x86_64
+            os: ubuntu-latest
+            cibw_archs: "x86_64"
+          - label: linux-aarch64
+            os: ubuntu-22.04-arm
+            cibw_archs: "aarch64"
+          - label: windows
+            os: windows-latest
+            cibw_archs: "AMD64"
+          - label: macos
+            os: macos-14
+            cibw_archs: "arm64"
+
+    name: build-${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: pypa/cibuildwheel@v3.3.0
+        env:
+          CIBW_BEFORE_ALL_LINUX: |
+            if [ -f "/etc/alpine-release" ]; then
+              apk add --no-cache libsndfile-dev
+            else
+              yum install -y libsndfile-devel
+            fi
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
+          CIBW_ARCHS: ${{ matrix.cibw_archs }}
+          CIBW_TEST_REQUIRES: "numpy pytest soundfile"
+          CIBW_TEST_COMMAND: "pytest {project}/tests"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.label }}
+          path: wheelhouse/*.whl
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install build
+      - run: python -m build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+  bundle:
+    needs:
+      - wheels
+      - sdist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download wheel archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: artifacts
+      - name: Download sdist archive
+        uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: artifacts
+      - name: Gather all distributions
+        run: |
+          mkdir -p all_dist
+          find artifacts -type f \( -name '*.whl' -o -name '*.tar.gz' \) -exec cp {} all_dist/ \;
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distribution-files
+          path: all_dist

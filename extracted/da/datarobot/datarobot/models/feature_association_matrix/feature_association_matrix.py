@@ -53,7 +53,7 @@ class FeatureAssociationMatrix(APIObject):
     Attributes
     ----------
     project_id : str
-        Id of the associated project.
+        ID of the associated project.
     strengths : list of dict
         Pairwise statistics for the available features as structured below.
     features : list of dict
@@ -131,12 +131,12 @@ class FeatureAssociationMatrix(APIObject):
         featurelist_id: Optional[str] = None,
     ) -> FeatureAssociationMatrix:
         """
-        Get feature association statistics.
+        Get the feature association statistics.
 
         Parameters
         ----------
         project_id : str
-            Id of the project that contains the requested associations.
+            ID of the project that contains the requested associations.
         metric : enums.FEATURE_ASSOCIATION_METRIC
             The name of a metric to get pairwise data for. Since 'v2.19' this is optional and
             defaults to `enums.FEATURE_ASSOCIATION_METRIC.MUTUAL_INFO`.
@@ -144,10 +144,9 @@ class FeatureAssociationMatrix(APIObject):
             The type of dependence for the data. Since 'v2.19' this is optional and defaults to
             `enums.FEATURE_ASSOCIATION_TYPE.ASSOCIATION`.
         featurelist_id : str or None
-            Optional, the feature list to lookup FAM data for. By default, depending on the type of
-            the project "Informative Features" or "Timeseries Informative Features" list will be
-            used.
-            (New in version v2.19)
+            Optional feature list to look up FAM data for. By default, depending on the project
+            type, the "Informative Features" or "Timeseries Informative Features" list is used
+            (new in version v2.19).
 
         Returns
         -------

@@ -1,0 +1,112 @@
+"""Tests for setup_gh_cli_cmd."""
+
+import os
+from unittest.mock import patch
+
+import pytest
+
+from agentic_devtools.cli.setup import commands
+
+
+class TestSetupGhCliCmd:
+    """Tests for setup_gh_cli_cmd."""
+
+    def test_succeeds_when_install_ok(self):
+        """Completes normally when install succeeds."""
+        with patch("sys.argv", ["agdt-setup-gh-cli"]):
+            with patch.object(commands, "install_gh_cli", return_value=True):
+                with patch.object(commands, "_persist_env_vars_to_profile"):
+                    commands.setup_gh_cli_cmd()  # Should not raise
+
+    def test_exits_one_when_install_fails(self):
+        """Exits 1 when install_gh_cli returns False."""
+        with patch("sys.argv", ["agdt-setup-gh-cli"]):
+            with patch.object(commands, "install_gh_cli", return_value=False):
+                with patch.object(commands, "_persist_env_vars_to_profile"):
+                    with pytest.raises(SystemExit) as exc_info:
+                        commands.setup_gh_cli_cmd()
+        assert exc_info.value.code == 1
+
+    def test_system_only_skips_install(self, capsys):
+        """With --system-only, install_gh_cli is not called."""
+        with patch("sys.argv", ["agdt-setup-gh-cli", "--system-only"]):
+            with patch.object(commands, "install_gh_cli") as mock_install:
+                commands.setup_gh_cli_cmd()  # Should not raise
+        mock_install.assert_not_called()
+
+    def test_system_only_prints_skip_message(self, capsys):
+        """With --system-only, prints a message indicating the install is skipped."""
+        with patch("sys.argv", ["agdt-setup-gh-cli", "--system-only"]):
+            commands.setup_gh_cli_cmd()
+        out = capsys.readouterr().out
+        assert "--system-only" in out
+
+    def test_no_verify_ssl_cleaned_up_after_setup(self, monkeypatch):
+        """AGDT_NO_VERIFY_SSL is removed from env after setup_gh_cli_cmd completes."""
+        monkeypatch.delenv("AGDT_NO_VERIFY_SSL", raising=False)
+        monkeypatch.setattr("sys.argv", ["agdt-setup-gh-cli", "--no-verify-ssl"])
+
+        with patch.object(commands, "install_gh_cli", return_value=True):
+            with patch.object(commands, "_persist_env_vars_to_profile"):
+                commands.setup_gh_cli_cmd()
+
+        assert os.environ.get("AGDT_NO_VERIFY_SSL") is None
+
+    def test_original_no_verify_ssl_restored_after_setup(self, monkeypatch):
+        """Pre-existing AGDT_NO_VERIFY_SSL value is restored after setup_gh_cli_cmd completes."""
+        monkeypatch.setenv("AGDT_NO_VERIFY_SSL", "original_value")
+        monkeypatch.setattr("sys.argv", ["agdt-setup-gh-cli", "--no-verify-ssl"])
+
+        with patch.object(commands, "install_gh_cli", return_value=True):
+            with patch.object(commands, "_persist_env_vars_to_profile"):
+                commands.setup_gh_cli_cmd()
+
+        assert os.environ.get("AGDT_NO_VERIFY_SSL") == "original_value"
+
+    def test_calls_prefetch_certs_before_install(self):
+        """Calls _prefetch_certs before install_gh_cli when not --system-only."""
+        call_order = []
+
+        with patch("sys.argv", ["agdt-setup-gh-cli"]):
+            with patch.object(
+                commands, "_prefetch_certs", side_effect=lambda **kw: (call_order.append("prefetch"), (None, None))[-1]
+            ) as mock_prefetch:
+                with patch.object(
+                    commands,
+                    "install_gh_cli",
+                    side_effect=lambda **kw: (call_order.append("install"), True)[-1],
+                ):
+                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                        commands.setup_gh_cli_cmd()
+
+        mock_prefetch.assert_called_once()
+        assert call_order == ["prefetch", "install"]
+
+    def test_skips_prefetch_with_system_only(self):
+        """Does not call _prefetch_certs when --system-only is passed."""
+        with patch("sys.argv", ["agdt-setup-gh-cli", "--system-only"]):
+            with patch.object(commands, "_prefetch_certs", return_value=(None, None)) as mock_prefetch:
+                commands.setup_gh_cli_cmd()
+
+        mock_prefetch.assert_not_called()
+
+    def test_calls_persist_env_vars_to_profile(self):
+        """Calls _persist_env_vars_to_profile with correct args after install."""
+        with patch("sys.argv", ["agdt-setup-gh-cli"]):
+            with patch.object(commands, "install_gh_cli", return_value=True):
+                with patch.object(commands, "_persist_env_vars_to_profile") as mock_persist:
+                    commands.setup_gh_cli_cmd()
+
+        mock_persist.assert_called_once()
+        assert mock_persist.call_args.kwargs["persist_env"] is True
+
+    def test_no_persist_env_flag_disables_persistence(self, monkeypatch):
+        """--no-persist-env flag disables env var persistence."""
+        monkeypatch.setattr("sys.argv", ["agdt-setup-gh-cli", "--no-persist-env"])
+
+        with patch.object(commands, "install_gh_cli", return_value=True):
+            with patch.object(commands, "_persist_env_vars_to_profile") as mock_persist:
+                commands.setup_gh_cli_cmd()
+
+        mock_persist.assert_called_once()
+        assert mock_persist.call_args.kwargs["persist_env"] is False

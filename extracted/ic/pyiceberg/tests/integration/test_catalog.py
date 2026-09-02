@@ -19,8 +19,10 @@ import os
 import uuid
 from collections.abc import Generator
 from pathlib import Path, PosixPath
+from typing import Any
 
 import pytest
+from pytest_lazy_fixtures import lf
 
 from pyiceberg.catalog import Catalog, MetastoreCatalog, load_catalog
 from pyiceberg.catalog.hive import HiveCatalog
@@ -43,7 +45,17 @@ from pyiceberg.table.metadata import INITIAL_SPEC_ID
 from pyiceberg.table.sorting import INITIAL_SORT_ORDER_ID, SortField, SortOrder
 from pyiceberg.transforms import BucketTransform, DayTransform, IdentityTransform
 from pyiceberg.types import IntegerType, LongType, NestedField, TimestampType, UUIDType
-from tests.conftest import clean_up
+from pyiceberg.view import View
+from pyiceberg.view.metadata import ViewMetadata
+from tests.conftest import (
+    clean_up,
+    does_support_atomic_concurrent_updates,
+    does_support_dot_in_identifier,
+    does_support_nested_namespaces,
+    does_support_purge_table,
+    does_support_schema_evolution,
+    does_support_slash_in_identifier,
+)
 
 
 @pytest.fixture(scope="function")
@@ -109,12 +121,12 @@ def hive_catalog() -> Generator[Catalog, None, None]:
 
 
 CATALOGS = [
-    pytest.lazy_fixture("memory_catalog"),
-    pytest.lazy_fixture("sqlite_catalog_memory"),
-    pytest.lazy_fixture("sqlite_catalog_file"),
-    pytest.lazy_fixture("rest_catalog"),
-    pytest.lazy_fixture("hive_catalog"),
-    pytest.lazy_fixture("rest_test_catalog"),
+    lf("memory_catalog"),
+    lf("sqlite_catalog_memory"),
+    lf("sqlite_catalog_file"),
+    lf("rest_catalog"),
+    lf("hive_catalog"),
+    lf("rest_test_catalog"),
 ]
 
 
@@ -246,8 +258,8 @@ def test_drop_table(test_catalog: Catalog, table_schema_nested: Schema, table_na
 @pytest.mark.integration
 @pytest.mark.parametrize("test_catalog", CATALOGS)
 def test_purge_table(test_catalog: Catalog, table_schema_nested: Schema, table_name: str, database_name: str) -> None:
-    if isinstance(test_catalog, HiveCatalog):
-        pytest.skip("HiveCatalog does not support purge_table operation yet")
+    if not does_support_purge_table(test_catalog):
+        pytest.skip("Catalog does not support purge_table operation")
 
     identifier = (database_name, table_name)
     test_catalog.create_namespace(database_name)
@@ -299,8 +311,8 @@ def test_update_table_transaction(test_catalog: Catalog, test_schema: Schema, ta
 @pytest.mark.integration
 @pytest.mark.parametrize("test_catalog", CATALOGS)
 def test_update_schema_conflict(test_catalog: Catalog, test_schema: Schema, table_name: str, database_name: str) -> None:
-    if isinstance(test_catalog, HiveCatalog):
-        pytest.skip("HiveCatalog fails in this test, need to investigate")
+    if not does_support_atomic_concurrent_updates(test_catalog):
+        pytest.skip("Catalog does not support atomic concurrent updates")
 
     identifier = (database_name, table_name)
 
@@ -427,7 +439,7 @@ def test_create_duplicate_namespace(test_catalog: Catalog, database_name: str) -
 
 @pytest.mark.integration
 @pytest.mark.parametrize("test_catalog", CATALOGS)
-def test_create_namepsace_if_not_exists(test_catalog: Catalog, database_name: str) -> None:
+def test_create_namespace_if_not_exists(test_catalog: Catalog, database_name: str) -> None:
     test_catalog.create_namespace(database_name)
     test_catalog.create_namespace_if_not_exists(database_name)
     assert (database_name,) in test_catalog.list_namespaces()
@@ -609,6 +621,55 @@ def test_register_table_existing(test_catalog: Catalog, table_schema_nested: Sch
 
 
 @pytest.mark.integration
+def test_rest_list_views(
+    rest_catalog: RestCatalog, example_view_metadata_v1: dict[str, Any], database_name: str, view_name: str
+) -> None:
+    identifier = (database_name, view_name)
+
+    rest_catalog.create_namespace_if_not_exists(database_name)
+    view = View(identifier, ViewMetadata.model_validate(example_view_metadata_v1))
+
+    assert identifier not in rest_catalog.list_views(database_name)
+
+    rest_catalog.create_view(identifier, view.schema(), view.current_version())
+
+    assert identifier in rest_catalog.list_views(database_name)
+
+
+@pytest.mark.integration
+def test_rest_create_view(
+    rest_catalog: RestCatalog, example_view_metadata_v1: dict[str, Any], database_name: str, view_name: str
+) -> None:
+    identifier = (database_name, view_name)
+
+    rest_catalog.create_namespace_if_not_exists(database_name)
+    view = View(identifier, ViewMetadata.model_validate(example_view_metadata_v1))
+
+    assert not rest_catalog.view_exists(identifier)
+
+    rest_catalog.create_view(identifier, view.schema(), view.current_version())
+
+    assert rest_catalog.view_exists(identifier)
+    assert rest_catalog.load_view(identifier).schema() == view.schema()
+
+
+@pytest.mark.integration
+def test_rest_drop_view(
+    rest_catalog: RestCatalog, example_view_metadata_v1: dict[str, Any], database_name: str, view_name: str
+) -> None:
+    identifier = (database_name, view_name)
+
+    rest_catalog.create_namespace_if_not_exists(database_name)
+    view = View(identifier, ViewMetadata.model_validate(example_view_metadata_v1))
+
+    rest_catalog.create_view(identifier, view.schema(), view.current_version())
+    assert rest_catalog.view_exists(identifier)
+
+    rest_catalog.drop_view(identifier)
+    assert not rest_catalog.view_exists(identifier)
+
+
+@pytest.mark.integration
 def test_rest_custom_namespace_separator(rest_catalog: RestCatalog, table_schema_simple: Schema) -> None:
     """
     Tests that the REST catalog correctly picks up the namespace-separator from the config endpoint.
@@ -646,8 +707,8 @@ def test_rest_custom_namespace_separator(rest_catalog: RestCatalog, table_schema
 def test_incompatible_partitioned_schema_evolution(
     test_catalog: Catalog, test_schema: Schema, test_partition_spec: PartitionSpec, database_name: str, table_name: str
 ) -> None:
-    if isinstance(test_catalog, HiveCatalog):
-        pytest.skip("HiveCatalog does not support schema evolution")
+    if not does_support_schema_evolution(test_catalog):
+        pytest.skip(f"{type(test_catalog).__name__} does not support schema evolution")
 
     identifier = (database_name, table_name)
     test_catalog.create_namespace(database_name)
@@ -675,24 +736,24 @@ def test_incompatible_partitioned_schema_evolution(
 @pytest.mark.integration
 @pytest.mark.parametrize("test_catalog", CATALOGS)
 def test_namespace_with_slash(test_catalog: Catalog) -> None:
-    if isinstance(test_catalog, HiveCatalog):
+    if not does_support_slash_in_identifier(test_catalog):
         pytest.skip(f"{type(test_catalog).__name__} does not support slash in namespace")
 
     namespace = ("new/db",)
 
-    if test_catalog.namespace_exists(namespace):
+    if namespace in test_catalog.list_namespaces():
         test_catalog.drop_namespace(namespace)
 
-    assert not test_catalog.namespace_exists(namespace)
+    assert namespace not in test_catalog.list_namespaces()
 
     test_catalog.create_namespace(namespace)
-    assert test_catalog.namespace_exists(namespace)
+    assert namespace in test_catalog.list_namespaces()
 
     properties = test_catalog.load_namespace_properties(namespace)
     assert properties is not None
 
     test_catalog.drop_namespace(namespace)
-    assert not test_catalog.namespace_exists(namespace)
+    assert namespace not in test_catalog.list_namespaces()
 
 
 @pytest.mark.integration
@@ -700,8 +761,8 @@ def test_namespace_with_slash(test_catalog: Catalog) -> None:
 def test_incompatible_sorted_schema_evolution(
     test_catalog: Catalog, test_schema: Schema, test_sort_order: SortOrder, database_name: str, table_name: str
 ) -> None:
-    if isinstance(test_catalog, HiveCatalog):
-        pytest.skip("HiveCatalog does not support schema evolution")
+    if not does_support_schema_evolution(test_catalog):
+        pytest.skip(f"{type(test_catalog).__name__} does not support schema evolution")
 
     identifier = (database_name, table_name)
     test_catalog.create_namespace(database_name)
@@ -720,7 +781,7 @@ def test_incompatible_sorted_schema_evolution(
 @pytest.mark.integration
 @pytest.mark.parametrize("test_catalog", CATALOGS)
 def test_namespace_with_dot(test_catalog: Catalog) -> None:
-    if isinstance(test_catalog, (HiveCatalog, SqlCatalog)):
+    if not does_support_dot_in_identifier(test_catalog):
         pytest.skip(f"{type(test_catalog).__name__} does not support dot in namespace")
 
     namespace = ("new.db",)
@@ -733,9 +794,8 @@ def test_namespace_with_dot(test_catalog: Catalog) -> None:
     test_catalog.create_namespace(namespace)
     assert test_catalog.namespace_exists(namespace)
 
-    # REST Catalog fixture treats this as a hierarchical namespace.
-    # Calling list namespaces will get `new`, not `new.db`.
-    if isinstance(test_catalog, RestCatalog):
+    # Hierarchical catalogs might treat this as multiple levels.
+    if does_support_nested_namespaces(test_catalog):
         namespaces = test_catalog.list_namespaces()
         assert ("new",) in namespaces or ("new.db",) in namespaces
     else:
@@ -751,7 +811,7 @@ def test_namespace_with_dot(test_catalog: Catalog) -> None:
 @pytest.mark.integration
 @pytest.mark.parametrize("test_catalog", CATALOGS)
 def test_table_name_with_slash(test_catalog: Catalog, table_schema_simple: Schema) -> None:
-    if isinstance(test_catalog, (HiveCatalog, SqlCatalog)):
+    if not does_support_slash_in_identifier(test_catalog):
         pytest.skip(f"{type(test_catalog).__name__} does not support slash in table name")
 
     namespace = ("ns_slash",)
@@ -778,7 +838,7 @@ def test_table_name_with_slash(test_catalog: Catalog, table_schema_simple: Schem
 @pytest.mark.integration
 @pytest.mark.parametrize("test_catalog", CATALOGS)
 def test_table_name_with_dot(test_catalog: Catalog, table_schema_simple: Schema) -> None:
-    if isinstance(test_catalog, (HiveCatalog, SqlCatalog)):
+    if not does_support_dot_in_identifier(test_catalog):
         pytest.skip(f"{type(test_catalog).__name__} does not support dot in table name")
 
     namespace = ("ns_dot",)
@@ -817,9 +877,43 @@ def test_drop_missing_table(test_catalog: Catalog, database_name: str) -> None:
 @pytest.mark.integration
 @pytest.mark.parametrize("test_catalog", CATALOGS)
 def test_drop_nonexistent_namespace(test_catalog: Catalog) -> None:
-    if isinstance(test_catalog, HiveCatalog):
-        pytest.skip("HiveCatalog raises NoSuchObjectException instead of NoSuchNamespaceError")
-
     namespace = ("non_existent_namespace",)
     with pytest.raises(NoSuchNamespaceError):
         test_catalog.drop_namespace(namespace)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("test_catalog", CATALOGS)
+def test_rename_table_missing_source_table(test_catalog: Catalog, table_name: str, database_name: str) -> None:
+    test_catalog.create_namespace_if_not_exists(database_name)
+    identifier = (database_name, table_name)
+    new_identifier = (database_name, f"rename-{table_name}")
+
+    with pytest.raises(NoSuchTableError):
+        test_catalog.rename_table(identifier, new_identifier)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("test_catalog", CATALOGS)
+def test_rename_table_destination_namespace_missing(
+    test_catalog: Catalog, table_schema_nested: Schema, table_name: str, database_name: str
+) -> None:
+    test_catalog.create_namespace_if_not_exists(database_name)
+    identifier = (database_name, table_name)
+    test_catalog.create_table(identifier, table_schema_nested)
+
+    new_database_name = "non_existent_namespace"
+    new_identifier = (new_database_name, table_name)
+
+    with pytest.raises(NoSuchNamespaceError):
+        test_catalog.rename_table(identifier, new_identifier)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("test_catalog", CATALOGS)
+def test_load_missing_table(test_catalog: Catalog, database_name: str, table_name: str) -> None:
+    test_catalog.create_namespace_if_not_exists(database_name)
+    identifier = (database_name, table_name)
+
+    with pytest.raises(NoSuchTableError):
+        test_catalog.load_table(identifier)

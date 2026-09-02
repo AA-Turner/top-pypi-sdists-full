@@ -48,6 +48,164 @@ fn sync() -> Result<()> {
     Ok(())
 }
 
+/// Explicit lock modes override conflicting environment variables without updating the lockfile.
+#[test]
+fn sync_lock_flags_override_environment() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+    "#})?;
+    context.lock().assert().success();
+    let lock = context.read("uv.lock");
+
+    // Make the lockfile stale so the two modes have different observable behavior.
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.2.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--frozen")
+        .env(EnvVars::UV_LOCKED, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: Ignoring `UV_LOCKED` because `--frozen` was provided
+    Checked in [TIME]
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--locked")
+        .env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    warning: Ignoring `UV_FROZEN` because `--locked` was provided
+    Resolved 1 package in [TIME]
+    error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    // An explicit mode also takes precedence when both environment variables are enabled.
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--frozen")
+        .env(EnvVars::UV_LOCKED, "1")
+        .env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: Ignoring `UV_LOCKED` because `--frozen` was provided
+    Checked in [TIME]
+    ");
+
+    // Matching or disabled environment values do not require a warning.
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--frozen")
+        .env(EnvVars::UV_LOCKED, "0")
+        .env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Checked in [TIME]
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    Ok(())
+}
+
+/// A negation disables only its own lock mode, leaving the other environment setting intact.
+#[test]
+fn sync_no_lock_flags_override_environment() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+    "#})?;
+    context.lock().assert().success();
+    let lock = context.read("uv.lock");
+
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.2.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    // Negating locked mode preserves `UV_FROZEN` and reuses the stale lockfile.
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--no-locked")
+        .env(EnvVars::UV_LOCKED, "1")
+        .env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Checked in [TIME]
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    // Negating frozen mode preserves `UV_LOCKED`, which rejects the stale lockfile.
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--no-frozen")
+        .env(EnvVars::UV_LOCKED, "1")
+        .env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    error: The lockfile at `uv.lock` needs to be updated, but `UV_LOCKED=1` was provided.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    // Negating both modes permits the lockfile update without changing the environment variables.
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--no-locked")
+        .arg("--no-frozen")
+        .env(EnvVars::UV_LOCKED, "1")
+        .env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Checked in [TIME]
+    ");
+    assert_ne!(context.read("uv.lock"), lock);
+
+    Ok(())
+}
+
+/// Conflicting lock modes from the same source still fail.
+#[test]
+fn sync_lock_flags_conflict() {
+    let context = uv_test::test_context_with_versions!(&[]);
+
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--locked")
+        .arg("--frozen"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: the argument '--locked' cannot be used with '--frozen'
+
+    Usage: uv sync --cache-dir [CACHE_DIR] --locked --exclude-newer <EXCLUDE_NEWER>
+
+    For more information, try '--help'.
+    ");
+
+    uv_snapshot!(context.filters(), context.sync()
+        .env(EnvVars::UV_LOCKED, "1")
+        .env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: the argument `UV_LOCKED` (environment variable) cannot be used with `UV_FROZEN` (environment variable)
+    ");
+}
+
 /// Installing a project does not distribute its unbounded build-system requirement.
 #[test]
 fn sync_unbounded_build_backend() -> Result<()> {

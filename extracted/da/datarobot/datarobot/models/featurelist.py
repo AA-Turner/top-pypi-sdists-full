@@ -78,7 +78,7 @@ class BaseFeaturelist(APIObject):  # pylint: disable=missing-class-docstring
         return f"{self._base_path.format(self.project_id)}{self.id}/"
 
     def update(self, name: Optional[str] = None, description: Optional[str] = None) -> None:
-        """Update the name or description of an existing featurelist
+        """Update the name or description of an existing featurelist.
 
         Note that only user-created featurelists can be renamed, and that names must not
         conflict with names used by other featurelists.
@@ -86,9 +86,9 @@ class BaseFeaturelist(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         name : Optional[str]
-            the new name for the featurelist
+            The new name for the featurelist.
         description : Optional[str]
-            the new description for the featurelist
+            The new description for the featurelist.
         """
         data = {}
         if name is not None:
@@ -125,22 +125,22 @@ class BaseFeaturelist(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         dry_run : Optional[bool]
-            specify True to preview the result of deleting the featurelist, instead of actually
-            deleting it.
+            Specify True to preview the result of deleting the featurelist instead of actually deleting it.
         delete_dependencies : Optional[bool]
-            specify True to successfully delete featurelists with dependencies; if left
-            False by default, featurelists without dependencies can be successfully deleted and
-            those with dependencies will error upon attempting to delete them.
+            Specify True to successfully delete featurelists with dependencies; if left False by default, featurelists
+            without dependencies can be successfully deleted and those with dependencies will error upon attempting to
+            delete them.
 
         Returns
         -------
         result : dict
-            A dictionary describing the result of deleting the featurelist, with the following keys
-                - dry_run : bool, whether the deletion was a dry run or an actual deletion
-                - can_delete : bool, whether the featurelist can actually be deleted
-                - deletion_blocked_reason : str, why the featurelist can't be deleted (if it can't)
-                - num_affected_models : int, the number of models using this featurelist
-                - num_affected_jobs : int, the number of jobs using this featurelist
+            A dictionary describing the result of deleting the featurelist, with the following keys.
+
+            - ``dry_run`` : bool, Whether the deletion was a dry run or an actual deletion.
+            - ``can_delete`` : bool, Whether the featurelist can actually be deleted.
+            - ``deletion_blocked_reason`` : str, Why the featurelist can't be deleted (if it can't).
+            - ``num_affected_models`` : int, The number of models using this featurelist.
+            - ``num_affected_jobs`` : int, The number of jobs using this featurelist.
         """
         result = self._client.delete(
             self._make_url(),
@@ -157,31 +157,29 @@ class BaseFeaturelist(APIObject):  # pylint: disable=missing-class-docstring
 
 
 class Featurelist(BaseFeaturelist):
-    """A set of features used in modeling
+    """A set of features used in modeling.
 
     Attributes
     ----------
     id : str
-        the ID of the featurelist
+        The ID of the featurelist.
     name : str
-        the name of the featurelist
+        The name of the featurelist.
     features : List[str]
-        the names of all the Features in the featurelist
+        The names of all the features in the featurelist.
     project_id : str
-        the project the featurelist belongs to
+        The project the featurelist belongs to.
     created : datetime.datetime
-        (New in version v2.13) when the featurelist was created
+        (New in version v2.13) The time when the featurelist was created.
     is_user_created : bool
-        (New in version v2.13) whether the featurelist was created by a user or by DataRobot
-        automation
+        (New in version v2.13) Whether the featurelist was created by a user or by DataRobot automation.
     num_models : int
-        (New in version v2.13) the number of models currently using this featurelist.  A model is
-        considered to use a featurelist if it is used to train the model or as a monotonic
-        constraint featurelist, or if the model is a blender with at least one component model
-        using the featurelist.
+        (New in version v2.13) The number of models currently using this featurelist. A model is considered to use a
+        featurelist if it is used to train the model or as a monotonic constraint featurelist, or if the model is a
+        blender with at least one component model using the featurelist.
     description : str
-        (New in version v2.13) the description of the featurelist.  Can be updated by the user
-        and may be supplied by default for DataRobot-created featurelists.
+        (New in version v2.13) The description of the featurelist. Can be updated by the user and may be supplied by
+        default for DataRobot-created featurelists.
     """
 
     _base_path = "projects/{}/featurelists/"
@@ -228,7 +226,7 @@ class Featurelist(BaseFeaturelist):
         Parameters
         ----------
         data : dict
-            the data from the server, having gone through processing
+            The data from the server, having gone through processing.
         """
         # these keys are sometimes missing b/c dummy featurelists are instantiated inside models
         # in _normal_ usage these should all be supplied
@@ -253,19 +251,19 @@ class Featurelist(BaseFeaturelist):
         Parameters
         ----------
         project_id : str
-            The id of the project the featurelist is associated with
+            The ID of the project the featurelist is associated with.
         featurelist_id : str
-            The ID of the featurelist to retrieve
+            The ID of the featurelist to retrieve.
 
         Returns
         -------
         featurelist : Featurelist
-            The queried instance
+            The queried instance.
 
         Raises
         ------
         ValueError
-            passed ``project_id`` parameter value is of not supported type
+            The passed ``project_id`` parameter value is of a not supported type.
         """
         from datarobot.models.project import (  # pylint: disable=import-outside-toplevel,cyclic-import
             Project,
@@ -283,7 +281,7 @@ class Featurelist(BaseFeaturelist):
 
 
 class ModelingFeaturelist(BaseFeaturelist):
-    """A set of features that can be used to build a model
+    """A set of features that can be used to build a model.
 
     In time series projects, a new set of modeling features is created after setting the
     partitioning options.  These features are automatically derived from those in the project's
@@ -298,26 +296,24 @@ class ModelingFeaturelist(BaseFeaturelist):
     Attributes
     ----------
     id : str
-        the ID of the modeling featurelist
+        The ID of the modeling featurelist.
     project_id : str
-        the ID of the project the modeling featurelist belongs to
+        The ID of the project the modeling featurelist belongs to.
     name : str
-        the name of the modeling featurelist
+        The name of the modeling featurelist.
     features : List[str]
-        a list of the names of features included in this modeling featurelist
+        A list of the names of features included in this modeling featurelist.
     created : datetime.datetime
-        (New in version v2.13) when the featurelist was created
+        (New in version v2.13) The time when the featurelist was created.
     is_user_created : bool
-        (New in version v2.13) whether the featurelist was created by a user or by DataRobot
-        automation
+        (New in version v2.13) Whether the featurelist was created by a user or by DataRobot automation.
     num_models : int
-        (New in version v2.13) the number of models currently using this featurelist.  A model is
-        considered to use a featurelist if it is used to train the model or as a monotonic
-        constraint featurelist, or if the model is a blender with at least one component model
-        using the featurelist.
+        (New in version v2.13) The number of models currently using this featurelist. A model is considered to use a
+        featurelist if it is used to train the model or as a monotonic constraint featurelist, or if the model is a
+        blender with at least one component model using the featurelist.
     description : str
-        (New in version v2.13) the description of the featurelist.  Can be updated by the user
-        and may be supplied by default for DataRobot-created featurelists.
+        (New in version v2.13) The description of the featurelist. Can be updated by the user and may be supplied by
+        default for DataRobot-created featurelists.
     """
 
     _base_path = "projects/{}/modelingFeaturelists/"
@@ -332,42 +328,42 @@ class ModelingFeaturelist(BaseFeaturelist):
         Parameters
         ----------
         project_id : str
-            the ID of the project the modeling featurelist belongs to
+            The ID of the project the modeling featurelist belongs to.
         featurelist_id : str
-             the ID of the modeling featurelist to retrieve
+            The ID of the modeling featurelist to retrieve.
 
         Returns
         -------
         featurelist : ModelingFeaturelist
-            the specified featurelist
+            The specified featurelist.
         """
         url = f"{cls._base_path.format(project_id)}{featurelist_id}/"
         return cls.from_location(url)
 
 
 class DatasetFeaturelist(APIObject):
-    """A set of features attached to a dataset in the AI Catalog
+    """A set of features attached to a dataset in the AI Catalog.
 
     Attributes
     ----------
     id : str
-        the ID of the dataset featurelist
+        The ID of the dataset featurelist.
     dataset_id : str
-        the ID of the dataset the featurelist belongs to
+        The ID of the dataset the featurelist belongs to.
     dataset_version_id: Optional[str]
-        the version id of the dataset this featurelist belongs to
+        The version ID of the dataset this featurelist belongs to.
     name : str
-        the name of the dataset featurelist
+        The name of the dataset featurelist.
     features : List[str]
-        a list of the names of features included in this dataset featurelist
+        A list of the names of features included in this dataset featurelist.
     creation_date : datetime.datetime
-        when the featurelist was created
+        The time when the featurelist was created.
     created_by : str
-        the user name of the user who created this featurelist
+        The user name of the user who created this featurelist.
     user_created : bool
-        whether the featurelist was created by a user or by DataRobot automation
+        Whether the featurelist was created by a user or by DataRobot automation.
     description : Optional[str]
-        the description of the featurelist. Only present on DataRobot-created featurelists.
+        The description of the featurelist. Only present on DataRobot-created featurelists.
     """
 
     _base_path = "datasets/{}/featurelists/"
@@ -415,14 +411,14 @@ class DatasetFeaturelist(APIObject):
         Parameters
         ----------
         dataset_id : str
-            the ID of the dataset the featurelist belongs to
+            The ID of the dataset the featurelist belongs to.
         featurelist_id : str
-             the ID of the dataset featurelist to retrieve
+            The ID of the dataset featurelist to retrieve.
 
         Returns
         -------
         featurelist : DatasetFeatureList
-            the specified featurelist
+            The specified featurelist.
         """
         url = f"{cls._base_path.format(dataset_id)}{featurelist_id}/"
         return cls.from_location(url)
@@ -443,7 +439,7 @@ class DatasetFeaturelist(APIObject):
         Parameters
         ----------
         name : Optional[str]
-            the new name for the featurelist
+            The new name for the featurelist.
         """
         data = {}
         if name is not None:

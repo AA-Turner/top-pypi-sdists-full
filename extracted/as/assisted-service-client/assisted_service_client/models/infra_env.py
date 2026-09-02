@@ -39,6 +39,7 @@ class InfraEnv(object):
         'user_name': 'str',
         'org_id': 'str',
         'email_domain': 'str',
+        'os_stream': 'str',
         'proxy': 'Proxy',
         'additional_ntp_sources': 'str',
         'ntp_sources': 'str',
@@ -70,6 +71,7 @@ class InfraEnv(object):
         'user_name': 'user_name',
         'org_id': 'org_id',
         'email_domain': 'email_domain',
+        'os_stream': 'os_stream',
         'proxy': 'proxy',
         'additional_ntp_sources': 'additional_ntp_sources',
         'ntp_sources': 'ntp_sources',
@@ -92,7 +94,7 @@ class InfraEnv(object):
         'network_discovery_delay_seconds': 'network_discovery_delay_seconds'
     }
 
-    def __init__(self, kind=None, id=None, href=None, openshift_version=None, name=None, user_name=None, org_id=None, email_domain=None, proxy=None, additional_ntp_sources=None, ntp_sources=None, ssh_authorized_key=None, pull_secret_set=None, static_network_config=None, rendezvous_ip=None, type=None, ignition_config_override=None, cluster_id=None, size_bytes=None, download_url=None, generator_version=None, updated_at=None, created_at=None, expires_at=None, cpu_architecture='x86_64', kernel_arguments=None, additional_trust_bundle=None, network_discovery_delay_seconds=None):  # noqa: E501
+    def __init__(self, kind=None, id=None, href=None, openshift_version=None, name=None, user_name=None, org_id=None, email_domain=None, os_stream=None, proxy=None, additional_ntp_sources=None, ntp_sources=None, ssh_authorized_key=None, pull_secret_set=None, static_network_config=None, rendezvous_ip=None, type=None, ignition_config_override=None, cluster_id=None, size_bytes=None, download_url=None, generator_version=None, updated_at=None, created_at=None, expires_at=None, cpu_architecture='x86_64', kernel_arguments=None, additional_trust_bundle=None, network_discovery_delay_seconds=None):  # noqa: E501
         """InfraEnv - a model defined in Swagger"""  # noqa: E501
 
         self._kind = None
@@ -103,6 +105,7 @@ class InfraEnv(object):
         self._user_name = None
         self._org_id = None
         self._email_domain = None
+        self._os_stream = None
         self._proxy = None
         self._additional_ntp_sources = None
         self._ntp_sources = None
@@ -137,6 +140,8 @@ class InfraEnv(object):
             self.org_id = org_id
         if email_domain is not None:
             self.email_domain = email_domain
+        if os_stream is not None:
+            self.os_stream = os_stream
         if proxy is not None:
             self.proxy = proxy
         if additional_ntp_sources is not None:
@@ -366,6 +371,29 @@ class InfraEnv(object):
         """
 
         self._email_domain = email_domain
+
+    @property
+    def os_stream(self):
+        """Gets the os_stream of this InfraEnv.  # noqa: E501
+
+        The OS stream to use for this infra-env (e.g. rhel-9, rhel-10). If unset, inherits from the associated cluster or uses the default OS stream.  # noqa: E501
+
+        :return: The os_stream of this InfraEnv.  # noqa: E501
+        :rtype: str
+        """
+        return self._os_stream
+
+    @os_stream.setter
+    def os_stream(self, os_stream):
+        """Sets the os_stream of this InfraEnv.
+
+        The OS stream to use for this infra-env (e.g. rhel-9, rhel-10). If unset, inherits from the associated cluster or uses the default OS stream.  # noqa: E501
+
+        :param os_stream: The os_stream of this InfraEnv.  # noqa: E501
+        :type: str
+        """
+
+        self._os_stream = os_stream
 
     @property
     def proxy(self):

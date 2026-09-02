@@ -14,10 +14,13 @@
 #  KIND, either express or implied.  See the License for the
 #  specific language governing permissions and limitations
 #  under the License.
+from __future__ import annotations
+
 from typing import (
     TYPE_CHECKING,
-    Union,
 )
+
+from typing_extensions import override
 
 from pyiceberg.catalog import Catalog, PropertiesUpdateSummary
 from pyiceberg.partitioning import UNPARTITIONED_PARTITION_SPEC, PartitionSpec
@@ -33,16 +36,19 @@ from pyiceberg.table.update import (
     TableUpdate,
 )
 from pyiceberg.typedef import EMPTY_DICT, Identifier, Properties
+from pyiceberg.view import View
+from pyiceberg.view.metadata import ViewVersion
 
 if TYPE_CHECKING:
     import pyarrow as pa
 
 
 class NoopCatalog(Catalog):
+    @override
     def create_table(
         self,
         identifier: str | Identifier,
-        schema: Union[Schema, "pa.Schema"],
+        schema: Schema | pa.Schema,
         location: str | None = None,
         partition_spec: PartitionSpec = UNPARTITIONED_PARTITION_SPEC,
         sort_order: SortOrder = UNSORTED_SORT_ORDER,
@@ -50,10 +56,11 @@ class NoopCatalog(Catalog):
     ) -> Table:
         raise NotImplementedError
 
+    @override
     def create_table_transaction(
         self,
         identifier: str | Identifier,
-        schema: Union[Schema, "pa.Schema"],
+        schema: Schema | pa.Schema,
         location: str | None = None,
         partition_spec: PartitionSpec = UNPARTITIONED_PARTITION_SPEC,
         sort_order: SortOrder = UNSORTED_SORT_ORDER,
@@ -61,18 +68,22 @@ class NoopCatalog(Catalog):
     ) -> CreateTableTransaction:
         raise NotImplementedError
 
+    @override
     def load_table(self, identifier: str | Identifier) -> Table:
         raise NotImplementedError
 
+    @override
     def table_exists(self, identifier: str | Identifier) -> bool:
         raise NotImplementedError
 
-    def register_table(self, identifier: str | Identifier, metadata_location: str) -> Table:
+    @override
+    def register_table(self, identifier: str | Identifier, metadata_location: str, overwrite: bool = False) -> Table:
         """Register a new table using existing metadata.
 
         Args:
             identifier (Union[str, Identifier]): Table identifier for the table
             metadata_location (str): The location to the metadata
+            overwrite (bool): Whether to overwrite the existing table, default False
 
         Returns:
             Table: The newly registered table
@@ -82,48 +93,85 @@ class NoopCatalog(Catalog):
         """
         raise NotImplementedError
 
+    @override
     def drop_table(self, identifier: str | Identifier) -> None:
         raise NotImplementedError
 
+    @override
+    def supports_server_side_planning(self) -> bool:
+        return False
+
+    @override
     def purge_table(self, identifier: str | Identifier) -> None:
         raise NotImplementedError
 
+    @override
     def rename_table(self, from_identifier: str | Identifier, to_identifier: str | Identifier) -> Table:
         raise NotImplementedError
 
+    @override
     def commit_table(
         self, table: Table, requirements: tuple[TableRequirement, ...], updates: tuple[TableUpdate, ...]
     ) -> CommitTableResponse:
         raise NotImplementedError
 
+    @override
     def create_namespace(self, namespace: str | Identifier, properties: Properties = EMPTY_DICT) -> None:
         raise NotImplementedError
 
+    @override
     def drop_namespace(self, namespace: str | Identifier) -> None:
         raise NotImplementedError
 
+    @override
     def list_tables(self, namespace: str | Identifier) -> list[Identifier]:
         raise NotImplementedError
 
+    @override
     def list_namespaces(self, namespace: str | Identifier = ()) -> list[Identifier]:
         raise NotImplementedError
 
+    @override
     def load_namespace_properties(self, namespace: str | Identifier) -> Properties:
         raise NotImplementedError
 
+    @override
     def update_namespace_properties(
         self, namespace: str | Identifier, removals: set[str] | None = None, updates: Properties = EMPTY_DICT
     ) -> PropertiesUpdateSummary:
         raise NotImplementedError
 
+    @override
     def list_views(self, namespace: str | Identifier) -> list[Identifier]:
         raise NotImplementedError
 
+    @override
     def view_exists(self, identifier: str | Identifier) -> bool:
         raise NotImplementedError
 
+    @override
     def namespace_exists(self, namespace: str | Identifier) -> bool:
         raise NotImplementedError
 
+    @override
+    def register_view(self, identifier: str | Identifier, metadata_location: str) -> View:
+        raise NotImplementedError
+
+    @override
     def drop_view(self, identifier: str | Identifier) -> None:
+        raise NotImplementedError
+
+    @override
+    def create_view(
+        self,
+        identifier: str | Identifier,
+        schema: Schema | pa.Schema,
+        view_version: ViewVersion,
+        location: str | None = None,
+        properties: Properties = EMPTY_DICT,
+    ) -> View:
+        raise NotImplementedError
+
+    @override
+    def load_view(self, identifier: str | Identifier) -> View:
         raise NotImplementedError

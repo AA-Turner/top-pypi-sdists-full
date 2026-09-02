@@ -1,0 +1,163 @@
+[build-system]
+requires = [
+    "setuptools>=77",
+    "wheel",
+    "Cython>=3",
+    "numpy>=2",
+    "scipy>=1.5.4",
+    "pentapy>=1.1.0,<2",
+    "setuptools_scm[toml]>=7",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+requires-python = ">=3.9"
+name = "PyKrige"
+description = "Kriging Toolkit for Python."
+authors = [
+    {name = "Benjamin S. Murphy, Sebastian Müller", email = "info@geostat-framework.org"},
+]
+maintainers = [
+    {name = "Sebastian Müller, Roman Yurchak", email = "info@geostat-framework.org"},
+]
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: Unix",
+    "Operating System :: Microsoft",
+    "Operating System :: MacOS",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "numpy>=1.20.0",
+    "scipy>=1.5.4,<2",
+]
+
+[project.optional-dependencies]
+doc = [
+    "gstools>=1.4,<2",
+    "pillow",
+    "scikit-learn>=0.19",
+    "m2r2>=0.2.8",
+    "matplotlib>=3",
+    "numpydoc>=1.1",
+    "sphinx>=7",
+    "sphinx-gallery>=0.8",
+    "sphinx-rtd-theme>=2",
+]
+plot = ["matplotlib>=3,<4"]
+sklearn = ["scikit-learn>=0.19"]
+test = [
+    "pytest-cov>=3",
+    "scikit-learn>=0.19",
+    "gstools>=1.4,<2",
+]
+lint = [
+    "black>=23,<24",
+    "pylint",
+    "isort[colors]",
+    "cython-lint",
+]
+
+[project.urls]
+Changelog = "https://github.com/GeoStat-Framework/PyKrige/blob/main/CHANGELOG.md"
+Conda-Forge = "https://anaconda.org/conda-forge/pykrige"
+Documentation = "https://pykrige.readthedocs.io"
+Homepage = "https://github.com/GeoStat-Framework/PyKrige"
+Source = "https://github.com/GeoStat-Framework/PyKrige"
+Tracker = "https://github.com/GeoStat-Framework/PyKrige/issues"
+
+[tool.setuptools_scm]
+write_to = "src/pykrige/_version.py"
+write_to_template = "__version__ = '{version}'"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0.dev0"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.black]
+target-version = [
+    "py38",
+    "py39",
+    "py310",
+    "py311",
+    "py312",
+]
+
+[tool.cython-lint]
+max-line-length = 100
+
+[tool.coverage]
+    [tool.coverage.run]
+    source = ["pykrige"]
+    omit = [
+        "*docs*",
+        "*examples*",
+        "*tests*",
+    ]
+
+    [tool.coverage.report]
+    exclude_lines = [
+        "pragma: no cover",
+        "def __repr__",
+        "def __str__",
+    ]
+
+[tool.pylint]
+    [tool.pylint.master]
+    extension-pkg-whitelist = [
+        "numpy",
+        "scipy",
+    ]
+    ignore = "_version.py"
+
+    [tool.pylint.message_control]
+    disable = [
+        "R0801",
+        "C0103",  # lots of invalid variable names
+    ]
+
+    [tool.pylint.reports]
+    output-format = "colorized"
+
+    [tool.pylint.design]
+    max-args = 20
+    max-locals = 50
+    max-branches = 30
+    max-statements = 80
+    max-attributes = 25
+    max-public-methods = 75
+
+[tool.cibuildwheel]
+# Switch to using build
+build-frontend = "build"
+# Disable building py3.6/7/8, pp3.8, 32bit linux
+skip = ["*-win32", "*_i686", "*-musllinux_*", "cp31?t-*"]
+# Run the package tests using `pytest`
+test-extras = "test"
+test-command = "pytest -v {package}/tests"
+
+environment.PIP_ONLY_BINARY = "numpy,scipy"
+environment.PIP_PREFER_BINARY = "1"

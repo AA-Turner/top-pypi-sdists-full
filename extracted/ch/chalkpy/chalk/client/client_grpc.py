@@ -5347,6 +5347,7 @@ class ChalkGRPCClient:
             if env_vars is None:
                 env_vars = {}
             env_vars.setdefault("PYTHONPATH", "/app")
+            env_vars.setdefault("CHALK_FNQ_STREAMS_SUPPORTED", "true")
 
         # Build protobuf-compatible JSON request matching CreateModelScalingGroupRequest
         request_data: Dict[str, Any] = {

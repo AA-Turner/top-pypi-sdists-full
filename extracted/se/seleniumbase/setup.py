@@ -177,7 +177,7 @@ setup(
         'fasteners>=0.20',
         'mycdp>=1.4.0',
         'pynose>=1.5.5',
-        'platformdirs>=4.11.5',
+        'platformdirs>=4.11.7',
         'typing-extensions>=4.16.0',
         'sbvirtualdisplay>=1.4.0',
         'MarkupSafe>=3.0.3',
@@ -303,7 +303,7 @@ setup(
         # Required for local MCP server debugging with:
         #     mcp dev server.py
         "uv": [
-            "uv>=0.12.8"
+            "uv>=0.12.9"
         ],
     },
     packages=[

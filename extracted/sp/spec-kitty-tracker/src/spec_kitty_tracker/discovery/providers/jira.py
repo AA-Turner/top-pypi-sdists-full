@@ -11,8 +11,9 @@ must never be the identity anchor.
 
 from __future__ import annotations
 
-import httpx
 from urllib.parse import urlparse
+
+import httpx
 
 from spec_kitty_tracker.discovery.registry import (
     register_resource_discoverer,
@@ -81,9 +82,7 @@ class JiraResourceDiscovery:
     def __init__(self, nango_ctx: NangoConnectionContext) -> None:
         self._nango_ctx = nango_ctx
 
-    async def discover(
-        self, workspace: DiscoveredWorkspace
-    ) -> DiscoveryResult[DiscoveredResource]:
+    async def discover(self, workspace: DiscoveredWorkspace) -> DiscoveryResult[DiscoveredResource]:
         cloud_id = workspace.provider_context["cloud_id"]  # type: ignore[index]
         base_url = f"https://api.atlassian.com/ex/jira/{cloud_id}"
 
@@ -123,7 +122,9 @@ class JiraResourceDiscovery:
                                 "project_key": project["key"],
                                 "project_name": project["name"],
                                 "display_key": project["key"],
-                                "resource_url": f"{site_url}/browse/{project['key']}" if site_url else None,
+                                "resource_url": f"{site_url}/browse/{project['key']}"
+                                if site_url
+                                else None,
                             },
                         )
                     )

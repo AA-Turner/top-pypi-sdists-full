@@ -135,7 +135,7 @@ class CustomMetric(APIObject):
     description: str
         A description of the custom metric.
     association_id: DatasetColumn
-        A custom metric association_id column source when reading values from columnar dataset.
+        A custom metric `association_id` column source when reading values from columnar dataset.
     timestamp: DatasetColumn
         A custom metric timestamp column source when reading values from columnar dataset.
     value: DatasetColumn
@@ -243,7 +243,7 @@ class CustomMetric(APIObject):
         name: str
             The name of the custom metric.
         deployment_id: str
-            The id of the deployment.
+            The ID of the deployment.
         units: str
             The units, or the y-axis label, of the given custom metric.
         baseline_value: float
@@ -364,7 +364,7 @@ class CustomMetric(APIObject):
 
     @classmethod
     def list(cls, deployment_id: str) -> List[CustomMetric]:
-        """List all custom metrics for a deployment
+        """Returns a list of all custom metrics for a deployment.
 
         Parameters
         ----------
@@ -437,7 +437,7 @@ class CustomMetric(APIObject):
         timestamp_format: Optional[str] = None,
         batch_column_name: Optional[str] = None,
     ) -> CustomMetric:
-        """Update metadata of a custom metric
+        """Update the metadata of a custom metric.
 
         Parameters
         ----------
@@ -858,7 +858,7 @@ class CustomMetric(APIObject):
         segment_attribute: Optional[str]
             The name of the segment on which segment analysis is being performed.
         segment_value: Optional[str]
-            The value of the segment_attribute to segment on.
+            The value of the `segment_attribute` to segment on.
 
         Returns
         -------
@@ -978,7 +978,7 @@ class CustomMetric(APIObject):
         segment_attribute: Optional[str]
             The name of the segment on which segment analysis is being performed.
         segment_value: Optional[str]
-            The value of the segment_attribute to segment on.
+            The value of the `segment_attribute` to segment on.
 
         Returns
         -------
@@ -1040,7 +1040,7 @@ class CustomMetric(APIObject):
         segment_attribute: Optional[str]
             The name of the segment on which segment analysis is being performed.
         segment_value: Optional[str]
-            The value of the segment_attribute to segment on.
+            The value of the `segment_attribute` to segment on.
 
         Returns
         -------
@@ -1110,7 +1110,7 @@ class CustomMetric(APIObject):
         segment_attribute: Optional[str]
             The name of the segment on which segment analysis is being performed.
         segment_value: Optional[str]
-            The value of the segment_attribute to segment on.
+            The value of the `segment_attribute` to segment on.
 
         Returns
         -------
@@ -1170,7 +1170,7 @@ class CustomMetricValuesOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     segment_attribute: str
         The name of the segment on which segment analysis is being performed.
     segment_value: str
-        The value of the segment_attribute to segment on.
+        The value of the `segment_attribute` to segment on.
     """
 
     _path = "deployments/{}/customMetrics/{}/valuesOverTime/"
@@ -1256,7 +1256,7 @@ class CustomMetricValuesOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         segment_attribute: Optional[str]
             The name of the segment on which segment analysis is being performed.
         segment_value: Optional[str]
-            The value of the segment_attribute to segment on.
+            The value of the `segment_attribute` to segment on.
 
         Returns
         -------
@@ -1337,7 +1337,7 @@ class CustomMetricValuesOverSpace(APIObject, MonitoringDataQueryBuilderMixin):
     model_id: str
         The ID of the model.
     model_package_id: str
-        The ID of the model package (also known as registered model version id).
+        The ID of the model package (also known as registered model version ID).
     summary: Dict
         Start-end interval over which data is retrieved.
 
@@ -1393,17 +1393,17 @@ class CustomMetricValuesOverSpace(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id: str
-            The id of the deployment.
+            The ID of the deployment.
         custom_metric_id: str
-            The id of the custom metric.
+            The ID of the custom metric.
         start: datetime
             The start time of the interval.
         end: datetime
             The end time of the interval.
         model_package_id: str
-            The id of the model package.
+            The ID of the model package.
         model_id: str
-            The id of the model.
+            The ID of the model.
 
         Returns
         -------
@@ -1432,7 +1432,7 @@ class CustomMetricSummary(APIObject, MonitoringDataQueryBuilderMixin):
     Attributes
     ----------
     period: Period
-        A time period defined by a start and end tie
+        A time period defined by a start and end time.
     metric: Dict
         The summary of the custom metric.
     """
@@ -1508,7 +1508,7 @@ class CustomMetricSummary(APIObject, MonitoringDataQueryBuilderMixin):
         segment_attribute: Optional[str]
             The name of the segment on which segment analysis is being performed.
         segment_value: Optional[str]
-            The value of the segment_attribute to segment on.
+            The value of the `segment_attribute` to segment on.
 
         Returns
         -------
@@ -1547,7 +1547,7 @@ class CustomMetricValuesOverBatch(APIObject, MonitoringDataQueryBuilderMixin):
     segment_attribute: str
         The name of the segment on which segment analysis is being performed.
     segment_value: str
-        The value of the segment_attribute to segment on.
+        The value of the `segment_attribute` to segment on.
     """
 
     _path = "deployments/{}/customMetrics/{}/valuesOverBatch/"
@@ -1625,7 +1625,7 @@ class CustomMetricValuesOverBatch(APIObject, MonitoringDataQueryBuilderMixin):
         segment_attribute: Optional[str]
             The name of the segment on which segment analysis is being performed.
         segment_value: Optional[str]
-            The value of the segment_attribute to segment on.
+            The value of the `segment_attribute` to segment on.
 
         Returns
         -------
@@ -1761,7 +1761,7 @@ class CustomMetricBatchSummary(APIObject, MonitoringDataQueryBuilderMixin):
         segment_attribute: Optional[str]
             The name of the segment on which segment analysis is being performed.
         segment_value: Optional[str]
-            The value of the segment_attribute to segment on.
+            The value of the `segment_attribute` to segment on.
 
         Returns
         -------
@@ -1830,7 +1830,7 @@ class HostedCustomMetricTemplate(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List[HostedCustomMetricTemplate]:
-        """List all hosted custom metric templates.
+        """Returns a list of all hosted custom metric templates.
 
         Parameters
         ----------
@@ -2159,7 +2159,7 @@ class HostedCustomMetric(APIObject):
         skip: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List[HostedCustomMetric]:
-        """List all hosted custom metrics for a job.
+        """Returns a list of all hosted custom metrics for a job.
 
         Parameters
         ----------

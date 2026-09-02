@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing as t
 
+from dbt.adapters.base.relation import RelationType
 from dbt.adapters.sql import SQLAdapter
 from dbt.config import RuntimeConfig
 
@@ -103,6 +104,13 @@ class DevCloner:
         clone_target: str,
     ) -> None:
         with events.downgrade_adapter_error_events():
+            # drop the clone target before attempting the clone, otherwise we can run into a problem where we try to clone
+            # a table on top of a view
+            if (
+                existing_relation := self._adapter_ext.fqn_to_cached_relation(clone_target)
+            ) and existing_relation.type != RelationType.Table:
+                adapter.drop_relation(existing_relation)
+
             if self._adapter_ext.IMPLEMENTS_CUSTOM_CLONE:
                 self._adapter_ext.clone(clone_sqls, clone_source, clone_target)
             else:

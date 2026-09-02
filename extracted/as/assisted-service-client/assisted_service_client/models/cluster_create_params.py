@@ -35,6 +35,7 @@ class ClusterCreateParams(object):
         'high_availability_mode': 'str',
         'openshift_version': 'str',
         'ocp_release_image': 'str',
+        'os_stream': 'str',
         'base_dns_domain': 'str',
         'cluster_network_cidr': 'str',
         'cluster_network_host_prefix': 'int',
@@ -72,6 +73,7 @@ class ClusterCreateParams(object):
         'high_availability_mode': 'high_availability_mode',
         'openshift_version': 'openshift_version',
         'ocp_release_image': 'ocp_release_image',
+        'os_stream': 'os_stream',
         'base_dns_domain': 'base_dns_domain',
         'cluster_network_cidr': 'cluster_network_cidr',
         'cluster_network_host_prefix': 'cluster_network_host_prefix',
@@ -104,13 +106,14 @@ class ClusterCreateParams(object):
         'load_balancer': 'load_balancer'
     }
 
-    def __init__(self, name=None, high_availability_mode='Full', openshift_version=None, ocp_release_image=None, base_dns_domain=None, cluster_network_cidr='10.128.0.0/14', cluster_network_host_prefix=None, service_network_cidr='172.30.0.0/16', api_vips=None, ingress_vips=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=False, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=False, additional_ntp_source=None, ntp_sources=None, olm_operators=None, operator_bundles=None, hyperthreading='all', network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, platform=None, cpu_architecture='x86_64', disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None):  # noqa: E501
+    def __init__(self, name=None, high_availability_mode='Full', openshift_version=None, ocp_release_image=None, os_stream=None, base_dns_domain=None, cluster_network_cidr='10.128.0.0/14', cluster_network_host_prefix=None, service_network_cidr='172.30.0.0/16', api_vips=None, ingress_vips=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=False, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=False, additional_ntp_source=None, ntp_sources=None, olm_operators=None, operator_bundles=None, hyperthreading='all', network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, platform=None, cpu_architecture='x86_64', disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None):  # noqa: E501
         """ClusterCreateParams - a model defined in Swagger"""  # noqa: E501
 
         self._name = None
         self._high_availability_mode = None
         self._openshift_version = None
         self._ocp_release_image = None
+        self._os_stream = None
         self._base_dns_domain = None
         self._cluster_network_cidr = None
         self._cluster_network_host_prefix = None
@@ -149,6 +152,8 @@ class ClusterCreateParams(object):
         self.openshift_version = openshift_version
         if ocp_release_image is not None:
             self.ocp_release_image = ocp_release_image
+        if os_stream is not None:
+            self.os_stream = os_stream
         if base_dns_domain is not None:
             self.base_dns_domain = base_dns_domain
         if cluster_network_cidr is not None:
@@ -314,6 +319,29 @@ class ClusterCreateParams(object):
         """
 
         self._ocp_release_image = ocp_release_image
+
+    @property
+    def os_stream(self):
+        """Gets the os_stream of this ClusterCreateParams.  # noqa: E501
+
+        The OS stream to use for this cluster (e.g. rhel-9, rhel-10). If unset, the default OS stream for the OpenShift version is used.  # noqa: E501
+
+        :return: The os_stream of this ClusterCreateParams.  # noqa: E501
+        :rtype: str
+        """
+        return self._os_stream
+
+    @os_stream.setter
+    def os_stream(self, os_stream):
+        """Sets the os_stream of this ClusterCreateParams.
+
+        The OS stream to use for this cluster (e.g. rhel-9, rhel-10). If unset, the default OS stream for the OpenShift version is used.  # noqa: E501
+
+        :param os_stream: The os_stream of this ClusterCreateParams.  # noqa: E501
+        :type: str
+        """
+
+        self._os_stream = os_stream
 
     @property
     def base_dns_domain(self):

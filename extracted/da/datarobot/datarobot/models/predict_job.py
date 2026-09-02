@@ -74,22 +74,22 @@ def wait_for_async_predictions(
 
 
 class PredictJob(AbstractSpecificJob):
-    """Tracks asynchronous work being done within a project
+    """Tracks asynchronous work being done within a project.
 
     Attributes
     ----------
     id : int
-        the ID of the job
+        The ID of the job.
     project_id : str
-        the ID of the project the job belongs to
+        The ID of the project the job belongs to.
     status : str
-        the status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``
+        The status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``.
     job_type : str
-        what kind of work the job is doing - will be 'predict' for predict jobs
+        What kind of work the job is doing - will be 'predict' for predict jobs.
     is_blocked : bool
-        if true, the job is blocked (cannot be executed) until its dependencies are resolved
+        If true, the job is blocked (cannot be executed) until its dependencies are resolved.
     message : str
-        a message about the state of the job, typically explaining why an error occurred
+        A message about the state of the job, typically explaining why an error occurred.
     """
 
     _extra_fields = frozenset(["message"])
@@ -117,12 +117,12 @@ class PredictJob(AbstractSpecificJob):
         Parameters
         ----------
         job: Job
-            A generic job representing a PredictJob
+            A generic job representing a PredictJob.
 
         Returns
         -------
         predict_job: PredictJob
-            A fully populated PredictJob with all the details of the job
+            A fully populated PredictJob with all the details of the job.
 
         Raises
         ------
@@ -149,14 +149,14 @@ class PredictJob(AbstractSpecificJob):
         ----------
         project_id : str
             The identifier of the project the model on which prediction
-            was started belongs to
+            was started belongs to.
         predict_job_id : str
-            The identifier of the predict_job
+            The identifier of the ``predict_job``.
 
         Returns
         -------
         predict_job : PredictJob
-            The pending PredictJob
+            The pending PredictJob.
 
         Raises
         ------
@@ -164,7 +164,7 @@ class PredictJob(AbstractSpecificJob):
             If the job being queried already finished, and the server is
             re-routing to the finished predictions.
         AsyncFailureError
-            Querying this resource gave a status code other than 200 or 303
+            Querying this resource gave a status code other than 200 or 303.
         """
         return super().get(project_id, predict_job_id)
 
@@ -190,23 +190,24 @@ class PredictJob(AbstractSpecificJob):
         ----------
         project_id : str
             The identifier of the project to which belongs the model used
-            for predictions generation
+            for predictions generation.
         predict_job_id : str
-            The identifier of the predict_job
+            The identifier of the ``predict_job``.
         class_prefix : str
-            The prefix to append to labels in the final dataframe (e.g., apple -> class_apple)
+            The prefix to append to labels in the final dataframe (e.g., apple -> ``class_apple``).
 
         Returns
         -------
         predictions : pandas.DataFrame
-            Generated predictions
+            Generated predictions.
 
         Raises
         ------
         JobNotFinished
-            If the job has not finished yet
+            If the job has not finished yet.
         AsyncFailureError
-            Querying the predict_job in question gave a status code other than 200 or 303
+            Querying the ``predict_job`` in question gave a status code other than 200 or
+            303.
         """
         # Note: Don't need this in 3.0. (Use `Job.get_result` method instead.)
         url = cls._job_path(project_id, predict_job_id)

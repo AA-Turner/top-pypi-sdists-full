@@ -1,8 +1,5 @@
 //! Configuration options for Arrow Flight streams.
 //!
-//! **Beta**: Arrow Flight ingestion is in Beta. The API is stabilising but may
-//! still change before reaching GA.
-
 use crate::stream_options::defaults;
 use arrow_ipc::CompressionType;
 
@@ -49,6 +46,12 @@ pub struct ArrowStreamConfigurationOptions {
     /// If a recovery attempt takes longer than this, it will be retried.
     /// Values whose absolute deadline cannot be represented by the platform's
     /// monotonic clock are rejected when the stream is built.
+    ///
+    /// For OAuth-authenticated streams this also caps a proactive token refresh at
+    /// half its value, but only when the cached token has more life left than that
+    /// cap, so a stalled endpoint falls back to the cached token before the attempt
+    /// deadline. When too little of the token's life remains, the refresh runs
+    /// unbounded, like a cold miss.
     ///
     /// Default: 15,000 (15 seconds)
     pub recovery_timeout_ms: u64,

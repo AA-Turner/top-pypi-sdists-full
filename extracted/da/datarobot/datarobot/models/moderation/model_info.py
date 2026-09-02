@@ -103,7 +103,7 @@ class GuardModelInfo(APIObject):
 
     @classmethod
     def ensure_object(cls, maybe_dict: Dict[str, str] | GuardModelInfo) -> GuardModelInfo:
-        """intervention may arrive as an object, or as a dict. Return an object."""
+        """Model info may arrive as an object, or as a dict. Return an object."""
         if isinstance(maybe_dict, GuardModelInfo):
             return maybe_dict
         elif isinstance(maybe_dict, dict):

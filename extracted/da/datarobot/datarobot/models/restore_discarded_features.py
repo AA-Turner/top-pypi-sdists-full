@@ -28,11 +28,11 @@ class FeatureRestorationStatus(APIObject):
     Attributes
     ----------
     warnings : list of strings
-        Warnings generated for those features which failed to restore
+        Warnings generated for those features which failed to restore.
     remaining_restore_limit : int
         The remaining available number of the features which can be restored in this project.
     restored_features : list of strings
-        Features which were restored
+        Features which were restored.
 
     """
 
@@ -103,17 +103,18 @@ class DiscardedFeaturesInfo(APIObject):
 
         Parameters
         ----------
-        project_id: string
+        project_id: str
+            The project ID.
         features_to_restore: list of strings
-            List of the feature names to restore
+            A list of the feature names to restore.
         max_wait: Optional[int]
-            max time to wait for features to be restored.
-            Defaults to 10 min
+            The maximum time to wait for features to be restored.
+            Defaults to 10 min.
 
         Returns
         -------
         status: FeatureRestorationStatus
-            information about features which were restored and which were not.
+            Information about features which were restored and which were not.
         """
         payload = {"features_to_restore": features_to_restore}
         response = cls._client.post(cls._post_url.format(project_id), data=payload)
@@ -128,12 +129,13 @@ class DiscardedFeaturesInfo(APIObject):
 
         Parameters
         ----------
-        project_id: string
+        project_id: str
+            The project ID.
 
         Returns
         -------
         info: DiscardedFeaturesInfo
-            information about features which were discarded during feature generation process and
+            Information about features which were discarded during feature generation process and
             limits how many features can be restored.
         """
         return cls.from_location(cls._get_url.format(project_id))

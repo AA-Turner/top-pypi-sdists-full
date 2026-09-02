@@ -75,7 +75,7 @@ Keep imports in dedicated import cells, define values near first use, reuse esta
 
 # Directives
 
-`#| default_exp` names the module. `#| export` marks exported cells. Underscore-prefixed helpers may export without joining the public API. `#| exportd` exports a code cell's source to the module docstring instead of the module. `#| hide` keeps necessary but distracting material off the page. `#| eval: false` is for cells that genuinely must not run, not for suppressing broken ones, and it cascades. An unevaluated cell cannot create state for later evaluated cells.
+`#| default_exp` names the module. `#| export` marks exported cells. Underscore-prefixed helpers may export without joining the public API. `#| exportd` exports a code cell's source to the module docstring instead of the module. `#| hide` keeps necessary but distracting material off the page. `#| eval: false` is for cells that genuinely must not run, not for suppressing broken ones. An unevaluated cell cannot create state for later evaluated cells.
 
 # nbdev v3
 
@@ -86,4 +86,6 @@ Directives can also live in cell *metadata*, under the `nbdev` key (`{"nbdev": {
 # Before you finish
 
 A behavior change means revising the lesson cells it touches: prose, displayed output, and assertions move together. Where you revised or added an assertion, check it fails against the old code and passes against the new. Many changes need no new cell at all - never add one merely to witness a change. Re-read the touched section as a reader would, against the conventions above. Style damage breaks no test and no export, so the harm only shows on the docs page.
+
+Run notebooks with `nbdev-test <nb>`.
 """

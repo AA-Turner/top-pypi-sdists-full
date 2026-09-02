@@ -1,1 +1,0 @@
-"""QNAP QSW library."""

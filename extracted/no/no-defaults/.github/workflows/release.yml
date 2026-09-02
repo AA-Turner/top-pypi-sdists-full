@@ -1,0 +1,300 @@
+---
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_only:
+        description: Build and publish an existing tag to PyPI (no version bump)
+        type: boolean
+        default: false
+      tag:
+        description: Tag to publish (publish_only only)
+        type: string
+        default: 'v2.3.0'
+
+# Deny by default; each job opts into the minimum scopes it needs.
+permissions: {}
+
+jobs:
+  release:
+    name: Bump version and tag
+    if: ${{ !inputs.publish_only }}
+    runs-on: ubuntu-latest
+
+    environment: release
+
+    permissions:
+      contents: write
+
+    outputs:
+      tag: ${{ steps.tag_version.outputs.new_tag }}
+
+    steps:
+      - uses: actions/checkout@v7
+        # Credentials must persist so git-auto-commit-action can push the
+        # release commit/tag back to the protected branch.
+        # RELEASE_PAT requires contents:write on this repo (classic PAT: repo scope).
+        # See
+        # https://github.com/stefanzweifel/git-auto-commit-action?tab=readme-ov-file#push-to-protected-branches
+        with:
+          token: ${{ secrets.RELEASE_PAT }}
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: '**/pyproject.toml'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # Calver without Cargo-safe patch bumps (use -post.N when re-releasing same day).
+      - name: Compute release version
+        id: version
+        run: |
+          normalized=$(date -u +%Y.%-m.%-d)
+          release="$normalized"
+          patch=1
+          while git rev-parse "refs/tags/${release}" >/dev/null 2>&1; do
+            release="${normalized}-post.${patch}"
+            patch=$((patch + 1))
+          done
+          echo "release=${release}" >> "$GITHUB_OUTPUT"
+
+      # towncrier writes the rendered notes to stdout (informational
+      # chatter goes to stderr), so this is the curated release body for
+      # this version, not github-tag-action's commit-derived changelog.
+      - name: Generate the GitHub release notes
+        env:
+          RELEASE: ${{ steps.version.outputs.release }}
+        run: uv run --extra=release towncrier build --draft --version "$RELEASE" >
+          release-notes.md
+
+      # Assemble the same fragments into CHANGELOG.rst under a new
+      # ``$RELEASE`` section and delete the consumed fragment files.
+      - name: Update the changelog
+        env:
+          RELEASE: ${{ steps.version.outputs.release }}
+        run: uv run --extra=release towncrier build --yes --version "$RELEASE"
+
+      - name: Set package and README versions
+        env:
+          NEW_TAG: ${{ steps.version.outputs.release }}
+        run: |
+          sed -i.bak "s/^version = .*/version = \"${NEW_TAG}\"/" Cargo.toml
+          sed -i.bak "s/^version = .*/version = \"${NEW_TAG}\"/" pyproject.toml
+          sed -i.bak -E "s/^([[:space:]]*rev:[[:space:]]*).*(# pin to a release tag)$/\1${NEW_TAG}  \2/" README.md
+          if ! grep -Fq "    rev: ${NEW_TAG}  # pin to a release tag" README.md; then
+            echo "Error: README pre-commit hook revision was not updated"
+            exit 1
+          fi
+          rm -f Cargo.toml.bak pyproject.toml.bak README.md.bak
+          cargo metadata --format-version 1 >/dev/null
+          uv lock
+
+      - uses: stefanzweifel/git-auto-commit-action@v7
+        id: commit
+        with:
+          commit_message: Bump CHANGELOG and version for release
+          file_pattern: CHANGELOG.rst newsfragments Cargo.toml Cargo.lock pyproject.toml uv.lock README.md
+          skip_dirty_check: true
+
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_tag: ${{ steps.version.outputs.release }}
+          tag_prefix: ''
+          commit_sha: ${{ steps.commit.outputs.commit_hash }}
+
+      - name: Create a GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag_version.outputs.new_tag }}
+          makeLatest: true
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          bodyFile: release-notes.md
+
+  build-wheels:
+    name: Build wheels (${{ matrix.os }})
+    needs: release
+    if: ${{ !inputs.publish_only }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: '**/pyproject.toml'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build wheels
+        shell: bash
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          git checkout "$TAG"
+          uvx maturin build --release --out dist/
+          ls -la dist/
+
+      - name: Build source distribution
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: uvx maturin sdist --out dist/
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  build-wheels-existing-tag:
+    name: Build wheels (${{ matrix.os }})
+    if: ${{ inputs.publish_only }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: '**/pyproject.toml'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build wheels
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          git checkout "$TAG"
+          uvx maturin build --release --out dist/
+          ls -la dist/
+
+      - name: Build source distribution
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: uvx maturin sdist --out dist/
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build-wheels-existing-tag
+    if: ${{ inputs.publish_only }}
+    runs-on: ubuntu-latest
+
+    environment: release
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          # No cache on artifact-publishing jobs: a poisoned restore must not
+          # be able to influence what is published to PyPI.
+          enable-cache: false
+
+      - name: Download wheels
+        uses: actions/download-artifact@v8
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Check wheels
+        run: |
+          ls -la dist/
+          uv run --locked --extra release check-wheel-contents --ignore W007 dist/*.whl
+
+      # We use PyPI trusted publishing rather than a PyPI API token.
+      # See https://github.com/pypa/gh-action-pypi-publish/tree/release/v1/?tab=readme-ov-file#trusted-publishing.
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          packages-dir: dist/
+          skip-existing: true
+
+  publish-pypi-release:
+    name: Publish to PyPI
+    needs: build-wheels
+    if: ${{ !inputs.publish_only }}
+    runs-on: ubuntu-latest
+
+    environment: release
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          # No cache on artifact-publishing jobs: a poisoned restore must not
+          # be able to influence what is published to PyPI.
+          enable-cache: false
+
+      - name: Download wheels
+        uses: actions/download-artifact@v8
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Check wheels
+        run: |
+          ls -la dist/
+          uv run --locked --extra release check-wheel-contents --ignore W007 dist/*.whl
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          packages-dir: dist/
+          skip-existing: true

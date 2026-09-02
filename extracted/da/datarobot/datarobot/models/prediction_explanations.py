@@ -71,11 +71,11 @@ KEEP_ATTRS = ["data.prediction_explanations.per_ngram_text_explanations"]
 
 
 class PredictionExplanationsMode:
-    """Prediction explanations mode for multiclass models"""
+    """Prediction explanations mode for multiclass models."""
 
     @abc.abstractmethod
     def get_api_parameters(self, batch_route: bool = False) -> Dict[str, Any]:
-        """Get parameters passed in corresponding API call
+        """Get the parameters passed in the corresponding API call.
 
         Parameters
         ----------
@@ -86,6 +86,7 @@ class PredictionExplanationsMode:
         Returns
         -------
         dict
+            The API parameters.
         """
 
 
@@ -113,7 +114,7 @@ class ClassListMode(PredictionExplanationsMode):
     Attributes
     ----------
     class_names : list
-        List of class names that will be explained for each dataset row.
+        A list of class names that will be explained for each dataset row.
     """
 
     def __init__(self, class_names: List[str]) -> None:
@@ -132,11 +133,11 @@ class PredictionExplanationsInitialization(APIObject):
     Attributes
     ----------
     project_id : str
-        id of the project the model belongs to
+        The ID of the project the model belongs to.
     model_id : str
-        id of the model the prediction explanations initialization is for
+        The ID of the model the prediction explanations initialization is for.
     prediction_explanations_sample : list of dict
-        a small sample of prediction explanations that could be generated for the model
+        A small sample of prediction explanations that could be generated for the model.
     """
 
     _path_template = "projects/{}/models/{}/predictionExplanationsInitialization/"
@@ -170,9 +171,9 @@ class PredictionExplanationsInitialization(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         model_id : str
-            id of the model the prediction explanations initialization is for
+            The ID of the model the prediction explanations initialization is for.
 
         Returns
         -------
@@ -195,14 +196,14 @@ class PredictionExplanationsInitialization(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         model_id : str
-            id of the model for which initialization is requested
+            The ID of the model for which initialization is requested.
 
         Returns
         -------
         job : Job
-            an instance of created async job
+            An instance of the created async job.
         """
         from .job import Job  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -212,7 +213,7 @@ class PredictionExplanationsInitialization(APIObject):
 
     def delete(self) -> None:
         """
-        Delete this prediction explanations initialization.
+        Delete the prediction explanations initialization.
         """
         self._client.delete(self._path)
 
@@ -232,27 +233,27 @@ class PredictionExplanations(APIObject):
     Attributes
     ----------
     id : str
-        id of the record and prediction explanations computation result
+        The ID of the record and prediction explanations computation result.
     project_id : str
-        id of the project the model belongs to
+        The ID of the project the model belongs to.
     model_id : str
-        id of the model the prediction explanations are for
+        The ID of the model the prediction explanations are for.
     dataset_id : str
-        id of the prediction dataset prediction explanations were computed for
+        The ID of the prediction dataset prediction explanations were computed for.
     max_explanations : int
-        maximum number of prediction explanations to supply per row of the dataset
+        The maximum number of prediction explanations to supply per row of the dataset.
     threshold_low : float
-        the lower threshold, below which a prediction must score in order for prediction
-        explanations to be computed for a row in the dataset
+        The lower threshold, below which a prediction must score in order for prediction
+        explanations to be computed for a row in the dataset.
     threshold_high : float
-        the high threshold, above which a prediction must score in order for prediction
-        explanations to be computed for a row in the dataset
+        The high threshold, above which a prediction must score in order for prediction
+        explanations to be computed for a row in the dataset.
     num_columns : int
-        the number of columns prediction explanations were computed for
+        The number of columns prediction explanations were computed for.
     finish_time : float
-        timestamp referencing when computation for these prediction explanations finished
+        Timestamp referencing when computation for these prediction explanations finished.
     prediction_explanations_location : str
-        where to retrieve the prediction explanations
+        Where to retrieve the prediction explanations.
     source: str
         For OTV/TS in-training predictions. Holds the portion of the training dataset used to generate
         predictions.
@@ -322,9 +323,9 @@ class PredictionExplanations(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the explanations belong to
+            The ID of the project the explanations belong to.
         prediction_explanations_id : str
-            id of the prediction explanations
+            The ID of the prediction explanations.
 
         Returns
         -------
@@ -346,7 +347,7 @@ class PredictionExplanations(APIObject):
         mode: Optional[PredictionExplanationsMode] = None,
     ) -> "Job":
         """
-        Create prediction explanations for the specified dataset.
+        Create the prediction explanations for the specified dataset.
 
         In order to create PredictionExplanations for a particular model and dataset, you must
         first:
@@ -368,31 +369,31 @@ class PredictionExplanations(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         model_id : str
-            id of the model for which prediction explanations are requested
+            The ID of the model for which prediction explanations are requested.
         dataset_id : str
-            id of the prediction dataset for which prediction explanations are requested
+            The ID of the prediction dataset for which prediction explanations are requested.
         threshold_low : Optional[float]
-            the lower threshold, below which a prediction must score in order for prediction
+            The lower threshold, below which a prediction must score in order for prediction
             explanations to be computed for a row in the dataset. If neither ``threshold_high`` nor
             ``threshold_low`` is specified, prediction explanations will be computed for all rows.
         threshold_high : Optional[float]
-            the high threshold, above which a prediction must score in order for prediction
+            The high threshold, above which a prediction must score in order for prediction
             explanations to be computed. If neither ``threshold_high`` nor ``threshold_low`` is
             specified, prediction explanations will be computed for all rows.
         max_explanations : Optional[int]
-            the maximum number of prediction explanations to supply per row of the dataset,
+            The maximum number of prediction explanations to supply per row of the dataset,
             default: 3.
         mode : PredictionExplanationsMode, optional
-            mode of calculation for multiclass models, if not specified - server default is
+            The mode of calculation for multiclass models. If not specified, the server default is
             to explain only the predicted class, identical to passing TopPredictionsMode(1).
 
 
         Returns
         -------
         job: Job
-            an instance of created async job
+            An instance of the created async job.
         """
         from .job import Job  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -426,7 +427,7 @@ class PredictionExplanations(APIObject):
         datetime_prediction_partition: Optional[str] = None,
     ) -> "Job":
         """
-        Create prediction explanations for the the dataset used to train the model.
+        Create the prediction explanations for the dataset used to train the model.
         This can be retrieved by calling ``dr.Model.get().featurelist_id``.
         For OTV and timeseries projects, ``datetime_prediction_partition`` is required and limited to the
         first backtest ('0') or holdout ('holdout').
@@ -509,22 +510,23 @@ class PredictionExplanations(APIObject):
         cls, project_id: str, model_id: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None
     ) -> List[PredictionExplanations]:
         """
-        List of prediction explanations metadata for a specified project.
+        A list of prediction explanations metadata for a specified project.
 
         Parameters
         ----------
         project_id : str
-            id of the project to list prediction explanations for
+            The ID of the project to list prediction explanations for.
         model_id : Optional[str]
-            if specified, only prediction explanations computed for this model will be returned
+            If specified, only prediction explanations computed for this model will be returned.
         limit : int or None
-            at most this many results are returned, default: no limit
+            At most this many results are returned, default: no limit.
         offset : int or None
-            this many results will be skipped, default: 0
+            This many results will be skipped, default: 0.
 
         Returns
         -------
         prediction_explanations : list[PredictionExplanations]
+            A list of prediction explanations metadata.
         """
         response = cls._client.get(
             cls._path_template.format(project_id),
@@ -542,9 +544,9 @@ class PredictionExplanations(APIObject):
         Parameters
         ----------
         batch_size : int or None, optional
-            maximum number of prediction explanations rows to retrieve per request
+            The maximum number of prediction explanations rows to retrieve per request.
         exclude_adjusted_predictions : bool
-            Optional, defaults to True. Set to False to include adjusted predictions, which will
+            Optional; defaults to True. When set to False, includes adjusted predictions, which will
             differ from the predictions on some projects, e.g., those with an exposure column
             specified.
 
@@ -574,8 +576,8 @@ class PredictionExplanations(APIObject):
         )
 
     def is_unsupervised_clustering_or_multiclass(self) -> bool:
-        """Clustering and multiclass XEMP always has either one of num_top_classes or class_names
-        parameters set"""
+        """Clustering and multiclass XEMP always has either one of ``num_top_classes`` or ``class_names``
+        parameters set."""
         return bool(self.num_top_classes or self.class_names)
 
     def get_number_of_explained_classes(self) -> int:
@@ -639,12 +641,13 @@ class PredictionExplanations(APIObject):
         Parameters
         ----------
         exclude_adjusted_predictions : bool
-            Optional, defaults to True. Set this to False to include adjusted prediction values in
+            Optional; defaults to True. When set to False, includes adjusted prediction values in
             the returned dataframe.
 
         Returns
         -------
         dataframe: pandas.DataFrame
+            A DataFrame of prediction explanations rows.
         """
         columns = ["row_id", "prediction"]
         rows = self.get_rows(batch_size=1, exclude_adjusted_predictions=exclude_adjusted_predictions)
@@ -739,16 +742,16 @@ class PredictionExplanations(APIObject):
         self, filename: Union[str, TypingIO[Any]], encoding: str = "utf-8", exclude_adjusted_predictions: bool = True
     ) -> None:
         """
-        Save prediction explanations rows into CSV file.
+        Save the prediction explanations rows into a CSV file.
 
         Parameters
         ----------
         filename : str or file object
-            path or file object to save prediction explanations rows
+            The path or file object to save prediction explanations rows to.
         encoding : string, optional
-            A string representing the encoding to use in the output file, defaults to 'utf-8'
+            A string representing the encoding to use in the output file, defaults to 'utf-8'.
         exclude_adjusted_predictions : bool
-            Optional, defaults to True. Set to False to include adjusted predictions, which will
+            Optional; defaults to True. When set to False, includes adjusted predictions, which will
             differ from the predictions on some projects, e.g., those with an exposure column
             specified.
         """
@@ -759,7 +762,7 @@ class PredictionExplanations(APIObject):
         self, limit: Optional[int] = None, offset: Optional[int] = None, exclude_adjusted_predictions: bool = True
     ) -> PredictionExplanationsPage:
         """
-        Get prediction explanations.
+        Get the prediction explanations.
 
         If you don't want use a generator interface, you can access paginated prediction
         explanations directly.
@@ -767,18 +770,19 @@ class PredictionExplanations(APIObject):
         Parameters
         ----------
         limit : int or None
-            the number of records to return, the server will use a (possibly finite) default if not
-            specified
+            The number of records to return; the server will use a (possibly finite) default if not
+            specified.
         offset : int or None
-            the number of records to skip, default 0
+            The number of records to skip, default: 0.
         exclude_adjusted_predictions : bool
-            Optional, defaults to True. Set to False to include adjusted predictions, which will
+            Optional; defaults to True. When set to False, includes adjusted predictions, which will
             differ from the predictions on some projects, e.g., those with an exposure column
             specified.
 
         Returns
         -------
         prediction_explanations : PredictionExplanationsPage
+            The queried prediction explanations page.
         """
         kwargs = {"limit": limit, "exclude_adjusted_predictions": exclude_adjusted_predictions}
         if offset:
@@ -787,7 +791,7 @@ class PredictionExplanations(APIObject):
 
     def delete(self) -> None:
         """
-        Delete these prediction explanations.
+        Delete the prediction explanations.
         """
         path = f"{self._path_template.format(self.project_id)}{self.id}/"
         self._client.delete(path)
@@ -827,17 +831,17 @@ class PredictionExplanationsRow:
     Attributes
     ----------
     row_id : int
-        which row this ``PredictionExplanationsRow`` describes
+        The row this ``PredictionExplanationsRow`` describes.
     prediction : float
-        the output of the model for this row
+        The output of the model for this row.
     adjusted_prediction : float or None
-        adjusted prediction value for projects that provide this information, None otherwise
+        The adjusted prediction value for projects that provide this information, None otherwise.
     prediction_values : list
-        an array of dictionaries with a schema described as ``PredictionValue``
+        An array of dictionaries with a schema described as ``PredictionValue``.
     adjusted_prediction_values : list
-        same as prediction_values but for adjusted predictions
+        The same as ``prediction_values`` but for adjusted predictions.
     prediction_explanations : list
-        an array of dictionaries with a schema described as ``PredictionExplanation``
+        An array of dictionaries with a schema described as ``PredictionExplanation``.
     """
 
     def __init__(
@@ -867,20 +871,20 @@ class PredictionExplanationsPage(APIObject):
     Attributes
     ----------
     id : str
-        id of the prediction explanations computation result
+        The ID of the prediction explanations computation result.
     data : list[dict]
-        list of raw prediction explanations; each row corresponds to a row of the prediction dataset
+        A list of raw prediction explanations; each row corresponds to a row of the prediction dataset.
     count : int
-        total number of rows computed
+        The total number of rows computed.
     previous_page : str
-        where to retrieve previous page of prediction explanations, None if current page is the
-        first
+        Where to retrieve the previous page of prediction explanations, or None if the current page is the
+        first.
     next_page : str
-        where to retrieve next page of prediction explanations, None if current page is the last
+        Where to retrieve the next page of prediction explanations, or None if the current page is the last.
     prediction_explanations_record_location : str
-        where to retrieve the prediction explanations metadata
+        Where to retrieve the prediction explanations metadata.
     adjustment_method : str
-        Adjustment method that was applied to predictions, or 'N/A' if no adjustments were done.
+        The adjustment method that was applied to predictions, or 'N/A' if no adjustments were done.
     """
 
     _path_template = "projects/{}/predictionExplanations/"
@@ -930,16 +934,16 @@ class PredictionExplanationsPage(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         prediction_explanations_id : str
-            id of the prediction explanations
+            The ID of the prediction explanations.
         limit : int or None
-            the number of records to return; the server will use a (possibly finite) default if not
-            specified
+            The number of records to return; the server will use a (possibly finite) default if not
+            specified.
         offset : int or None
-            the number of records to skip, default 0
+            The number of records to skip, default: 0.
         exclude_adjusted_predictions : bool
-            Optional, defaults to True. Set to False to include adjusted predictions, which will
+            Optional; defaults to True. When set to False, includes adjusted predictions, which will
             differ from the predictions on some projects, e.g., those with an exposure column
             specified.
 

@@ -1,0 +1,184 @@
+"""Unit tests for SQLAppE2EFullTest — the SQL-connector convenience base.
+
+Network-free. The pyatlan ``$admin`` resolution is the only external
+dependency and is monkey-patched out via ``_resolve_admin_role_guid``.
+"""
+
+from __future__ import annotations
+
+import warnings
+
+import pytest
+
+from application_sdk.testing.full_dag import RunMode, SQLAppE2EFullTest
+from application_sdk.testing.full_dag.payload import AgentSpec, DatabaseSpec
+
+
+def _make_test(role_guid: str = "stub-admin-guid"):
+    """Build a runnable subclass with required attrs + stubbed pyatlan."""
+
+    class _Concrete(SQLAppE2EFullTest):
+        connector_short_name = "mysql"
+        argo_package_name = "@atlan/mysql"
+        argo_template_name = "atlan-mysql"
+        mode = RunMode.AGENT
+        app_service_url = "http://mysql.mysql-app.svc.cluster.local"
+
+    # Stub the pyatlan role-cache lookup so tests stay network-free
+    _Concrete._resolve_admin_role_guid = staticmethod(lambda: role_guid)
+
+    def database_spec(self):
+        return DatabaseSpec(host="mysql", port=3306, username="u", password="p")
+
+    _Concrete.database_spec = database_spec
+    return _Concrete
+
+
+def test_subclassing_emits_both_deprecation_warnings() -> None:
+    """A consumer subclass warns twice, and both notices name their own class.
+
+    ``SQLAppE2EFullTest`` carries its own ``__init_subclass__`` on top of the one
+    it inherits from :class:`BaseFullDAGE2ETest`, so a consumer subclass triggers
+    both. Each has a distinct migration target (``SQLAppE2ETest`` vs
+    ``BaseE2ETest``), so collapsing them to one notice would send SQL connectors
+    to the wrong replacement.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        class _DeprecatedSQLSuite(SQLAppE2EFullTest):
+            connector_short_name = "mysql"
+
+    messages = [str(w.message) for w in caught if w.category is DeprecationWarning]
+    assert len(messages) == 2, f"expected the base + sql notices, got {messages}"
+    assert any(
+        "SQLAppE2EFullTest is deprecated" in m
+        and "application_sdk.testing.e2e.SQLAppE2ETest" in m
+        for m in messages
+    ), f"no notice pointed SQL connectors at SQLAppE2ETest: {messages}"
+    assert any(
+        "BaseFullDAGE2ETest is deprecated" in m
+        and "application_sdk.testing.e2e.BaseE2ETest" in m
+        for m in messages
+    ), f"the inherited base notice is missing: {messages}"
+
+
+def _bootstrap_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ATLAN_BASE_URL", "https://test.example.invalid")
+    monkeypatch.setenv("ATLAN_API_KEY", "test-token")
+    monkeypatch.setenv("GITHUB_RUN_ID", "9999999")
+    # Keep the deployment env absent by default so the run_id template path is
+    # deterministic regardless of the ambient CI environment; the env-derivation
+    # test sets both explicitly. Clear both vars (not just DEPLOYMENT) so the
+    # gate is hermetic against an ambient ATLAN_APPLICATION_NAME.
+    monkeypatch.delenv("ATLAN_APPLICATION_NAME", raising=False)
+    monkeypatch.delenv("ATLAN_DEPLOYMENT_NAME", raising=False)
+
+
+def test_agent_spec_agent_mode_uses_run_id_template(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AGENT mode produces ``{connector}-{prefix}-{run_id}`` agent name."""
+    _bootstrap_env(monkeypatch)
+    cls = _make_test()
+    instance = cls()
+    instance.setup_method()
+    agent = instance.agent_spec()
+    assert isinstance(agent, AgentSpec)
+    # Default connection_name_prefix = "e2e-full-ci"; run_id = 9999999.
+    assert agent.agent_name == "mysql-e2e-full-ci-9999999"
+
+
+def test_agent_spec_prefers_env_derivation_when_deployment_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Per-leg isolation: when ATLAN_APPLICATION_NAME + ATLAN_DEPLOYMENT_NAME are
+    set (the CI worker's env), the agent name — and thus the extract queue — is
+    derived from them (atlan-{app}-{deployment}), not the run_id template, so SQL
+    matrix legs stay on their own per-leg queue. Mirrors the e2e module.
+    """
+    _bootstrap_env(monkeypatch)
+    monkeypatch.setenv("ATLAN_APPLICATION_NAME", "mysql")
+    monkeypatch.setenv("ATLAN_DEPLOYMENT_NAME", "e2e-full-ci-9999999-connection-reuse")
+    cls = _make_test()
+    instance = cls()
+    instance.setup_method()
+    agent = instance.agent_spec()
+    assert agent is not None
+    assert agent.agent_name == "mysql-e2e-full-ci-9999999-connection-reuse"
+
+
+def test_agent_spec_direct_mode_returns_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DIRECT mode produces no AgentSpec — worker reads creds inline."""
+    _bootstrap_env(monkeypatch)
+    cls = _make_test()
+    cls.mode = RunMode.DIRECT
+    instance = cls()
+    instance.setup_method()
+    assert instance.agent_spec() is None
+
+
+def test_agent_name_template_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Subclasses can override the agent_name_template for non-standard
+    Argo cluster templates."""
+    _bootstrap_env(monkeypatch)
+    cls = _make_test()
+    cls.agent_name_template = "{prefix}-{connector}-{run_id}"
+    instance = cls()
+    instance.setup_method()
+    agent = instance.agent_spec()
+    assert agent is not None
+    assert agent.agent_name == "e2e-full-ci-mysql-9999999"
+
+
+def test_connection_spec_resolves_admin_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``connection_spec`` injects the resolved ``$admin`` role GUID."""
+    _bootstrap_env(monkeypatch)
+    cls = _make_test(role_guid="role-guid-xyz")
+    instance = cls()
+    instance.setup_method()
+    spec = instance.connection_spec()
+    assert spec.admin_roles == ("role-guid-xyz",)
+    assert spec.connector_name == "mysql"
+    assert spec.qualified_name.startswith("default/mysql/e2e-full-ci-")
+    assert spec.source_logo.endswith("/mysql.png")
+
+
+def test_connection_spec_caches_role_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Role-cache lookup happens once even across multiple calls."""
+    _bootstrap_env(monkeypatch)
+    calls = {"n": 0}
+
+    def stub_lookup() -> str:
+        calls["n"] += 1
+        return "cached-role-guid"
+
+    cls = _make_test()
+    cls._resolve_admin_role_guid = staticmethod(stub_lookup)
+    instance = cls()
+    instance.setup_method()
+    instance.connection_spec()
+    instance.connection_spec()
+    instance.connection_spec()
+    assert calls["n"] == 1
+
+
+def test_connection_admin_users_and_groups_are_pass_through(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Subclass-set adminUsers/Groups land on the resulting ConnectionSpec."""
+    _bootstrap_env(monkeypatch)
+    cls = _make_test()
+    cls.connection_admin_users = ("dev-team",)
+    cls.connection_admin_groups = ("analytics",)
+    instance = cls()
+    instance.setup_method()
+    spec = instance.connection_spec()
+    assert spec.admin_users == ("dev-team",)
+    assert spec.admin_groups == ("analytics",)

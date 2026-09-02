@@ -1265,8 +1265,8 @@ class _Typed_Brokerage_CreateOAuthTokenHandler(typing.Generic[QuantConnect_Broke
     @overload
     def __call__(self, api_client: QuantConnect.Api.ApiConnection, request: QuantConnect.Brokerages.Authentication.OAuthTokenRequest, token_lifetime: datetime.timedelta) -> QuantConnect.Brokerages.Authentication.LeanOAuthTokenHandler[QuantConnect_Brokerages_Brokerage_CreateOAuthTokenHandler_T]:
         """
-        Creates a LeanOAuthTokenHandler and automatically wires it so that
-        authentication failures trigger a brokerage error message, causing Lean to shut down gracefully.
+        Creates a LeanOAuthTokenHandler and automatically wires it so that authentication failures
+        report the brokerage as disconnected, and the next successful authentication as reconnected.
         
         
         This Class is protected.
@@ -1611,6 +1611,26 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         This Class is protected.
         
         :param e: The AccountEvent
+        """
+        ...
+
+    def on_authentication_failed(self, exception: System.Exception) -> None:
+        """
+        Notifies that authentication has failed.
+        
+        
+        This Class is protected.
+        
+        :param exception: The exception that caused the authentication failure.
+        """
+        ...
+
+    def on_authentication_succeeded(self) -> None:
+        """
+        Notifies that authentication has succeeded.
+        
+        
+        This Class is protected.
         """
         ...
 

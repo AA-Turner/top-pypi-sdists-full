@@ -20,10 +20,16 @@ from databricks.sql.backend.sea.utils.constants import (
     MetadataCommands,
 )
 from databricks.sql.backend.sea.utils.normalize import normalize_sea_type_to_thrift
-from databricks.sql.thrift_api.TCLIService import ttypes
 
 if TYPE_CHECKING:
     from databricks.sql.client import Cursor
+
+    # Type-annotation-only import (deferred by ``from __future__ import
+    # annotations``). ``execute_command`` accepts the Thrift-shaped
+    # ``TSparkParameter`` for interface compatibility, but only reads its
+    # attributes (duck-typed) at runtime, so the SEA backend never imports the
+    # Apache Thrift ``thrift`` package. See ``test_lazy_thrift_import``.
+    from databricks.sql.thrift_api.TCLIService import ttypes
 
 from databricks.sql.backend.sea.result_set import SeaResultSet
 
@@ -149,6 +155,17 @@ class SeaDatabricksClient(DatabricksClient):
             server_hostname,
             port,
             http_path,
+        )
+
+        # The SEA backend is deprecated and incomplete (e.g. it does not
+        # support positional parameter binding) and is slated for removal.
+        # Steer users to the Rust kernel backend, which is the supported path.
+        logger.warning(
+            "The SEA backend (use_sea=True) is deprecated and incomplete and "
+            "should not be used in production; it is slated for removal. Use "
+            "the kernel backend instead by passing use_kernel=True and "
+            "installing the kernel extra: "
+            "pip install 'databricks-sql-connector[kernel]'."
         )
 
         self._max_download_threads = kwargs.get("max_download_threads", 10)

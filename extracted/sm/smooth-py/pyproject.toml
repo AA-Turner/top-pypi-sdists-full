@@ -1,0 +1,75 @@
+[project]
+name = "smooth-py"
+version = "0.4.5"
+description = ""
+authors = [
+    {name = "Luca Pinchetti",email = "luca@circlemind.co"}
+]
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "pydantic (>=2.11.7,<3.0.0)",
+    "aiohttp (>=3.9.0,<4.0.0)",
+    "aiohttp-retry (>=2.9.0,<3.0.0)",
+    "deprecated (>=1.2.18,<2.0.0)",
+    "nanoid (>=2.0.0,<3.0.0)"
+]
+
+[project.optional-dependencies]
+mcp = [
+    "fastmcp (>=2.12.0,<3.0.0)"
+]
+test = [
+    "pytest (>=8.0.0,<9.0.0)",
+    "pytest-asyncio (>=0.24.0,<1.0.0)",
+    "aioresponses (>=0.7.0,<1.0.0)",
+]
+
+[project.scripts]
+smooth = "smooth.cli:main"
+
+[tool.poetry]
+packages = [{include = "smooth", from = "src"}]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+line-length = 128
+indent-width = 2
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "N",  # PEP8 naming convetions
+    "D"  # pydocstyle
+]
+ignore = [
+    "C901",  # too complex
+    "W191",  # indentation contains tabs
+    "D401",  # imperative mood
+    "B008"  # fastapi
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+reportIncompatibleMethodOverride = false

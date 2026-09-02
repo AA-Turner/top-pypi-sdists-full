@@ -1,0 +1,1 @@
+"""Vast provider package."""

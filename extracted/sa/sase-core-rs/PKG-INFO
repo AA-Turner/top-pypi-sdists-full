@@ -1,0 +1,77 @@
+Metadata-Version: 2.4
+Name: sase-core-rs
+Version: 0.32.16
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Rust
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
+Summary: Rust core for the sase TUI/CLI: PyO3 bindings exposing the Patch parser, query language, agent-artifact scan, status state machine, and git-query parsers.
+Keywords: sase,changespec,pyo3,rust
+Author: sase-org
+License: MIT OR Apache-2.0
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/sase-org/sase-core
+Project-URL: Issues, https://github.com/sase-org/sase-core/issues
+Project-URL: Repository, https://github.com/sase-org/sase-core
+
+# sase-core-rs
+
+Rust core for the [sase](https://github.com/sase-org/sase) TUI/CLI, packaged as a
+PyO3 extension module.
+
+The wheel installs the import module `sase_core_rs`. It is consumed by `sase` via
+the dispatch facade in `sase.core` and is opt-in through `SASE_CORE_BACKEND=rust`
+during the rollout. From Phase 6 onward the `sase` package depends on this
+distribution so released `sase` installs receive a loadable Rust extension
+without a local Rust toolchain.
+
+## Provided functions
+
+- `parse_project_bytes(path, data)` — Patch parser.
+- `tokenize_query`, `parse_query`, `canonicalize_query`,
+  `evaluate_query_many` — query language.
+- `tokenize_query_with_profile`, `parse_query_with_profile`,
+  `canonicalize_query_with_profile`, `compile_query_with_profile`,
+  `compile_corpus_with_profile` — profile-driven query language.
+- `scan_agent_artifacts(projects_root, options=None)` — agent-artifact
+  filesystem scanner.
+- `remove_workspace_suffix`, `is_valid_status_transition`,
+  `read_status_from_lines`, `apply_status_update`,
+  `plan_status_transition` — status state machine helpers.
+- `parse_git_name_status_z`, `parse_git_branch_name`,
+  `derive_git_workspace_name`, `parse_git_conflicted_files`,
+  `parse_git_local_changes` — git query parsers.
+- `axe_status_wire_schema_version()` — portable AXE status contract version.
+- `classify_axe_status(request)` — pure AXE lifecycle and worker-health
+  classification from already-collected host observations.
+- `directive_contract()`, `directive_completion_context(text, line, character)`,
+  `directive_completion_candidates(context, inventories=None)` — shared xprompt
+  directive completion contract, cursor classifier, and JSON-shaped candidates.
+
+`classify_axe_status` performs no filesystem, process, or clock access. Python
+supplies lock/PID liveness, marker ages, runner occupancy, lumberjack reports,
+and any typed collection error; Rust validates and normalizes those
+observations into the stable status snapshot shared by human and JSON
+frontends.
+
+## Source
+
+`https://github.com/sase-org/sase-core` — the Cargo workspace lives there.
+This wheel is built from `crates/sase_core_py/`.
+
+## License
+
+Dual-licensed under MIT or Apache-2.0, at your option.
+

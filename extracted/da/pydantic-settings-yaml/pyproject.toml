@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pydantic_settings_yaml"
+description = "Yaml support for Pydantic settings"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "pyYAML",
+    "pydantic-settings>=2.0,<3.0"
+]
+dynamic = ["version"]
+
+
+[tool.setuptools.dynamic]
+version = {attr = "pydantic_settings_yaml.__version__"}

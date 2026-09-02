@@ -57,6 +57,9 @@ from ._actions import (
     remove_actions,
 )
 from ._common import (
+    ImportDenied,
+    check_import_path,
+    config_schema_key,
     get_generic_origin,
     get_parsing_setting,
     get_unaliased_type,
@@ -82,9 +85,12 @@ from ._namespace import Namespace, subclasses_disabled_meta_key
 from ._optionals import (
     capture_typing_extension_shadows,
     get_alias_target,
+    get_new_type_supertype,
     is_alias_type,
     is_annotated,
     is_annotated_validator,
+    is_literal_string,
+    is_new_type,
     typing_extensions_import,
     validate_annotated,
 )
@@ -108,6 +114,7 @@ from ._util import (
 from .typing import _LazyInitBaseClass, get_registered_type, is_pydantic_type
 
 NotRequired = typing_extensions_import("NotRequired")
+ReadOnly = typing_extensions_import("ReadOnly")
 Required = typing_extensions_import("Required")
 _TypedDictMeta = typing_extensions_import("_TypedDictMeta")
 Unpack = typing_extensions_import("Unpack")
@@ -174,6 +181,7 @@ root_types = {
     UnionType,
     GenericAlias,
     NotRequired,
+    ReadOnly,
     Required,
     Unpack,
 }
@@ -229,6 +237,10 @@ _capture_typing_extension_shadows("NotRequired", root_types, not_required_types)
 required_types = {Required}
 _capture_typing_extension_shadows("Required", root_types, required_types)
 not_required_required_types = not_required_types.union(required_types)
+
+read_only_types = {ReadOnly}
+_capture_typing_extension_shadows("ReadOnly", root_types, read_only_types)
+typed_dict_key_qualifiers = not_required_required_types.union(read_only_types)
 
 typed_dict_types = {TypedDict}
 _capture_typing_extension_shadows("TypedDict", typed_dict_types)
@@ -310,12 +322,26 @@ def cached_get_class_parser(*, val_class, sub_add_kwargs, skip_args, parent_pars
     return parser
 
 
-def strip_required_typehint(typehint, is_required: bool, source: str):
-    """Removes a top level Required/NotRequired wrapper, failing if it disagrees with the requiredness.
+def strip_read_only(typehint):
+    """Removes a top level ReadOnly wrapper, which only marks a TypedDict key as not mutable.
 
-    The requiredness of an argument is already given by the argument itself, thus the wrappers are
-    only accepted as a redundant specification and not included in the type shown in the help.
+    Nothing is ever written back into a parsed TypedDict, so ReadOnly imposes no
+    restriction and changes neither the type of a key nor its requiredness.
     """
+    if get_typehint_origin(typehint) in read_only_types:
+        assert len(typehint.__args__) == 1, "ReadOnly requires a single type argument"
+        return typehint.__args__[0]
+    return typehint
+
+
+def strip_required_typehint(typehint, is_required: bool, source: str):
+    """Removes top level Required/NotRequired and ReadOnly wrappers, checking the requiredness.
+
+    The requiredness of an argument is already given by the argument itself, thus Required and
+    NotRequired are only accepted as a redundant specification, failing when they disagree, and
+    neither they nor ReadOnly are included in the type shown in the help.
+    """
+    typehint = strip_read_only(typehint)
     typehint_origin = get_typehint_origin(typehint)
     if typehint_origin not in not_required_required_types:
         return typehint
@@ -328,7 +354,7 @@ def strip_required_typehint(typehint, is_required: bool, source: str):
             f"argument is {'required' if expect_required else 'not required'}."
         )
     assert len(typehint.__args__) == 1, "(Not)Required requires a single type argument"
-    return typehint.__args__[0]
+    return strip_read_only(typehint.__args__[0])
 
 
 class ActionTypeHint(Action):
@@ -389,14 +415,22 @@ class ActionTypeHint(Action):
         elif is_module_type(self._typehint) and isinstance(default, ModuleType):
             default = default.__name__
         elif is_callable_type(self._typehint) and callable(default) and not inspect.isclass(default):
-            default = get_import_path(default)
+            try:
+                default = object_path_serializer(default)
+            except ValueError:
+                # kept as is when it can't be imported back, e.g. a closure, so that dump warns
+                pass
         elif ActionTypeHint.is_return_subclass_typehint(self._typehint) and inspect.isclass(default):
             default = {"class_path": get_import_path(default)}
         elif is_subclass_type and not allow_default_instance.get():
             from ._parameter_resolvers import UnknownDefault
 
             default_type = type(default)
-            if not is_subclass(default_type, UnknownDefault) and self.is_subclass_typehint(default_type):
+            if (
+                not is_subclass(default_type, UnknownDefault)
+                and self.is_subclass_typehint(default_type)
+                and not any(implements_protocol(default, t) for t in get_subclass_types(self._typehint) or ())
+            ):
                 raise ValueError("Subclass types require as default either a dict with class_path or a lazy instance.")
         return default
 
@@ -435,6 +469,7 @@ class ActionTypeHint(Action):
             or is_subclass(typehint, Enum)
             or is_subclasses_disabled(typehint)
             or is_typed_dict(typehint)
+            or is_namedtuple(typehint)
             or ActionTypeHint.is_subclass_typehint(typehint)
         )
         if full and supported:
@@ -788,14 +823,9 @@ class ActionTypeHint(Action):
 
     def extra_help(self):
         extra = ""
-        typehint = get_optional_arg(self._typehint)
-        typehint = get_callable_return_type(typehint) or typehint
-        if get_typehint_origin(typehint) is type:
-            typehint = typehint.__args__[0]
-        if self.is_subclass_typehint(typehint, all_subtypes=False):
-            class_paths = get_all_subclass_paths(typehint)
-            if class_paths:
-                extra = ", known subclasses: " + ", ".join(class_paths)
+        class_paths = get_all_subclass_paths(self._typehint, closed_types=False)
+        if class_paths:
+            extra = ", known subclasses: " + ", ".join(class_paths)
         return extra
 
     def completer(self, prefix, **kwargs):
@@ -837,9 +867,8 @@ def is_pathlike(typehint) -> bool:
 
 def is_list_pathlike(typehint) -> bool:
     typehint_origin = get_typehint_origin(typehint)
-    if typehint_origin in sequence_origin_types:
-        subtype = typehint.__args__[0]
-        return is_pathlike(subtype)
+    if typehint_origin in sequence_origin_types and hasattr(typehint, "__args__"):
+        return is_pathlike(typehint.__args__[0])
     return False
 
 
@@ -923,6 +952,7 @@ def resolve_forward_ref(ref, global_vars=None):
 unresolved_reason = "failed to resolve, e.g. a missing import or a typo"
 unsupported_reason = "not a supported type"
 unrebuildable_reason = "could not be rebuilt with its unvalidatable subtypes replaced"
+untyped_reason = "no type annotation"
 
 
 class UnvalidatedType:
@@ -957,10 +987,28 @@ class UnvalidatedType:
         return f"Unvalidated<{strip_module_names(self.name)}>"
 
     def __eq__(self, other):
-        return isinstance(other, UnvalidatedType) and other.name == self.name
+        # the class is part of the comparison, since subclasses stand for a different reason
+        return type(other) is type(self) and other.name == self.name
 
     def __hash__(self):
-        return hash((UnvalidatedType, self.name))
+        return hash((type(self), self.name))
+
+
+class UntypedType(UnvalidatedType):
+    """Type hint that stands in for a parameter that has no type annotation, accepting any value.
+
+    Only instantiated once, see the Untyped singleton. There is no type in the
+    source code to keep, thus the help shows it as Untyped.
+    """
+
+    def __init__(self):
+        super().__init__("", reason=untyped_reason)  # no type in the source code, thus an empty name
+
+    def __repr__(self):
+        return "Untyped"
+
+
+Untyped = UntypedType()
 
 
 def accepts_any_value(typehint) -> bool:
@@ -1136,11 +1184,11 @@ def get_typed_dict_annotations(typed_dict, logger=None) -> dict:
             global_vars = {}
             update_module_global_vars(module, global_vars, logger)
         annotations.update(resolve_module_annotations(module, module_annotations, global_vars, logger))
-    return {k: resolve_typed_dict_key_type_vars(annotations[k], type_var_maps[k]) for k in typed_dict.__annotations__}
+    return {k: resolve_annotation_type_vars(annotations[k], type_var_maps[k]) for k in typed_dict.__annotations__}
 
 
-def resolve_typed_dict_key_type_vars(annotation, type_var_map: dict):
-    """Returns the annotation of a TypedDict key with the TypeVars in it resolved.
+def resolve_annotation_type_vars(annotation, type_var_map: dict):
+    """Returns the annotation of a TypedDict key or a NamedTuple field with the TypeVars in it resolved.
 
     First the TypeVars that the subscript binds are substituted, then the ones
     that it doesn't are replaced by what they stand for, i.e. their default,
@@ -1157,16 +1205,83 @@ def get_typed_dict_required_keys(typed_dict, annotations: dict) -> set:
     # reflected there (e.g. below Python 3.11 or with postponed annotations), so they are
     # adjusted based on the resolved annotations.
     required_keys = set(getattr(typed_dict, "__required_keys__", set(annotations)))
-    required_keys.update({k for k, v in annotations.items() if get_typehint_origin(v) in required_types})
-    required_keys.difference_update({k for k, v in annotations.items() if get_typehint_origin(v) in not_required_types})
+    unqualified = {k: strip_read_only(v) for k, v in annotations.items()}
+    required_keys.update({k for k, v in unqualified.items() if get_typehint_origin(v) in required_types})
+    required_keys.difference_update({k for k, v in unqualified.items() if get_typehint_origin(v) in not_required_types})
     return required_keys
 
 
 def get_typed_dict_key_type(annotation):
-    # Required and NotRequired only change the requiredness of a key, not its type
+    # Required and NotRequired only change the requiredness of a key and ReadOnly only marks it as
+    # not mutable, so none of them change its type. ReadOnly can wrap or be wrapped by the others.
+    annotation = strip_read_only(annotation)
     if get_typehint_origin(annotation) in not_required_required_types:
-        return annotation.__args__[0]
+        annotation = strip_read_only(annotation.__args__[0])
     return annotation
+
+
+def _is_namedtuple_class(typehint) -> bool:
+    return inspect.isclass(typehint) and issubclass(typehint, tuple) and hasattr(typehint, "_fields")
+
+
+def get_namedtuple_type(typehint):
+    """Returns the NamedTuple that a subscripted generic NamedTuple stands for, or the type hint unchanged.
+
+    Its type parameters don't change which fields there are, only the types of
+    the ones annotated with a TypeVar.
+    """
+    origin = getattr(typehint, "__origin__", None)
+    return origin if _is_namedtuple_class(origin) else typehint
+
+
+def is_namedtuple(typehint) -> bool:
+    """Whether a type hint is a NamedTuple, i.e. a tuple subclass that has named fields.
+
+    Includes a subscripted generic one, see get_namedtuple_type.
+    """
+    return _is_namedtuple_class(get_namedtuple_type(typehint))
+
+
+def is_structured_value_type(typehint) -> bool:
+    """Whether a type hint is a structure of named keys or fields, i.e. a TypedDict or a NamedTuple.
+
+    Their value is not a class to instantiate, so it is never given as a class
+    path and a ``--*.help`` option refers to them by name.
+    """
+    return is_typed_dict(typehint) or is_namedtuple(typehint)
+
+
+def get_namedtuple_annotations(namedtuple, logger=None) -> dict:
+    """Returns the resolved annotation of each field of a NamedTuple.
+
+    A field without an annotation, i.e. from an untyped ``collections.namedtuple``,
+    accepts any value, the same as an unparameterized ``dict``.
+    """
+    from ._postponed_annotations import get_global_vars
+
+    typehint = namedtuple
+    namedtuple = get_namedtuple_type(typehint)
+    type_var_map = get_type_var_map(typehint, namedtuple)
+    annotations: dict = {}
+    for cls in reversed(namedtuple.__mro__):
+        annotations.update(getattr(cls, "__annotations__", None) or {})
+    annotations = {f: annotations[f] for f in namedtuple._fields if f in annotations}
+    global_vars = get_global_vars(namedtuple, logger)
+    resolved = resolve_module_annotations(namedtuple.__module__, annotations, global_vars, logger)
+    return {f: resolve_annotation_type_vars(resolved.get(f, Any), type_var_map) for f in namedtuple._fields}
+
+
+def get_namedtuple_value_as_dict(val, namedtuple, fields) -> dict:
+    """Returns the fields given for a NamedTuple as a dict, from any of its accepted spellings."""
+    if isinstance(val, namedtuple):
+        return val._asdict()
+    if isinstance(val, (list, tuple)):
+        if len(val) > len(fields):
+            raise_unexpected_value(f"Expected at most {len(fields)} values", val)
+        return dict(zip(fields, val))
+    if not isinstance(val, dict):
+        raise_unexpected_value(f"Expected a NamedTuple {namedtuple.__name__}, given as an array or an object", val)
+    return val.copy()
 
 
 def is_typed_dict_subtype(subtype, typed_dict, logger=None) -> bool:
@@ -1360,10 +1475,13 @@ def adapt_typehints(
         if isinstance(val, ModuleType):
             if serialize:
                 val = val.__name__
-        elif not is_importable_module_path(val):
-            raise_unexpected_value("Expected an import path corresponding to a module", val)
-        elif instantiate_classes:
-            val = import_module(val)
+        else:
+            if isinstance(val, str):
+                check_import_path(val)
+            if not is_importable_module_path(val):
+                raise_unexpected_value("Expected an import path corresponding to a module", val)
+            elif instantiate_classes:
+                val = import_module(val)
 
     # UnionType and GenericAlias
     elif typehint in type_expression_types:
@@ -1374,6 +1492,8 @@ def adapt_typehints(
             expected = f"Expected a string with a {type_expression_types[typehint]} type expression"
             try:
                 type_expression = str_to_type_expression(val)
+            except ImportDenied:
+                raise
             except Exception as ex:
                 raise_unexpected_value(expected, val, ex)
             if not isinstance(type_expression, typehint):
@@ -1387,13 +1507,17 @@ def adapt_typehints(
         sorted_subtypes = sort_subtypes_for_union(subtypehints, val, prev_val, append)
         for subtype in sorted_subtypes:
             try:
-                vals.append(adapt_typehints(val, subtype, **adapt_kwargs))
-                break
+                # a pristine value, since adapting can modify it in place
+                subtype_val = adapt_typehints(pristine_value(val), subtype, **adapt_kwargs)
             except Exception as ex:
                 if subtype is str and not isinstance(val, str) and isinstance(orig_val, str):
                     vals.append(orig_val)
                     continue
                 vals.append(ex)
+                continue
+            vals.append(subtype_val)
+            if not sub_defaults_invalidate_value(subtype_val, subtype, sorted_subtypes, adapt_kwargs):
+                break
         if all(isinstance(v, Exception) for v in vals):
             raise_union_unexpected_value(sorted_subtypes, val, vals)
         val = next((v for v in reversed(vals) if not isinstance(v, Exception)))
@@ -1414,10 +1538,10 @@ def adapt_typehints(
         if not serialize:
             if typehint_origin in {Tuple, tuple}:
                 val = tuple(val)
-            elif typehint_origin is frozenset:
-                val = frozenset(val)
-            else:
-                val = set(val)
+            elif all(isinstance(v, abc.Hashable) for v in val):
+                val = frozenset(val) if typehint_origin is frozenset else set(val)
+            # values that are not hashable, e.g. subclass specs, are kept as a
+            # list and become a set once the classes are instantiated
 
     # List, Iterable or Sequence
     elif typehint_origin in sequence_origin_types:
@@ -1516,10 +1640,42 @@ def adapt_typehints(
         elif typehint_origin is OrderedDict:
             val = dict(val) if serialize else OrderedDict(val)
 
-    # TypedDict NotRequired and Required
-    elif typehint_origin in not_required_required_types:
-        assert len(subtypehints) == 1, "(Not)Required requires a single type argument"
+    # TypedDict Required, NotRequired and ReadOnly
+    elif typehint_origin in typed_dict_key_qualifiers:
+        assert len(subtypehints) == 1, "A TypedDict key qualifier requires a single type argument"
         val = adapt_typehints(val, subtypehints[0], **adapt_kwargs)
+
+    # NamedTuple
+    elif is_namedtuple(typehint):
+        annotations = get_namedtuple_annotations(typehint, logger)
+        # a subscripted generic NamedTuple is built as its unsubscripted form, see get_namedtuple_type
+        typehint = get_namedtuple_type(typehint)
+        fields = typehint._fields
+        if isinstance(val, NestedArg):
+            prev = prev_val._asdict() if isinstance(prev_val, typehint) else prev_val
+            field, field_val = val.key, val.val
+            if isinstance(field, str) and "." in field:
+                # kept as a NestedArg, so that the field merges it with its own previous value
+                field, sub_key = field.split(".", 1)
+                field_val = NestedArg(key=sub_key, val=field_val)
+            val = {**prev, field: field_val} if isinstance(prev, dict) else {field: field_val}
+        val = get_namedtuple_value_as_dict(val, typehint, fields)
+        extra_fields = val.keys() - set(fields)
+        if extra_fields:
+            raise_unexpected_value(f"Unexpected fields: {extra_fields}", val)
+        missing_fields = set(fields) - typehint._field_defaults.keys() - val.keys()
+        if missing_fields:
+            raise_unexpected_value(f"Missing required fields: {missing_fields}", val)
+        for k, v in val.items():
+            kwargs = adapt_kwargs.copy()
+            if kwargs.get("prev_val"):
+                prev_field = kwargs["prev_val"]
+                prev_field = prev_field._asdict() if isinstance(prev_field, typehint) else prev_field
+                kwargs["prev_val"] = prev_field.get(k) if isinstance(prev_field, dict) else None
+            # what can't be validated accepts any value, as the help shows it
+            val[k] = adapt_typehints(v, replace_unvalidatable_typehints(annotations[k]), **kwargs)
+        if not serialize:
+            val = typehint(**val)
 
     # Callable
     elif (
@@ -1532,7 +1688,7 @@ def adapt_typehints(
                 val, partial_skip_args = adapt_partial_callable_class(typehint, val)
                 val = adapt_class_type(val, True, False, sub_add_kwargs, partial_skip_args=partial_skip_args)
             else:
-                val = object_path_serializer(val)
+                val = serialize_as_import_path(val)
         else:
             adapted = adapt_subconfig_path(val, typehint, adapt_kwargs)
             if adapted is not not_a_subconfig_path:
@@ -1548,6 +1704,11 @@ def adapt_typehints(
                     if inspect.isclass(val_obj):
                         val = Namespace(class_path=class_path)
                     elif callable(val_obj):
+                        subclass_types = get_subclass_types(return_type)
+                        if subclass_types and not function_returns_subclass(val_obj, subclass_types, logger):
+                            raise ImportError(
+                                f"Expected '{class_path}' to be a function that returns {type_to_str(return_type)}."
+                            )
                         val = val_obj
                     else:
                         raise ImportError(f"Unexpected import object {val_obj}")
@@ -1564,12 +1725,18 @@ def adapt_typehints(
                         )
                     val, partial_skip_args = adapt_partial_callable_class(typehint, val)
                     val_class = import_object(val["class_path"])
-                    if inspect.isclass(val_class) and not (partial_skip_args or callable_instances(val_class)):
-                        base_type = get_callable_return_type(typehint) or typehint
-                        raise ImportError(
-                            f"Expected '{val['class_path']}' to be a class that instantiates into callable "
-                            f"or a subclass of {base_type}."
-                        )
+                    if inspect.isclass(val_class) and partial_skip_args is None:
+                        # partial_skip_args is only None when not a subclass of the return type
+                        return_type = get_callable_return_type(typehint)
+                        if get_subclass_types(return_type):
+                            raise ImportError(
+                                f"Expected '{val['class_path']}' to be a subclass of {type_to_str(return_type)}."
+                            )
+                        if not callable_instances(val_class):
+                            raise ImportError(
+                                f"Expected '{val['class_path']}' to be a class that instantiates into callable "
+                                f"or a subclass of {return_type or typehint}."
+                            )
                     val["class_path"] = get_import_path(val_class)
                     val = adapt_class_type(
                         val,
@@ -1590,7 +1757,7 @@ def adapt_typehints(
     elif inspect.isclass(typehint_origin):
         if is_instance_or_supports_protocol(val, typehint):
             if serialize:
-                val = serialize_class_instance(val)
+                val = serialize_as_import_path(val)
             return val
         if serialize and isinstance(val, str):
             return val
@@ -1686,6 +1853,14 @@ def adapt_typehints(
     elif is_alias_type(typehint):
         return adapt_typehints(val, get_alias_target(typehint), **adapt_kwargs)
 
+    # NewType -- validated as the supertype that it stands for
+    elif is_new_type(typehint):
+        return adapt_typehints(val, get_new_type_supertype(typehint), **adapt_kwargs)
+
+    # LiteralString -- at runtime there is no way to tell it apart from a str
+    elif is_literal_string(typehint):
+        return adapt_typehints(val, str, **adapt_kwargs)
+
     else:
         raise RuntimeError(f"The code should never reach here: typehint={typehint}")  # pragma: no cover
 
@@ -1708,27 +1883,31 @@ protocol_irrelevant_dunder_methods = {
 }
 
 
-def get_protocol_method_signature(class_type, name, logger):
-    """Returns the parameters (excluding self) and return type of a method, with annotations resolved.
+def get_protocol_signature(function, logger, skip_self: bool = False):
+    """Returns the parameters and return type of a function, with annotations resolved.
 
     In contrast to get_signature_parameters, the signature is taken as declared, i.e. ``*args`` and
     ``**kwargs`` are not resolved into the parameters that they might accept, since for protocols
-    what matters is how the method can be called.
+    what matters is how the function can be called.
     """
     from jsonargparse._parameter_resolvers import ParamData, parameter_attributes
     from jsonargparse._postponed_annotations import evaluate_postponed_annotations, get_return_type
 
+    signature = inspect.signature(function)
+    params = [ParamData(**{a: getattr(p, a) for a in parameter_attributes}) for p in signature.parameters.values()]
+    evaluate_postponed_annotations(params, function, None, logger)
+    return (params[1:] if skip_self else params), get_return_type(function, logger)
+
+
+def get_protocol_method_signature(class_type, name, logger):
+    """Returns the parameters (excluding self) and return type of a method, see get_protocol_signature."""
     method = inspect.getattr_static(class_type, name)
     skip_self = not isinstance(method, staticmethod)
     if isinstance(method, (staticmethod, classmethod)):
         method = method.__func__
     if not inspect.isfunction(method):
         raise ValueError(f"Expected {class_type.__name__}.{name} to be a function, but got {method}.")
-
-    signature = inspect.signature(method)
-    params = [ParamData(**{a: getattr(p, a) for a in parameter_attributes}) for p in signature.parameters.values()]
-    evaluate_postponed_annotations(params, method, None, logger)
-    return (params[1:] if skip_self else params), get_return_type(method, logger)
+    return get_protocol_signature(method, logger, skip_self=skip_self)
 
 
 def type_var_wildcard_matches(proto_annotation, value_annotation) -> bool:
@@ -1862,37 +2041,71 @@ def protocol_params_match(proto_params, value_params) -> bool:
     return all(p.default is not empty for n, p in value_kw.items() if n not in proto_kw)
 
 
+def get_protocol_members(protocol) -> list[str]:
+    """Returns the names of the methods that an implementation of a protocol must have."""
+    members = []
+    for name, _ in inspect.getmembers(protocol, predicate=inspect.isfunction):
+        is_dunder = name.startswith("__") and name.endswith("__")
+        if (not is_dunder and name.startswith("_")) or (is_dunder and name in protocol_irrelevant_dunder_methods):
+            continue
+        members.append(name)
+    return members
+
+
+def substitute_protocol_type_vars(proto_params, proto_return, type_var_map):
+    """Substitutes in place the TypeVars in the parameters and returns the substituted return type.
+
+    A subscripted generic protocol is implemented by what its type arguments say,
+    e.g. Proto[int] by a run(self, x: int), the same as static type checkers do.
+    """
+    for param in proto_params:
+        param.annotation = substitute_type_vars(param.annotation, type_var_map)
+    return substitute_type_vars(proto_return, type_var_map)
+
+
 def implements_protocol(value, protocol) -> bool:
-    if not inspect.isclass(value) or value is object or not is_protocol(protocol):
+    if not is_protocol(protocol) or value is object:
+        return False
+    if inspect.isfunction(value):
+        return function_implements_protocol(value, protocol)
+    if not inspect.isclass(value):
         return False
     origin = get_protocol_origin(protocol)
     type_var_map = get_type_var_map(protocol, origin)
     protocol = origin
 
     logger = parse_logger(True, "implements_protocol")
-    members = 0
-    for name, _ in inspect.getmembers(protocol, predicate=inspect.isfunction):
-        is_dunder = name.startswith("__") and name.endswith("__")
-        if (not is_dunder and name.startswith("_")) or (is_dunder and name in protocol_irrelevant_dunder_methods):
-            continue
+    members = get_protocol_members(protocol)
+    for name in members:
         if not hasattr(value, name):
             return False
-        members += 1
         try:
             value_params, value_return = get_protocol_method_signature(value, name, logger)
         except (ValueError, TypeError):
             return False
         proto_params, proto_return = get_protocol_method_signature(protocol, name, logger)
-        # a subscripted generic protocol is implemented by what its type arguments say,
-        # e.g. Proto[int] by a run(self, x: int), the same as static type checkers do
-        for param in proto_params:
-            param.annotation = substitute_type_vars(param.annotation, type_var_map)
-        proto_return = substitute_type_vars(proto_return, type_var_map)
+        proto_return = substitute_protocol_type_vars(proto_params, proto_return, type_var_map)
         if not protocol_params_match(proto_params, value_params):
             return False
         if not protocol_type_matches(proto_return, value_return):
             return False
     return True if members else False
+
+
+def function_implements_protocol(function, protocol) -> bool:
+    """Whether a function can be called in all the ways that the __call__ of a protocol can.
+
+    Only a protocol whose single method is __call__ can be implemented by a function,
+    since a function doesn't have any other method.
+    """
+    origin = get_protocol_origin(protocol)
+    if get_protocol_members(origin) != ["__call__"]:
+        return False
+    logger = parse_logger(True, "implements_protocol")
+    proto_params, proto_return = get_protocol_method_signature(origin, "__call__", logger)
+    proto_return = substitute_protocol_type_vars(proto_params, proto_return, get_type_var_map(protocol, origin))
+    value_params, value_return = get_protocol_signature(function, logger)
+    return protocol_params_match(proto_params, value_params) and protocol_type_matches(proto_return, value_return)
 
 
 def is_protocol(class_type) -> bool:
@@ -1918,7 +2131,8 @@ def is_subclass_or_implements_protocol(value, class_type) -> bool:
 
 def is_instance_or_supports_protocol(value, class_type):
     if is_protocol(class_type):
-        return is_subclass_or_implements_protocol(value.__class__, class_type)
+        # a function implements a callable protocol by itself, any other value by its class
+        return implements_protocol(value if inspect.isfunction(value) else value.__class__, class_type)
     return is_instance(value, class_type)
 
 
@@ -1973,6 +2187,7 @@ def subclass_spec_as_namespace(val, prev_val=None):
             prev_val = Namespace(class_path=prev_val)
     if isinstance(val, dict):
         val = Namespace(val)
+    val.pop(config_schema_key, None)  # only meant for editors, see completion type jsonschema
     if "init_args" in val and isinstance(val["init_args"], dict):
         val["init_args"] = Namespace(val["init_args"])
     if not is_subclass_spec(val) and isinstance(prev_val, (Namespace, dict)) and "class_path" in prev_val:
@@ -2002,6 +2217,7 @@ def is_single_class_type(typehint, typehint_origin, closed_class):
         )
         and typehint not in leaf_or_root_types
         and not is_typed_dict(typehint)
+        and not is_namedtuple(typehint)
         and not get_registered_type(typehint)
         and not is_pydantic_type(typehint)
         and not is_subclass(typehint, (Path, Enum))
@@ -2017,24 +2233,38 @@ is_single_subclass_type = partial(is_single_class_type, closed_class=False)
 is_single_subclass_or_closed_type = partial(is_single_class_type, closed_class=True)
 
 
-def yield_class_types(typehint, is_single, also_lists=False, callable_return=False):
+def yield_class_types(typehint, is_single, also_lists=False, also_containers=False, callable_return=False):
     typehint = typehint_from_action(typehint)
     if typehint is None:
         return
     typehint = get_unaliased_type(get_optional_arg(get_unaliased_type(typehint)))
     typehint_origin = get_typehint_origin(typehint)
-    kwargs = {"is_single": is_single, "also_lists": also_lists, "callable_return": callable_return}
+    kwargs = {
+        "is_single": is_single,
+        "also_lists": also_lists,
+        "also_containers": also_containers,
+        "callable_return": callable_return,
+    }
     if callable_return and (typehint_origin in callable_origin_types or is_instance_factory_protocol(typehint)):
         return_type = get_callable_return_type(typehint)
         if return_type:
             yield from yield_class_types(return_type, **kwargs)
-    elif typehint_origin == Union or (also_lists and typehint_origin in sequence_origin_types):
-        for subtype in typehint.__args__:
+    elif also_containers and typehint_origin in mapping_origin_types and not is_typed_dict(typehint):
+        # only the value type of mappings can be a class, since keys are always simple types
+        for subtype in getattr(typehint, "__args__", [])[1:]:
             yield from yield_class_types(subtype, **kwargs)
+    elif (
+        typehint_origin == Union
+        or ((also_lists or also_containers) and typehint_origin in sequence_origin_types)
+        or (also_containers and typehint_origin in tuple_set_origin_types)
+    ):
+        for subtype in typehint.__args__:
+            if subtype is not Ellipsis:
+                yield from yield_class_types(subtype, **kwargs)
     if is_single(typehint, typehint_origin):
-        if is_typed_dict(typehint):
-            # a subscripted generic TypedDict is yielded as is, since its keys are
-            # resolved from it, substituting what it is subscripted with
+        if is_structured_value_type(typehint):
+            # a subscripted generic TypedDict or NamedTuple is yielded as is, since its keys or
+            # fields are resolved from it, substituting what it is subscripted with
             yield typehint
         else:
             # a subscripted user defined generic, e.g. Strategy[T], is yielded as its origin
@@ -2042,10 +2272,14 @@ def yield_class_types(typehint, is_single, also_lists=False, callable_return=Fal
             yield get_generic_origin(typehint)
 
 
-def get_subclass_types(typehint, also_lists=False, callable_return=False):
+def get_subclass_types(typehint, also_lists=False, also_containers=False, callable_return=False):
     types = tuple(
         yield_class_types(
-            typehint, is_single=is_single_subclass_type, also_lists=also_lists, callable_return=callable_return
+            typehint,
+            is_single=is_single_subclass_type,
+            also_lists=also_lists,
+            also_containers=also_containers,
+            callable_return=callable_return,
         )
     )
     return types or None
@@ -2064,12 +2298,14 @@ def get_subclass_or_closed_types(typehint, also_lists=False, callable_return=Fal
 
 
 def is_single_help_type(typehint, typehint_origin):
-    return is_typed_dict(typehint) or is_single_subclass_or_closed_type(typehint, typehint_origin)
+    return is_structured_value_type(typehint) or is_single_subclass_or_closed_type(typehint, typehint_origin)
 
 
 def get_help_types(typehint):
     """Types in a type hint for which a --*.help option shows the accepted arguments."""
-    types = tuple(yield_class_types(typehint, is_single=is_single_help_type, also_lists=True, callable_return=True))
+    types = tuple(
+        yield_class_types(typehint, is_single=is_single_help_type, also_containers=True, callable_return=True)
+    )
     return types or None
 
 
@@ -2078,6 +2314,20 @@ def get_subclass_names(typehint, callable_return=False):
         t.__name__
         for t in yield_class_types(typehint, is_single=is_single_subclass_type, callable_return=callable_return)
     )
+
+
+def function_returns_subclass(function, subclass_types, logger) -> bool:
+    """Whether the return type of a function is a subclass of the given types."""
+    from ._postponed_annotations import get_return_type
+    from ._stubs_resolver import get_stub_return_type
+
+    try:
+        return_type = get_return_type(function, logger)
+    except ValueError:
+        return_type = None  # e.g. a builtin that doesn't have an inspectable signature
+    if return_type in {None, inspect._empty}:
+        return_type = get_stub_return_type(function, logger)
+    return is_subclass(return_type, subclass_types)
 
 
 def adapt_partial_callable_class(callable_type, subclass_spec):
@@ -2103,7 +2353,7 @@ def adapt_partial_callable_class(callable_type, subclass_spec):
     return subclass_spec, partial_skip_args
 
 
-def get_all_subclass_paths(cls: type, include_abstract: bool = False) -> list[str]:
+def get_all_subclass_paths(cls: type, include_abstract: bool = False, closed_types: bool = True) -> list[str]:
     subclass_list = []
 
     def is_local(cl):
@@ -2113,10 +2363,6 @@ def get_all_subclass_paths(cls: type, include_abstract: bool = False) -> list[st
         return "._" in class_path
 
     def add_subclasses(cl):
-        if hasattr(cl, "__args__") and get_typehint_origin(cl) in sequence_origin_types.union({Union}):
-            for arg in cl.__args__:
-                add_subclasses(arg)
-            return
         try:
             class_path = get_import_path(cl)
         except (ImportError, AttributeError) as err:  # Attribute is added in case of dot notation imports
@@ -2131,17 +2377,27 @@ def get_all_subclass_paths(cls: type, include_abstract: bool = False) -> list[st
         for subclass in cl.__subclasses__() if hasattr(cl, "__subclasses__") else []:
             add_subclasses(subclass)
 
-    if get_typehint_origin(cls) in callable_origin_types:
-        cls = cls.__args__[-1]  # type: ignore[attr-defined]
-
-    if get_typehint_origin(cls) in {Union, Type, type}:
-        for arg in cls.__args__:  # type: ignore[union-attr]
-            if ActionTypeHint.is_subclass_typehint(arg, also_lists=True) and arg not in {object, type}:
-                add_subclasses(arg)
-    else:
-        add_subclasses(cls)
+    for class_type in get_class_types(cls, closed_types=closed_types):
+        add_subclasses(class_type)
 
     return subclass_list
+
+
+def get_class_types(typehint, closed_types: bool = True) -> tuple:
+    """Classes in a type hint for which a class path is accepted as value.
+
+    Types that have subclasses disabled only accept their own class path, so they
+    are excluded when closed_types is False, e.g. to show the known subclasses.
+    """
+    typehint = get_unaliased_type(get_optional_arg(get_unaliased_type(typehint)))
+    if get_typehint_origin(typehint) in {Type, type}:
+        args = getattr(typehint, "__args__", ())
+        return tuple(a for a in args if ActionTypeHint.is_subclass_typehint(a))
+    if inspect.isclass(typehint) or is_generic_class(typehint):
+        cls = get_generic_origin(typehint)
+        is_single = is_single_subclass_or_closed_type if closed_types else is_single_subclass_type
+        return (cls,) if is_single(cls, get_typehint_origin(cls)) else ()
+    return get_subclass_types(typehint, also_containers=True, callable_return=True) or ()
 
 
 def resolve_class_path_by_name(cls: type | tuple[type], name: str) -> str:
@@ -2267,7 +2523,7 @@ def adapt_class_type(
         # kept as is for an Any typed parameter, which must not be expanded into kwargs
         init_kwargs = dict(init_args.items(branches=True, nested=False))
 
-        if partial_skip_args:
+        if partial_skip_args is not None:  # an empty set for a factory that takes no arguments
             return partial(
                 instantiator_fn,
                 val_class,
@@ -2338,7 +2594,9 @@ def subclasses_disabled_remove_class_path(value):
         elif isinstance(val, list):
             value[key] = [subclasses_disabled_remove_class_path(item) for item in val]
         elif isinstance(val, tuple):
-            value[key] = tuple(subclasses_disabled_remove_class_path(item) for item in val)
+            items = [subclasses_disabled_remove_class_path(item) for item in val]
+            # a NamedTuple is rebuilt as itself, since it is not constructed from an iterable
+            value[key] = type(val)(*items) if is_namedtuple(type(val)) else tuple(items)
 
     if value.pop(subclasses_disabled_meta_key, False):
         init_args = Namespace({**value.get("init_args", {}), **value.get("dict_kwargs", {})})
@@ -2544,6 +2802,33 @@ def rebuild_typehint_args(typehint, new_args):
         return typehint
 
 
+def pristine_value(val):
+    """Copy of a value, so that adapting it against a union subtype does not affect the others."""
+    return val.clone() if isinstance(val, Namespace) else val
+
+
+def sub_defaults_invalidate_value(value, subtype, subtypes, adapt_kwargs) -> bool:
+    """Whether the sub-defaults that a union subtype added make the value invalid for it.
+
+    Sub-defaults are added leniently, so a class subtype can add a placeholder for a required
+    parameter, e.g. the object that an instance factory receives when called. The placeholder
+    then invalidates the value, both for the subtype that added it and for the subtypes that
+    would have accepted the value without it, see sub_defaults_context.
+    """
+    if not (
+        sub_defaults.get()
+        and is_subclass_spec(value)
+        and any(ActionTypeHint.is_return_subclass_typehint(s) for s in subtypes)
+    ):
+        return False
+    with parser_context(lenient_check=False):
+        try:
+            adapt_typehints(value.clone(), subtype, **adapt_kwargs)
+        except Exception:
+            return True
+    return False
+
+
 def sort_subtypes_for_union(subtypes, val, prev_val, append):
     """Sorts the subtypes of a union for the parsing of a given value.
 
@@ -2717,14 +3002,14 @@ def typehint_metavar(typehint):
     return metavar
 
 
-def serialize_class_instance(val):
-    with suppress(Exception):
-        import_path = get_import_path(val)
-        if import_path and import_object(import_path) is val:
-            return import_path
-    val = f"Unable to serialize instance {val}"
-    warning(val)
-    return val
+def serialize_as_import_path(val):
+    """Serializes an object as its import path, warning when it can't be imported back."""
+    try:
+        return object_path_serializer(val)
+    except ValueError:
+        val = f"Unable to serialize instance {val}"
+        warning(val)
+        return val
 
 
 def typehint_from_value(val):
@@ -2768,7 +3053,7 @@ def serialize_unvalidated(val, adapt_kwargs):
         return val
     typehint = typehint_from_value(val)
     if typehint is None:
-        return serialize_class_instance(val)
+        return serialize_as_import_path(val)
     if isinstance(val, dict):
         adapt_val = dict(val)  # adapt_typehints serializes the items in place, so give it a copy
     elif isinstance(val, list):

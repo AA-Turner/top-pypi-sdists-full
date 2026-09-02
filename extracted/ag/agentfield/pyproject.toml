@@ -1,0 +1,159 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentfield"
+version = "0.1.137"
+description = "Python SDK for the AgentField control plane"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "AgentField Maintainers"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.10, <3.14"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "requests>=2.28",
+    "pydantic>=2.0",
+    # LiteLLM 1.97.0 crashes on Python 3.10 building ModelResponse, and
+    # 1.98.0 imports typing.NotRequired (only available in Python 3.11+).
+    # The 3.10 cap can be lifted once upstream guards that import the way
+    # litellm/types/compression.py does. The 3.11+ branch floats on purpose;
+    # .github/workflows/litellm-canary.yml tests it weekly against the
+    # latest release so a break is caught before users hit it.
+    "litellm!=1.97.0,<1.98.0; python_version < '3.11'",
+    "litellm; python_version >= '3.11'",
+    "psutil",
+    "PyYAML>=6.0",
+    "aiohttp>=3.8",
+    "websockets",
+    "fal-client>=0.5.0",
+    "cryptography>=41.0",
+    "joserfc>=1.0"
+]
+keywords = ["agentfield", "sdk", "agents"]
+
+[project.urls]
+Homepage = "https://github.com/Agent-Field/agentfield"
+Documentation = "https://github.com/Agent-Field/agentfield/tree/main/docs"
+Issues = "https://github.com/Agent-Field/agentfield/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agentfield*"]
+exclude = ["tests*", "examples*"]
+
+[tool.setuptools.package-data]
+agentfield = ["py.typed"]
+
+[project.optional-dependencies]
+harness-claude = [
+    "claude-agent-sdk>=0.1",
+]
+harness-codex = [
+    "openai-codex>=0.1.0b3",
+    "openai-codex-cli-bin==0.137.0a4",
+]
+harness-opencode = [
+    "opencode-ai>=0.1.0a36",
+]
+harness-all = [
+    "claude-agent-sdk>=0.1",
+    "openai-codex>=0.1.0b3",
+    "openai-codex-cli-bin==0.137.0a4",
+    "opencode-ai>=0.1.0a36",
+]
+harness = [
+    "claude-agent-sdk>=0.1",
+]
+dev = [
+    "tomli>=2.0; python_version < '3.11'",
+    "pytest>=9.0.3,<10",
+    "pytest-asyncio>=1.3,<2",
+    "pytest-cov>=4.1,<5",
+    "pytest-httpx>=0.30,<1",
+    "responses>=0.23,<0.26",
+    "respx>=0.20,<0.22",
+    "freezegun>=1.2,<2",
+    "syrupy>=5,<6",
+    "hypothesis>=6.88,<7",
+    "pytest-socket>=0.6,<0.8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "smoke: fast sanity checks",
+    "functional: end-to-end behavior within SDK boundaries",
+    "contract: API/interface stability tests",
+    "unit: isolated unit tests",
+    "integration: tests that can touch network/services",
+    "harness_live: live tests that invoke real coding agents (claude, codex, opencode) — costs real money",
+    "httpx_mock: pytest-httpx marker for configuring mock behavior"
+]
+addopts = "-ra -q -m \"not harness_live and not functional\" --strict-markers --strict-config --cov=agentfield.client --cov=agentfield.agent_field_handler --cov=agentfield.execution_context --cov=agentfield.execution_state --cov=agentfield.memory --cov=agentfield.rate_limiter --cov=agentfield.result_cache --cov-report=term-missing:skip-covered"
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["agentfield"]
+omit = [
+    "agentfield/logger.py",
+    "agentfield/types.py",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff — lint configuration
+#
+# The ASYNC ruleset catches blocking calls (requests.*, open(), os.path.*)
+# inside async functions, asyncio.sleep-in-while-loop patterns, and other
+# common threading/asyncio mixing hazards. Enabled as part of the fix for
+# #620 ("Mixing threads and async code").
+#
+# Existing violations are suppressed via per-file-ignores so the ruleset
+# gates *new* code immediately while the backlog is burned down in follow-up
+# PRs. Each ignore references the tracking issue.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-select = [
+    "ASYNC",  # flake8-async — blocking calls in async, loop hazards (#620)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Existing violations tracked under #620. Each will be fixed in a dedicated
+# follow-up slice; the per-file-ignore keeps CI green while preventing NEW
+# violations from landing.
+#
+# ASYNC210: blocking HTTP call (requests.*) in async function
+# ASYNC230: blocking open() in async function
+# ASYNC240: blocking os.path / pathlib in async function
+# ASYNC110: asyncio.sleep in while loop (use asyncio.Event instead)
+"agentfield/agent.py" = ["ASYNC210"]
+"agentfield/agent_ai.py" = ["ASYNC230", "ASYNC240"]
+"agentfield/harness/_runner.py" = ["ASYNC240"]
+"agentfield/harness/providers/opencode.py" = ["ASYNC240"]
+"agentfield/media_providers.py" = ["ASYNC240"]
+"tests/debug_complex_json.py" = ["ASYNC230", "ASYNC240"]
+"tests/test_cancel.py" = ["ASYNC110"]
+"tests/test_harness_functional.py" = ["ASYNC230", "ASYNC240"]
+"tests/test_harness_runner.py" = ["ASYNC230"]
+"tests/test_memory_events.py" = ["ASYNC110"]

@@ -1,0 +1,105 @@
+[build-system]
+# The _proto stubs are committed, so the build needs nothing but hatchling.
+# scripts/gen_proto.py regenerates them; CI checks they are current.
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "river-client"
+dynamic = ["version"]
+description = "Python client for River ML training API"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "River AI", email = "api@river.ai" }]
+keywords = [
+    "river",
+    "llm",
+    "training",
+    "reinforcement-learning",
+    "fine-tuning",
+    "lora",
+    "grpc",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "grpcio>=1.80.0",
+    "protobuf>=6.31.1",
+    "huggingface-hub>=0.36.0",
+    "numpy>=2.0.0",
+    "transformers>=5.3.0",
+    "xxhash>=3.0.0",
+]
+
+[project.optional-dependencies]
+examples = [
+    "datasets>=2.14.0",
+    "wandb>=0.28.0",
+]
+
+# Codegen only, never published as an extra. Pinned exactly: the generated
+# *_pb2_grpc.py stamps GRPC_GENERATED_VERSION and refuses to import against an
+# older grpcio, so a float above the [project] grpcio floor would reject
+# installs that satisfy it.
+[dependency-groups]
+codegen = ["grpcio-tools==1.80.0"]
+
+[project.urls]
+Homepage = "https://river.ai"
+
+[tool.hatch.version]
+path = "src/river_client/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/river_client"]
+
+# Explicit allowlist: without one hatchling ships everything not gitignored,
+# leaking tests/, examples/, GUIDE.md and integration-tests/. Every pattern is
+# rooted — hatchling matches gitignore-style, so a bare "README.md" would also
+# match examples/*/README.md at any depth. proto/ and scripts/ are deliberately
+# absent: the stubs are committed, so an sdist never runs codegen and shipping
+# them would only publish the server's HTTP routing annotations to no purpose.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src/river_client",
+    "/pyproject.toml",
+    "/README.md",
+    "/LICENSE",
+]
+exclude = ["**/.gitignore"]
+
+[tool.ruff]
+# The _proto stubs are protoc output, byte-compared against a fresh run by
+# `gen_proto.py --check` and by api-hackathon's attestation; formatting them
+# would break both. force-exclude keeps that true when a hook passes files
+# explicitly.
+force-exclude = true
+extend-exclude = ["src/river_client/_proto"]
+
+[tool.ruff.lint.per-file-ignores]
+# Client code uses intentional patterns
+"src/river_client/*.py" = [
+    "SLF001",   # Private member access (intentional internal API)
+    "BLE001",   # Blind exception catching (needed for resilience)
+    "FBT001",   # Boolean positional arg (common API pattern)
+    "FBT002",   # Boolean default arg (common API pattern)
+    "EM101",    # Exception string literals
+    "EM102",    # Exception f-strings
+    "TRY003",   # Long exception messages
+    "TRY300",   # Try-except-return pattern
+    "S110",     # Try-except-pass for heartbeat
+]
+# Generated proto files
+"src/river_client/_proto/*.py" = ["ALL"]
+"src/river_client/_proto/*.pyi" = ["ALL"]
+
+[tool.ty.src]
+exclude = ["src/river_client/_proto/**"]

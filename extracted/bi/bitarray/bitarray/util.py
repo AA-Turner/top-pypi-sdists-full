@@ -10,20 +10,23 @@ import sys
 import math
 import random
 import operator
+import itertools
 
 from bitarray import bitarray, frozenbitarray, bits2bytes
 
 from bitarray._util import (
-    zeros, ones, count_n, parity, _ssqi, xor_indices,
+    zeros, ones, count_n, parity, xor_indices,
     count_and, count_or, count_xor, any_and, subset,
     correspond_all, byteswap,
     serialize, deserialize,
     ba2hex, hex2ba,
     ba2base, base2ba,
     sc_encode, sc_decode,
+    rl_encode, rl_decode,
     vl_encode, vl_decode,
     canonical_decode,
 )
+import bitarray._util as _util
 
 __all__ = [
     'zeros', 'ones', 'urandom', 'random_k', 'random_p', 'gen_primes',
@@ -35,7 +38,8 @@ __all__ = [
     'ba2base', 'base2ba',
     'ba2int', 'int2ba',
     'serialize', 'deserialize',
-    'sc_encode', 'sc_decode',
+    'sc_encode', 'sc_decode', 'sc_stat',
+    'rl_encode', 'rl_decode',
     'vl_encode', 'vl_decode',
     'huffman_code', 'canonical_huffman', 'canonical_decode',
 ]
@@ -290,13 +294,16 @@ Return sum of indices of all active bits in bitarray `a`.
 Equivalent to `sum(i for i, v in enumerate(a) if v)`.
 `mode=2` sums square of indices.
 """
-    if mode not in (1, 2):
-        raise ValueError("unexpected mode %r" % mode)
-
     # For details see: devel/test_sum_indices.py
     n = 1 << 19  # block size  512 Kbits
     if len(__a) <= n:  # shortcut for single block
-        return _ssqi(__a, mode)
+        return _util.ssqi(__a, mode)
+
+    if not isinstance(__a, bitarray):
+        raise TypeError("bitarray expected, got '%s'" % type(__a).__name__)
+    mode = operator.index(mode)
+    if mode not in (1, 2):
+        raise ValueError("unexpected mode %r" % mode)
 
     # Constants
     m = n // 8  # block size in bytes
@@ -318,11 +325,11 @@ Equivalent to `sum(i for i, v in enumerate(a) if v)`.
         k = block.count()
         if k:
             y = n * i
-            z1 = o1 if k == n else _ssqi(block)
+            z1 = o1 if k == n else _util.ssqi(block)
             if mode == 1:
                 sm += k * y + z1
             else:
-                z2 = o2 if k == n else _ssqi(block, 2)
+                z2 = o2 if k == n else _util.ssqi(block, 2)
                 sm += (k * y + 2 * z1) * y + z2
 
     return sm
@@ -406,21 +413,18 @@ Compute all uninterrupted intervals of 1s and 0s, and return an
 iterator over tuples `(value, start, stop)`.  The intervals are guaranteed
 to be in order, and their size is always non-zero (`stop - start > 0`).
 """
-    try:
-        value = __a[0]  # value of current interval
-    except IndexError:
-        return
     n = len(__a)
-    stop = 0  # "previous" stop - becomes next start
+    if n == 0:
+        return
 
-    while stop < n:
-        start = stop
-        # assert __a[start] == value
-        # find next occurrence of opposite value
+    value = __a[0]  # value of current interval
+    start = 0
+    while start < n:
         stop = __a.find(not value, start)
         if stop < 0:
             stop = n
         yield int(value), start, stop
+        start = stop
         value = not value  # next interval has opposite value
 
 
@@ -490,6 +494,62 @@ and requires `length` to be provided.
     else:
         del a[:-length]
     return a
+
+
+def sc_stat(stream):
+    """sc_stat(stream) -> dict
+
+Scan a stream produced by `sc_encode()` and return a dictionary containing
+its bit-endianness (`endian`), length (`nbits`), and the number of blocks
+of each type (`blocks`).  `blocks` is a list such that `blocks[i]` is the
+number of blocks of type `i`.
+
+Like `sc_decode()`, it consumes one encoded bitarray and leaves remaining
+input untouched.
+"""
+    def decode_header(stream):
+        head = next(stream)
+        if head & 0xe0:
+            raise ValueError("invalid header: 0x%02x" % head)
+        endian = 'big' if head & 0x10 else 'little'
+        length = head & 0x0f  # number of bytes representing nbits
+        nbits = 0
+        for j in range(length):
+            nbits |= next(stream) << 8 * j
+        return dict(endian=endian, nbits=nbits)
+
+    def scan_block(stream, blocks):
+        head = next(stream)
+
+        if head < 0xa0:                  # type 0 - 0x00 -- 0x9f
+            if head == 0:  # stop byte
+                return False
+            n = 0
+            k = head if head <= 32 else 32 * (head - 31)
+        elif head < 0xc0:                # type 1 - 0xa0 .. 0xbf
+            n = 1
+            k = head - 0xa0
+        elif 0xc2 <= head <= 0xc4:       # type 2 .. 4 - 0xc2 .. 0xc4
+            n = head - 0xc0
+            k = next(stream)             # index count byte
+        else:
+            raise ValueError("invalid block head: 0x%02x" % head)
+
+        blocks[n] += 1
+
+        nc = max(1, n) * k   # size of block data to consume
+        next(itertools.islice(stream, nc, nc), None)
+        return True
+
+    stream = iter(stream)
+    stats = decode_header(stream)
+
+    blocks = 5 * [0]
+    while scan_block(stream, blocks):
+        pass
+
+    stats['blocks'] = blocks
+    return stats
 
 # ------------------------------ Huffman coding -----------------------------
 

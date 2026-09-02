@@ -8,7 +8,7 @@ from httpx import HTTPStatusError
 
 from mistralai.workflows.client import translate_model
 from mistralai.workflows.core.auth import get_token_provider
-from mistralai.workflows.core.config.config import apply_remote_defaults, config
+from mistralai.workflows.core.config.config import adopt_remote_default, apply_remote_defaults, config
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.protocol.v1.worker import WorkerInfo
@@ -19,9 +19,12 @@ logger = structlog.get_logger(__name__)
 class WorkerRuntimeConfig(WorkerInfo):
     def apply(self) -> dict[str, bool]:
         """Apply the resolved configuration, returning the feature values that won."""
-        config.temporal.namespace = self.namespace
-        config.temporal.server_url = normalize_temporal_url(self.scheduler_url)
-        config.temporal.tls = self.tls
+        # The connection settings are adopted field by field rather than through
+        # `RemotelyOverridable`: the server names them differently, they are not booleans, and the
+        # scheduler URL needs normalizing. New boolean flags belong on the annotation path instead.
+        adopt_remote_default(config.temporal, "namespace", self.namespace)
+        adopt_remote_default(config.temporal, "server_url", normalize_temporal_url(self.scheduler_url))
+        adopt_remote_default(config.temporal, "tls", self.tls)
         return apply_remote_defaults(config, self.features.model_dump())
 
 
@@ -53,6 +56,9 @@ async def apply_worker_runtime_config(api_key: str | None = None) -> WorkerRunti
             namespace=runtime_config.namespace,
             scheduler_url=runtime_config.scheduler_url,
             tls=runtime_config.tls,
+            effective_namespace=config.temporal.namespace,
+            effective_server_url=config.temporal.server_url,
+            effective_tls=config.temporal.tls,
             server_features=runtime_config.features.model_dump(),
             effective_features=effective_features,
         )

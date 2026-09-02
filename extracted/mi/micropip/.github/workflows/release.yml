@@ -1,0 +1,65 @@
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+env:
+  FORCE_COLOR: 3
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: 3.13
+
+      # IMPORTANT: always build sdist, and then the wheel from
+      # the sdist (like it is currently done here). This is
+      # because we want to ensure that no extra files get
+      # copied, which can be the case with building in-tree.
+      # The MANIFEST.in file ensures that the sdist doesn't
+      # contain any unnecessary files.
+      - name: Build package distributions
+        run: pipx run build
+
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    environment:
+      name: pypi
+      url: https://pypi.org/p/micropip
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist/
+          merge-multiple: true
+
+      - name: Generate artifact attestations
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: "dist/*"
+
+      - name: Publish distribution 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0

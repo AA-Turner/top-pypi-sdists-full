@@ -12,7 +12,9 @@ from __future__ import annotations
 import json
 import math
 import os
+import sqlite3
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -1533,3 +1535,192 @@ class TestPostingsStore:
         rag._CACHE.clear()
         assert rag.ready() is False, \
             "a docs-only index would score every query to zero hits"
+
+
+class TestPostingsInterning:
+    """Terms live in their own table, not repeated on every posting row.
+
+    Measured on a real 458-tap store: 18,619,658 posting rows over 210,422
+    distinct terms averaging 6.6 characters — the term string alone was ~123 MB
+    of a 653 MB file, each term stored 88 times over on average. These tests
+    pin the interned shape directly against the SQLite file, because
+    `read_postings`/`stem_expansions` alone would pass just as well against the
+    old un-interned layout — a mutant that reverted `_write_postings` to store
+    `term TEXT` on every posting row would leave every other test in this file
+    green.
+    """
+
+    def _built(self):
+        rag._save([{"n": "a", "t": "x/y", "f": "a/SKILL.md", "h": "h1",
+                    "k": "skill", "c": 0, "l": 2, "snip": "sa",
+                    "tf": {"react": 2, "test": 1}},
+                   {"n": "b", "t": "x/y", "f": "b/SKILL.md", "h": "h2",
+                    "k": "skill", "c": 0, "l": 1, "snip": "sb",
+                    "tf": {"test": 3}}], {})
+        rag._CACHE.clear()
+
+    def _connect(self):
+        return sqlite3.connect("file:%s?mode=ro" % rag.postings_path(),
+                                uri=True)
+
+    def test_postings_rows_carry_an_integer_term_id_not_term_text(
+            self, sandbox):
+        self._built()
+        con = self._connect()
+        try:
+            cols = {row[1]: row[2]
+                    for row in con.execute("PRAGMA table_info(postings)")}
+        finally:
+            con.close()
+        assert cols == {"term_id": "INTEGER", "doc": "INTEGER", "tf": "INTEGER"}
+
+    def test_every_posting_row_resolves_to_a_term_via_the_terms_table(
+            self, sandbox):
+        self._built()
+        con = self._connect()
+        try:
+            rows = con.execute(
+                "SELECT t.term, p.doc, p.tf FROM postings p "
+                "JOIN terms t ON p.term_id = t.id "
+                "WHERE t.term = 'test' ORDER BY p.doc").fetchall()
+        finally:
+            con.close()
+        assert rows == [("test", 0, 1), ("test", 1, 3)]
+
+    def test_a_term_used_by_two_docs_is_stored_once_in_the_terms_table(
+            self, sandbox):
+        self._built()
+        con = self._connect()
+        try:
+            term_ids = {row[0] for row in
+                        con.execute("SELECT term_id FROM postings p "
+                                    "JOIN terms t ON p.term_id = t.id "
+                                    "WHERE t.term = 'test'")}
+            term_rows = con.execute(
+                "SELECT COUNT(*) FROM terms WHERE term = 'test'").fetchone()[0]
+        finally:
+            con.close()
+        assert len(term_ids) == 1, "test's two postings must share one term_id"
+        assert term_rows == 1, "the term string itself must appear exactly once"
+
+    def test_document_frequency_is_precomputed_per_term(self, sandbox):
+        self._built()
+        con = self._connect()
+        try:
+            df = dict(con.execute("SELECT term, df FROM terms"))
+        finally:
+            con.close()
+        assert df == {"react": 1, "test": 2}
+
+    def test_term_text_is_unique_in_the_terms_table(self, sandbox):
+        self._built()
+        con = sqlite3.connect(str(rag.postings_path()))
+        try:
+            with pytest.raises(sqlite3.IntegrityError):
+                con.execute("INSERT INTO terms (id, term, df) "
+                            "VALUES (999, 'test', 1)")
+        finally:
+            con.close()
+
+
+class TestConcurrentPostingsBuildsDoNotDestroyEachOther:
+    """Two `rag.build()` runs must not delete each other's temp file.
+
+    `_write_postings` writes to a temp beside the final path and swaps it in.
+    While that temp had a FIXED name and was unlinked on entry, a second build
+    starting mid-flight deleted the first's finished file, and the first then
+    raised `FileNotFoundError` out of `tmp.replace(final)` — observed on a real
+    464-tap install:
+
+        FileNotFoundError: rag_postings.sqlite.tmp -> rag_postings.sqlite
+          at rag.py in _write_postings, tmp.replace(final)
+
+    The loser's work is thrown away and the user gets a crash report rather
+    than a result, on a command whose whole job is to rebuild that file.
+    `boost search` auto-builds on a cold index, so two terminals is enough.
+    """
+
+    def test_a_second_build_does_not_delete_the_first_s_temp(self, sandbox):
+        # A writes its temp; B runs to completion in the middle; A must still
+        # be able to swap its own file in.
+        seen: list = []
+        real_connect = rag.sqlite3.connect
+
+        def connect_then_run_a_rival(path, *a, **kw):
+            con = real_connect(path, *a, **kw)
+            if not seen:
+                seen.append(path)
+                # A rival build, start to finish, while this one is open.
+                rag._write_postings({"beta": [[1, 1]]})
+            return con
+
+        with mock.patch.object(rag.sqlite3, "connect",
+                               side_effect=connect_then_run_a_rival):
+            rag._write_postings({"alpha": [[0, 1]]})
+
+        # No crash is the headline, and the file the outer build wrote is the
+        # one that must be standing.
+        assert rag.postings_path().exists()
+        assert rag.read_postings(["alpha"])["alpha"] == [[0, 1]]
+
+    def test_each_build_uses_its_own_temp_path(self, sandbox):
+        # The mechanism, pinned directly: a shared constant temp name is what
+        # made the race possible, so two builds must not name the same file.
+        names: list[str] = []
+        real_connect = rag.sqlite3.connect
+
+        def record(path, *a, **kw):
+            names.append(str(path))
+            return real_connect(path, *a, **kw)
+
+        with mock.patch.object(rag.sqlite3, "connect", side_effect=record):
+            rag._write_postings({"alpha": [[0, 1]]})
+            rag._write_postings({"beta": [[1, 1]]})
+
+        assert len(names) == 2
+        assert names[0] != names[1], (
+            "both builds wrote %s — a fixed temp name lets one delete the "
+            "other's finished file" % names[0])
+
+    def test_no_temp_files_are_left_behind(self, sandbox):
+        rag._write_postings({"alpha": [[0, 1]]})
+        leftovers = list(rag.postings_path().parent.glob("*.tmp*"))
+        assert leftovers == [], "left %s behind" % leftovers
+
+    def test_a_failed_build_cleans_up_and_leaves_the_old_index_standing(
+            self, sandbox):
+        """A build that raises must not leave a temp behind or eat the error.
+
+        The cleanup path is the whole reason the temp is unique: if a failing
+        build left its file, the directory would fill with one per crash, and
+        a swallowed exception would report success for an index that was never
+        written. `util.atomic_write_text` makes the same two guarantees.
+        """
+        rag._write_postings({"alpha": [[0, 1]]})       # an index worth keeping
+        before = rag.postings_path().read_bytes()
+
+        closed: list[bool] = []
+
+        class Boom:
+            def execute(self, *a, **kw):
+                raise RuntimeError("disk went away")
+
+            def executemany(self, *a, **kw):  # pragma: no cover - unreached
+                raise RuntimeError("disk went away")
+
+            def commit(self):  # pragma: no cover - unreached
+                pass
+
+            def close(self):
+                closed.append(True)
+
+        with (mock.patch.object(rag.sqlite3, "connect", return_value=Boom()),
+              pytest.raises(RuntimeError, match="disk went away")):
+            rag._write_postings({"beta": [[1, 1]]})
+
+        assert closed, "the connection was leaked on the failure path"
+        assert list(rag.postings_path().parent.glob("*.tmp*")) == []
+        # The swap never happened, so the previous index is still the one on
+        # disk — a failed rebuild must not cost you the index you had.
+        assert rag.postings_path().read_bytes() == before
+        assert rag.read_postings(["alpha"])["alpha"] == [[0, 1]]

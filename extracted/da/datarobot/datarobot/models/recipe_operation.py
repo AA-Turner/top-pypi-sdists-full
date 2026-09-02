@@ -881,7 +881,7 @@ class AggregateFeature(TypedDict):
     feature: str
         Feature to aggregate.
     functions: List[AggregationFunctions]
-        List of aggregation functions to apply. A new column will be created for each function. Some feature types may
+        A list of aggregation functions to apply. A new column will be created for each function. Some feature types may
         not support all aggregation functions, e.g., categorical features do not support numeric aggregation functions
         like SUM or AVG.
 

@@ -1,0 +1,100 @@
+site_name: RENKIN
+site_description: Computer-Aided Synthesis Planning — Pure Rust retrosynthesis engine with WASM and Python bindings
+site_url: https://kent-tokyo.github.io/renkin/
+repo_url: https://github.com/kent-tokyo/renkin
+repo_name: kent-tokyo/renkin
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: deep purple
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - content.code.annotate
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - social:
+      cards_layout_options:
+        background_color: "#7c4dff"
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path:
+        - .
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting_started/installation.md
+    - Quick Start: getting_started/quickstart.md
+  - Guides:
+    - Python Retrosynthesis: guides/python-retrosynthesis.md
+    - Rust Retrosynthesis: guides/rust-retrosynthesis.md
+    - Forward Reaction Prediction: guides/forward-prediction.md
+    - Forward Enumeration: guides/forward-enumeration.md
+    - Forward Retrieval Hints: guides/forward-retrieval-hints.md
+    - Reaction Evidence Metadata: guides/reaction-evidence.md
+    - Deterministic Chemical Review: guides/chemical-review-rubric.md
+    - Private Stock Policy: guides/private-stock-policy.md
+    - Evidence-Carrying Interchange: guides/evidence-carrying-interchange.md
+    - Audit a Real AiZynthFinder Route: guides/aizynthfinder-audit-demo.md
+    - Audit a Syntheseus Route: guides/syntheseus-audit-demo.md
+    - Audit a Real SynPlanner Route: guides/synplanner-audit-demo.md
+    - Audit Reproducibility and Compatibility Contract: guides/audit-reproducibility-contract.md
+  - API Reference:
+    - Rust API: api/rust.md
+    - Python API: api/python.md
+    - WASM / JavaScript: api/wasm.md
+  - Examples:
+    - Aspirin Retrosynthesis: examples/aspirin.md
+    - Drug-like Molecules: examples/druglike.md
+  - Playground: playground/index.html
+  - Historical Benchmark (Frozen):
+    - Results (EN): benchmark.md
+    - 結果 (JA): benchmark_ja.md
+
+extra:
+  og_image: assets/og_image.svg
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/kent-tokyo/renkin
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/renkin/
+    - icon: fontawesome/brands/rust
+      link: https://crates.io/crates/renkin
+
+copyright: Copyright &copy; 2025 RENKIN Contributors — MIT License

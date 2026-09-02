@@ -29,17 +29,17 @@ class Ruleset(APIObject):
     Attributes
     ----------
     id : str
-        the ID of the ruleset
+        The ID of the ruleset.
     rule_count : int
-        the number of rules used to approximate the model
+        The number of rules used to approximate the model.
     score : float
-        the validation score of the approximation
+        The validation score of the approximation.
     project_id : str
-        the project the approximation belongs to
+        The project the approximation belongs to.
     parent_model_id : str
-        the model being approximated
+        The model being approximated.
     model_id : str or None
-        the model using this ruleset (if it exists).  Will be None if no such model has been
+        The model using this ruleset (if it exists). Will be None if no such model has been
         trained.
 
     """
@@ -81,7 +81,7 @@ class Ruleset(APIObject):
         Returns
         -------
         job: Job
-            the job fitting the new Prime model
+            The job fitting the new Prime model.
         """
         from . import Job  # pylint: disable=import-outside-toplevel,cyclic-import
 

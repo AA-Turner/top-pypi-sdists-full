@@ -204,16 +204,16 @@ class RegisteredModelVersion(APIObject):
     model_id : str
         The ID of the model.
     model_execution_type : str
-        Type of model package (version). `dedicated` (native DataRobot models) and
-        custom_inference_model` (user added inference models) both execute on DataRobot
-        prediction servers, `external` do not
+        The type of model package (version). `dedicated` (native DataRobot models) and
+        `custom_inference_model` (user added inference models) both execute on DataRobot
+        prediction servers, while `external` does not.
     is_archived : bool
         Whether the model package (version) is permanently archived (cannot be used in deployment or
-            replacement)
+            replacement).
     import_meta : ImportMeta
-        Information from when this Model Package (version) was first saved.
+        Information from when this model package (version) was first saved.
     source_meta : SourceMeta
-        Meta information from where this model was generated
+        Meta information from where this model was generated.
     model_kind : ModelKind
         Model attribute information.
     target : Target
@@ -228,7 +228,7 @@ class RegisteredModelVersion(APIObject):
         Bias and fairness information for the registered model version.
     is_deprecated : bool
         Whether the model package (version) is deprecated (cannot be used in deployment or
-            replacement)
+            replacement).
     permissions : List[str]
         Permissions for the registered model version.
     active_deployment_count : int or None

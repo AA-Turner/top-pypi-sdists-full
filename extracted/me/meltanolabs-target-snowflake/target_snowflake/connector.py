@@ -1,7 +1,10 @@
+# Copyright (C) 2026 Meltano.
+
 from __future__ import annotations
 
 import base64
 import binascii
+import re
 import urllib.parse
 import uuid
 from contextlib import contextmanager
@@ -11,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from warnings import warn
 
+import humps
 import snowflake.sqlalchemy.custom_types as sct
 import sqlalchemy
 import sqlalchemy.sql.type_api
@@ -22,6 +26,7 @@ from snowflake.sqlalchemy import URL
 from snowflake.sqlalchemy.base import SnowflakeIdentifierPreparer
 from snowflake.sqlalchemy.snowdialect import SnowflakeDialect
 from sqlalchemy.sql import text
+from sqlalchemy.sql.compiler import RESERVED_WORDS as DEFAULT_RESERVED_WORDS
 
 from target_snowflake.snowflake_types import (
     NUMBER,
@@ -37,6 +42,7 @@ if TYPE_CHECKING:
     import sqlalchemy as sa
     from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
     from sqlalchemy.engine import Engine
+    from sqlalchemy.sql.compiler import IdentifierPreparer
 
 
 class JSONSchemaToSnowflake(JSONSchemaToSQL):
@@ -105,6 +111,21 @@ class SnowflakeConnector(SQLConnector):
         if self._inspector is None:
             self._inspector = sqlalchemy.inspect(self._engine)
         return self._inspector
+
+    def invalidate_table_cache(self, full_table_name: str | FullyQualifiedName) -> None:
+        """Discard cached reflection state for a table after DDL.
+
+        Dropping the `table_cache` entry alone is not enough. The Inspector
+        memoises reflection for its lifetime, and snowflake-sqlalchemy caches
+        columns per *schema*, so a table created after the first reflection of
+        that schema stays invisible and reflecting it raises NoSuchTableError.
+        The Inspector is dropped so the next reflection queries Snowflake.
+
+        Args:
+            full_table_name: the table whose cached state is now stale.
+        """
+        self.table_cache.pop(full_table_name, None)
+        self._inspector = None
 
     def get_table_columns(
         self,
@@ -259,7 +280,7 @@ class SnowflakeConnector(SQLConnector):
         """Get the connect args for the connector."""
         connect_args = {
             "session_parameters": {
-                "QUOTED_IDENTIFIERS_IGNORE_CASE": "TRUE",
+                "QUOTED_IDENTIFIERS_IGNORE_CASE": str(self.config.get("quoted_identifiers_ignore_case", True)).upper(),
             },
             "client_session_keep_alive": True,  # See https://github.com/snowflakedb/snowflake-connector-python/issues/218
         }
@@ -300,6 +321,8 @@ class SnowflakeConnector(SQLConnector):
         # Map Python's uuid.UUID to SQLAlchemy's UUID type when writing values
         engine.dialect.colspecs[uuid.UUID] = sqlalchemy.types.Uuid  # type: ignore[index] # ty:ignore[invalid-assignment]
 
+        engine.dialect.identifier_preparer.reserved_words |= DEFAULT_RESERVED_WORDS
+
         with engine.connect() as conn:
             db_names = [db[1] for db in conn.execute(text("SHOW DATABASES;")).fetchall()]
             if self.config["database"] not in db_names:
@@ -307,18 +330,17 @@ class SnowflakeConnector(SQLConnector):
                 raise Exception(msg)  # noqa: TRY002
         return engine
 
+    @cached_property
+    def formatter(self) -> IdentifierPreparer:
+        return self._engine.dialect.identifier_preparer
+
     def prepare_column(
         self,
         full_table_name: str | FullyQualifiedName,
         column_name: str,
         sql_type: sqlalchemy.types.TypeEngine,
     ) -> None:
-        formatter = SnowflakeIdentifierPreparer(SnowflakeDialect())
-        # Make quoted column names upper case because we create them that way
-        # and the metadata that SQLAlchemy returns is case insensitive only for non-quoted
-        # column names so these will look like they dont exist yet.
-        if '"' in formatter.format_collation(column_name):
-            column_name = column_name.upper()
+        column_name = self.format_identifier(column_name)
 
         try:
             super().prepare_column(
@@ -341,6 +363,7 @@ class SnowflakeConnector(SQLConnector):
         new_column_name: str,
     ) -> sqlalchemy.DDL:
         formatter = SnowflakeIdentifierPreparer(SnowflakeDialect())
+        formatter.reserved_words |= DEFAULT_RESERVED_WORDS
         # Since we build the ddl manually we can't rely on SQLAlchemy to
         # quote column names automatically.
         return SQLConnector.get_column_rename_ddl(
@@ -368,6 +391,7 @@ class SnowflakeConnector(SQLConnector):
             A sqlalchemy DDL instance.
         """
         formatter = SnowflakeIdentifierPreparer(SnowflakeDialect())
+        formatter.reserved_words |= DEFAULT_RESERVED_WORDS
         # Since we build the ddl manually we can't rely on SQLAlchemy to
         # quote column names automatically.
         return sqlalchemy.DDL(
@@ -391,6 +415,9 @@ class SnowflakeConnector(SQLConnector):
             "date-time",
             TIMESTAMP_TYPES[self.config.get("timestamp_type", DEFAULT_TIMESTAMP_TYPE)],
         )
+        if self.config.get("uuid_format", "native") == "string":
+            # a standard UUID string is 36 characters long
+            to_sql.register_format_handler("uuid", lambda _: sct.STRING(36))
         return to_sql
 
     def schema_exists(self, schema_name: str) -> bool:
@@ -398,12 +425,7 @@ class SnowflakeConnector(SQLConnector):
             return True
         schema_names = self.inspector.get_schema_names()
         self.schema_cache = schema_names
-        formatter = SnowflakeIdentifierPreparer(SnowflakeDialect())
-        # Make quoted schema names upper case because we create them that way
-        # and the metadata that SQLAlchemy returns is case insensitive only for
-        # non-quoted schema names so these will look like they dont exist yet.
-        if '"' in formatter.format_collation(schema_name):
-            schema_name = schema_name.upper()
+        schema_name = self.format_identifier(schema_name)
         return schema_name in schema_names
 
     # Custom SQL get methods
@@ -430,14 +452,11 @@ class SnowflakeConnector(SQLConnector):
     def _get_column_selections(
         self,
         schema: dict,
-        formatter: SnowflakeIdentifierPreparer,
     ) -> list:
         column_selections = []
         for property_name, property_def in schema["properties"].items():
-            clean_property_name = formatter.format_collation(property_name)
-            clean_alias = clean_property_name
-            if '"' in clean_property_name:
-                clean_alias = clean_property_name.upper()
+            clean_property_name = self.formatter.format_collation(property_name)
+            clean_alias = self.format_identifier(property_name, safe=True)
             column_selections.append(
                 {
                     "clean_property_name": clean_property_name,
@@ -456,16 +475,14 @@ class SnowflakeConnector(SQLConnector):
         key_properties: Iterable[str],
     ):
         """Get Snowflake MERGE statement."""
-        formatter = SnowflakeIdentifierPreparer(SnowflakeDialect())
-        column_selections = self._get_column_selections(schema, formatter)
+        column_selections = self._get_column_selections(schema)
         json_casting_selects = self._format_column_selections(
             column_selections,
             "json_casting",
         )
 
-        # use UPPER from here onwards
-        formatted_properties = [formatter.format_collation(col) for col in schema["properties"]]
-        formatted_key_properties = [formatter.format_collation(col) for col in key_properties]
+        formatted_properties = [self.format_identifier(k, safe=True) for k in schema["properties"]]
+        formatted_key_properties = [self.format_identifier(k, safe=True) for k in key_properties]
         join_expr = " and ".join(
             [f"d.{key} = s.{key}" for key in formatted_key_properties],
         )
@@ -493,8 +510,7 @@ class SnowflakeConnector(SQLConnector):
 
     def _get_copy_statement(self, full_table_name, schema, sync_id, file_format):  # noqa: ANN202, ANN001
         """Get Snowflake COPY statement."""
-        formatter = SnowflakeIdentifierPreparer(SnowflakeDialect())
-        column_selections = self._get_column_selections(schema, formatter)
+        column_selections = self._get_column_selections(schema)
         json_casting_selects = self._format_column_selections(
             column_selections,
             "json_casting",
@@ -513,10 +529,14 @@ class SnowflakeConnector(SQLConnector):
             {},
         )
 
-    def _get_file_format_statement(self, file_format: str) -> tuple[sqlalchemy.TextClause, dict]:
+    def _get_file_format_statement(
+        self,
+        file_format: str,
+        file_type: str = "JSON",
+    ) -> tuple[sqlalchemy.TextClause, dict]:
         """Get Snowflake CREATE FILE FORMAT statement."""
         return (
-            text(f"create or replace file format {file_format} type = 'JSON' compression = 'AUTO'"),
+            text(f"create or replace file format {file_format} type = '{file_type}' compression = 'AUTO'"),
             {},
         )
 
@@ -553,15 +573,17 @@ class SnowflakeConnector(SQLConnector):
                 # See https://github.com/MeltanoLabs/target-snowflake/issues/87 for more information about this error
                 conn.execute(put_statement, {"file_uri": file_uri, **kwargs})
 
-    def create_file_format(self, file_format: str) -> None:
+    def create_file_format(self, file_format: str, file_type: str = "JSON") -> None:
         """Create a file format in the schema.
 
         Args:
             file_format: The name of the file format.
+            file_type: The Snowflake file format type, e.g. ``"JSON"`` or ``"PARQUET"``.
         """
         with self._connect() as conn, conn.begin():
             file_format_statement, kwargs = self._get_file_format_statement(
                 file_format=file_format,
+                file_type=file_type,
             )
             self.logger.debug(
                 "Creating file format with SQL: %s",
@@ -594,7 +616,13 @@ class SnowflakeConnector(SQLConnector):
             )
             self.logger.debug("Merging with SQL: %s", merge_statement)
             result = conn.execute(merge_statement, **kwargs)
-            return result.rowcount
+            # MERGE's rowcount, like COPY INTO's below, isn't reliable via the generic
+            # DBAPI/SQLAlchemy rowcount attribute - Snowflake's MERGE instead returns a
+            # single-row result set: ("number of rows inserted", "number of rows updated",
+            # "number of rows deleted"). Sum those instead of trusting result.rowcount,
+            # which silently undercounts.
+            row = result.fetchone()
+            return sum(row) if row is not None else result.rowcount
 
     def copy_from_stage(
         self,
@@ -620,7 +648,19 @@ class SnowflakeConnector(SQLConnector):
             )
             self.logger.debug("Copying with SQL: %s", copy_statement)
             result = conn.execute(copy_statement, **kwargs)
-            return result.rowcount
+            # COPY INTO rowcount = number of files, not rows.
+            # Fetch the result set and sum the rows_loaded column instead.
+            rows = result.fetchall()
+            return sum(r[3] for r in rows) if rows else result.rowcount
+
+    def truncate_table(self, full_table_name: str | FullyQualifiedName) -> None:
+        """Truncate a table.
+
+        Args:
+            full_table_name: The fully-qualified name of the table to truncate.
+        """
+        with self._connect() as conn, conn.begin():
+            conn.execute(text(f"truncate table {full_table_name}"))
 
     def drop_file_format(self, file_format: str) -> None:
         """Drop a file format in the schema.
@@ -728,3 +768,74 @@ class SnowflakeConnector(SQLConnector):
                 sql_type,
             )
             raise
+
+    def format_identifier(self, identifier: str, *, safe: bool = False) -> str:
+        """Format an identifier per the `normalise_casing`/`quoted_identifiers_ignore_case` config.
+
+        Args:
+            identifier: The raw identifier (column/schema name) to format.
+            safe: If True, return the quoted form when the identifier requires quoting
+                (e.g. reserved words, mixed casing); otherwise return the unquoted form
+                used to compare against SQLAlchemy's case-insensitive representation.
+
+        Returns:
+            The formatted identifier.
+        """
+        if self.config.get("normalise_casing", False):
+            # substrings of 2 or more upper-case characters need to be converted to
+            # title-case to play nicely with proceeding `humps.decamelise` call and avoid
+            # bad formatting
+            #
+            # without: "TEST_streamName" -> "TES_T_stream_name"
+            # with: "TEST_streamName" -> "test_stream_name"
+            formatted = re.sub(r"[A-Z]{2,}", lambda match: match.group().lower(), identifier)
+
+            formatted = humps.decamelize(formatted)
+
+            # substitute hyphens
+            formatted = humps.dekebabize(formatted)
+
+            # the following should only quote reserved keywords e.g. `desc` at this point
+            # as name should not contain mixed casing due to snake_case transformation (no
+            # need to quote)
+        else:
+            formatted = identifier
+
+        safe_formatted = self.formatter.format_collation(formatted)
+
+        if '"' not in safe_formatted or self.config.get("quoted_identifiers_ignore_case", True):
+            # Lowercase column names that are created in a case-insensitive manner, either instrinsically or when
+            # QUOTED_IDENTIFIERS_IGNORE_CASE is set to FALSE, to match their SQLAlchemy representation.
+            #
+            # > Snowflake stores all case-insensitive object names in uppercase text. In contrast, SQLAlchemy considers
+            # > all lowercase object names to be case-insensitive.
+            #
+            # https://docs.snowflake.com/en/developer-guide/python-connector/sqlalchemy#object-name-case-handling
+            #
+            # > Unquoted identifiers are stored and resolved in uppercase. Therefore, an unquoted identifier is
+            # > equivalent to a capitalized double-quoted identifier with the same name.
+            #
+            # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#unquoted-identifiers
+            #
+            # > To configure Snowflake to treat alphabetic characters in double-quoted identifiers as uppercase for the
+            # > session, set the parameter to TRUE for the session. With this setting, all alphabetical characters in
+            # > identifiers are stored and resolved as uppercase characters.
+            #
+            # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#controlling-case-using-the-quoted-identifiers-ignore-case-parameter
+
+            formatted = formatted.lower()
+
+            # ...but only when SQLAlchemy actually hands the name back lowercased.
+            #
+            # `SnowflakeDialect.normalize_name` lowercases a stored (upper-case) identifier
+            # only if the lower-case form needs no quoting. Anything that *does* require
+            # quoting - reserved words such as `user`, and names containing spaces, colons,
+            # brackets, etc. - is returned exactly as Snowflake stored it, which under
+            # QUOTED_IDENTIFIERS_IGNORE_CASE is upper case. Those must be compared in upper
+            # case or an existing column looks missing and gets re-added via ALTER TABLE.
+            if '"' in self.formatter.format_collation(formatted):
+                formatted = formatted.upper()
+                safe_formatted = safe_formatted.upper()
+
+        # Identifiers that require quoting should be returned as-is when QUOTED_IDENTIFIERS_IGNORE_CASE is set to FALSE.
+        return safe_formatted if safe else formatted

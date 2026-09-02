@@ -34,23 +34,23 @@ class RatingTable(APIObject):
     Attributes
     ----------
     id : str
-        The id of the rating table.
+        The ID of the rating table.
     project_id : str
-        The id of the project this rating table belongs to.
+        The ID of the project this rating table belongs to.
     rating_table_name : str
         The name of the rating table.
     original_filename : str
         The name of the file used to create the rating table.
     parent_model_id : str
-        The model id of the model the rating table was validated against.
+        The model ID of the model the rating table was validated against.
     model_id : str
-        The model id of the model that was created from the rating table.
+        The model ID of the model that was created from the rating table.
         Can be None if a model has not been created from the rating table.
     model_job_id : str
-        The id of the job to create a model from this rating table.
+        The ID of the job to create a model from this rating table.
         Can be None if a model has not been created from the rating table.
     validation_job_id : str
-        The id of the created job to validate the rating table.
+        The ID of the created job to validate the rating table.
         Can be None if the rating table has not been validated.
     validation_error : str
         Contains a description of any errors caused during validation.
@@ -105,7 +105,7 @@ class RatingTable(APIObject):
         ----------
         data : dict
             The directly translated dict of JSON from the server. No casing fixes have
-            taken place
+            taken place.
         should_warn : bool
             Whether or not to issue a warning if an invalid rating table is being retrieved.
         """
@@ -135,12 +135,12 @@ class RatingTable(APIObject):
         project_id : str
             The ID of the project the rating table is associated with.
         rating_table_id : str
-            The ID of the rating table
+            The ID of the rating table.
 
         Returns
         -------
         rating_table : RatingTable
-            The queried instance
+            The queried instance.
         """
         path = f"projects/{project_id}/ratingTables/{rating_table_id}/"
         return cls.from_location(path)
@@ -154,14 +154,14 @@ class RatingTable(APIObject):
         rating_table_name: str = "Uploaded Rating Table",
     ) -> Job:
         """
-        Uploads and validates a new rating table CSV
+        This method uploads and validates a new rating table CSV.
 
         Parameters
         ----------
         project_id : str
-            id of the project the rating table belongs to
+            The ID of the project the rating table belongs to.
         parent_model_id : str
-            id of the model for which this rating table should be validated against
+            The ID of the model against which this rating table should be validated.
         filename : str
             The path of the CSV file containing the modified rating table.
         rating_table_name : Optional[str]
@@ -172,7 +172,7 @@ class RatingTable(APIObject):
         Returns
         -------
         job: Job
-            an instance of created async job
+            An instance of the created async job.
 
         Raises
         ------
@@ -203,7 +203,7 @@ class RatingTable(APIObject):
 
     def download(self, filepath: str) -> None:
         """
-        Download a csv file containing the contents of this rating table
+        Download a CSV file containing the contents of this rating table.
 
         Parameters
         ----------
@@ -237,15 +237,15 @@ class RatingTable(APIObject):
         Returns
         -------
         job: Job
-            an instance of created async job
+            An instance of the created async job.
 
         Raises
         ------
         ClientError
-            Raised if creating model from a RatingTable that failed validation
+            Raised if creating model from a RatingTable that failed validation.
         JobAlreadyRequested
             Raised if creating model from a RatingTable that is already
-            associated with a RatingTableModel
+            associated with a RatingTableModel.
         """
         from .model import RatingTableModel  # pylint: disable=import-outside-toplevel,cyclic-import
 

@@ -44,13 +44,13 @@ class CalendarFile(APIObject):
     Attributes
     ----------
     id : str
-        The id of the calendar file.
+        The ID of the calendar file.
     calendar_start_date : str
         The earliest date in the calendar.
     calendar_end_date : str
         The last date in the calendar.
     created  : str
-        The date this calendar was created, i.e., uploaded to DR.
+        The date this calendar was created, that is, uploaded to DataRobot.
     name : str
         The name of the calendar.
     num_event_types : int
@@ -58,11 +58,11 @@ class CalendarFile(APIObject):
     num_events : int
         The number of events this calendar has.
     project_ids : list of strings
-        A list containing the projectIds of the projects using this calendar.
+        A list containing the ``projectIds`` of the projects using this calendar.
     multiseries_id_columns: List[str] or None
         A list of columns in calendar which uniquely identify events for different series.
         Currently, only one column is supported.
-        If multiseries id columns are not provided, calendar is considered to be single series.
+        If multiseries ID columns are not provided, the calendar is considered to be single series.
     role : str
         The access role the user has for this calendar.
     """
@@ -150,12 +150,12 @@ class CalendarFile(APIObject):
         Parameters
         ----------
         file_path : string
-            A string representing a path to a local csv file.
+            A string representing a path to a local CSV file.
         calendar_name : string, optional
             A name to assign to the calendar. Defaults to the name of the file if not provided.
         multiseries_id_columns : List[str] or None
-            A list of the names of multiseries id columns to define which series an event
-            belongs to. Currently only one multiseries id column is supported.
+            A list of the names of multiseries ID columns to define which series an event
+            belongs to. Currently only one multiseries ID column is supported.
 
         Returns
         -------
@@ -258,8 +258,8 @@ class CalendarFile(APIObject):
         calendar_name : string, optional
             A name to assign to the calendar. Defaults to the name of the dataset if not provided.
         multiseries_id_columns : list of Optional[str]
-            A list of the names of multiseries id columns to define which series an event
-            belongs to. Currently only one multiseries id column is supported.
+            A list of the names of multiseries ID columns to define which series an event
+            belongs to. Currently only one multiseries ID column is supported.
         delete_on_error : boolean, optional
             Whether delete calendar file from Catalog if it's not valid.
 
@@ -360,26 +360,25 @@ class CalendarFile(APIObject):
     @classmethod
     def get_allowed_country_codes(cls, offset: Optional[int] = None, limit: Optional[int] = None) -> List[CountryCode]:
         """
-        Retrieves the list of allowed country codes that can be used for generating the preloaded
+        Retrieves the list of allowed country codes that you can use to generate preloaded
         calendars.
 
         Parameters
         ----------
-        offset : int
-            Optional, defaults to 0. This many results will be skipped.
-        limit : int
-            Optional, defaults to 100, maximum 1000. At most this many results are returned.
+        offset : int, optional
+            Defaults to 0. The number of results to skip.
+        limit : int, optional
+            Defaults to 100. The maximum number of results to return (up to 1000).
 
         Returns
         -------
         list
-            A list dicts, each of which represents an allowed country codes. Each item has the
+            A list of dicts, each representing an allowed country code. Each item has the
             following structure:
 
             * ``name`` : (str) The name of the country.
-            * ``code`` : (str) The code for this country. This is the value that should be supplied
-              to :meth:`CalendarFile.create_calendar_from_country_code
-              <datarobot.CalendarFile.create_calendar_from_country_code>`.
+            * ``code`` : (str) The code for this country; supply it to
+              ``CalendarFile.create_calendar_from_country_code``.
         """
         params = {}
         if limit is not None:
@@ -391,7 +390,7 @@ class CalendarFile(APIObject):
     @classmethod
     def get(cls, calendar_id: str) -> CalendarFile:
         """
-        Gets the details of a calendar, given the id.
+        Gets the details of a calendar, given the ``calendar_id``.
 
         Parameters
         ----------
@@ -406,7 +405,7 @@ class CalendarFile(APIObject):
         Raises
         ------
         DataError
-            Raised if the calendar_id is invalid, i.e., the specified CalendarFile does not exist.
+            Raised if the ``calendar_id`` is invalid, that is, the specified CalendarFile does not exist.
 
         Examples
         --------
@@ -459,18 +458,18 @@ class CalendarFile(APIObject):
     @classmethod
     def delete(cls, calendar_id: str) -> None:
         """
-        Deletes the calendar specified by calendar_id.
+        Deletes the calendar specified by ``calendar_id``.
 
         Parameters
         ----------
         calendar_id : str
-            The id of the calendar to delete.
+            The ID of the calendar to delete.
             The requester must have OWNER access for this calendar.
 
         Raises
         ------
         ClientError
-            Raised if an invalid calendar_id is provided.
+            Raised if an invalid ``calendar_id`` is provided.
 
         Examples
         --------
@@ -494,19 +493,19 @@ class CalendarFile(APIObject):
         Parameters
         ----------
         calendar_id : str
-            The id of the calendar to update.
+            The ID of the calendar to update.
         new_calendar_name : str
             The new name to set for the specified calendar.
 
         Returns
         -------
         status_code : int
-            200 for success
+            HTTP status code 200 indicates success.
 
         Raises
         ------
         ClientError
-            Raised if an invalid calendar_id is provided.
+            Raised if an invalid ``calendar_id`` is provided.
 
         Examples
         --------
@@ -535,23 +534,24 @@ class CalendarFile(APIObject):
         Parameters
         ----------
         calendar_id : str
-            The id of the calendar to update
-        access_list:
-            A list of dr.SharingAccess objects. Specify `None` for the role to delete a user's
+            The ID of the calendar to update.
+        access_list : list of :class:`SharingAccess <datarobot.SharingAccess>`
+            A list of :class:`SharingAccess <datarobot.SharingAccess>` objects. Specify ``None`` for the role to delete
+            a user's
             access from the specified CalendarFile. For more information on specific access levels,
             see the :ref:`sharing <sharing>` documentation.
 
         Returns
         -------
         status_code : int
-            200 for success
+            HTTP status code 200 indicates success.
 
         Raises
         ------
         ClientError
             Raised if unable to update permissions for a user.
         AssertionError
-            Raised if access_list is invalid.
+            Raised if ``access_list`` is invalid.
 
         Examples
         --------
@@ -599,7 +599,7 @@ class CalendarFile(APIObject):
         Parameters
         ----------
         calendar_id : str
-            The id of the calendar to retrieve the access list for.
+            The ID of the calendar to retrieve the access list for.
         batch_size : Optional[int]
             The number of access records to retrieve in a single API call. If specified, the client
             may make multiple calls to retrieve the full list of calendars. If not specified, an

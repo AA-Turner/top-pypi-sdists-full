@@ -1,0 +1,179 @@
+/*------------------------------------------------------------------------------
+-- This file is a part of the SciQLop Software
+-- Copyright (C) 2024, Plasma Physics Laboratory - CNRS
+--
+-- This program is free software; you can redistribute it and/or modify
+-- it under the terms of the GNU General Public License as published by
+-- the Free Software Foundation; either version 2 of the License, or
+-- (at your option) any later version.
+--
+-- This program is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+-- GNU General Public License for more details.
+--
+-- You should have received a copy of the GNU General Public License
+-- along with this program; if not, write to the Free Software
+-- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+-------------------------------------------------------------------------------*/
+/*-- Author : Alexis Jeandet
+-- Mail : alexis.jeandet@member.fsf.org
+----------------------------------------------------------------------------*/
+#pragma once
+#include "SciQLopPlots/Python/PythonInterface.hpp"
+
+#include "QCPAbstractPlottableWrapper.hpp"
+#include "SciQLopLineGraph.hpp"
+#include "SciQLopPlots/SciQLopPlotAxis.hpp"
+#include "SciQLopPlots/enums.hpp"
+#include <qcustomplot.h>
+#include <QSignalBlocker>
+class QThread;
+struct CurveResampler;
+
+class SciQLopCurve : public SQPQCPAbstractPlottableWrapper
+{
+    CurveResampler* _resampler = nullptr;
+    QThread* _resampler_thread = nullptr;
+
+    SciQLopPlotAxis* _keyAxis;
+    SciQLopPlotAxis* _valueAxis;
+
+    // Length of the last x buffer handed to the resampler. Colour values are
+    // indexed by original sample index (CurveResampler stores it in QCPCurveData::t),
+    // so this — not the decimated container size — is what they must match.
+    std::size_t _point_count = 0;
+
+    Q_OBJECT
+
+protected:
+    // True while the resampler owes us a setGraphData emission. SciQLopCurveFunction
+    // reads this to decide whether pipeline_idle may clear the busy flag.
+    bool _resampler_busy = false;
+
+private:
+
+    // inline QCustomPlot* _plot() const { return qobject_cast<QCustomPlot*>(this->parent()); }
+
+    void _setCurveData(QList<QVector<QCPCurveData>> data);
+
+    void clear_curves(bool curve_already_removed = false);
+    void clear_resampler();
+    void create_resampler(const QStringList& labels);
+    void create_graphs(const QStringList& labels);
+    void _sync_component_count(int count);
+
+    inline QCPCurve* line(std::size_t index) const
+    {
+        if (index < plottable_count())
+            return dynamic_cast<QCPCurve*>(m_components[index]->plottable());
+        return nullptr;
+    }
+
+    inline const QList<QCPCurve*> lines() const
+    {
+        QList<QCPCurve*> curves;
+        for (auto plottable : m_components)
+            curves.append(qobject_cast<QCPCurve*>(plottable->plottable()));
+        return curves;
+    }
+
+public:
+    explicit SciQLopCurve(QCustomPlot* parent, SciQLopPlotAxis* keyAxis, SciQLopPlotAxis* valueAxis,
+                          const QStringList& labels, QVariantMap metaData={});
+
+    explicit SciQLopCurve(QCustomPlot* parent, SciQLopPlotAxis* keyAxis,
+                          SciQLopPlotAxis* valueAxis, QVariantMap metaData={});
+
+    virtual ~SciQLopCurve() override;
+
+    Q_SLOT virtual void set_data(SciQLopPyBuffer x, SciQLopPyBuffer y) override;
+    virtual QList<SciQLopPyBuffer> data() const noexcept override;
+
+    inline std::size_t line_count() const noexcept { return plottable_count(); }
+
+    /*!
+     * \brief set_color_data Tint the curve point by point with \a values through \a gradient.
+     * \param values One value per data point, any numeric dtype. An empty buffer
+     *        turns the colouring back off.
+     * \throws std::invalid_argument if \a values does not match the current data length.
+     */
+    Q_SLOT void set_color_data(SciQLopPyBuffer values,
+                               ::ColorGradient gradient = ::ColorGradient::Jet) override;
+
+    void set_time_color_enabled(bool enabled);
+    bool time_color_enabled() const;
+    void set_time_values(const QVector<double>& times);
+    void set_color_values(const QVector<double>& values);
+    void set_time_color_gradient(const QColor& start, const QColor& end);
+
+    /*!
+     * \brief position_at_time Data point closest to \a t among the time values.
+     * \return the QPointF, or an invalid QVariant (None in Python) when the curve
+     *         carries no time values. QVariant rather than std::optional because
+     *         shiboken cannot bind the latter.
+     * \sa set_time_values
+     */
+    QVariant position_at_time(double t) const;
+
+    virtual void set_x_axis(SciQLopPlotAxisInterface* axis) noexcept override;
+
+    virtual void set_y_axis(SciQLopPlotAxisInterface* axis) noexcept override;
+
+    virtual SciQLopPlotAxisInterface* x_axis() const noexcept override { return _keyAxis; }
+
+    virtual SciQLopPlotAxisInterface* y_axis() const noexcept override { return _valueAxis; }
+
+#ifndef BINDINGS_H
+    void collect_visible_values(const SciQLopPlotRange& visible_key_range,
+                                std::vector<double>& out) const noexcept override;
+#endif
+
+private:
+#ifdef BINDINGS_H
+#define Q_SIGNAL
+signals:
+#endif
+    Q_SIGNAL void _setCurveDataSig(QList<QVector<QCPCurveData>> data);
+};
+
+class SciQLopCurveFunction : public SciQLopCurve, public SciQLopFunctionGraph
+{
+    Q_OBJECT
+
+public:
+    explicit SciQLopCurveFunction(QCustomPlot* parent, SciQLopPlotAxis* key_axis,
+                                  SciQLopPlotAxis* value_axis, GetDataPyCallable&& callable,
+                                  const QStringList& labels,QVariantMap metaData={});
+
+    virtual ~SciQLopCurveFunction() override = default;
+
+    inline void invalidate_cache() noexcept override { invalidate_pipeline_cache(); }
+};
+
+class SciQLopCurveRemote : public SciQLopCurve, public SciQLopRemoteGraph
+{
+    Q_OBJECT
+public:
+    explicit SciQLopCurveRemote(QCustomPlot* parent, SciQLopPlotAxis* key_axis,
+                                SciQLopPlotAxis* value_axis,
+                                const QStringList& labels = QStringList(),
+                                QVariantMap metaData = {});
+    ~SciQLopCurveRemote() override = default;
+
+    inline void invalidate_cache() noexcept override { invalidate_pipeline_cache(); }
+
+    // See SciQLopLineGraphRemote::set_busy: the base setBusy() already
+    // forwards busy_changed via the first component's busyChanged signal, so
+    // block that and always emit exactly once below.
+    inline bool busy() const noexcept override { return remote_busy(); }
+    inline void set_busy(bool busy) noexcept override
+    {
+        set_remote_busy(busy);
+        {
+            const QSignalBlocker blocker(this);
+            SciQLopCurve::set_busy(busy);
+        }
+        Q_EMIT busy_changed(busy);
+    }
+};

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "boto3-extensions"
+version = "0.23.0"
+description = "Extensions to the AWS SDK for Python"
+authors = ["Cloud Engineering <cloud-team@atlassian.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+packages = [{ include = "boto3_extensions", from = "src" }]
+homepage = "https://bitbucket.org/atlassian/boto3_extensions/"
+repository = "https://bitbucket.org/atlassian/boto3_extensions/"
+documentation = "https://bitbucket.org/atlassian/boto3_extensions/"
+classifiers = ["Programming Language :: Python"]
+
+[tool.poetry.urls]
+"Issues" = "https://bitbucket.org/atlassian/boto3_extensions/issues"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+boto3 = ">=1.17.24"
+botocore = ">=1.20.24"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.1"
+pytest-cov = "^4.1.0"
+black = "^23.9.1"
+isort = "^5.12.0"
+pylint = "^2.17.5"
+pre-commit = "^3.4.0"
+
+[tool.coverage.run]
+source = ["boto3_extensions"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.isort]
+profile = "black"
+
+[tool.pylint.format]
+max-line-length = "88"
+
+[tool.black]
+target-version = ['py38']
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+    "W1203",  # logging-fstring-interpolation
+    "W0511",  # fixme
+    "R0913",  # too-many-arguments
+    "R0903",  # too-few-public-methods
+    ]
+ignore-paths = '^tests/.*$'

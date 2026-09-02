@@ -35,16 +35,16 @@ from datarobot.utils.waiters import wait_for_async_resolution, wait_for_custom_r
 
 
 class RequiredMetadataValue(APIObject):
-    """Definition of a metadata key that custom models using this environment must define
+    """Definition of a metadata key that custom models using this environment must define.
 
     .. versionadded:: v2.26
 
     Attributes
     ----------
     field_name: str
-        The required field names.  Required field names are defined by the
-        environment's required_metadata_keys. This value will be added as an
-        environment vairable when running custom models.
+        The required field names. Required field names are defined by the
+        environment's `required_metadata_keys`. This value will be added as an
+        environment variable when running custom models.
     value: str
         The value for the required field.
     """
@@ -205,7 +205,7 @@ class CustomModelFileItem(APIObject):
 
 
 class CustomModelVersionDependencyBuild(APIObject):
-    """Metadata about a DataRobot custom model version's dependency build
+    """Metadata about a DataRobot custom model version's dependency build.
 
     .. versionadded:: v2.22
 
@@ -300,18 +300,18 @@ class CustomModelVersionDependencyBuild(APIObject):
         custom_model_version_id: str,
         max_wait: Optional[int] = DEFAULT_MAX_WAIT,
     ) -> Optional[CustomModelVersionDependencyBuild]:
-        """Start the dependency build for a custom model version  dependency build
+        """Starts the dependency build for a custom model version.
 
         .. versionadded:: v2.22
 
         Parameters
         ----------
         custom_model_id: str
-            The ID of the custom model
+            The ID of the custom model.
         custom_model_version_id: str
-            the ID of the custom model version
+            The ID of the custom model version.
         max_wait: Optional[int]
-            Max time to wait for a build completion.
+            The maximum time to wait for a build completion.
             If set to None - method will return without waiting.
         """
 
@@ -336,7 +336,7 @@ class CustomModelVersionDependencyBuild(APIObject):
             )
 
     def get_log(self) -> str:
-        """Get log of a custom model version dependency build.
+        """Returns the log of a custom model version dependency build.
 
         .. versionadded:: v2.22
 
@@ -351,7 +351,7 @@ class CustomModelVersionDependencyBuild(APIObject):
         return cast(str, self._client.get(url).text)
 
     def cancel(self) -> None:
-        """Cancel custom model version dependency build that is in progress.
+        """Cancels a custom model version dependency build that is in progress.
 
         .. versionadded:: v2.22
 
@@ -366,7 +366,7 @@ class CustomModelVersionDependencyBuild(APIObject):
         self._client.delete(url)
 
     def refresh(self) -> None:
-        """Update custom model version dependency build with the latest data from server.
+        """Updates the custom model version dependency build with the latest data from the server.
 
         .. versionadded:: v2.22
 
@@ -387,7 +387,7 @@ class CustomModelVersionDependencyBuild(APIObject):
 
 
 class CustomDependencyConstraint(APIObject):
-    """Metadata about a constraint on a dependency of a custom model version
+    """Metadata about a constraint on a dependency of a custom model version.
 
     .. versionadded:: v2.22
 
@@ -419,7 +419,7 @@ class CustomDependencyConstraint(APIObject):
 
 
 class CustomDependency(APIObject):
-    """Metadata about an individual dependency of a custom model version
+    """Metadata about an individual dependency of a custom model version.
 
     .. versionadded:: v2.22
 
@@ -510,7 +510,7 @@ class CustomModelVersion(APIObject):
         A fixed number of replicas that will be deployed in the cluster.
     required_metadata_values: List[RequiredMetadataValue]
         Additional parameters required by the execution environment. The required keys are
-        defined by the fieldNames in the base environment's requiredMetadataKeys.
+        defined by the `fieldNames` in the base environment's `requiredMetadataKeys`.
     training_data: TrainingData, optional
         The information about the training data assigned to the model version.
     holdout_data: HoldoutData, optional
@@ -652,31 +652,25 @@ class CustomModelVersion(APIObject):
             The ID of the custom model.
         base_environment_id: str
             The base environment to use with this model version.
-            At least one of "base_environment_id" and "base_environment_version_id" must be provided.
+            At least one of `base_environment_id` and `base_environment_version_id` must be provided.
             If both are specified, the version must belong to the environment.
         base_environment_version_id: str
             The base environment version ID to use with this model version.
-            At least one of "base_environment_id" and "base_environment_version_id" must be provided.
+            At least one of `base_environment_id` and `base_environment_version_id` must be provided.
             If both are specified, the version must belong to the environment.
             If not specified: in case previous model versions exist, the value from the latest model
             version is inherited, otherwise, latest successfully built version of the environment
-            specified in "base_environment_id" is used.
+            specified in `base_environment_id` is used.
         is_major_update: Optional[bool]
             The flag defining if a custom model version will be a minor or a major version.
-            Default to `True`
+            Defaults to `True`.
         folder_path: Optional[str]
             The path to a folder containing files to be uploaded.
             Each file in the folder is uploaded under path relative to a folder path.
         files: Optional[List]
-            The list of tuples, where values in each tuple are the local filesystem path and
-            the path the file should be placed in the model.
-            If the list is of strings, then basenames will be used for tuples.
-            Example:
-            [("/home/user/Documents/myModel/file1.txt", "file1.txt"),
-            ("/home/user/Documents/myModel/folder/file2.txt", "folder/file2.txt")]
-            or
-            ["/home/user/Documents/myModel/file1.txt",
-            "/home/user/Documents/myModel/folder/file2.txt"]
+            The list of tuples, where each tuple contains the local filesystem path and the
+            target path in the model. If a list of strings is provided, basenames are used as
+            target paths.
         network_egress_policy: datarobot.NETWORK_EGRESS_POLICY, optional
             Determines whether the given custom model is isolated, or can access the public network.
             Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`, `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
@@ -687,7 +681,7 @@ class CustomModelVersion(APIObject):
             A fixed number of replicas that will be deployed in the cluster.
         required_metadata_values: List[RequiredMetadataValue]
             Additional parameters required by the execution environment. The required keys are
-            defined by the fieldNames in the base environment's requiredMetadataKeys.
+            defined by the `fieldNames` in the base environment's `requiredMetadataKeys`.
         training_dataset_id: Optional[str]
             The ID of the training dataset to assign to the custom model.
         partition_column: Optional[str]
@@ -706,14 +700,14 @@ class CustomModelVersion(APIObject):
             If set to None - method will return without waiting.
             Defaults to 10 minutes.
         runtime_parameter_values: List[RuntimeParameterValue]
-            Additional parameters to be injected into a model at runtime. The fieldName
-            must match a fieldName that is listed in the runtimeParameterDefinitions section
-            of the model-metadata.yaml file.
+            Additional parameters to be injected into a model at runtime. The `fieldName`
+            must match a `fieldName` that is listed in the `runtimeParameterDefinitions` section
+            of the model-metadata.YAML file.
 
         Returns
         -------
         CustomModelVersion
-            Created custom model version.
+            The created custom model version.
 
         Raises
         ------
@@ -834,15 +828,15 @@ class CustomModelVersion(APIObject):
             The ID of the custom model.
         base_environment_id: str
             The base environment to use with this model version.
-            At least one of "base_environment_id" and "base_environment_version_id" must be provided.
+            At least one of `base_environment_id` and `base_environment_version_id` must be provided.
             If both are specified, the version must belong to the environment.
         base_environment_version_id: str
             The base environment version ID to use with this model version.
-            At least one of "base_environment_id" and "base_environment_version_id" must be provided.
+            At least one of `base_environment_id` and `base_environment_version_id` must be provided.
             If both are specified, the version must belong to the environment.
             If not specified: in case previous model versions exist, the value from the latest model
             version is inherited, otherwise, latest successfully built version of the environment
-            specified in "base_environment_id" is used.
+            specified in `base_environment_id` is used.
         is_major_update: Optional[bool]
             The flag defining if a custom model version will be a minor or a major version.
             Defaults to `True`.
@@ -850,29 +844,23 @@ class CustomModelVersion(APIObject):
             The path to a folder containing files to be uploaded.
             Each file in the folder is uploaded under path relative to a folder path.
         files: Optional[List]
-            The list of tuples, where values in each tuple are the local filesystem path and
-            the path the file should be placed in the model.
-            If list is of strings, then basenames will be used for tuples
-            Example:
-            [("/home/user/Documents/myModel/file1.txt", "file1.txt"),
-            ("/home/user/Documents/myModel/folder/file2.txt", "folder/file2.txt")]
-            or
-            ["/home/user/Documents/myModel/file1.txt",
-            "/home/user/Documents/myModel/folder/file2.txt"]
+            The list of tuples, where each tuple contains the local filesystem path and the
+            target path in the model. If a list of strings is provided, basenames are used as
+            target paths.
         files_to_delete: Optional[List]
-            The list of a file items ids to be deleted.
-            Example: ["5ea95f7a4024030aba48e4f9", "5ea6b5da402403181895cc51"]
+            The list of file item IDs to be deleted.
+            For example: ``["5ea95f7a4024030aba48e4f9", "5ea6b5da402403181895cc51"]``.
         network_egress_policy: datarobot.NETWORK_EGRESS_POLICY, optional
             Determines whether the given custom model is isolated, or can access the public network.
             Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`, `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
         maximum_memory: Optional[int]
             The maximum memory that might be allocated by the custom-model.
-            If exceeded, the custom-model will be killed by k8s
+            If exceeded, the custom-model will be killed by k8s.
         replicas: Optional[int]
-            A fixed number of replicas that will be deployed in the cluster
+            A fixed number of replicas that will be deployed in the cluster.
         required_metadata_values: List[RequiredMetadataValue]
             Additional parameters required by the execution environment. The required keys are
-            defined by the fieldNames in the base environment's requiredMetadataKeys.
+            defined by the `fieldNames` in the base environment's `requiredMetadataKeys`.
         training_dataset_id: Optional[str]
             The ID of the training dataset to assign to the custom model.
         partition_column: Optional[str]
@@ -891,11 +879,11 @@ class CustomModelVersion(APIObject):
             If set to None - method will return without waiting.
             Defaults to 10 minutes.
         runtime_parameter_values: List[RuntimeParameterValue]
-            Additional parameters to be injected into the model at runtime. The fieldName
-            must match a fieldName that is listed in the runtimeParameterDefinitions section
-            of the model-metadata.yaml file. This list will be merged with any existing
+            Additional parameters to be injected into the model at runtime. The `fieldName`
+            must match a `fieldName` that is listed in the `runtimeParameterDefinitions` section
+            of the model-metadata.YAML file. This list will be merged with any existing
             runtime values set from the prior version, so it is possible to specify a `null` value
-            to unset specific parameters and fall back to the defaultValue from the definition.
+            to unset specific parameters and fall back to the `defaultValue` from the definition.
             Mutually exclusive with ``runtime_parameters``.
         runtime_parameters: List[RuntimeParameter], optional
             Full parameter definitions to create or replace on this version. Unlike
@@ -909,7 +897,7 @@ class CustomModelVersion(APIObject):
         Returns
         -------
         CustomModelVersion
-            created custom model version
+            The created custom model version.
 
         Raises
         ------
@@ -1165,7 +1153,7 @@ class CustomModelVersion(APIObject):
 
     @classmethod
     def list(cls, custom_model_id: str) -> List[CustomModelVersion]:
-        """List custom model versions.
+        """Returns a list of custom model versions.
 
         .. versionadded:: v2.21
 
@@ -1192,7 +1180,7 @@ class CustomModelVersion(APIObject):
 
     @classmethod
     def get(cls, custom_model_id: str, custom_model_version_id: str) -> CustomModelVersion:
-        """Get custom model version by id.
+        """Returns the custom model version by ID.
 
         .. versionadded:: v2.21
 
@@ -1201,7 +1189,7 @@ class CustomModelVersion(APIObject):
         custom_model_id: str
             The ID of the custom model.
         custom_model_version_id: str
-            The id of the custom model version to retrieve.
+            The ID of the custom model version to retrieve.
 
         Returns
         -------
@@ -1220,7 +1208,7 @@ class CustomModelVersion(APIObject):
         return cls.from_location(path)
 
     def download(self, file_path: str) -> None:
-        """Download custom model version.
+        """Downloads the custom model version.
 
         .. versionadded:: v2.21
 
@@ -1248,7 +1236,7 @@ class CustomModelVersion(APIObject):
         description: Optional[str] = None,
         required_metadata_values: Optional[List[RequiredMetadataValue]] = None,
     ) -> None:
-        """Update custom model version properties.
+        """Updates the custom model version properties.
 
         .. versionadded:: v2.21
 
@@ -1258,7 +1246,7 @@ class CustomModelVersion(APIObject):
             New custom model version description.
         required_metadata_values: List[RequiredMetadataValue], optional
             Additional parameters required by the execution environment. The required keys are
-            defined by the fieldNames in the base environment's requiredMetadataKeys.
+            defined by the `fieldNames` in the base environment's `requiredMetadataKeys`.
 
         Raises
         ------
@@ -1288,7 +1276,7 @@ class CustomModelVersion(APIObject):
         )
 
     def refresh(self) -> None:
-        """Update custom model version with the latest data from server.
+        """Updates the custom model version with the latest data from the server.
 
         .. versionadded:: v2.21
 
@@ -1308,7 +1296,7 @@ class CustomModelVersion(APIObject):
         self._set_values(**self._safe_data(data, do_recursive=True))
 
     def get_feature_impact(self, with_metadata: bool = False) -> List[Dict[str, Any]]:
-        """Get custom model feature impact.
+        """Returns the custom model feature impact.
 
         .. versionadded:: v2.23
 
@@ -1320,8 +1308,8 @@ class CustomModelVersion(APIObject):
         Returns
         -------
         feature_impacts : list of dict
-           The feature impact data. Each item is a dict with the keys 'featureName',
-           'impactNormalized', and 'impactUnnormalized', and 'redundantWith'.
+           The feature impact data. Each item is a dict with the keys `featureName`,
+           `impactNormalized`, and `impactUnnormalized`, and `redundantWith`.
 
         Raises
         ------
@@ -1338,23 +1326,23 @@ class CustomModelVersion(APIObject):
         return ret  # type: ignore[no-any-return]
 
     def calculate_feature_impact(self, max_wait: int = DEFAULT_MAX_WAIT) -> None:
-        """Calculate custom model feature impact.
+        """Calculates the custom model feature impact.
 
         .. versionadded:: v2.23
 
         Parameters
         ----------
         max_wait: Optional[int]
-            Max time to wait for feature impact calculation.
+            The maximum time to wait for feature impact calculation.
             If set to None - method will return without waiting.
-            Defaults to 10 min
+            Defaults to 10 minutes.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         url = self._path.format(self.custom_model_id)
         path = f"{url}{self.id}/featureImpact/"
@@ -1382,7 +1370,7 @@ class CustomModelVersionConversion(APIObject):
     log_message: str or None
         The conversion output log message.
     generated_metadata: dict or None
-        The dict contains two items: 'outputDataset' & 'outputColumns'.
+        The dict contains two items: `outputDataset` and `outputColumns`.
     conversion_succeeded: bool
         Whether the conversion succeeded or not.
     conversion_in_progress: bool
@@ -1517,7 +1505,7 @@ class CustomModelVersionConversion(APIObject):
     def get(
         cls, custom_model_id: str, custom_model_version_id: str, conversion_id: str
     ) -> CustomModelVersionConversion:
-        """Get custom model version conversion by id.
+        """Returns the custom model version conversion by ID.
 
         .. versionadded:: v2.27
 
@@ -1549,7 +1537,7 @@ class CustomModelVersionConversion(APIObject):
 
     @classmethod
     def get_latest(cls, custom_model_id: str, custom_model_version_id: str) -> Optional[CustomModelVersionConversion]:
-        """Get latest custom model version conversion for a given custom model version.
+        """Returns the latest custom model version conversion for a given custom model version.
 
         .. versionadded:: v2.27
 
@@ -1579,7 +1567,7 @@ class CustomModelVersionConversion(APIObject):
 
     @classmethod
     def list(cls, custom_model_id: str, custom_model_version_id: str) -> List[CustomModelVersionConversion]:
-        """Get custom model version conversions list per custom model version.
+        """Returns a list of custom model version conversions for a custom model version.
 
         .. versionadded:: v2.27
 

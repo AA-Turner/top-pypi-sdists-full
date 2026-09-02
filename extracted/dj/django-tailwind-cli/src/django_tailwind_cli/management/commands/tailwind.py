@@ -1,0 +1,622 @@
+"""`tailwind` management command."""
+
+import importlib.util
+import sys
+import time
+from pathlib import Path
+
+import click
+from django.conf import settings
+from django.core.management.base import CommandError
+
+from django_tailwind_cli import __version__
+from django_tailwind_cli.config import get_config
+from django_tailwind_cli.management.commands._group import group
+from django_tailwind_cli.management.commands._errors import handle_command_errors
+from django_tailwind_cli.management.commands._build import (
+    execute_tailwind_command,
+    run_watch_loop,
+    setup_tailwind_environment,
+    should_rebuild_css,
+)
+from django_tailwind_cli.management.commands._download import ensure_cli_binary, ensure_default_gitignore
+from django_tailwind_cli.management.commands._source_css import ensure_source_css
+from django_tailwind_cli.management.commands._process import (
+    ProcessManager,
+)
+from django_tailwind_cli.management.commands._guides import (
+    print_configuration,
+    print_performance_tips,
+    print_troubleshooting_guide,
+)
+
+
+# The command name comes from the module name, which is why this file is tailwind.py. Everything
+# django-click leaves out of Django's command contract — the system checks among them — is restored
+# in _group.py, so nothing about it leaks into this module.
+@group(version=__version__)
+def app():
+    """Tailwind CSS integration for Django projects.
+
+    This command provides seamless integration between Django and Tailwind CSS,
+    allowing you to build, watch, and serve your Tailwind styles without Node.js.
+
+    \b
+    Examples:
+      python manage.py tailwind setup          # Guided setup (start here)
+      python manage.py tailwind build          # Build production CSS
+      python manage.py tailwind build --force  # Force rebuild ignoring cache
+      python manage.py tailwind watch          # Watch for changes during development
+      python manage.py tailwind runserver      # Run Django with Tailwind watch mode
+      python manage.py tailwind download_cli   # Download Tailwind CLI binary
+      python manage.py tailwind config         # Show current configuration
+      python manage.py tailwind troubleshoot   # Troubleshooting guide
+      python manage.py tailwind optimize       # Performance optimization tips
+
+    \b
+    For more information about a specific command, use:
+      python manage.py tailwind COMMAND --help
+    """
+
+
+# COMMANDS ---------------------------------------------------------------------
+
+
+@app.command()
+@click.option("--force", is_flag=True, help="Force rebuild even if output is up to date.")
+@click.option("--verbose", "-v", is_flag=True, help="Show detailed build information and diagnostics.")
+@click.option(
+    "--minify/--no-minify",
+    default=None,
+    help=(
+        "Produce a minified stylesheet. Defaults to the value of the "
+        "TAILWIND_CLI_AUTOMATIC_MINIFY Django setting (True if unset)."
+    ),
+)
+@handle_command_errors
+def build(*, force: bool, verbose: bool, minify: bool | None) -> None:
+    """Build production-ready CSS file(s).
+
+    This command processes your Tailwind CSS input file(s) and generates optimized
+    production CSS file(s) with only the styles actually used in your templates.
+
+    \b
+    The build process:
+    1. Scans all Django templates for Tailwind class usage
+    2. Generates CSS with only the used utility classes
+    3. Minifies the output for optimal file size
+    4. Saves to your configured output path (STATICFILES_DIRS)
+
+    \b
+    Examples:
+        # Build production CSS (skips if already up-to-date)
+        python manage.py tailwind build
+
+        # Force rebuild even if output seems current
+        python manage.py tailwind build --force
+
+        # Show detailed build information
+        python manage.py tailwind build --verbose
+
+    \b
+    Output location:
+        Single-file mode: STATICFILES_DIRS[0]/css/tailwind.css
+        (configurable via TAILWIND_CLI_DIST_CSS setting)
+
+        Multi-file mode: Each entry in TAILWIND_CLI_CSS_MAP
+    """
+    start_time = time.time()
+    config = get_config()
+
+    effective_minify: bool = (
+        bool(getattr(settings, "TAILWIND_CLI_AUTOMATIC_MINIFY", True)) if minify is None else minify
+    )
+
+    if verbose:
+        click.secho("🏗️  Starting Tailwind CSS build process...", fg="cyan")
+        click.secho(f"   • CSS entries: {len(config.css_entries)}", fg="blue")
+        for entry in config.css_entries:
+            click.secho(f"   • [{entry.name}] {entry.src_css} -> {entry.dist_css}", fg="blue")
+        click.secho(f"   • CLI Path: {config.cli_path}", fg="blue")
+        click.secho(f"   • Version: {config.version_str}", fg="blue")
+        click.secho(f"   • DaisyUI: {'enabled' if config.use_daisy_ui else 'disabled'}", fg="blue")
+
+    setup_tailwind_environment(verbose=verbose)
+
+    # Build each CSS entry
+    entries_built = 0
+    entries_skipped = 0
+
+    for entry in config.css_entries:
+        # Check if rebuild is necessary (unless forced)
+        if not force and not should_rebuild_css(entry.src_css, entry.dist_css):
+            entries_skipped += 1
+            if verbose:
+                click.secho(f"⏭️  [{entry.name}] Build skipped: output is up-to-date", fg="yellow")
+                if entry.src_css.exists() and entry.dist_css.exists():
+                    src_mtime = entry.src_css.stat().st_mtime
+                    dist_mtime = entry.dist_css.stat().st_mtime
+                    click.secho(f"   • Source modified: {time.ctime(src_mtime)}", fg="blue")
+                    click.secho(f"   • Output modified: {time.ctime(dist_mtime)}", fg="blue")
+            continue
+
+        if verbose:
+            build_cmd = config.get_build_cmd(entry, minify=effective_minify)
+            click.secho(f"⚡ [{entry.name}] Executing Tailwind CSS build command...", fg="cyan")
+            click.secho(f"   • Command: {' '.join(build_cmd)}", fg="blue")
+
+        execute_tailwind_command(
+            config.get_build_cmd(entry, minify=effective_minify),
+            success_message=f"Built production stylesheet '{entry.dist_css}'.",
+            error_message=f"Failed to build production stylesheet '{entry.name}'",
+            verbose=verbose,
+        )
+        entries_built += 1
+
+    # Summary
+    if entries_skipped > 0 and entries_built == 0:
+        click.secho(
+            f"All {entries_skipped} stylesheet(s) are up to date. Use --force to rebuild.",
+            fg="cyan",
+        )
+    elif verbose:
+        end_time = time.time()
+        build_duration = end_time - start_time
+        click.secho(
+            f"✅ Build completed in {build_duration:.3f}s ({entries_built} built, {entries_skipped} skipped)",
+            fg="green",
+        )
+
+
+@app.command()
+@click.option("--verbose", "-v", is_flag=True, help="Show detailed watch information and diagnostics.")
+@click.option("--noreload", "no_reloader", is_flag=True, help="Disable auto-reload on Python file changes.")
+@handle_command_errors
+def watch(*, verbose: bool, no_reloader: bool):
+    """Start Tailwind CSS in watch mode for development.
+
+    \b
+    Watch mode automatically rebuilds your CSS whenever you change:
+    - Django template files (*.html)
+    - Python files that might contain Tailwind classes
+    - Your Tailwind input CSS file
+    - JavaScript files (if configured)
+
+    \b
+    The watcher provides instant feedback during development, showing:
+    - File change detection
+    - Build progress and timing
+    - Any build errors or warnings
+
+    \b
+    By default the Python process that runs the watch mode is itself
+    auto-reloaded on any .py file change (using Django's own autoreload
+    machinery — the same one runserver uses). This means that installing
+    a new Django app or editing settings.py rebuilds the source.css and
+    restarts the Tailwind CLI subprocess automatically. Pass --noreload
+    to disable this and run the watch loop in a single process.
+
+    \b
+    Examples:
+        # Start watch mode with auto-reload
+        python manage.py tailwind watch
+
+        # Watch with detailed diagnostics
+        python manage.py tailwind watch --verbose
+
+        # Single-process watch without auto-reload
+        python manage.py tailwind watch --noreload
+
+    \b
+    Tips:
+        - Keep this running in a separate terminal during development
+        - Use alongside 'python manage.py runserver' for full development setup
+        - Or use 'python manage.py tailwind runserver' to run both together
+
+    Press Ctrl+C to stop watching.
+    """
+    if no_reloader:
+        run_watch_loop(verbose=verbose)
+        return
+
+    from django.utils import autoreload
+
+    autoreload.run_with_reloader(run_watch_loop, verbose=verbose)
+
+
+@app.command(name="download_cli")
+@handle_command_errors
+def download_cli():
+    """Download the Tailwind CSS CLI binary.
+
+    This command downloads the standalone Tailwind CSS CLI binary for your
+    platform. The CLI is required to build and watch your CSS files.
+
+    \b
+    The download process:
+    1. Detects your operating system and architecture
+    2. Downloads the appropriate binary from GitHub releases
+    3. Saves it to your project directory
+    4. Makes it executable (on Unix-like systems)
+
+    \b
+    Binary location:
+        Default: .django_tailwind_cli/ in your project root
+        Custom: Set TAILWIND_CLI_PATH in settings
+
+    \b
+    Examples:
+        # Download the CLI binary
+        python manage.py tailwind download_cli
+
+        # The CLI will be downloaded to:
+        # - macOS: .django_tailwind_cli/tailwindcss-macos-[arch]-[version]
+        # - Linux: .django_tailwind_cli/tailwindcss-linux-[arch]-[version]
+        # - Windows: .django_tailwind_cli/tailwindcss-windows-[arch]-[version].exe
+
+    \b
+    Notes:
+        - This is usually done automatically on first build/watch
+        - Re-run to update to a newer version
+        - Internet connection required
+        - No Node.js or npm required!
+    """
+    ensure_cli_binary(force_download=True)
+
+
+@app.command(name="config")
+@handle_command_errors
+def show_config():
+    """Show current Tailwind CSS configuration.
+
+    This command displays the current configuration settings and their values,
+    helping you understand how django-tailwind-cli is configured in your project.
+
+    \b
+    Information displayed:
+    - All configuration paths (CLI, CSS input/output)
+    - Version information
+    - Django settings values
+    - File existence status
+    - Platform information
+
+    \b
+    Examples:
+        # Show current configuration
+        python manage.py tailwind config
+
+    \b
+    Use this to:
+        - Debug configuration issues
+        - Verify settings are applied correctly
+        - Check file paths and versions
+        - Understand your current setup
+    """
+    print_configuration()
+
+
+@app.command(name="setup")
+@handle_command_errors
+def setup_guide():
+    """Guided setup for django-tailwind-cli.
+
+    Walks the setup in order and stops at the first blocker with instructions
+    for fixing it. Downloads the CLI and runs a first build when they are
+    missing, and brings the source CSS to the state a build expects — which
+    replaces hand edits to the managed file, after saying so and keeping a
+    copy. It prompts for nothing, so it is safe to run repeatedly.
+
+    \b
+    The steps:
+    1. Installation check
+    2. Django settings check
+    3. Configuration status
+    4. Tailwind CLI binary
+    5. Source CSS file
+    6. First build
+    7. Template integration
+    8. Development workflow
+
+    \b
+    Examples:
+        # Run the setup guide
+        python manage.py tailwind setup
+
+    \b
+    Useful for a first-time setup, for checking a configuration that is not
+    behaving, or for seeing which pieces are already in place.
+    """
+    click.secho("\n🚀 Django Tailwind CLI Setup Guide", fg="cyan", bold=True)
+    click.secho("=" * 50, fg="cyan")
+
+    # Step 1: Check installation
+    click.secho("\n📦 Step 1: Installation Check", fg="yellow", bold=True)
+    click.secho(f"   ✅ django-tailwind-cli is installed (version: {__version__})", fg="green")
+
+    # Step 2: Check Django settings
+    click.secho("\n⚙️ Step 2: Django Settings Check", fg="yellow", bold=True)
+
+    # Check INSTALLED_APPS
+    installed_apps = getattr(settings, "INSTALLED_APPS", [])
+    if "django_tailwind_cli" in installed_apps:
+        click.secho("   ✅ 'django_tailwind_cli' in INSTALLED_APPS", fg="green")
+    else:
+        click.secho("   ❌ 'django_tailwind_cli' not in INSTALLED_APPS", fg="red")
+        click.secho("   Add to your settings.py:", fg="blue")
+        click.secho("   INSTALLED_APPS = [", fg="green")
+        click.secho("       ...", fg="green")
+        click.secho("       'django_tailwind_cli',", fg="green")
+        click.secho("   ]", fg="green")
+
+    # Check STATICFILES_DIRS
+    staticfiles_dirs = getattr(settings, "STATICFILES_DIRS", None)
+    if staticfiles_dirs and len(staticfiles_dirs) > 0:
+        click.secho(f"   ✅ STATICFILES_DIRS configured: {staticfiles_dirs[0]}", fg="green")
+    else:
+        click.secho("   ❌ STATICFILES_DIRS not configured", fg="red")
+        click.secho("   Add to your settings.py:", fg="blue")
+        click.secho("   STATICFILES_DIRS = [BASE_DIR / 'assets']", fg="green")
+        click.secho("   (or any directory name you prefer)", fg="blue")
+        return
+
+    # Step 3: Configuration check
+    click.secho("\n🔧 Step 3: Configuration Status", fg="yellow", bold=True)
+    try:
+        config = get_config()
+        click.secho("   ✅ Configuration loaded successfully", fg="green")
+        click.secho(f"   Version: {config.version_str}", fg="blue")
+        click.secho(f"   CLI Path: {config.cli_path}", fg="blue")
+        for entry in config.css_entries:
+            click.secho(f"   CSS Output: {entry.dist_css}", fg="blue")
+    except Exception as e:
+        click.secho(f"   ❌ Configuration error: {e}", fg="red")
+        return
+
+    # Step 4: CLI Binary check
+    click.secho("\n💾 Step 4: Tailwind CLI Binary", fg="yellow", bold=True)
+    if config.cli_path.exists():
+        click.secho("   ✅ Tailwind CLI binary exists", fg="green")
+    else:
+        click.secho("   ⬇️  Downloading Tailwind CLI binary...", fg="yellow")
+        try:
+            ensure_cli_binary(force_download=True)
+            click.secho("   ✅ Tailwind CLI binary downloaded", fg="green")
+        except Exception as e:
+            click.secho(f"   ❌ Download failed: {e}", fg="red")
+            return
+
+    # Step 5: CSS files check
+    click.secho("\n🎨 Step 5: CSS Files Setup", fg="yellow", bold=True)
+    # The same calls `build` makes, so what setup leaves behind is what build expects — including
+    # the @source directives when TAILWIND_CLI_AUTO_SOURCE_EXTERNAL_APPS is on, and the .gitignore
+    # that keeps the downloaded binary out of `git add .`.
+    # ensure_source_css announces a write itself, so only the quiet case needs a line here —
+    # a step in a status guide that reports nothing reads as a step that failed. It reports which
+    # files it wrote, so each entry gets its own verdict; one flag for all of them dropped the
+    # line for an entry that was fine whenever another one had to be created.
+    written = ensure_source_css()
+    ensure_default_gitignore()
+    for entry in config.css_entries:
+        if entry.src_css not in written:
+            click.secho(f"   ✅ [{entry.name}] Source CSS file is up to date", fg="green")
+
+    # Step 6: First build
+    click.secho("\n🏗️ Step 6: First Build", fg="yellow", bold=True)
+    minify = bool(getattr(settings, "TAILWIND_CLI_AUTOMATIC_MINIFY", True))
+    for entry in config.css_entries:
+        # One entry in a single-file setup, one per pair with TAILWIND_CLI_CSS_MAP. Building only
+        # the first left the rest missing, and the next `build` then failed on them.
+        if not should_rebuild_css(entry.src_css, entry.dist_css):
+            click.secho(f"   ✅ [{entry.name}] CSS output file is up to date", fg="green")
+            continue
+
+        click.secho(f"   🔨 [{entry.name}] Building CSS for the first time...", fg="yellow")
+        entry.dist_css.parent.mkdir(parents=True, exist_ok=True)
+        # execute_tailwind_command swallows Ctrl+C, so without checking the result the guide would
+        # walk on to its closing "Setup Complete" over a stylesheet that never got built.
+        completed = execute_tailwind_command(
+            config.get_build_cmd(entry, minify=minify),
+            success_message=f"   ✅ [{entry.name}] First build completed successfully!",
+            # Plain, like the other two call sites: handle_command_errors frames it as an error.
+            error_message=f"Failed to run the first build for [{entry.name}]",
+        )
+        if not completed:
+            click.secho(f"\n⏹️  Setup stopped during the [{entry.name}] build.", fg="yellow")
+            return
+
+    # Step 7: Template integration guide
+    click.secho("\n📄 Step 7: Template Integration", fg="yellow", bold=True)
+    click.secho("   Add this to your base template:", fg="blue")
+    click.secho("", fg="blue")
+    click.secho("   {% load static tailwind_cli %}", fg="green")
+    click.secho("   <!DOCTYPE html>", fg="green")
+    click.secho("   <html>", fg="green")
+    click.secho("   <head>", fg="green")
+    click.secho("       <title>My Site</title>", fg="green")
+    click.secho("       {% tailwind_css %}", fg="green")
+    click.secho("   </head>", fg="green")
+    click.secho('   <body class="bg-gray-100">', fg="green")
+    click.secho('       <h1 class="text-3xl font-bold text-blue-600">Hello Tailwind!</h1>', fg="green")
+    click.secho("   </body>", fg="green")
+    click.secho("   </html>", fg="green")
+
+    # Step 8: Development workflow
+    click.secho("\n🔄 Step 8: Development Workflow", fg="yellow", bold=True)
+    click.secho("   For development, use one of these workflows:", fg="blue")
+    click.secho("", fg="blue")
+    click.secho("   Option 1 - Single command (recommended):", fg="cyan")
+    click.secho("   python manage.py tailwind runserver", fg="green")
+    click.secho("", fg="blue")
+    click.secho("   Option 2 - Separate terminals:", fg="cyan")
+    click.secho("   Terminal 1: python manage.py tailwind watch", fg="green")
+    click.secho("   Terminal 2: python manage.py runserver", fg="green")
+    click.secho("", fg="blue")
+    click.secho("   For production builds, in this order:", fg="cyan")
+    click.secho("   python manage.py tailwind build", fg="green")
+    click.secho("   python manage.py collectstatic --noinput", fg="green")
+
+    # Success message
+    click.secho("\n🎉 Setup Complete!", fg="green", bold=True)
+    click.secho("   Your Django project is now ready to use Tailwind CSS!", fg="green")
+    click.secho("   Start development with: python manage.py tailwind runserver", fg="cyan")
+    click.secho("   For help anytime: python manage.py tailwind --help", fg="blue")
+
+
+@app.command(name="troubleshoot")
+@handle_command_errors
+def troubleshoot():
+    """Troubleshooting guide for common issues.
+
+    This command provides solutions for the most common issues encountered
+    when using django-tailwind-cli, with step-by-step debugging guidance.
+
+    \b
+    Common issues covered:
+    - CSS not updating in browser
+    - Build failures and errors
+    - Missing or incorrect configuration
+    - Permission and download issues
+    - Template integration problems
+    - Missing styles after deployment (collectstatic ordering)
+
+    \b
+    Examples:
+        # Run the troubleshooting guide
+        python manage.py tailwind troubleshoot
+
+    \b
+    Use this when:
+        - Styles aren't appearing in your browser
+        - Build or watch commands fail
+        - Getting configuration errors
+        - Need to debug your setup
+    """
+    print_troubleshooting_guide()
+
+
+@app.command(name="optimize")
+@handle_command_errors
+def show_performance_tips():
+    """Performance optimization tips and best practices.
+
+    This command provides detailed guidance on optimizing your Tailwind CSS
+    build performance and development workflow for the best possible experience.
+
+    \b
+    Areas covered:
+    - Build performance optimization
+    - File watching efficiency
+    - Template scanning optimization
+    - Production deployment best practices
+    - Development workflow improvements
+    - Common performance pitfalls
+
+    \b
+    Examples:
+        # Show performance optimization tips
+        python manage.py tailwind optimize
+
+    \b
+    Use this to:
+        - Speed up development builds
+        - Optimize production deployments
+        - Reduce file watching overhead
+        - Improve overall workflow efficiency
+    """
+    print_performance_tips()
+
+
+@app.command(name="remove_cli")
+@handle_command_errors
+def remove_cli():
+    """Remove the Tailwind CSS CLI."""
+    c = get_config()
+
+    if c.uses_system_binary:
+        click.secho(
+            f"Refusing to remove system Tailwind CSS CLI at '{c.cli_path}'. "
+            "It was installed outside of django-tailwind-cli (e.g. via Homebrew) and must be "
+            "uninstalled the same way.",
+            fg="yellow",
+        )
+        return
+
+    if c.cli_path.exists():
+        c.cli_path.unlink()
+        click.secho(f"Removed Tailwind CSS CLI at '{c.cli_path}'.", fg="green")
+    else:
+        click.secho(f"Tailwind CSS CLI not found at '{c.cli_path}'.", fg="red")
+
+
+@app.command(
+    context_settings={
+        "ignore_unknown_options": True,
+        "allow_extra_args": True,
+    },
+)
+@click.option(
+    "--force-default-runserver",
+    is_flag=True,
+    help="Force vanilla runserver even if django-extensions is installed.",
+)
+@click.pass_context
+def runserver(ctx: click.Context, *, force_default_runserver: bool):
+    """Run Django development server with Tailwind CSS watch mode.
+
+    Combines `tailwind watch` and Django's runserver in one terminal, with
+    signal-clean shutdown of both processes on Ctrl+C. If `django-extensions`
+    plus `werkzeug` are installed, `runserver_plus` is used by default — pass
+    `--force-default-runserver` to opt out.
+
+    \b
+    All positional arguments and options other than `--force-default-runserver`
+    are forwarded verbatim to the underlying server command. That means every
+    runserver / runserver_plus flag is supported, including ones this wrapper
+    does not know about:
+
+    \b
+        python manage.py tailwind runserver
+        python manage.py tailwind runserver 8080
+        python manage.py tailwind runserver 0.0.0.0:8000 --noreload
+        python manage.py tailwind runserver --print-sql --ipdb
+        python manage.py tailwind runserver --extra-file .env --reloader-interval 5
+
+    \b
+    For the full list of forwarded flags, see:
+        python manage.py runserver --help
+        python manage.py runserver_plus --help   (with django-extensions)
+    """
+    # Both commands below are `python manage.py ...` run from BASE_DIR. Without that file the
+    # subprocesses start, fail, and report a returncode — after this command has already claimed
+    # to have started them. Say it up front instead.
+    manage_py = Path(settings.BASE_DIR) / "manage.py"
+    if not manage_py.exists():
+        raise CommandError(
+            f"No manage.py at '{manage_py}'. `tailwind runserver` runs Django's runserver as a "
+            "subprocess from BASE_DIR and needs it there.\n"
+            "If your project keeps manage.py elsewhere, run the two halves separately instead:\n"
+            "  python manage.py tailwind watch\n"
+            "  python manage.py runserver"
+        )
+
+    use_plus = (
+        importlib.util.find_spec("django_extensions")
+        and importlib.util.find_spec("werkzeug")
+        and not force_default_runserver
+    )
+    server_command = "runserver_plus" if use_plus else "runserver"
+
+    watch_cmd = [sys.executable, "manage.py", "tailwind", "watch"]
+    server_cmd = [sys.executable, "manage.py", server_command, *ctx.args]
+
+    process_manager = ProcessManager()
+    process_manager.start_concurrent_processes(watch_cmd, server_cmd)
+
+
+# DOWNLOAD AND BUILD HELPERS ----------------------------------------------------------------------
+
+
+# FILE OPERATION OPTIMIZATIONS --------------------------------------------------------------------
+
+
+# UTILITY FUNCTIONS -------------------------------------------------------------------------------

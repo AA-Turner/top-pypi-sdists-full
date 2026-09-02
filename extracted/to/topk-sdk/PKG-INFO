@@ -1,0 +1,311 @@
+Metadata-Version: 2.4
+Name: topk_sdk
+Version: 0.15.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: numpy>=1.20
+License-File: LICENSE
+Summary: Python SDK for topk.io
+Keywords: topk,search,vector,keyword,bm25
+Home-Page: https://topk.io
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: homepage, https://topk.io
+Project-URL: documentation, https://docs.topk.io
+Project-URL: repository, https://github.com/topk-io/topk
+
+# TopK Python SDK
+
+[![PyPI version](https://img.shields.io/pypi/v/topk-sdk.svg)](https://pypi.org/project/topk-sdk/)
+
+The TopK Python library provides convenient access to the TopK API from any Python 3.9+ application. The library includes type definitions for all request params and response fields, and features both synchronous and asynchronous clients.
+
+## Documentation
+
+The full documentation can be found at [docs.topk.io](https://docs.topk.io).
+
+The Python SDK reference can be found at [docs.topk.io/sdk/topk-py](https://docs.topk.io/sdk/topk-py).
+
+## Installation
+
+```sh
+pip install topk-sdk
+
+# or
+
+uv add topk-sdk
+```
+
+## Prerequisites
+
+- **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
+- **Region** — available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
+
+## Usage
+
+### Hybrid Search
+
+```python
+import os
+from topk_sdk import Client
+from topk_sdk.schema import text, keyword_index, semantic_index
+from topk_sdk.query import select, field, fn
+
+client = Client(
+    api_key=os.environ["TOPK_API_KEY"],
+    region="aws-us-east-1-elastica",
+)
+
+# Create a collection
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required().index(keyword_index()),
+        "content": text().index(semantic_index()),
+    },
+)
+
+# Upsert documents
+client.collection("books").upsert([
+    {
+        "_id": "1",
+        "title": "Catcher in the Rye",
+        "content": "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+        "author": "J.D. Salinger",
+        "rating": 3.8,
+    },
+    {
+        "_id": "2",
+        "title": "1984",
+        "content": "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+        "author": "George Orwell",
+        "rating": 4.7,
+    },
+])
+
+# Query with hybrid search
+results = client.collection("books").query(
+    select(
+        # Select document fields to return
+        "_id", "title", "author",
+        # Compute semantic similarity of content field with the query
+        similarity_score=fn.semantic_similarity(
+            "content",
+            "What is the meaning of life?",
+        ),
+    )
+    # Filter documents by metadata
+    .filter(field("rating") >= 3.0)
+    # Rank using the computed similarity score and rating
+    .sort(field("rating") * field("similarity_score"), asc=False)
+    # Get top 10 highest ranked documents
+    .limit(10)
+)
+```
+
+### Vector Search
+
+```python
+import os
+from topk_sdk import Client
+from topk_sdk.schema import text, f32_vector, vector_index
+from topk_sdk.query import select, field, fn
+
+client = Client(
+    api_key=os.environ["TOPK_API_KEY"],
+    region="aws-us-east-1-elastica",
+)
+
+# Create a collection with a vector field (dimension must match your embedding model's output size)
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+        "embedding": f32_vector(dimension=1536).required().index(vector_index(metric="dot_product")),
+    },
+)
+
+# Upsert documents with embeddings
+client.collection("books").upsert([
+    {"_id": "1", "title": "Catcher in the Rye", "embedding": [0.1, 0.2, ...]},
+    {"_id": "2", "title": "1984",               "embedding": [0.9, 0.8, ...]},
+])
+
+# Query the nearest neighbors to a query vector
+results = client.collection("books").query(
+    select(
+        "_id", "title",
+        distance=fn.vector_distance("embedding", [0.8, 0.9, ...]),
+    )
+    # Return the 10 closest documents (ascending = closest first)
+    .sort(field("distance"), asc=True)
+    .limit(10)
+)
+```
+
+### File Search
+
+```python
+import os
+from topk_sdk import Client
+
+client = Client(
+    api_key=os.environ.get("TOPK_API_KEY"),
+    region="aws-us-east-1-elastica",
+)
+
+# Create a dataset
+client.datasets().create("my-dataset")
+
+# Upload a file
+handle = client.dataset("my-dataset").upsert_file(
+    "doc-1",                                               # document ID
+    input="/path/to/document.pdf",                         # path to file
+    metadata={"kind": "report", "department": "finance"},  # optional metadata
+)
+
+# Wait for the file to process (optional)
+client.dataset("my-dataset").wait_for_handle(handle)
+
+# Ask a question
+for message in client.ask(
+    "What was the total net income of Bank of America in 2024?",
+    datasets=["my-dataset"],
+):
+    print(message)
+```
+
+## Async usage
+
+Simply import `AsyncClient` instead of `Client` and use `async for` / `await` with each API call:
+
+```python
+import os
+import asyncio
+from topk_sdk import AsyncClient
+from topk_sdk.schema import text, keyword_index, semantic_index
+from topk_sdk.query import select, field, fn
+
+client = AsyncClient(
+    api_key=os.environ["TOPK_API_KEY"],
+    region="aws-us-east-1-elastica",
+)
+
+async def main() -> None:
+    # Hybrid search
+    await client.collections().create(
+        "books",
+        schema={
+            "title": text().required().index(keyword_index()),
+            "content": text().index(semantic_index()),
+        },
+    )
+
+    await client.collection("books").upsert([
+        {"_id": "1", "title": "Catcher in the Rye", "content": "...", "rating": 3.8},
+        {"_id": "2", "title": "1984", "content": "...", "rating": 4.7},
+    ])
+
+    results = await client.collection("books").query(
+        select(
+            # Select document fields to return
+            "_id", "title",
+            # Compute semantic similarity of content field with the query
+            similarity_score=fn.semantic_similarity("content", "What is the meaning of life?"),
+        )
+        # Filter documents by metadata
+        .filter(field("rating") >= 3.0)
+        # Rank using the computed similarity score and rating
+        .sort(field("rating") * field("similarity_score"), asc=False)
+        # Get top 10 highest ranked documents
+        .limit(10)
+    )
+
+    # Document search
+    await client.datasets().create("my-dataset")
+
+    handle = await client.dataset("my-dataset").upsert_file(
+        "doc-1",
+        input="/path/to/document.pdf",
+        metadata={"kind": "report", "department": "finance"},
+    )
+    await client.dataset("my-dataset").wait_for_handle(handle)
+
+    async for message in client.ask(
+        "What was the total net income of Bank of America in 2024?",
+        datasets=["my-dataset"],
+    ):
+        print(message)
+
+asyncio.run(main())
+```
+
+## Handling errors
+
+```python
+from topk_sdk.error import (
+    DatasetNotFoundError,
+    PermissionDeniedError,
+    QuotaExceededError,
+    SlowDownError,
+)
+
+try:
+    for message in client.ask(
+        "What was the total net income of Bank of America in 2024?",
+        datasets=["my-dataset"],
+    ):
+        print(message)
+except DatasetNotFoundError:
+    print("Dataset does not exist")
+except PermissionDeniedError:
+    print("Check your API key")
+except QuotaExceededError:
+    print("Usage quota exceeded")
+except SlowDownError:
+    print("Rate limited — the client will retry automatically")
+```
+
+| Error | Description |
+| --- | --- |
+| `CollectionNotFoundError` | Collection does not exist |
+| `PartitionNotFoundError`  | Partition does not exist  |
+| `CollectionAlreadyExistsError` | Collection with this name already exists |
+| `CollectionValidationError` | Invalid collection name or schema |
+| `DatasetNotFoundError` | Dataset does not exist |
+| `DatasetAlreadyExistsError` | Dataset with this name already exists |
+| `DocumentValidationError` | Invalid document |
+| `SchemaValidationError` | Invalid schema |
+| `PermissionDeniedError` | Invalid or missing API key |
+| `QuotaExceededError` | Usage quota exceeded |
+| `RequestTooLargeError` | Request payload too large |
+| `SlowDownError` | Rate limited by the server (retried automatically) |
+| `QueryLsnTimeoutError` | Timed out waiting for write consistency |
+
+### Retries
+
+The client automatically retries on `SlowDownError` and on LSN consistency
+timeouts. Retry behaviour can be configured via `RetryConfig`:
+
+```python
+from topk_sdk import Client, RetryConfig, BackoffConfig
+
+client = Client(
+    api_key=os.environ.get("TOPK_API_KEY"),
+    region="aws-us-east-1-elastica",
+    retry_config=RetryConfig(
+        max_retries=5,        # default: 3
+        timeout=60_000,       # total retry chain timeout in ms, default: 30,000
+        backoff=BackoffConfig(
+            init_backoff=200, # default: 100 ms
+            max_backoff=5_000, # default: 10,000 ms
+        ),
+    ),
+)
+```
+
+## Requirements
+
+Python 3.9 or higher.
+

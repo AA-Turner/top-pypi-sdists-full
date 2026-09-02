@@ -995,7 +995,7 @@ class Recipe(APIObject, HumanReadable):
         """
         Retrieve insights for the recipe sample data. Requires a preview of sample data to be computed first
         with `.get_preview()`. Computing the preview starts the insights job in the background automatically
-        if it not already running. Will block thread until insights are ready or max_wait is exceeded.
+        if it not already running. Will block thread until insights are ready or ``max_wait`` is exceeded.
 
         Parameters
         ----------
@@ -1119,7 +1119,8 @@ class Recipe(APIObject, HumanReadable):
     @classmethod
     def set_recipe_metadata(cls, recipe_id: str, metadata: Dict[str, str]) -> Recipe:
         """
-        Update metadata for a recipe. Consider using :meth:`update() <datarobot.models.recipe.Recipe.update>` instead
+        Update the metadata for a recipe. Consider using :meth:`update() <datarobot.models.recipe.Recipe.update>`
+        instead
         to update a Recipe instance.
 
         Parameters
@@ -1211,7 +1212,7 @@ class Recipe(APIObject, HumanReadable):
         created_by_username: Optional[str] = None,
     ) -> List[Recipe]:
         """
-        List recipes. Apply filters to narrow down results.
+        Returns a list of recipes. Apply filters to narrow down results.
 
         Parameters
         ----------
@@ -1233,7 +1234,7 @@ class Recipe(APIObject, HumanReadable):
         Returns
         -------
         recipes: List[Recipe]
-            List of recipes matching the filter criteria.
+            A list of recipes matching the filter criteria.
 
         Examples
         --------
@@ -1609,7 +1610,7 @@ class Recipe(APIObject, HumanReadable):
 class JDBCColumnResultSchema(TypedDict, total=False):
     """
     Schema information for a JDBC result column.
-    All fields except 'name' and 'data_type' may not be present.
+    All fields except ``name`` and ``data_type`` may not be present.
     """
 
     name: str
@@ -1628,7 +1629,7 @@ class RecipePreview(APIObject, HumanReadable):
     Attributes
     ----------
     columns: List[str]
-        List of column names in the preview.
+        A list of column names in the preview.
     count: int
         Number of rows in the preview.
     data: List[List[Any]]

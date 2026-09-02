@@ -1,0 +1,83 @@
+Metadata-Version: 2.4
+Name: dbtlabs-vortex
+Version: 0.2.1
+Summary: Python client for Vortex
+Author-email: Connor McArthur <connor@dbtlabs.com>, Zach Brown <zach.brown@dbtlabs.com>
+Project-URL: Homepage, https://github.com/dbt-labs/vortex
+Project-URL: Bug Tracker, https://dbtlabs.atlassian.net/jira/software/c/projects/VX/issues
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: dbt-protos>=1.0.438
+Requires-Dist: pydantic>=1
+Requires-Dist: requests>=2.32.3
+Requires-Dist: uuid>=1.30
+Provides-Extra: dev
+Requires-Dist: types-protobuf; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: black>=23.7.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: mypy>=1.5.1; extra == "dev"
+Requires-Dist: pylint>=2.17.5; extra == "dev"
+Requires-Dist: ruff>=0.9.0; extra == "dev"
+Provides-Extra: ddtrace
+Requires-Dist: ddtrace<3,>=1; extra == "ddtrace"
+
+# Vortex Python Client
+
+A Python client for sending data to the Vortex.
+
+## Overview
+
+This client provides an easy way to send properly formatted messages to Kafka topics that will be consumed by the Vortex service and written to Iceberg tables.
+
+The client:
+- Accepts arbitrary protobufs onto a buffer via `log_proto`
+- Flushes messages in a background thread so that `log_proto` calls do not block
+
+## Installation
+
+### Prerequisites
+
+- Python 3.11, 3.12, 3.13
+
+### Setup
+
+```bash
+# From the clients/python directory
+uv sync --all-extras
+```
+
+## Quick Start
+
+```python
+from dbtlabs_vortex.producer import log_proto, shutdown
+
+# Send JSON data
+log_proto(... proto ...)
+
+# Wait for all messages to be delivered
+shutdown(timeout_seconds=0.500)
+```
+
+## Examples
+
+There is one example included in the `examples/` directory. You can run it with:
+
+```bash
+uv run examples/send_batch.py
+```
+
+This will send some generated events to a locally running Vortex. It also serves as a reference
+implementation for how to log events to Vortex using existing protos.
+
+## Error Handling

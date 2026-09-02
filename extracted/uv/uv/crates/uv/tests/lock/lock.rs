@@ -38226,6 +38226,286 @@ fn lock_tilde_equal_version_u64_max_rejected() -> Result<()> {
     Ok(())
 }
 
+/// Negating locked mode permits lockfile changes despite `UV_LOCKED` or an earlier CLI flag.
+#[cfg(feature = "test-universal")]
+#[test]
+fn lock_no_locked() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    // Negating the CLI flag must also suppress the environment value when creating a lockfile.
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--locked")
+        .arg("--no-locked")
+        .env(EnvVars::UV_LOCKED, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    ");
+    assert!(context.temp_dir.child("uv.lock").exists());
+
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.2.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    // The negation also overrides the `--check` spelling and allows a stale lockfile to update.
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--check")
+        .arg("--no-locked"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Updated project v0.1.0 -> v0.2.0
+    ");
+    let lock = context.read("uv.lock");
+
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.3.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    // A later positive flag restores the check and must leave the stale lockfile unchanged.
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--no-locked")
+        .arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    Ok(())
+}
+
+/// Negating frozen mode permits lockfile changes despite `UV_FROZEN` or an earlier CLI flag.
+#[cfg(feature = "test-universal")]
+#[test]
+fn lock_no_frozen() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    // Negating the CLI flag must also suppress the environment value when creating a lockfile.
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--frozen")
+        .arg("--no-frozen")
+        .env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    ");
+    assert!(context.temp_dir.child("uv.lock").exists());
+
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.2.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    // The negation also overrides the `--check-exists` spelling and permits re-locking.
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--check-exists")
+        .arg("--no-frozen"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Updated project v0.1.0 -> v0.2.0
+    ");
+    let lock = context.read("uv.lock");
+
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.3.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    // A later positive flag restores frozen mode and keeps using the existing lockfile.
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--no-frozen")
+        .arg("--check-exists"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: The lockfile at `uv.lock` was only checked for validity, not whether it is up-to-date, because `--check-exists` was provided; use `--check` instead
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    Ok(())
+}
+
+/// `--check` overrides `UV_FROZEN` when checking a stale lockfile.
+#[cfg(feature = "test-universal")]
+#[test]
+fn lock_check_overrides_frozen_environment() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+    "#})?;
+    context.lock().assert().success();
+    let lock = context.read("uv.lock");
+
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.2.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--check")
+        .env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    warning: Ignoring `UV_FROZEN` because `--check` was provided
+    Resolved 1 package in [TIME]
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    Ok(())
+}
+
+/// Both spellings of the frozen flag override `UV_LOCKED` without checking lockfile freshness.
+#[cfg(feature = "test-universal")]
+#[test]
+fn lock_frozen_overrides_locked_environment() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+    "#})?;
+    context.lock().assert().success();
+    let lock = context.read("uv.lock");
+
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.2.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--frozen")
+        .env(EnvVars::UV_LOCKED, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: Ignoring `UV_LOCKED` because `--frozen` was provided
+    warning: The lockfile at `uv.lock` was only checked for validity, not whether it is up-to-date, because `--frozen` was provided; use `--check` instead
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--check-exists")
+        .env(EnvVars::UV_LOCKED, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: Ignoring `UV_LOCKED` because `--check-exists` was provided
+    warning: The lockfile at `uv.lock` was only checked for validity, not whether it is up-to-date, because `--check-exists` was provided; use `--check` instead
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    Ok(())
+}
+
+/// Errors identify the flag or environment variable that enabled frozen mode.
+#[cfg(feature = "test-universal")]
+#[test]
+fn lock_frozen_errors_report_source() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--frozen"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Unable to find lockfile at `uv.lock`, but `--frozen` was provided. To create a lockfile, run `uv lock` or `uv sync` without the flag.
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check-exists"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Unable to find lockfile at `uv.lock`, but `--check-exists` was provided. To create a lockfile, run `uv lock` or `uv sync` without the flag.
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Unable to find lockfile at `uv.lock`, but `UV_FROZEN=1` was provided. To create a lockfile, run `uv lock` or `uv sync` without the flag.
+    ");
+
+    context.lock().assert().success();
+    let lock = context.read("uv.lock");
+
+    // Rename the project so it is missing from the existing lockfile.
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "renamed"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--frozen"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--frozen` was provided: Missing workspace member `renamed`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check-exists"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check-exists` was provided: Missing workspace member `renamed`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().env(EnvVars::UV_FROZEN, "1"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `UV_FROZEN=1` was provided: Missing workspace member `renamed`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+    assert_eq!(context.read("uv.lock"), lock);
+
+    Ok(())
+}
+
 /// Test that `uv lock --frozen` and `UV_FROZEN=1` show a warning.
 ///
 /// See: <https://github.com/astral-sh/uv/issues/12783>

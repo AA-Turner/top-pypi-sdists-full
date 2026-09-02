@@ -1,0 +1,52 @@
+[project]
+name = "periodiq"
+version = "0.14.0"
+description = "Simple Scheduler for Dramatiq Task Queue"
+authors = [{name = "Étienne BERSAC"}]
+license = "LGPL-3.0-or-later"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "dramatiq>=1.5",
+    "pendulum>=2.0,<4",
+]
+
+[project.scripts]
+periodiq = "periodiq:entrypoint"
+
+[dependency-groups]
+test = [
+    "pytest>=8.0",
+    "pytest-mock>=1.10.4",
+]
+dev = [
+    {include-group = "test"},
+    "flake8>=3.7",
+    "tox>=4",
+    "tox-uv>=1",
+]
+
+[tool.tox]
+env_list = ["py310", "py311", "py312", "py313", "py314", "minversions"]
+
+[tool.tox.env_run_base]
+description = "Run unit tests"
+dependency_groups = ["test"]
+commands = [["pytest", "tests/unit"]]
+
+[tool.tox.env.minversions]
+description = "Run unit tests with minimum dependency versions"
+dependency_groups = ["test"]
+uv_resolution = "lowest-direct"
+commands = [["pytest", "tests/unit"]]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"

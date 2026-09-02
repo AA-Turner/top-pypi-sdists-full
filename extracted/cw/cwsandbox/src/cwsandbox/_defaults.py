@@ -9,15 +9,25 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, fields, replace
 from typing import Any
 
+from cwsandbox._auth import AuthConfig
 from cwsandbox._types import (
+    Container,
+    DataPlaneMode,
     FileSystemSnapshotOptions,
     NetworkOptions,
+    ObjectStorageAccess,
     PlacementMode,
     PlacementSpillover,
+    RegisteredVolumeOptions,
     ResourceOptions,
     ScratchVolumeOptions,
     Secret,
+    SecurityContext,
     Service,
+    _coerce_container,
+    _coerce_object_storage_access,
+    _coerce_security_context,
+    _coerce_volume_options,
 )
 
 DEFAULT_CONTAINER_IMAGE: str = "python:3.11"
@@ -267,6 +277,10 @@ class SandboxDefaults:
         command: Entrypoint command to run.
         args: Arguments passed to the command.
         base_url: CWSandbox API endpoint URL.
+        auth: Authentication selection. Accepts an ``AuthStrategy``, resolved
+            ``AuthHeaders``, or an ``AuthProvider``. ``None`` preserves a
+            legacy process-global override when installed and otherwise uses
+            ``AuthStrategy.COREWEAVE_API_KEY``.
         request_timeout_seconds: Client-side HTTP timeout in seconds for most
             RPCs. Poll Get RPCs use ``poll_rpc_timeout_seconds`` instead.
         poll_retry_budget_seconds: Wall-clock budget per retry burst (one trip
@@ -295,16 +309,33 @@ class SandboxDefaults:
         network: Deny-flag network options and optional create-time hostname
             grants via ``NetworkOptions``.
         services: Typed service ports (``Service``) for PUBLIC/PRIVATE/CUSTOM.
-        volumes: Named scratch volumes (``ScratchVolumeOptions``) for FSS mounts.
+        volumes: Scratch or registered volumes (``ScratchVolumeOptions`` or
+            ``RegisteredVolumeOptions``).
+        runtime_class: Optional runtime-class pin (e.g. ``"gvisor"``).
+        security_context: In-guest privilege for the single-container path.
+            Not applied when ``containers=`` or ``defaults.containers`` is used.
+        working_dir: Working directory for the single-container path.
+            Not applied when a container list is used.
+        object_storage_access: Temporary object-storage credentials.
         file_system_snapshot: Convenience single-mount FSS options via
             ``FileSystemSnapshotOptions``. Shareable mount defaults (mount_path,
             size); an explicit ``run()`` value replaces it wholesale. Prefer
             ``volumes=`` for multi-volume setups.
-        secrets: Secrets to inject as environment variables at create time.
-        environment_variables: Environment variables injected into the sandbox.
+        containers: Optional multi-container spec (``Container``). Mutually
+            exclusive with single-container fields on ``Sandbox.run()``.
+            When this list is used, ``secrets``, ``environment_variables``,
+            ``security_context``, and ``working_dir`` on these defaults
+            are not applied; set them on each ``Container``.
+        secrets: Secrets for the single-container path. Not applied when
+            ``containers=`` or ``defaults.containers`` is used.
+        environment_variables: Environment variables for the single-container
+            path. Not applied when a container list is used.
         annotations: Kubernetes pod annotations (key-value string pairs).
             Merged with per-sandbox annotations; explicit values override defaults.
             Use for non-sensitive metadata only.
+        data_plane_mode: Transport policy for exec, logs, and file operations.
+            ``auto`` (default) prefers direct mTLS and falls back to the gateway;
+            ``gateway`` disables direct access; ``direct`` requires it.
 
     Examples:
         ```python
@@ -325,6 +356,7 @@ class SandboxDefaults:
     command: str = DEFAULT_COMMAND
     args: tuple[str, ...] = DEFAULT_ARGS
     base_url: str = DEFAULT_BASE_URL
+    auth: AuthConfig | None = None
     request_timeout_seconds: float = DEFAULT_REQUEST_TIMEOUT_SECONDS
     poll_retry_budget_seconds: float = DEFAULT_POLL_RETRY_BUDGET_SECONDS
     poll_rpc_timeout_seconds: float = DEFAULT_POLL_RPC_TIMEOUT_SECONDS
@@ -337,11 +369,17 @@ class SandboxDefaults:
     resources: ResourceOptions | dict[str, Any] | None = None
     network: NetworkOptions | None = None
     services: tuple[Service, ...] | None = None
-    volumes: tuple[ScratchVolumeOptions, ...] | None = None
+    volumes: tuple[ScratchVolumeOptions | RegisteredVolumeOptions, ...] | None = None
+    runtime_class: str | None = None
+    security_context: SecurityContext | dict[str, Any] | None = None
+    working_dir: str | None = None
+    object_storage_access: ObjectStorageAccess | dict[str, Any] | None = None
     file_system_snapshot: FileSystemSnapshotOptions | dict[str, Any] | None = None
+    containers: tuple[Container, ...] | None = None
     secrets: tuple[Secret, ...] | None = None
     environment_variables: dict[str, str] = field(default_factory=dict)
     annotations: dict[str, str] = field(default_factory=dict)
+    data_plane_mode: DataPlaneMode | str = DataPlaneMode.AUTO
 
     def __post_init__(self) -> None:
         """Validate numeric poll configuration fields."""
@@ -353,6 +391,9 @@ class SandboxDefaults:
         spill = self.placement_spillover
         if isinstance(spill, str):
             object.__setattr__(self, "placement_spillover", PlacementSpillover(spill.lower()))
+        mode = self.data_plane_mode
+        if isinstance(mode, str):
+            object.__setattr__(self, "data_plane_mode", DataPlaneMode(mode.lower()))
 
     def merge_tags(self, additional: Iterable[str] | None) -> list[str]:
         """Combine default tags with additional tags.
@@ -395,9 +436,12 @@ class SandboxDefaults:
         - ``network`` dict -> ``NetworkOptions``
         - ``secrets`` list of dicts -> tuple of ``Secret``
         - ``services`` list of dicts -> tuple of ``Service``
-        - ``volumes`` list of dicts -> tuple of ``ScratchVolumeOptions``
-        - ``args``, ``tags``, ``runner_ids``, ``services``, ``volumes`` lists
-          -> tuples
+        - ``volumes`` list of dicts -> tuple of scratch/registered volume options
+        - ``containers`` list of dicts -> tuple of ``Container``
+        - ``security_context`` dict -> ``SecurityContext``
+        - ``object_storage_access`` dict -> ``ObjectStorageAccess``
+        - ``args``, ``tags``, ``runner_ids``, ``services``, ``volumes``,
+          ``containers`` lists -> tuples
         - ``resources``, ``environment_variables`` -> plain ``dict``
         """
         if d is None:
@@ -423,6 +467,7 @@ class SandboxDefaults:
             "temp_dir",
             "tags",
             "environment_variables",
+            "data_plane_mode",
         )
         for key in _non_optional:
             if key in kwargs and kwargs[key] is None:
@@ -454,9 +499,14 @@ class SandboxDefaults:
             kwargs["services"] = tuple(Service(**s) if isinstance(s, dict) else s for s in services)
         volumes = kwargs.get("volumes")
         if volumes is not None:
-            kwargs["volumes"] = tuple(
-                ScratchVolumeOptions(**v) if isinstance(v, dict) else v for v in volumes
-            )
+            kwargs["volumes"] = tuple(_coerce_volume_options(v) for v in volumes)
+        containers = kwargs.get("containers")
+        if containers is not None:
+            kwargs["containers"] = tuple(_coerce_container(c) for c in containers)
+        kwargs["security_context"] = _coerce_security_context(kwargs.get("security_context"))
+        kwargs["object_storage_access"] = _coerce_object_storage_access(
+            kwargs.get("object_storage_access")
+        )
         # Coerce resources: preserve ResourceOptions, convert mappings to dicts
         res = kwargs.get("resources")
         if res is not None and not isinstance(res, ResourceOptions):

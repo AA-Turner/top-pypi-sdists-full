@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 import threading
 import time
 from collections.abc import Callable, Mapping
@@ -83,15 +84,17 @@ class NativePolicySnapshotPublisher(NativePolicySnapshotPublisherInputs):
             if self._started or self._closed:
                 return
             self._started = True
-        # Provision the verifier before the first client request can start a
-        # managed resident.  Publication still happens asynchronously, but a
-        # shadow/diagnostic caller cannot race resident startup against key
-        # creation.  Failures remain a barrier miss and are retried by the
-        # publisher thread; they never become a Python semantic fallback.
+        # Provision the verifier before the worker can publish.  GuardStore has
+        # completed its schema setup by the time a publisher is constructed;
+        # keeping this one-time key bootstrap synchronous prevents the worker
+        # from racing a partially initialized ``sync_state`` table.  Effective
+        # policy compilation and resident publication remain asynchronous.
         try:
             self._provision_verifier_key()
-        except (NativePolicySnapshotError, OSError, RuntimeError, TypeError, ValueError) as error:
-            self._record_error(str(error) or type(error).__name__)
+        except NativePolicySnapshotError as error:
+            self._record_error(str(error))
+        except (OSError, RuntimeError, TypeError, ValueError, AttributeError, sqlite3.Error) as error:
+            self._record_error(type(error).__name__)
         with self._condition:
             if self._closed:
                 return
@@ -377,12 +380,14 @@ class NativePolicySnapshotPublisher(NativePolicySnapshotPublisherInputs):
                 renew_after_generation = self._renewal_after_generation
             publish_epoch = self._epoch
         try:
+            # Compile and validate policy asynchronously; failures keep the barrier closed.
             context = self._publication_context()
             if context is None:
                 return
             identity, capabilities, master_key, config, client = context
+            resident_fingerprint_before = self._current_input_fingerprint()[1]
             try:
-                snapshot = _publish_snapshot_v3(
+                snapshot, resident_generation = _publish_snapshot_v3(
                     publisher=self,
                     identity=identity,
                     capabilities=capabilities,
@@ -395,12 +400,33 @@ class NativePolicySnapshotPublisher(NativePolicySnapshotPublisherInputs):
                 # The master is only an ephemeral input to derivation/signing;
                 # never retain it in publisher state or an exception context.
                 master_key = None
+            resident_fingerprint = self._current_input_fingerprint()[1]
+            resident_directory_fingerprint = self._resident_directory_fingerprint()
             with self._condition:
                 # A mutation may have invalidated the barrier while this
                 # request was in flight. Do not let an older ACK make that
                 # newer policy appear ready.
                 if self._closed or self._epoch != publish_epoch:
                     return
+                # Bind the ACK to the resident observed before publication,
+                # after publication, and at the barrier commit point.
+                resident_fingerprint_confirmed = self._confirm_resident_fingerprint(
+                    resident_fingerprint_before,
+                    resident_fingerprint,
+                    resident_generation,
+                    resident_directory_fingerprint,
+                )
+                if resident_fingerprint_confirmed is None:
+                    return
+                # The first client request may create the resident generation
+                # state files. Treat those files as the state of this ACK,
+                # otherwise the observer loop immediately mistakes its own
+                # startup for a resident restart and withdraws the barrier
+                # under a concurrent hook. Keep the policy-input half from
+                # before publication so a config change observed during the
+                # request still forces a republish on the next poll.
+                if self._input_fingerprint is not None:
+                    self._input_fingerprint = (self._input_fingerprint[0], resident_fingerprint_confirmed)
                 self._snapshot = snapshot
                 self._published_config_digest = cast(str, snapshot["config_digest"])
                 self._published_policy_fingerprint = (
@@ -416,7 +442,7 @@ class NativePolicySnapshotPublisher(NativePolicySnapshotPublisherInputs):
                 self._condition.notify_all()
         except NativePolicySnapshotError as error:
             self._record_error(str(error))
-        except (OSError, RuntimeError, TypeError, ValueError, AttributeError) as error:
+        except (OSError, RuntimeError, TypeError, ValueError, AttributeError, sqlite3.Error) as error:
             self._record_error(type(error).__name__)
 
     def _publication_context(

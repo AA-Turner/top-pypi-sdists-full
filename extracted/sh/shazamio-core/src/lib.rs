@@ -1,0 +1,178 @@
+mod errors;
+mod fingerprinting;
+mod params;
+mod response;
+mod utils;
+
+use crate::errors::SignatureError;
+use crate::params::SearchParams;
+use crate::response::{Geolocation, Signature, SignatureSong};
+use crate::utils::convert_signature_to_py;
+use crate::utils::get_python_future;
+use crate::utils::unwrap_decoded_signature;
+use fingerprinting::algorithm::SignatureGenerator;
+use log::{debug, error, info};
+use pyo3::prelude::*;
+use pyo3::types::PyModule;
+use pyo3::{pyclass, pymethods, pymodule, Bound, Py, PyAny, PyErr, PyResult, Python};
+use std::path::PathBuf;
+
+#[pymodule]
+fn shazamio_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    pyo3_log::init();
+    info!("Initializing shazamio_core module");
+
+    m.add_class::<Recognizer>()?;
+    m.add("SignatureError", m.py().get_type::<SignatureError>())?;
+    m.add_class::<Geolocation>()?;
+    m.add_class::<SignatureSong>()?;
+    m.add_class::<Signature>()?;
+    m.add_class::<SearchParams>()?;
+
+    info!("shazamio_core module initialized successfully");
+    Ok(())
+}
+
+#[derive(Clone)]
+#[pyclass(from_py_object)]
+struct Recognizer {
+    #[pyo3(get, set)]
+    segment_duration_seconds: u32,
+}
+
+#[pymethods]
+impl Recognizer {
+    #[new]
+    #[pyo3(signature = (segment_duration_seconds=None))]
+    pub fn new(segment_duration_seconds: Option<u32>) -> Self {
+        let duration = segment_duration_seconds.unwrap_or(10);
+        info!(
+            "Recognizer created with segment_duration_seconds = {}",
+            duration
+        );
+        Recognizer {
+            segment_duration_seconds: duration,
+        }
+    }
+
+    #[pyo3(signature = (value, options=None))]
+    fn recognize_bytes(
+        &self,
+        py: Python,
+        value: Vec<u8>,
+        options: Option<SearchParams>,
+    ) -> PyResult<Py<PyAny>> {
+        debug!(
+            "recognize_bytes method called with bytes len: {} and options: {:?}",
+            value.len(),
+            options,
+        );
+
+        let search_options = options.unwrap_or_else(|| {
+            debug!(
+                "Options not provided, using default segment duration {}",
+                self.segment_duration_seconds,
+            );
+            SearchParams::new(Option::from(self.segment_duration_seconds))
+        });
+
+        let future = async move {
+            debug!("Starting async recognition from bytes");
+            let data = SignatureGenerator::make_signature_from_bytes(
+                value,
+                Some(search_options.segment_duration_seconds),
+            )
+            .map_err(|e| {
+                error!("Error in make_signature_from_bytes: {}", e);
+                let error_message = format!("{}", e);
+                PyErr::new::<SignatureError, _>(error_message)
+            })?;
+
+            debug!("Successfully generated signature from bytes");
+            let signature = unwrap_decoded_signature(data);
+            convert_signature_to_py(signature?)
+        };
+
+        let python_future = get_python_future(py, future);
+        debug!("Returning Python future for recognize_bytes");
+        python_future.map(|any| any.unbind())
+    }
+
+    #[pyo3(signature = (value, options=None))]
+    fn recognize_path(
+        &self,
+        py: Python,
+        value: PathBuf,
+        options: Option<SearchParams>,
+    ) -> PyResult<Py<PyAny>> {
+        debug!(
+            "recognize_path method called with path: {} and options: {:?}",
+            value.display(),
+            options,
+        );
+
+        let search_options = options.unwrap_or_else(|| {
+            debug!(
+                "Options not provided, using default segment duration {}",
+                self.segment_duration_seconds,
+            );
+            SearchParams::new(Option::from(self.segment_duration_seconds))
+        });
+
+        let future = async move {
+            debug!("Starting async recognition from file: {}", value.display());
+            let data = SignatureGenerator::make_signature_from_file(
+                &value,
+                Some(search_options.segment_duration_seconds),
+            )
+            .map_err(|e| {
+                debug!("Error in make_signature_from_file: {}", e);
+                let error_message = format!("{}", e);
+                PyErr::new::<SignatureError, _>(error_message)
+            })?;
+
+            debug!("Successfully generated signature from file");
+            let signature = unwrap_decoded_signature(data);
+            convert_signature_to_py(signature?)
+        };
+
+        let python_future = get_python_future(py, future);
+        debug!("Returning Python future for recognize_path");
+        python_future.map(|any| any.unbind())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The same default `SearchParams` carries, and `shazamio_core.pyi` documents.
+    #[test]
+    fn a_recognizer_defaults_to_a_ten_second_segment() {
+        assert_eq!(Recognizer::new(None).segment_duration_seconds, 10);
+        assert_eq!(Recognizer::new(Some(4)).segment_duration_seconds, 4);
+    }
+
+    // The module and `shazamio_core.pyi` declare the same six names by hand, so
+    //  nothing but this catches an export that was added to one and not the other.
+    #[test]
+    fn the_module_exports_every_name_the_stub_declares() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let module = PyModule::new(py, "shazamio_core").unwrap();
+            shazamio_core(&module).unwrap();
+
+            for name in [
+                "Geolocation",
+                "Recognizer",
+                "SearchParams",
+                "Signature",
+                "SignatureError",
+                "SignatureSong",
+            ] {
+                assert!(module.getattr(name).is_ok(), "{name} is not exported");
+            }
+        });
+    }
+}

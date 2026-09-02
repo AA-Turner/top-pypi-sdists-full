@@ -1,0 +1,15 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: local-storage-operator
+  namespace: openshift-local-storage
+spec:
+  channel: "stable"
+  installPlanApproval: Automatic
+  name: local-storage-operator
+  {%- if upgrade_ocp_version %}
+  source: redhat-operators
+  {%- else %}
+  source: redhat-operators-v{{ lso_version | replace('.', '') }}   # <-- Modify the name of the redhat-operators catalogsource if not default
+  {%- endif %}
+  sourceNamespace: openshift-marketplace

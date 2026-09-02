@@ -5,13 +5,14 @@ import json
 import httpx
 import pytest
 
+from spec_kitty_tracker.errors import CapabilityNotSupportedError
+from spec_kitty_tracker.models import ExternalRef
 from spec_kitty_tracker.nango import (
     NANGO_MANAGED_TOKEN,
     NangoConnectionContext,
     NangoProxyAdapter,
     NangoProxyTransport,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -275,11 +276,13 @@ class TestNangoProxyTransport:
 
 
 class TestNangoProxyAdapter:
+    def _ref(self) -> ExternalRef:
+        return ExternalRef(system="jira", workspace="demo", id="10001", key="IAM-42")
+
     @pytest.mark.asyncio
     async def test_satisfies_protocol(self) -> None:
         from spec_kitty_tracker.protocols import TaskTrackerConnector
 
-        recording = RecordingTransport(response_json=[])
         context = _make_context()
 
         from spec_kitty_tracker.connectors.github import (
@@ -287,9 +290,7 @@ class TestNangoProxyAdapter:
             GitHubConnectorConfig,
         )
 
-        config = GitHubConnectorConfig(
-            owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN
-        )
+        config = GitHubConnectorConfig(owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN)
         adapter = NangoProxyAdapter(GitHubConnector, config, context)
 
         assert isinstance(adapter, TaskTrackerConnector)
@@ -297,7 +298,6 @@ class TestNangoProxyAdapter:
 
     @pytest.mark.asyncio
     async def test_name_delegated(self) -> None:
-        recording = RecordingTransport(response_json=[])
         context = _make_context()
 
         from spec_kitty_tracker.connectors.github import (
@@ -305,9 +305,7 @@ class TestNangoProxyAdapter:
             GitHubConnectorConfig,
         )
 
-        config = GitHubConnectorConfig(
-            owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN
-        )
+        config = GitHubConnectorConfig(owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN)
         adapter = NangoProxyAdapter(GitHubConnector, config, context)
         assert adapter.name == "github"
         await adapter.close()
@@ -323,18 +321,11 @@ class TestNangoProxyAdapter:
             GitHubConnectorConfig,
         )
 
-        config = GitHubConnectorConfig(
-            owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN
-        )
+        config = GitHubConnectorConfig(owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN)
 
-        # Manually wire the transport so we can inject the recording
-        transport = NangoProxyTransport(context, transport=recording)
-        client = httpx.AsyncClient(transport=transport)
-        connector = GitHubConnector(config, client=client)
+        adapter = NangoProxyAdapter(GitHubConnector, config, context, transport=recording)
 
-        page = await connector.list_issues(
-            updated_since=None, cursor=None, limit=10, filters=None
-        )
+        page = await adapter.list_issues(updated_since=None, cursor=None, limit=10, filters=None)
 
         # Verify transport rewrote the request
         assert recording.last_request is not None
@@ -348,7 +339,62 @@ class TestNangoProxyAdapter:
         assert "test-secret-key" in headers["authorization"]
 
         assert page.items == []
-        await client.aclose()
+        await adapter.close()
+
+    @pytest.mark.asyncio
+    async def test_list_transitions_delegates_for_jira(self) -> None:
+        from spec_kitty_tracker.connectors.jira import (
+            JiraConnector,
+            JiraConnectorConfig,
+            JiraTransition,
+        )
+
+        recording = RecordingTransport(
+            response_json={
+                "transitions": [
+                    {"id": "11", "name": "Backlog"},
+                    {"id": "21", "name": "In Progress"},
+                ]
+            }
+        )
+        context = _make_context(provider_config_key="jira")
+        config = JiraConnectorConfig(
+            base_url="https://jira.example",
+            email="team@example.com",
+            api_token=NANGO_MANAGED_TOKEN,
+            project_key="IAM",
+        )
+        adapter = NangoProxyAdapter(JiraConnector, config, context, transport=recording)
+
+        result = await adapter.list_transitions(self._ref())
+
+        assert result == [
+            JiraTransition(id="11", name="Backlog"),
+            JiraTransition(id="21", name="In Progress"),
+        ]
+        assert recording.last_request is not None
+        assert recording.last_request.method == "GET"
+        assert str(recording.last_request.url).endswith(
+            "/proxy/rest/api/3/issue/IAM-42/transitions"
+        )
+        await adapter.close()
+
+    @pytest.mark.asyncio
+    async def test_list_transitions_refuses_non_jira_connector(self) -> None:
+        from spec_kitty_tracker.connectors.github import (
+            GitHubConnector,
+            GitHubConnectorConfig,
+        )
+
+        recording = RecordingTransport(response_json=[])
+        context = _make_context(provider_config_key="github")
+        config = GitHubConnectorConfig(owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN)
+        adapter = NangoProxyAdapter(GitHubConnector, config, context, transport=recording)
+
+        with pytest.raises(CapabilityNotSupportedError, match="only supported for Jira"):
+            await adapter.list_transitions(self._ref())
+        assert recording.last_request is None
+        await adapter.close()
 
     @pytest.mark.asyncio
     async def test_context_manager(self) -> None:
@@ -357,9 +403,7 @@ class TestNangoProxyAdapter:
             GitHubConnectorConfig,
         )
 
-        config = GitHubConnectorConfig(
-            owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN
-        )
+        config = GitHubConnectorConfig(owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN)
         context = _make_context()
 
         async with NangoProxyAdapter(GitHubConnector, config, context) as adapter:

@@ -1,0 +1,68 @@
+[project]
+name = "multimodars"
+dynamic = ["version"]
+authors = [
+    { name = "Anselm W. Stark"}
+]
+description = "A Rust-powered cardiac multi-image modality fusion package"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.0.0,<3.0.0",
+    "trimesh>=4.8.0",
+    "scipy>=1.15.0",
+    "networkx>=3.0"
+]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: MIT License",
+]
+license = "MIT"
+
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+exclude = ["examples/**", "docs/**"]
+
+[project.urls]
+Homepage = "https://github.com/yungselm/multimoda-rs"
+Issues = "https://github.com/yungselm/multimoda-rs/issues"
+
+[project.optional-dependencies]
+viz = ["pyglet<2"]
+meshlab = ["pymeshlab>=2023.12"]
+
+[dependency-groups]
+docs = [
+    "sphinx>=8.0,<9.0",
+    "sphinx-rtd-theme",
+    "sphinx-autodoc-typehints",
+    "myst-nb",
+    "plotly",
+    "maturin>=1.7,<2.0",
+    "furo",
+]
+test = [
+    "pytest>=9.0.2",
+    "pytest-cov",
+    "ruff",
+    "black",
+    "mypy",
+]
+dev = [
+    {include-group = "test"},
+    "plotly",
+    "matplotlib",
+    "nbformat",
+    "ipykernel",
+    "nbmake",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+exclude = ["examples/", "performance/", ".venv/"]

@@ -1,0 +1,119 @@
+Metadata-Version: 2.4
+Name: aiorussound
+Version: 5.0.2
+Summary: Async Python client for Russound RIO and RNET multi-zone audio systems.
+License-Expression: MIT
+License-File: LICENSE
+Author: Noah Husby
+Author-email: opensource@husbylabs.com
+Maintainer: Noah Husby
+Maintainer-email: opensource@husbylabs.com
+Requires-Python: >=3.11
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Provides-Extra: dev
+Provides-Extra: docs
+Requires-Dist: coverage (==7.15.4) ; extra == "dev"
+Requires-Dist: mashumaro (>=3.17)
+Requires-Dist: mypy (==2.3.0) ; extra == "dev"
+Requires-Dist: orjson (>=3.9.0)
+Requires-Dist: pdoc (>=14.7,<17.0) ; extra == "docs"
+Requires-Dist: pre-commit (==4.6.1) ; extra == "dev"
+Requires-Dist: pre-commit-hooks (==6.0.0) ; extra == "dev"
+Requires-Dist: pylint (==4.0.6) ; extra == "dev"
+Requires-Dist: pytest (==9.1.1) ; extra == "dev"
+Requires-Dist: pytest-asyncio (==1.4.0) ; extra == "dev"
+Requires-Dist: pytest-cov (==7.1.0) ; extra == "dev"
+Requires-Dist: ruff (==0.16.2) ; extra == "dev"
+Requires-Dist: serialx (>=1.2.2)
+Project-URL: Documentation, https://github.com/noahhusby/aiorussound
+Project-URL: Homepage, https://github.com/noahhusby/aiorussound
+Project-URL: Repository, https://github.com/noahhusby/aiorussound
+Description-Content-Type: text/markdown
+
+<div align="center">
+
+# aiorussound
+
+####  An async python client for Russound RIO and RNET multi-zone audio systems
+
+[**📖 Read the docs »**][docs]
+
+[![](https://github.com/noahhusby/aiorussound/actions/workflows/publish.yml/badge.svg)](https://github.com/noahhusby/aiorussound/actions/workflows/build.yml)
+[![](https://img.shields.io/github/license/noahhusby/aiorussound)](https://github.com/noahhusby/aiorussound/blob/main/LICENSE)
+[![](https://img.shields.io/pypi/implementation/aiorussound
+)](https://pypi.org/project/aiorussound/)
+[![](https://img.shields.io/pypi/v/aiorussound
+)](https://pypi.org/project/aiorussound/)
+[![](https://img.shields.io/pypi/dm/aiorussound
+)](https://pypi.org/project/aiorussound/)
+
+</div>
+
+This module implements a Python client for the Russound I/O (RIO) and RNET protocol used to control Russound audio controllers. RIO supports a superset of the RNET feature set, allows for push notifications of system changes and supports TCP/IP and RS232 communication.
+
+## Supported Devices
+- Russound MBX-PRE
+- Russound MBX-AMP
+- Russound MCA-C3
+- Russound MCA-C5
+- Russound MCA-66
+- Russound MCA-88
+- Russound MCA-88x
+- Russound XSource (untested)
+- Russound XZone4 (untested)
+- Russound XZone70V (untested)
+- Russound XStream-X5 (untested)
+- Russound ACA-E5 (untested)
+- Russound SMZ8
+- Russound SMZ16-PRE
+
+If your model is not on the list of supported devices, and everything works correctly then add it to the list by opening a pull request.
+
+#### Which protocol should I use?
+
+In most cases, this is already decided for you. Only a handful of devices support both protocols, and **RIO is always recommended over RNET** since it can provide real-time updates without polling.
+
+| Device               | RNET | RIO |
+|---------------------|:----:|:---:|
+| Russound MBX-PRE    |      | ✅  |
+| Russound MBX-AMP    |      | ✅  |
+| Russound MCA-C3     | ⚠️   | ✅  |
+| Russound MCA-C5     | ⚠️   | ✅  |
+| Russound MCA-66     |      | ✅  |
+| Russound MCA-88     |      | ✅  |
+| Russound MCA-88x    |      | ✅  |
+| Russound XSource    |      | ✅  |
+| Russound XZone4     |      | ✅  |
+| Russound XZone70    |      | ✅  |
+| Russound XStream-X5 |      | ✅  |
+| Russound ACA-E5     | ⚠️   | ✅  |
+| Russound SMZ8       |      | ✅  |
+| Russound SMZ16-PRE  |      | ✅  |
+| Russound CAS44      | ✅   |     |
+| Russound CAA66      | ✅   |     |
+| Russound CAM6.6     | ✅   |     |
+| Russound CAV6.6     | ✅   |     |
+
+✅ = **Fully Supported**, ⚠️ = **Supported, RIO protocol preferred**
+
+
+
+## Communication
+The library supports the RIO protocol communication over TCP/IP or RS232 (Serial). 
+
+### TCP/IP
+The built-in ethernet port on the Russound device natively support the RIO protocol. **Note:** It is strongly recommended that the controller has a static IP address configured.
+
+### RS232 (Serial)
+
+The RS232 port must be configured to use the RIO protocol instead of the RNET protocol for the library to function properly. This can be configured using the SCS-C5 configuration tool or the controller's Web GUI.
+
+## Acknowledgements
+This is the continuation of the `russound_rio` package. This wouldn't be possible without the excellent work from [@wickerwaka](https://github.com/wickerwaka) and [@chphilli](https://github.com/chphilli).
+
+[docs]: https://noahhusby.github.io/aiorussound/
+

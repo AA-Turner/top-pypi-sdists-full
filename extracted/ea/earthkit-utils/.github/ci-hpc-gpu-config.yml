@@ -1,6 +1,0 @@
-build:
-  python: 3.11
-  parallel: 1
-  queue: ng
-  gpus: 1
-  toml_opt_dep_sections: all,tests,ci

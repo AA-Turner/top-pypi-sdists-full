@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 1.4.6
+Version: 1.4.11
 Summary: Independent client for Bloomberg-connected data workflows
-Author-email: Alpha x1 <alpha.xone@outlook.com>
+Author: xbbg contributors
+Maintainer: xbbg contributors
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://xbbg.org/
 Project-URL: Documentation, https://xbbg.org/
@@ -26,23 +27,23 @@ Classifier: Typing :: Typed
 Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: narwhals>=2.0
+Requires-Dist: narwhals>=2.10.0
 Provides-Extra: pyarrow
 Requires-Dist: pyarrow>=22.0.0; extra == "pyarrow"
 Provides-Extra: pandas
-Requires-Dist: pandas>=2.0; extra == "pandas"
+Requires-Dist: pandas<4,>=2.2.2; extra == "pandas"
 Provides-Extra: polars
 Requires-Dist: polars>=0.20; extra == "polars"
 Provides-Extra: duckdb
-Requires-Dist: duckdb>=1.0; extra == "duckdb"
+Requires-Dist: duckdb>=1.5.0; extra == "duckdb"
 Provides-Extra: test
 Requires-Dist: pytest>=8.4; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-cov>=5.0; extra == "test"
 Requires-Dist: pytest-asyncio>=0.24; extra == "test"
 Requires-Dist: pyarrow>=22.0.0; extra == "test"
-Requires-Dist: pandas>=2.0; extra == "test"
+Requires-Dist: pandas<4,>=2.2.2; extra == "test"
 Requires-Dist: polars>=0.20; extra == "test"
-Requires-Dist: duckdb>=1.0; extra == "test"
+Requires-Dist: duckdb>=1.5.0; extra == "test"
 Dynamic: license-file
 
 <!-- markdownlint-disable MD013 MD031 MD032 MD033 MD041 MD051 -->
@@ -70,7 +71,7 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==1.4.6 (release: [notes](https://github.com/xbbg-org/xbbg/releases/tag/v1.4.6))
+Latest release: xbbg==1.4.11 (release: [notes](https://github.com/xbbg-org/xbbg/releases/tag/v1.4.11))
 <!-- xbbg:latest-release-end -->
 
 > This `main` branch is the Rust-powered v1 release. For the legacy pure-Python line, use [`release/0.x`](https://github.com/xbbg-org/xbbg/tree/release/0.x).
@@ -485,9 +486,10 @@ await raw_sub.unsubscribe()
 
 Key behaviors:
 
+- `output` accepts exactly `record_batch`, `backend`, `dict`, or `tick` (case-insensitive); omitting it keeps whatever `raw` and `tick_mode` select
 - `raw=True` or `output="record_batch"` yields raw xbbg `ArrowRecordBatch` values for max-performance consumers
-- default iteration without `raw=True` returns the configured backend output instead of raw record batches
-- `tick_mode=True` or `output="dict"` returns native dict ticks and implies raw subscription mode
+- `tick_mode=True`, `output="dict"`, or `output="tick"` returns native dict ticks and implies raw subscription mode
+- `output="backend"` returns the configured backend output, the same as default iteration without `raw=True`
 - `all_fields=True` exposes all top-level scalar Bloomberg subscription fields
 - filtered mode keeps requested fields plus `MKTDATA_EVENT_TYPE` and `MKTDATA_EVENT_SUBTYPE`
 - `conflate=True` requests Bloomberg-conflated quote updates on `//blp/mktdata`; trades are still delivered as received
@@ -596,7 +598,7 @@ If you use xbbg in research or published work, please cite:
 
 ```bibtex
 @software{xbbg,
-  author = {{Alpha x1 and xbbg contributors}},
+  author = {{xbbg contributors}},
   title = {{xbbg}: Independent client for Bloomberg-connected data workflows},
   year = {2026},
   publisher = {GitHub},

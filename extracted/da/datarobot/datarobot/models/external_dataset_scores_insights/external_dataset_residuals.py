@@ -25,8 +25,8 @@ from .external_scores import DEFAULT_BATCH_SIZE
 
 
 class ExternalResidualsChart(APIObject):
-    """Residual analysis dataset chart data for model .
-    This data is calculated over a randomly downsampled subset of the source data
+    """Residual analysis dataset chart data for model.
+    This data is calculated over a randomly ``downsampled`` subset of the source data
     (capped at 1000 rows).
 
     versionadded:: v2.21
@@ -44,15 +44,15 @@ class ExternalResidualsChart(APIObject):
     Attributes
     ----------
     data : list
-        List of lists with schema described as ``ResidualsChartRow`` above.
+        A list of lists with schema described as ``ResidualsChartRow`` above.
     coefficient_of_determination : float
-        The r-squared value for the downsampled dataset
+        The r-squared value for the ``downsampled`` dataset.
     residual_mean : float
-        The arithmetic mean of the residual (predicted value minus actual value)
+        The arithmetic mean of the residual (predicted value minus actual value).
     dataset_id : str
-        ID of the dataset this chart belongs
+        ID of the dataset this chart belongs to.
     standard_deviation : float
-        standard deviation of residual values
+        Standard deviation of residual values.
     """
 
     _converter = (
@@ -95,16 +95,15 @@ class ExternalResidualsChart(APIObject):
         Parameters
         ----------
         project_id: str
-            id of the project
+            ID of the project.
         model_id: str
-            if specified, only lift chart for this model will be retrieved
+            If specified, only the lift chart for this model is retrieved.
         dataset_id: Optional[str]
-            if specified, only lift chart for this dataset will be retrieved
+            If specified, only the lift chart for this dataset is retrieved.
         offset: Optional[int]
-            this many results will be skipped, default: 0
+            This many results will be skipped, default: 0.
         limit: Optional[int]
-            at most this many results are returned, default: 100, max 1000.
-            To return all results, specify 0
+            At most this many results are returned, default: 100, max 1000. To return all results, specify 0.
 
         Returns
         -------
@@ -126,11 +125,11 @@ class ExternalResidualsChart(APIObject):
         Parameters
         ----------
         project_id: str
-            project id
+            Project ID.
         model_id: str
-            model id
+            Model ID.
         dataset_id: str
-            prediction dataset id
+            Prediction dataset ID.
 
         Returns
         -------

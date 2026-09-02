@@ -95,14 +95,14 @@ class PromptTrace(APIObject):
         The LLM settings for the LLM blueprint. The specific keys allowed and the
         constraints on the values are defined in the response from `LLMDefinition.list`,
         but this typically has dict fields. Either:
-        - system_prompt - The system prompt that influences the LLM responses.
-        - max_completion_length - The maximum number of tokens in the completion.
-        - temperature - Controls the variability in the LLM response.
-        - top_p - Sets whether the model considers next tokens with top_p probability mass.
-        or
-        - system_prompt - The system prompt that influences the LLM responses.
-        - validation_id - The ID of the external model LLM validation.
-        - external_llm_context_size - The external LLM's context size, in tokens,
+        - ``system_prompt``: The system prompt that influences the LLM responses.
+        - ``max_completion_length``: The maximum number of tokens in the completion.
+        - ``temperature``: Controls the variability in the LLM response.
+        - ``top_p``: Sets whether the model considers next tokens with ``top_p`` probability mass.
+        Or
+        - ``system_prompt``: The system prompt that influences the LLM responses.
+        - ``validation_id``: The ID of the external model LLM validation.
+        - ``external_llm_context_size``: The context size of the external LLM, in tokens,
         for external model-based LLM blueprints.
     chat_name: str or None
         The name of the chat associated with the Trace.
@@ -188,7 +188,7 @@ class PromptTrace(APIObject):
     @classmethod
     def list(cls, playground: Union[str, Playground]) -> List[PromptTrace]:
         """
-        List all prompt traces for a playground.
+        Returns a list of all prompt traces for a playground.
 
         Parameters
         ----------
@@ -198,7 +198,7 @@ class PromptTrace(APIObject):
         Returns
         -------
         prompt_traces: list[PromptTrace]
-            List of prompt traces for the playground.
+            A list of prompt traces for the playground.
         """
         playground_id = get_entity_id(playground)
         url = f"{cls._client.domain}/{cls._path.format(playground_id)}"
@@ -218,7 +218,7 @@ class PromptTrace(APIObject):
         Returns
         -------
         status_url: str
-            The URL where the status of the job can be monitored
+            The URL where the status of the job can be monitored.
         """
         playground_id = get_entity_id(playground)
         url = f"{cls._client.domain}/{cls._export_path.format(playground_id)}"
@@ -248,7 +248,7 @@ class TraceMetadata(APIObject):
     @classmethod
     def get(cls, playground: Union[str, Playground]) -> TraceMetadata:
         """
-        Get trace metadata for a playground.
+        Returns the trace metadata for a playground.
 
         Parameters
         ----------

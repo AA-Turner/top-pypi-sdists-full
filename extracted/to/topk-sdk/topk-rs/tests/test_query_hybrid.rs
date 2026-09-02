@@ -1,0 +1,157 @@
+use chrono::{TimeZone, Utc};
+use test_context::test_context;
+use topk_rs::data::literal;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
+use topk_rs::query::{field, fns, r#match, select};
+
+mod utils;
+use utils::dataset;
+use utils::ProjectTestContext;
+
+use crate::utils::is_sorted;
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_hybrid_vector_bm25(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                (
+                    "summary_distance",
+                    fns::vector_distance("summary_embedding", vec![2.0f32; 16]),
+                ),
+                ("bm25_score", fns::bm25_score(None, None)),
+            ])
+            .filter(r#match("love", None, Some(30.0), false).or(r#match(
+                "young",
+                None,
+                Some(10.0),
+                false,
+            )))
+            .sort((
+                field("bm25_score") + (field("summary_distance").mul(literal(100))),
+                SortOrder::Asc,
+            ))
+            .limit(2),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert!(result.len() == 2);
+    assert_doc_ids_ordered!(&result, ["mockingbird", "pride"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_hybrid_keyword_boost(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // Multiply summary_distance by 0.1 if the summary matches "racial injustice", otherwise
+    // multiply by 1.0 (leave unchanged).
+    for score_expr in [
+        field("summary_distance")
+            * (field("summary")
+                .match_all("racial injustice")
+                .choose(0.1, 1.0)),
+        field("summary_distance").boost(field("summary").match_all("racial injustice"), 0.1),
+    ] {
+        let result = ctx
+            .client
+            .collection(&collection.name)
+            .query(
+                select([(
+                    "summary_distance",
+                    fns::vector_distance("summary_embedding", vec![2.3f32; 16]),
+                )])
+                .sort((score_expr, SortOrder::Asc))
+                .limit(3),
+                None,
+                None,
+            )
+            .await
+            .expect("could not query");
+
+        // Keyword boosting swaps the order of results so we expect [1984, mockingbird, pride]
+        // instead of [1984, pride, mockingbird].
+        assert_doc_ids_ordered!(&result, ["1984", "mockingbird", "pride"]);
+
+        // We use a modified scoring expression so the results are not sorted by summary_distance.
+        assert!(!is_sorted(&result, "summary_distance"));
+    }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                (
+                    "summary_score",
+                    fns::vector_distance("summary_embedding", vec![4.1; 16]),
+                ),
+                (
+                    "nullable_score",
+                    fns::vector_distance("nullable_embedding", vec![4.1; 4]),
+                ),
+            ])
+            .sort((
+                field("summary_score") + field("nullable_score").coalesce(0.0),
+                SortOrder::Asc,
+            ))
+            .limit(3),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    // Adding the nullable_score without coalescing would exclude "pride" and "gatsby" from
+    // the result set, even though they are the closest candidates based on summary_score.
+    assert_doc_ids_ordered!(&result, ["gatsby", "catcher", "pride"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_hybrid_recency_boost(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let now = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([(
+                "recency_score",
+                field("published_ts")
+                    .elapsed(literal(now), "day")
+                    .saturate(65.0 * 365.0, 5.0),
+            )])
+            .select([(
+                "summary_distance",
+                fns::vector_distance("summary_embedding", vec![2.3f32; 16]),
+            )])
+            .sort((
+                field("summary_distance").mul(field("recency_score")),
+                SortOrder::Asc,
+            ))
+            .limit(3),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids_ordered!(&result, ["1984", "harry", "pride"]);
+}

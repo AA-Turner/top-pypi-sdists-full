@@ -1,0 +1,224 @@
+# Reusable workflow: bump semver version based on conventional commits since last tag.
+#
+# Opens a bump-version PR against target_branch with:
+#   - pyproject.toml version updated (MAJOR.MINOR.PATCH via conventional commits)
+#   - uv.lock regenerated
+#   - CHANGELOG.md prepended with a new section
+#
+# The opened PR gets release_label applied; tag-and-release.yaml fires when it merges.
+#
+# Usage in each app repo (.github/workflows/release.yaml):
+#
+#   on:
+#     pull_request:
+#       types: [closed]
+#       branches: [main]
+#   jobs:
+#     bump:
+#       if: |
+#         github.event.pull_request.merged == true &&
+#         !startsWith(github.event.pull_request.head.ref, 'bump-version')
+#       uses: atlanhq/application-sdk/.github/workflows/release-version-bump.yaml@main
+#       secrets: inherit
+#
+name: Release Version Bump
+
+on:
+  workflow_call:
+    inputs:
+      target_branch:
+        description: "Branch to open the bump PR against"
+        required: false
+        type: string
+        default: "main"
+      release_label:
+        description: "Label applied to the bump PR (triggers tag-and-release.yaml on merge)"
+        required: false
+        type: string
+        default: "release"
+      sdk_scripts_ref:
+        description: "Ref of atlanhq/application-sdk to pull helper scripts from (default: main)"
+        required: false
+        type: string
+        default: "main"
+      first_release_version:
+        description: "Minimum version for an app's *first* release (a repo with no v* tag yet). Apps are scaffolded at 0.1.0, so without this their first ever release would be 0.2.0; a first release is a 1.0.0 event. Applied as a floor, not an assignment — an app already at or past it keeps bumping normally. Set to an empty string to disable and use the plain conventional-commit bump."
+        required: false
+        type: string
+        default: "1.0.0"
+      private_git_auth:
+        description: "Set true if the app has a private-org (atlanhq) git dependency that `uv lock` must resolve during the version bump. When true, atlanhq GitHub remotes are rewritten to token auth (via ORG_PAT_GITHUB) before `uv lock` runs, so resolution of the private git source succeeds. Default false — apps with only PyPI deps are unaffected. Mirrors the `private_git_auth` input in build-and-publish-app.yaml."
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      ORG_PAT_GITHUB:
+        required: true
+        description: "Org PAT for git push and gh pr create"
+      FLEET_APP_ID:
+        required: false
+        description: "atlan-app-fleet App ID (org secret). Not passed explicitly by any current caller — auto-available via 'secrets: inherit'. Declared here so the contract is self-documenting."
+      FLEET_APP_PRIVATE_KEY:
+        required: false
+        description: "atlan-app-fleet App private key (org secret). Same availability as FLEET_APP_ID above."
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump-version:
+    name: Update version and changelog
+    runs-on: ubuntu-latest
+
+    env:
+      # Referenced from step-level `if:` guards below, which cannot read
+      # `secrets` directly. Deliberately ORG_PAT_GITHUB and never the fleet App
+      # token minted below: that token is scoped to `repositories:
+      # <caller repo>`, so it cannot clone a *different* private atlanhq repo
+      # (e.g. a query-redaction dep living in another repo) and would fail the
+      # same way the unauthenticated runner does today.
+      GIT_TOKEN: ${{ secrets.ORG_PAT_GITHUB }}
+
+    steps:
+      - name: Mint fleet App token
+        # No workflow auto-merges the bump PR this opens (GitHub blocks
+        # self-approval regardless of author identity), so only the re-fire
+        # property matters here, not a specific bypass-actor identity.
+        id: app-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          owner: atlanhq
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token || secrets.ORG_PAT_GITHUB }}
+
+      - name: Checkout SDK helper scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: atlanhq/application-sdk
+          ref: ${{ inputs.sdk_scripts_ref }}
+          path: .sdk-scripts
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.7"
+
+      - name: Get current version
+        id: versions
+        run: |
+          CURRENT=$(uvx --from=toml-cli toml get --toml-path=pyproject.toml project.version)
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+
+      # The flag promises a token, but `secrets: inherit` resolves an unset org
+      # secret to an empty string rather than failing — so without this guard
+      # the rewrite below installs a redirect of every atlanhq URL to an
+      # *unauthenticated* token URL, and the job dies far from the cause.
+      # Condition stays in `if:`, never in the shell (docs/standards/ci.md).
+      - name: Require ORG_PAT_GITHUB when private_git_auth is set
+        if: inputs.private_git_auth && env.GIT_TOKEN == ''
+        run: |
+          echo "::error::private_git_auth is true but ORG_PAT_GITHUB is unset"
+          exit 1
+
+      # `uv lock` (in "Bump version" below) re-resolves the full dependency
+      # graph after the version bump, which for a private-org git source
+      # requires cloning that repo. The default checkout has no auth for other
+      # atlanhq repos, so rewrite atlanhq remotes to token auth first.
+      # ORG_PAT_GITHUB (not the repo-scoped fleet App token minted above) is
+      # used because the dependency lives in a *different* repo. Mirrors
+      # build-and-publish-app.yaml.
+      #
+      # Torn down again after the changelog step, before the push: the checkout
+      # above authenticates via git's `extraheader`, and leaving a userinfo
+      # rewrite in place would hand the push a second, different credential.
+      - name: Configure git auth for private dependencies
+        if: inputs.private_git_auth && env.GIT_TOKEN != ''
+        run: |
+          git config --global url."https://x-access-token:${GIT_TOKEN}@github.com/atlanhq/".insteadOf "https://github.com/atlanhq/"
+          git config --global --add url."https://x-access-token:${GIT_TOKEN}@github.com/atlanhq/".insteadOf "ssh://git@github.com/atlanhq/"
+
+      - name: Bump version
+        id: bump
+        run: |
+          python3 -m venv /tmp/bump-venv
+          /tmp/bump-venv/bin/pip install semver packaging -q
+          # --first-release-version is always passed; an empty value disables the
+          # floor in the script, so the caller opts out via the input rather than
+          # via a shell conditional here (docs/standards/ci.md).
+          /tmp/bump-venv/bin/python .sdk-scripts/.github/scripts/release.py \
+            "${{ inputs.target_branch }}" \
+            "${{ steps.versions.outputs.current }}" \
+            --first-release-version "${{ inputs.first_release_version }}"
+          uv lock
+          NEW=$(uvx --from=toml-cli toml get --toml-path=pyproject.toml project.version)
+          echo "new=${NEW}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.ORG_PAT_GITHUB }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 .sdk-scripts/.github/scripts/update_changelog.py "${{ steps.versions.outputs.current }}" "${{ steps.bump.outputs.new }}"
+
+      # Restore the pristine push path — see the rewrite step above. Runs on the
+      # same guard so it is a no-op for every caller that did not opt in.
+      - name: Drop private-dependency git rewrite before push
+        if: inputs.private_git_auth && env.GIT_TOKEN != ''
+        run: git config --global --unset-all url."https://x-access-token:${GIT_TOKEN}@github.com/atlanhq/".insteadOf
+
+      - name: Commit and open PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.ORG_PAT_GITHUB }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+          RELEASE_LABEL: ${{ inputs.release_label }}
+          CURRENT_VERSION: ${{ steps.versions.outputs.current }}
+          NEW_VERSION: ${{ steps.bump.outputs.new }}
+        run: |
+          set -euo pipefail
+          git config --global user.name 'atlan-ci'
+          git config --global user.email 'it@atlan.com'
+
+          BRANCH="bump-version-${TARGET_BRANCH}"
+          git checkout -b "$BRANCH"
+          git add pyproject.toml uv.lock CHANGELOG.md
+          git commit -m "chore: bump version to ${NEW_VERSION}"
+          # --force-with-lease: safer than --force — fails if another CI run pushed
+          # to this bot-owned bump branch concurrently, which is the correct behavior.
+          git push origin "$BRANCH" --force-with-lease
+
+          cat > "${RUNNER_TEMP}/bump-pr-body.md" <<EOF
+          Automated version bump after merge to ${TARGET_BRANCH}.
+
+          This PR updates:
+          - pyproject.toml
+          - uv.lock
+          - CHANGELOG.md
+
+          Version: ${CURRENT_VERSION} → ${NEW_VERSION}
+          EOF
+
+          # Upsert rather than create-or-skip. This branch is fixed and gets
+          # force-pushed on every re-fire, so while the bump PR stays open the
+          # *content* keeps moving — an app that merges a `feat:` after a patch
+          # bump was computed ends up shipping a minor. The old `else` branch
+          # only created the PR, leaving the title and body frozen at the first
+          # run's version while the diff said something else
+          # (atlanhq/atlan-oracle-app#258). The script re-syncs title, body and
+          # the release label, and no-ops when they already match.
+          python3 .sdk-scripts/.github/scripts/upsert_release_pr.py \
+            --repo "${GITHUB_REPOSITORY}" \
+            --base "${TARGET_BRANCH}" \
+            --head "${BRANCH}" \
+            --title "Bump version to ${NEW_VERSION}" \
+            --body-file "${RUNNER_TEMP}/bump-pr-body.md" \
+            --label "${RELEASE_LABEL}"

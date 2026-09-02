@@ -13,7 +13,6 @@ from tornado.escape import url_escape
 from tornado.httputil import url_concat
 
 from jupyterhub import orm, roles, scopes
-from jupyterhub.tests.test_named_servers import named_servers  # noqa
 from jupyterhub.tests.utils import async_requests, public_host, public_url, ujoin
 from jupyterhub.utils import url_escape_path, url_path_join
 
@@ -283,7 +282,6 @@ async def test_spawn_pending_progress(
         await launch_btn.click()
     # wait for progress message to appear
     progress = browser.locator("#progress-message")
-    progress_message = await progress.text_content()
     async with browser.expect_navigation(url=re.compile(".*/user/" + f"{urlname}/")):
         # wait for log messages to appear
         expected_messages = [
@@ -291,19 +289,42 @@ async def test_spawn_pending_progress(
             "Spawning server...",
             f"Server ready at {user.server_url()}",
         ]
-        logs_list = []
-        while not user.spawner.ready and len(logs_list) <= len(expected_messages):
-            logs_list = [
-                await log.text_content()
-                for log in await browser.locator("div.progress-log-event").all()
-            ]
-            if progress_message:
-                assert progress_message in expected_messages
-            # race condition: progress_message _should_
-            # be the last log message, but it _may_ be the next one
-            if logs_list:
-                assert progress_message
-            assert logs_list == expected_messages[: len(logs_list)]
+
+        async def wait_for_ready():
+            while user.spawner.pending:
+                await asyncio.sleep(0.05)
+            assert user.spawner.ready
+
+        async def watch_progress():
+            logs_list = []
+            while len(logs_list) <= len(expected_messages):
+                logs_list = [
+                    await log.text_content()
+                    for log in await browser.locator("div.progress-log-event").all()
+                ]
+                # Read progress_message inside the loop to get updated content
+                progress_message = await progress.text_content()
+                if progress_message:
+                    assert progress_message in expected_messages
+                # race condition: progress_message _should_
+                # be the last log message, but it _may_ be the next one
+                if logs_list:
+                    assert progress_message
+                assert logs_list == expected_messages[: len(logs_list)]
+
+        done, pending = await asyncio.wait(
+            [
+                asyncio.create_task(wait_for_ready()),
+                asyncio.create_task(watch_progress()),
+            ],
+            timeout=30,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for f in done:
+            # raise if error
+            await f
+        for f in pending:
+            f.cancel()
     await expect(browser).to_have_url(re.compile(".*/user/" + f"{urlname}/"))
     assert user.spawner.ready
 
@@ -329,6 +350,59 @@ async def test_spawn_pending_server_ready(app, browser, user_special_chars):
     await expect(stop_start_btns).to_have_text(expected_btns_name)
     await expect(stop_start_btns.nth(0)).to_have_id("stop")
     await expect(stop_start_btns.nth(1)).to_have_id("start")
+
+
+async def test_spawn_named_server_with_form(
+    app,
+    browser,
+    named_servers,
+    user_special_chars,
+    form_spawn,
+):
+    """verify that a new named server with special characters is slugified and launched with custom form inputs"""
+
+    user = user_special_chars.user
+    assert user.allow_named_servers
+    urlname = user_special_chars.urlname
+    urlname_js = user_special_chars.urlname_js
+    entered_display_name = " <  🐧  >\tÅ=Ⅷ"
+    expected_display_name = "< 🐧 >Å=Ⅷ"
+    expected_encoded_display_name = "%3C%20%F0%9F%90%A7%20%3E%C3%85%3D%E2%85%A7"
+    expected_server_name = "a-viii"
+
+    entered_form_input = "😇 <&!&> 😇"
+
+    await login_home(browser, app, user.name)
+    await browser.get_by_role("textbox", name="server name").fill(entered_display_name)
+    await browser.get_by_role("button", name="Add New Server").click()
+    # this creates a server, but doesn't launch it
+    # wait for named server row
+    server_rows = browser.locator('tr.home-server-row')
+    await expect(server_rows).to_have_count(2)
+
+    server_row = server_rows.nth(1)
+    server_name = await server_row.get_attribute("data-server-name")
+    assert server_name == expected_server_name
+    start_button = server_row.get_by_role("button", name="start")
+    name_cell = server_row.locator("td").nth(0)
+    await expect(name_cell).to_contain_text(expected_display_name, timeout=500)
+    await expect(start_button).to_have_id(f"start-{expected_server_name}")
+    # launch the named server
+    await start_button.click()
+
+    await browser.wait_for_url(f"**/hub/spawn/{urlname_js}/{expected_server_name}")
+
+    await browser.get_by_role("textbox", name="energy").fill(entered_form_input)
+    await browser.get_by_role("button", name="Start").click()
+
+    await browser.wait_for_url(f"**/user/{urlname}/{expected_server_name}/")
+
+    user_server_env_url = url_path_join(
+        public_url(app, user), expected_server_name, "/env"
+    )
+    response = await browser.goto(user_server_env_url)
+    env = await response.json()
+    assert env["ENERGY"] == entered_form_input
 
 
 # HOME PAGE
@@ -535,6 +609,11 @@ async def test_token_form_expires_in(
         await open_token_page(app, browser, user_special_chars.user)
     # check the list of tokens duration
     dropdown = browser.locator('#token-expiration-seconds')
+    # wait for options to load
+    options = await expect(dropdown.locator('option')).to_have_count(
+        len(expected_options)
+    )
+
     options = await dropdown.locator('option').all()
     actual_values = [
         (await option.text_content(), await option.get_attribute('value'))
@@ -668,25 +747,26 @@ async def test_request_token_expiration(
     )
     assert last_used_text == "Never"
 
-    expires_at_text = (
-        await api_token_table_area.locator("tr.token-row")
-        .get_by_role("cell")
-        .nth(4)
-        .text_content()
+    # flaky: moment rendering is async
+    expires_at_cell = (
+        api_token_table_area.locator("tr.token-row").get_by_role("cell").nth(4)
     )
 
     if token_opt == "Never":
         assert orm_token.expires_at is None
-        assert expires_at_text == "Never"
+        expires_at_text = "Never"
     elif token_opt == "1 Hour":
-        assert expires_at_text == "in an hour"
+        expires_at_text = "in an hour"
     elif token_opt == "1 Day":
-        assert expires_at_text == "in a day"
+        expires_at_text = "in a day"
     elif token_opt == "1 Week":
-        assert expires_at_text == "in 7 days"
+        expires_at_text = "in 7 days"
     elif token_opt == "server_up":
         assert orm_token.expires_at is None
-        assert expires_at_text == "Never"
+        expires_at_text = "Never"
+
+    await expect(expires_at_cell).to_have_text(expires_at_text)
+
     # verify that the button for revoke is presented
     revoke_btn = (
         api_token_table_area.locator("tr.token-row").get_by_role("button").nth(0)
@@ -742,6 +822,8 @@ async def test_request_token_permissions(
         await expect(error_dialog).not_to_be_visible()
         return
 
+    token_result = browser.locator("#token-result")
+    await expect(token_result).to_be_visible()
     await browser.reload(wait_until="load")
 
     # API Tokens table: verify that elements are displayed
@@ -1107,7 +1189,7 @@ async def test_start_stop_all_servers_on_admin_page(app, browser, admin_user):
 
     users = browser.get_by_test_id("user-row-name")
     # verify that all servers are not started
-    # users´numbers are the same as numbers of the start button and the Spawn page button
+    # users' numbers are the same as numbers of the start button and the Spawn page button
     # no Stop server buttons are displayed
     # no access buttons are displayed
     btns_start = browser.get_by_test_id("user-row-server-activity").get_by_role(
@@ -1123,13 +1205,11 @@ async def test_start_stop_all_servers_on_admin_page(app, browser, admin_user):
         "button", name="Access Server"
     )
 
-    assert (
-        await btns_start.count()
-        == await btns_spawn.count()
-        == await users.count()
-        == users_count_db
-    )
-    assert await btns_stop.count() == await btns_access.count() == 0
+    await expect(btns_start).to_have_count(users_count_db)
+    await expect(btns_spawn).to_have_count(users_count_db)
+    await expect(users).to_have_count(users_count_db)
+    await expect(btns_stop).to_have_count(0)
+    await expect(btns_access).to_have_count(0)
 
     # start all servers via the Start All
     await start_all_btn.click()

@@ -1,0 +1,1509 @@
+"""Tests for copilot_auto_start_cmd."""
+
+import json
+import os
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from agentic_devtools.cli.copilot.auto_start import copilot_auto_start_cmd
+
+_AVAIL = "agentic_devtools.cli.copilot.auto_start.is_gh_copilot_available"
+_BUILD = "agentic_devtools.cli.copilot.auto_start.build_copilot_args"
+_SUBPROC = "agentic_devtools.cli.copilot.auto_start.subprocess.run"
+_CLEANUP = "agentic_devtools.cli.copilot.auto_start._cleanup_auto_start_task"
+_REMOVE = "agentic_devtools.cli.copilot.auto_start.remove_auto_start_task"
+_WHICH = "agentic_devtools.cli.copilot.auto_start.shutil.which"
+_GET_STATE_FILE = "agentic_devtools.cli.copilot.auto_start.get_state_file_path"
+_DEFAULT_MODEL = "agentic_devtools.cli.copilot.auto_start.get_default_copilot_model"
+
+_RUN_ID = "test-run-123"
+
+
+def _state_file(tmp_path: Path, triggered_runs: list | None = None, outcome_status: str | None = None) -> Path:
+    """Create a state file with optional triggered runs and return its path."""
+    state_dir = tmp_path / ".agdt" / "workflows" / "_test" / "_test"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    state_file = state_dir / "state.json"
+    state: dict = {}
+    if triggered_runs is not None:
+        state["copilot"] = {"auto_start_triggered_runs": triggered_runs}
+        if outcome_status is not None:
+            state["copilot"]["auto_start_run_outcomes"] = {triggered_runs[0]: {"status": outcome_status}}
+    state_file.write_text(json.dumps(state), encoding="utf-8")
+    return state_file
+
+
+def _read_triggered_runs(state_file: Path) -> list:
+    """Read copilot.auto_start_triggered_runs from the state file."""
+    content = state_file.read_text(encoding="utf-8")
+    state = json.loads(content) if content.strip() else {}
+    return state.get("copilot", {}).get("auto_start_triggered_runs", [])
+
+
+class TestCopilotAutoStartCmd:
+    """Tests for the copilot_auto_start_cmd entry point."""
+
+    @pytest.fixture(autouse=True)
+    def mock_agdt_which(self):
+        """Patch shutil.which so agdt-advance-workflow appears on PATH by default."""
+        with patch(_WHICH, return_value="/usr/local/bin/agdt-advance-workflow"):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def mock_default_model(self):
+        """Patch get_default_copilot_model to avoid real subprocess calls.
+
+        The ``_SUBPROC`` mock replaces ``subprocess.run`` globally (via
+        module reference), so any real ``subprocess.run`` call — including
+        ``git rev-parse`` inside ``get_default_copilot_model()`` — would
+        hit the mock and produce unexpected side-effects (e.g.
+        KeyboardInterrupt from tests that set ``side_effect=KeyboardInterrupt``).
+        """
+        with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+            yield
+
+    # ------------------------------------------------------------------
+    # run_id validation
+    # ------------------------------------------------------------------
+
+    def test_exits_1_when_run_id_is_empty_or_whitespace(self, tmp_path, capsys):
+        """Exits 1 when --run-id is empty or whitespace-only."""
+        with pytest.raises(SystemExit) as exc_info:
+            copilot_auto_start_cmd(
+                [
+                    "--worktree-path",
+                    str(tmp_path),
+                    "--start-prompt",
+                    "hello",
+                    "--run-id",
+                    "   ",
+                ]
+            )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "--run-id must be a non-empty, non-whitespace value" in captured.err
+
+    # ------------------------------------------------------------------
+    # Early worktree_path validation (before any filesystem writes)
+    # ------------------------------------------------------------------
+
+    def test_exits_1_when_worktree_path_does_not_exist(self, tmp_path, capsys):
+        """Exits 1 with error message when --worktree-path does not exist."""
+        nonexistent = str(tmp_path / "does_not_exist")
+        with pytest.raises(SystemExit) as exc_info:
+            copilot_auto_start_cmd(
+                [
+                    "--worktree-path",
+                    nonexistent,
+                    "--start-prompt",
+                    "hello",
+                    "--run-id",
+                    _RUN_ID,
+                ]
+            )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "does not exist or is not a directory" in captured.err
+
+    def test_exits_1_when_worktree_path_is_a_file(self, tmp_path, capsys):
+        """Exits 1 with error message when --worktree-path points to a file, not a directory."""
+        a_file = tmp_path / "some_file"
+        a_file.write_text("", encoding="utf-8")
+        with pytest.raises(SystemExit) as exc_info:
+            copilot_auto_start_cmd(
+                [
+                    "--worktree-path",
+                    str(a_file),
+                    "--start-prompt",
+                    "hello",
+                    "--run-id",
+                    _RUN_ID,
+                ]
+            )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "does not exist or is not a directory" in captured.err
+
+    def test_no_filesystem_writes_when_worktree_path_invalid(self, tmp_path):
+        """No directories or files are created when worktree_path is invalid."""
+        nonexistent = tmp_path / "does_not_exist"
+        with pytest.raises(SystemExit):
+            copilot_auto_start_cmd(
+                [
+                    "--worktree-path",
+                    str(nonexistent),
+                    "--start-prompt",
+                    "hello",
+                    "--run-id",
+                    _RUN_ID,
+                ]
+            )
+
+        # The nonexistent directory should NOT have been created
+        assert not nonexistent.exists()
+
+    # ------------------------------------------------------------------
+    # State path resolution chdir/restore behavior
+    # ------------------------------------------------------------------
+
+    def test_exits_1_when_chdir_to_worktree_fails(self, tmp_path, capsys):
+        """Exits 1 with a clear error when changing to worktree directory fails."""
+        with patch("agentic_devtools.cli.copilot.auto_start.os.chdir", side_effect=OSError("denied")):
+            with pytest.raises(SystemExit) as exc_info:
+                copilot_auto_start_cmd(
+                    [
+                        "--worktree-path",
+                        str(tmp_path),
+                        "--start-prompt",
+                        "hello",
+                        "--run-id",
+                        _RUN_ID,
+                    ]
+                )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "failed to change directory to worktree" in captured.err
+
+    def test_warns_when_restoring_original_cwd_fails(self, tmp_path, capsys):
+        """Prints a warning when restoring the original working directory fails."""
+        sf = _state_file(tmp_path, triggered_runs=[_RUN_ID], outcome_status="completed")
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(
+                "agentic_devtools.cli.copilot.auto_start.os.chdir", side_effect=[None, OSError("restore failed")]
+            ):
+                with patch(_CLEANUP):
+                    with pytest.raises(SystemExit) as exc_info:
+                        copilot_auto_start_cmd(
+                            [
+                                "--worktree-path",
+                                str(tmp_path),
+                                "--start-prompt",
+                                "hello",
+                                "--run-id",
+                                _RUN_ID,
+                            ]
+                        )
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "warning: failed to restore original working directory" in captured.err
+
+    # ------------------------------------------------------------------
+    # Run ID already triggered (exits before is_gh_copilot_available check)
+    # ------------------------------------------------------------------
+
+    def test_exits_0_when_run_id_already_triggered(self, tmp_path):
+        """When the run ID is already in the triggered set, exit 0 immediately."""
+        sf = _state_file(tmp_path, triggered_runs=[_RUN_ID], outcome_status="completed")
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_REMOVE):
+                with pytest.raises(SystemExit) as exc_info:
+                    copilot_auto_start_cmd(
+                        [
+                            "--worktree-path",
+                            str(tmp_path),
+                            "--start-prompt",
+                            "hello",
+                            "--run-id",
+                            _RUN_ID,
+                        ]
+                    )
+
+        assert exc_info.value.code == 0
+
+    def test_calls_run_scoped_cleanup_when_run_id_already_triggered(self, tmp_path):
+        """When run ID is already triggered, cleanup is scoped to the owning run ID."""
+        sf = _state_file(tmp_path, triggered_runs=[_RUN_ID], outcome_status="completed")
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_CLEANUP) as mock_cleanup:
+                with pytest.raises(SystemExit):
+                    copilot_auto_start_cmd(
+                        [
+                            "--worktree-path",
+                            str(tmp_path),
+                            "--start-prompt",
+                            "hello",
+                            "--run-id",
+                            _RUN_ID,
+                            "--task-label",
+                            "my-label",
+                        ]
+                    )
+
+        mock_cleanup.assert_called_once_with(str(tmp_path), "my-label", False, expected_run_id=_RUN_ID)
+
+    def test_calls_run_scoped_cleanup_with_created_new_when_run_id_triggered(self, tmp_path):
+        """When run ID is already triggered, cleanup preserves created-new semantics."""
+        sf = _state_file(tmp_path, triggered_runs=[_RUN_ID], outcome_status="completed")
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_CLEANUP) as mock_cleanup:
+                with pytest.raises(SystemExit):
+                    copilot_auto_start_cmd(
+                        [
+                            "--worktree-path",
+                            str(tmp_path),
+                            "--start-prompt",
+                            "hello",
+                            "--run-id",
+                            _RUN_ID,
+                            "--task-label",
+                            "my-label",
+                            "--created-new",
+                        ]
+                    )
+
+        mock_cleanup.assert_called_once_with(str(tmp_path), "my-label", True, expected_run_id=_RUN_ID)
+
+    def test_does_not_clean_up_task_while_triggered_run_is_running(self, tmp_path):
+        """Preserves the task while another process is still starting the run."""
+        sf = _state_file(tmp_path, triggered_runs=[_RUN_ID], outcome_status="running")
+
+        with patch(_GET_STATE_FILE, return_value=sf), patch(_CLEANUP) as mock_cleanup:
+            with pytest.raises(SystemExit) as exc_info:
+                copilot_auto_start_cmd(
+                    [
+                        "--worktree-path",
+                        str(tmp_path),
+                        "--start-prompt",
+                        "hello",
+                        "--run-id",
+                        _RUN_ID,
+                    ]
+                )
+
+        assert exc_info.value.code == 0
+        mock_cleanup.assert_not_called()
+
+    def test_restores_state_env_vars_after_state_path_resolution(self, tmp_path, monkeypatch):
+        """Both state-dir environment variables are restored after state-path resolution."""
+        sf = _state_file(tmp_path, triggered_runs=[_RUN_ID])
+
+        monkeypatch.setenv("AGENTIC_DEVTOOLS_STATE_DIR", "orig-modern")
+        monkeypatch.setenv("AGDT_AI_HELPERS_STATE_DIR", "orig-legacy")
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_CLEANUP):
+                with pytest.raises(SystemExit) as exc_info:
+                    copilot_auto_start_cmd(
+                        [
+                            "--worktree-path",
+                            str(tmp_path),
+                            "--start-prompt",
+                            "hello",
+                            "--run-id",
+                            _RUN_ID,
+                        ]
+                    )
+
+        assert exc_info.value.code == 0
+        assert os.environ.get("AGENTIC_DEVTOOLS_STATE_DIR") == "orig-modern"
+        assert os.environ.get("AGDT_AI_HELPERS_STATE_DIR") == "orig-legacy"
+
+    # ------------------------------------------------------------------
+    # Copilot CLI not available (new pre-flight check before marking)
+    # ------------------------------------------------------------------
+
+    def test_exits_1_when_copilot_not_available(self, tmp_path, capsys):
+        """Exits 1 with error message when the copilot CLI is not available."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=False):
+                with pytest.raises(SystemExit) as exc_info:
+                    copilot_auto_start_cmd(
+                        [
+                            "--worktree-path",
+                            str(tmp_path),
+                            "--start-prompt",
+                            "hello",
+                            "--run-id",
+                            _RUN_ID,
+                        ]
+                    )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "copilot CLI not available" in captured.err
+
+    def test_state_unchanged_when_copilot_not_available(self, tmp_path):
+        """State is not modified when the copilot CLI is not available."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=False):
+                with pytest.raises(SystemExit):
+                    copilot_auto_start_cmd(
+                        [
+                            "--worktree-path",
+                            str(tmp_path),
+                            "--start-prompt",
+                            "hello",
+                            "--run-id",
+                            _RUN_ID,
+                        ]
+                    )
+
+        assert _RUN_ID not in _read_triggered_runs(sf)
+
+    # ------------------------------------------------------------------
+    # agdt-advance-workflow not on PATH (new pre-flight check 3b)
+    # ------------------------------------------------------------------
+
+    def test_exits_1_when_agdt_advance_workflow_not_on_path(self, tmp_path, capsys):
+        """Exits 1 with error message when agdt-advance-workflow is not found on PATH."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_WHICH, return_value=None):
+                    with pytest.raises(SystemExit) as exc_info:
+                        copilot_auto_start_cmd(
+                            [
+                                "--worktree-path",
+                                str(tmp_path),
+                                "--start-prompt",
+                                "hello",
+                                "--run-id",
+                                _RUN_ID,
+                            ]
+                        )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "agdt-advance-workflow" in captured.err
+        assert "not found on PATH" in captured.err
+
+    def test_state_unchanged_when_agdt_advance_workflow_not_on_path(self, tmp_path):
+        """State is not modified when agdt-advance-workflow is not found on PATH."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_WHICH, return_value=None):
+                    with pytest.raises(SystemExit):
+                        copilot_auto_start_cmd(
+                            [
+                                "--worktree-path",
+                                str(tmp_path),
+                                "--start-prompt",
+                                "hello",
+                                "--run-id",
+                                _RUN_ID,
+                            ]
+                        )
+
+        assert _RUN_ID not in _read_triggered_runs(sf)
+
+    # ------------------------------------------------------------------
+    # build_copilot_args returns None (CLI available but prompt too large)
+    # ------------------------------------------------------------------
+
+    def test_exits_1_when_build_copilot_args_returns_none(self, tmp_path, capsys):
+        """When build_copilot_args returns None, print 'prompt too large' error and exit 1."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=None):
+                    with pytest.raises(SystemExit) as exc_info:
+                        copilot_auto_start_cmd(
+                            [
+                                "--worktree-path",
+                                str(tmp_path),
+                                "--start-prompt",
+                                "hello",
+                                "--run-id",
+                                _RUN_ID,
+                            ]
+                        )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "start prompt is too large" in captured.err
+
+    def test_state_unchanged_when_build_copilot_args_returns_none(self, tmp_path):
+        """State is not modified when build_copilot_args returns None."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=None):
+                    with pytest.raises(SystemExit):
+                        copilot_auto_start_cmd(
+                            [
+                                "--worktree-path",
+                                str(tmp_path),
+                                "--start-prompt",
+                                "hello",
+                                "--run-id",
+                                _RUN_ID,
+                            ]
+                        )
+
+        assert _RUN_ID not in _read_triggered_runs(sf)
+
+    # ------------------------------------------------------------------
+    # Successful copilot run
+    # ------------------------------------------------------------------
+
+    def test_marks_run_triggered_before_running_copilot(self, tmp_path):
+        """Run ID is marked in state before the copilot subprocess runs."""
+        sf = _state_file(tmp_path)
+        call_order = []
+
+        def fake_build_args(prompt, interactive, model=None):
+            return ["copilot", "-i", prompt]
+
+        def fake_subprocess_run(args, **kwargs):
+            # Run ID must already be marked when subprocess.run is called
+            if _RUN_ID in _read_triggered_runs(sf):
+                call_order.append("run_id_marked")
+            call_order.append("subprocess_run")
+            result = MagicMock()
+            result.returncode = 0
+            return result
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                    with patch(_BUILD, side_effect=fake_build_args):
+                        with patch(_SUBPROC, side_effect=fake_subprocess_run):
+                            with pytest.raises(SystemExit) as exc_info:
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        assert exc_info.value.code == 0
+        assert call_order == ["run_id_marked", "subprocess_run"]
+
+    def test_exits_0_on_successful_copilot_run(self, tmp_path):
+        """Exits 0 when the copilot command succeeds."""
+        sf = _state_file(tmp_path)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with pytest.raises(SystemExit) as exc_info:
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert exc_info.value.code == 0
+
+    def test_cleanup_called_on_success(self, tmp_path):
+        """_cleanup_auto_start_task is called after a successful copilot run."""
+        sf = _state_file(tmp_path)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with patch(_CLEANUP) as mock_cleanup:
+                            with pytest.raises(SystemExit):
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                        "--task-label",
+                                        "my-label",
+                                        "--created-new",
+                                    ]
+                                )
+
+        mock_cleanup.assert_called_once_with(str(tmp_path), "my-label", True, expected_run_id=_RUN_ID)
+
+    def test_run_id_remains_triggered_after_success(self, tmp_path):
+        """Run ID remains in the triggered set after a successful copilot run."""
+        sf = _state_file(tmp_path)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with patch(_CLEANUP):
+                            with pytest.raises(SystemExit):
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        assert _RUN_ID in _read_triggered_runs(sf)
+
+    def test_successfully_marks_run_id_when_existing_state_is_non_dict_json(self, tmp_path):
+        """A valid non-object state.json is normalized before marking and running Copilot."""
+        sf = _state_file(tmp_path)
+        sf.write_text(json.dumps(["unexpected-top-level"]), encoding="utf-8")
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with patch(_CLEANUP):
+                            with pytest.raises(SystemExit) as exc_info:
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        assert exc_info.value.code == 0
+        assert _read_triggered_runs(sf) == [_RUN_ID]
+
+    # ------------------------------------------------------------------
+    # Failed copilot run (non-zero exit code)
+    # ------------------------------------------------------------------
+
+    def test_exits_with_copilot_exit_code_on_failure(self, tmp_path):
+        """Exits with the copilot command's non-zero exit code on failure."""
+        sf = _state_file(tmp_path)
+        mock_result = MagicMock()
+        mock_result.returncode = 42
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with pytest.raises(SystemExit) as exc_info:
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert exc_info.value.code == 42
+
+    def test_run_id_unmarked_on_copilot_failure(self, tmp_path):
+        """Run ID is removed from the triggered set when the copilot command fails."""
+        sf = _state_file(tmp_path)
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with pytest.raises(SystemExit):
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert _RUN_ID not in _read_triggered_runs(sf)
+
+    def test_cleanup_not_called_on_copilot_failure(self, tmp_path):
+        """_cleanup_auto_start_task is NOT called when the copilot command fails."""
+        sf = _state_file(tmp_path)
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with patch(_CLEANUP) as mock_cleanup:
+                            with pytest.raises(SystemExit):
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        mock_cleanup.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # subprocess.run raises OSError (TOCTOU: binary removed from PATH)
+    # ------------------------------------------------------------------
+
+    def test_exits_1_when_subprocess_raises_oserror(self, tmp_path, capsys):
+        """Exits 1 with error message when subprocess.run raises a generic OSError (e.g. cwd missing)."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=OSError("Permission denied")):
+                        with pytest.raises(SystemExit) as exc_info:
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "failed to run Copilot CLI" in captured.err
+
+    def test_run_id_unmarked_when_subprocess_raises_oserror(self, tmp_path):
+        """Run ID is removed from the triggered set when subprocess.run raises OSError."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=OSError("No such file or directory")):
+                        with pytest.raises(SystemExit):
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert _RUN_ID not in _read_triggered_runs(sf)
+
+    def test_cleanup_not_called_when_subprocess_raises_oserror(self, tmp_path):
+        """_cleanup_auto_start_task is NOT called when subprocess.run raises OSError."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=OSError("No such file or directory")):
+                        with patch(_CLEANUP) as mock_cleanup:
+                            with pytest.raises(SystemExit):
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        mock_cleanup.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # Marking failure (state file lock / OS error)
+    # ------------------------------------------------------------------
+
+    def test_exits_1_when_mark_run_triggered_raises_file_lock_error(self, tmp_path, capsys):
+        """Exits 1 with error message when the state file lock cannot be acquired."""
+        sf = _state_file(tmp_path)
+        from agentic_devtools.file_locking import FileLockError
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(
+                        "agentic_devtools.cli.copilot.auto_start._mark_run_triggered",
+                        side_effect=FileLockError("timeout"),
+                    ):
+                        with pytest.raises(SystemExit) as exc_info:
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "state file lock" in captured.err
+
+    def test_exits_1_when_mark_run_triggered_raises_oserror(self, tmp_path, capsys):
+        """Exits 1 with error message when state file cannot be updated."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(
+                        "agentic_devtools.cli.copilot.auto_start._mark_run_triggered",
+                        side_effect=OSError("permission denied"),
+                    ):
+                        with pytest.raises(SystemExit) as exc_info:
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "state file" in captured.err
+
+    def test_exits_0_when_run_id_already_marked_by_concurrent_invocation(self, tmp_path):
+        """Exits 0 (without running Copilot) when _mark_run_triggered returns False (race)."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                    with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                        with patch(
+                            "agentic_devtools.cli.copilot.auto_start._mark_run_triggered",
+                            return_value=False,
+                        ):
+                            with patch(_SUBPROC) as mock_subproc:
+                                with pytest.raises(SystemExit) as exc_info:
+                                    copilot_auto_start_cmd(
+                                        [
+                                            "--worktree-path",
+                                            str(tmp_path),
+                                            "--start-prompt",
+                                            "hello",
+                                            "--run-id",
+                                            _RUN_ID,
+                                        ]
+                                    )
+
+        assert exc_info.value.code == 0
+        mock_subproc.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # FileNotFoundError (binary not found) vs missing cwd (worktree removed)
+    # ------------------------------------------------------------------
+
+    def test_exits_1_with_binary_not_found_message_when_subprocess_raises_filenotfounderror(self, tmp_path, capsys):
+        """Exits 1 with 'executable not found' message when the Copilot binary is missing from PATH."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=FileNotFoundError("gh: not found")):
+                        with pytest.raises(SystemExit) as exc_info:
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "executable not found" in captured.err
+
+    def test_exits_1_with_missing_worktree_message_when_subprocess_raises_filenotfounderror_for_cwd(
+        self, tmp_path, capsys
+    ):
+        """Exits 1 with 'no longer exists' message when FileNotFoundError is due to missing cwd."""
+        sf = _state_file(tmp_path)
+        import shutil
+
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        def fake_subprocess_run(args, **kwargs):
+            shutil.rmtree(str(worktree_path))
+            raise FileNotFoundError("No such file or directory")
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=fake_subprocess_run):
+                        with pytest.raises(SystemExit) as exc_info:
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(worktree_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "no longer exists" in captured.err
+
+    def test_exits_1_with_worktree_context_when_subprocess_raises_oserror(self, tmp_path, capsys):
+        """Exits 1 with worktree path in message when subprocess.run raises a generic OSError."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=OSError("Permission denied")):
+                        with pytest.raises(SystemExit) as exc_info:
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert str(tmp_path) in captured.err
+
+    # ------------------------------------------------------------------
+    # Default task label
+    # ------------------------------------------------------------------
+
+    def test_default_task_label_is_agdt_copilot_auto_start(self, tmp_path):
+        """The default --task-label is 'agdt-copilot-auto-start'."""
+        sf = _state_file(tmp_path)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with patch(_CLEANUP) as mock_cleanup:
+                            with pytest.raises(SystemExit):
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        mock_cleanup.assert_called_once_with(
+            str(tmp_path),
+            "agdt-copilot-auto-start",
+            False,
+            expected_run_id=_RUN_ID,
+        )
+
+    # ------------------------------------------------------------------
+    # Unmark is best-effort (100% coverage)
+    # ------------------------------------------------------------------
+
+    def test_exits_1_gracefully_when_unmark_called_after_subprocess_filenotfounderror(self, tmp_path, capsys):
+        """Exits 1 and calls unmark after FileNotFoundError from subprocess."""
+        sf = _state_file(tmp_path)
+        _UNMARK = "agentic_devtools.cli.copilot.auto_start._unmark_run_triggered"
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=FileNotFoundError("gh: not found")):
+                        with patch(_UNMARK) as mock_unmark:
+                            with pytest.raises(SystemExit) as exc_info:
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        assert exc_info.value.code == 1
+        mock_unmark.assert_called_once_with(sf, _RUN_ID)
+        captured = capsys.readouterr()
+        assert "executable not found" in captured.err
+
+    def test_exits_1_gracefully_when_unmark_called_after_subprocess_oserror(self, tmp_path, capsys):
+        """Exits 1 and calls unmark after OSError from subprocess."""
+        sf = _state_file(tmp_path)
+        _UNMARK = "agentic_devtools.cli.copilot.auto_start._unmark_run_triggered"
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=OSError("Permission denied")):
+                        with patch(_UNMARK) as mock_unmark:
+                            with pytest.raises(SystemExit) as exc_info:
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        assert exc_info.value.code == 1
+        mock_unmark.assert_called_once_with(sf, _RUN_ID)
+        captured = capsys.readouterr()
+        assert "failed to run Copilot CLI" in captured.err
+
+    def test_exits_with_code_gracefully_when_unmark_called_after_copilot_failure(self, tmp_path):
+        """Exits with copilot's exit code and calls unmark after a non-zero run."""
+        sf = _state_file(tmp_path)
+        _UNMARK = "agentic_devtools.cli.copilot.auto_start._unmark_run_triggered"
+        mock_result = MagicMock()
+        mock_result.returncode = 5
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with patch(_UNMARK) as mock_unmark:
+                            with pytest.raises(SystemExit) as exc_info:
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        assert exc_info.value.code == 5
+        mock_unmark.assert_called_once_with(sf, _RUN_ID)
+
+    # ------------------------------------------------------------------
+    # KeyboardInterrupt handling (Ctrl+C while Copilot is running)
+    # ------------------------------------------------------------------
+
+    def test_exits_130_when_subprocess_raises_keyboard_interrupt(self, tmp_path):
+        """Exits 130 when the user interrupts the Copilot subprocess with Ctrl+C."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=KeyboardInterrupt):
+                        with pytest.raises(SystemExit) as exc_info:
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert exc_info.value.code == 130
+
+    def test_run_id_unmarked_when_subprocess_raises_keyboard_interrupt(self, tmp_path):
+        """Run ID is removed from the triggered set when the user interrupts the Copilot subprocess."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=KeyboardInterrupt):
+                        with pytest.raises(SystemExit):
+                            copilot_auto_start_cmd(
+                                [
+                                    "--worktree-path",
+                                    str(tmp_path),
+                                    "--start-prompt",
+                                    "hello",
+                                    "--run-id",
+                                    _RUN_ID,
+                                ]
+                            )
+
+        assert _RUN_ID not in _read_triggered_runs(sf)
+
+    def test_cleanup_not_called_when_subprocess_raises_keyboard_interrupt(self, tmp_path):
+        """_cleanup_auto_start_task is NOT called when the user interrupts the Copilot subprocess."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=KeyboardInterrupt):
+                        with patch(_CLEANUP) as mock_cleanup:
+                            with pytest.raises(SystemExit):
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        mock_cleanup.assert_not_called()
+
+    def test_exits_130_gracefully_when_unmark_called_after_keyboard_interrupt(self, tmp_path):
+        """Exits 130 and calls unmark after KeyboardInterrupt."""
+        sf = _state_file(tmp_path)
+        _UNMARK = "agentic_devtools.cli.copilot.auto_start._unmark_run_triggered"
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, side_effect=KeyboardInterrupt):
+                        with patch(_UNMARK) as mock_unmark:
+                            with pytest.raises(SystemExit) as exc_info:
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        assert exc_info.value.code == 130
+        mock_unmark.assert_called_once_with(sf, _RUN_ID)
+
+
+class TestAutoStartModelFallback:
+    """Tests for model resolution in copilot_auto_start_cmd."""
+
+    def test_uses_cli_model_when_provided(self, tmp_path):
+        """When --model is provided on CLI, it is forwarded to build_copilot_args."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_WHICH, return_value="/usr/bin/agdt-advance-workflow"):
+                    with patch(_BUILD, return_value=["copilot", "-i", "hello"]) as mock_build:
+                        with patch(_SUBPROC, return_value=MagicMock(returncode=0)):
+                            with pytest.raises(SystemExit):
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                        "--model",
+                                        "gpt-4",
+                                    ]
+                                )
+
+        mock_build.assert_called_once_with("hello", interactive=True, model="gpt-4")
+
+    def test_falls_back_to_state_model_when_cli_omitted(self, tmp_path):
+        """When --model is omitted, reads copilot.model_id from state."""
+        sf = _state_file(tmp_path)
+        # Write model_id to state
+        state_data = json.loads(sf.read_text(encoding="utf-8"))
+        state_data.setdefault("copilot", {})["model_id"] = "claude-3.5-sonnet"
+        sf.write_text(json.dumps(state_data), encoding="utf-8")
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_WHICH, return_value="/usr/bin/agdt-advance-workflow"):
+                    with patch(_BUILD, return_value=["copilot", "-i", "hello"]) as mock_build:
+                        with patch(_SUBPROC, return_value=MagicMock(returncode=0)):
+                            with pytest.raises(SystemExit):
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                    ]
+                                )
+
+        mock_build.assert_called_once_with("hello", interactive=True, model="claude-3.5-sonnet")
+
+    def test_falls_back_to_default_model_when_state_empty(self, tmp_path):
+        """When --model is omitted and state has no model_id, get_default_copilot_model() is used."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_WHICH, return_value="/usr/bin/agdt-advance-workflow"):
+                    with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                        with patch(_BUILD, return_value=["copilot", "-i", "hello"]) as mock_build:
+                            with patch(_SUBPROC, return_value=MagicMock(returncode=0)):
+                                with pytest.raises(SystemExit):
+                                    copilot_auto_start_cmd(
+                                        [
+                                            "--worktree-path",
+                                            str(tmp_path),
+                                            "--start-prompt",
+                                            "hello",
+                                            "--run-id",
+                                            _RUN_ID,
+                                        ]
+                                    )
+
+        mock_build.assert_called_once_with("hello", interactive=True, model="gpt-4o")
+
+    def test_whitespace_only_model_falls_back_to_state(self, tmp_path):
+        """--model '   ' is treated as omitted; falls back to state model_id."""
+        sf = _state_file(tmp_path)
+        state_data = json.loads(sf.read_text(encoding="utf-8"))
+        state_data.setdefault("copilot", {})["model_id"] = "claude-3.5-sonnet"
+        sf.write_text(json.dumps(state_data), encoding="utf-8")
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_WHICH, return_value="/usr/bin/agdt-advance-workflow"):
+                    with patch(_BUILD, return_value=["copilot", "-i", "hello"]) as mock_build:
+                        with patch(_SUBPROC, return_value=MagicMock(returncode=0)):
+                            with pytest.raises(SystemExit):
+                                copilot_auto_start_cmd(
+                                    [
+                                        "--worktree-path",
+                                        str(tmp_path),
+                                        "--start-prompt",
+                                        "hello",
+                                        "--run-id",
+                                        _RUN_ID,
+                                        "--model",
+                                        "   ",
+                                    ]
+                                )
+
+        mock_build.assert_called_once_with("hello", interactive=True, model="claude-3.5-sonnet")
+
+    def test_whitespace_only_model_falls_back_to_default(self, tmp_path):
+        """--model '   ' with no state model_id falls back to get_default_copilot_model()."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_WHICH, return_value="/usr/bin/agdt-advance-workflow"):
+                    with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                        with patch(_BUILD, return_value=["copilot", "-i", "hello"]) as mock_build:
+                            with patch(_SUBPROC, return_value=MagicMock(returncode=0)):
+                                with pytest.raises(SystemExit):
+                                    copilot_auto_start_cmd(
+                                        [
+                                            "--worktree-path",
+                                            str(tmp_path),
+                                            "--start-prompt",
+                                            "hello",
+                                            "--run-id",
+                                            _RUN_ID,
+                                            "--model",
+                                            "   ",
+                                        ]
+                                    )
+
+        mock_build.assert_called_once_with("hello", interactive=True, model="gpt-4o")
+
+    def test_cleanup_marker_called_on_success(self, tmp_path):
+        """_cleanup_pending_auto_start_marker is called after a successful copilot run."""
+        sf = _state_file(tmp_path)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        _MARKER_CLEANUP = "agentic_devtools.cli.workflows.worktree_setup._cleanup_pending_auto_start_marker"
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                    with patch(_SUBPROC, return_value=mock_result):
+                        with patch(_CLEANUP):
+                            with patch(_MARKER_CLEANUP) as mock_marker_cleanup:
+                                with pytest.raises(SystemExit):
+                                    copilot_auto_start_cmd(
+                                        [
+                                            "--worktree-path",
+                                            str(tmp_path),
+                                            "--start-prompt",
+                                            "hello",
+                                            "--run-id",
+                                            _RUN_ID,
+                                        ]
+                                    )
+
+        mock_marker_cleanup.assert_called_once_with(str(tmp_path), expected_run_id=_RUN_ID)
+
+    def test_falls_back_to_default_when_read_model_from_state_raises(self, tmp_path):
+        """When _read_model_from_state raises, fall back to get_default_copilot_model()."""
+        sf = _state_file(tmp_path)
+
+        _READ = "agentic_devtools.cli.copilot.auto_start._read_model_from_state"
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_WHICH, return_value="/usr/bin/agdt-advance-workflow"):
+                    with patch(_READ, side_effect=OSError("corrupt state")):
+                        with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                            with patch(_BUILD, return_value=["copilot", "-i", "hello"]) as mock_build:
+                                with patch(_SUBPROC, return_value=MagicMock(returncode=0)):
+                                    with pytest.raises(SystemExit):
+                                        copilot_auto_start_cmd(
+                                            [
+                                                "--worktree-path",
+                                                str(tmp_path),
+                                                "--start-prompt",
+                                                "hello",
+                                                "--run-id",
+                                                _RUN_ID,
+                                            ]
+                                        )
+
+        mock_build.assert_called_once_with("hello", interactive=True, model="gpt-4o")
+
+    def test_no_allow_all_flag_passes_allow_all_false(self, tmp_path):
+        """With --no-allow-all, build_copilot_args is called with allow_all=False."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_WHICH, return_value="/usr/bin/agdt-advance-workflow"):
+                    with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                        with patch(_BUILD, return_value=["copilot", "-i", "hello"]) as mock_build:
+                            with patch(_SUBPROC, return_value=MagicMock(returncode=0)):
+                                with pytest.raises(SystemExit):
+                                    copilot_auto_start_cmd(
+                                        [
+                                            "--worktree-path",
+                                            str(tmp_path),
+                                            "--start-prompt",
+                                            "hello",
+                                            "--run-id",
+                                            _RUN_ID,
+                                            "--no-allow-all",
+                                        ]
+                                    )
+
+        mock_build.assert_called_once_with("hello", interactive=True, allow_all=False, model="gpt-4o")
+
+
+# --------------------------------------------------------------------------
+# WinError 32 Retry Integration Tests
+# --------------------------------------------------------------------------
+
+_SLEEP = "agentic_devtools.cli.copilot.auto_start.time.sleep"
+_MARKER_CLEANUP = "agentic_devtools.cli.workflows.worktree_setup._cleanup_pending_auto_start_marker"
+
+
+def _make_win_error_32() -> OSError:
+    """Create a fresh OSError simulating WinError 32."""
+    return _make_win_error(32)
+
+
+def _make_win_error(winerror: int) -> OSError:
+    """Create a fresh OSError with a specific Windows winerror code."""
+    exc = OSError("file in use")
+    exc.winerror = winerror  # type: ignore[attr-defined]
+    return exc
+
+
+class TestWinError32RetryIntegration:
+    """Integration tests for WinError 32 retry logic in copilot_auto_start_cmd."""
+
+    @pytest.fixture(autouse=True)
+    def mock_agdt_which(self):
+        """Patch shutil.which so agdt-advance-workflow appears on PATH."""
+        with patch(_WHICH, return_value="/usr/local/bin/agdt-advance-workflow"):
+            yield
+
+    def test_winerror_32_retries_and_succeeds(self, tmp_path, capsys):
+        """WinError 32 triggers retry and succeeds after transient failure."""
+        sf = _state_file(tmp_path)
+
+        mock_result = MagicMock(returncode=0)
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                    with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                        with patch(_SUBPROC, side_effect=[_make_win_error_32(), mock_result]):
+                            with patch(_SLEEP):
+                                with patch(_CLEANUP):
+                                    with patch(_MARKER_CLEANUP):
+                                        with pytest.raises(SystemExit) as exc_info:
+                                            copilot_auto_start_cmd(
+                                                [
+                                                    "--worktree-path",
+                                                    str(tmp_path),
+                                                    "--start-prompt",
+                                                    "hello",
+                                                    "--run-id",
+                                                    _RUN_ID,
+                                                ]
+                                            )
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "transient file lock" in captured.err
+
+    def test_winerror_32_exhaustion_exits_1(self, tmp_path, capsys):
+        """WinError 32 exhaustion after all retries exits with code 1."""
+        sf = _state_file(tmp_path)
+
+        # 6 consecutive failures exhaust the retry budget
+        side_effects = [_make_win_error_32() for _ in range(6)]
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                    with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                        with patch(_SUBPROC, side_effect=side_effects):
+                            with patch(_SLEEP):
+                                with pytest.raises(SystemExit) as exc_info:
+                                    copilot_auto_start_cmd(
+                                        [
+                                            "--worktree-path",
+                                            str(tmp_path),
+                                            "--start-prompt",
+                                            "hello",
+                                            "--run-id",
+                                            _RUN_ID,
+                                        ]
+                                    )
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "retry budget exhausted" in captured.err
+
+    def test_keyboard_interrupt_during_retry_exits_130(self, tmp_path):
+        """KeyboardInterrupt during retry backoff exits with code 130."""
+        sf = _state_file(tmp_path)
+
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                    with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                        with patch(_SUBPROC, side_effect=_make_win_error_32()):
+                            with patch(_SLEEP, side_effect=KeyboardInterrupt):
+                                with pytest.raises(SystemExit) as exc_info:
+                                    copilot_auto_start_cmd(
+                                        [
+                                            "--worktree-path",
+                                            str(tmp_path),
+                                            "--start-prompt",
+                                            "hello",
+                                            "--run-id",
+                                            _RUN_ID,
+                                        ]
+                                    )
+
+        assert exc_info.value.code == 130
+
+
+class TestCleanupWinError32Warning:
+    """Tests for WinError 32 warning logging during cleanup."""
+
+    @pytest.fixture(autouse=True)
+    def mock_agdt_which(self):
+        """Patch shutil.which so agdt-advance-workflow appears on PATH."""
+        with patch(_WHICH, return_value="/usr/local/bin/agdt-advance-workflow"):
+            yield
+
+    def test_winerror_32_during_cleanup_logs_warning(self, tmp_path, capsys):
+        """WinError 32 during cleanup is logged as warning, exit code remains 0."""
+        sf = _state_file(tmp_path)
+        vscode_dir = tmp_path / ".vscode"
+        vscode_dir.mkdir()
+        (vscode_dir / "tasks.json").write_text(
+            json.dumps(
+                {
+                    "version": "2.0.0",
+                    "tasks": [{"label": "agdt-copilot-auto-start", "args": ["--run-id", _RUN_ID]}],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        mock_result = MagicMock(returncode=0)
+        with patch(_GET_STATE_FILE, return_value=sf):
+            with patch(_AVAIL, return_value=True):
+                with patch(_DEFAULT_MODEL, return_value="gpt-4o"):
+                    with patch(_BUILD, return_value=["copilot", "-i", "hello"]):
+                        with patch(_SUBPROC, return_value=mock_result):
+                            with patch(_REMOVE, side_effect=_make_win_error_32()):
+                                with patch(_MARKER_CLEANUP):
+                                    with pytest.raises(SystemExit) as exc_info:
+                                        copilot_auto_start_cmd(
+                                            [
+                                                "--worktree-path",
+                                                str(tmp_path),
+                                                "--start-prompt",
+                                                "hello",
+                                                "--run-id",
+                                                _RUN_ID,
+                                            ]
+                                        )
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "warning: cleanup encountered transient file lock" in captured.err

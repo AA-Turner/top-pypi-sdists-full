@@ -31,12 +31,14 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
 
 [project.urls]
+"Documentation" = "https://docs.ansible.com/projects/antsibull-docs-parser/"
 "Source code" = "https://github.com/ansible-community/antsibull-docs-parser/"
-"Code of Conduct" = "https://docs.ansible.com/ansible/latest/community/code_of_conduct.html"
+"Code of Conduct" = "https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html"
 "Bug tracker" = "https://github.com/ansible-community/antsibull-docs-parser/issues"
 "Changelog" = "https://github.com/ansible-community/antsibull-docs-parser/tree/main/CHANGELOG.md"
 

@@ -1,0 +1,445 @@
+interactions:
+  - request:
+      body:
+        '{"messages": [{"role": "system", "content": "You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. "}, {"role": "user", "content": "Summarize your
+        task in one sentence."}], "model": "gpt-4o-2024-11-20", "n": 1, "temperature":
+        0}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "9160"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.24.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.24.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/6rmUlBQykxRslJQSs5ILEnOLcjRdYlwKvVJKwUAAAD//3RSwW7bMAy95ysEnZMi
+          drM2Oe6wQ4EO2IYNGDAUhirRtlZZVCW6aDbk30fZSex27UW2+Pie+Ejuv7iPobz8cYPfL8vbT9/8
+          49efj5/lMjPw/jdoOrEuNDIPyKIfYR1BEWTV4vr6arsud1e7AejQgMu0JtBqg6tyXW5WRcHfI7FF
+          qyFxxi++CvF3OHOJ3sAzh9fLU6SDlFQDHDslcTCiyxGpUrKJlCe5nECNnsAPVd8I1Qnlldv/sb7h
+          PyNCRH455Su1II7JAmuhhFOxAWFQ912OEQp4pqg0iQgOnvgdYX2NsVO5BwIjX5NtWkoX8wIi1H1S
+          2b/vnZsBynukgTtYvzsih7NZhw3Xd59eUWVtvU1txe1O3Hs2lgiDHNADn3dDU/sXfZIs1AWqCB9g
+          eI5HVIyCcprjDN4eQeIS3Zy23S3fUKwMkLIuzQYjtdItmBmXx372oHpjccLWi5n1/yt6S360z5Ob
+          qbwrPwFaQ+AtrUIEY/VL11NahLzq76WdWz0ULBPEJ17giizEPA4DterduIUy7RNBV/HMGogh2nEV
+          61CZD6quN4XelnJxWPwDAAD//wMAbT7WnpMDAAA=
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9eff1a612cb9e8d8-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 20:22:50 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - <FILTERED>
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "464"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "10000"
+        x-ratelimit-limit-tokens:
+          - "30000000"
+        x-ratelimit-remaining-requests:
+          - "9999"
+        x-ratelimit-remaining-tokens:
+          - "29997738"
+        x-ratelimit-reset-requests:
+          - 6ms
+        x-ratelimit-reset-tokens:
+          - 4ms
+        x-request-id:
+          - req_2d6da5a1b4904a3eb7314f52f8be1233
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        '{"messages": [{"role": "system", "content": "You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. You are analyzing a large document. You are analyzing
+        a large document. You are analyzing a large document. You are analyzing a large
+        document. You are analyzing a large document. You are analyzing a large document.
+        You are analyzing a large document. You are analyzing a large document. You
+        are analyzing a large document. You are analyzing a large document. You are
+        analyzing a large document. "}, {"role": "user", "content": "What is your objective?"}],
+        "model": "gpt-4o-2024-11-20", "n": 1, "temperature": 0}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "9147"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.24.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.24.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/6rmUlBQykxRslJQSs5ILEnOLcjRdYlwKvXNywYAAAD//3RTTY/TMBC991eYXLik
+          VRv1izscVgLBAWkl0Cpy7UnirWMHj90lRf3vjJ1uk4XdQ5xk3rzneZ7xN3eH2+Lx66eP5+/CF4cl
+          3p+bH1keGfbwCMI/sxbCEg+8smaAhQPuIaqudrvtfll82C0T0FoJOtLqzs/Xdl4si/V8taL3ldhY
+          JQAp4yf9MvYnrbFEI+E3hZNMirSAyGug2HMSBZ3VMZJxRIWeG5/lIyis8WBS1V96NlhQJ2AKmbds
+          oDBuJOucPSkJjAsRHBnJWQO6q4LOE+xAw4m0mTKVdS2Pvpl1DK0O8TvJ9TY49isADhGCPccjLth9
+          A74Bx5R/jySHT+CUqWOqU4BxB677cwxJ7nnOajBARcTA1UAe1WxVDcQ6KMmNoCLbntWW66sfDF1n
+          nY+FMKDk5FX3yQH9K6FISvcL9hk8a4EdjX1iDT13THCTHL+bnp6DKiCPzTNB6wnAjbE+HULq28MV
+          udw6pW1NJ3rAf6hZpYzCpqRZQRoc6gp622UJvdD6kCYivGhyRkJt50tvj5C2W+22u0EwG4dwhDeb
+          K+ipRD2h7Ysif0WxlOC50jiZqkxw0YCccGlmbx54kMqO2HI2sf5/Ra/JD/apkxOVN+VHQAjo6IqV
+          nQOpxEvXY5qDOORvpd2OOhWcIbgT3b7SK3CxHRIqHvRwhTLs0UNbUs9qcB1NXrpHVVfKDa+q9Urs
+          i2x2mf0FAAD//wMAPpyn11AEAAA=
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9eff1a654ff1e8d8-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 20:22:51 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "731"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "10000"
+        x-ratelimit-limit-tokens:
+          - "30000000"
+        x-ratelimit-remaining-requests:
+          - "9999"
+        x-ratelimit-remaining-tokens:
+          - "29997741"
+        x-ratelimit-reset-requests:
+          - 6ms
+        x-ratelimit-reset-tokens:
+          - 4ms
+        x-request-id:
+          - req_183f14fcca8f4eac8118564910f241a7
+      status:
+        code: 200
+        message: OK
+version: 1

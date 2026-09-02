@@ -1,5 +1,4 @@
 import json
-import platform
 from abc import abstractmethod
 from typing import Any, Optional
 
@@ -15,8 +14,6 @@ try:
 except ImportError:
     # NOTE: orjson doesn't support PyPy, see
     # https://github.com/ijl/orjson/issues/90
-    if platform.python_implementation() == "CPython":
-        raise
 
     def json_loads(value):
         return json.load(value.decode("utf-8"))
@@ -71,7 +68,7 @@ class SerializedTrie(AbstractTrie):
         raw_trie = self._trie.view(key)
         trie = type(self)()
         # pylint: disable-next=protected-access
-        trie._trie = raw_trie  # type: ignore
+        trie._trie = raw_trie  # type: ignore[misc]
         return trie
 
     def items(self, *args, **kwargs):

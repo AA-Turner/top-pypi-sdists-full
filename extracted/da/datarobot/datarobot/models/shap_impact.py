@@ -46,11 +46,11 @@ class ShapImpact(APIObject):
     Attributes
     ----------
     count : int
-        the number of SHAP Impact object returned
+        The number of SHAP Impact objects returned.
     row_count: int or None
-        the sample size (specified in rows) to use for Shap Impact computation
+        The sample size, specified in rows, to use for SHAP Impact computation.
     shap_impacts : list
-        a list which contains SHAP impact scores for top 1000 features used by a model
+        A list which contains SHAP impact scores for the top 1,000 features used by a model.
     """
 
     _path = "projects/{}/models/{}/shapImpact/"
@@ -87,21 +87,21 @@ class ShapImpact(APIObject):
         message="This class is deprecated, please use 'datarobot.insights.ShapImpact.create' instead.",
     )
     def create(cls, project_id: str, model_id: str, row_count: Optional[int] = None) -> Job:
-        """Create SHAP impact for the specified model.
+        """Create a SHAP impact for the specified model.
 
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         model_id : str
-            id of the model to calculate shap impact for
+            The ID of the model for which to calculate SHAP impact.
         row_count : int
-            the sample size (specified in rows) to use for Feature Impact computation
+            The sample size, specified in rows, to use for Feature Impact computation.
 
         Returns
         -------
         job : Job
-            an instance of created async job
+            An instance of the created async job.
         """
         url = cls._path.format(project_id, model_id)
         payload = {"row_count": row_count} if row_count is not None else {}
@@ -124,9 +124,9 @@ class ShapImpact(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         model_id : str
-            id of the model the SHAP impact is for
+            The ID of the model the SHAP impact is for.
 
         Returns
         -------

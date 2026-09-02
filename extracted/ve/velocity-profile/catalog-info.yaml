@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: velocity-profile
+  title: velocity-profile
+  description: Module for calculating velocity profile
+spec:
+  type: documentation
+  lifecycle: experimental
+  owner: group:default/sscc

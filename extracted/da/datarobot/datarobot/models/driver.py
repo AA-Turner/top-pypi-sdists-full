@@ -22,20 +22,20 @@ from datarobot.models.api_object import APIObject
 
 
 class DataDriver(APIObject):
-    """A data driver
+    """A data driver.
 
     Attributes
     ----------
     id : str
-        the ID of the driver.
+        The ID of the driver.
     class_name : str
-        the Java class name for the driver.
+        The Java class name for the driver.
     canonical_name : str
-        the user-friendly name of the driver.
+        The user-friendly name of the driver.
     creator : str
-        the ID of the user who created the driver.
+        The ID of the user who created the driver.
     base_names : List[str]
-        a list of the file name(s) of the jar files.
+        A list of the filenames of the jar files.
     """
 
     _path = "externalDataDrivers/"
@@ -74,17 +74,17 @@ class DataDriver(APIObject):
     @classmethod
     def list(cls, typ: Optional[DataDriverListTypes] = None) -> List[DataDriver]:
         """
-        Returns list of available drivers.
+        Returns a list of available drivers.
 
         Parameters
         ----------
         typ : DataDriverListTypes
-            If specified, filters by specified driver type.
+            If specified, filters by the specified driver type.
 
         Returns
         -------
         drivers : list of DataDriver instances
-            contains a list of available drivers.
+            Contains a list of available drivers.
 
         Examples
         --------
@@ -109,12 +109,12 @@ class DataDriver(APIObject):
         Parameters
         ----------
         driver_id : str
-            the identifier of the driver.
+            The identifier of the driver.
 
         Returns
         -------
         driver : DataDriver
-            the required driver.
+            The required driver.
 
         Examples
         --------
@@ -142,27 +142,28 @@ class DataDriver(APIObject):
         Parameters
         ----------
         class_name : str
-            the Java class name for the driver. Specify None if typ is DataDriverTypes.DR_DATABASE_V1`.
+            The Java class name for the driver. Specify None if ``typ`` is ``DataDriverTypes.DR_DATABASE_V1``.
         canonical_name : str
-            the user-friendly name of the driver.
+            The user-friendly name of the driver.
         files : List[str]
-            a list of the file paths on file system file_path(s) for the driver.
+            A list of file paths on the file system for the driver.
         typ: str
-            Optional. Specify the type of the driver. Defaults to `DataDriverTypes.JDBC`, may also be
-            `DataDriverTypes.DR_DATABASE_V1`.
+            Optional. Specifies the type of the driver. Defaults to ``DataDriverTypes.JDBC``. May also be
+            ``DataDriverTypes.DR_DATABASE_V1``.
         database_driver: str
-            Optional. Specify when typ is `DataDriverTypes.DR_DATABASE_V1` to create a native database
-            driver. See `DrDatabaseV1Types` enum for some of the types, but that list may not be exhaustive.
+            Optional. Specify when ``typ`` is ``DataDriverTypes.DR_DATABASE_V1`` to create a native database
+            driver. See the ``DrDatabaseV1Types`` enumeration for some of the types, but that list may not be
+            exhaustive.
 
         Returns
         -------
         driver : DataDriver
-            the created driver.
+            The created driver.
 
         Raises
         ------
         ClientError
-            raised if user is not granted for `Can manage JDBC database drivers` feature
+            Raised if the user is not granted the ``Can manage JDBC database drivers`` feature.
 
         Examples
         --------
@@ -210,14 +211,14 @@ class DataDriver(APIObject):
         Parameters
         ----------
         class_name : str
-            the Java class name for the driver.
+            The Java class name for the driver.
         canonical_name : str
-            the user-friendly name of the driver.
+            The user-friendly name of the driver.
 
         Raises
         ------
         ClientError
-            raised if user is not granted for `Can manage JDBC database drivers` feature
+            Raised if the user is not granted the ``Can manage JDBC database drivers`` feature.
 
         Examples
         --------
@@ -246,7 +247,7 @@ class DataDriver(APIObject):
         Raises
         ------
         ClientError
-            raised if user is not granted for `Can manage JDBC database drivers` feature
+            Raised if the user is not granted the ``Can manage JDBC database drivers`` feature.
         """
         self._client.delete(f"{self._path}{self.id}/")
 

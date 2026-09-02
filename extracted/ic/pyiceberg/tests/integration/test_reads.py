@@ -31,6 +31,7 @@ from hive_metastore.ttypes import LockRequest, LockResponse, LockState, UnlockRe
 from pyarrow.fs import S3FileSystem
 from pydantic_core import ValidationError
 from pyspark.sql import SparkSession
+from pytest_lazy_fixtures import lf
 
 from pyiceberg.catalog import Catalog
 from pyiceberg.catalog.hive import HiveCatalog, _HiveClient
@@ -50,6 +51,7 @@ from pyiceberg.io.pyarrow import (
 )
 from pyiceberg.schema import Schema
 from pyiceberg.table import Table
+from pyiceberg.table.snapshots import Operation
 from pyiceberg.types import (
     BinaryType,
     BooleanType,
@@ -84,7 +86,7 @@ def create_table(catalog: Catalog) -> Table:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_table_properties(catalog: Catalog) -> None:
     table = create_table(catalog)
 
@@ -114,7 +116,7 @@ def test_table_properties(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive")])
 def test_hive_properties(catalog: Catalog) -> None:
     table = create_table(catalog)
     table.transaction().set_properties({"abc": "def", "p1": "123"}).commit_transaction()
@@ -135,7 +137,7 @@ def test_hive_properties(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive")])
 def test_hive_preserves_hms_specific_properties(catalog: Catalog) -> None:
     """Test that HMS-specific table properties are preserved during table commits.
 
@@ -212,7 +214,7 @@ def test_iceberg_property_deletion_not_restored_from_old_hms_state(session_catal
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive")])
 def test_iceberg_metadata_is_source_of_truth(catalog: Catalog) -> None:
     """Test that Iceberg metadata is the source of truth for all Iceberg-managed properties.
 
@@ -249,7 +251,7 @@ def test_iceberg_metadata_is_source_of_truth(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive")])
 def test_hive_critical_properties_always_from_iceberg(catalog: Catalog) -> None:
     """Test that critical properties (EXTERNAL, table_type, metadata_location) always come from Iceberg.
 
@@ -286,7 +288,7 @@ def test_hive_critical_properties_always_from_iceberg(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive")])
 def test_hive_native_properties_cannot_be_deleted_via_iceberg(catalog: Catalog) -> None:
     """Test that HMS-native properties (set outside Iceberg) cannot be deleted via Iceberg.
 
@@ -346,7 +348,7 @@ def test_hive_native_properties_cannot_be_deleted_via_iceberg(catalog: Catalog) 
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_table_properties_dict(catalog: Catalog) -> None:
     table = create_table(catalog)
 
@@ -376,7 +378,7 @@ def test_table_properties_dict(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_table_properties_error(catalog: Catalog) -> None:
     table = create_table(catalog)
     properties = {"abc": "def"}
@@ -386,7 +388,7 @@ def test_table_properties_error(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_pyarrow_nan(catalog: Catalog) -> None:
     table_test_null_nan = catalog.load_table("default.test_null_nan")
     arrow_table = table_test_null_nan.scan(row_filter=IsNaN("col_numeric"), selected_fields=("idx", "col_numeric")).to_arrow()
@@ -396,7 +398,7 @@ def test_pyarrow_nan(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_pyarrow_nan_rewritten(catalog: Catalog) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     arrow_table = table_test_null_nan_rewritten.scan(
@@ -408,7 +410,7 @@ def test_pyarrow_nan_rewritten(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 @pytest.mark.skip(reason="Fixing issues with NaN's: https://github.com/apache/arrow/issues/34162")
 def test_pyarrow_not_nan_count(catalog: Catalog) -> None:
     table_test_null_nan = catalog.load_table("default.test_null_nan")
@@ -417,7 +419,7 @@ def test_pyarrow_not_nan_count(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_pyarrow_batches_nan(catalog: Catalog) -> None:
     table_test_null_nan = catalog.load_table("default.test_null_nan")
     arrow_batch_reader = table_test_null_nan.scan(
@@ -431,7 +433,7 @@ def test_pyarrow_batches_nan(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_pyarrow_batches_nan_rewritten(catalog: Catalog) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     arrow_batch_reader = table_test_null_nan_rewritten.scan(
@@ -445,7 +447,7 @@ def test_pyarrow_batches_nan_rewritten(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 @pytest.mark.skip(reason="Fixing issues with NaN's: https://github.com/apache/arrow/issues/34162")
 def test_pyarrow_batches_not_nan_count(catalog: Catalog) -> None:
     table_test_null_nan = catalog.load_table("default.test_null_nan")
@@ -458,7 +460,7 @@ def test_pyarrow_batches_not_nan_count(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_duckdb_nan(catalog: Catalog) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     con = table_test_null_nan_rewritten.scan().to_duckdb("table_test_null_nan")
@@ -468,7 +470,7 @@ def test_duckdb_nan(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_pyarrow_limit(catalog: Catalog) -> None:
     table_test_limit = catalog.load_table("default.test_limit")
     limited_result = table_test_limit.scan(selected_fields=("idx",), limit=1).to_arrow()
@@ -492,7 +494,7 @@ def test_pyarrow_limit(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_pyarrow_limit_with_multiple_files(catalog: Catalog) -> None:
     table_name = "default.test_pyarrow_limit_with_multiple_files"
     try:
@@ -530,7 +532,7 @@ def test_pyarrow_limit_with_multiple_files(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_daft_nan(catalog: Catalog) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     df = table_test_null_nan_rewritten.to_daft()
@@ -539,7 +541,7 @@ def test_daft_nan(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_daft_nan_rewritten(catalog: Catalog) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     df = table_test_null_nan_rewritten.to_daft()
@@ -553,7 +555,7 @@ def test_daft_nan_rewritten(catalog: Catalog) -> None:
 @pytest.mark.skip(reason="Bodo should not monekeypatch PyArrowFileIO, https://github.com/apache/iceberg-python/issues/2400")
 @pytest.mark.integration
 @pytest.mark.filterwarnings("ignore")
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_bodo_nan(catalog: Catalog, monkeypatch: pytest.MonkeyPatch) -> None:
     # Avoid local Mac issues (see https://github.com/apache/iceberg-python/issues/2225)
     monkeypatch.setenv("BODO_DATAFRAME_LIBRARY_RUN_PARALLEL", "0")
@@ -567,7 +569,7 @@ def test_bodo_nan(catalog: Catalog, monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.integration
 @pytest.mark.filterwarnings("ignore")
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_ray_nan(catalog: Catalog, ray_session: Any) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     ray_dataset = table_test_null_nan_rewritten.scan().to_ray()
@@ -577,7 +579,7 @@ def test_ray_nan(catalog: Catalog, ray_session: Any) -> None:
 
 @pytest.mark.integration
 @pytest.mark.filterwarnings("ignore")
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_ray_nan_rewritten(catalog: Catalog, ray_session: Any) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     ray_dataset = table_test_null_nan_rewritten.scan(
@@ -590,7 +592,7 @@ def test_ray_nan_rewritten(catalog: Catalog, ray_session: Any) -> None:
 
 @pytest.mark.integration
 @pytest.mark.filterwarnings("ignore")
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 @pytest.mark.skip(reason="Fixing issues with NaN's: https://github.com/apache/arrow/issues/34162")
 def test_ray_not_nan_count(catalog: Catalog, ray_session: Any) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
@@ -600,17 +602,19 @@ def test_ray_not_nan_count(catalog: Catalog, ray_session: Any) -> None:
 
 @pytest.mark.integration
 @pytest.mark.filterwarnings("ignore")
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_ray_all_types(catalog: Catalog, ray_session: Any) -> None:
+    from pandas.testing import assert_frame_equal
+
     table_test_all_types = catalog.load_table("default.test_all_types")
     ray_dataset = table_test_all_types.scan().to_ray()
     pandas_dataframe = table_test_all_types.scan().to_pandas()
     assert ray_dataset.count() == pandas_dataframe.shape[0]
-    assert pandas_dataframe.equals(ray_dataset.to_pandas())
+    assert_frame_equal(pandas_dataframe, ray_dataset.to_pandas(), check_dtype=False)
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_pyarrow_to_iceberg_all_types(catalog: Catalog) -> None:
     table_test_all_types = catalog.load_table("default.test_all_types")
     fs = S3FileSystem(
@@ -629,7 +633,7 @@ def test_pyarrow_to_iceberg_all_types(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 @pytest.mark.parametrize("format_version", [2, 3])
 def test_pyarrow_deletes(catalog: Catalog, format_version: int) -> None:
     # number, letter
@@ -669,7 +673,7 @@ def test_pyarrow_deletes(catalog: Catalog, format_version: int) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 @pytest.mark.parametrize("format_version", [2, 3])
 def test_pyarrow_deletes_double(catalog: Catalog, format_version: int) -> None:
     # number, letter
@@ -709,7 +713,7 @@ def test_pyarrow_deletes_double(catalog: Catalog, format_version: int) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 @pytest.mark.parametrize("format_version", [2, 3])
 def test_pyarrow_batches_deletes(catalog: Catalog, format_version: int) -> None:
     # number, letter
@@ -753,7 +757,7 @@ def test_pyarrow_batches_deletes(catalog: Catalog, format_version: int) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 @pytest.mark.parametrize("format_version", [2, 3])
 def test_pyarrow_batches_deletes_double(catalog: Catalog, format_version: int) -> None:
     # number, letter
@@ -799,7 +803,7 @@ def test_pyarrow_batches_deletes_double(catalog: Catalog, format_version: int) -
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_partitioned_tables(catalog: Catalog) -> None:
     for table_name, predicate in [
         ("test_partitioned_by_identity", "ts >= '2023-03-05T00:00:00+00:00'"),
@@ -816,7 +820,7 @@ def test_partitioned_tables(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_unpartitioned_uuid_table(catalog: Catalog) -> None:
     unpartitioned_uuid = catalog.load_table("default.test_uuid_and_fixed_unpartitioned")
     arrow_table_eq = unpartitioned_uuid.scan(row_filter="uuid_col == '102cb62f-e6f8-4eb0-9973-d9b012ff0967'").to_arrow()
@@ -833,7 +837,7 @@ def test_unpartitioned_uuid_table(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_unpartitioned_fixed_table(catalog: Catalog) -> None:
     fixed_table = catalog.load_table("default.test_uuid_and_fixed_unpartitioned")
     arrow_table_eq = fixed_table.scan(row_filter=EqualTo("fixed_col", b"1234567890123456789012345")).to_arrow()
@@ -852,7 +856,7 @@ def test_unpartitioned_fixed_table(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 @pytest.mark.parametrize("format_version", [2, 3])
 def test_scan_tag(catalog: Catalog, format_version: int) -> None:
     test_positional_mor_deletes = catalog.load_table(f"default.test_positional_mor_deletes_v{format_version}")
@@ -861,7 +865,7 @@ def test_scan_tag(catalog: Catalog, format_version: int) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 @pytest.mark.parametrize("format_version", [2, 3])
 def test_scan_branch(catalog: Catalog, format_version: int) -> None:
     test_positional_mor_deletes = catalog.load_table(f"default.test_positional_mor_deletes_v{format_version}")
@@ -870,7 +874,7 @@ def test_scan_branch(catalog: Catalog, format_version: int) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_filter_on_new_column(catalog: Catalog) -> None:
     test_table_add_column = catalog.load_table("default.test_table_add_column")
     arrow_table = test_table_add_column.scan(row_filter="b == '2'").to_arrow()
@@ -884,7 +888,7 @@ def test_filter_on_new_column(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_filter_case_sensitive_by_default(catalog: Catalog) -> None:
     test_table_add_column = catalog.load_table("default.test_table_add_column")
     arrow_table = test_table_add_column.scan().to_arrow()
@@ -899,7 +903,7 @@ def test_filter_case_sensitive_by_default(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_filter_case_sensitive(catalog: Catalog) -> None:
     test_table_add_column = catalog.load_table("default.test_table_add_column")
     arrow_table = test_table_add_column.scan().to_arrow()
@@ -914,7 +918,7 @@ def test_filter_case_sensitive(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_filter_case_insensitive(catalog: Catalog) -> None:
     test_table_add_column = catalog.load_table("default.test_table_add_column")
     arrow_table = test_table_add_column.scan().to_arrow()
@@ -928,7 +932,7 @@ def test_filter_case_insensitive(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_filters_on_top_level_struct(catalog: Catalog) -> None:
     test_empty_struct = catalog.load_table("default.test_table_empty_list_and_map")
 
@@ -946,7 +950,7 @@ def test_filters_on_top_level_struct(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_upgrade_table_version(catalog: Catalog) -> None:
     table_test_table_version = catalog.load_table("default.test_table_version")
 
@@ -974,7 +978,7 @@ def test_upgrade_table_version(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_sanitize_character(catalog: Catalog) -> None:
     table_test_table_sanitized_character = catalog.load_table("default.test_table_sanitized_character")
     arrow_table = table_test_table_sanitized_character.scan().to_arrow()
@@ -984,7 +988,7 @@ def test_sanitize_character(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_null_list_and_map(catalog: Catalog) -> None:
     table_test_empty_list_and_map = catalog.load_table("default.test_table_empty_list_and_map")
     arrow_table = table_test_empty_list_and_map.scan().to_arrow()
@@ -1083,7 +1087,7 @@ def test_configure_row_group_batch_size(session_catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_table_scan_keep_types(catalog: Catalog) -> None:
     expected_schema = pa.schema(
         [
@@ -1125,7 +1129,7 @@ def test_table_scan_keep_types(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_empty_scan_ordered_str(catalog: Catalog) -> None:
     table_empty_scan_ordered_str = catalog.load_table("default.test_empty_scan_ordered_str")
     arrow_table = table_empty_scan_ordered_str.scan(EqualTo("id", "b")).to_arrow()
@@ -1133,7 +1137,7 @@ def test_empty_scan_ordered_str(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_table_scan_empty_table(catalog: Catalog) -> None:
     identifier = "default.test_table_scan_empty_table"
     arrow_table = pa.Table.from_arrays(
@@ -1161,7 +1165,7 @@ def test_table_scan_empty_table(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_read_from_s3_and_local_fs(catalog: Catalog, tmp_path: PosixPath) -> None:
     identifier = "default.test_read_from_s3_and_local_fs"
     schema = pa.schema([pa.field("colA", pa.string())])
@@ -1189,7 +1193,7 @@ def test_read_from_s3_and_local_fs(catalog: Catalog, tmp_path: PosixPath) -> Non
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_scan_with_datetime(catalog: Catalog) -> None:
     table = create_table(catalog)
 
@@ -1217,8 +1221,8 @@ def test_scan_with_datetime(catalog: Catalog) -> None:
 
 @pytest.mark.integration
 # TODO: For Hive we require writing V3
-# @pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog")])
+# @pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog")])
 def test_initial_default(catalog: Catalog, spark: SparkSession) -> None:
     identifier = "default.test_initial_default"
     try:
@@ -1244,7 +1248,7 @@ def test_initial_default(catalog: Catalog, spark: SparkSession) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_filter_after_arrow_scan(catalog: Catalog) -> None:
     identifier = "test_partitioned_by_hours"
     table = catalog.load_table(f"default.{identifier}")
@@ -1257,7 +1261,7 @@ def test_filter_after_arrow_scan(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog")])
 def test_scan_source_field_missing_in_spec(catalog: Catalog, spark: SparkSession) -> None:
     identifier = "default.test_dropped_field"
     spark.sql(f"DROP TABLE IF EXISTS {identifier}")
@@ -1271,3 +1275,212 @@ def test_scan_source_field_missing_in_spec(catalog: Catalog, spark: SparkSession
 
     table = catalog.load_table(identifier)
     assert len(list(table.scan().plan_files())) == 3
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_append_only(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    scan = test_table.incremental_append_scan(
+        from_snapshot_id_exclusive=test_table.snapshots()[0].snapshot_id,
+        to_snapshot_id_inclusive=test_table.snapshots()[2].snapshot_id,
+    )
+
+    # snapshots[1] adds 1 file (letter=b); snapshots[2] adds 2 files (letter=b, letter=c).
+    assert len(list(scan.plan_files())) == 3
+    assert sorted(scan.to_arrow()["number"].to_pylist()) == [2, 3, 4]
+
+    # All read paths return the same rows.
+    assert len(scan.to_arrow_batch_reader().read_all()) == 3
+    assert len(scan.to_pandas()) == 3
+    assert len(scan.to_polars()) == 3
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_ignores_non_append_snapshots(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    # snapshots[3] compacts and snapshots[4] deletes number=2 -- both non-append, both ignored.
+    # number=2 was appended in snapshots[1], so it still appears despite the later delete.
+    scan = test_table.incremental_append_scan(
+        from_snapshot_id_exclusive=test_table.snapshots()[0].snapshot_id,
+        to_snapshot_id_inclusive=test_table.snapshots()[4].snapshot_id,
+    )
+    assert len(list(scan.plan_files())) == 3
+    assert sorted(scan.to_arrow()["number"].to_pylist()) == [2, 3, 4]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_does_not_double_count_compacted_files(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    # snapshots[1] and [2] append the two letter='b' files (number=2 and number=4); snapshots[3]
+    # compacts them into a single rewritten file. A scan spanning the compaction must read each
+    # appended row exactly once -- the rewritten file (added by the compaction, not by an append)
+    # must not be picked up on top of the originals.
+    assert test_table.snapshots()[3].summary.operation == Operation.REPLACE  # type: ignore[union-attr]
+
+    scan = test_table.incremental_append_scan(
+        from_snapshot_id_exclusive=test_table.snapshots()[0].snapshot_id,
+        to_snapshot_id_inclusive=test_table.snapshots()[3].snapshot_id,
+    )
+    assert len(list(scan.plan_files())) == 3
+    assert sorted(scan.to_arrow()["number"].to_pylist()) == [2, 3, 4]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_empty_range(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    # snapshots[3] is the only snapshot in the range and is a compaction (non-append); the scan
+    # must return empty.
+    scan = test_table.incremental_append_scan(
+        from_snapshot_id_exclusive=test_table.snapshots()[2].snapshot_id,
+        to_snapshot_id_inclusive=test_table.snapshots()[3].snapshot_id,
+    )
+    assert list(scan.plan_files()) == []
+    result = scan.to_arrow()
+    assert len(result) == 0
+    # An empty result still carries the projected (current) schema.
+    assert result.schema.names == ["number", "letter", "extra"]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_schema_evolution_within_range(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    # snapshots[1..2] are on the original schema (number, letter); snapshots[5] is on the evolved
+    # schema (number, letter, extra) after ALTER TABLE ADD COLUMN. The scan must project the older
+    # rows onto the current schema (extra -> null) and pick up the new value for the newer row.
+    scan = test_table.incremental_append_scan(
+        from_snapshot_id_exclusive=test_table.snapshots()[0].snapshot_id,
+        to_snapshot_id_inclusive=test_table.snapshots()[5].snapshot_id,
+    )
+    assert len(list(scan.plan_files())) == 4
+
+    expected_schema = pa.schema([pa.field("number", pa.int32()), pa.field("letter", pa.string()), pa.field("extra", pa.int32())])
+    result_table = scan.to_arrow()
+    assert result_table.schema.equals(expected_schema)
+    rows = zip(
+        result_table["number"].to_pylist(),
+        result_table["letter"].to_pylist(),
+        result_table["extra"].to_pylist(),
+        strict=True,
+    )
+    assert sorted(rows, key=lambda r: r[0]) == [(2, "b", None), (3, "c", None), (4, "b", None), (5, "d", 100)]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_partition_pruning(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    # `letter=c` only appears in snapshots[2]. The manifest evaluator rejects snapshots[1]'s
+    # manifest (letter=b only); the partition evaluator rejects the letter=b entry in
+    # snapshots[2]'s manifest. One file remains.
+    scan = test_table.incremental_append_scan(
+        row_filter=EqualTo("letter", "c"),
+        from_snapshot_id_exclusive=test_table.snapshots()[0].snapshot_id,
+        to_snapshot_id_inclusive=test_table.snapshots()[2].snapshot_id,
+    )
+    assert len(list(scan.plan_files())) == 1
+    assert scan.to_arrow()["number"].to_pylist() == [3]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_metrics_pruning(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    # Non-partition predicate: the manifest/partition evaluators degenerate, leaving the per-file
+    # metrics evaluator to prune. `number=99` matches no file's [min, max] stats for `number`.
+    scan = test_table.incremental_append_scan(
+        row_filter=EqualTo("number", 99),
+        from_snapshot_id_exclusive=test_table.snapshots()[0].snapshot_id,
+        to_snapshot_id_inclusive=test_table.snapshots()[2].snapshot_id,
+    )
+    assert len(list(scan.plan_files())) == 0
+    assert len(scan.to_arrow()) == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_selected_fields(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    scan = test_table.incremental_append_scan(
+        selected_fields=("number",),
+        from_snapshot_id_exclusive=test_table.snapshots()[0].snapshot_id,
+        to_snapshot_id_inclusive=test_table.snapshots()[2].snapshot_id,
+    )
+    result_table = scan.to_arrow()
+    assert result_table.schema.equals(pa.schema([pa.field("number", pa.int32())]))
+    assert sorted(result_table["number"].to_pylist()) == [2, 3, 4]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_limit(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    scan = test_table.incremental_append_scan(
+        limit=2,
+        from_snapshot_id_exclusive=test_table.snapshots()[0].snapshot_id,
+        to_snapshot_id_inclusive=test_table.snapshots()[2].snapshot_id,
+    )
+    assert len(scan.to_arrow()) == 2
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_throws_on_disconnected_snapshots(catalog: Catalog) -> None:
+    # snapshots[6] is the REPLACE TABLE result, with no lineage back to snapshots[0].
+    test_table = catalog.load_table("default.test_incremental_read")
+    from_id = test_table.snapshots()[0].snapshot_id
+    to_id = test_table.snapshots()[6].snapshot_id
+
+    with pytest.raises(ValueError, match=f"Starting snapshot .exclusive. {from_id} is not a parent ancestor"):
+        list(test_table.incremental_append_scan(from_snapshot_id_exclusive=from_id, to_snapshot_id_inclusive=to_id).plan_files())
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_unset_from_scans_from_oldest_ancestor(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    # With `from` unset, the scan starts from the oldest ancestor of `to` (inclusive), so it also
+    # picks up snapshots[0]'s append (number=1) that an exclusive from=snapshots[0] would skip.
+    scan = test_table.incremental_append_scan(to_snapshot_id_inclusive=test_table.snapshots()[2].snapshot_id)
+    assert sorted(scan.to_arrow()["number"].to_pylist()) == [1, 2, 3, 4]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_inclusive_from(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    # Inclusive from=snapshots[1] includes snapshots[1]'s append (number=2), unlike the exclusive
+    # form which would start strictly after it (numbers [3, 4]).
+    scan = test_table.incremental_append_scan(
+        to_snapshot_id_inclusive=test_table.snapshots()[2].snapshot_id,
+    ).from_snapshot_id_inclusive(test_table.snapshots()[1].snapshot_id)
+    assert sorted(scan.to_arrow()["number"].to_pylist()) == [2, 3, 4]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
+def test_incremental_append_scan_builder_chain(catalog: Catalog) -> None:
+    test_table = catalog.load_table("default.test_incremental_read")
+
+    # The builder chain is equivalent to setting the range at construction.
+    scan = (
+        test_table.incremental_append_scan()
+        .from_snapshot_id_exclusive(test_table.snapshots()[0].snapshot_id)
+        .to_snapshot_id_inclusive(test_table.snapshots()[2].snapshot_id)
+    )
+    assert sorted(scan.to_arrow()["number"].to_pylist()) == [2, 3, 4]

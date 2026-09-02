@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: pySigma-backend-kusto
+Version: 1.0.1
+Summary: pySigma Kusto backend
+License: LGPL-3.0-only
+License-File: LICENSE
+Author: Stephen Lincoln
+Author-email: stephen@detections.ai
+Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: certifi (>=2023.07.22)
+Requires-Dist: pysigma (>=1.0.0,<2.0.0)
+Project-URL: Repository, https://github.com/AttackIQ/pySigma-backend-kusto

@@ -43,6 +43,7 @@ class InfraEnvUpdateParams(object):
         'kernel_arguments': 'KernelArguments',
         'additional_trust_bundle': 'str',
         'openshift_version': 'str',
+        'os_stream': 'str',
         'network_discovery_delay_seconds': 'int'
     }
 
@@ -59,10 +60,11 @@ class InfraEnvUpdateParams(object):
         'kernel_arguments': 'kernel_arguments',
         'additional_trust_bundle': 'additional_trust_bundle',
         'openshift_version': 'openshift_version',
+        'os_stream': 'os_stream',
         'network_discovery_delay_seconds': 'network_discovery_delay_seconds'
     }
 
-    def __init__(self, proxy=None, additional_ntp_sources=None, ntp_sources=None, ssh_authorized_key=None, pull_secret=None, static_network_config=None, rendezvous_ip=None, image_type=None, ignition_config_override=None, kernel_arguments=None, additional_trust_bundle=None, openshift_version=None, network_discovery_delay_seconds=None):  # noqa: E501
+    def __init__(self, proxy=None, additional_ntp_sources=None, ntp_sources=None, ssh_authorized_key=None, pull_secret=None, static_network_config=None, rendezvous_ip=None, image_type=None, ignition_config_override=None, kernel_arguments=None, additional_trust_bundle=None, openshift_version=None, os_stream=None, network_discovery_delay_seconds=None):  # noqa: E501
         """InfraEnvUpdateParams - a model defined in Swagger"""  # noqa: E501
 
         self._proxy = None
@@ -77,6 +79,7 @@ class InfraEnvUpdateParams(object):
         self._kernel_arguments = None
         self._additional_trust_bundle = None
         self._openshift_version = None
+        self._os_stream = None
         self._network_discovery_delay_seconds = None
         self.discriminator = None
 
@@ -104,6 +107,8 @@ class InfraEnvUpdateParams(object):
             self.additional_trust_bundle = additional_trust_bundle
         if openshift_version is not None:
             self.openshift_version = openshift_version
+        if os_stream is not None:
+            self.os_stream = os_stream
         if network_discovery_delay_seconds is not None:
             self.network_discovery_delay_seconds = network_discovery_delay_seconds
 
@@ -376,6 +381,29 @@ class InfraEnvUpdateParams(object):
         """
 
         self._openshift_version = openshift_version
+
+    @property
+    def os_stream(self):
+        """Gets the os_stream of this InfraEnvUpdateParams.  # noqa: E501
+
+        The OS stream to use for this infra-env (e.g. rhel-9, rhel-10). If unset, inherits from the associated cluster or uses the default OS stream.  # noqa: E501
+
+        :return: The os_stream of this InfraEnvUpdateParams.  # noqa: E501
+        :rtype: str
+        """
+        return self._os_stream
+
+    @os_stream.setter
+    def os_stream(self, os_stream):
+        """Sets the os_stream of this InfraEnvUpdateParams.
+
+        The OS stream to use for this infra-env (e.g. rhel-9, rhel-10). If unset, inherits from the associated cluster or uses the default OS stream.  # noqa: E501
+
+        :param os_stream: The os_stream of this InfraEnvUpdateParams.  # noqa: E501
+        :type: str
+        """
+
+        self._os_stream = os_stream
 
     @property
     def network_discovery_delay_seconds(self):

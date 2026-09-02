@@ -1,0 +1,2 @@
+class RequestData:
+    pass

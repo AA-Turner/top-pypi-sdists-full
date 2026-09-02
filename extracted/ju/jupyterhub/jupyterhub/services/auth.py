@@ -25,6 +25,7 @@ A tornado implementation is provided in :class:`HubOAuthCallbackHandler`.
 """
 
 import asyncio
+import base64
 import hashlib
 import json
 import os
@@ -40,7 +41,6 @@ from http import HTTPStatus
 from unittest import mock
 from urllib.parse import urlencode, urlparse
 
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from tornado.httputil import url_concat
 from tornado.log import app_log
 from tornado.web import HTTPError, RequestHandler
@@ -66,8 +66,9 @@ from .._xsrf_utils import (
     check_xsrf_cookie,
     get_xsrf_token,
 )
+from ..httpclient import fetch
 from ..scopes import _intersect_expanded_scopes
-from ..utils import _bool_env, get_browser_protocol, url_path_join
+from ..utils import _bool_env, get_browser_protocol, make_ssl_context, url_path_join
 
 
 def check_scopes(required_scopes, scopes):
@@ -406,14 +407,12 @@ class HubAuth(SingletonConfigurable):
         """,
     ).tag(config=True)
 
-    cookie_options = Dict(
-        help="""Additional options to pass when setting cookies.
+    cookie_options = Dict(help="""Additional options to pass when setting cookies.
 
         Can include things like `expires_days=None` for session-expiry
         or `secure=True` if served on HTTPS and default HTTPS discovery fails
         (e.g. behind some proxies).
-        """
-    ).tag(config=True)
+        """).tag(config=True)
 
     @default('cookie_options')
     def _default_cookie_options(self):
@@ -592,25 +591,19 @@ class HubAuth(SingletonConfigurable):
             self.cache[cache_key] = data
         return data
 
-    async def _api_request(self, method, url, **kwargs):
+    async def _api_request(self, method, url, /, **kwargs):
         """Make an API request"""
         allow_403 = kwargs.pop('allow_403', False)
-        headers = kwargs.setdefault('headers', {})
+        headers = kwargs.setdefault("headers", {})
         headers.setdefault('Authorization', f'token {self.api_token}')
         # translate requests args to tornado's
-        if self.certfile:
-            kwargs["client_cert"] = self.certfile
-        if self.keyfile:
-            kwargs["client_key"] = self.keyfile
-        if self.client_ca:
-            kwargs["ca_certs"] = self.client_ca
-        req = HTTPRequest(
-            url,
-            method=method,
-            **kwargs,
-        )
+        if self.certfile or self.keyfile:
+            kwargs["ssl"] = make_ssl_context(
+                self.keyfile, self.certfile, cafile=self.client_ca
+            )
+
         try:
-            r = await AsyncHTTPClient().fetch(req, raise_error=False)
+            r = await fetch(url, method=method, raise_for_status=False, **kwargs)
         except Exception as e:
             app_log.error("Error connecting to %s: %s", self.api_url, e)
             msg = f"Failed to connect to Hub API at {self.api_url!r}."
@@ -622,16 +615,17 @@ class HubAuth(SingletonConfigurable):
                 )
             raise HTTPError(500, msg)
 
+        response_text = await r.text()
+
         data = None
         try:
-            status = HTTPStatus(r.code)
+            status = HTTPStatus(r.status)
         except ValueError:
             app_log.error(
                 f"Unknown error checking authorization with JupyterHub: {r.code}"
             )
-            app_log.error(r.body.decode("utf8", "replace"))
+            app_log.error(response_text)
 
-        response_text = r.body.decode("utf8", "replace")
         if status.value == 403 and allow_403:
             pass
         elif status.value == 403:
@@ -893,6 +887,21 @@ class HubOAuth(HubAuth):
             },
         )
 
+    # only allow disabling for testing, really
+    # no reason to disable in practice
+    pkce_enabled = Bool(
+        True,
+        help="""
+        Set to False to disable PKCE verification.
+
+        There should be no reason to disable this,
+        as PKCE is ignored if unsupported by the Hub.
+
+        .. versionadded:: 6.0
+        """,
+        config=True,
+    )
+
     @property
     def cookie_name(self):
         """Use OAuth client_id for cookie name
@@ -1028,12 +1037,10 @@ class HubOAuth(HubAuth):
 
     # HubOAuth API
 
-    oauth_client_id = Unicode(
-        help="""The OAuth client ID for this application.
+    oauth_client_id = Unicode(help="""The OAuth client ID for this application.
 
         Use JUPYTERHUB_CLIENT_ID by default.
-        """
-    ).tag(config=True)
+        """).tag(config=True)
 
     @default('oauth_client_id')
     def _client_id(self):
@@ -1045,12 +1052,10 @@ class HubOAuth(HubAuth):
             raise ValueError(f"{proposal.trait.name} cannot be empty.")
         return proposal.value
 
-    oauth_redirect_uri = Unicode(
-        help="""OAuth redirect URI
+    oauth_redirect_uri = Unicode(help="""OAuth redirect URI
 
         Should generally be /base_url/oauth_callback
-        """
-    ).tag(config=True)
+        """).tag(config=True)
 
     @default('oauth_redirect_uri')
     def _default_redirect(self):
@@ -1075,7 +1080,26 @@ class HubOAuth(HubAuth):
     def _token_url(self):
         return url_path_join(self.api_url, 'oauth2/token')
 
-    def token_for_code(self, code, *, sync=True):
+    def generate_pkce_code_challenge(self, method="S256"):
+        """
+        Return `(code_verifier, code_challenge, code_challenge_method)` for PKCE
+
+        .. versionadded:: 6.0
+
+        .. seealso::
+
+            https://datatracker.ietf.org/doc/html/rfc7636#section-4
+        """
+        code_verifier = secrets.token_urlsafe(32)
+        if method != "S256":
+            raise ValueError(f"Only method='S256' is supported, not {method!r}")
+        code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
+        code_challenge_base64 = (
+            base64.urlsafe_b64encode(code_challenge).decode("utf-8").rstrip("=")
+        )
+        return code_verifier, code_challenge_base64, method
+
+    def token_for_code(self, code, *, code_verifier=None, sync=True):
         """Get token for OAuth temporary code
 
         This is the last step of OAuth login.
@@ -1086,9 +1110,9 @@ class HubOAuth(HubAuth):
         Returns:
             token (str): JupyterHub API Token
         """
-        return self._call_coroutine(sync, self._token_for_code, code)
+        return self._call_coroutine(sync, self._token_for_code, code, code_verifier)
 
-    async def _token_for_code(self, code):
+    async def _token_for_code(self, code, code_verifier=None):
         # GitHub specifies a POST request yet requires URL parameters
         params = dict(
             client_id=self.oauth_client_id,
@@ -1097,11 +1121,13 @@ class HubOAuth(HubAuth):
             code=code,
             redirect_uri=self.oauth_redirect_uri,
         )
+        if code_verifier:
+            params["code_verifier"] = code_verifier
 
         token_reply = await self._api_request(
             'POST',
             self.oauth_token_url,
-            body=urlencode(params).encode('utf8'),
+            data=urlencode(params).encode('utf8'),
             headers={'Content-Type': 'application/x-www-form-urlencoded'},
         )
 
@@ -1134,7 +1160,7 @@ class HubOAuth(HubAuth):
     def _default_oauth_states(self):
         return _ExpiringDict(max_age=self.oauth_state_max_age)
 
-    def set_state_cookie(self, handler, next_url=None):
+    def set_state_cookie(self, handler, next_url=None, *, code_verifier=None):
         """Generate an OAuth state and store it in a cookie
 
         Parameters
@@ -1143,13 +1169,23 @@ class HubOAuth(HubAuth):
             A tornado RequestHandler
         next_url : str
             The page to redirect to on successful login
+        code_verifier : str or None, optional
+            The PKCE code verifier, if any.
+            Omit or specify None for no verifier.
 
         Returns
         -------
         state : str
             The OAuth state that has been stored in the cookie (url safe, base64-encoded)
+
+        .. versionchanged:: 6.0
+
+            added code_verifier argument.
+
         """
         extra_state = {}
+        if code_verifier:
+            extra_state["code_verifier"] = code_verifier
         if handler.get_cookie(self.state_cookie_name):
             # oauth state cookie is already set
             # use a randomized cookie suffix to avoid collisions
@@ -1235,6 +1271,11 @@ class HubOAuth(HubAuth):
         """Get the next_url for redirection, given an encoded OAuth state"""
         state = self._decode_state(state_id)
         return state.get('next_url') or self.base_url
+
+    def get_code_verifier(self, state_id='', /):
+        """Get the PKCE code_verifier, given an encoded OAuth state"""
+        state = self._decode_state(state_id)
+        return state.get('code_verifier')
 
     def get_state_cookie_name(self, state_id='', /):
         """Get the cookie name for oauth state, given an encoded OAuth state
@@ -1401,8 +1442,20 @@ class HubAuthenticated:
             # add state argument to OAuth url
             # must do this _after_ allowing get_login_url to raise
             # so we don't set unused cookies
-            state = self.hub_auth.set_state_cookie(self, next_url=self.request.uri)
-            login_url = url_concat(login_url, {'state': state})
+            params = {}
+            if self.hub_auth.pkce_enabled:
+                code_verifier, code_challenge, code_challenge_method = (
+                    self.hub_auth.generate_pkce_code_challenge()
+                )
+                params["code_challenge"] = code_challenge
+                params["code_challenge_method"] = code_challenge_method
+            else:
+                code_verifier = None
+            state = self.hub_auth.set_state_cookie(
+                self, next_url=self.request.uri, code_verifier=code_verifier
+            )
+            params['state'] = state
+            login_url = url_concat(login_url, params)
         self._hub_login_url = login_url
         return login_url
 
@@ -1597,6 +1650,7 @@ class HubOAuthCallbackHandler(HubOAuthenticated, RequestHandler):
             )
             raise HTTPError(403, "oauth state does not match. Try logging in again.")
         next_url = self.hub_auth.get_next_url(cookie_state)
+        code_verifier = self.hub_auth.get_code_verifier(cookie_state)
         # clear consumed state from _oauth_states cache now that we're done with it
         self.hub_auth.clear_oauth_state(cookie_state)
         # clear _all_ oauth state cookies on success
@@ -1604,7 +1658,9 @@ class HubOAuthCallbackHandler(HubOAuthenticated, RequestHandler):
         # which is probably okay.
         self.hub_auth.clear_oauth_state_cookies(self)
 
-        token = await self.hub_auth.token_for_code(code, sync=False)
+        token = await self.hub_auth.token_for_code(
+            code, sync=False, code_verifier=code_verifier
+        )
         session_id = self.hub_auth.get_session_id(self)
         user_model = await self.hub_auth.user_for_token(
             token, session_id=session_id, sync=False

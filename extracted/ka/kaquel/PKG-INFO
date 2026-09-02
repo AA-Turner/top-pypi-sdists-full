@@ -1,0 +1,58 @@
+Metadata-Version: 2.1
+Name: kaquel
+Version: 0.3.1
+Summary: Tools for handling ElasticSearch queries in various languages
+Home-page: https://kaquel.touhey.pro/
+Keywords: elasticsearch,es_query,es-query,kibana,kql,lucene,parsing,query
+Author: Thomas Touhey
+Author-email: thomas@touhey.fr
+Requires-Python: >=3.9,<4.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: CeCILL-C Free Software License Agreement (CECILL-C)
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Database :: Front-Ends
+Classifier: Typing :: Typed
+Requires-Dist: eval-type-backport (>=0.2,<0.3) ; python_version < "3.10"
+Requires-Dist: pydantic (>=2.7.1,<3.0.0)
+Project-URL: Repository, https://gitlab.com/kaquel/kaquel
+Description-Content-Type: text/x-rst
+
+``kaquel`` -- Tools for handling ElasticSearch queries in various languages
+===========================================================================
+
+Kaquel, pronounced */kækyɛl/*, is a toolset for parsing and rendering
+query languages for ElasticSearch.
+
+As described in `Parsing queries`_, you can parse Kibana Query Language (KQL),
+Apache Lucene and ElasticSearch queries, and render them using the
+`ElasticSearch Query DSL`_. For example, with KQL:
+
+.. code-block:: python
+
+    from kaquel.kql import parse_kql
+
+    query = parse_kql('identity: { first_name: "John" }')
+    print(query.render())
+
+The project is present at the following locations:
+
+* `Official website and documentation at kaquel.touhey.pro <Kaquel website_>`_;
+* `Kaquel repository on Gitlab <Kaquel on Gitlab_>`_;
+* `kaquel project on PyPI <Kaquel on PyPI_>`_.
+
+.. _Kaquel website: https://kaquel.touhey.pro/
+.. _Kaquel on Gitlab: https://gitlab.com/kaquel/kaquel
+.. _Kaquel on PyPI: https://pypi.org/project/kaquel/
+.. _Parsing queries: https://kaquel.touhey.pro/guides/parse.html
+.. _ElasticSearch Query DSL:
+    https://www.elastic.co/guide/en/elasticsearch/reference/current/
+    query-dsl.html
+

@@ -1,0 +1,1705 @@
+name: SpecKit Phase Progression
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'The GitHub issue number to progress'
+        required: true
+        type: number
+      phase:
+        description: 'The phase to generate (1-3)'
+        required: true
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+      hierarchy_level:
+        description: 'Issue hierarchy level (auto, epic, feature, task). auto resolves from hierarchy.yml first, then falls back to unknown (fail-closed — does not apply speckit:needs-implementation).'
+        required: false
+        type: choice
+        options:
+          - 'auto'
+          - 'feature'
+          - 'epic'
+          - 'task'
+        default: 'auto'
+      spec_dir:
+        description: 'Optional repository-relative spec directory for direct task phase-3 cloud dispatches.'
+        required: false
+        type: string
+
+# Serialize all phase progressions globally to prevent race conditions.
+# Head refs vary across phase branches, and the issue number is not available
+# until the extract step runs, so a global queue prevents interleaving phase PR
+# merges for the same issue.
+concurrency:
+  group: speckit-progression
+  cancel-in-progress: false
+
+env:
+  SPEC_BASE_PATH: specs
+  SPECKIT_ENGINE: ${{ vars.SPECKIT_ENGINE || 'legacy' }}
+  COPILOT_MODEL: ${{ vars.SPECKIT_COPILOT_MODEL || 'claude-opus-4.6' }}
+  # Phase skip map: maps hierarchy levels to phases that should be skipped (#1859)
+  # Phase 3 merges plan + tasks + analyze, and its per-level sub-steps are
+  # skipped inside generate-spec-from-issue.sh (epic skips tasks; task runs
+  # tasks only), so no whole phase is skipped for epic or feature.
+  # Task: skip phases 1,2 (only phase 3 runs — inherits parent context)
+  PHASE_SKIP_MAP: '{"epic":[],"feature":[],"task":[1,2]}'
+
+jobs:
+  progress-phase:
+    name: Progress to Next Phase
+    runs-on: ubuntu-latest
+    # Only run if: (a) PR was merged into an accepted phase base with a speckit phase signal,
+    # either via phase label or authoritative cloud-agent marker, or (b) manually dispatched.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.pull_request.merged == true &&
+        (
+          github.event.pull_request.base.ref == 'main' ||
+          startsWith(github.event.pull_request.base.ref, 'speckit/')
+        ) &&
+        (
+          contains(github.event.pull_request.labels.*.name, 'speckit:phase-1') ||
+          contains(github.event.pull_request.labels.*.name, 'speckit:phase-2') ||
+          contains(github.event.pull_request.labels.*.name, 'speckit:phase-3') ||
+          contains(github.event.pull_request.labels.*.name, 'speckit:phase-4') ||
+          contains(github.event.pull_request.labels.*.name, 'speckit:phase-5') ||
+          contains(github.event.pull_request.body || '', 'speckit:agent-assigned schema_version=1 engine=cloud-agent')
+        )
+      )
+
+    permissions:
+      actions: write
+      contents: write
+      issues: write
+      pull-requests: write
+
+    # Worst-case budget for Phase 3 (feature level, all retries exhausted):
+    #   plan:   initial(900s) + VERIFY_MAX_RETRIES(2) × regen(900s)                         = 2700s  = 45 min
+    #   tasks:  initial(tasks+FR retry)(1800s) + VERIFY_MAX_RETRIES(2) × regen(tasks+FR)(1800s) = 5400s = 90 min
+    #   analyze: initial(900s)                                                               =  900s  = 15 min
+    #   CRITICAL Layer 1: SPECKIT_CRITICAL_GATE_MAX_RETRIES(2) × (tasks+FR retry+analyze)(2700s) = 5400s = 90 min
+    #   CRITICAL Layer 2: 2 × (FR retry+analyze)(1800s)                                      = 3600s  = 60 min
+    #   Total worst-case ≈ 300 min (with SPECKIT_VALIDATE_MAX_RETRIES capped to 1 below).
+    #   330 minutes keeps the budget above that path with operational headroom.
+    timeout-minutes: 330
+
+    steps:
+      - name: Checkout Repository (Phase Extraction Helper)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve SpecKit Engine
+        env:
+          RAW_ENGINE: ${{ vars.SPECKIT_ENGINE || 'legacy' }}
+        run: |
+          RESOLVED_ENGINE="legacy"
+          case "${RAW_ENGINE,,}" in
+            legacy|cloud-agent) RESOLVED_ENGINE="${RAW_ENGINE,,}" ;;
+            *) echo "{\"engine\":\"legacy\",\"warning\":\"unsupported SPECKIT_ENGINE '${RAW_ENGINE}'; using legacy\"}" ;;
+          esac
+          echo "SPECKIT_ENGINE=${RESOLVED_ENGINE}" >> "$GITHUB_ENV"
+          echo "{\"engine\":\"${RESOLVED_ENGINE}\",\"phase\":\"routing\"}"
+
+      - name: Extract Phase and Issue Info
+        id: extract
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require('path');
+            const { run } = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github',
+              'scripts',
+              'speckit-trigger',
+              'extract-phase-info.js'
+            ));
+            await run({
+              github,
+              context,
+              core,
+              workflowDispatchPhase: '${{ github.event.inputs.phase }}',
+              workflowDispatchIssueNumber: '${{ github.event.inputs.issue_number }}',
+            });
+
+      - name: Cloud Agent In-Flight Guard
+        id: cloud-inflight
+        if: steps.extract.outcome == 'success' && env.SPECKIT_ENGINE == 'cloud-agent'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          script: |
+            const issueNumber = Number('${{ steps.extract.outputs.issue_number }}');
+            const phase = Number('${{ steps.extract.outputs.next_phase }}');
+            try {
+              const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, { owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, per_page: 100 });
+              const pulls = await github.paginate(github.rest.pulls.list, { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 });
+              const markerRegex = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=(\d+) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->/;
+              const active = labels.some((label) => label.name === `speckit:agent-assigned-phase-${phase}`) ||
+                pulls.some((pr) => {
+                  if (pr.user?.login !== 'copilot-swe-agent[bot]') return false;
+                  const markerMatch = (pr.body || '').match(markerRegex);
+                  if (!markerMatch) return false;
+                  const markerIssue = Number(markerMatch[1]);
+                  const markerPhase = Number(markerMatch[2]);
+                  const hierarchyLevel = String(markerMatch[3] || '').toLowerCase();
+                  const expectedBase = (phase === 2)
+                    ? `speckit/${issueNumber}/phase-1-specify`
+                    : (phase === 3 && hierarchyLevel !== 'task')
+                      ? `speckit/${issueNumber}/phase-2-clarify`
+                      : 'main';
+                  return markerIssue === issueNumber && markerPhase === phase && pr.base?.ref === expectedBase;
+                });
+              core.setOutput('already', active ? 'true' : 'false');
+              if (active) core.info(`Cloud Agent phase ${phase} is already in flight for issue #${issueNumber}`);
+            } catch (e) {
+              core.warning(`Cloud in-flight lookup failed; preserving tracking state: ${e?.message ?? String(e)}`);
+              core.setOutput('already', 'true');
+            }
+
+      - name: Add Phase Complete Label to Issue
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '0' && github.event_name != 'workflow_dispatch' && steps.cloud-inflight.outputs.already != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.extract.outputs.issue_number }};
+            const completedPhase = ${{ steps.extract.outputs.completed_phase }};
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: [`speckit:phase-${completedPhase}-complete`]
+              });
+              core.info(`Added speckit:phase-${completedPhase}-complete label to issue #${issueNumber}`);
+            } catch (e) {
+              core.warning(`Could not add phase label: ${e.message}`);
+            }
+
+      - name: Add Processing Label
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '0' && steps.extract.outputs.next_phase != '4' && env.SPECKIT_ENGINE != 'cloud-agent'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.extract.outputs.issue_number }};
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ['speckit:processing']
+              });
+              core.info(`Added speckit:processing label to issue #${issueNumber}`);
+            } catch (e) {
+              core.warning(`Could not add speckit:processing label: ${e.message}`);
+            }
+
+      # Validate that a PAT is configured before applying final-phase completion labels
+      - name: Validate PAT Token (Phase 3 Complete)
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase == '4'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+        run: |
+          if [[ -z "$SPECKIT_PR_TOKEN" && -z "$COPILOT_GITHUB_TOKEN" ]]; then
+            echo "::error::Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is set. A PAT is required to apply the speckit:completed label (and speckit:needs-implementation for feature/task-level issues, which triggers downstream implementation workflows). Configure at least one of these secrets with repo permissions."
+            exit 1
+          fi
+          if [[ -n "$SPECKIT_PR_TOKEN" ]]; then
+            echo "✓ SPECKIT_PR_TOKEN is set (will be used for Phase 3 completion labels)"
+          else
+            echo "✓ COPILOT_GITHUB_TOKEN is set (will be used for Phase 3 completion labels)"
+          fi
+
+      # If Phase 3 just merged, this is the final phase — apply completion labels and exit
+      - name: Apply Final Labels (Phase 3 Complete)
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase == '4'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          script: |
+            const issueNumber = ${{ steps.extract.outputs.issue_number }};
+            const hierarchyLevel = '${{ steps.extract.outputs.terminal_hierarchy_level }}';
+            // Fail-closed (#3931): only feature/task issues produce a monolithic tasks.md,
+            // which speckit-implement-trigger.yml requires. Epics decompose into child
+            // issues instead, and 'unknown' means the level could not be verified — in
+            // both cases withhold speckit:needs-implementation to avoid a doomed trigger.
+            const needsImplementation = hierarchyLevel === 'feature' || hierarchyLevel === 'task';
+
+            // Remove processing label if still present
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:processing'
+              });
+            } catch (e) {
+              // Label may not exist — that's fine
+            }
+
+            // Remove speckit:failed if present (from a previous failed attempt)
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:failed'
+              });
+            } catch (e) {
+              // Expected when label is not present — ignore
+            }
+
+            // Remove speckit:needs-implementation so re-adding emits a new labeled event
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:needs-implementation'
+              });
+            } catch (e) {
+              // Ignore "label does not exist"; fail for all other errors
+              if (e.status !== 404) {
+                throw e;
+              }
+            }
+
+            // Add final completion labels — speckit:needs-implementation only for
+            // levels that produce the tasks.md the implementation trigger requires.
+            try {
+              const labels = needsImplementation
+                ? ['speckit:completed', 'speckit:needs-implementation']
+                : ['speckit:completed'];
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels
+              });
+              core.info(
+                needsImplementation
+                  ? `Applied speckit:completed and speckit:needs-implementation to issue #${issueNumber}`
+                  : `Applied speckit:completed to issue #${issueNumber} (hierarchy level '${hierarchyLevel}' does not trigger implementation)`
+              );
+            } catch (e) {
+              core.setFailed(`Could not add completion labels: ${e.message}`);
+            }
+
+            // Post completion comment (respects SPECKIT_COMMENT_ON_ISSUE)
+            const commentOnIssue = '${{ vars.SPECKIT_COMMENT_ON_ISSUE }}' !== 'false';
+            if (commentOnIssue) {
+              try {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: [
+                    '## ✅ SpecKit: All Phases Complete',
+                    '',
+                    hierarchyLevel === 'task'
+                      ? 'All applicable SpecKit pipeline phases have been completed and merged.'
+                      : 'All 3 phases of the SpecKit pipeline have been completed and merged.',
+                    '',
+                    '| Phase | Status |',
+                    '| --- | --- |',
+                    `| 1. Specify | ${hierarchyLevel === 'task' ? '⏩ Skipped (task inherits parent)' : '✅ Merged'} |`,
+                    `| 2. Clarify | ${hierarchyLevel === 'task' ? '⏩ Skipped (task inherits parent)' : '✅ Merged'} |`,
+                    '| 3. Planning Artifacts | ✅ Merged |',
+                    '',
+                    needsImplementation
+                      ? 'The `speckit:needs-implementation` label has been applied. The implementation trigger workflow will start automatically.'
+                      : hierarchyLevel === 'epic'
+                        ? 'Epic planning phase complete. Child issue cascade triggered.'
+                        : 'Hierarchy level could not be verified, so `speckit:needs-implementation` was withheld (fail-closed). Apply it manually once the level is confirmed, if applicable.',
+                    '',
+                    '---',
+                    `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+                  ].join('\n')
+                });
+              } catch (e) {
+                core.warning(`Could not post completion comment: ${e.message}`);
+              }
+            }
+
+      # Checkout is required by the cascade step (find hierarchy.yml; pip install .)
+      - name: Checkout Repository (Cascade)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase == '4' &&
+          steps.extract.outputs.terminal_hierarchy_level != 'unknown'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python (Cascade - Final Phase Complete)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase == '4' &&
+          steps.extract.outputs.terminal_hierarchy_level != 'unknown'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install uv (Cascade - Final Phase Complete)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase == '4' &&
+          steps.extract.outputs.terminal_hierarchy_level != 'unknown'
+        uses: astral-sh/setup-uv@v4
+        continue-on-error: true
+        with:
+          version: "0.7 - 0.11"
+          enable-cache: true
+          cache-dependency-glob: 'pyproject.toml'
+
+      # Cascade Trigger: after final phase completion, cascade to next target
+      - name: Cascade Trigger (Final Phase Complete)
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase == '4'
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUMBER="${{ steps.extract.outputs.issue_number }}"
+          TERMINAL_LEVEL="${{ steps.extract.outputs.terminal_hierarchy_level }}"
+
+          # Fail-closed: 'unknown' hierarchy level means we cannot determine the
+          # cascade target safely, and speckit:completed was already applied
+          # upstream. Exit before any cascade setup (token check, checkout,
+          # resolve-cascade-target.sh) to avoid a nonzero exit that would trigger
+          # the failure handler and apply speckit:failed (#3931).
+          if [[ "$TERMINAL_LEVEL" == "unknown" ]]; then
+            echo "Hierarchy level is 'unknown' — cascade cannot be determined; treating as non-cascading completion."
+            exit 0
+          fi
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is configured. Cascade trigger requires one of these secrets."
+            exit 1
+          fi
+
+          # Resolve hierarchy.yml path and cascade mode via shared script
+          chmod +x .github/scripts/speckit-trigger/resolve-cascade-target.sh
+          resolve_output=""
+          resolve_exit=0
+          resolve_output=$(.github/scripts/speckit-trigger/resolve-cascade-target.sh \
+            --issue "$ISSUE_NUMBER" \
+            --spec-base-path "${{ env.SPEC_BASE_PATH }}") || resolve_exit=$?
+
+          if [[ "$resolve_exit" -eq 2 ]]; then
+            exit 0  # standalone issue or no parent found — skip cascade gracefully
+          elif [[ "$resolve_exit" -ne 0 ]]; then
+            exit "$resolve_exit"
+          fi
+          eval "$resolve_output"
+
+          # Install agentic-devtools if not already available
+          if ! command -v agdt-cascade-trigger &>/dev/null; then
+            if command -v uv >/dev/null 2>&1; then
+              uv pip install --system .
+            else
+              python -m pip install --upgrade pip
+              python -m pip install .
+            fi
+          fi
+
+          agdt-cascade-trigger \
+            --issue "$ISSUE_NUMBER" \
+            --owner "${{ github.repository_owner }}" \
+            --repo "${{ github.event.repository.name }}" \
+            --hierarchy-yml "$HIERARCHY_YML" \
+            --mode "$MODE"
+
+      # For phases 1-3, proceed with generating phase artifacts
+      - name: Checkout Repository (Post-Merge Main)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '4' &&
+          steps.extract.outputs.next_phase != '0' &&
+          !(steps.extract.outputs.next_phase == '3' &&
+            (steps.idempotency.outputs.skipped == 'true' || steps.phase_applicable.outputs.phase_skipped == 'true'))
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Issue Details
+        id: issue
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.extract.outputs.issue_number }};
+
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            core.setOutput('number', issue.number);
+            core.setOutput('title', issue.title);
+            core.setOutput('body', issue.body || '');
+            core.setOutput('url', issue.html_url);
+            core.setOutput('labels', JSON.stringify(issue.labels.map(l => l.name)));
+
+      - name: Sanitize Branch Name
+        id: sanitize
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0'
+        run: |
+          chmod +x .github/scripts/speckit-trigger/sanitize-branch-name.sh
+          .github/scripts/speckit-trigger/sanitize-branch-name.sh "${{ steps.issue.outputs.title }}"
+
+      # Read hierarchy level from workflow input, hierarchy.yml, or fail-closed to 'unknown' (#1859, #3931)
+      - name: Resolve Hierarchy Level
+        id: hierarchy
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0'
+        run: |
+          LEVEL="${{ inputs.hierarchy_level || '' }}"
+          if [[ "${LEVEL,,}" == "auto" ]]; then
+            LEVEL=""
+          fi
+
+          # If not provided via input, use the level parsed from the PR by extract-phase-info.js
+          EXTRACT_LEVEL="${{ steps.extract.outputs.terminal_hierarchy_level }}"
+          if [[ "$EXTRACT_LEVEL" == "epic" ]]; then
+            LEVEL="epic"
+            echo "Authoritative Epic classification from PR extract overrides workflow input"
+          elif [[ -z "$LEVEL" && -n "$EXTRACT_LEVEL" ]]; then
+            LEVEL="$EXTRACT_LEVEL"
+            echo "Resolved hierarchy level from PR extract: $LEVEL"
+          fi
+
+          RAW_LEVEL="$LEVEL"
+          LEVEL="$(printf '%s' "$LEVEL" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          case "$LEVEL" in
+            epic|feature|task)
+              ;;
+            *)
+              echo "::warning::Unrecognized or missing hierarchy level '$RAW_LEVEL'. Normalizing to 'unknown' (fail-closed)."
+              LEVEL="unknown"
+              ;;
+          esac
+          echo "hierarchy_level=$LEVEL" >> "$GITHUB_OUTPUT"
+          echo "Hierarchy level: $LEVEL"
+
+      - name: Check Phase Idempotency
+        id: idempotency
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0'
+        run: |
+          chmod +x .github/scripts/speckit-trigger/check-idempotency.sh
+          .github/scripts/speckit-trigger/check-idempotency.sh \
+            "${{ steps.extract.outputs.issue_number }}" \
+            --phase "${{ steps.extract.outputs.next_phase }}" \
+            --level "${{ steps.hierarchy.outputs.hierarchy_level }}"
+
+      # When Phase 3 is idempotency-skipped and the diagnostics were still at the
+      # legacy spec root, check-idempotency.sh already moved them to generated/.
+      # Stage and commit that rename here so the migration is persisted without
+      # requiring a full Phase 3 re-run.
+      - name: Commit Legacy Migration (Phase 3 Idempotency-Skipped)
+        id: commit_legacy_migration
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase == '3' &&
+          steps.idempotency.outputs.skipped == 'true' &&
+          steps.idempotency.outputs.migration_done == 'true'
+        env:
+          SPEC_DIR: ${{ steps.idempotency.outputs.spec_dir }}
+          ISSUE_NUMBER: ${{ steps.extract.outputs.issue_number }}
+          BRANCH_NAME: speckit/${{ steps.extract.outputs.issue_number }}/phase-${{ steps.extract.outputs.next_phase }}-${{ steps.extract.outputs.next_phase_name }}
+        run: |
+          chmod +x .github/scripts/speckit-trigger/commit-legacy-migration.sh
+          .github/scripts/speckit-trigger/commit-legacy-migration.sh "$ISSUE_NUMBER" "$SPEC_DIR" "$BRANCH_NAME"
+
+      # Check if the current phase is applicable for this hierarchy level (#1859)
+      - name: Check Phase Applicability
+        id: phase_applicable
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0'
+        run: |
+          LEVEL="${{ steps.hierarchy.outputs.hierarchy_level }}"
+          PHASE="${{ steps.extract.outputs.next_phase }}"
+          SKIP_MAP='${{ env.PHASE_SKIP_MAP }}'
+
+          # Check if this phase should be skipped for the given level. PHASE_SKIP_MAP has
+          # no entry for 'unknown' (fail-closed hierarchy resolution, #3931), so
+          # skip_map.get(..., []) returns an empty list and the phase is never skipped —
+          # unknown levels always run the full pipeline instead of silently bypassing it.
+          SKIPPED_PHASES=$(printf '%s' "$SKIP_MAP" | LEVEL="$LEVEL" python3 -c $'import json, os, sys\ntry:\n    skip_map = json.load(sys.stdin)\nexcept json.JSONDecodeError as e:\n    print(f"::error::PHASE_SKIP_MAP contains invalid JSON: {e}", file=sys.stderr)\n    sys.exit(1)\nprint(" ".join(str(phase) for phase in skip_map.get(os.environ["LEVEL"], [])))')
+
+          if echo "$SKIPPED_PHASES" | grep -qw "$PHASE"; then
+            echo "phase_skipped=true" >> "$GITHUB_OUTPUT"
+            echo "Phase $PHASE is NOT applicable for level '$LEVEL' — will be skipped"
+          else
+            echo "phase_skipped=false" >> "$GITHUB_OUTPUT"
+            echo "Phase $PHASE is applicable for level '$LEVEL'"
+          fi
+
+      # Validate that a PAT is configured before applying final-phase completion labels in the skipped path
+      - name: Validate PAT Token (Phase 3 Skipped)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase == '3' &&
+          (
+            (steps.idempotency.outputs.skipped == 'true' && steps.idempotency.outputs.migration_done != 'true') ||
+            steps.phase_applicable.outputs.phase_skipped == 'true'
+          )
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+        run: |
+          if [[ -z "$SPECKIT_PR_TOKEN" && -z "$COPILOT_GITHUB_TOKEN" ]]; then
+            echo "::error::Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is set. A PAT is required to apply the speckit:completed label (and speckit:needs-implementation for feature/task-level issues, which triggers downstream implementation workflows). Configure at least one of these secrets with repo permissions."
+            exit 1
+          fi
+          if [[ -n "$SPECKIT_PR_TOKEN" ]]; then
+            echo "✓ SPECKIT_PR_TOKEN is set (will be used for Phase 3 skipped completion labels)"
+          else
+            echo "✓ COPILOT_GITHUB_TOKEN is set (will be used for Phase 3 skipped completion labels)"
+          fi
+
+      - name: Handle Skipped Phase (Already Complete or Level-Skipped)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '4' &&
+          steps.extract.outputs.next_phase != '0' &&
+          steps.idempotency.outputs.migration_done != 'true' &&
+          (steps.idempotency.outputs.skipped == 'true' || steps.phase_applicable.outputs.phase_skipped == 'true') &&
+          steps.cloud-inflight.outputs.already != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.extract.outputs.next_phase != '3' && github.token || (secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN) }}
+          script: |
+            const issueNumber = ${{ steps.extract.outputs.issue_number }};
+            const nextPhase = ${{ steps.extract.outputs.next_phase }};
+            const nextPhaseName = '${{ steps.extract.outputs.next_phase_name }}';
+            const hierarchyLevel = '${{ steps.hierarchy.outputs.hierarchy_level }}';
+            const levelSkipped = '${{ steps.phase_applicable.outputs.phase_skipped }}' === 'true';
+            // Fail-closed (#3931): only feature/task issues produce a monolithic tasks.md,
+            // which speckit-implement-trigger.yml requires. Epics decompose into child
+            // issues instead, and 'unknown' means the level could not be verified — in
+            // both cases withhold speckit:needs-implementation to avoid a doomed trigger.
+            const needsImplementation = hierarchyLevel === 'feature' || hierarchyLevel === 'task';
+
+            // Apply the phase-complete label so downstream progression can continue
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: [`speckit:phase-${nextPhase}-complete`]
+              });
+              core.info(`Added speckit:phase-${nextPhase}-complete label to issue #${issueNumber}`);
+            } catch (e) {
+              core.warning(`Could not add phase label: ${e.message}`);
+            }
+
+            // Post informational comment (respects SPECKIT_COMMENT_ON_ISSUE)
+            const commentOnIssue = '${{ vars.SPECKIT_COMMENT_ON_ISSUE }}' !== 'false';
+            if (commentOnIssue) {
+              const skipLines = [
+                `## ⏭️ SpecKit: Phase ${nextPhase} (${nextPhaseName}) Skipped`,
+                '',
+                levelSkipped
+                  ? `Phase ${nextPhase} does not apply for hierarchy level \`${hierarchyLevel}\`, so generation was skipped.`
+                  : `Phase ${nextPhase} artifacts were detected as already complete. Skipping generation.`,
+                '',
+                `The \`speckit:phase-${nextPhase}-complete\` label has been applied.`,
+              ];
+
+              if (nextPhase < 3) {
+                skipLines.push(
+                  `Phase ${nextPhase + 1} will be triggered automatically via workflow dispatch.`
+                );
+              }
+
+              skipLines.push(
+                '',
+                '---',
+                `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+              );
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: skipLines.join('\n')
+              });
+            }
+
+            // If there is a next phase (skipped phase is not phase 3), dispatch
+            // the progression workflow so the pipeline does not stall.
+            if (nextPhase < 3) {
+              const followingPhase = nextPhase + 1;
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'speckit-phase-progression.yml',
+                  ref: 'main',
+                  inputs: {
+                    issue_number: issueNumber.toString(),
+                    phase: followingPhase.toString(),
+                    hierarchy_level: hierarchyLevel
+                  }
+                });
+                core.info(`Dispatched phase ${followingPhase} for issue #${issueNumber}`);
+              } catch (e) {
+                core.warning(`Could not dispatch phase ${followingPhase}: ${e.message}. Manual dispatch may be needed.`);
+              }
+            } else {
+              // Phase 3 was skipped — apply final completion labels directly
+              // (the "Apply Final Labels" step only runs when next_phase == '4',
+              // which doesn't happen when Phase 3 is skipped via idempotency).
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name: 'speckit:processing'
+                });
+              } catch (e) {
+                // Label may not exist — that's fine
+              }
+
+              // Remove speckit:failed if present (from a previous failed attempt)
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name: 'speckit:failed'
+                });
+              } catch (e) {
+                // Expected when label is not present — ignore
+              }
+
+              // Remove speckit:needs-implementation so re-adding emits a new labeled event
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name: 'speckit:needs-implementation'
+                });
+              } catch (e) {
+                // Ignore "label does not exist"; fail for all other errors
+                if (e.status !== 404) {
+                  throw e;
+                }
+              }
+
+              try {
+                const labels = needsImplementation
+                  ? ['speckit:completed', 'speckit:needs-implementation']
+                  : ['speckit:completed'];
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  labels
+                });
+                core.info(
+                  needsImplementation
+                    ? `Applied speckit:completed and speckit:needs-implementation to issue #${issueNumber}`
+                    : `Applied speckit:completed to issue #${issueNumber} (hierarchy level '${hierarchyLevel}' does not trigger implementation)`
+                );
+              } catch (e) {
+                core.setFailed(`Could not add completion labels: ${e.message}`);
+              }
+
+              if (commentOnIssue) {
+                const finalPhaseCompletionSummary = levelSkipped
+                  ? `All applicable phases of the SpecKit pipeline have been completed (Phase 3 does not apply for hierarchy level \`${hierarchyLevel}\` — skipped generation).`
+                  : 'All applicable phases of the SpecKit pipeline have been completed (Phase 3 was already present — skipped generation).';
+                const finalPhaseStatus = levelSkipped
+                  ? `✅ Skipped (not applicable for \`${hierarchyLevel}\`)`
+                  : '✅ Skipped (already complete)';
+
+                try {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: [
+                      '## ✅ SpecKit: All Phases Complete',
+                      '',
+                      finalPhaseCompletionSummary,
+                      '',
+                      '| Phase | Status |',
+                      '| --- | --- |',
+                      `| 1. Specify | ${hierarchyLevel === 'task' ? '⏩ Skipped (task inherits parent)' : '✅ Merged'} |`,
+                      `| 2. Clarify | ${hierarchyLevel === 'task' ? '⏩ Skipped (task inherits parent)' : '✅ Merged'} |`,
+                      `| 3. Planning Artifacts | ${finalPhaseStatus} |`,
+                      '',
+                      needsImplementation
+                        ? 'The `speckit:needs-implementation` label has been applied. The implementation trigger workflow will start automatically.'
+                        : hierarchyLevel === 'epic'
+                          ? 'Epic planning phase complete. Child issue cascade triggered.'
+                          : 'Hierarchy level could not be verified, so `speckit:needs-implementation` was withheld (fail-closed). Apply it manually once the level is confirmed, if applicable.',
+                      '',
+                      '---',
+                      `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+                    ].join('\n')
+                  });
+                } catch (e) {
+                  core.warning(`Could not post completion comment: ${e.message}`);
+                }
+              }
+            }
+
+      # Cascade Trigger: after final phase skipped (level-skipped), cascade to next target
+      - name: Checkout Repository (Cascade - Final Phase Skipped)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase == '3' &&
+          steps.idempotency.outputs.migration_done != 'true' &&
+          (steps.idempotency.outputs.skipped == 'true' || steps.phase_applicable.outputs.phase_skipped == 'true') &&
+          steps.hierarchy.outputs.hierarchy_level != 'unknown'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python (Cascade - Final Phase Skipped)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase == '3' &&
+          steps.idempotency.outputs.migration_done != 'true' &&
+          (steps.idempotency.outputs.skipped == 'true' || steps.phase_applicable.outputs.phase_skipped == 'true') &&
+          steps.hierarchy.outputs.hierarchy_level != 'unknown'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install uv (Cascade - Final Phase Skipped)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase == '3' &&
+          steps.idempotency.outputs.migration_done != 'true' &&
+          (steps.idempotency.outputs.skipped == 'true' || steps.phase_applicable.outputs.phase_skipped == 'true') &&
+          steps.hierarchy.outputs.hierarchy_level != 'unknown'
+        uses: astral-sh/setup-uv@v4
+        continue-on-error: true
+        with:
+          version: "0.7 - 0.11"
+          enable-cache: true
+          cache-dependency-glob: 'pyproject.toml'
+
+      - name: Cascade Trigger (Final Phase Skipped)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase == '3' &&
+          steps.idempotency.outputs.migration_done != 'true' &&
+          (steps.idempotency.outputs.skipped == 'true' || steps.phase_applicable.outputs.phase_skipped == 'true')
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUMBER="${{ steps.extract.outputs.issue_number }}"
+          HIERARCHY_LEVEL="${{ steps.hierarchy.outputs.hierarchy_level }}"
+
+          # Fail-closed: 'unknown' hierarchy level means we cannot determine the
+          # cascade target safely, and speckit:completed was already applied
+          # upstream. Exit before any cascade prerequisites (token check,
+          # agentic-devtools install) to avoid unnecessary failures that would
+          # trigger the failure handler and apply speckit:failed (#3931).
+          if [[ "$HIERARCHY_LEVEL" == "unknown" ]]; then
+            echo "Hierarchy level is 'unknown' — cascade cannot be determined; treating as non-cascading completion."
+            exit 0
+          fi
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is configured. Cascade trigger requires one of these secrets."
+            exit 1
+          fi
+
+          # Install agentic-devtools if not already available
+          if ! command -v agdt-cascade-trigger &>/dev/null; then
+            if command -v uv >/dev/null 2>&1; then
+              uv pip install --system .
+            else
+              python -m pip install --upgrade pip
+              python -m pip install .
+            fi
+          fi
+
+          # Only cascade when the skipped phase IS the final phase for the level.
+          # Source final phase mapping from the Python constant to avoid drift.
+          final_phase_status=0
+          FINAL_PHASE="$(HIERARCHY_LEVEL="$HIERARCHY_LEVEL" python - <<'PY'
+          import os
+          import sys
+
+          try:
+              from agentic_devtools.hierarchy.cascade import FINAL_PHASE_BY_LEVEL
+          except ImportError:
+              print(
+                  "Failed to import FINAL_PHASE_BY_LEVEL from agentic_devtools.hierarchy.cascade. "
+                  "Ensure agentic-devtools and its dependencies are installed.",
+                  file=sys.stderr,
+              )
+              sys.exit(2)
+
+          level = os.environ.get("HIERARCHY_LEVEL", "")
+          phase = FINAL_PHASE_BY_LEVEL.get(level)
+          if phase is None:
+              sys.exit(1)
+          print(phase)
+          PY
+          )" || final_phase_status=$?
+          if [[ "$final_phase_status" -eq 1 ]]; then
+            echo "::error::Unknown hierarchy level '$HIERARCHY_LEVEL' — cannot determine final phase for cascade check."
+            exit 1
+          elif [[ "$final_phase_status" -ne 0 ]]; then
+            echo "::error::Unable to import FINAL_PHASE_BY_LEVEL from agentic_devtools.hierarchy.cascade."
+            exit 2
+          fi
+
+          SKIPPED_PHASE="${{ steps.extract.outputs.next_phase }}"
+          COMPLETED_PHASE="${{ steps.extract.outputs.completed_phase }}"
+          # Cascade when either the skipped phase or the just-completed phase is the final phase.
+          if [[ "$SKIPPED_PHASE" != "$FINAL_PHASE" && "$COMPLETED_PHASE" != "$FINAL_PHASE" ]]; then
+            echo "Skipped phase $SKIPPED_PHASE and completed phase $COMPLETED_PHASE are not final for level '$HIERARCHY_LEVEL' (final=$FINAL_PHASE) — skipping cascade"
+            exit 0
+          fi
+
+          # Resolve hierarchy.yml path and cascade mode via shared script
+          chmod +x .github/scripts/speckit-trigger/resolve-cascade-target.sh
+          resolve_output=""
+          resolve_exit=0
+          resolve_output=$(.github/scripts/speckit-trigger/resolve-cascade-target.sh \
+            --issue "$ISSUE_NUMBER" \
+            --spec-base-path "${{ env.SPEC_BASE_PATH }}" \
+            --level "$HIERARCHY_LEVEL") || resolve_exit=$?
+
+          if [[ "$resolve_exit" -eq 2 ]]; then
+            exit 0  # standalone issue or no parent found — skip cascade gracefully
+          elif [[ "$resolve_exit" -ne 0 ]]; then
+            exit "$resolve_exit"
+          fi
+          eval "$resolve_output"
+
+          agdt-cascade-trigger \
+            --issue "$ISSUE_NUMBER" \
+            --owner "${{ github.repository_owner }}" \
+            --repo "${{ github.event.repository.name }}" \
+            --hierarchy-yml "$HIERARCHY_YML" \
+            --mode "$MODE"
+
+      - name: Validate Tokens
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '4' &&
+          steps.extract.outputs.next_phase != '0' &&
+          steps.idempotency.outputs.skipped != 'true' &&
+          steps.phase_applicable.outputs.phase_skipped != 'true' &&
+          steps.hierarchy.outputs.hierarchy_level != 'unknown' &&
+          env.SPECKIT_ENGINE != 'cloud-agent'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+        run: |
+          if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
+            echo "::error::COPILOT_GITHUB_TOKEN secret is not set. This PAT is required for Copilot SDK authentication. For PR creation, SPECKIT_PR_TOKEN is preferred and COPILOT_GITHUB_TOKEN is the fallback. Configure COPILOT_GITHUB_TOKEN with a PAT that has Copilot API access and repo permissions."
+            exit 1
+          fi
+          echo "✓ COPILOT_GITHUB_TOKEN is set"
+
+          if [[ -n "$SPECKIT_PR_TOKEN" ]]; then
+            echo "✓ SPECKIT_PR_TOKEN is set (will be used for PR creation)"
+          else
+            echo "✓ SPECKIT_PR_TOKEN is not set; COPILOT_GITHUB_TOKEN will be used for PR creation"
+          fi
+
+      - name: Set up Python
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0' && steps.idempotency.outputs.skipped != 'true' && steps.phase_applicable.outputs.phase_skipped != 'true' && steps.hierarchy.outputs.hierarchy_level != 'unknown'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install uv
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0' && steps.idempotency.outputs.skipped != 'true' && steps.phase_applicable.outputs.phase_skipped != 'true' && steps.hierarchy.outputs.hierarchy_level != 'unknown'
+        uses: astral-sh/setup-uv@v4
+        continue-on-error: true
+        with:
+          version: "0.7 - 0.11" # Stay on the tested 0.x series while allowing patch/minor updates.
+          enable-cache: true
+          cache-dependency-glob: 'pyproject.toml'
+
+      - name: Install Dependencies
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0' && steps.idempotency.outputs.skipped != 'true' && steps.phase_applicable.outputs.phase_skipped != 'true' && steps.hierarchy.outputs.hierarchy_level != 'unknown'
+        run: |
+          if command -v uv >/dev/null 2>&1; then
+            uv pip install --system .
+          else
+            python -m pip install --upgrade pip
+            python -m pip install .
+          fi
+
+      - name: Generate Phase Artifacts
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '4' &&
+          steps.extract.outputs.next_phase != '0' &&
+          steps.idempotency.outputs.skipped != 'true' &&
+          steps.phase_applicable.outputs.phase_skipped != 'true' &&
+          steps.hierarchy.outputs.hierarchy_level != 'unknown' &&
+          env.SPECKIT_ENGINE != 'cloud-agent'
+        id: generate
+        env:
+          ISSUE_NUMBER: ${{ steps.extract.outputs.issue_number }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
+          ISSUE_URL: ${{ steps.issue.outputs.url }}
+          SHORT_NAME: ${{ steps.sanitize.outputs.short_name }}
+          COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          SPECKIT_CRITICAL_GATE_MODE: ${{ vars.SPECKIT_CRITICAL_GATE_MODE }}
+          SPECKIT_ARTIFACT_GATE_MODE: ${{ vars.SPECKIT_ARTIFACT_GATE_MODE }}
+          SPECKIT_VERIFY_MAX_RETRIES: ${{ vars.SPECKIT_VERIFY_MAX_RETRIES }}
+          SPECKIT_VALIDATE_MAX_RETRIES: "1"
+          SPECKIT_COPILOT_CLI_ON_STALL: ${{ vars.SPECKIT_COPILOT_CLI_ON_STALL || 'true' }}
+          HIERARCHY_LEVEL: ${{ steps.hierarchy.outputs.hierarchy_level }}
+        run: |
+          chmod +x .github/scripts/speckit-trigger/generate-spec-from-issue.sh
+          .github/scripts/speckit-trigger/generate-spec-from-issue.sh \
+            --phase "${{ steps.extract.outputs.next_phase }}"
+
+      - name: Dispatch Cloud Agent
+        id: cloud-dispatch
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0' && steps.idempotency.outputs.skipped != 'true' && steps.phase_applicable.outputs.phase_skipped != 'true' && env.SPECKIT_ENGINE == 'cloud-agent' && steps.cloud-inflight.outputs.already != 'true' && steps.hierarchy.outputs.hierarchy_level != 'unknown'
+        env:
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          SPEC_DIR: ${{ inputs.spec_dir || '' }}
+        run: |
+          ISSUE_NUMBER="${{ steps.extract.outputs.issue_number }}"
+          PHASE="${{ steps.extract.outputs.next_phase }}"
+          HIERARCHY="${{ steps.hierarchy.outputs.hierarchy_level }}"
+          # Compute the phase-aware base branch, mirroring expectedCloudBaseRef
+          # in extract-phase-info.js. Phase 2 targets the phase-1 output branch
+          # so the clarify agent has access to specify artifacts; non-task phase 3
+          # targets the phase-2 output branch for the same reason; all other
+          # phases (phase 1, task phase 3) target main.
+          if [[ "$PHASE" == "2" ]]; then
+            BASE_BRANCH="speckit/${ISSUE_NUMBER}/phase-1-specify"
+          elif [[ "$PHASE" == "3" && "$HIERARCHY" != "task" ]]; then
+            BASE_BRANCH="speckit/${ISSUE_NUMBER}/phase-2-clarify"
+          else
+            BASE_BRANCH="main"
+          fi
+          ASSIGN_ARGS=(
+            --issue-number "$ISSUE_NUMBER"
+            --phase "$PHASE"
+            --hierarchy-level "$HIERARCHY"
+            --base-branch "$BASE_BRANCH"
+            --model "$COPILOT_MODEL"
+            --repo "$GITHUB_REPOSITORY"
+          )
+          if [[ -n "$SPEC_DIR" ]]; then
+            ASSIGN_ARGS+=(--spec-dir "$SPEC_DIR")
+          fi
+          # agdt-assign-speckit-agent writes this exact marker into the issue:
+          # <!-- speckit:agent-assigned schema_version=1 engine=cloud-agent issue=<num> phase=<phase> hierarchy=<level> correlation_id=<uuid> -->
+          # The assigned agent is instructed to copy it into the PR body unchanged.
+          agdt-assign-speckit-agent "${ASSIGN_ARGS[@]}"
+
+      - name: Commit Phase Artifacts
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '4' && steps.extract.outputs.next_phase != '0' && steps.idempotency.outputs.skipped != 'true' && steps.phase_applicable.outputs.phase_skipped != 'true' && steps.hierarchy.outputs.hierarchy_level != 'unknown' && steps.generate.outcome == 'success' && (steps.generate.outputs.gate_result == 'pass' || vars.SPECKIT_CRITICAL_GATE_MODE == 'draft')
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          NEXT_PHASE="${{ steps.extract.outputs.next_phase }}"
+          NEXT_PHASE_NAME="${{ steps.extract.outputs.next_phase_name }}"
+          ISSUE_NUMBER="${{ steps.extract.outputs.issue_number }}"
+          BRANCH_NAME="speckit/${ISSUE_NUMBER}/phase-${NEXT_PHASE}-${NEXT_PHASE_NAME}"
+
+          # Create or reset the phase branch from current main
+          if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
+            echo "Branch '$BRANCH_NAME' already exists on remote — fetching and resetting"
+            git fetch origin "refs/heads/$BRANCH_NAME:refs/remotes/origin/$BRANCH_NAME"
+            git checkout -B "$BRANCH_NAME"
+          else
+            git checkout -b "$BRANCH_NAME"
+          fi
+
+          # Add generated artifacts — use the generate step's output to ensure
+          # we commit exactly what was generated (not what discover found).
+          SPEC_DIR="${{ steps.generate.outputs.spec_dir }}"
+          git add "$SPEC_DIR"
+
+          git commit -m "spec($NEXT_PHASE_NAME): Phase $NEXT_PHASE artifacts for issue #$ISSUE_NUMBER
+
+          Phase $NEXT_PHASE ($NEXT_PHASE_NAME) artifacts generated by the SpecKit pipeline.
+
+          Relates to #$ISSUE_NUMBER"
+
+          echo "branch_name=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+          echo "spec_dir=$SPEC_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Pre-Push Draft Existing PR for Advisory Artifact Gate
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '4' &&
+          steps.extract.outputs.next_phase != '0' &&
+          steps.idempotency.outputs.skipped != 'true' &&
+          steps.phase_applicable.outputs.phase_skipped != 'true' &&
+          vars.SPECKIT_CREATE_BRANCH != 'false' &&
+          vars.SPECKIT_CREATE_PR != 'false' &&
+          steps.commit.outcome == 'success' &&
+          steps.generate.outputs.artifact_gate_result == 'fail'
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          LABEL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_NAME="${{ steps.commit.outputs.branch_name }}"
+          EXISTING_PR_NUMBER="$(GH_TOKEN="$GH_TOKEN" gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')"
+
+          if [[ -z "$EXISTING_PR_NUMBER" ]]; then
+            echo "No existing PR found for branch '$BRANCH_NAME' before push."
+            exit 0
+          fi
+
+          echo "Found existing PR #$EXISTING_PR_NUMBER for '$BRANCH_NAME'; enforcing draft state before push."
+          IS_DRAFT="$(GH_TOKEN="$GH_TOKEN" gh pr view "$EXISTING_PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+          if [[ "$IS_DRAFT" != "true" ]]; then
+            GH_TOKEN="$GH_TOKEN" gh pr ready "$EXISTING_PR_NUMBER" --undo --repo "$GITHUB_REPOSITORY"
+          fi
+
+          HAS_AUTO_MERGE_LABEL="$(GH_TOKEN="$GH_TOKEN" gh pr view "$EXISTING_PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json labels --jq '[.labels[].name] | index("ai-auto-merge-allowed") != null')"
+          if [[ "$HAS_AUTO_MERGE_LABEL" == "true" ]]; then
+            GH_TOKEN="$LABEL_TOKEN" gh pr edit "$EXISTING_PR_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "ai-auto-merge-allowed"
+          fi
+
+      - name: Push Branch
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '4' &&
+          steps.extract.outputs.next_phase != '0' &&
+          steps.phase_applicable.outputs.phase_skipped != 'true' &&
+          vars.SPECKIT_CREATE_BRANCH != 'false' &&
+          (
+            (steps.idempotency.outputs.skipped != 'true' && steps.commit.outcome == 'success' && (steps.generate.outputs.gate_result == 'pass' || vars.SPECKIT_CRITICAL_GATE_MODE == 'draft')) ||
+            (steps.idempotency.outputs.skipped == 'true' && steps.commit_legacy_migration.outcome == 'success' && steps.commit_legacy_migration.outputs.commit_created == 'true')
+          )
+        env:
+          BRANCH_NAME: ${{ steps.commit.outputs.branch_name || steps.commit_legacy_migration.outputs.branch_name }}
+        run: |
+          git push --force-with-lease -u origin "$BRANCH_NAME"
+
+      - name: Create Pull Request
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '4' &&
+          steps.extract.outputs.next_phase != '0' &&
+          steps.phase_applicable.outputs.phase_skipped != 'true' &&
+          vars.SPECKIT_CREATE_BRANCH != 'false' &&
+          vars.SPECKIT_CREATE_PR != 'false' &&
+          (
+            (steps.idempotency.outputs.skipped != 'true' && steps.commit.outcome == 'success' && (steps.generate.outputs.gate_result == 'pass' || vars.SPECKIT_CRITICAL_GATE_MODE == 'draft')) ||
+            (steps.idempotency.outputs.skipped == 'true' && steps.commit_legacy_migration.outcome == 'success' && steps.commit_legacy_migration.outputs.commit_created == 'true')
+          )
+        id: create-pr
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          LABEL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HIERARCHY_LEVEL: ${{ steps.hierarchy.outputs.hierarchy_level }}
+          ISSUE_LABELS: ${{ steps.issue.outputs.labels }}
+          GATE_RESULT: ${{ steps.generate.outputs.gate_result }}
+          GATE_MODE: ${{ vars.SPECKIT_CRITICAL_GATE_MODE }}
+          ARTIFACT_GATE_RESULT: ${{ steps.generate.outputs.artifact_gate_result }}
+          CRITICAL_FINDINGS: ${{ steps.generate.outputs.critical_findings }}
+          MARKDOWNLINT_WARNINGS: ${{ steps.generate.outputs.markdownlint_remaining_violations }}
+          BRANCH_NAME_OUTPUT: ${{ steps.commit.outputs.branch_name || steps.commit_legacy_migration.outputs.branch_name }}
+          SPEC_DIR_OUTPUT: ${{ steps.commit.outputs.spec_dir || steps.commit_legacy_migration.outputs.spec_dir }}
+        run: |
+          chmod +x .github/scripts/speckit-trigger/create-spec-pr.sh
+          BRANCH_NAME="${BRANCH_NAME_OUTPUT}"
+          SPEC_DIR="${SPEC_DIR_OUTPUT}"
+
+          # Build draft mode arguments when gate failed in draft mode
+          DRAFT_ARGS=""
+          if [[ "${GATE_RESULT:-}" == "fail" && "${GATE_MODE:-}" == "draft" ]]; then
+            DRAFT_ARGS="--draft"
+            if [[ -n "${CRITICAL_FINDINGS:-}" && "${CRITICAL_FINDINGS:-}" != "[]" ]]; then
+              DRAFT_ARGS="$DRAFT_ARGS --critical-findings-json"
+            fi
+          elif [[ "${ARTIFACT_GATE_RESULT:-}" == "fail" ]]; then
+            # Artifact gate ran in advisory mode: the artifacts still ship, but the
+            # PR opens as a draft so unresolved violations cannot be merged before
+            # the @copilot fix comment posted by the next step is acted on.
+            DRAFT_ARGS="--draft"
+          fi
+
+          # Build markdownlint warnings argument (array to preserve multi-line content)
+          LINT_ARGS=()
+          if [[ -n "${MARKDOWNLINT_WARNINGS:-}" ]]; then
+            LINT_ARGS+=(--markdownlint-warnings "$MARKDOWNLINT_WARNINGS")
+          fi
+
+          if [[ -n "$DRAFT_ARGS" && "$DRAFT_ARGS" == *"--critical-findings-json"* ]]; then
+            .github/scripts/speckit-trigger/create-spec-pr.sh \
+              "$BRANCH_NAME" \
+              "$SPEC_DIR" \
+              "${{ steps.extract.outputs.issue_number }}" \
+              "${{ steps.issue.outputs.title }}" \
+              "$ISSUE_LABELS" \
+              --phase-number "${{ steps.extract.outputs.next_phase }}" \
+              --phase-name "${{ steps.extract.outputs.next_phase_name }}" \
+              --draft \
+              --enforce-draft-state \
+              --critical-findings-json "$CRITICAL_FINDINGS" \
+              "${LINT_ARGS[@]}"
+          elif [[ -n "$DRAFT_ARGS" ]]; then
+            .github/scripts/speckit-trigger/create-spec-pr.sh \
+              "$BRANCH_NAME" \
+              "$SPEC_DIR" \
+              "${{ steps.extract.outputs.issue_number }}" \
+              "${{ steps.issue.outputs.title }}" \
+              "$ISSUE_LABELS" \
+              --phase-number "${{ steps.extract.outputs.next_phase }}" \
+              --phase-name "${{ steps.extract.outputs.next_phase_name }}" \
+              --draft \
+              --enforce-draft-state \
+              "${LINT_ARGS[@]}"
+          else
+            .github/scripts/speckit-trigger/create-spec-pr.sh \
+              "$BRANCH_NAME" \
+              "$SPEC_DIR" \
+              "${{ steps.extract.outputs.issue_number }}" \
+              "${{ steps.issue.outputs.title }}" \
+              "$ISSUE_LABELS" \
+              --phase-number "${{ steps.extract.outputs.next_phase }}" \
+              --phase-name "${{ steps.extract.outputs.next_phase_name }}" \
+              "${LINT_ARGS[@]}"
+          fi
+
+      - name: Request Copilot Fix for Artifact Violations
+        if: >-
+          steps.create-pr.outputs.pr_number != '' &&
+          steps.generate.outputs.artifact_gate_result == 'fail'
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pr_number }}
+          PHASE_NUMBER: ${{ steps.generate.outputs.artifact_gate_phase_number || steps.extract.outputs.next_phase }}
+          PHASE_NAME: ${{ steps.generate.outputs.artifact_gate_phase_name || steps.extract.outputs.next_phase_name }}
+          SPEC_DIR: ${{ steps.commit.outputs.spec_dir }}
+          VIOLATIONS: ${{ steps.generate.outputs.artifact_gate_violations }}
+          HIERARCHY_LEVEL: ${{ steps.hierarchy.outputs.hierarchy_level }}
+          SPEC_BASE_PATH: ${{ env.SPEC_BASE_PATH }}
+        run: |
+          # The artifact gate ran in advisory mode: the PR exists (as a draft) but
+          # still carries deterministic defects. Ask @copilot to fix them on the
+          # branch instead of discarding a whole phase of generated artifacts.
+          # All orchestration (parent-spec resolution, comment construction and
+          # the PR mutation) lives in the tested agdt CLI command.
+          agdt-speckit-request-artifact-fix \
+            --pr "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --spec-dir "$SPEC_DIR" \
+            --phase-number "$PHASE_NUMBER" \
+            --phase-name "$PHASE_NAME" \
+            --violations "${VIOLATIONS:-}" \
+            --hierarchy-level "${HIERARCHY_LEVEL:-}" \
+            --spec-base-path "$SPEC_BASE_PATH"
+
+      - name: Add ai-auto-merge-allowed label (non-clarify phases)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '0' &&
+          steps.extract.outputs.next_phase != '4' &&
+          vars.SPECKIT_AUTO_MERGE_ALLOWED_LABEL == 'true' &&
+          steps.phase_applicable.outputs.phase_skipped != 'true' &&
+          (
+            steps.idempotency.outputs.skipped != 'true' ||
+            (steps.commit_legacy_migration.outcome == 'success' && steps.commit_legacy_migration.outputs.commit_created == 'true')
+          ) &&
+          steps.create-pr.outputs.pr_number != '' &&
+          steps.generate.outputs.artifact_gate_result != 'fail' &&
+          steps.extract.outputs.next_phase_name != 'clarify'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.create-pr.outputs.pr_number }}', 10);
+            if (!prNumber) {
+              core.warning('No PR number available — skipping ai-auto-merge-allowed label');
+              return;
+            }
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: ['ai-auto-merge-allowed'],
+              });
+              core.info(`Added ai-auto-merge-allowed to PR #${prNumber}`);
+            } catch (e) {
+              core.warning(`Could not add ai-auto-merge-allowed label: ${e.message}`);
+            }
+
+      - name: Auto-Merge (if configured)
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '4' &&
+          steps.extract.outputs.next_phase != '0' &&
+          steps.phase_applicable.outputs.phase_skipped != 'true' &&
+          (
+            steps.idempotency.outputs.skipped != 'true' ||
+            (steps.commit_legacy_migration.outcome == 'success' && steps.commit_legacy_migration.outputs.commit_created == 'true')
+          ) &&
+          steps.create-pr.outputs.pr_number != '' &&
+          steps.generate.outputs.gate_result != 'fail' &&
+          steps.generate.outputs.artifact_gate_result != 'fail'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPECKIT_AUTO_MERGE_PHASES: ${{ vars.SPECKIT_AUTO_MERGE_PHASES }}
+          MARKDOWNLINT_STATUS: ${{ steps.generate.outputs.markdownlint_status }}
+        run: |
+          NEXT_PHASE_NAME="${{ steps.extract.outputs.next_phase_name }}"
+          PR_NUMBER="${{ steps.create-pr.outputs.pr_number }}"
+          AUTO_MERGE_PHASES="${SPECKIT_AUTO_MERGE_PHASES:-}"
+
+          # Block auto-merge when markdownlint finished with unresolved warnings
+          if [[ "${MARKDOWNLINT_STATUS:-}" == "warning-fallback" ]]; then
+            echo "Markdownlint finished with warning-fallback — PR requires manual review"
+            exit 0
+          fi
+
+          if [[ -z "$AUTO_MERGE_PHASES" ]]; then
+            echo "No auto-merge phases configured — PR requires manual review"
+            exit 0
+          fi
+
+          # Check if current phase name is in the auto-merge list
+          IFS=',' read -ra PHASES <<< "$AUTO_MERGE_PHASES"
+          AUTO_MERGE=false
+          for phase in "${PHASES[@]}"; do
+            # Trim whitespace
+            phase="$(echo "$phase" | xargs)"
+            if [[ "$phase" == "$NEXT_PHASE_NAME" ]]; then
+              AUTO_MERGE=true
+              break
+            fi
+          done
+
+          if [[ "$AUTO_MERGE" == "true" ]]; then
+            echo "Auto-merging Phase ${{ steps.extract.outputs.next_phase }} ($NEXT_PHASE_NAME) PR #$PR_NUMBER..."
+            gh pr merge "$PR_NUMBER" --auto --squash --delete-branch || {
+              echo "Warning: Auto-merge could not be scheduled for PR #$PR_NUMBER — manual merge required" >&2
+            }
+          else
+            echo "Phase '$NEXT_PHASE_NAME' is not in auto-merge list ($AUTO_MERGE_PHASES) — PR requires manual review"
+          fi
+
+      - name: Post Phase Progress Comment
+        if: >-
+          steps.extract.outcome == 'success' &&
+          steps.extract.outputs.next_phase != '4' &&
+          steps.extract.outputs.next_phase != '0' &&
+          steps.phase_applicable.outputs.phase_skipped != 'true' &&
+          (
+            steps.idempotency.outputs.skipped != 'true' ||
+            (steps.commit_legacy_migration.outcome == 'success' && steps.commit_legacy_migration.outputs.commit_created == 'true')
+          ) &&
+          env.SPECKIT_ENGINE != 'cloud-agent' &&
+          vars.SPECKIT_COMMENT_ON_ISSUE != 'false'
+        uses: actions/github-script@v7
+        env:
+          ARTIFACT_GATE_RESULT: ${{ steps.generate.outputs.artifact_gate_result }}
+          BRANCH_NAME_OUTPUT: ${{ steps.commit.outputs.branch_name || steps.commit_legacy_migration.outputs.branch_name }}
+        with:
+          script: |
+            const issueNumber = ${{ steps.extract.outputs.issue_number }};
+            const nextPhase = ${{ steps.extract.outputs.next_phase }};
+            const nextPhaseName = '${{ steps.extract.outputs.next_phase_name }}';
+            const prUrl = '${{ steps.create-pr.outputs.pr_url }}' || null;
+            const branchName = process.env.BRANCH_NAME_OUTPUT;
+            const branchPushed = '${{ vars.SPECKIT_CREATE_BRANCH }}' !== 'false';
+            const artifactGateFailed = process.env.ARTIFACT_GATE_RESULT === 'fail';
+            const hierarchyLevel = '${{ steps.hierarchy.outputs.hierarchy_level }}';
+            // Fail-closed (#3931): only feature/task issues produce the tasks.md the
+            // implementation trigger requires; epics cascade to child issues instead.
+            const needsImplementation = hierarchyLevel === 'feature' || hierarchyLevel === 'task';
+            const mergeOutcomeLabel = needsImplementation
+              ? '`speckit:completed` and `speckit:needs-implementation` labels will be applied'
+              : hierarchyLevel === 'epic'
+                ? '`speckit:completed` label will be applied and the child issue cascade will be triggered'
+                : '`speckit:completed` label will be applied (hierarchy level unverified — `speckit:needs-implementation` withheld, fail-closed)';
+
+            let title, intro;
+            if (prUrl && artifactGateFailed) {
+              title = `## ⚠️ SpecKit: Phase ${nextPhase} (${nextPhaseName}) Draft PR Created`;
+              intro = `Phase ${nextPhase} artifacts have been generated, but the artifact verification gate still reports violations. The PR was opened as a draft and Copilot was asked on that PR to fix them on the branch.`;
+            } else if (prUrl) {
+              title = `## 🔄 SpecKit: Phase ${nextPhase} (${nextPhaseName}) PR Created`;
+              intro = `Phase ${nextPhase} artifacts have been generated and a PR is ready for review.`;
+            } else if (branchPushed) {
+              title = `## ⚠️ SpecKit: Phase ${nextPhase} (${nextPhaseName}) Artifacts Pushed`;
+              intro = `Phase ${nextPhase} artifacts have been pushed to the branch, but a PR could not be created. Manual intervention may be needed.`;
+            } else {
+              title = `## ⚠️ SpecKit: Phase ${nextPhase} (${nextPhaseName}) Artifacts Generated`;
+              intro = `Phase ${nextPhase} artifacts have been generated locally but were not pushed (branch creation is disabled via \`SPECKIT_CREATE_BRANCH=false\`). Re-run with \`SPECKIT_CREATE_BRANCH\` enabled or push the artifacts manually.`;
+            }
+
+            const lines = [
+              title,
+              '',
+              intro,
+              '',
+              `**Phase**: ${nextPhase}/3 — ${nextPhaseName}`,
+            ];
+
+            if (prUrl) {
+              lines.push(`**Pull Request**: ${prUrl}`);
+            }
+
+            if (nextPhase < 3) {
+              const nextNames = { 2: 'clarify', 3: 'plan' };
+              const followingPhase = nextPhase + 1;
+              const followingName = nextNames[followingPhase] || 'unknown';
+              if (prUrl) {
+                lines.push(
+                  '',
+                  '### Next Steps',
+                  '',
+                  '1. Review the generated artifacts in the pull request',
+                  '2. Edit artifacts directly if changes are needed',
+                  `3. Merge the PR → **Phase ${followingPhase} (${followingName})** will be triggered automatically`
+                );
+              } else if (branchPushed) {
+                lines.push(
+                  '',
+                  '### Next Steps',
+                  '',
+                  `1. Review the generated artifacts on the branch \`${branchName}\``,
+                  `2. Manually create a pull request for the branch and add the \`speckit:phase-${nextPhase}\` label before merging (required for automatic progression)`,
+                  `3. Merge the PR → **Phase ${followingPhase} (${followingName})** will be triggered automatically`,
+                  '',
+                  `> **Alternative:** If you merge without the label, re-trigger manually via the [workflow_dispatch](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml) trigger with issue number and phase ${followingPhase}.`
+                );
+              } else {
+                lines.push(
+                  '',
+                  '### Next Steps',
+                  '',
+                  `1. Artifacts were generated locally but not pushed (\`SPECKIT_CREATE_BRANCH=false\`)`,
+                  `2. Re-run the workflow with \`SPECKIT_CREATE_BRANCH\` enabled, or push the \`${branchName}\` branch and create a PR manually`,
+                  `3. Ensure the PR has the \`speckit:phase-${nextPhase}\` label before merging (required for automatic progression)`,
+                  '',
+                  `> **Alternative:** Re-trigger manually via the [workflow_dispatch](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml) trigger with issue number and phase ${followingPhase}.`
+                );
+              }
+            } else {
+              if (prUrl) {
+                lines.push(
+                  '',
+                  '### Next Steps',
+                  '',
+                  '1. Review the generated planning artifacts in the pull request',
+                  `2. Merge the PR → ${mergeOutcomeLabel}`
+                );
+              } else if (branchPushed) {
+                lines.push(
+                  '',
+                  '### Next Steps',
+                  '',
+                  `1. Review the generated planning artifacts on the branch \`${branchName}\``,
+                  `2. Manually create a pull request and add the \`speckit:phase-${nextPhase}\` label before merging`,
+                  `3. Merge the PR → ${mergeOutcomeLabel}`,
+                  '',
+                  `> **Alternative:** If you merge without the label, re-trigger manually via the [workflow_dispatch](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml) trigger with the issue number and phase 3.`
+                );
+              } else {
+                lines.push(
+                  '',
+                  '### Next Steps',
+                  '',
+                  `1. Artifacts were generated locally but not pushed (\`SPECKIT_CREATE_BRANCH=false\`)`,
+                  `2. Re-run the workflow with \`SPECKIT_CREATE_BRANCH\` enabled, or push the \`${branchName}\` branch and create a PR manually`,
+                  `3. Ensure the PR has the \`speckit:phase-${nextPhase}\` label before merging`,
+                  `4. Merge the PR → ${mergeOutcomeLabel}`,
+                  '',
+                  `> **Alternative:** Re-trigger manually via the [workflow_dispatch](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml) trigger with the issue number and phase 3.`
+                );
+              }
+            }
+
+            lines.push(
+              '',
+              '---',
+              `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+            );
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: lines.join('\n')
+            });
+
+      - name: Remove Processing Label (Success)
+        if: steps.extract.outcome == 'success' && steps.extract.outputs.next_phase != '0' && steps.extract.outputs.next_phase != '4' && env.SPECKIT_ENGINE != 'cloud-agent'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.extract.outputs.issue_number }};
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:processing'
+              });
+              core.info(`Removed speckit:processing label from issue #${issueNumber}`);
+            } catch (e) {
+              // Label may not exist — that's fine
+            }
+
+            // Remove speckit:failed if present (from a previous failed attempt)
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:failed'
+              });
+            } catch (e) {
+              // Expected when label is not present — ignore
+            }
+
+      - name: Agent Fallback on Structural Failure
+        id: agent-fallback
+        if: failure() && env.SPECKIT_ENGINE != 'cloud-agent'
+        uses: actions/github-script@v7
+        env:
+          VALIDATION_ERRORS: ${{ steps.generate.outputs.validation_errors || '' }}
+          WORKSPACE_FILE: ${{ github.workspace }}/validation-errors.json
+          ISSUE_NUMBER_ENV: ${{ steps.extract.outputs.issue_number || '0' }}
+          ISSUE_TITLE_ENV: ${{ steps.issue.outputs.title || '' }}
+          ISSUE_BODY_ENV: ${{ steps.issue.outputs.body || '' }}
+          PHASE_ENV: ${{ steps.extract.outputs.next_phase || '0' }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          SPECKIT_AGENT_FALLBACK: ${{ vars.SPECKIT_AGENT_FALLBACK || '' }}
+          SPECKIT_REFERENCE_SPEC_PATH: ${{ vars.SPECKIT_REFERENCE_SPEC_PATH || '' }}
+          SPECKIT_COMMENT_ON_ISSUE: ${{ vars.SPECKIT_COMMENT_ON_ISSUE || '' }}
+          HIERARCHY_LEVEL_ENV: ${{ steps.hierarchy.outputs.hierarchy_level || '' }}
+        with:
+          script: |
+            const fallback = require('./.github/scripts/speckit-trigger/agent-fallback.js');
+            await fallback.run({
+              github,
+              context,
+              core,
+              phase: Number(process.env.PHASE_ENV) || 0,
+              validationErrors: process.env.VALIDATION_ERRORS,
+              workspaceFile: process.env.WORKSPACE_FILE,
+              issueNumber: Number(process.env.ISSUE_NUMBER_ENV) || 0,
+              issueTitle: process.env.ISSUE_TITLE_ENV,
+              issueBody: process.env.ISSUE_BODY_ENV,
+              token: process.env.COPILOT_GITHUB_TOKEN,
+              killSwitch: process.env.SPECKIT_AGENT_FALLBACK,
+              referenceSpecPath: process.env.SPECKIT_REFERENCE_SPEC_PATH,
+              hierarchyLevel: process.env.HIERARCHY_LEVEL_ENV,
+            });
+
+      - name: Preserve Cloud Labels on Dispatch Failure
+        id: cloud-dispatch-failure
+        if: failure() && env.SPECKIT_ENGINE == 'cloud-agent' && steps['cloud-dispatch'].outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.extract.outputs.issue_number || 0 }};
+            const phase = ${{ steps.extract.outputs.next_phase || 0 }};
+            if (!issueNumber || !phase) return;
+
+            // Only preserve tracking labels when the phase-assigned label already exists,
+            // meaning assignment actually started before the failure.  Pre-assignment
+            // failures (bad credentials, API rejection, etc.) must fall through to the
+            // normal failure handler so they don't create a false in-flight signal.
+            const phaseLabel = `speckit:agent-assigned-phase-${phase}`;
+            let phaseLabels;
+            try {
+              const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, per_page: 100,
+              });
+              phaseLabels = labels.map((l) => l.name);
+            } catch (e) {
+              core.warning(`Could not list labels for issue #${issueNumber}: ${e.message}. Treating as preserve-on-failure to avoid removing speckit:processing.`);
+              core.setOutput('handled', 'true');
+              return;
+            }
+            if (!phaseLabels.includes(phaseLabel)) {
+              core.info(`Issue #${issueNumber}: phase-assigned label absent — pre-assignment failure; deferring to normal failure handler`);
+              return;
+            }
+
+            // Re-ensure both cloud-agent tracking labels are present so scheduled
+            // cleanup can discover and clean up this attempt.  This is critical for
+            // partial-tracking-failure: the phase-assigned label was written but the
+            // marker write failed, causing a nonzero exit.  Without this step the
+            // generic failure handler would remove speckit:processing, leaving
+            // speckit:agent-assigned-phase-N permanently stranded and every future
+            // trigger rejected as already in-flight.
+            for (const label of [`speckit:agent-assigned-phase-${phase}`, 'speckit:processing']) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  labels: [label]
+                });
+              } catch (e) {
+                core.warning(`Could not ensure label ${label}: ${e.message}`);
+              }
+            }
+
+            const commentOnIssue = '${{ vars.SPECKIT_COMMENT_ON_ISSUE }}' !== 'false';
+            if (commentOnIssue) {
+              try {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: [
+                    `## ⚠️ SpecKit: Phase ${phase} Cloud Agent Dispatch Failed`,
+                    '',
+                    'The Cloud Agent could not be fully dispatched. Tracking labels have been preserved so the scheduled cleanup can discover and clean up this attempt.',
+                    '',
+                    `**Workflow Run**: [View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                    '',
+                    '---',
+                    `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+                  ].join('\n')
+                });
+              } catch (e) {
+                core.warning(`Issue #${issueNumber}: could not post cloud dispatch failure notice: ${e.message}`);
+              }
+            }
+            core.setOutput('handled', 'true');
+
+      - name: Handle Failure (Comment + Label)
+        if: failure() && steps['agent-fallback'].outputs.handled != 'true' && steps['cloud-dispatch-failure'].outputs.handled != 'true'
+        uses: actions/github-script@v7
+        env:
+          NEXT_PHASE_NAME: ${{ steps.extract.outputs.next_phase_name || 'unknown' }}
+          GATE_RESULT: ${{ steps.generate.outputs.gate_result || '' }}
+          CRITICAL_FINDINGS: ${{ steps.generate.outputs.critical_findings || '[]' }}
+        with:
+          script: |
+            const issueNumber = ${{ steps.extract.outputs.issue_number || 0 }};
+            if (!issueNumber) return;
+
+            const nextPhase = ${{ steps.extract.outputs.next_phase || 0 }};
+            const nextPhaseName = process.env.NEXT_PHASE_NAME;
+            const gateResult = process.env.GATE_RESULT;
+            const criticalFindings = process.env.CRITICAL_FINDINGS;
+
+            // Build comment body — include CRITICAL findings if gate failed
+            let body;
+            if (gateResult === 'fail' && criticalFindings !== '[]') {
+              // Parse findings for display
+              let findingsTable = '';
+              try {
+                const findings = JSON.parse(criticalFindings);
+                if (findings.length > 0) {
+                  findingsTable = '| ID | Summary | Recommendation |\n|---|---|---|\n';
+                  const escapeCell = (s) => String(s).replace(/\r?\n/g, ' ').replace(/\|/g, '\\|');
+                  for (const f of findings) {
+                    findingsTable += `| ${escapeCell(f.id)} | ${escapeCell(f.summary)} | ${escapeCell(f.recommendation)} |\n`;
+                  }
+                }
+              } catch (e) {
+                findingsTable = `_Could not parse findings: ${criticalFindings}_`;
+              }
+
+              body = [
+                `## ❌ SpecKit: CRITICAL Gate Failed`,
+                '',
+                `**Phase ${nextPhase}** analysis detected unresolved CRITICAL findings that block PR creation.`,
+                '',
+                '### CRITICAL Findings',
+                '',
+                findingsTable,
+                '',
+                '### What to Do',
+                '',
+                '1. Review the CRITICAL findings above and address them in the specification artifacts',
+                `2. Re-trigger the pipeline by removing the \`speckit:failed\` label and re-adding the \`speckit\` label, or use the **workflow_dispatch** trigger on the [SpecKit Phase Progression workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml)`,
+                '',
+                `**Workflow Run**: [View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                '',
+                '---',
+                `_This comment was posted by the [SpecKit CRITICAL Analysis Gate](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+              ].join('\n');
+            } else {
+              body = [
+                `## ❌ SpecKit: Phase ${nextPhase} (${nextPhaseName}) Failed`,
+                '',
+                `An error occurred while generating Phase ${nextPhase} artifacts.`,
+                '',
+                `**Workflow Run**: [View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                '',
+                '### Troubleshooting',
+                '',
+                '1. Check the workflow logs for detailed error messages',
+                '2. Verify that the COPILOT_GITHUB_TOKEN secret is configured with repo permissions',
+                `3. You can re-trigger this phase manually via the **workflow_dispatch** trigger on the [SpecKit Phase Progression workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml) — provide the issue number and phase to retry`,
+                '',
+                '---',
+                `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+              ].join('\n');
+            }
+
+            // Post failure comment (respects SPECKIT_COMMENT_ON_ISSUE)
+            const commentOnIssue = '${{ vars.SPECKIT_COMMENT_ON_ISSUE }}' !== 'false';
+            if (commentOnIssue) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: body
+              });
+            }
+
+            // Add failed label (always, regardless of comment setting)
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ['speckit:failed']
+              });
+            } catch (e) {
+              console.log('Could not add speckit:failed label:', e.message);
+            }
+
+            // Remove processing label on failure
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:processing'
+              });
+            } catch (e) {
+              // Label may not exist — that's fine
+            }

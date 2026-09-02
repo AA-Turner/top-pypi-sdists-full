@@ -1,1 +1,0 @@
-"""Reader core package."""

@@ -261,24 +261,6 @@ class SubmitSQLResponse(google.protobuf.message.Message):
 global___SubmitSQLResponse = SubmitSQLResponse
 
 @typing.final
-class QueryHashMatchMetadataInfo(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    SEMANTIC_HASH_MATCH_FIELD_NUMBER: builtins.int
-    DATA_HASH_MATCH_FIELD_NUMBER: builtins.int
-    semantic_hash_match: builtins.bool
-    data_hash_match: builtins.bool
-    def __init__(
-        self,
-        *,
-        semantic_hash_match: builtins.bool = ...,
-        data_hash_match: builtins.bool = ...,
-    ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["data_hash_match", b"data_hash_match", "semantic_hash_match", b"semantic_hash_match"]) -> None: ...
-
-global___QueryHashMatchMetadataInfo = QueryHashMatchMetadataInfo
-
-@typing.final
 class ReadyToExecuteResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -304,7 +286,6 @@ class ReadyToExecuteResponse(google.protobuf.message.Message):
     LAST_MODIFIED_QUERY_FIELD_NUMBER: builtins.int
     EXPLAINED_DECISION_FIELD_NUMBER: builtins.int
     TRANSFORMED_NODES_BY_QUERY_FIELD_NUMBER: builtins.int
-    QUERY_HASH_METADATA_INFO_FIELD_NUMBER: builtins.int
     EXECUTION_DECISION_ID_FIELD_NUMBER: builtins.int
     request_id: builtins.str
     last_modified_query: builtins.str
@@ -313,8 +294,6 @@ class ReadyToExecuteResponse(google.protobuf.message.Message):
     def explained_decision(self) -> query_cache_protobuf.query_cache.shared_pb2.ExplainedDecision: ...
     @property
     def transformed_nodes_by_query(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, query_cache_protobuf.query_cache.shared_pb2.NodeFuncMapping]: ...
-    @property
-    def query_hash_metadata_info(self) -> global___QueryHashMatchMetadataInfo: ...
     def __init__(
         self,
         *,
@@ -322,15 +301,11 @@ class ReadyToExecuteResponse(google.protobuf.message.Message):
         last_modified_query: builtins.str = ...,
         explained_decision: query_cache_protobuf.query_cache.shared_pb2.ExplainedDecision | None = ...,
         transformed_nodes_by_query: collections.abc.Mapping[builtins.str, query_cache_protobuf.query_cache.shared_pb2.NodeFuncMapping] | None = ...,
-        query_hash_metadata_info: global___QueryHashMatchMetadataInfo | None = ...,
         execution_decision_id: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_execution_decision_id", b"_execution_decision_id", "_query_hash_metadata_info", b"_query_hash_metadata_info", "execution_decision_id", b"execution_decision_id", "explained_decision", b"explained_decision", "query_hash_metadata_info", b"query_hash_metadata_info"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_execution_decision_id", b"_execution_decision_id", "_query_hash_metadata_info", b"_query_hash_metadata_info", "execution_decision_id", b"execution_decision_id", "explained_decision", b"explained_decision", "last_modified_query", b"last_modified_query", "query_hash_metadata_info", b"query_hash_metadata_info", "request_id", b"request_id", "transformed_nodes_by_query", b"transformed_nodes_by_query"]) -> None: ...
-    @typing.overload
+    def HasField(self, field_name: typing.Literal["_execution_decision_id", b"_execution_decision_id", "execution_decision_id", b"execution_decision_id", "explained_decision", b"explained_decision"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_execution_decision_id", b"_execution_decision_id", "execution_decision_id", b"execution_decision_id", "explained_decision", b"explained_decision", "last_modified_query", b"last_modified_query", "request_id", b"request_id", "transformed_nodes_by_query", b"transformed_nodes_by_query"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_execution_decision_id", b"_execution_decision_id"]) -> typing.Literal["execution_decision_id"] | None: ...
-    @typing.overload
-    def WhichOneof(self, oneof_group: typing.Literal["_query_hash_metadata_info", b"_query_hash_metadata_info"]) -> typing.Literal["query_hash_metadata_info"] | None: ...
 
 global___ReadyToExecuteResponse = ReadyToExecuteResponse
 

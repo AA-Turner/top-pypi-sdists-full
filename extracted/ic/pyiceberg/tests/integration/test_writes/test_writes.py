@@ -38,6 +38,7 @@ import pytz
 from pyarrow.fs import S3FileSystem
 from pydantic_core import ValidationError
 from pyspark.sql import SparkSession
+from pytest_lazy_fixtures import lf
 from pytest_mock.plugin import MockerFixture
 
 from pyiceberg.catalog import Catalog, load_catalog
@@ -64,6 +65,7 @@ from pyiceberg.types import (
     StringType,
     UUIDType,
 )
+from pyiceberg.view.metadata import SQLViewRepresentation, ViewVersion
 from utils import TABLE_SCHEMA, _create_table
 
 
@@ -766,7 +768,7 @@ def test_spark_writes_orc_pyiceberg_reads(spark: SparkSession, session_catalog: 
 
     # Verify PyIceberg data types are correct
     assert pyiceberg_df["id"].dtype == "int64"
-    assert pyiceberg_df["name"].dtype == "object"  # string
+    assert pd.api.types.is_string_dtype(pyiceberg_df["name"].dtype)
     assert pyiceberg_df["age"].dtype == "int64"
     assert pyiceberg_df["is_active"].dtype == "bool"
 
@@ -789,10 +791,10 @@ def test_invalid_arguments(spark: SparkSession, session_catalog: Catalog, arrow_
     identifier = "default.arrow_data_files"
     tbl = _create_table(session_catalog, identifier, {"format-version": "1"}, [])
 
-    with pytest.raises(ValueError, match="Expected PyArrow table, got: not a df"):
+    with pytest.raises(ValueError, match="Expected pa.Table or pa.RecordBatchReader, got: not a df"):
         tbl.overwrite("not a df")
 
-    with pytest.raises(ValueError, match="Expected PyArrow table, got: not a df"):
+    with pytest.raises(ValueError, match="Expected pa.Table or pa.RecordBatchReader, got: not a df"):
         tbl.append("not a df")
 
 
@@ -966,7 +968,7 @@ def test_write_and_evolve(session_catalog: Catalog, format_version: int) -> None
 
 @pytest.mark.integration
 @pytest.mark.parametrize("format_version", [1, 2])
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_create_table_transaction(catalog: Catalog, format_version: int) -> None:
     identifier = f"default.arrow_create_table_transaction_{catalog.name}_{format_version}"
 
@@ -1018,7 +1020,7 @@ def test_create_table_transaction(catalog: Catalog, format_version: int) -> None
 
 @pytest.mark.integration
 @pytest.mark.parametrize("format_version", [1, 2])
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_create_table_with_non_default_values(catalog: Catalog, table_schema_with_all_types: Schema, format_version: int) -> None:
     identifier = f"default.arrow_create_table_transaction_with_non_default_values_{catalog.name}_{format_version}"
     identifier_ref = f"default.arrow_create_table_transaction_with_non_default_values_ref_{catalog.name}_{format_version}"
@@ -1256,7 +1258,7 @@ def test_hive_catalog_storage_descriptor_has_changed(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog_hive"), lf("session_catalog")])
 def test_sanitize_character_partitioned(catalog: Catalog) -> None:
     table_name = "default.test_table_partitioned_sanitized_character"
     try:
@@ -1278,7 +1280,7 @@ def test_sanitize_character_partitioned(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog")])
+@pytest.mark.parametrize("catalog", [lf("session_catalog")])
 def test_sanitize_character_partitioned_avro_bug(catalog: Catalog) -> None:
     table_name = "default.test_table_partitioned_sanitized_character_avro"
     try:
@@ -1759,6 +1761,42 @@ def test_table_v1_with_null_nested_namespace(session_catalog: Catalog, arrow_tab
 
 
 @pytest.mark.integration
+def test_create_view(
+    spark: SparkSession,
+    session_catalog: Catalog,
+) -> None:
+    # Create a view using the REST Catalog.
+    identifier = "default.some_view"
+    schema = pa.schema([pa.field("some_col", pa.int32())])
+    view_version = ViewVersion(
+        schema_id=1,
+        representations=[
+            SQLViewRepresentation(
+                type="sql",
+                sql="SELECT 1 as some_col",
+                dialect="spark",
+            )
+        ],
+        default_namespace=["default"],
+    )
+    session_catalog.create_view(
+        identifier=identifier,
+        schema=schema,
+        view_version=view_version,
+    )
+
+    # Ensure the view exists.
+    assert session_catalog.view_exists(identifier)
+
+    # Query the view in spark to ensure it was properly created.
+    df = spark.table(identifier)
+    assert df.count() == 1
+    assert df.collect()[0].some_col == 1
+
+    session_catalog.drop_view(identifier)  # clean up
+
+
+@pytest.mark.integration
 def test_view_exists(
     spark: SparkSession,
     session_catalog: Catalog,
@@ -1986,7 +2024,7 @@ def test_write_optional_list(session_catalog: Catalog) -> None:
             required=False,
         ),
     )
-    session_catalog.create_table_if_not_exists(identifier, schema)
+    _create_table(session_catalog, identifier, schema=schema)
 
     df_1 = pa.Table.from_pylist(
         [
@@ -2530,3 +2568,87 @@ def test_v3_write_and_read_row_lineage(spark: SparkSession, session_catalog: Cat
     assert tbl.metadata.next_row_id == initial_next_row_id + len(test_data), (
         "Expected next_row_id to be incremented by the number of added rows"
     )
+
+
+# RecordBatchReader streaming append/overwrite — see https://github.com/apache/iceberg-python/issues/2152
+#
+# These integration tests prove Spark can read tables written via the new streaming
+# path. Equivalent in-process scan coverage lives in tests/catalog/test_catalog_behaviors.py
+# but only Spark exercises the manifest stats + Parquet metadata produced by the
+# write_file → fast_append pipeline against an external reader.
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("format_version", [1, 2])
+def test_append_record_batch_reader(
+    spark: SparkSession, session_catalog: Catalog, arrow_table_with_null: pa.Table, format_version: int
+) -> None:
+    identifier = f"default.streaming_append_record_batch_reader_v{format_version}"
+    tbl = _create_table(session_catalog, identifier, {"format-version": str(format_version)})
+
+    # 4 batches × 3 rows each — exercises the multi-batch streaming path while
+    # keeping the assertion data tractable for Spark.
+    batches = arrow_table_with_null.to_batches() * 4
+    reader = pa.RecordBatchReader.from_batches(arrow_table_with_null.schema, iter(batches))
+    expected_rows = sum(b.num_rows for b in batches)
+
+    tbl.append(reader)
+
+    assert len(tbl.scan().to_arrow()) == expected_rows
+    df = spark.table(identifier)
+    assert df.count() == expected_rows
+    # Spot-check that Spark agrees on the schema as written
+    assert sorted(df.columns) == sorted(arrow_table_with_null.column_names)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("format_version", [1, 2])
+def test_overwrite_record_batch_reader(
+    spark: SparkSession, session_catalog: Catalog, arrow_table_with_null: pa.Table, format_version: int
+) -> None:
+    identifier = f"default.streaming_overwrite_record_batch_reader_v{format_version}"
+    tbl = _create_table(session_catalog, identifier, {"format-version": str(format_version)}, [arrow_table_with_null])
+    assert len(tbl.scan().to_arrow()) == arrow_table_with_null.num_rows
+
+    batches = arrow_table_with_null.to_batches() * 2
+    reader = pa.RecordBatchReader.from_batches(arrow_table_with_null.schema, iter(batches))
+    expected_rows = sum(b.num_rows for b in batches)
+
+    tbl.overwrite(reader)
+
+    # Existing rows replaced, only the streamed rows remain
+    assert len(tbl.scan().to_arrow()) == expected_rows
+    df = spark.table(identifier)
+    assert df.count() == expected_rows
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("format_version", [1, 2])
+def test_append_record_batch_reader_multifile(
+    spark: SparkSession, session_catalog: Catalog, arrow_table_with_null: pa.Table, format_version: int
+) -> None:
+    """Forcing a tiny target file size should produce >1 data file in a single
+    snapshot, proving the byte-budget rollover in bin_pack_record_batches fires
+    end-to-end and the resulting files are valid Iceberg data files (Spark reads
+    them all)."""
+    identifier = f"default.streaming_append_multifile_v{format_version}"
+    tbl = _create_table(
+        session_catalog,
+        identifier,
+        {"format-version": str(format_version), TableProperties.WRITE_TARGET_FILE_SIZE_BYTES: "1"},
+    )
+
+    batches = arrow_table_with_null.to_batches(max_chunksize=1) * 4
+    reader = pa.RecordBatchReader.from_batches(arrow_table_with_null.schema, iter(batches))
+    expected_rows = sum(b.num_rows for b in batches)
+
+    tbl.append(reader)
+
+    snapshot = tbl.metadata.current_snapshot()
+    assert snapshot is not None
+    assert snapshot.summary is not None
+    added_files = snapshot.summary["added-data-files"]
+    assert added_files is not None and int(added_files) > 1, snapshot.summary
+
+    df = spark.table(identifier)
+    assert df.count() == expected_rows

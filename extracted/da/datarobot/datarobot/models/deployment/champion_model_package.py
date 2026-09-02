@@ -49,7 +49,7 @@ class ChampionModelPackage(APIObject):
         The ID of the model.
     model_execution_type : str
         The type of model package (version). `dedicated` (native DataRobot models) and
-        custom_inference_model` (user added inference models) both execute on DataRobot
+        `custom_inference_model` (user-added inference models) both execute on DataRobot
         prediction servers, while `external` does not.
     is_archived : bool
         Whether the model package (version) is permanently archived

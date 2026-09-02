@@ -111,7 +111,7 @@ class AutomatedDocument(APIObject):
     )
     def list_available_document_types(cls) -> List[DocumentOption]:
         """
-        Get a list of all available document types and locales. This method is deprecated.
+        Get a list of all available document types and locales. DataRobot deprecated this method.
 
         Returns
         -------
@@ -136,11 +136,11 @@ class AutomatedDocument(APIObject):
     def list_all_available_document_types(cls) -> List[DocumentOption]:
         """
         Get a list of all available document types and locales.
-        This method is direct replacement of `list_available_document_types()`.
+        This method is a direct replacement of `list_available_document_types()`.
 
         Returns
         -------
-        List of dicts
+        A list of dicts.
 
         Examples
         --------
@@ -157,8 +157,8 @@ class AutomatedDocument(APIObject):
 
     @property
     def is_model_compliance_initialized(self) -> Tuple[bool, str]:
-        """Check if model compliance documentation pre-processing is initialized.
-        Model compliance documentation pre-processing must be initialized before
+        """Check whether model compliance documentation pre-processing finished initialization.
+        Initialize model compliance documentation pre-processing before
         generating documentation for a custom model.
 
         Returns
@@ -173,7 +173,7 @@ class AutomatedDocument(APIObject):
 
     def initialize_model_compliance(self) -> Tuple[bool, str]:
         """Initialize model compliance documentation pre-processing.
-        Must be called before generating documentation for a custom model.
+        Call this before generating documentation for a custom model.
 
         Returns
         -------
@@ -253,7 +253,7 @@ class AutomatedDocument(APIObject):
     def download(self) -> Response:
         """
         Download a generated Automated Document.
-        Document ID is required to download a file.
+        Provide the document ID to download a file.
 
         Returns
         -------
@@ -364,8 +364,8 @@ class AutomatedDocument(APIObject):
         limit: Optional[int] = None,
     ) -> List["AutomatedDocument"]:
         """
-        Get information about all previously generated documents available for your account. The
-        information includes document ID and type, ID of the entity it was generated for, time of
+        Get the information about all previously generated documents available for your account. The
+        information includes document ID and type, the entity ID for each document, the time of
         creation, and other information.
 
         Parameters

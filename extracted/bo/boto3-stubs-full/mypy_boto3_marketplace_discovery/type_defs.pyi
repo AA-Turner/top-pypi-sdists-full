@@ -68,6 +68,7 @@ __all__ = (
     "Ec2ImageBuilderComponentFulfillmentOptionTypeDef",
     "EksAddOnFulfillmentOptionTypeDef",
     "EksAddOnOperatingSystemTypeDef",
+    "FixedPercentageTypeDef",
     "FixedUpfrontPricingTermTypeDef",
     "FreeTrialPricingTermTypeDef",
     "FulfillmentOptionSummaryTypeDef",
@@ -105,7 +106,11 @@ __all__ = (
     "OfferSetInformationTypeDef",
     "OfferTermTypeDef",
     "PaginatorConfigTypeDef",
+    "PaymentScheduleEntryTypeDef",
+    "PaymentScheduleTermTemplateTypeDef",
     "PaymentScheduleTermTypeDef",
+    "PercentageRangeTypeDef",
+    "PriceIncreaseTypeDef",
     "PricingModelTypeDef",
     "PricingUnitTypeDef",
     "ProductInformationTypeDef",
@@ -141,6 +146,7 @@ __all__ = (
     "SellerEngagementTypeDef",
     "SellerInformationTypeDef",
     "SupportTermTypeDef",
+    "TermTemplateTypeDef",
     "UsageBasedPricingTermTypeDef",
     "UsageBasedRateCardItemTypeDef",
     "UseCaseEntryTypeDef",
@@ -222,6 +228,9 @@ DocumentItemTypeDef = TypedDict(
 class EksAddOnOperatingSystemTypeDef(TypedDict):
     operatingSystemFamilyName: str
     operatingSystemName: str
+
+class FixedPercentageTypeDef(TypedDict):
+    percentageValue: str
 
 class FulfillmentOptionSummaryTypeDef(TypedDict):
     fulfillmentOptionType: FulfillmentOptionTypeType
@@ -336,13 +345,6 @@ RecurringPaymentTermTypeDef = TypedDict(
         "price": str,
     },
 )
-RenewalTermTypeDef = TypedDict(
-    "RenewalTermTypeDef",
-    {
-        "id": str,
-        "type": TermTypeType,
-    },
-)
 SupportTermTypeDef = TypedDict(
     "SupportTermTypeDef",
     {
@@ -371,9 +373,19 @@ VariablePaymentTermTypeDef = TypedDict(
     },
 )
 
+class PaymentScheduleEntryTypeDef(TypedDict):
+    chargeDateOffset: str
+    chargePercentage: str
+    dayOfMonth: NotRequired[int]
+
 class ScheduleItemTypeDef(TypedDict):
     chargeDate: datetime
     chargeAmount: str
+
+class PercentageRangeTypeDef(TypedDict):
+    minimumValue: str
+    maximumValue: str
+    defaultValue: str
 
 class PromotionalEmbeddedImageTypeDef(TypedDict):
     title: str
@@ -542,6 +554,9 @@ class SearchFacetsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class PaymentScheduleTermTemplateTypeDef(TypedDict):
+    schedule: list[PaymentScheduleEntryTypeDef]
+
 PaymentScheduleTermTypeDef = TypedDict(
     "PaymentScheduleTermTypeDef",
     {
@@ -551,6 +566,10 @@ PaymentScheduleTermTypeDef = TypedDict(
         "schedule": list[ScheduleItemTypeDef],
     },
 )
+
+class PriceIncreaseTypeDef(TypedDict):
+    fixedPercentage: NotRequired[FixedPercentageTypeDef]
+    percentageRange: NotRequired[PercentageRangeTypeDef]
 
 class PromotionalMediaTypeDef(TypedDict):
     embeddedImage: NotRequired[PromotionalEmbeddedImageTypeDef]
@@ -655,6 +674,9 @@ class PurchaseOptionAssociatedEntityTypeDef(TypedDict):
     product: ProductInformationTypeDef
     offer: OfferInformationTypeDef
     offerSet: NotRequired[OfferSetInformationTypeDef]
+
+class TermTemplateTypeDef(TypedDict):
+    paymentScheduleTermTemplate: NotRequired[PaymentScheduleTermTemplateTypeDef]
 
 class GetProductOutputTypeDef(TypedDict):
     productId: str
@@ -783,8 +805,32 @@ class PurchaseOptionSummaryTypeDef(TypedDict):
     expirationTime: NotRequired[datetime]
     badges: NotRequired[list[PurchaseOptionBadgeTypeDef]]
 
+RenewalTermTypeDef = TypedDict(
+    "RenewalTermTypeDef",
+    {
+        "id": str,
+        "type": TermTypeType,
+        "maxRenewals": NotRequired[int],
+        "lockoutPeriod": NotRequired[str],
+        "adjustmentDeadline": NotRequired[str],
+        "priceIncrease": NotRequired[PriceIncreaseTypeDef],
+        "termTemplates": NotRequired[list[TermTemplateTypeDef]],
+    },
+)
+
 class ListFulfillmentOptionsOutputTypeDef(TypedDict):
     fulfillmentOptions: list[FulfillmentOptionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class SearchListingsOutputTypeDef(TypedDict):
+    totalResults: int
+    listingSummaries: list[ListingSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListPurchaseOptionsOutputTypeDef(TypedDict):
+    purchaseOptions: list[PurchaseOptionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -802,17 +848,6 @@ class OfferTermTypeDef(TypedDict):
     validityTerm: NotRequired[ValidityTermTypeDef]
     variablePaymentTerm: NotRequired[VariablePaymentTermTypeDef]
     netPaymentTerm: NotRequired[NetPaymentTermTypeDef]
-
-class SearchListingsOutputTypeDef(TypedDict):
-    totalResults: int
-    listingSummaries: list[ListingSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListPurchaseOptionsOutputTypeDef(TypedDict):
-    purchaseOptions: list[PurchaseOptionSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 class GetOfferTermsOutputTypeDef(TypedDict):
     offerTerms: list[OfferTermTypeDef]

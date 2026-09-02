@@ -58,28 +58,28 @@ _data_source_params_converter = t.Dict({
 
 
 class DataSourceParameters:
-    """Data request configuration
+    """Data request configuration.
 
     Attributes
     ----------
     data_store_id : str
-        the ID of the DataStore.
+        The ID of the DataStore.
     table : str
-        Optional. The name of specified database table.
+        Optional. The name of the specified database table.
     schema : str
         Optional. The name of the schema associated with the table.
     partition_column : str
         Optional. The name of the partition column.
     query : str
-        Optional. The user specified SQL query.
+        Optional. The user-specified SQL query.
     fetch_size : int
-        Optional. A user specified fetch size in the range [1, 20000].
-        By default a fetchSize will be assigned to balance throughput and memory usage
-    path: str
-        Optional. The user-specified path for BLOB storage
-    filter: str
-        A connector-specific filter string (e.g., JQL for Jira). Only supported
-        for DataRobot Connector v1, where applicable. (optional)
+        Optional. A user-specified fetch size in the range [1, 20000].
+        By default, DataRobot assigns a `fetchSize` to balance throughput and memory usage.
+    path : str
+        Optional. The user-specified path for binary large object (BLOB) storage.
+    filter : str
+        Optional. A connector-specific filter string, for example JQL for Jira. Only supported
+        for DataRobot Connector v1, where applicable.
     """
 
     def __init__(
@@ -142,27 +142,27 @@ class DataSourceParameters:
 
 
 class DataSource(APIObject):
-    """A data source. Represents data request
+    """A data source. Represents a data request.
 
     Attributes
     ----------
     id : str
-        the ID of the data source.
+        The ID of the data source.
     type : str
-        the type of data source.
+        The data source type.
     canonical_name : str
-        the user-friendly name of the data source.
+        The user-friendly name of the data source.
     creator : str
-        the ID of the user who created the data source.
+        The ID of the user who created the data source.
     updated : datetime.datetime
-        the time of the last update.
+        The time of the last update.
     params : DataSourceParameters
-        a list specifying data source parameters.
+        The data source parameters.
     role : str or None
-        if a string, represents a particular level of access and should be one of
+        If a string, represents a particular level of access and should be one of
         ``datarobot.enums.SHARING_ROLE``.  For more information on the specific access levels, see
-        the :ref:`sharing <sharing>` documentation.  If None, can be passed to a `share`
-        function to revoke access for a specific user.
+        the :ref:`sharing <sharing>` documentation.  Pass None to a `share` function to revoke
+        access for a specific user.
     """
 
     _path = "externalDataSources/"
@@ -197,18 +197,18 @@ class DataSource(APIObject):
     @classmethod
     def list(cls, typ: Optional[DataStoreListTypes] = None) -> List[DataSource]:
         """
-        Returns list of available data sources.
+        Returns a list of available data sources.
 
         Parameters
         ----------
         typ : DataStoreListTypes
-            If specified, filters by specified datasource type. If not specified it will
-            default to DataStoreListTypes.DATABASES
+            If specified, filters by the specified data source type. If not specified, defaults to
+            ``DataStoreListTypes.DATABASES``.
 
         Returns
         -------
         data_sources : list of DataSource instances
-            contains a list of available data sources.
+            Contains a list of available data sources.
 
         Examples
         --------
@@ -228,17 +228,17 @@ class DataSource(APIObject):
     @classmethod
     def get(cls: Type[TDataSource], data_source_id: str) -> TDataSource:
         """
-        Gets the data source.
+        Returns the data source.
 
         Parameters
         ----------
         data_source_id : str
-            the identifier of the data source.
+            The identifier of the data source.
 
         Returns
         -------
         data_source : DataSource
-            the requested data source.
+            The requested data source.
 
         Examples
         --------
@@ -264,16 +264,16 @@ class DataSource(APIObject):
         Parameters
         ----------
         data_source_type : str or DataStoreTypes
-            the type of data source.
+            The data source type.
         canonical_name : str
-            the user-friendly name of the data source.
+            The user-friendly name of the data source.
         params : DataSourceParameters
-            a list specifying data source parameters.
+            The data source parameters.
 
         Returns
         -------
         data_source : DataSource
-            the created data source.
+            The created data source.
 
         Examples
         --------
@@ -484,7 +484,7 @@ class DataSource(APIObject):
         Returns
         -------
         response: Dataset
-            The Dataset created from the uploaded data
+            The Dataset created from the uploaded data.
         """
         if not self.id:
             raise ValueError("Missing required DataSource ID - needed to create Dataset.")

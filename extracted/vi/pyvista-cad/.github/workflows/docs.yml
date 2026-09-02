@@ -1,0 +1,104 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build Sphinx docs + gallery
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up headless display
+        uses: pyvista/setup-headless-display-action@v4
+
+      - name: Install system packages for OCCT-backed examples
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev libglu1 libxft2 libxcursor-dev libxinerama1 \
+            libocct-data-exchange-dev libocct-foundation-dev xvfb pandoc openscad
+
+      - name: Install with [docs]
+        run: uv sync --extra docs
+
+      # The gallery executes every example, so it fetches the whole
+      # `pyvista_cad.examples.downloads` registry on a cold runner. That
+      # made the build hostage to the slowest upstream of the day: NIST
+      # has served the multi-MB STEP fixtures slowly enough to blow the
+      # HTTP read timeout and fail the job outright. Same cache strategy
+      # the `test` jobs in ci.yml already use: the sha256-pinned registry
+      # in downloads.py is a complete cache key.
+      - name: Cache example datasets
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.pooch-cache/pyvista_cad
+          key: pooch-${{ runner.os }}-${{ hashFiles('src/pyvista_cad/examples/downloads.py') }}
+          restore-keys: |
+            pooch-${{ runner.os }}-
+
+      - name: Build documentation
+        env:
+          PYVISTA_CAD_USERDATA_PATH: ${{ github.workspace }}/.pooch-cache/pyvista_cad
+        run: uv run make -C doc html
+
+      - name: Prevent Jekyll processing on GH Pages
+        run: touch doc/_build/html/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: doc/_build/html/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  doctest:
+    name: Doctest
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - uses: pyvista/setup-headless-display-action@v4
+      - name: Install system packages for OCCT-backed examples
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev libglu1 libxft2 libxcursor-dev libxinerama1 \
+            libocct-data-exchange-dev libocct-foundation-dev xvfb pandoc openscad
+      - run: uv sync --extra docs
+      - run: uv run make -C doc doctest

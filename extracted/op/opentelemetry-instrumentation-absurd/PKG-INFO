@@ -1,0 +1,175 @@
+Metadata-Version: 2.4
+Name: opentelemetry-instrumentation-absurd
+Version: 0.1.0
+Summary: OpenTelemetry instrumentation for the Absurd durable-task SDK
+Keywords: opentelemetry,instrumentation,tracing,observability,absurd,durable-tasks,task-queue,postgres
+Author: Jiri Kuncar
+Author-email: Jiri Kuncar <jiri.kuncar@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Framework :: OpenTelemetry
+Classifier: Framework :: OpenTelemetry :: Instrumentations
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Monitoring
+Classifier: Typing :: Typed
+Requires-Dist: absurd-sdk>=0.4.0
+Requires-Dist: opentelemetry-api>=1.0
+Requires-Dist: opentelemetry-instrumentation>=0.65b0
+Requires-Dist: wrapt>=1.0.0,<2.0.0
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/jirikuncar/opentelemetry-instrumentation-absurd
+Project-URL: Repository, https://github.com/jirikuncar/opentelemetry-instrumentation-absurd
+Project-URL: Issues, https://github.com/jirikuncar/opentelemetry-instrumentation-absurd/issues
+Project-URL: Changelog, https://github.com/jirikuncar/opentelemetry-instrumentation-absurd/releases
+Description-Content-Type: text/markdown
+
+# opentelemetry-instrumentation-absurd
+
+[![Tests](https://github.com/jirikuncar/opentelemetry-instrumentation-absurd/actions/workflows/tests.yml/badge.svg)](https://github.com/jirikuncar/opentelemetry-instrumentation-absurd/actions/workflows/tests.yml)
+[![PyPI](https://img.shields.io/pypi/v/opentelemetry-instrumentation-absurd.svg)](https://pypi.org/project/opentelemetry-instrumentation-absurd/)
+[![Python versions](https://img.shields.io/pypi/pyversions/opentelemetry-instrumentation-absurd.svg)](https://pypi.org/project/opentelemetry-instrumentation-absurd/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
+OpenTelemetry instrumentation for the [Absurd](https://github.com/earendil-works/absurd)
+durable-task SDK ([`absurd-sdk`](https://pypi.org/project/absurd-sdk/)).
+
+Absurd (`absurd_sdk.AsyncAbsurd`) is a Postgres-backed durable task queue: a producer
+`spawn()`s a task and a worker `work_batch()` claims and runs the registered handler, possibly
+in a different process. Without instrumentation the two halves live in separate traces, so a
+task's execution cannot be linked back to whatever spawned it.
+
+This instrumentor follows the standard producer/consumer span shape for a task queue:
+
+- **`AsyncAbsurd.spawn()`** is wrapped to open a `CLIENT` span named after the task and inject
+  the current trace context into the task's `headers`. Absurd persists headers on the task row
+  and hands them back to the handler via `ctx.headers`.
+- **`AsyncAbsurd.register_task()`** is wrapped so every registered handler runs inside a
+  `running:<task>` `SERVER` span whose parent is extracted from those headers.
+
+The two spans share one trace, so a task's execution is linked back to whatever spawned it —
+even when the spawner and the worker run in different processes.
+
+```
+trigger (your span)
+└── report                 CLIENT   ← spawn()  (process A)
+    └── running:report     SERVER   ← handler  (process B)
+```
+
+## Installation
+
+```bash
+pip install opentelemetry-instrumentation-absurd
+# or
+uv add opentelemetry-instrumentation-absurd
+```
+
+## Usage
+
+Install the instrumentor once per process, on **both** the spawn side and the worker side:
+
+```python
+from opentelemetry.instrumentation.absurd import AbsurdInstrumentor
+
+AbsurdInstrumentor().instrument()
+```
+
+That is all — no changes to your `spawn()` calls or task handlers are required. Only
+`AsyncAbsurd` is instrumented.
+
+You can pass an explicit `TracerProvider`:
+
+```python
+AbsurdInstrumentor().instrument(tracer_provider=my_tracer_provider)
+```
+
+Because this package ships an
+[`opentelemetry_instrumentor` entry point](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/auto_instrumentation/index.html),
+it is also picked up automatically by `opentelemetry-instrument`:
+
+```bash
+opentelemetry-instrument python your_app.py
+```
+
+### Producer / consumer example
+
+```python
+import asyncio
+
+from absurd_sdk import AsyncAbsurd
+from opentelemetry.instrumentation.absurd import AbsurdInstrumentor
+
+AbsurdInstrumentor().instrument()
+
+app = AsyncAbsurd('postgresql://localhost/absurd', queue_name='workflows')
+
+
+@app.register_task(name='report')
+async def report(params, ctx):
+    # Runs inside a `running:report` SERVER span parented to the spawner.
+    return {'value': params['value'] * 2}
+
+
+async def main() -> None:
+    # Opens a `report` CLIENT span and injects the trace context into the task headers.
+    await app.spawn('report', {'value': 7}, queue='workflows')
+
+
+asyncio.run(main())
+```
+
+## Span attributes
+
+Both spans carry these attributes (set when available):
+
+| Attribute                        | Span            | Description                                |
+| -------------------------------- | --------------- | ------------------------------------------ |
+| `absurd.task.name`               | CLIENT + SERVER | The registered task name.                  |
+| `absurd.queue`                   | CLIENT + SERVER | The queue the task was spawned on.         |
+| `absurd.task.id`                 | CLIENT + SERVER | The task UUID (stringified).               |
+| `absurd.run.id`                  | CLIENT          | The run UUID assigned by `spawn()`.        |
+| `absurd.task.attempt`            | SERVER          | The current attempt number of the run.     |
+| `absurd.task.idempotency_key`    | CLIENT          | Set only when an idempotency key is given. |
+
+The trace context is propagated through the task `headers` under the
+`otel.absurd.context` key using the globally configured OpenTelemetry propagator (W3C
+`traceparent` by default), so any caller headers you pass are preserved.
+
+## How it works
+
+`spawn()` and the registered handler are wrapped with [`wrapt`](https://pypi.org/project/wrapt/).
+On `spawn()` the current context is injected into a fresh carrier nested under a single header
+key; the worker extracts that carrier and parents its `SERVER` span to the spawner's `CLIENT`
+span. If a task was spawned before instrumentation (no carrier present), the handler still runs
+in its own `SERVER` span — it just starts a new trace.
+
+## Compatibility
+
+- Python 3.10+
+- `absurd-sdk >= 0.4.0`
+- `opentelemetry-api >= 1.0`
+
+## Development
+
+```bash
+make install   # uv sync --all-groups
+make test      # uv run pytest
+make check     # ruff check + ruff format --check
+```
+
+## AI disclaimer
+
+This code was written with the help of AI.
+
+## License
+
+[MIT](./LICENSE)

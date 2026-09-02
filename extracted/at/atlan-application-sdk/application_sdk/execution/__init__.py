@@ -1,0 +1,73 @@
+"""Execution layer for running Apps on Temporal."""
+
+# Re-export the temporalio Client as TemporalClient for app-side type annotations.
+from temporalio.client import Client as TemporalClient
+from temporalio.client import WorkflowFailureError as TemporalWorkflowFailureError
+
+# Re-export the client-side failure types apps need to catch around
+# `TemporalClient.execute_workflow(...)`. Renamed with a `Temporal` prefix (matching
+# `TemporalClient`) so they don't collide with unrelated SDK types of the same short
+# name, e.g. `application_sdk.common.error_codes.ActivityError` and
+# `application_sdk.errors.leaves.CancelledError`.
+#
+# These are raw temporalio exceptions for code awaiting `TemporalClient.execute_workflow(...)`
+# or a workflow handle. For SDK-classified domain failures inside `@task`/`@entrypoint` code,
+# raise/catch `application_sdk.errors.AppError` leaves (`CancelledError`, `AppTimeoutError`,
+# etc.) instead.
+from temporalio.exceptions import ActivityError as TemporalActivityError
+from temporalio.exceptions import CancelledError as TemporalCancelledError
+from temporalio.exceptions import ChildWorkflowError as TemporalChildWorkflowError
+from temporalio.exceptions import TerminatedError as TemporalTerminatedError
+from temporalio.exceptions import TimeoutError as TemporalTimeoutError
+
+# Imported for its side effect of binding `application_sdk.execution.progress` as an
+# attribute of this package. Before FND-316, `heartbeat` imported that submodule, so
+# `import application_sdk.execution` was enough to make `execution.progress.<name>`
+# resolve; `heartbeat` now reaches `_runtime.progress` instead, which would have made
+# that attribute access an AttributeError. Explicit here so the access keeps working
+# without depending on another module's imports to arrange it.
+from application_sdk.execution import progress as progress  # noqa: F401 — re-export
+from application_sdk.execution._temporal.activity_utils import (
+    build_output_path,
+    get_object_store_prefix,
+)
+from application_sdk.execution._temporal.auth import (
+    TemporalAuthConfig,
+    TemporalAuthManager,
+)
+from application_sdk.execution._temporal.backend import (
+    TemporalExecutorBackend,
+    create_temporal_client,
+)
+from application_sdk.execution._temporal.converter import (
+    create_data_converter,
+    create_data_converter_for_app,
+)
+from application_sdk.execution._temporal.worker import AppWorker, create_worker
+from application_sdk.execution.decorators import needs_lock
+from application_sdk.execution.errors import ApplicationError
+from application_sdk.execution.retry import RetryPolicy, retry_product_seconds
+
+__all__ = [
+    "AppWorker",
+    "ApplicationError",
+    "RetryPolicy",
+    "TemporalActivityError",
+    "TemporalAuthConfig",
+    "TemporalAuthManager",
+    "TemporalCancelledError",
+    "TemporalChildWorkflowError",
+    "TemporalClient",
+    "TemporalExecutorBackend",
+    "TemporalTerminatedError",
+    "TemporalTimeoutError",
+    "TemporalWorkflowFailureError",
+    "build_output_path",
+    "create_data_converter",
+    "create_data_converter_for_app",
+    "create_temporal_client",
+    "create_worker",
+    "get_object_store_prefix",
+    "needs_lock",
+    "retry_product_seconds",
+]

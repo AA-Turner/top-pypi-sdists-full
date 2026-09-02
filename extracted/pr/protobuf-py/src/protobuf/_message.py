@@ -14,7 +14,9 @@
 from __future__ import annotations
 
 from copy import copy, deepcopy
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, overload
+
+from typing_extensions import Buffer, TypeVar
 
 from . import _native_message
 from ._descriptors import (
@@ -50,7 +52,7 @@ if TYPE_CHECKING:
 Self = TypeVar("Self", bound="Message")
 
 # TypeVar for making Message generic over its field names
-FieldNamesT = TypeVar("FieldNamesT", bound=str)
+FieldNamesT = TypeVar("FieldNamesT", bound=str, default=Any)
 
 M = TypeVar("M", bound="Message")
 E = TypeVar("E")
@@ -559,8 +561,10 @@ class Message(Generic[FieldNamesT], metaclass=MessageMeta):  # noqa: PLW1641
 
         Extensions and unknown fields are not considered in the comparison.
         """
-        if not isinstance(other, type(self)):
+        if not isinstance(other, Message):
             return NotImplemented
+        if not isinstance(other, type(self)):
+            return False
         for field in self._desc.fields:
             self_set = field in self
             other_set = field in other
@@ -607,14 +611,14 @@ class Message(Generic[FieldNamesT], metaclass=MessageMeta):  # noqa: PLW1641
 
     @classmethod
     def from_binary(
-        cls: type[Self], data: bytes, *, ignore_unknown_fields: bool = False
+        cls: type[Self], data: Buffer, *, ignore_unknown_fields: bool = False
     ) -> Self:
         """Create a new message by parsing serialized binary data.
 
         To merge into an existing message, use [`merge_from_binary`][].
 
         Args:
-            data: Serialized binary protobuf data.
+            data: Serialized binary protobuf data. Must not be mutated during parsing.
             ignore_unknown_fields: If `True`, unknown fields in the binary data are silently discarded.
         """
         message = cls()
@@ -667,11 +671,10 @@ class Message(Generic[FieldNamesT], metaclass=MessageMeta):  # noqa: PLW1641
 
     # Marshaling methods overridden in native code when available.
 
-    def _merge_from_binary(self, data: bytes, ignore_unknown_fields: bool) -> None:  # noqa: FBT001
+    def _merge_from_binary(self, data: Buffer, ignore_unknown_fields: bool) -> None:  # noqa: FBT001
         opts = FromBinaryOptions(ignore_unknown_fields=ignore_unknown_fields)
-        read_message(
-            self, BinaryReader(memoryview(data)), opts, depth=0, length=len(data)
-        )
+        view = memoryview(data)
+        read_message(self, BinaryReader(view), opts, depth=0, length=len(view))
 
     def _merge_from_json(
         self,
@@ -683,13 +686,9 @@ class Message(Generic[FieldNamesT], metaclass=MessageMeta):  # noqa: PLW1641
         from json import loads as parse_json  # noqa: PLC0415
 
         # Needs to be lazy import since JSON specially handles many WKTs.
-        from ._from_json import (  # noqa: PLC0415
-            FromJsonOptions,
-            _no_duplicates,
-            _read_message,
-        )
+        from ._from_json import FromJsonOptions, _read_message  # noqa: PLC0415
 
-        json_value = parse_json(json, object_pairs_hook=_no_duplicates)
+        json_value = parse_json(json)
         opts = FromJsonOptions(
             ignore_unknown_fields=ignore_unknown_fields, registry=registry
         )

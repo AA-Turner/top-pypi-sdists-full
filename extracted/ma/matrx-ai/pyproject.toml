@@ -1,0 +1,152 @@
+[project]
+name = "matrx-ai"
+version = "0.5.221"
+description = "Unified multi-provider AI client, orchestration, and tool system"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Matrx", email = "admin@aimatrx.com" }
+]
+maintainers = [
+    { name = "Matrx", email = "admin@aimatrx.com" }
+]
+keywords = [
+    "ai",
+    "llm",
+    "openai",
+    "anthropic",
+    "agents",
+    "orchestration",
+    "streaming",
+    "tools",
+    "supabase",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.13"
+dependencies = [
+    # --- AI providers ---
+    # Versions pinned to current latest (May 2026) to land frontier media-gen
+    # APIs (gpt-image-2, Sora 2, Gemini 3.1 image, Veo 3.1, grok-imagine video).
+    "anthropic>=0.100.0",
+    "openai>=2.35.1",
+    "google-genai>=1.75.0",
+    "google-cloud-aiplatform>=1.138.0",
+    "cerebras-cloud-sdk>=1.67.0",
+    "groq>=1.2.0",
+    "together>=2.12.0",
+    "xai-sdk>=1.12.2",
+    "cohere>=6.1.0",
+    "fireworks-ai",
+    "replicate>=1.0.7",
+    "elevenlabs>=2.46.0",
+    "tiktoken",
+    # --- Core ---
+    "pydantic>=2.12",
+    "httpx",
+    "aiohttp",
+    "fastapi>=0.115",
+    # --- Utilities ---
+    "json-repair",
+    "pyyaml",
+    "python-dotenv",
+    "rich",
+    # --- Data ---
+    "numpy>=2.0",
+    # --- Database (conversation persistence) ---
+    "supabase",
+    "asyncpg>=0.31.0",
+    # --- Matrx ecosystem ---
+    # media/media_persistence.py imports VisibilityLiteral, first exported by 2.0.7.
+    "matrx-utils>=2.0.29",
+    "matrx-files>=0.2.124",
+    # 0.1.26+ exports the Masterwork* event models used here (renamed 2026-08-17;
+    # the next matrx-connect release is the first tag that exports the new names).
+    "matrx-connect>=0.1.72",
+    # actions.register_node is imported at module scope and first shipped in 0.1.22.
+    "matrx-graph>=0.2.122",
+    # tools.implementations imports the browser implementation eagerly.
+    "matrx-scraper[browser]>=0.2.154",
+    # matrx-runtime (the Request Management Layer): the conversation executor
+    # (orchestrator/conversation_runtime.py) is a CONSUMER of its ExecutionEngine —
+    # one conversation = one global_execution. ai → runtime is the acyclic edge.
+    "matrx-runtime>=0.0.78",
+    # Payload-agnostic coordinated assignment planner/coordinator. The agent
+    # workflow action consumes it; the assignment package never imports AI.
+    "matrx-assignment>=0.1.9",
+    # --- Virtual Filesystem (matrx_ai.tools.vfs) ---
+    "fsspec>=2026.4.0",
+    "wcmatch>=10.0",
+    "pathspec>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/AI-Matrix-Engine/aidream-current"
+Repository = "https://github.com/AI-Matrix-Engine/aidream-current"
+Issues = "https://github.com/AI-Matrix-Engine/aidream-current/issues"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.9.0",
+    "pyright>=1.1.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+]
+# Code & docs ingestion tools (matrx_ai.tools.implementations.code_ingest).
+# Optional so a standalone install never force-pulls it; the git_ingest tool
+# imports gitingest lazily and degrades gracefully when it's absent.
+code-ingest = [
+    "gitingest>=0.3.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["matrx_ai"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.uv.sources]
+matrx-utils = { workspace = true }
+matrx-files = { workspace = true }
+matrx-connect = { workspace = true }
+matrx-graph = { workspace = true }
+matrx-assignment = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "ASYNC"]
+ignore = ["E501"]
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+reportCallIssue = "none"
+reportArgumentType = "none"
+reportOperatorIssue = "none"
+reportAttributeAccessIssue = "none"
+reportIndexIssue = "none"
+reportReturnType = "none"
+reportMissingTypeArgument = "none"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

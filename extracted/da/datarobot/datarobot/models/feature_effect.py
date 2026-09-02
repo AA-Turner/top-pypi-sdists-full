@@ -68,7 +68,7 @@ class FeatureEffectMetadataDatetime(APIObject):
     Attributes
     ----------
     data : list[FeatureEffectMetadataDatetimePerBacktest]
-        List feature effect metadata per backtest
+        A list of feature effect metadata per backtest.
 
     """
 
@@ -93,7 +93,7 @@ class FeatureEffectMetadataDatetime(APIObject):
 
 
 class FeatureEffectMetadataDatetimePerBacktest:
-    """Convert dictionary into feature effect metadata per backtest which contains backtest_index,
+    """Convert dictionary into feature effect metadata per backtest which contains ``backtest_index``,
     status and sources.
     """
 
@@ -131,15 +131,15 @@ class FeatureEffects(APIObject):
     Attributes
     ----------
     project_id: string
-        The project that contains requested model
+        The project that contains requested model.
     model_id: string
-        The model to retrieve Feature Effects for
+        The model to retrieve Feature Effects for.
     source: string
-        The source to retrieve Feature Effects for
+        The source to retrieve Feature Effects for.
     data_slice_id: string or None
-        The slice to retrieve Feature Effects for; if None, retrieve unsliced data
+        The slice to retrieve Feature Effects for; if None, retrieve unsliced data.
     feature_effects: list
-        Feature Effects for every feature
+        Feature Effects for every feature.
     backtest_index: string, required only for DatetimeModels,
         The backtest index to retrieve Feature Effects for.
 
@@ -316,7 +316,7 @@ class FeatureEffects(APIObject):
         ----------
         data : dict
             The directly translated dict of JSON from the server. No casing fixes have
-            taken place
+            taken place.
         use_insights_format : Optional[bool]
             Whether to repack the data from the format used in the GET `/insights/featureEffects/` URL
             to the format used in the legacy URL.
@@ -340,7 +340,7 @@ class FeatureEffectsMulticlass(APIObject):
     feature_name : str
         Name of the feature.
     feature_type : dr.enums.FEATURE_TYPE
-        Feature type either numeric, categorical or datetime.
+        Feature type either numeric, categorical, or datetime.
     feature_impact_score : float
         Feature impact score.
     weight_label : str
@@ -416,7 +416,7 @@ class FeatureEffectsMulticlass(APIObject):
         row_count : int
             The number of rows from dataset to use for Feature Impact calculation.
         backtest_index : str
-            The backtest index for datetime models. e.g., 0, 1, ..., 20, holdout, startstop
+            The backtest index for datetime models. e.g., 0, 1, ..., 20, holdout, ``startstop``.
         top_n_features : int or None
             Number of top features (ranked by Feature Impact) to use to calculate Feature Effects.
         features : list or None
@@ -461,19 +461,20 @@ class FeatureEffectsMulticlass(APIObject):
         Parameters
         ----------
         project_id: str
-            project id
+            The project ID.
         model_id: str
-            model id
+            The model ID.
         source: str
-            datasource, optional defaults to 'training' (e.g., 'validation', 'training', 'holdout')
+            The data source; optional, defaults to 'training' (e.g., 'validation', 'training', 'holdout').
         backtest_index: str
-            backtest index, required for datetime models (e.g., 0, 1, ..., 20, holdout, startstop)
+            The backtest index; required for datetime models (e.g., 0, 1, ..., 20, holdout, ``startstop``).
         class_: str
-            target class name
+            The target class name.
 
         Returns
         -------
-            list of FeatureEffectsMulticlass
+        list of FeatureEffectsMulticlass
+            A list of FeatureEffectsMulticlass objects.
         """
 
         params: Dict[str, Any] = {"source": source}

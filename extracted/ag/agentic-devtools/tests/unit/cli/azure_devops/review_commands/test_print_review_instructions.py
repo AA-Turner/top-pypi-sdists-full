@@ -1,0 +1,51 @@
+"""Tests for the review_commands module and helper functions."""
+
+
+class TestPrintReviewInstructions:
+    """Tests for print_review_instructions function."""
+
+    def test_prints_basic_info(self, tmp_path, capsys):
+        """Test prints basic review information."""
+        from agentic_devtools.cli.azure_devops.review_commands import print_review_instructions
+
+        print_review_instructions(
+            pull_request_id=123,
+            prompts_dir=tmp_path,
+            prompts_generated=5,
+        )
+
+        captured = capsys.readouterr()
+        assert "PR ID: 123" in captured.out
+        assert "Prompts generated: 5" in captured.out
+        assert "Skipped (already reviewed)" not in captured.out
+        assert "agdt-set pull_request_id" not in captured.out
+        assert "agdt-file-review-write" in captured.out
+
+    def test_prints_skipped_not_on_branch(self, tmp_path, capsys):
+        """Test prints skipped not on branch count when non-zero."""
+        from agentic_devtools.cli.azure_devops.review_commands import print_review_instructions
+
+        print_review_instructions(
+            pull_request_id=123,
+            prompts_dir=tmp_path,
+            prompts_generated=3,
+            skipped_not_on_branch_count=2,
+        )
+
+        captured = capsys.readouterr()
+        assert "Skipped (not on branch" in captured.out
+        assert "2" in captured.out
+
+    def test_prints_warning_when_no_prompts_generated(self, tmp_path, capsys):
+        """Test prints warning when prompts_generated is 0."""
+        from agentic_devtools.cli.azure_devops.review_commands import print_review_instructions
+
+        print_review_instructions(
+            pull_request_id=123,
+            prompts_dir=tmp_path,
+            prompts_generated=0,
+        )
+
+        captured = capsys.readouterr()
+        assert "WARNING: No prompts were generated" in captured.out
+        assert "include_reviewed" not in captured.out

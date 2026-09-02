@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-admin-logs"
+description = "View, delete or disable Django admin log entries."
+version = "1.5.0"
+authors = [
+    { name="Adam Radwon" },
+]
+license = { text = "MIT License" }
+readme = "README.rst"
+keywords = ["django", "admin", "logs"]
+requires-python = ">=3.8"
+dependencies = [
+    "Django>=4.2"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/radwon/django-admin-logs"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "build",
+    "coverage",
+    "Django",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "pytest-django",
+    "ruff",
+    "tox",
+    "twine",
+]
+
+[tool.coverage.report]
+fail_under = 100
+
+[tool.coverage.run]
+omit = ["*/tests/*", "*__init__.py"]
+
+[tool.ruff]
+line-length = 88  # Same as Black
+
+[tool.ruff.lint]
+ignore = [
+    "E501",  # line length violations (handled by Black)
+]
+select = [
+    "B",  # flake8-bugbear rules
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort (import sorting)
+    "UP", # pyupgrade
+    "W",  # pycodestyle warnings
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov=django_admin_logs --cov-report=html"

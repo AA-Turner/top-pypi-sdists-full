@@ -1,0 +1,77 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "fast_json_repair"
+version = "0.2.3"
+description = "High-performance JSON repair library using Rust"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "dvideby0", email = ""}]
+keywords = ["json", "repair", "parser", "rust", "performance", "llm", "ai"]
+requires-python = ">=3.11,<3.15"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: General",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "orjson>=3.10.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Rusty-Ports/fast_json_repair"
+Documentation = "https://github.com/Rusty-Ports/fast_json_repair#readme"
+Repository = "https://github.com/Rusty-Ports/fast_json_repair"
+Issues = "https://github.com/Rusty-Ports/fast_json_repair/issues"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "fast_json_repair._fast_json_repair"
+
+[tool.uv]
+dev-dependencies = [
+    "maturin>=1.7,<2.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "mypy>=1.8.0",
+    "ruff>=0.3.0",
+    "json_repair>=0.25.0",  # For benchmarking against original
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312", "py313", "py314"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = "-v --strict-markers"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

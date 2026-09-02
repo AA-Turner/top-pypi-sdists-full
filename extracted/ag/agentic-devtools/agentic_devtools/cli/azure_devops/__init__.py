@@ -1,0 +1,350 @@
+"""
+Azure DevOps CLI utilities package.
+
+This package provides command-line tools for interacting with Azure DevOps,
+including pull request management, thread handling, and approvals.
+
+Workflow:
+    1. Set state values with agdt-set (auto-approve once)
+    2. Execute action with agdt-<action> (auto-approve once)
+
+Example:
+    agdt-set pull_request_id 23046
+    agdt-set thread_id 139474
+    agdt-set content "Thanks for the feedback!
+
+    I've made the changes you suggested."
+    agdt-reply-to-pull-request-thread
+"""
+
+# Config exports
+# Auth exports
+# Async command exports
+from .async_commands import (
+    add_pull_request_comment_async,
+    add_pull_request_comment_async_cli,
+    approve_pull_request_async,
+    approve_pull_request_async_cli,
+    confirm_suggestion_addressed_async,
+    confirm_suggestion_addressed_async_cli,
+    create_pipeline_async,
+    create_pull_request_async,
+    create_pull_request_async_cli,
+    get_pipeline_id_async,
+    get_pull_request_details_async,
+    get_pull_request_threads_async,
+    get_pull_request_threads_async_cli,
+    get_run_details_async,
+    list_pipelines_async,
+    mark_pull_request_draft_async,
+    publish_pull_request_async,
+    reject_suggestion_resolution_async,
+    reject_suggestion_resolution_async_cli,
+    reply_to_pull_request_thread_async,
+    reply_to_pull_request_thread_async_cli,
+    resolve_thread_async,
+    resolve_thread_async_cli,
+    run_e2e_tests_fabric_async,
+    run_e2e_tests_synapse_async,
+    run_wb_patch_async,
+    update_pipeline_async,
+    wait_for_run_async,
+)
+from .auth import get_auth_headers, get_pat
+
+# Command exports
+from .commands import (
+    add_pull_request_comment,
+    approve_pull_request,
+    create_pull_request,
+    get_pull_request_threads,
+    mark_pull_request_draft,
+    parse_bool_from_state,
+    publish_pull_request,
+    reply_to_pull_request_thread,
+    require_content,
+    resolve_thread,
+)
+from .config import (
+    API_VERSION,
+    DEFAULT_ORGANIZATION,
+    DEFAULT_PROJECT,
+    DEFAULT_REPOSITORY,
+    AzureDevOpsConfig,
+    get_repository_name_from_git_remote,
+)
+
+# Helper exports
+from .helpers import (
+    build_thread_context,
+    convert_to_pull_request_title,
+    find_pull_request_by_issue_key,
+    get_pull_request_source_branch,
+    get_repository_id,
+    parse_bool_from_state_value,
+    parse_json_response,
+    print_threads,
+    require_requests,
+    resolve_thread_by_id,
+    verify_az_cli,
+)
+
+# Mark reviewed exports
+from .mark_reviewed import mark_file_reviewed, mark_files_reviewed
+
+# Marker exports
+from .marker import (
+    CLEANUP_MARKER_TYPES,
+    MARKER_TYPES,
+    build_marker,
+    classify_agdt_threads,
+    filter_agdt_threads,
+    has_agdt_marker,
+    parse_marker,
+)
+
+# Pipeline command exports
+from .pipeline_commands import (
+    create_pipeline,
+    get_pipeline_id,
+    list_pipelines,
+    run_e2e_tests_fabric,
+    run_e2e_tests_synapse,
+    run_wb_patch,
+    update_pipeline,
+)
+
+# PR summary command exports
+from .pr_summary_commands import (
+    generate_overarching_pr_comments,
+    generate_overarching_pr_comments_cli,
+)
+
+# Pull request details command exports
+from .pull_request_details_commands import get_pull_request_details
+
+# Review attribution exports
+from .review_attribution import (
+    SHORT_HASH_LENGTH,
+    build_commit_file_url,
+    build_commit_folder_url,
+    build_commit_pr_url,
+    format_status,
+    get_model_icon,
+    render_attribution_line,
+    should_use_emoji,
+)
+
+# Review scaffold exports
+from .review_scaffold import build_pr_base_url
+
+# Review state exports
+from .review_state import (
+    COMPLETE_STATUSES,
+    CommitComment,
+    FileEntry,
+    FolderEntry,
+    FolderGroup,
+    ModelCommentRef,
+    OverallSummary,
+    ReviewSession,
+    ReviewState,
+    ReviewStatus,
+    SkippedFile,
+    SuggestionEntry,
+    add_suggestion_to_file,
+    clear_suggestions_for_re_review,
+    complete_active_session,
+    compute_aggregate_status,
+    get_file_entry,
+    get_folder_entry,
+    get_review_state_file_path,
+    load_review_state,
+    normalize_file_path,
+    read_modify_write_review_state,
+    save_review_state,
+    sync_review_state_from_threads,
+    update_file_status,
+)
+
+# Run details command exports
+from .run_details_commands import get_run_details, wait_for_run
+
+# Status cascade exports
+from .status_cascade import (
+    PatchOperation,
+    cascade_overall_summary_update,
+    cascade_status_update,
+    derive_overall_status,
+    execute_cascade,
+)
+
+# Suggestion commands exports
+from .suggestion_commands import confirm_suggestion_addressed, reject_suggestion_resolution
+
+# Suggestion verification exports
+from .suggestion_verification import (
+    CATEGORY_NEEDS_REVIEW,
+    CATEGORY_UNADDRESSED,
+    SuggestionVerificationResult,
+    categorize_all_suggestions,
+    fetch_threads_lookup,
+    has_unaddressed,
+    partition_results,
+    render_abort_summary,
+    render_unaddressed_thread_comment,
+    verify_previous_suggestions,
+)
+
+__all__ = [
+    # Constants
+    "DEFAULT_ORGANIZATION",
+    "DEFAULT_PROJECT",
+    "DEFAULT_REPOSITORY",
+    "API_VERSION",
+    # Config
+    "AzureDevOpsConfig",
+    "get_repository_name_from_git_remote",
+    # Auth
+    "get_pat",
+    "get_auth_headers",
+    # Helpers
+    "parse_bool_from_state_value",
+    "require_requests",
+    "get_repository_id",
+    "resolve_thread_by_id",
+    "convert_to_pull_request_title",
+    "build_thread_context",
+    "verify_az_cli",
+    "parse_json_response",
+    "print_threads",
+    "find_pull_request_by_issue_key",
+    "get_pull_request_source_branch",
+    # Command helpers
+    "parse_bool_from_state",
+    "require_content",
+    # Commands (sync)
+    "reply_to_pull_request_thread",
+    "add_pull_request_comment",
+    "create_pull_request",
+    "resolve_thread",
+    "get_pull_request_threads",
+    "approve_pull_request",
+    "mark_pull_request_draft",
+    "publish_pull_request",
+    # Commands (async)
+    "add_pull_request_comment_async",
+    "add_pull_request_comment_async_cli",
+    "approve_pull_request_async",
+    "approve_pull_request_async_cli",
+    "create_pull_request_async",
+    "create_pull_request_async_cli",
+    "get_pull_request_threads_async",
+    "get_pull_request_threads_async_cli",
+    "reply_to_pull_request_thread_async",
+    "reply_to_pull_request_thread_async_cli",
+    "resolve_thread_async",
+    "resolve_thread_async_cli",
+    "mark_pull_request_draft_async",
+    "publish_pull_request_async",
+    "get_pull_request_details_async",
+    # Pipeline commands
+    "run_e2e_tests_fabric",
+    "run_e2e_tests_synapse",
+    "run_wb_patch",
+    "list_pipelines",
+    "get_pipeline_id",
+    "create_pipeline",
+    "update_pipeline",
+    # Pipeline commands (async)
+    "run_e2e_tests_fabric_async",
+    "run_e2e_tests_synapse_async",
+    "run_wb_patch_async",
+    "get_run_details_async",
+    "list_pipelines_async",
+    "get_pipeline_id_async",
+    "create_pipeline_async",
+    "update_pipeline_async",
+    # Pull request details command
+    "get_pull_request_details",
+    # Mark reviewed
+    "mark_file_reviewed",
+    "mark_files_reviewed",
+    # Marker
+    "CLEANUP_MARKER_TYPES",
+    "MARKER_TYPES",
+    "build_marker",
+    "parse_marker",
+    "has_agdt_marker",
+    "filter_agdt_threads",
+    "classify_agdt_threads",
+    # PR summary commands
+    "generate_overarching_pr_comments",
+    "generate_overarching_pr_comments_cli",
+    # Run details commands
+    "get_run_details",
+    "wait_for_run",
+    "wait_for_run_async",
+    # Review state
+    "ReviewStatus",
+    "SkippedFile",
+    "SuggestionEntry",
+    "OverallSummary",
+    "FolderEntry",
+    "FolderGroup",
+    "FileEntry",
+    "ReviewSession",
+    "ReviewState",
+    "ModelCommentRef",
+    "CommitComment",
+    "normalize_file_path",
+    "get_review_state_file_path",
+    "load_review_state",
+    "save_review_state",
+    "read_modify_write_review_state",
+    "get_file_entry",
+    "get_folder_entry",
+    "update_file_status",
+    "add_suggestion_to_file",
+    "clear_suggestions_for_re_review",
+    "complete_active_session",
+    "compute_aggregate_status",
+    "sync_review_state_from_threads",
+    "COMPLETE_STATUSES",
+    # Review attribution
+    "SHORT_HASH_LENGTH",
+    "format_status",
+    "should_use_emoji",
+    "build_commit_file_url",
+    "build_commit_folder_url",
+    "build_commit_pr_url",
+    "get_model_icon",
+    "render_attribution_line",
+    # Review scaffold
+    "build_pr_base_url",
+    # Status cascade
+    "PatchOperation",
+    "derive_overall_status",
+    "cascade_status_update",
+    "cascade_overall_summary_update",
+    "execute_cascade",
+    # Suggestion commands (sync)
+    "confirm_suggestion_addressed",
+    "reject_suggestion_resolution",
+    # Suggestion commands (async)
+    "confirm_suggestion_addressed_async",
+    "confirm_suggestion_addressed_async_cli",
+    "reject_suggestion_resolution_async",
+    "reject_suggestion_resolution_async_cli",
+    # Suggestion verification
+    "SuggestionVerificationResult",
+    "CATEGORY_UNADDRESSED",
+    "CATEGORY_NEEDS_REVIEW",
+    "verify_previous_suggestions",
+    "categorize_all_suggestions",
+    "has_unaddressed",
+    "partition_results",
+    "render_abort_summary",
+    "render_unaddressed_thread_comment",
+    "fetch_threads_lookup",
+]

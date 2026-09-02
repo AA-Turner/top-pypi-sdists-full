@@ -1,0 +1,108 @@
+interactions:
+  - request:
+      body:
+        '{"messages": [{"role": "user", "content": "Hello"}], "model": "gpt-4o-2024-11-20",
+        "n": 1, "temperature": 1.0}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "100"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.30.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.30.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/4xSwW7UMBC971cYn3dRs93tbrggEKXlWFGhSqiKXHuSGByPa09Kt9X+AF/AjV/k
+          E7CT3SZLQeLiKPPmPb95nscJY1wr/opxWQuSjTOzd1dvl/Wnh9v3i9sLf/XxUp3dv7G+Ol6K8uyU
+          TxMDb76ApD3rpcTIA9Joe1h6EARJNVutTlZ5vp7nHdCgApNolaPZAmfzo/lilmXxuyPWqCWE2PE5
+          /jL22J3JolVwH8tH032lgRBEBbG2b4pFjyZVuAhBBxKW+HQAJVoC27k+B2PwBTvHb0wKyz6wnsA2
+          2DJCJTav2a+fP76P2R7KNohk3rbGjABhLZJIw3e+r3fI9smpwcp5vAl/UHmprQ51EbMKMbjoKhA6
+          3qHbeF53ibQHQ/Io1DgqCL9Cd926V+PDCwxYtguLU/RnRvU96UCsUEBCmzAKlEsha1ADc0hftErj
+          CJiMRn5u5m/a/djaVv8jPwBSgourVTgPSsvDgYc2D2k//9X2FHFnmAfwd3HrCtLg0zMoKEVr+tXh
+          YRMImiK+VQXeed3vT+mKhVxmucjXyzWfbCe/AQAA//8DANOFEKJIAwAA
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9efecdb62db6f95b-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 19:30:30 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - <FILTERED>
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "592"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "10000"
+        x-ratelimit-limit-tokens:
+          - "30000000"
+        x-ratelimit-remaining-requests:
+          - "9999"
+        x-ratelimit-remaining-tokens:
+          - "29999996"
+        x-ratelimit-reset-requests:
+          - 6ms
+        x-ratelimit-reset-tokens:
+          - 0s
+        x-request-id:
+          - req_d7658eac5f00483fa53344ff6c0877d2
+      status:
+        code: 200
+        message: OK
+version: 1

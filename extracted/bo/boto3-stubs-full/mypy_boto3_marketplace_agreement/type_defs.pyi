@@ -30,6 +30,8 @@ from .literals import (
     BillingAdjustmentErrorCodeType,
     BillingAdjustmentReasonCodeType,
     BillingAdjustmentStatusType,
+    EndTimeBehaviorReasonCodeType,
+    EndTimeBehaviorTypeType,
     IntentType,
     InvoiceTypeType,
     PaymentRequestApprovalStrategyType,
@@ -83,11 +85,13 @@ __all__ = (
     "DescribeAgreementOutputTypeDef",
     "DimensionTypeDef",
     "DocumentItemTypeDef",
+    "EndTimeBehaviorTypeDef",
     "EntitlementTypeDef",
     "EstimatedChargesTypeDef",
     "EstimatedTaxesTypeDef",
     "ExpectedChargeTypeDef",
     "FilterTypeDef",
+    "FixedPercentageTypeDef",
     "FixedUpfrontPricingTermTypeDef",
     "FreeTrialPricingTermTypeDef",
     "GetAgreementCancellationRequestInputTypeDef",
@@ -125,7 +129,11 @@ __all__ = (
     "NetPaymentTermTypeDef",
     "PaginatorConfigTypeDef",
     "PaymentRequestSummaryTypeDef",
+    "PaymentScheduleEntryTypeDef",
+    "PaymentScheduleTermTemplateTypeDef",
     "PaymentScheduleTermTypeDef",
+    "PercentageRangeTypeDef",
+    "PriceIncreaseTypeDef",
     "PricingCurrencyAmountTypeDef",
     "ProposalSummaryTypeDef",
     "ProposerTypeDef",
@@ -136,6 +144,7 @@ __all__ = (
     "RejectAgreementCancellationRequestOutputTypeDef",
     "RejectAgreementPaymentRequestInputTypeDef",
     "RejectAgreementPaymentRequestOutputTypeDef",
+    "RenewalSummaryTypeDef",
     "RenewalTermConfigurationTypeDef",
     "RenewalTermTypeDef",
     "RequestedTermConfigurationTypeDef",
@@ -155,6 +164,7 @@ __all__ = (
     "SupportTermTypeDef",
     "TaxBreakdownItemTypeDef",
     "TaxConfigurationTypeDef",
+    "TermTemplateTypeDef",
     "TimestampTypeDef",
     "UpdatePurchaseOrdersInputTypeDef",
     "UsageBasedPricingTermTypeDef",
@@ -371,6 +381,10 @@ DocumentItemTypeDef = TypedDict(
         "version": NotRequired[str],
     },
 )
+
+class RenewalSummaryTypeDef(TypedDict):
+    offerId: NotRequired[str]
+
 TaxBreakdownItemTypeDef = TypedDict(
     "TaxBreakdownItemTypeDef",
     {
@@ -383,6 +397,9 @@ TaxBreakdownItemTypeDef = TypedDict(
 class FilterTypeDef(TypedDict):
     name: NotRequired[str]
     values: NotRequired[Sequence[str]]
+
+class FixedPercentageTypeDef(TypedDict):
+    value: NotRequired[str]
 
 class GrantItemTypeDef(TypedDict):
     dimensionKey: NotRequired[str]
@@ -453,9 +470,19 @@ class PaymentRequestSummaryTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
+class PaymentScheduleEntryTypeDef(TypedDict):
+    chargeDateOffset: NotRequired[str]
+    chargePercentage: NotRequired[str]
+    dayOfMonth: NotRequired[int]
+
 class ScheduleItemTypeDef(TypedDict):
     chargeDate: NotRequired[datetime]
     chargeAmount: NotRequired[str]
+
+class PercentageRangeTypeDef(TypedDict):
+    minValue: NotRequired[str]
+    maxValue: NotRequired[str]
+    defaultValue: NotRequired[str]
 
 class RejectAgreementCancellationRequestInputTypeDef(TypedDict):
     agreementId: str
@@ -705,6 +732,14 @@ LegalTermTypeDef = TypedDict(
         "documents": NotRequired[list[DocumentItemTypeDef]],
     },
 )
+EndTimeBehaviorTypeDef = TypedDict(
+    "EndTimeBehaviorTypeDef",
+    {
+        "type": EndTimeBehaviorTypeType,
+        "reasonCode": NotRequired[EndTimeBehaviorReasonCodeType],
+        "renewalSummary": NotRequired[RenewalSummaryTypeDef],
+    },
+)
 
 class EstimatedTaxesTypeDef(TypedDict):
     breakdown: NotRequired[list[TaxBreakdownItemTypeDef]]
@@ -806,6 +841,9 @@ class ListAgreementPaymentRequestsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class PaymentScheduleTermTemplateTypeDef(TypedDict):
+    schedule: NotRequired[list[PaymentScheduleEntryTypeDef]]
+
 PaymentScheduleTermTypeDef = TypedDict(
     "PaymentScheduleTermTypeDef",
     {
@@ -815,14 +853,11 @@ PaymentScheduleTermTypeDef = TypedDict(
         "schedule": NotRequired[list[ScheduleItemTypeDef]],
     },
 )
-RenewalTermTypeDef = TypedDict(
-    "RenewalTermTypeDef",
-    {
-        "type": NotRequired[str],
-        "id": NotRequired[str],
-        "configuration": NotRequired[RenewalTermConfigurationTypeDef],
-    },
-)
+
+class PriceIncreaseTypeDef(TypedDict):
+    fixedPercentage: NotRequired[FixedPercentageTypeDef]
+    percentageRange: NotRequired[PercentageRangeTypeDef]
+
 VariablePaymentTermTypeDef = TypedDict(
     "VariablePaymentTermTypeDef",
     {
@@ -857,25 +892,16 @@ class AgreementViewSummaryTypeDef(TypedDict):
     acceptanceTime: NotRequired[datetime]
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
+    lastUpdateTime: NotRequired[datetime]
     agreementType: NotRequired[str]
     acceptor: NotRequired[AcceptorTypeDef]
     proposer: NotRequired[ProposerTypeDef]
     proposalSummary: NotRequired[ProposalSummaryTypeDef]
     status: NotRequired[AgreementStatusType]
     entitlements: NotRequired[list[EntitlementTypeDef]]
-
-class DescribeAgreementOutputTypeDef(TypedDict):
-    agreementId: str
-    acceptor: AcceptorTypeDef
-    proposer: ProposerTypeDef
-    startTime: datetime
-    endTime: datetime
-    acceptanceTime: datetime
-    agreementType: str
-    estimatedCharges: EstimatedChargesTypeDef
-    proposalSummary: ProposalSummaryTypeDef
-    status: AgreementStatusType
-    ResponseMetadata: ResponseMetadataTypeDef
+    initialAgreementId: NotRequired[str]
+    endTimeBehaviorType: NotRequired[EndTimeBehaviorTypeType]
+    endTimeBehaviorReasonCode: NotRequired[EndTimeBehaviorReasonCodeType]
 
 class ListAgreementInvoiceLineItemsOutputTypeDef(TypedDict):
     agreementInvoiceLineItemGroupSummaries: list[AgreementInvoiceLineItemGroupSummaryTypeDef]
@@ -905,6 +931,22 @@ ConfigurableUpfrontPricingTermTypeDef = TypedDict(
         "configuration": NotRequired[ConfigurableUpfrontPricingTermConfigurationOutputTypeDef],
     },
 )
+
+class DescribeAgreementOutputTypeDef(TypedDict):
+    agreementId: str
+    acceptor: AcceptorTypeDef
+    proposer: ProposerTypeDef
+    startTime: datetime
+    endTime: datetime
+    acceptanceTime: datetime
+    agreementType: str
+    estimatedCharges: EstimatedChargesTypeDef
+    proposalSummary: ProposalSummaryTypeDef
+    status: AgreementStatusType
+    initialAgreementId: str
+    endTimeBehavior: EndTimeBehaviorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 ExpectedChargeTypeDef = TypedDict(
     "ExpectedChargeTypeDef",
     {
@@ -917,6 +959,9 @@ ExpectedChargeTypeDef = TypedDict(
     },
 )
 
+class TermTemplateTypeDef(TypedDict):
+    paymentScheduleTermTemplate: NotRequired[PaymentScheduleTermTemplateTypeDef]
+
 class SearchAgreementsOutputTypeDef(TypedDict):
     agreementViewSummaries: list[AgreementViewSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -928,6 +973,41 @@ class RequestedTermConfigurationTypeDef(TypedDict):
     ]
     renewalTermConfiguration: NotRequired[RenewalTermConfigurationTypeDef]
     variablePaymentTermConfiguration: NotRequired[VariablePaymentTermConfigurationTypeDef]
+
+class ChargeSummaryTypeDef(TypedDict):
+    currencyCode: NotRequired[str]
+    newAgreementValue: NotRequired[str]
+    newAgreementValueAfterTax: NotRequired[str]
+    expectedCharges: NotRequired[list[ExpectedChargeTypeDef]]
+    estimatedTaxes: NotRequired[EstimatedTaxesTypeDef]
+    itemizedCharges: NotRequired[list[ItemizedChargeTypeDef]]
+    invoicingEntity: NotRequired[InvoicingEntityTypeDef]
+
+RenewalTermTypeDef = TypedDict(
+    "RenewalTermTypeDef",
+    {
+        "type": NotRequired[str],
+        "id": NotRequired[str],
+        "configuration": NotRequired[RenewalTermConfigurationTypeDef],
+        "lockoutPeriod": NotRequired[str],
+        "maxRenewals": NotRequired[int],
+        "adjustmentDeadline": NotRequired[str],
+        "priceIncrease": NotRequired[PriceIncreaseTypeDef],
+        "termTemplates": NotRequired[list[TermTemplateTypeDef]],
+    },
+)
+RequestedTermTypeDef = TypedDict(
+    "RequestedTermTypeDef",
+    {
+        "id": str,
+        "configuration": NotRequired[RequestedTermConfigurationTypeDef],
+    },
+)
+
+class CreateAgreementRequestOutputTypeDef(TypedDict):
+    agreementRequestId: str
+    chargeSummary: ChargeSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class AcceptedTermTypeDef(TypedDict):
     legalTerm: NotRequired[LegalTermTypeDef]
@@ -944,33 +1024,6 @@ class AcceptedTermTypeDef(TypedDict):
     variablePaymentTerm: NotRequired[VariablePaymentTermTypeDef]
     netPaymentTerm: NotRequired[NetPaymentTermTypeDef]
 
-class ChargeSummaryTypeDef(TypedDict):
-    currencyCode: NotRequired[str]
-    newAgreementValue: NotRequired[str]
-    newAgreementValueAfterTax: NotRequired[str]
-    expectedCharges: NotRequired[list[ExpectedChargeTypeDef]]
-    estimatedTaxes: NotRequired[EstimatedTaxesTypeDef]
-    itemizedCharges: NotRequired[list[ItemizedChargeTypeDef]]
-    invoicingEntity: NotRequired[InvoicingEntityTypeDef]
-
-RequestedTermTypeDef = TypedDict(
-    "RequestedTermTypeDef",
-    {
-        "id": str,
-        "configuration": NotRequired[RequestedTermConfigurationTypeDef],
-    },
-)
-
-class GetAgreementTermsOutputTypeDef(TypedDict):
-    acceptedTerms: list[AcceptedTermTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class CreateAgreementRequestOutputTypeDef(TypedDict):
-    agreementRequestId: str
-    chargeSummary: ChargeSummaryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class CreateAgreementRequestInputTypeDef(TypedDict):
     intent: IntentType
     requestedTerms: Sequence[RequestedTermTypeDef]
@@ -978,3 +1031,8 @@ class CreateAgreementRequestInputTypeDef(TypedDict):
     sourceAgreementIdentifier: NotRequired[str]
     agreementProposalIdentifier: NotRequired[str]
     taxConfiguration: NotRequired[TaxConfigurationTypeDef]
+
+class GetAgreementTermsOutputTypeDef(TypedDict):
+    acceptedTerms: list[AcceptedTermTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]

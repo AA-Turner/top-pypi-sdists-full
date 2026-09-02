@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "atlan-application-sdk-conformance"
+version = "0.25.0"
+description = "Conformance suite, remediation programs, and CLI for the Atlan Application SDK"
+license = "Apache-2.0"
+authors = [
+    {name = "Atlan App Team", email = "connect@atlan.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["atlan", "sdk", "conformance", "linting", "remediation"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+]
+dependencies = [
+    "pydantic>=2.10.6,<3.0.0",
+    "jsonschema>=4.23.0,<5.0.0",
+    "jinja2>=3.1.0,<4.0.0",
+    # D010 evaluates PEP 508 markers on uv.lock edges. Without this the
+    # import silently falls back to "every marker contributes", which
+    # reinstates the bug the marker check exists to fix, undetectably.
+    # Uncapped above: Marker(text).evaluate() is stable across packaging 26.x,
+    # and capping here downgrades the shared repo environment for every
+    # consumer.
+    "packaging>=24.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3.3,<10.0.0",
+    "pytest-asyncio>=1.4.0,<2.0.0",
+    # [sql] pulls duckdb, which test_p040_keyword_set_matches_pinned_duckdb
+    # needs. Without it that drift guard is permanently SKIPPED in the only job
+    # that runs this package's tests, and the P040 reserved-keyword constant
+    # could silently diverge from the DuckDB it claims to describe.
+    "atlan-application-sdk[sql]",
+]
+
+[project.scripts]
+atlan-application-sdk-conformance = "conformance.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["conformance"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+# Dev tooling. ruff is a genuine test dependency here, not only a
+# pre-commit hook: tests/test_bootstrap_scaffold_lint.py runs it over the
+# scaffolds bootstrap force-writes into consumer repos (FND-445), which
+# have to stay lint-clean under configs stricter than this repo's.
+# Pinned exactly — an unpinned linter makes that guard's verdict a
+# function of cache age rather than of the files it checks.
+[dependency-groups]
+dev = ["ruff==0.16.5"]
+
+[tool.ruff.format]
+exclude = ["conformance/bootstrap/templates/renovate.json"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["G004", "PLC0415", "F841", "T201"]
+"conformance/tools/generate_rule_docs.py" = ["E402"]

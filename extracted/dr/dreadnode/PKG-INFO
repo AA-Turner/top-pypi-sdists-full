@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreadnode
-Version: 2.0.41
+Version: 2.0.42
 Summary: Dreadnode SDK
 Project-URL: Homepage, https://dreadnode.io
 Project-URL: Documentation, https://docs.dreadnode.io
@@ -386,6 +386,11 @@ Install from PyPI:
 ```bash
 pip install -U dreadnode
 ```
+
+Installing against a self-hosted Dreadnode deployment? It serves its own installer, which
+needs no package index and pins the client to the platform's version:
+`curl -fsSL https://<your-platform-host>/docs/clients/install.sh | bash`. Your deployment's
+home page shows the exact command.
 
 With optional features:
 

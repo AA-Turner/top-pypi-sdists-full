@@ -1,0 +1,45 @@
+[tool.poetry]
+name = "flake8-import-rules"
+version = "1.0.0"
+description = ""
+authors = ["VL <1844144@gmail.com>"]
+readme = "README.md"
+
+keywords = [
+"flake8",
+"plugin",
+"linting",
+"import",
+"deprecate import"
+]
+
+classifiers = [
+  'Development Status :: 4 - Beta',
+  'Environment :: Console',
+  'Framework :: Flake8',
+  'Intended Audience :: Developers',
+  'License :: OSI Approved :: MIT License',
+  'Operating System :: OS Independent',
+  'Programming Language :: Python',
+  'Programming Language :: Python :: 3',
+  'Topic :: Software Development :: Libraries :: Python Modules',
+  'Topic :: Software Development :: Quality Assurance',
+]
+
+
+include = ["pyproject.toml", "flake8_import_rules.py", "LICENCE"]
+
+[tool.poetry.plugins."flake8.extension"]
+I013 = "flake8_import_rules:ImportRulesChecker"
+
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+

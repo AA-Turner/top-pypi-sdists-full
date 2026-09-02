@@ -1,0 +1,64 @@
+Metadata-Version: 2.4
+Name: ocdskit
+Version: 1.7.0
+Summary: A suite of command-line tools for working with OCDS data
+Author-email: Open Contracting Partnership <data@open-contracting.org>
+License: BSD
+Project-URL: Homepage, https://github.com/open-contracting/ocdskit
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: concepts
+Requires-Dist: ijson>=2.5
+Requires-Dist: jsonref
+Requires-Dist: jsonschema
+Requires-Dist: ocdsmerge>=0.6
+Requires-Dist: ocdsextensionregistry>=0.6.7
+Provides-Extra: erd
+Requires-Dist: graphviz; extra == "erd"
+Requires-Dist: scikit-learn; extra == "erd"
+Provides-Extra: perf
+Requires-Dist: jsonschema-rs; extra == "perf"
+Requires-Dist: orjson>=3; extra == "perf"
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: jsonpointer; extra == "test"
+Requires-Dist: libcove==0.32.1; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-benchmark; extra == "test"
+Dynamic: license-file
+
+|PyPI Version| |Build Status| |Coverage Status| |Python Version|
+
+A suite of command-line tools for working with OCDS data to:
+
+* create compiled releases, versioned releases and record packages
+* upgrade from an old version of OCDS to a new version
+* detect the format of an OCDS file
+* wrap releases in a release package, or records in a record package
+* combine small packages into large packages
+* split large packages into small packages
+* generate a spreadsheet version of a JSON schema
+
+.. tip::
+
+   Want to `download OCDS data <https://data.open-contracting.org/>`__? Use the `OCP Data Registry <https://data.open-contracting.org/>`__.
+
+If you are viewing this on GitHub or PyPI, open the `full documentation <https://ocdskit.readthedocs.io/>`__ for additional details.
+
+.. |PyPI Version| image:: https://img.shields.io/pypi/v/ocdskit.svg
+   :target: https://pypi.org/project/ocdskit/
+.. |Build Status| image:: https://github.com/open-contracting/ocdskit/actions/workflows/ci.yml/badge.svg
+   :target: https://github.com/open-contracting/ocdskit/actions/workflows/ci.yml
+.. |Coverage Status| image:: https://codecov.io/github/open-contracting/ocdskit/graph/badge.svg
+   :target: https://codecov.io/github/open-contracting/ocdskit
+.. |Python Version| image:: https://img.shields.io/pypi/pyversions/ocdskit.svg
+   :target: https://pypi.org/project/ocdskit/

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mistralai-workflows
-Version: 3.12.0
+Version: 3.13.0
 Summary: Mistral Workflows - Build reliable AI workflows with Python
 Project-URL: Homepage, https://mistral.ai
 Project-URL: Documentation, https://docs.mistral.ai/workflows/getting-started/introduction
@@ -19,6 +19,7 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: asynciolimiter<2.0.0,>=1.2.0
 Requires-Dist: httpx<1.0.0,>=0.27.0
 Requires-Dist: jsonpatch<2.0.0,>=1.33
+Requires-Dist: libcst<2,>=1.9.0
 Requires-Dist: mistralai<3.0.0,>=2.9.3
 Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0

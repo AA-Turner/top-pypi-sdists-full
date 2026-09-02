@@ -146,3 +146,12 @@ releases:
       - 1.2.2.yml
       - 74-fix.yml
     release_date: '2025-09-28'
+  1.2.3:
+    changes:
+      minor_changes:
+        - Declare support for Python 3.14 (https://github.com/ansible-community/antsibull-docs-parser/pull/75).
+      release_summary: Maintenance release.
+    fragments:
+      - 1.2.3.yml
+      - 75-python.yml
+    release_date: '2026-09-01'

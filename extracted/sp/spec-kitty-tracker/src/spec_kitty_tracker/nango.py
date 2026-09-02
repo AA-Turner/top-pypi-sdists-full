@@ -3,11 +3,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol, Self, cast
 
 import httpx
 
 from spec_kitty_tracker.capabilities import TrackerCapabilities
+from spec_kitty_tracker.connectors.jira import JiraTransition
+from spec_kitty_tracker.errors import CapabilityNotSupportedError
 from spec_kitty_tracker.models import (
     CanonicalIssue,
     CanonicalLink,
@@ -17,9 +19,13 @@ from spec_kitty_tracker.models import (
     SyncCheckpoint,
     TrackerEvent,
 )
-from spec_kitty_tracker.protocols import IssuePatch
+from spec_kitty_tracker.protocols import IssuePatch, TaskTrackerConnector
 
 NANGO_MANAGED_TOKEN: str = "nango-managed"
+
+
+class _JiraTransitionConnector(Protocol):
+    async def list_transitions(self, ref: ExternalRef) -> list[JiraTransition]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,9 +67,7 @@ class NangoProxyTransport(httpx.AsyncBaseTransport):
 
         proxy_url = f"{self._context.nango_base_url}/proxy{raw_path}"
 
-        headers = {
-            k: v for k, v in request.headers.items() if k.lower() not in self._STRIP_HEADERS
-        }
+        headers = {k: v for k, v in request.headers.items() if k.lower() not in self._STRIP_HEADERS}
         headers["authorization"] = f"Bearer {self._context.nango_secret_key}"
         headers["connection-id"] = self._context.connection_id
         headers["provider-config-key"] = self._context.provider_config_key
@@ -89,10 +93,11 @@ class NangoProxyAdapter:
         connector_cls: type,
         config: Any,
         context: NangoConnectionContext,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        self._transport = NangoProxyTransport(context)
+        self._transport = NangoProxyTransport(context, transport=transport)
         self._client = httpx.AsyncClient(transport=self._transport)
-        self._connector = connector_cls(config, client=self._client)
+        self._connector: TaskTrackerConnector = connector_cls(config, client=self._client)
         self.name: str = self._connector.name
 
     # --- TaskTrackerConnector delegation ---
@@ -128,9 +133,7 @@ class NangoProxyAdapter:
         *,
         idempotency_key: str | None,
     ) -> CanonicalIssue:
-        return await self._connector.update_issue(
-            ref, patch, idempotency_key=idempotency_key
-        )
+        return await self._connector.update_issue(ref, patch, idempotency_key=idempotency_key)
 
     async def transition_issue(
         self,
@@ -138,6 +141,13 @@ class NangoProxyAdapter:
         target_status: CanonicalStatus,
     ) -> CanonicalIssue:
         return await self._connector.transition_issue(ref, target_status)
+
+    async def list_transitions(self, ref: ExternalRef) -> list[JiraTransition]:
+        if self.name != "jira" or not hasattr(self._connector, "list_transitions"):
+            raise CapabilityNotSupportedError(
+                "Nango list_transitions is only supported for Jira connectors"
+            )
+        return await cast(_JiraTransitionConnector, self._connector).list_transitions(ref)
 
     async def upsert_link(self, ref: ExternalRef, link: CanonicalLink) -> None:
         return await self._connector.upsert_link(ref, link)
@@ -158,10 +168,8 @@ class NangoProxyAdapter:
         await self._client.aclose()
         await self._transport.aclose()
 
-    async def __aenter__(self) -> NangoProxyAdapter:
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(
-        self, exc_type: object, exc_val: object, exc_tb: object
-    ) -> None:
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         await self.close()

@@ -14,8 +14,18 @@ from datetime import datetime
 from typing import Any
 
 from spec_kitty_tracker.capabilities import TrackerCapabilities
-from spec_kitty_tracker.connectors.cli_runner import CommandRunner, SubprocessCommandRunner
-from spec_kitty_tracker.errors import CapabilityNotSupportedError, ConnectorRequestError, IssueNotFoundError
+from spec_kitty_tracker.connectors.cli_runner import (
+    CommandRunner,
+    SubprocessCommandRunner,
+)
+from spec_kitty_tracker.context import LocalExecutionContext
+from spec_kitty_tracker.errors import (
+    CapabilityNotSupportedError,
+    ConnectorConfigError,
+    ConnectorRequestError,
+    IssueNotFoundError,
+    IssuePayloadContractError,
+)
 from spec_kitty_tracker.mapping import parse_datetime
 from spec_kitty_tracker.models import (
     CanonicalIssue,
@@ -28,6 +38,11 @@ from spec_kitty_tracker.models import (
     SyncCheckpoint,
     TrackerEvent,
 )
+from spec_kitty_tracker.patch_contract import reject_unknown_patch_keys
+
+# A5 (TRK-M1-03): terminal transitions are host-owned; Beads never closes or
+# cancels a Bead on Tracker's behalf.
+_TERMINAL_STATUSES = frozenset({CanonicalStatus.DONE, CanonicalStatus.CANCELED})
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +50,11 @@ class BeadsConnectorConfig:
     workspace: str = "beads"
     command: str = "bd"
     cwd: str | None = None
+    # TRK-M1-02 A4: caller-supplied scope/actor context. When set, the
+    # connector requires an explicit runner (see the fail-closed rule in
+    # BeadsConnector.__init__) so a scoped context can never silently fall
+    # back to the default direct-subprocess runner.
+    context: LocalExecutionContext | None = None
 
 
 class BeadsConnector:
@@ -47,6 +67,15 @@ class BeadsConnector:
         runner: CommandRunner | None = None,
     ) -> None:
         self.config = config or BeadsConnectorConfig()
+        if self.config.context is not None and runner is None:
+            # Fail-closed (TRK-M1-01 draft D3): a scoped context must never
+            # fall back to the default direct-subprocess runner — that is
+            # exactly the prohibited bypass (ARCHITECTURE.md §2 invariant 7).
+            raise ConnectorConfigError(
+                "BeadsConnectorConfig.context is set but no runner was supplied; "
+                "a scoped context requires an explicit runner (e.g. a gateway-"
+                "backed runner), never the default direct-subprocess runner."
+            )
         self._runner = runner or SubprocessCommandRunner()
 
     async def get_capabilities(self) -> TrackerCapabilities:
@@ -61,6 +90,10 @@ class BeadsConnector:
             supports_bulk_read=True,
             supports_bulk_write=True,
             supports_delete=False,
+            # A5 (TRK-M1-03) denies assignment/terminal-transition writes
+            # unconditionally; these flags say so honestly.
+            supports_assignment=False,
+            supports_terminal_transition=False,
         )
 
     async def list_issues(
@@ -133,8 +166,8 @@ class BeadsConnector:
             command.extend(["--description", issue.body])
         if issue.parent is not None:
             command.extend(["--parent", issue.parent.id])
-        if issue.assignees:
-            command.extend(["--assignee", issue.assignees[0]])
+        # A5 (TRK-M1-03): create_issue never emits --assignee. Assignment is
+        # host-owned; Beads never assigns a Bead on Tracker's behalf.
         for label in issue.labels:
             command.extend(["--label", label])
 
@@ -160,14 +193,28 @@ class BeadsConnector:
         idempotency_key: str | None,
     ) -> CanonicalIssue:
         del idempotency_key
+        reject_unknown_patch_keys(patch, provider=self.name)
+
+        # A5 (TRK-M1-03): Beads never assigns, never performs a terminal
+        # transition, and never silently drops a key it cannot carry
+        # (custom_fields, links) -- every denial is typed and raised before
+        # any bd command is issued.
+        if "assignees" in patch:
+            raise CapabilityNotSupportedError("beads: assignment is host-owned")
+        if "custom_fields" in patch:
+            raise CapabilityNotSupportedError("beads: custom_fields is read-only")
+        if "links" in patch:
+            raise CapabilityNotSupportedError("beads: links is read-only")
+
         command = [self.config.command, "--json", "update", ref.id]
 
         if "status" in patch:
             status = patch["status"]
-            if isinstance(status, CanonicalStatus):
-                mapped_status = self._canonical_to_beads_status(status)
-            else:
-                mapped_status = self._canonical_to_beads_status(CanonicalStatus(str(status)))
+            if not isinstance(status, CanonicalStatus):
+                status = CanonicalStatus(str(status))
+            if status in _TERMINAL_STATUSES:
+                raise CapabilityNotSupportedError("beads: terminal transition is host-owned")
+            mapped_status = self._canonical_to_beads_status(status)
             command.extend(["--status", mapped_status])
 
         if "priority" in patch and patch["priority"] is not None:
@@ -184,13 +231,6 @@ class BeadsConnector:
             if not isinstance(issue_type, CanonicalIssueType):
                 issue_type = CanonicalIssueType(str(issue_type))
             command.extend(["--type", self._canonical_to_beads_type(issue_type)])
-
-        if "assignees" in patch:
-            assignees = patch["assignees"]
-            if isinstance(assignees, Sequence) and assignees:
-                command.extend(["--assignee", str(assignees[0])])
-            else:
-                command.extend(["--assignee", ""])  # unassign
 
         if "labels" in patch:
             labels = patch["labels"]
@@ -274,14 +314,30 @@ class BeadsConnector:
         return [], None
 
     def _run(self, command: Sequence[str]) -> str:
-        return self._runner.run(command, cwd=self.config.cwd)
+        # Pass-through rule (TRK-M1-02 A4): call the runner exactly as in
+        # 0.4.3 when no context is configured, so a pre-existing
+        # 0.4.3-signature runner (no `context` parameter) keeps working
+        # unchanged. Only pass `context=` when the config actually carries
+        # one.
+        if self.config.context is None:
+            return self._runner.run(command, cwd=self.config.cwd)
+        return self._runner.run(command, cwd=self.config.cwd, context=self.config.context)
 
     @staticmethod
     def _parse_json(output: str) -> Any:
         text = output.strip()
         if not text:
             return {}
-        return json.loads(text)
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            # A8 (TRK-M1-03): malformed bd JSON fails closed, never silently
+            # coerced to an empty/default payload.
+            raise IssuePayloadContractError(
+                f"Invalid JSON from bd: {exc}",
+                kind="issue",
+                reason="BD-000",
+            ) from exc
 
     def _to_canonical(
         self,
@@ -299,7 +355,9 @@ class BeadsConnector:
         parent_ref = None
         parent_value = item.get("parent")
         if isinstance(parent_value, str) and parent_value:
-            parent_ref = ExternalRef(system=self.name, workspace=self.config.workspace, id=parent_value)
+            parent_ref = ExternalRef(
+                system=self.name, workspace=self.config.workspace, id=parent_value
+            )
 
         links: list[CanonicalLink] = []
         dependencies_payload = None
@@ -312,14 +370,18 @@ class BeadsConnector:
             for dep in dependencies_payload:
                 if not isinstance(dep, Mapping):
                     continue
-                target = str(dep.get("id") or dep.get("depends_on_id") or dep.get("dependsOnId") or "")
+                target = str(
+                    dep.get("id") or dep.get("depends_on_id") or dep.get("dependsOnId") or ""
+                )
                 if not target:
                     continue
                 dep_type = str(dep.get("dependency_type") or dep.get("type") or "blocks")
                 links.append(
                     CanonicalLink(
                         type=self._beads_dependency_to_link(dep_type),
-                        target=ExternalRef(system=self.name, workspace=self.config.workspace, id=target),
+                        target=ExternalRef(
+                            system=self.name, workspace=self.config.workspace, id=target
+                        ),
                     )
                 )
 
@@ -334,15 +396,35 @@ class BeadsConnector:
         if details:
             raw["details"] = dict(details)
 
+        # A8 (TRK-M1-03): id/title are required and never guessed. A missing
+        # or empty value fails closed instead of silently becoming "" or
+        # "Untitled".
+        raw_id = item.get("id")
+        if not isinstance(raw_id, str) or not raw_id.strip():
+            raise IssuePayloadContractError(
+                "Beads issue payload missing a non-empty id",
+                kind="issue",
+                field_path="id",
+                reason="BD-001",
+            )
+        raw_title = item.get("title")
+        if not isinstance(raw_title, str) or not raw_title.strip():
+            raise IssuePayloadContractError(
+                "Beads issue payload missing a non-empty title",
+                kind="issue",
+                field_path="title",
+                reason="BD-002",
+            )
+
         return CanonicalIssue(
             ref=ExternalRef(
                 system=self.name,
                 workspace=self.config.workspace,
-                id=str(item.get("id") or ""),
-                key=str(item.get("id") or ""),
+                id=raw_id,
+                key=raw_id,
                 url=str(external_ref) if isinstance(external_ref, str) and external_ref else None,
             ),
-            title=str(item.get("title") or "Untitled"),
+            title=raw_title,
             body=str(item.get("description")) if item.get("description") else None,
             status=self._beads_to_canonical_status(str(item.get("status") or "open")),
             issue_type=self._beads_to_canonical_type(str(item.get("issue_type") or "task")),
@@ -395,7 +477,16 @@ class BeadsConnector:
             "pinned": CanonicalStatus.IN_PROGRESS,
             "tombstone": CanonicalStatus.CANCELED,
         }
-        return mapping.get(value, CanonicalStatus.TODO)
+        # A8 (TRK-M1-03): an out-of-vocabulary status fails closed rather
+        # than silently defaulting to TODO.
+        if value not in mapping:
+            raise IssuePayloadContractError(
+                f"Unknown Beads status: {status!r}",
+                kind="issue",
+                field_path="status",
+                reason="BD-003",
+            )
+        return mapping[value]
 
     @staticmethod
     def _canonical_to_beads_status(status: CanonicalStatus) -> str:
@@ -420,7 +511,16 @@ class BeadsConnector:
             "chore": CanonicalIssueType.CHORE,
             "decision": CanonicalIssueType.CHORE,
         }
-        return mapping.get(normalized, CanonicalIssueType.TASK)
+        # A8 (TRK-M1-03): an out-of-vocabulary issue type fails closed
+        # rather than silently defaulting to TASK.
+        if normalized not in mapping:
+            raise IssuePayloadContractError(
+                f"Unknown Beads issue_type: {value!r}",
+                kind="issue",
+                field_path="issue_type",
+                reason="BD-004",
+            )
+        return mapping[normalized]
 
     @staticmethod
     def _canonical_to_beads_type(issue_type: CanonicalIssueType) -> str:
@@ -447,4 +547,11 @@ class BeadsConnector:
             return LinkType.CHILD_OF
         if normalized == "discovered-from":
             return LinkType.RELATES_TO
-        return LinkType.BLOCKED_BY
+        # A8 (TRK-M1-03): an unknown dependency type fails closed rather
+        # than silently defaulting to BLOCKED_BY.
+        raise IssuePayloadContractError(
+            f"Unknown Beads dependency_type: {dep_type!r}",
+            kind="issue",
+            field_path="dependencies[].dependency_type",
+            reason="BD-005",
+        )

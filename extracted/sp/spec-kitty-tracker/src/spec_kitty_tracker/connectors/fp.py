@@ -14,8 +14,17 @@ from datetime import datetime
 from typing import Any
 
 from spec_kitty_tracker.capabilities import TrackerCapabilities
-from spec_kitty_tracker.connectors.cli_runner import CommandRunner, SubprocessCommandRunner
-from spec_kitty_tracker.errors import CapabilityNotSupportedError, ConnectorRequestError, IssueNotFoundError
+from spec_kitty_tracker.connectors.cli_runner import (
+    CommandRunner,
+    SubprocessCommandRunner,
+)
+from spec_kitty_tracker.context import LocalExecutionContext
+from spec_kitty_tracker.errors import (
+    CapabilityNotSupportedError,
+    ConnectorConfigError,
+    ConnectorRequestError,
+    IssueNotFoundError,
+)
 from spec_kitty_tracker.models import (
     CanonicalIssue,
     CanonicalIssueType,
@@ -27,7 +36,7 @@ from spec_kitty_tracker.models import (
     SyncCheckpoint,
     TrackerEvent,
 )
-
+from spec_kitty_tracker.patch_contract import reject_unknown_patch_keys
 
 ISSUE_LINE_RE = re.compile(
     r"^(?P<id>[A-Za-z0-9_-]+)\s+\[(?P<status>[^\]]+)\](?:\s+\[(?P<priority>[^\]]+)\])?\s+(?P<title>.+)$"
@@ -40,6 +49,9 @@ class FPConnectorConfig:
     command: str = "fp"
     cwd: str | None = None
     default_issue_type: CanonicalIssueType = CanonicalIssueType.TASK
+    # TRK-M1-02 A4: caller-supplied scope/actor context. See
+    # BeadsConnectorConfig.context for the fail-closed rationale.
+    context: LocalExecutionContext | None = None
 
 
 class FPConnector:
@@ -59,6 +71,13 @@ class FPConnector:
         runner: CommandRunner | None = None,
     ) -> None:
         self.config = config or FPConnectorConfig()
+        if self.config.context is not None and runner is None:
+            # Fail-closed (TRK-M1-01 draft D3): see BeadsConnector.__init__.
+            raise ConnectorConfigError(
+                "FPConnectorConfig.context is set but no runner was supplied; "
+                "a scoped context requires an explicit runner (e.g. a gateway-"
+                "backed runner), never the default direct-subprocess runner."
+            )
         self._runner = runner or SubprocessCommandRunner()
 
     async def get_capabilities(self) -> TrackerCapabilities:
@@ -73,6 +92,8 @@ class FPConnector:
             supports_bulk_read=False,
             supports_bulk_write=False,
             supports_delete=False,
+            supports_assignment=False,
+            supports_terminal_transition=False,
         )
 
     async def list_issues(
@@ -131,7 +152,11 @@ class FPConnector:
         if issue.priority is not None:
             command.extend(["--priority", self._priority_to_fp(issue.priority)])
 
-        depends = [link.target.id for link in issue.links if link.type in {LinkType.BLOCKED_BY, LinkType.RELATES_TO}]
+        depends = [
+            link.target.id
+            for link in issue.links
+            if link.type in {LinkType.BLOCKED_BY, LinkType.RELATES_TO}
+        ]
         if depends:
             command.extend(["--depends", ",".join(depends)])
 
@@ -160,6 +185,7 @@ class FPConnector:
         idempotency_key: str | None,
     ) -> CanonicalIssue:
         del idempotency_key
+        reject_unknown_patch_keys(patch, provider=self.name)
 
         unsupported = {"assignees", "custom_fields", "labels", "issue_type", "parent"}
         unsupported_keys = unsupported.intersection(patch.keys())
@@ -247,7 +273,10 @@ class FPConnector:
         return [], None
 
     def _run(self, command: Sequence[str]) -> str:
-        return self._runner.run(command, cwd=self.config.cwd)
+        # Pass-through rule (TRK-M1-02 A4): see BeadsConnector._run.
+        if self.config.context is None:
+            return self._runner.run(command, cwd=self.config.cwd)
+        return self._runner.run(command, cwd=self.config.cwd, context=self.config.context)
 
     def _parse_issue_lines(self, text: str) -> list[CanonicalIssue]:
         issues: list[CanonicalIssue] = []
@@ -275,7 +304,9 @@ class FPConnector:
             return None
 
         return CanonicalIssue(
-            ref=ExternalRef(system=self.name, workspace=self.config.workspace, id=issue_id, key=issue_id),
+            ref=ExternalRef(
+                system=self.name, workspace=self.config.workspace, id=issue_id, key=issue_id
+            ),
             title=issue_id,
             body=None,
             status=CanonicalStatus.TODO,

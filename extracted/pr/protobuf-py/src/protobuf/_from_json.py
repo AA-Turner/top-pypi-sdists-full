@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import math
 from base64 import b64decode
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Literal, TypeVar, cast
+
+from typing_extensions import assert_never
 
 from ._descriptors import (
     DescEnum,
@@ -28,13 +30,10 @@ from ._descriptors import (
     DescFieldValueMap,
     DescFieldValueMessage,
     DescFieldValueScalar,
-    DescFieldValueSingular,
     DescMessage,
-    DescOneof,
     ScalarType,
 )
 from ._oneof import Oneof
-from ._typing import JsonValue, assert_never
 from ._validate import (
     FLOAT32_MAX,
     FLOAT32_MIN,
@@ -45,6 +44,7 @@ from ._validate import (
     UINT32_MAX,
     UINT64_MAX,
 )
+from ._wire._binary_reader import DEPTH_LIMIT
 from ._wkt_registry import (
     WktListValue,
     WktStruct,
@@ -58,15 +58,26 @@ if TYPE_CHECKING:
     from ._enum import Enum
     from ._message import Message
     from ._registry import Registry
+    from ._typing import JsonValue
     from .wkt import ListValue, NullValue, Struct, Value
 
     T = TypeVar("T", bound=Message)
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class FromJsonOptions:
     ignore_unknown_fields: bool
     registry: Registry | None
+    depth: int = 0
+    """Current message nesting depth. Mutated during a parse."""
+
+
+def _enter_message(opts: FromJsonOptions) -> FromJsonOptions:
+    opts = replace(opts, depth=opts.depth + 1)
+    if opts.depth > DEPTH_LIMIT:
+        msg = f"exceeded maximum recursion depth {DEPTH_LIMIT} while parsing message"
+        raise RecursionError(msg)
+    return opts
 
 
 def merge_from_json(
@@ -105,6 +116,11 @@ def merge_from_json(
 
 
 def _read_message(msg: Message, json: JsonValue, opts: FromJsonOptions) -> None:
+    opts = _enter_message(opts)
+    _read_message_inner(msg, json, opts)
+
+
+def _read_message_inner(msg: Message, json: JsonValue, opts: FromJsonOptions) -> None:
     if _try_wkt_from_json(msg, json, opts):
         return
     if not isinstance(json, dict):
@@ -112,24 +128,23 @@ def _read_message(msg: Message, json: JsonValue, opts: FromJsonOptions) -> None:
         raise TypeError(err)
 
     desc = msg.__class__._desc
-    seen_oneofs = dict[DescOneof, DescField]()
-    seen_fields = dict[DescField, str]()
+    # A field can be named twice by its proto name and its JSON name (identical
+    # keys are already collapsed to the last value by json.loads). Duplicates
+    # are last-in-wins, so reset the field before applying a later occurrence.
+    seen = set[DescField]()
     for key, value in json.items():
         field = desc._fields_by_json_name.get(key)
         if field:
-            if seen := seen_fields.get(field):
-                err = f"field set multiple times by {seen} and {key}"
-                raise ValueError(err)
-            seen_fields[field] = key
             field_value = field.value
-            if isinstance(field_value, DescFieldValueSingular) and field_value.oneof:
-                if value is None and isinstance(field_value, DescFieldValueScalar):
-                    continue
-                seen = seen_oneofs.get(field_value.oneof)
-                if seen:
-                    err = f"oneof set multiple times by {seen.name} and {field.name}"
-                    raise ValueError(err)
-                seen_oneofs[field_value.oneof] = field
+            if (
+                isinstance(field_value, DescFieldValueScalar)
+                and field_value.oneof
+                and value is None
+            ):
+                continue
+            if field in seen:
+                _reset_duplicate_field(msg, field)
+            seen.add(field)
             _read_field(msg, field, value, opts)
         else:
             extension = None
@@ -146,6 +161,17 @@ def _read_message(msg: Message, json: JsonValue, opts: FromJsonOptions) -> None:
                     f"cannot decode {desc.type_name} from JSON: key: '{key}' is unknown"
                 )
                 raise ValueError(err)
+
+
+def _reset_duplicate_field(msg: Message, field: DescField) -> None:
+    """Clears a field so a duplicate JSON key replaces it instead of merging."""
+    match field.value:
+        case DescFieldValueList() | DescFieldValueMap():
+            msg._get_member(field).clear()
+        case DescFieldValueMessage() if not field.value.oneof:
+            msg._del_member(field)
+        case _:
+            pass
 
 
 def _read_field(
@@ -380,6 +406,8 @@ def _read_enum(
     if isinstance(json, str):
         if value := desc._values_by_name.get(json):
             return desc.type(value.number)
+        if value := desc._values_by_json_name.get(json):
+            return desc.type(value.number)
         if ignore_unknown_fields:
             return None
 
@@ -605,6 +633,15 @@ def _list_value_from_json(
 def _value_from_json(
     msg: Value, json: JsonValue, opts: FromJsonOptions, wkt: WktValue
 ) -> None:
+    # Struct/ListValue nesting recurses through here once per JSON level
+    # without passing through _read_message, so count the depth here too.
+    opts = _enter_message(opts)
+    _value_from_json_inner(msg, json, opts, wkt)
+
+
+def _value_from_json_inner(
+    msg: Value, json: JsonValue, opts: FromJsonOptions, wkt: WktValue
+) -> None:
     match json:
         case None:
             msg.kind = Oneof(
@@ -632,24 +669,6 @@ def _value_from_json(
             msg.kind = Oneof("struct_value", struct)
         case _:
             assert_never(json)
-
-
-def _no_duplicates(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
-    """Reject duplicate JSON keys at parse time via json.loads object_pairs_hook.
-
-    This is needed in addition to the seen_fields check in _read_message
-    because a single proto field can have two distinct JSON keys (its proto
-    name and its json_name). seen_fields catches that case, but it cannot
-    catch two identical JSON keys that map to the same dict entry, since
-    Python's default JSON parser silently keeps only the last value.
-    """
-    obj: dict[str, JsonValue] = {}
-    for k, v in pairs:
-        if k in obj:
-            msg = f"duplicate key: {k}"
-            raise ValueError(msg)
-        obj[k] = v
-    return obj
 
 
 def message_from_json_value(

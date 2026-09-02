@@ -1,0 +1,60 @@
+# PR Scheduler — Round-Robin Eligible PR Dispatch
+#
+# Triggered by workflow_dispatch only. The continuous loop is driven by
+# ai-pr-loop-redispatch.yml which dispatches this workflow after each
+# ai-pr-loop run. ai-pr-loop-dispatcher cold-starts the loop on PR events.
+#
+# Selects up to AI_PR_LOOP_DISPATCH_BATCH_SIZE PRs per cycle using
+# round-robin scheduling (cycles through the AI_PR_LOOP_ELIGIBLE_PR_LIMIT
+# oldest eligible open PRs).
+#
+# Configuration (repository variables):
+#   AI_PR_LOOP_DISPATCH_BATCH_SIZE — PRs per cycle (default: 1, max: 100). Widening it shortens the same-PR revisit interval; keep it <= AI_PR_LOOP_ELIGIBLE_PR_LIMIT.
+#   AI_PR_LOOP_ELIGIBLE_PR_LIMIT  — oldest N PRs to cycle through (default: 1, max: 100)
+#   AI_PR_LOOP_LAST_DISPATCHED_PR  — auto-managed cursor (do not edit)
+#
+# Optional secret: REPO_VARIABLE_WRITER_PAT (Fine-grained PAT, Variables: R/W, Actions: write)
+# Related: ai-pr-loop.yml, ai-pr-loop-redispatch.yml, ai-pr-loop-dispatcher.yml
+name: AI PR Loop Throttler
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  schedule-next-pr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    concurrency:
+      group: ai-pr-loop-throttler
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - uses: astral-sh/setup-uv@v4
+        continue-on-error: true
+        with:
+          version: "0.7 - 0.11"
+          enable-cache: true
+          cache-dependency-glob: 'pyproject.toml'
+      - name: Install agentic-devtools
+        run: |
+          if command -v uv >/dev/null 2>&1; then
+            uv pip install --system .
+          else
+            python -m pip install --upgrade pip
+            python -m pip install .
+          fi
+      - name: Select and dispatch next PR(s)
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
+          REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          DRY_RUN: ${{ vars.AGENT_MONITOR_DRY_RUN || '' }}
+        run: agdt-ai-pr-loop-scheduler

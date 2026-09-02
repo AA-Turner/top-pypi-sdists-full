@@ -1,0 +1,17 @@
+# AUTO-GENERATED from contract/app.pkl — DO NOT EDIT MANUALLY.
+# To regenerate: pkl eval -m . contract/app.pkl
+name: connection-ref
+display_name: ConnectionRef Example
+type: connector
+execution_mode: native
+icon_url: https://assets.atlan.com/assets/trino.svg
+visibility: public
+build_tag: v1
+self_deployed_runtime: true
+entrypoints:
+- name: connection-ref
+  display_name: ConnectionRef Example
+  icon_url: https://assets.atlan.com/assets/trino.svg
+  type: connector
+  package_id: '@atlan/connection-ref'
+  marketplace_card: true

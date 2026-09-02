@@ -1,0 +1,764 @@
+# pyright: reportPrivateUsage=false
+import asyncio
+import random
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, Any, Coroutine, Sequence, Type, TypeVar
+
+from deprecated import deprecated
+from nanoid import generate
+from pydantic import BaseModel, Field
+
+from ._exceptions import ApiError, BadRequestError, ToolCallError
+from ._proxy import FRPProxy, ProxyConfig
+from ._telemetry import Telemetry, track
+from ._utils import encode_url, logger
+from .models import (
+  ActionCloseResponse,
+  ActionEvaluateJSResponse,
+  ActionExtractResponse,
+  ActionGotoResponse,
+  ActionRunTaskResponse,
+  BrowserSessionResponse,
+  Secret,
+  TaskEvent,
+  TaskResponse,
+  TaskUpdateRequest,
+)
+
+if TYPE_CHECKING:
+  from ._client import SmoothAsyncClient, SmoothClient
+  from ._tools import AsyncSmoothTool, SmoothTool
+
+T = TypeVar("T")
+
+
+class BaseTaskHandle:
+  """A handle to a running task."""
+
+  def __init__(self, task_id: str):
+    """Initializes the task handle."""
+    self._id = task_id
+    self._task_response = None
+
+  def id(self):
+    """Returns the task ID."""
+    return self._id
+
+
+class AsyncTaskHandle(BaseTaskHandle):
+  """An asynchronous handle to a running task."""
+
+  def __init__(
+    self,
+    task_id: str,
+    client: "SmoothAsyncClient",
+    tools: Sequence["AsyncSmoothTool"] | None = None,
+    task_handle: Any | None = None,
+  ):
+    """Initializes the asynchronous task handle."""
+    super().__init__(task_id)
+    self._client = client
+    self._tools = {tool.name: tool for tool in (tools or [])}
+    self._task_handle = task_handle or self  # Use to pass the correct handle to tools
+    # Polling
+    self._is_alive = 0
+    self._poll_interval = 1.0
+    self._polling_task: asyncio.Task[Any] | None = None
+
+    # Events
+    self._last_event_t = 0
+    self._event_futures: dict[str, asyncio.Future[Any]] = {}
+    self._tool_tasks: dict[str, asyncio.Task[Any]] = {}
+
+    # Proxy
+    self._proxy: FRPProxy | None = None
+
+  # --- Task Methods ---
+
+  @deprecated("stop is deprecated")
+  async def stop(self):
+    """Stops the task."""
+    await self._client._delete_task(self._id)
+
+  async def result(self, timeout: int | None = None, poll_interval: float | None = None):
+    """Waits for the task to complete and returns the result."""
+    if timeout is not None and timeout < 1:
+      raise ValueError("Timeout must be at least 1 second.")
+
+    if poll_interval is not None:
+      logger.warning("poll_interval is deprecated.")
+
+    loop = asyncio.get_running_loop()
+    async with self._connection():
+      start_time = loop.time()
+      while timeout is None or (loop.time() - start_time) < timeout:
+        if self._task_response and self._task_response.status not in ["running", "waiting"]:
+          return self._task_response
+
+        await asyncio.sleep(0.2)
+      raise TimeoutError(f"Task {self.id()} did not complete within {timeout} seconds.")
+
+  async def live_url(self, interactive: bool = True, embed: bool = False, timeout: int | None = 60):
+    """Returns the live URL for the task."""
+    if self._task_response and self._task_response.status not in ["waiting", "running"]:
+      raise BadRequestError(f"Live URL not available for task {self.id()} as it is {self._task_response.status}.")
+
+    if self._task_response and self._task_response.live_url is not None:
+      return encode_url(self._task_response.live_url, interactive=interactive, embed=embed)
+
+    loop = asyncio.get_running_loop()
+    async with self._connection():
+      start_time = loop.time()
+      while timeout is None or (loop.time() - start_time) < timeout:
+        if self._task_response:
+          if self._task_response.status not in ["waiting", "running"]:
+            raise BadRequestError(f"Live URL not available for task {self.id()} as it is {self._task_response.status}.")
+          if self._task_response.live_url:
+            return encode_url(self._task_response.live_url, interactive=interactive, embed=embed)
+        await asyncio.sleep(0.2)
+
+    raise TimeoutError(f"Live URL not available for task {self.id()}.")
+
+  async def recording_url(self, timeout: int | None = 30) -> str:
+    """Returns the recording URL for the task."""
+    if self._task_response and self._task_response.recording_url is not None:
+      return self._task_response.recording_url
+
+    loop = asyncio.get_running_loop()
+    start_time = loop.time()
+
+    # If the task is already done, poll the API directly without starting a new poller
+    if self._task_response and self._task_response.status not in ["waiting", "running"]:
+      while timeout is None or (loop.time() - start_time) < timeout:
+        task_response = await self._client._get_task(self.id())
+        if task_response.recording_url is not None:
+          if not task_response.recording_url:
+            raise ApiError(
+              status_code=404,
+              detail=(
+                f"Recording URL not available for task {self.id()}."
+                " Set `enable_recording=True` when creating the task to enable it."
+              ),
+            )
+          return task_response.recording_url
+        await asyncio.sleep(0.8)
+      raise TimeoutError(f"Recording URL not available for task {self.id()}.")
+
+    # Task is still running - use poller to wait for updates
+    async with self._connection():
+      while timeout is None or (loop.time() - start_time) < timeout:
+        if self._task_response and self._task_response.recording_url is not None:
+          if not self._task_response.recording_url:
+            raise ApiError(
+              status_code=404,
+              detail=(
+                f"Recording URL not available for task {self.id()}."
+                " Set `enable_recording=True` when creating the task to enable it."
+              ),
+            )
+          return self._task_response.recording_url
+        # If task completed while we were waiting, switch to direct polling
+        if self._task_response and self._task_response.status not in ["waiting", "running"]:
+          break
+        await asyncio.sleep(0.2)
+
+    # Task completed but recording_url not yet available - poll API directly for remaining time
+    while timeout is None or (loop.time() - start_time) < timeout:
+      task_response = await self._client._get_task(self.id())
+      if task_response.recording_url is not None:
+        if not task_response.recording_url:
+          raise ApiError(
+            status_code=404,
+            detail=(
+              f"Recording URL not available for task {self.id()}."
+              " Set `enable_recording=True` when creating the task to enable it."
+            ),
+          )
+        return task_response.recording_url
+      await asyncio.sleep(0.8)
+
+    raise TimeoutError(f"Recording URL not available for task {self.id()}.")
+
+  async def downloads_url(self, timeout: int | None = 30) -> str:
+    """Returns the downloads URL for the task."""
+    if self._task_response and self._task_response.downloads_url is not None:
+      return self._task_response.downloads_url
+
+    loop = asyncio.get_running_loop()
+    start_time = loop.time()
+
+    async def _poll_downloads_url() -> str:
+      """Poll the API directly for the downloads URL."""
+      while timeout is None or (loop.time() - start_time) < timeout:
+        task_response = await self._client._get_task(self.id(), query_params={"downloads": "true"})
+        if task_response.downloads_url is not None:
+          if not task_response.downloads_url:
+            raise ApiError(
+              status_code=404,
+              detail=(
+                f"Downloads URL not available for task {self.id()}."
+                " Make sure the task downloaded files during its execution."
+              ),
+            )
+          return task_response.downloads_url
+        await asyncio.sleep(0.8)
+      raise TimeoutError(f"Downloads URL not available for task {self.id()}.")
+
+    # If the task is already done, poll the API directly without starting a new poller
+    if self._task_response and self._task_response.status not in ["waiting", "running"]:
+      return await _poll_downloads_url()
+
+    # Task is still running - use poller to wait for completion
+    async with self._connection():
+      while timeout is None or (loop.time() - start_time) < timeout:
+        if self._task_response and self._task_response.status not in ["waiting", "running"]:
+          break
+        await asyncio.sleep(0.2)
+
+    # Task completed - poll API directly for the downloads URL
+    return await _poll_downloads_url()
+
+  # --- Proxy Methods ---
+
+  def _start_proxy(self, server_url: str, token: str) -> None:
+    """Start a proxy tunnel for this task/session.
+
+    Args:
+        server_url: IP address of the FRP server.
+        token: Authentication token for the FRP server.
+
+    Raises:
+        RuntimeError: If a proxy is already running for this handle.
+    """
+    if self._proxy is not None and self._proxy.is_running:
+      raise RuntimeError(f"Proxy for task {self._id} is already running")
+
+    config = ProxyConfig(
+      server_url=server_url,
+      token=token,
+      session_id=self._id,
+    )
+    self._proxy = FRPProxy(config)
+    self._proxy.start()
+
+  def _stop_proxy(self) -> None:
+    """Stop the proxy tunnel for this task/session."""
+    if self._proxy is not None:
+      self._proxy.stop()
+      self._proxy = None
+
+  @property
+  def _has_proxy(self) -> bool:
+    """Check if a proxy is currently running for this handle."""
+    return self._proxy is not None and self._proxy.is_running
+
+  # --- Private Methods ---
+
+  async def _connect(self):
+    # We use a counter to keep track of how many clients requested a connection
+    # so we know to (i) start polling only once, and (ii) stop polling only when all clients have disconnected
+    self._is_alive += 1
+
+    if self._is_alive != 1:
+      return
+
+    async def _run_tool(fn: Coroutine[Any, Any, Any], event_id: str) -> Any:
+      try:
+        return await fn
+      except asyncio.CancelledError:
+        raise
+      finally:
+        self._tool_tasks.pop(event_id, None)
+
+    self._task_response = await self._client._get_task(self.id(), query_params={"event_t": self._last_event_t})
+
+    async def _poller():
+      poller_id = generate()
+      consecutive_failures = 0
+      max_retries = 5
+      try:
+        logger.debug(f"Starting poller {poller_id} for task {self.id()}")
+        try:
+          while self._is_alive > 0:
+            logger.debug(f"{poller_id} - polling")
+            await asyncio.sleep(self._poll_interval)
+
+            try:
+              task_response = await self._client._get_task(self.id(), query_params={"event_t": self._last_event_t})
+            except ApiError as e:
+              if e.status_code != 0:
+                raise
+              consecutive_failures += 1
+              if consecutive_failures > max_retries:
+                raise
+              backoff = min(2 ** (consecutive_failures - 1), 16)
+              logger.warning("Poller %s transient error (attempt %d/%d), retrying in %ds: %s", poller_id, consecutive_failures, max_retries, backoff, e)
+              await asyncio.sleep(backoff)
+              continue
+            consecutive_failures = 0
+            self._task_response = task_response
+
+            if task_response.status not in ["running", "waiting"]:
+              logger.debug("Poller %s for task %s: task completed with status %s", poller_id, self.id(), task_response.status)
+              break
+            elif task_response.events:
+              self._last_event_t = task_response.events[-1].timestamp or self._last_event_t
+              for event in task_response.events:
+                if not event.id:
+                  continue
+                if event.name == "tool_call" and (tool := self._tools.get(event.payload.get("name", ""))) is not None:
+                  self._tool_tasks[event.id] = asyncio.create_task(
+                    _run_tool(tool(self._task_handle, event.id, **event.payload.get("input", {})), event.id)
+                  )
+                elif event.name in ["browser_action", "session_action"]:
+                  future = self._event_futures.get(event.id)
+                  if future and not future.done():
+                    self._event_futures.pop(event.id, None)
+                    code = event.payload.get("code")
+                    if code == 200:
+                      future.set_result(event.payload.get("output"))
+                    elif code == 400:
+                      future.set_exception(ToolCallError(event.payload.get("output", "Unknown error.")))
+                    elif code == 500:
+                      future.set_exception(RuntimeError(event.payload.get("output", "Unknown error.")))
+
+            for task in self._tool_tasks.values():
+              if task.done():
+                await task
+        except asyncio.CancelledError:
+          logger.debug("Poller %s for task %s cancelled", poller_id, self.id())
+          raise
+
+        # Task completed gracefully - stop polling but keep _task_response intact
+        self._is_alive = 0
+        for future in self._event_futures.values():
+          if not future.done():
+            future.cancel()
+        self._event_futures.clear()
+        for task in self._tool_tasks.values():
+          if not task.done():
+            task.cancel()
+        self._tool_tasks.clear()
+        logger.debug("Poller %s for task %s finished: task completed", poller_id, self.id())
+      except Exception as e:
+        self._is_alive = 0
+
+        # Stop all pending futures with the error
+        for future in self._event_futures.values():
+          if not future.done():
+            future.set_exception(e)
+        self._event_futures.clear()
+
+        # Cancel all running tool tasks
+        for task in self._tool_tasks.values():
+          if not task.done():
+            task.cancel()
+        self._tool_tasks.clear()
+
+        logger.error("Poller %s for task %s failed: %s", poller_id, self.id(), e)
+      logger.debug("Poller %s for task %s stopped", poller_id, self.id())
+
+    await asyncio.sleep(random.uniform(0, self._poll_interval))  # Stagger pollers
+    self._polling_task = asyncio.create_task(_poller())
+    self._polling_task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
+
+  def _disconnect(self, force: bool = False):
+    """Disconnects the task handle from the task."""
+    self._is_alive = 0 if self._is_alive < 1 else self._is_alive - 1
+    if self._is_alive == 0 and self._polling_task and not self._polling_task.done():
+      self._polling_task.cancel()
+
+    # Useful to terminate any polling and avoid dangling requests
+    if force is True and self._task_response:
+      self._task_response.status = "cancelled"
+
+  @asynccontextmanager
+  async def _connection(self):
+    """Context manager to connect to the task."""
+    await self._connect()
+    try:
+      yield self
+    finally:
+      self._disconnect()
+
+  # --- Deprecated Methods ---
+
+  @deprecated("update is deprecated, use send_event instead")
+  async def update(self, payload: TaskUpdateRequest) -> bool:
+    """Updates a running task with user input."""
+    return await self._client._update_task(self._id, payload)
+
+
+if TYPE_CHECKING:
+  _BaseAsyncTaskHandleEx = AsyncTaskHandle
+else:
+  _BaseAsyncTaskHandleEx = object
+
+
+class AsyncTaskHandleEx(_BaseAsyncTaskHandleEx):
+  def __init__(self, handle: AsyncTaskHandle):
+    self._handle = handle
+
+  def __getattr__(self, name: str):
+    return getattr(self._handle, name)
+
+  # --- Action Methods ---
+
+  @track("session.goto", properties_fn=lambda a, kw: {"url": kw.get("url") or (a[1] if len(a) > 1 else None)})
+  async def goto(self, url: str):
+    """Navigates to the given URL."""
+    event = TaskEvent(
+      name="browser_action",
+      payload={
+        "name": "goto",
+        "input": {"url": url},
+      },
+    )
+    return ActionGotoResponse(**((await self._send_event(event, has_result=True)) or {}))  # type: ignore
+
+  @track("session.extract", properties_fn=lambda a, kw: {"prompt": kw.get("prompt") or (a[2] if len(a) > 2 else None)})
+  async def extract(self, schema: dict[str, Any], prompt: str | None = None):
+    """Extracts from the given URL."""
+    event = TaskEvent(
+      name="browser_action",
+      payload={
+        "name": "extract",
+        "input": {
+          "schema": schema,
+          "prompt": prompt,
+        },
+      },
+    )
+    return ActionExtractResponse(**((await self._send_event(event, has_result=True)) or {}))  # type: ignore
+
+  @track(
+    "session.evaluate_js",
+    properties_fn=lambda a, kw: {
+      "code": kw.get("code") or (a[1] if len(a) > 1 else None),
+      "has_args": (kw.get("args") or (a[2] if len(a) > 2 else None)) is not None,
+    },
+  )
+  async def evaluate_js(self, code: str, args: dict[str, Any] | None = None):
+    """Executes JavaScript code in the browser context."""
+    event = TaskEvent(
+      name="browser_action",
+      payload={
+        "name": "evaluate_js",
+        "input": {
+          "js": code,
+          "args": args,
+        },
+      },
+    )
+    return ActionEvaluateJSResponse(**((await self._send_event(event, has_result=True)) or {}))  # type: ignore
+
+  # --- Private Methods ---
+
+  async def _send_event(self, event: TaskEvent, has_result: bool = False) -> Any | None:
+    """Sends an event to a running task."""
+    event.id = event.id or generate()
+    if has_result:
+      future = asyncio.get_running_loop().create_future()
+      self._event_futures[event.id] = future
+
+      await self._client._send_task_event(self._id, event)
+      async with self._connection():
+        return await future
+    else:
+      await self._client._send_task_event(self._id, event)
+      return None
+
+  # --- Deprecated Methods ---
+
+  @deprecated("exec_js is deprecated, use evaluate_js instead")
+  async def exec_js(self, code: str, args: dict[str, Any] | None = None) -> asyncio.Future[Any]:
+    """Executes JavaScript code in the browser context."""
+    event = TaskEvent(
+      name="browser_action",
+      payload={
+        "name": "exec_js",
+        "input": {
+          "js": code,
+          "args": args,
+        },
+      },
+    )
+    # TODO: This is non-blocking for backward compatibility (old _send_event)
+    event.id = event.id or generate()
+    future = asyncio.get_running_loop().create_future()
+    self._event_futures[event.id] = future
+
+    asyncio.create_task(self._client._send_task_event(self._id, event))
+    return future
+
+
+class AsyncSessionHandle(AsyncTaskHandleEx):
+  """A handle to an open browser session."""
+
+  def __init__(self, task_id: str, client: "SmoothAsyncClient", tools: Sequence["AsyncSmoothTool"] | None = None):
+    """Initializes the task handle."""
+    super().__init__(AsyncTaskHandle(task_id, client, tools))
+    self._closed = False
+
+  async def __aenter__(self):
+    """Enters the context manager."""
+    await self._connect()
+    return self
+
+  async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any):
+    """Exits the context manager."""
+    await self.close(force=True)
+
+  # --- Session Methods ---
+
+  async def close(self, force: bool = True):
+    """Closes the session."""
+    import time as _time
+
+    start = _time.monotonic()
+    self._closed = True
+    try:
+      if not force:
+        event = TaskEvent(
+          name="session_action",
+          payload={
+            "name": "close",
+          },
+        )
+        try:
+          r = ActionCloseResponse(**((await self._send_event(event, has_result=True)) or {}))  # type: ignore
+        except RuntimeError:
+          # A runtime error means that the session was successfully closed and polling stopped
+          r = ActionCloseResponse(output=True, credits_used=0, duration=0)
+      else:
+        await self._client._delete_task(self._id)
+        r = ActionCloseResponse(output=True, credits_used=0, duration=0)
+      if r.output:
+        # Stop polling
+        self._disconnect(force)
+        # Stop proxy if running
+        self._stop_proxy()
+
+      Telemetry.get().record("session.close", properties={"force": force}, duration_ms=(_time.monotonic() - start) * 1000)
+      return r.output
+    except Exception as e:
+      Telemetry.get().record(
+        "session.close",
+        properties={"force": force},
+        duration_ms=(_time.monotonic() - start) * 1000,
+        error=str(e),
+        error_type=type(e).__name__,
+      )
+      raise
+
+  @track(
+    "session.run_task",
+    properties_fn=lambda a, kw: {
+      "task": kw.get("task") or (a[1] if len(a) > 1 else None),
+      "max_steps": kw.get("max_steps", 32),
+      "has_response_model": kw.get("response_model") is not None,
+      "url": kw.get("url"),
+    },
+  )
+  async def run_task(
+    self,
+    task: str,
+    max_steps: int = 32,
+    response_model: dict[str, Any] | Type[BaseModel] | None = None,
+    url: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    secrets: dict[str, Secret] | None = None,
+  ):
+    """Extracts from the given URL."""
+    if response_model is not None and not isinstance(response_model, dict):
+      response_model = response_model.model_json_schema()
+    event = TaskEvent(
+      name="session_action",
+      payload={
+        "name": "run_task",
+        "input": {
+          "task": task,
+          "max_steps": max_steps,
+          "response_model": response_model,
+          "url": url,
+          "metadata": metadata,
+          "secrets": {k: v.model_dump(context={"reveal_secrets": True}) for k, v in secrets.items()} if secrets else None,
+        },
+      },
+    )
+    return ActionRunTaskResponse(**(await self._send_event(event, has_result=True) or {}))  # type: ignore
+
+  async def result(self, timeout: int | None = None, poll_interval: float | None = None):
+    """Waits for the session to close and returns the result."""
+    if not self._closed:
+      raise BadRequestError(
+        "result() cannot be called on an open session. "
+        "Close the session first with close(), or use client.run() for one-shot tasks."
+      )
+    return await self._handle.result(timeout, poll_interval)
+
+
+class TaskHandle(BaseTaskHandle):
+  """A synchronous handle to a running task (wraps AsyncTaskHandle)."""
+
+  def __init__(
+    self,
+    task_id: str,
+    client: "SmoothClient",
+    tools: Sequence["SmoothTool"] | None = None,
+    task_handle: AsyncTaskHandle | None = None,
+  ):
+    """Initializes the task handle."""
+    super().__init__(task_id)
+    self._client = client
+    self._loop = client._loop  # Use client's event loop
+
+    self._async_handle = task_handle or AsyncTaskHandle(task_id, client._async_client, tools, self)
+
+  def _run_async(self, coro: Coroutine[Any, Any, T]) -> T:
+    return self._client._run_async(coro)
+
+  @deprecated("stop is deprecated")
+  def stop(self):
+    """Stops the task."""
+    self._run_async(self._async_handle.stop())
+
+  def result(self, timeout: int | None = None, poll_interval: float | None = None) -> TaskResponse:
+    """Waits for the task to complete and returns the result."""
+    return self._run_async(self._async_handle.result(timeout, poll_interval))
+
+  def live_url(self, interactive: bool = True, embed: bool = False, timeout: int | None = 60) -> str:
+    """Returns the live URL for the task."""
+    return self._run_async(self._async_handle.live_url(interactive, embed, timeout))
+
+  def recording_url(self, timeout: int | None = 30) -> str:
+    """Returns the recording URL for the task."""
+    return self._run_async(self._async_handle.recording_url(timeout))
+
+  def downloads_url(self, timeout: int | None = 30) -> str:
+    """Returns the downloads URL for the task."""
+    return self._run_async(self._async_handle.downloads_url(timeout))
+
+  def _start_proxy(self, server_url: str, token: str) -> None:
+    return self._async_handle._start_proxy(server_url, token)
+
+  # --- Deprecated Methods ---
+
+  @deprecated("update is deprecated, use send_event instead")
+  def update(self, payload: TaskUpdateRequest) -> bool:
+    """Updates a running task with user input."""
+    return self._run_async(self._async_handle.update(payload))
+
+
+if TYPE_CHECKING:
+  _BaseTaskHandleEx = TaskHandle
+else:
+  _BaseTaskHandleEx = object
+
+
+class TaskHandleEx(_BaseTaskHandleEx):
+  def __init__(self, handle: TaskHandle):
+    self._handle = handle
+    self._async_handle = AsyncTaskHandleEx(handle._async_handle)
+
+  def __getattr__(self, name: str):
+    return getattr(self._handle, name)
+
+  # --- Action Methods ---
+
+  def goto(self, url: str) -> Any:
+    """Navigates to the given URL."""
+    return self._run_async(self._async_handle.goto(url))
+
+  def extract(self, schema: dict[str, Any], prompt: str | None = None) -> Any:
+    """Extracts from the given URL."""
+    return self._run_async(self._async_handle.extract(schema, prompt))
+
+  def evaluate_js(self, code: str, args: dict[str, Any] | None = None) -> Any:
+    """Evaluates JavaScript code in the browser context."""
+    return self._run_async(self._async_handle.evaluate_js(code, args))
+
+  # --- Deprecated Methods ---
+
+  @deprecated("exec_js is deprecated, use evaluate_js instead")
+  def exec_js(self, code: str, args: dict[str, Any] | None = None) -> Any:
+    """Executes JavaScript code in the browser context."""
+
+    # NOTE: this was blocking before, so we keep it that way for backward compatibility
+    async def _run() -> Any:
+      return await (await self._async_handle.exec_js(code, args))
+
+    return self._run_async(_run())
+
+
+class SessionHandle(TaskHandleEx):
+  """A handle to an open browser session."""
+
+  def __init__(self, task_id: str, client: "SmoothClient", tools: Sequence["SmoothTool"] | None = None):
+    """Initializes the task handle."""
+    # Create async session handle first (which creates the inner AsyncTaskHandle)
+    self._async_handle = AsyncSessionHandle(task_id, client._async_client, tools)
+    # Share the SAME inner AsyncTaskHandle with the sync TaskHandle
+    inner_async_handle = self._async_handle._handle
+    self._handle = TaskHandle(task_id, client, tools, task_handle=inner_async_handle)
+    # Link back so the poller passes the sync TaskHandle to SmoothTool.__call__
+    inner_async_handle._task_handle = self._handle
+
+  def __enter__(self):
+    """Enters the context manager."""
+    self._run_async(self._async_handle.__aenter__())
+    return self
+
+  def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any):
+    """Exits the context manager."""
+    self._run_async(self._async_handle.__aexit__(exc_type, exc_val, exc_tb))
+
+  def close(self, force: bool = True):
+    """Closes the session."""
+    return self._run_async(self._async_handle.close(force))
+
+  def run_task(
+    self,
+    task: str,
+    max_steps: int = 32,
+    response_model: dict[str, Any] | Type[BaseModel] | None = None,
+    url: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    secrets: dict[str, Secret] | None = None,
+  ):
+    """Extracts from the given URL."""
+    return self._run_async(self._async_handle.run_task(task, max_steps, response_model, url, metadata, secrets))
+
+  def result(self, timeout: int | None = None, poll_interval: float | None = None) -> "TaskResponse":
+    """Waits for the session to close and returns the result."""
+    return self._run_async(self._async_handle.result(timeout, poll_interval))
+
+
+###############################################################################################################
+# --- Deprecated ---
+###############################################################################################################
+
+
+class BrowserSessionHandle(BaseModel):
+  """Browser session handle model."""
+
+  browser_session: BrowserSessionResponse = Field(description="The browser session associated with this handle.")
+
+  @deprecated("session_id is deprecated, use profile_id instead")
+  def session_id(self):
+    """Returns the session ID for the browser session."""
+    return self.profile_id()
+
+  def profile_id(self):
+    """Returns the profile ID for the browser session."""
+    return self.browser_session.profile_id
+
+  def live_url(self, interactive: bool = True, embed: bool = False):
+    """Returns the live URL for the browser session."""
+    if self.browser_session.live_url:
+      return encode_url(self.browser_session.live_url, interactive=interactive, embed=embed)
+    return None
+
+  def live_id(self):
+    """Returns the live ID for the browser session."""
+    return self.browser_session.live_id

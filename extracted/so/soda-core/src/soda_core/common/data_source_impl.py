@@ -15,13 +15,8 @@ from soda_core.common.metadata_types import (
     SchemaDataSourceNamespace,
 )
 from soda_core.common.sql_dialect import SqlDialect
-from soda_core.common.statements.metadata_primary_keys_query import (
-    MetadataPrimaryKeysQuery,
-)
-from soda_core.common.statements.metadata_tables_query import (
-    FullyQualifiedTableName,
-    MetadataTablesQuery,
-)
+from soda_core.common.statements.metadata_primary_keys_query import MetadataPrimaryKeysQuery
+from soda_core.common.statements.metadata_tables_query import FullyQualifiedTableName, MetadataTablesQuery
 from soda_core.common.statements.table_types import FullyQualifiedObjectName, TableType
 from soda_core.common.yaml import DataSourceYamlSource, YamlObject
 from soda_core.contracts.contract_verification import DataSource
@@ -215,10 +210,26 @@ class DataSourceImpl(ABC):
         return self._can_create_materialized_view
 
     # The capability hooks below are all default-off / behavior-preserving. They are consumed by
-    # soda-reconciliation's cross-source reconciliation (rows_diff / reference_diff) and overridden
-    # only by soda-salesforce, letting a SOQL-first / case-insensitive source opt into the behavior
-    # cross-source recon needs without affecting any conventional SQL source. (get_value_comparator
-    # returns a ValueComparatorProtocol; the others are booleans.)
+    # soda-reconciliation's cross-source reconciliation (rows_diff / reference_diff), and let a
+    # source whose ordering or comparison differs from plain codepoint SQL opt into the behavior
+    # cross-source recon needs without affecting any conventional SQL source. Overridden by
+    # soda-salesforce (SOQL-first, case-insensitive) and soda-mysql (accent-insensitive ordering).
+    # (get_value_comparator returns a ValueComparatorProtocol; the others are booleans.)
+    @property
+    def normalizes_own_text_ordering(self) -> bool:
+        """Whether reconciliation should fold THIS source's text keys rather than the peer's.
+
+        Cross-source reconciliation merge-joins two streams, so both sides must arrive in the same
+        order. Default False: the peer is folded to match this source, using ``LOWER()``.
+
+        Return True when ``LOWER()`` cannot reproduce this source's order. It only removes case, so
+        a source that also ignores accents orders ``café`` before ``cafz`` while a lowered peer
+        orders it after — and the join reports differences that do not exist. Folding this source
+        instead, through its own ``order_by_key_expression``, gives both sides the peer's plain
+        codepoint order.
+        """
+        return False
+
     @property
     def orders_text_case_insensitively(self) -> bool:
         """Whether this data source's SQL orders text columns case-insensitively.

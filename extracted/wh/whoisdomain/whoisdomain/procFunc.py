@@ -1,0 +1,86 @@
+# python3
+
+import errno
+import logging
+import multiprocessing as mp
+from typing import (
+    Any,
+)
+
+from .context.parameterContext import ParameterContext
+
+log = logging.getLogger(__name__)
+
+# from .domain import Domain
+
+MAX_CLIENT_RUNS_BEFORE_EXIT = 1000
+
+
+class ProcFunc:
+    def __init__(self, ctx: Any = None) -> None:
+        if ctx is None:
+            ctx = mp.get_context("spawn")
+        self.ctx = ctx
+
+    def startProc(self, f: Any, max_requests: int) -> tuple[Any, Any]:
+        # start the whole parent part
+        self.parent_conn, self.child_conn = mp.Pipe()
+
+        self.proc = self.ctx.Process(
+            target=f,
+            args=(self.child_conn, max_requests),
+        )
+
+        self.proc.start()
+        self.child_conn.close()
+
+        return self.proc, self.parent_conn
+
+    def oneItem(
+        self,
+        domain: str,
+        pc: ParameterContext,
+    ) -> Any:
+        jStr = pc.to_json()
+
+        request: dict[str, Any] = {
+            "domain": domain,
+            "pc": jStr,
+        }
+
+        # request -> reply: remote
+        log.info("OneItem:SEND: %s", request)
+        self.parent_conn.send(request)
+
+        reply = self.parent_conn.recv()
+        log.info("OneItem:RECEIVE: %s", reply)
+
+        if reply["status"] is True:
+            # possibly re convert this into a Domain object.
+            return reply["result"]
+
+        raise Exception(reply["exception"])  # noqa: TRY002
+
+    def makeHandler(
+        self,
+        f: Any,
+        max_requests: int = MAX_CLIENT_RUNS_BEFORE_EXIT,
+    ) -> Any:
+        self.startProc(f, max_requests)
+
+        def inner_func(
+            domain: str,
+            pc: ParameterContext,
+        ) -> Any:
+            nonlocal self
+            try:
+                return self.oneItem(domain, pc)
+            except OSError as e:
+                if e.errno != errno.ECONNRESET:
+                    log.info("restart process %s", e)
+                    raise
+
+                self.startProc(f, max_requests)
+                return self.oneItem(domain, pc)
+
+        return inner_func

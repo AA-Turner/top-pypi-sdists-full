@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chalk-viztracer"
+authors = [{name = "Tian Gao", email = "gaogaotiantian@hotmail.com"}]
+description = "A debugging and profiling tool that can trace and visualize python code execution (Chalk fork)"
+dependencies = ["objprint>=0.3.0"]
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Bug Tracking",
+    "Topic :: System :: Logging",
+]
+
+[project.urls]
+Homepage = "https://github.com/chalk-ai/viztracer"
+Documentation = "https://viztracer.readthedocs.io"
+Upstream = "https://github.com/gaogaotiantian/viztracer"
+
+[project.optional-dependencies]
+full = ["orjson"]
+
+[project.scripts]
+viztracer = "viztracer.main:main"
+vizviewer = "viztracer.viewer:viewer_main"
+
+[tool.setuptools.dynamic]
+version = {attr = "viztracer.__version__"}
+
+[tool.ruff]
+exclude = [
+    "src/viztracer/attach_process"
+]
+
+[tool.ruff.lint]
+select = ["I"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest]
+junit_suite_name = "viztracer"

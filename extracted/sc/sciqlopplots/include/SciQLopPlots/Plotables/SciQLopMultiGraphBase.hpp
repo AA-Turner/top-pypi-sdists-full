@@ -1,0 +1,96 @@
+/*------------------------------------------------------------------------------
+-- This file is a part of the SciQLop Software
+-- Copyright (C) 2024, Plasma Physics Laboratory - CNRS
+--
+-- This program is free software; you can redistribute it and/or modify
+-- it under the terms of the GNU General Public License as published by
+-- the Free Software Foundation; either version 2 of the License, or
+-- (at your option) any later version.
+--
+-- This program is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+-- GNU General Public License for more details.
+--
+-- You should have received a copy of the GNU General Public License
+-- along with this program; if not, write to the Free Software
+-- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+-------------------------------------------------------------------------------*/
+/*-- Author : Alexis Jeandet
+-- Mail : alexis.jeandet@member.fsf.org
+----------------------------------------------------------------------------*/
+#pragma once
+#include "SciQLopPlots/Plotables/QCPAbstractPlottableWrapper.hpp"
+#include "SciQLopPlots/Python/PythonInterface.hpp"
+#include "SciQLopPlots/Python/DtypeDispatch.hpp"
+#include "SciQLopPlots/SciQLopPlotAxis.hpp"
+#include <plottables/plottable-multigraph.h>
+#include <span>
+
+class SciQLopMultiGraphBase : public SQPQCPAbstractPlottableWrapper
+{
+    Q_OBJECT
+protected:
+    QCPMultiGraph* _multiGraph = nullptr;
+    SciQLopPyBuffer _x, _y;
+    std::shared_ptr<void> _dataHolder;
+    QStringList _pendingLabels;
+    SciQLopPlotAxis* _keyAxis = nullptr;
+    SciQLopPlotAxis* _valueAxis = nullptr;
+
+    virtual QCPMultiGraph* create_multi_graph(QCPAxis* keyAxis, QCPAxis* valueAxis) = 0;
+
+    void clear_graphs(bool graph_already_removed = false);
+    void build_data_source(const SciQLopPyBuffer& x, const SciQLopPyBuffer& y);
+    void sync_components();
+
+public:
+    explicit SciQLopMultiGraphBase(const QString& type_label, QCustomPlot* parent,
+                                   SciQLopPlotAxis* key_axis, SciQLopPlotAxis* value_axis,
+                                   const QStringList& labels, QVariantMap metaData);
+    ~SciQLopMultiGraphBase() override;
+
+    Q_SLOT void set_data(SciQLopPyBuffer x, SciQLopPyBuffer y) override;
+    QList<SciQLopPyBuffer> data() const noexcept override;
+
+    std::size_t line_count() const noexcept
+    {
+        return _multiGraph ? _multiGraph->componentCount() : 0;
+    }
+
+    // Propagate the user-facing name to the underlying QCPMultiGraph so the
+    // legend shows it even before any data/components arrive (the loading cue),
+    // instead of falling back to a meaningless placeholder.
+    void set_name(const QString& name) noexcept override
+    {
+        SciQLopGraphInterface::set_name(name);
+        if (_multiGraph)
+            _multiGraph->setName(name);
+    }
+
+    // Busy belongs to the QCPMultiGraph, not to the components: components are
+    // only created on the first set_data, and each one wraps this very same
+    // plottable anyway. The base implementation walks m_components, so it is a
+    // silent no-op for the whole first fetch — exactly the window the activity
+    // indicator is for (right after a product drop). Mirrors
+    // SciQLopColorMapBase, which routes through its single plottable().
+    bool busy() const noexcept override { return _multiGraph && _multiGraph->busy(); }
+
+    void set_busy(bool busy) noexcept override
+    {
+        if (_multiGraph)
+            _multiGraph->setBusy(busy);
+    }
+
+    void set_x_axis(SciQLopPlotAxisInterface* axis) noexcept override;
+    void set_y_axis(SciQLopPlotAxisInterface* axis) noexcept override;
+    SciQLopPlotAxisInterface* x_axis() const noexcept override { return _keyAxis; }
+    SciQLopPlotAxisInterface* y_axis() const noexcept override { return _valueAxis; }
+
+    void create_graphs(const QStringList& labels);
+
+#ifndef BINDINGS_H
+    void collect_visible_values(const SciQLopPlotRange& visible_key_range,
+                                std::vector<double>& out) const noexcept override;
+#endif
+};

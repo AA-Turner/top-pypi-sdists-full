@@ -1,0 +1,158 @@
+[build-system]
+# hatch-ziglang is pinned exactly: it runs during the isolated wheel build and
+# invokes the native compiler, so a future version resolved from a lower bound
+# could execute unreviewed code into the wheels the publish job trusts. The
+# compiler is pinned for the same reason. Bump both deliberately.
+requires = ["hatchling==1.32.0", "hatch-vcs==0.5.0", "hatch-ziglang==0.2.1", "ziglang==0.16.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zuvloop"
+description = "A libuv event loop for asyncio, written in Zig."
+readme = "README.md"
+requires-python = ">=3.14"
+license = "MIT"
+dynamic = ["version"]
+# libuv is compiled into the extension, so its licence ships with the wheel.
+license-files = ["LICENSE", "vendor/libuv/LICENSE*"]
+authors = [{ name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" }]
+keywords = ["asyncio", "libuv", "event-loop", "zig", "uvloop"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Zig",
+    "Typing :: Typed",
+]
+dependencies = ["opentelemetry-api>=1.23", "typing-extensions>=4.15"]
+
+[project.urls]
+Source = "https://github.com/Kludex/zuvloop"
+
+[dependency-groups]
+dev = [
+    "anyio>=4.6",
+    "coverage[toml]>=7.6",
+    "hypothesis>=6.138",
+    "mypy>=1.13",
+    "opentelemetry-sdk>=1.23",
+    "pytest>=8.3",
+    "pytest-timeout>=2.3",
+    "ruff>=0.8",
+]
+bench = ["aiohttp", "httptools", "pytest-codspeed>=5", "uvicorn", "uvloop>=0.21; sys_platform != 'win32'"]
+docs = ["zensical"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+# A tag is the version; commits after it are the next patch's dev builds, so an
+# untagged build can never claim to be the release. `no-local-version` drops the
+# `+<hash>` segment, which PyPI refuses on upload.
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["zuvloop"]
+
+[tool.hatch.build.targets.wheel.hooks.zig]
+package = "zuvloop"
+optimize = "ReleaseFast"
+
+[tool.hatch.build.targets.sdist]
+include = ["zuvloop", "zig", "vendor", "build.zig", "build.zig.zon", "LICENSE", "README.md"]
+
+[tool.ruff]
+line-length = 120
+src = [".", "tests"]
+# Documentation code blocks render in a narrower column than the source line
+# length assumes, so joining them to 120 characters makes them scroll sideways.
+extend-exclude = ["vendor", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "FA", "UP", "RUF100"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.mypy]
+strict = true
+python_version = "3.14"
+files = ["zuvloop", "tests", "benchmarks", "scripts"]
+exclude = ["^vendor/"]
+
+[[tool.mypy.overrides]]
+module = ["uvloop", "hatchling.*", "opentelemetry.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["hatch_build"]
+disallow_subclassing_any = false
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.cibuildwheel]
+# Build standard and free-threaded CPython 3.14 and 3.15 wheels. The same suite
+# runs against each interpreter before a wheel is published.
+build = "cp314-* cp314t-* cp315-* cp315t-*"
+skip = "*-musllinux_i686"
+# Pass hash and constraint enforcement directly to the project build. Global uv
+# environment variables also affect cibuildwheel's bootstrap and test tools;
+# on Windows ARM64, for example, httptools must build with an older setuptools
+# range than zuvloop's own build environment.
+build-frontend = { name = "uv", args = ["--require-hashes", "--build-constraints", ".github/build-constraints.txt"] }
+test-requires = [
+    "aiohttp",
+    "anyio",
+    "httptools",
+    "hypothesis",
+    "opentelemetry-sdk",
+    "pytest",
+    "pytest-timeout",
+    "uvicorn",
+]
+test-command = "pytest {project}/tests -q --import-mode=importlib --timeout=120 --timeout-method=thread"
+
+[tool.cibuildwheel.linux]
+# The Zig toolchain comes from PyPI, so the manylinux image needs nothing extra.
+archs = ["x86_64", "aarch64"]
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+
+[tool.coverage.run]
+source_pkgs = ["zuvloop"]
+source = ["tests"]
+branch = true
+
+[tool.coverage.paths]
+source = ["zuvloop", "*/zuvloop"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+    "class .*\\bProtocol\\):",
+]
+# Windows-only branches: the Windows CI job runs the suite without the
+# coverage gate, so these are asserted by tests there rather than counted here.
+exclude_also = [
+    'if sys\.platform == "win32":',
+    'if sys\.platform != "win32":',
+]

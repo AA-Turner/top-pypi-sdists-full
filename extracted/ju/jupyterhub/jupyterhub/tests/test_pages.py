@@ -1338,9 +1338,10 @@ async def test_pre_spawn_start_exc_options_form(app):
     async def mock_pre_spawn_start(user, spawner):
         raise Exception(exc)
 
-    with mock.patch.dict(
-        app.users.settings, {'spawner_class': FormSpawner}
-    ), mock.patch.object(app.authenticator, 'pre_spawn_start', mock_pre_spawn_start):
+    with (
+        mock.patch.dict(app.users.settings, {'spawner_class': FormSpawner}),
+        mock.patch.object(app.authenticator, 'pre_spawn_start', mock_pre_spawn_start),
+    ):
         cookies = await app.login_user('spring')
         user = app.users['spring']
         # spawn page shouldn't throw any error until the spawn is started
@@ -1409,28 +1410,39 @@ async def hook_fail_slow(spawner, kind):
     hook_fail_fast(spawner, kind)
 
 
-@pytest.mark.parametrize("speed", ["fast", "slow"])
+@pytest.mark.parametrize("speed", ["fast", "slow", "instant"])
 @pytest.mark.parametrize("kind", ["text", "html", "unhandled"])
-async def test_spawn_fails_custom_message(app, user, kind, speed):
+async def test_spawn_fails_custom_message(app, user, kind, speed, caplog):
     if speed == 'slow':
-        speed_context = mock.patch.dict(
-            app.tornado_settings, {'slow_spawn_timeout': 0.1}
-        )
+        speed_context = mock.patch.dict(app.tornado_settings, {'slow_spawn_timeout': 0})
         hook = hook_fail_slow
-    else:
+    elif speed == "fast":
         speed_context = nullcontext()
         hook = hook_fail_fast
+    elif speed == "instant":
+        speed_context = mock.patch.dict(app.tornado_settings, {'slow_spawn_timeout': 0})
+        hook = hook_fail_fast
     # test the response when spawn fails before redirecting to progress
-    with mock.patch.dict(
-        app.config.Spawner, {"pre_spawn_hook": partial(hook, kind=kind)}
-    ), speed_context:
+    with (
+        mock.patch.dict(
+            app.config.Spawner, {"pre_spawn_hook": partial(hook, kind=kind)}
+        ),
+        speed_context,
+    ):
         cookies = await app.login_user(user.name)
         assert user.spawner.pre_spawn_hook
+        caplog.clear()
         r = await get_page("spawn", app, cookies=cookies)
+
         if speed == "slow":
             # go through spawn_pending, render not_running.html
             assert r.ok
             assert "spawn-pending" in r.url
+        elif speed == "fast":
+            # fast should raise immediately, not redirect to pending
+            assert "/spawn-pending/" not in r.url
+
+        if "/spawn-pending/" in r.url:
             # wait for ready signal before checking next redirect
             while user.spawner.active:
                 await asyncio.sleep(0.1)
@@ -1442,15 +1454,18 @@ async def test_spawn_fails_custom_message(app, user, kind, speed):
             r = await get_page(
                 f"spawn-pending/{user.escaped_name}", app, cookies=cookies
             )
+
             target_class = "container"
             unhandled_text = "Spawn failed"
         else:
             unhandled_text = "Unhandled error"
             target_class = "error"
-        page = BeautifulSoup(r.content)
+        page = BeautifulSoup(r.content, "html.parser")
         if kind == "unhandled":
+            assert "Traceback" in caplog.text
             assert r.status_code == 500
         else:
+            assert "Traceback" not in caplog.text
             assert r.status_code == 418
         error = page.find(class_=target_class)
         # check escaping properly

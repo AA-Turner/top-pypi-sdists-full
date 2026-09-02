@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15, windows-latest]
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # setuptools_scm needs full history + tags to detect the version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install system OpenBLAS (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev liblapacke-dev gfortran
+
+      - name: Install system OpenBLAS (macOS)
+        if: runner.os == 'macOS'
+        run: brew install openblas libomp
+
+      - name: Install pycauset with test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
+
+      - name: Deploy native extension into source tree
+        # The test suite adds the repo's python/ dir to sys.path and imports the
+        # package from there, but pip installs the compiled _pycauset extension and
+        # its DLLs into site-packages. Copy the native artifacts next to the source
+        # so the tests find them.
+        run: python -c "import pycauset, pathlib, shutil; sp = pathlib.Path(pycauset.__file__).parent; dst = pathlib.Path('python/pycauset'); [shutil.copy2(str(f), str(dst / f.name)) for pat in ('*.pyd','*.so','*.dylib','*.dll') for f in sp.glob(pat)]; libs = sp / 'libs'; shutil.copytree(str(libs), str(dst / 'libs'), dirs_exist_ok=True) if libs.exists() else None"
+
+      - name: Run tests
+        run: python -m pytest tests/python -q

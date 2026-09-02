@@ -1,0 +1,43 @@
+[package]
+name = "sase_core_py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "PyO3 bindings for sase_core: Patch parser, query, agent-artifact scan, status state machine, and git-query helpers."
+publish = false
+
+# Phase 1D wires PyO3 into the workspace. The pure-Rust crate `sase_core`
+# remains PyO3-free so later UniFFI/WASM/server work can keep reusing it.
+#
+# `crate-type = ["cdylib"]` is what turns this into an importable Python
+# extension. Wheel builds enable PyO3's `extension-module` feature via
+# `pyproject.toml`; plain Cargo builds leave it off so `cargo test` can
+# link libpython for PyO3 conversion tests.
+#
+# `abi3-py312` builds a single wheel against the CPython stable ABI for
+# Python 3.12+. One Linux/macOS/Windows wheel per platform-architecture
+# pair covers 3.12, 3.13, and 3.14 regular CPython, which keeps the
+# Phase 6A wheel matrix manageable. Free-threaded CPython is NOT covered
+# by abi3 — those builds need version-specific wheels and are tracked
+# separately in the Phase 6A handoff.
+
+[lib]
+name = "sase_core_rs"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
+
+[dependencies]
+sase_core = { workspace = true }
+pyo3 = { version = "0.22", features = ["abi3-py312"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = { workspace = true }

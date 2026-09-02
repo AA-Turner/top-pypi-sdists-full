@@ -29,6 +29,9 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     DescribeMalwareScansPaginator,
     ListCoveragePaginator,
+    ListCustomDetectionRuleAssociationsPaginator,
+    ListCustomDetectionRuleOrgConfigurationsPaginator,
+    ListCustomDetectionRulesPaginator,
     ListDetectorsPaginator,
     ListFiltersPaginator,
     ListFindingsPaginator,
@@ -46,6 +49,9 @@ from .type_defs import (
     AcceptAdministratorInvitationRequestTypeDef,
     AcceptInvitationRequestTypeDef,
     ArchiveFindingsRequestTypeDef,
+    CreateCustomDetectionRuleAssociationRequestTypeDef,
+    CreateCustomDetectionRuleAssociationResponseTypeDef,
+    CreateCustomDetectionRuleOrgConfigurationRequestTypeDef,
     CreateDetectorRequestTypeDef,
     CreateDetectorResponseTypeDef,
     CreateFilterRequestTypeDef,
@@ -69,6 +75,8 @@ from .type_defs import (
     CreateTrustedEntitySetResponseTypeDef,
     DeclineInvitationsRequestTypeDef,
     DeclineInvitationsResponseTypeDef,
+    DeleteCustomDetectionRuleAssociationRequestTypeDef,
+    DeleteCustomDetectionRuleOrgConfigurationRequestTypeDef,
     DeleteDetectorRequestTypeDef,
     DeleteFilterRequestTypeDef,
     DeleteInvitationsRequestTypeDef,
@@ -98,6 +106,12 @@ from .type_defs import (
     GetAdministratorAccountResponseTypeDef,
     GetCoverageStatisticsRequestTypeDef,
     GetCoverageStatisticsResponseTypeDef,
+    GetCustomDetectionRuleAssociationRequestTypeDef,
+    GetCustomDetectionRuleAssociationResponseTypeDef,
+    GetCustomDetectionRuleOrgConfigurationRequestTypeDef,
+    GetCustomDetectionRuleOrgConfigurationResponseTypeDef,
+    GetCustomDetectionRuleRequestTypeDef,
+    GetCustomDetectionRuleResponseTypeDef,
     GetDetectorRequestTypeDef,
     GetDetectorResponseTypeDef,
     GetFilterRequestTypeDef,
@@ -138,6 +152,12 @@ from .type_defs import (
     InviteMembersResponseTypeDef,
     ListCoverageRequestTypeDef,
     ListCoverageResponseTypeDef,
+    ListCustomDetectionRuleAssociationsRequestTypeDef,
+    ListCustomDetectionRuleAssociationsResponseTypeDef,
+    ListCustomDetectionRuleOrgConfigurationsRequestTypeDef,
+    ListCustomDetectionRuleOrgConfigurationsResponseTypeDef,
+    ListCustomDetectionRulesRequestTypeDef,
+    ListCustomDetectionRulesResponseTypeDef,
     ListDetectorsRequestTypeDef,
     ListDetectorsResponseTypeDef,
     ListFiltersRequestTypeDef,
@@ -178,6 +198,8 @@ from .type_defs import (
     TagResourceRequestTypeDef,
     UnarchiveFindingsRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateCustomDetectionRuleAssociationRequestTypeDef,
+    UpdateCustomDetectionRuleOrgConfigurationRequestTypeDef,
     UpdateDetectorRequestTypeDef,
     UpdateFilterRequestTypeDef,
     UpdateFilterResponseTypeDef,
@@ -269,6 +291,27 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/archive_findings.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#archive_findings)
+        """
+
+    def create_custom_detection_rule_association(
+        self, **kwargs: Unpack[CreateCustomDetectionRuleAssociationRequestTypeDef]
+    ) -> CreateCustomDetectionRuleAssociationResponseTypeDef:
+        """
+        Enables a custom detection rule for your account by creating an association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/create_custom_detection_rule_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#create_custom_detection_rule_association)
+        """
+
+    def create_custom_detection_rule_org_configuration(
+        self, **kwargs: Unpack[CreateCustomDetectionRuleOrgConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Creates an organization-level configuration that enables a custom detection
+        rule across your organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/create_custom_detection_rule_org_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#create_custom_detection_rule_org_configuration)
         """
 
     def create_detector(
@@ -392,6 +435,26 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/decline_invitations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#decline_invitations)
+        """
+
+    def delete_custom_detection_rule_association(
+        self, **kwargs: Unpack[DeleteCustomDetectionRuleAssociationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disables a custom detection rule by deleting its association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/delete_custom_detection_rule_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#delete_custom_detection_rule_association)
+        """
+
+    def delete_custom_detection_rule_org_configuration(
+        self, **kwargs: Unpack[DeleteCustomDetectionRuleOrgConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the organization-level configuration for a custom detection rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/delete_custom_detection_rule_org_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#delete_custom_detection_rule_org_configuration)
         """
 
     def delete_detector(self, **kwargs: Unpack[DeleteDetectorRequestTypeDef]) -> dict[str, Any]:
@@ -598,6 +661,37 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_coverage_statistics.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#get_coverage_statistics)
+        """
+
+    def get_custom_detection_rule(
+        self, **kwargs: Unpack[GetCustomDetectionRuleRequestTypeDef]
+    ) -> GetCustomDetectionRuleResponseTypeDef:
+        """
+        Returns details for a custom detection rule in GuardDuty, including its
+        detection logic.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_custom_detection_rule.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#get_custom_detection_rule)
+        """
+
+    def get_custom_detection_rule_association(
+        self, **kwargs: Unpack[GetCustomDetectionRuleAssociationRequestTypeDef]
+    ) -> GetCustomDetectionRuleAssociationResponseTypeDef:
+        """
+        Returns details for a custom detection rule association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_custom_detection_rule_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#get_custom_detection_rule_association)
+        """
+
+    def get_custom_detection_rule_org_configuration(
+        self, **kwargs: Unpack[GetCustomDetectionRuleOrgConfigurationRequestTypeDef]
+    ) -> GetCustomDetectionRuleOrgConfigurationResponseTypeDef:
+        """
+        Returns the organization-level configuration for a custom detection rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_custom_detection_rule_org_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#get_custom_detection_rule_org_configuration)
         """
 
     def get_detector(
@@ -808,6 +902,36 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_coverage.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#list_coverage)
+        """
+
+    def list_custom_detection_rule_associations(
+        self, **kwargs: Unpack[ListCustomDetectionRuleAssociationsRequestTypeDef]
+    ) -> ListCustomDetectionRuleAssociationsResponseTypeDef:
+        """
+        Returns all custom detection rule associations for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_custom_detection_rule_associations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#list_custom_detection_rule_associations)
+        """
+
+    def list_custom_detection_rule_org_configurations(
+        self, **kwargs: Unpack[ListCustomDetectionRuleOrgConfigurationsRequestTypeDef]
+    ) -> ListCustomDetectionRuleOrgConfigurationsResponseTypeDef:
+        """
+        Returns all organization-level configurations for custom detection rules.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_custom_detection_rule_org_configurations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#list_custom_detection_rule_org_configurations)
+        """
+
+    def list_custom_detection_rules(
+        self, **kwargs: Unpack[ListCustomDetectionRulesRequestTypeDef]
+    ) -> ListCustomDetectionRulesResponseTypeDef:
+        """
+        Returns all available custom detection rules in GuardDuty.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_custom_detection_rules.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#list_custom_detection_rules)
         """
 
     def list_detectors(
@@ -1030,6 +1154,27 @@ class GuardDutyClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#untag_resource)
         """
 
+    def update_custom_detection_rule_association(
+        self, **kwargs: Unpack[UpdateCustomDetectionRuleAssociationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the mode of an existing custom detection rule association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/update_custom_detection_rule_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#update_custom_detection_rule_association)
+        """
+
+    def update_custom_detection_rule_org_configuration(
+        self, **kwargs: Unpack[UpdateCustomDetectionRuleOrgConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the organization-level configuration for a custom detection rule,
+        including the mode and include/exclude account lists.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/update_custom_detection_rule_org_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#update_custom_detection_rule_org_configuration)
+        """
+
     def update_detector(self, **kwargs: Unpack[UpdateDetectorRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the GuardDuty detector specified by the detector ID.
@@ -1164,6 +1309,39 @@ class GuardDutyClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_coverage"]
     ) -> ListCoveragePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_custom_detection_rule_associations"]
+    ) -> ListCustomDetectionRuleAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_custom_detection_rule_org_configurations"]
+    ) -> ListCustomDetectionRuleOrgConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_guardduty/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_custom_detection_rules"]
+    ) -> ListCustomDetectionRulesPaginator:
         """
         Create a paginator for an operation.
 

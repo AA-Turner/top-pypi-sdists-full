@@ -1,12 +1,12 @@
 Metadata-Version: 2.5
 Name: swanlab
-Version: 0.9.8
+Version: 0.10.0
 Summary: Python library for streamlined tracking and management of AI training processes.
 Project-URL: Homepage, https://swanlab.cn
 Project-URL: Source, https://github.com/SwanHubX/SwanLab
 Project-URL: Bug Reports, https://github.com/SwanHubX/SwanLab/issues
 Project-URL: Documentation, https://docs.swanlab.cn/zh/guide_cloud/general/what-is-swanlab.html
-Author-email: Cunyue <team@swanhub.co>, ZeYi Lin <team@swanhub.co>, Kaikaikaifang <team@swanhub.co>, Feudalman <team@swanhub.co>
+Author-email: Cunyue <kang.li@emotionmachine.cn>, CaddiesNew <shaobo.niu@emotionmachine.cn>, ZeYi Lin <zeyi.lin@emotionmachine.cn>, Kaikaikaifang <kaifang.ji@emotionmachine.cn>, Feudalman <zirui.cai@emotionmachine.cn>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: machine learning,reproducibility,visualization
@@ -384,7 +384,7 @@ import swanlab
 # 初始化一个新的swanlab实验
 swanlab.init(
     project="my-first-ml",
-    config={'learning-rate': 0.003},
+    config={"learning-rate": 0.003},
 )
 
 # 记录指标

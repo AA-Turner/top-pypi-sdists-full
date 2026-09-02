@@ -70,24 +70,21 @@ class GradesHandler(HubOAuthenticated, RequestHandler):
         for student, grade in grades.items():
             qstudent = escape(student)
             qgrade = escape(str(grade))
-            self.write(
-                f"""
+            self.write(f"""
                 <tr>
                  <td class="student">{qstudent}</td>
                  <td class="grade">{qgrade}</td>
                 </tr>
-                """
-            )
+                """)
         if WRITE_SCOPE in self.current_user["scopes"]:
             self.write("Enter grade:")
-            self.write(
-                """
+            self.write(f"""
                 <form action=. method=POST>
+                    {self.xsrf_form_html()}
                     <input name=student placeholder=student></input>
                     <input kind=number name=grade placeholder=grade></input>
                     <input type="submit" value="Submit">
-                """
-            )
+                """)
 
     @require_scope([READ_SCOPE])
     async def get(self):
@@ -116,6 +113,9 @@ def main():
         ],
         cookie_secret=os.urandom(32),
         grades={"student": 53},
+        settings={
+            "xsrf_cookies": True,
+        },
     )
 
     http_server = HTTPServer(app)

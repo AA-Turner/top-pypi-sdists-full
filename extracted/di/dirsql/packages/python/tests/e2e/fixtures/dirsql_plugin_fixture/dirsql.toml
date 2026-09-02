@@ -1,9 +1,0 @@
-# Fragment shipped by the e2e fixture plugin `dirsql_plugin_fixture`.
-# Discovered via the package's `[project.entry-points.dirsql]` declaration and
-# injected by the launcher as an ordinary `-c` flag. Adds one table so an
-# installed plugin is observable ("installed = active") with zero config edits.
-[[table]]
-name = "notes"
-ddl = "CREATE TABLE notes (path TEXT, basename TEXT)"
-glob = "*.md"
-on-file = '''sh -c 'rel=${1#"$2"/}; base=${1##*/}; printf "[{\"path\":\"%s\",\"basename\":\"%s\"}]" "$rel" "$base"' sh {path} {root}'''

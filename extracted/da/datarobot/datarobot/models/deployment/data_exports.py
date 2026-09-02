@@ -281,12 +281,12 @@ class PredictionDataExport(APIObject):
         return cls.get(deployment_id, export_id)
 
     def fetch_data(self) -> List[Dataset]:
-        """Return data from prediction export as datarobot Dataset.
+        """Returns the data from the prediction export as a DataRobot Dataset.
 
         Returns
         -------
         prediction_datasets: List[Dataset]
-            List of datasets for a given export, most often it is just one.
+            A list of datasets for a given export, most often just one.
 
         Examples
         --------
@@ -527,12 +527,12 @@ class ActualsDataExport(APIObject):
         return cls.get(deployment_id, export_id)
 
     def fetch_data(self) -> List[Dataset]:
-        """Return data from actuals export as datarobot Dataset.
+        """Returns the data from the actuals export as a DataRobot Dataset.
 
         Returns
         -------
         actuals_datasets: List[Dataset]
-            List of datasets for a given export, most often it is just one.
+            A list of datasets for a given export, most often just one.
 
         Examples
         --------
@@ -711,12 +711,12 @@ class TrainingDataExport(APIObject):
         return dataset_id  # type: ignore[no-any-return]
 
     def fetch_data(self) -> Dataset:
-        """Return data from training data export as datarobot Dataset.
+        """Returns the data from the training data export as a DataRobot Dataset.
 
         Returns
         -------
         training_dataset: Dataset
-            A datasets for a given export.
+            The dataset for a given export.
 
         Examples
         --------
@@ -836,17 +836,17 @@ class DataQualityExport(APIObject):
         actual_pattern: Optional[str]
             The keywords to search in an actual value for a text generation target.
         order_by: Optional[str]
-            The field to sort by (e.g., associationId, timestamp, or customMetrics). Use a leading '-'
-            to indicate descending order. When ordering by a custom-metric, must also specify 'order_metric'.
+            The field to sort by (e.g., `associationId`, timestamp, or `customMetrics`). Use a leading '-'
+            to indicate descending order. When ordering by a custom metric, must also specify `order_metric`.
             The default is None, which equates to '-timestamp'.
         order_metric: Optional[str]
-            When 'order_by' is a custom-metric, this specifies the custom-metric name or ID to use for ordering.
+            When `order_by` is a custom metric, this specifies the custom metric name or ID to use for ordering.
             The default is None.
         filter_metric: Optional[str]
-            Specifies the metric name or ID to use for matching. Must also use 'filter_value' to specify
+            Specifies the metric name or ID to use for matching. Must also use `filter_value` to specify
             the value that must be matched. The default is None.
         filter_value: Optional[str]
-            Specifies the value associated with 'filter_metric' that must be matched. The default
+            Specifies the value associated with `filter_metric` that must be matched. The default
             is None.
         offset: Optional[int]
             The starting offset of the results. The default is 0.

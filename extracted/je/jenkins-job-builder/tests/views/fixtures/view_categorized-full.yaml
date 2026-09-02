@@ -1,0 +1,8 @@
+name: categorized-view-full
+view-type: categorized
+regex_to_ignore_on_color_computing: '*test*'
+categorization_criteria:
+  - type: grouping_rule
+    group_regex: 'A*'
+    naming_rule: 'A'
+    use_display_name: true

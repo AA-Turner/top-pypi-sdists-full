@@ -1,0 +1,343 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+"""Main CLI module using simple-parsing with subcommands."""
+
+import os
+
+from simple_parsing import ArgumentParser
+
+import nemo_evaluator_launcher.cli.config as config
+import nemo_evaluator_launcher.cli.export as export
+import nemo_evaluator_launcher.cli.info as info
+import nemo_evaluator_launcher.cli.kill as kill
+import nemo_evaluator_launcher.cli.logs as logs
+import nemo_evaluator_launcher.cli.ls_runs as ls_runs
+import nemo_evaluator_launcher.cli.ls_task as ls_task
+import nemo_evaluator_launcher.cli.ls_tasks as ls_tasks
+import nemo_evaluator_launcher.cli.resume as resume
+import nemo_evaluator_launcher.cli.run as run
+import nemo_evaluator_launcher.cli.skills as skills
+import nemo_evaluator_launcher.cli.status as status
+import nemo_evaluator_launcher.cli.version as version
+from nemo_evaluator_launcher.common.logging_utils import logger
+
+VERSION_HELP = "Show version information"
+
+
+def is_verbose_enabled(args) -> bool:
+    """Check if verbose flag is enabled in any subcommand."""
+    # Check global verbose flag
+    if hasattr(args, "verbose") and args.verbose:
+        return True
+
+    # Check subcommand verbose flags
+    subcommands = [
+        "run",
+        "status",
+        "logs",
+        "info",
+        "kill",
+        "tasks_alias",
+        "tasks",
+        "runs",
+        "task",
+        "export",
+        "resume",
+    ]
+    for subcmd in subcommands:
+        if hasattr(args, subcmd) and hasattr(getattr(args, subcmd), "verbose"):
+            if getattr(getattr(args, subcmd), "verbose"):
+                return True
+
+    return False
+
+
+def create_parser() -> ArgumentParser:
+    """Create and configure the CLI argument parser with subcommands."""
+    parser = ArgumentParser()
+
+    # Add --version flag at the top level
+    parser.add_argument("--version", action="store_true", help=VERSION_HELP)
+
+    # Add --verbose/-v flag for debug logging
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging (sets LOG_LEVEL=DEBUG)",
+    )
+
+    subparsers = parser.add_subparsers(dest="command", required=False)
+
+    # Version subcommand
+    version_parser = subparsers.add_parser(
+        "version",
+        help=VERSION_HELP,
+        description=VERSION_HELP,
+    )
+    version_parser.add_arguments(version.Cmd, dest="version")
+
+    # Run subcommand
+    run_parser = subparsers.add_parser(
+        "run", help="Run evaluation", description="Run evaluation"
+    )
+    run_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging (sets LOG_LEVEL=DEBUG)",
+    )
+    run_parser.add_arguments(run.Cmd, dest="run")
+
+    # Status subcommand
+    status_parser = subparsers.add_parser(
+        "status", help="Check job status", description="Check job status"
+    )
+    status_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging (sets LOG_LEVEL=DEBUG)",
+    )
+    status_parser.add_arguments(status.Cmd, dest="status")
+
+    # Logs subcommand
+    logs_parser = subparsers.add_parser(
+        "logs",
+        help="Stream logs from evaluation jobs",
+        description="Stream logs from evaluation jobs by invocation ID or job ID",
+    )
+    logs_parser.add_arguments(logs.Cmd, dest="logs")
+
+    # Kill subcommand
+    kill_parser = subparsers.add_parser(
+        "kill",
+        help="Kill a job or invocation",
+        description="Kill a job (e.g., aefc4819.0) or entire invocation (e.g., aefc4819) by its ID",
+    )
+    kill_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging (sets LOG_LEVEL=DEBUG)",
+    )
+    kill_parser.add_arguments(kill.Cmd, dest="kill")
+
+    # Ls subcommand (with nested subcommands)
+    ls_parser = subparsers.add_parser(
+        "ls", help="List resources", description="List tasks or runs"
+    )
+    ls_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging (sets LOG_LEVEL=DEBUG)",
+    )
+    # Add arguments from `ls tasks` so that they work with `ls` as default alias
+    ls_parser.add_arguments(ls_tasks.Cmd, dest="tasks_alias")
+
+    ls_sub = ls_parser.add_subparsers(dest="ls_command", required=False)
+
+    # ls tasks (default)
+    ls_tasks_parser = ls_sub.add_parser(
+        "tasks", help="List available tasks", description="List available tasks"
+    )
+    ls_tasks_parser.add_arguments(ls_tasks.Cmd, dest="tasks")
+
+    # ls runs (invocations summary)
+    ls_runs_parser = ls_sub.add_parser(
+        "runs",
+        help="List invocations (runs)",
+        description="Show a concise table of invocations from the exec DB",
+    )
+    ls_runs_parser.add_arguments(ls_runs.Cmd, dest="runs")
+
+    # ls task (task details)
+    ls_task_parser = ls_sub.add_parser(
+        "task",
+        help="Show task details",
+        description="Show detailed information about a specific task",
+    )
+    ls_task_parser.add_arguments(ls_task.Cmd, dest="task")
+
+    # Skills subcommand (with nested subcommands)
+    skills_parser = subparsers.add_parser(
+        "skills",
+        help="Manage NEL agent skills",
+        description="Manage NEL agent skills for AI coding assistants",
+    )
+    skills_sub = skills_parser.add_subparsers(dest="skills_command", required=False)
+    skills_add_parser = skills_sub.add_parser(
+        "add",
+        help="Add NEL agent skills",
+        description="Add NEL agent skills for AI coding assistants",
+    )
+    skills_add_parser.add_arguments(skills.AddCmd, dest="skills_add")
+    # Keep "install" as an alias for backwards compatibility
+    skills_install_parser = skills_sub.add_parser(
+        "install",
+        help="Add NEL agent skills (alias for 'add')",
+        description="Add NEL agent skills for AI coding assistants",
+    )
+    skills_install_parser.add_arguments(skills.AddCmd, dest="skills_add")
+    skills_build_config_parser = skills_sub.add_parser(
+        "build-config",
+        help="Build evaluation config from templates",
+        description="Build a complete NEL evaluation config by combining template excerpts",
+    )
+    skills_build_config_parser.add_arguments(
+        skills.BuildConfigCmd, dest="skills_build_config"
+    )
+    # Stash reference so we can print help when no subcommand is given
+    parser._skills_parser = skills_parser  # type: ignore[attr-defined]
+
+    # Config subcommand (with nested subcommands)
+    config_parser = subparsers.add_parser(
+        "config",
+        help="Manage persistent configuration",
+        description="Manage persistent configuration in ~/.config/nemo-evaluator/config.yaml",
+    )
+    config_sub = config_parser.add_subparsers(dest="config_command", required=False)
+
+    config_set_parser = config_sub.add_parser(
+        "set", help="Set a config value", description="Set a config value"
+    )
+    config_set_parser.add_arguments(config.SetCmd, dest="config_set")
+
+    config_get_parser = config_sub.add_parser(
+        "get",
+        help="Get the effective value of a config key",
+        description="Get the effective value of a config key",
+    )
+    config_get_parser.add_arguments(config.GetCmd, dest="config_get")
+
+    config_show_parser = config_sub.add_parser(
+        "show",
+        help="Show the full config file",
+        description="Show the full config file",
+    )
+    config_show_parser.add_arguments(config.ShowCmd, dest="config_show")
+
+    # Export subcommand
+    export_parser = subparsers.add_parser(
+        "export",
+        help="Export evaluation results",
+        description="Export evaluation results takes a List of invocation ids and a list of destinations(local, gitlab, wandb)",
+    )
+    export_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging (sets LOG_LEVEL=DEBUG)",
+    )
+    export_parser.add_arguments(export.ExportCmd, dest="export")
+
+    # Resume subcommand
+    resume_parser = subparsers.add_parser(
+        "resume",
+        help="Resume an evaluation.",
+        description="Resume an evaluation by re-executing existing scripts in output directories",
+    )
+    resume_parser.add_arguments(resume.Cmd, dest="resume")
+
+    # Info subcommand
+    info_parser = subparsers.add_parser(
+        "info",
+        help="Display evaluation job information",
+        description="Info functionalities for nemo-evaluator-launcher",
+    )
+    info_parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose logging"
+    )
+    info_parser.add_arguments(info.InfoCmd, dest="info")
+
+    return parser
+
+
+def main() -> None:
+    """Main CLI entry point with subcommands."""
+    parser = create_parser()
+    args = parser.parse_args()
+
+    # Handle --verbose flag
+    if is_verbose_enabled(args):
+        os.environ["LOG_LEVEL"] = "DEBUG"
+
+    # Handle --version flag
+    if hasattr(args, "version") and args.version:
+        version_cmd = version.Cmd()
+        version_cmd.execute()
+        return
+
+    # Handle case where no command is provided but --version wasn't used
+    if not hasattr(args, "command") or args.command is None:
+        parser.print_help()
+        return
+
+    logger.debug("Parsed arguments", args=args)
+    if args.command == "version":
+        args.version.execute()
+    elif args.command == "run":
+        args.run.execute()
+    elif args.command == "status":
+        args.status.execute()
+    elif args.command == "logs":
+        args.logs.execute()
+    elif args.command == "kill":
+        args.kill.execute()
+    elif args.command == "ls":
+        # Dispatch nested ls subcommands
+        if args.ls_command == "tasks":
+            # When explicitly "ls tasks", use args.tasks (has correct from_container)
+            args.tasks.execute()
+        elif args.ls_command is None:
+            # When just "ls" (no subcommand), use args.tasks_alias
+            if hasattr(args, "tasks_alias"):
+                args.tasks_alias.execute()
+            else:
+                args.tasks.execute()
+        elif args.ls_command == "task":
+            args.task.execute()
+        elif args.ls_command == "runs":
+            args.runs.execute()
+    elif args.command == "skills":
+        if args.skills_command in ("add", "install"):
+            args.skills_add.execute()
+        elif args.skills_command == "build-config":
+            args.skills_build_config.execute()
+        else:
+            parser._skills_parser.print_help()  # type: ignore[attr-defined]
+    elif args.command == "config":
+        if args.config_command == "set":
+            args.config_set.execute()
+        elif args.config_command == "get":
+            args.config_get.execute()
+        elif args.config_command == "show":
+            args.config_show.execute()
+        else:
+            # No subcommand — print config help
+            parser = create_parser()
+            parser.parse_args(["config", "--help"])
+    elif args.command == "export":
+        args.export.execute()
+    elif args.command == "resume":
+        args.resume.execute()
+    elif args.command == "info":
+        args.info.execute()
+
+
+if __name__ == "__main__":
+    main()

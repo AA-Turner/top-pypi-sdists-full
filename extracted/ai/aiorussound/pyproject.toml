@@ -1,0 +1,74 @@
+[project]
+name = "aiorussound"
+version = "5.0.2"
+description = "Async Python client for Russound RIO and RNET multi-zone audio systems."
+authors = [
+    { name = "Noah Husby", email = "opensource@husbylabs.com" }
+]
+maintainers = [
+    { name = "Noah Husby", email = "opensource@husbylabs.com" }
+]
+license = "MIT"
+readme = "README.md"
+
+requires-python = ">=3.11"
+dependencies = [
+    "mashumaro>=3.17",
+    "orjson>=3.9.0",
+    "serialx>=1.2.2"
+]
+
+[project.urls]
+homepage = "https://github.com/noahhusby/aiorussound"
+repository = "https://github.com/noahhusby/aiorussound"
+documentation = "https://github.com/noahhusby/aiorussound"
+
+[project.optional-dependencies]
+dev = [
+    "coverage==7.15.4",
+    "mypy==2.3.0",
+    "pre-commit==4.6.1",
+    "pre-commit-hooks==6.0.0",
+    "pylint==4.0.6",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.2"
+]
+docs = [
+    "pdoc>=14.7,<17.0"
+]
+
+[tool.mypy]
+# Specify the target platform details in config, so your developers are
+# free to run mypy on Windows, Linux, or macOS and get consistent
+# results.
+platform = "linux"
+python_version = "3.11"
+
+# show error messages from unrelated files
+follow_imports = "normal"
+
+# suppress errors about unsatisfied imports
+ignore_missing_imports = true
+
+# be strict
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+strict_optional = true
+warn_incomplete_stub = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -138,7 +138,7 @@ class ComparisonPromptResult(APIObject):
     confidence_scores: ConfidenceScores or None
         The confidence scores if there is a vector database associated with the chat prompt.
     citations: list[Citation]
-        List of citations from text retrieved from the vector database, if any.
+        A list of citations from text retrieved from the vector database, if any.
     execution_status: str
         The execution status of the chat prompt.
     chat_context_id: Optional[str], optional
@@ -378,7 +378,7 @@ class ComparisonPrompt(APIObject):
         comparison_chat: Optional[Union[ComparisonChat, str]] = None,
     ) -> List[ComparisonPrompt]:
         """
-        List all comparison prompts available to the user that include the specified LLM blueprints
+        Returns a list of all comparison prompts available to the user that include the specified LLM blueprints
         or from the specified comparison chat.
 
         Parameters

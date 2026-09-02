@@ -1,0 +1,1163 @@
+import io
+import logging
+from typing import Any, Literal, Sequence, cast
+
+from anthropic import APIConnectionError, AsyncAnthropic, transform_schema
+from anthropic.types.beta import BetaContentBlock
+from anthropic.types.beta.beta_fallback_block import BetaFallbackBlock
+from anthropic.types.beta.beta_text_block import BetaTextBlock
+from anthropic.types.beta.beta_tool_use_block import BetaToolUseBlock
+from anthropic.types.beta.beta_web_search_tool_result_block import (
+    BetaWebSearchToolResultBlock,
+)
+from anthropic.types.beta.parsed_beta_message import ParsedBetaMessage
+from pydantic import BaseModel, Field, JsonValue, SecretStr, model_validator
+from typing_extensions import override
+
+from model_library import model_library_settings
+from model_library.agent.tool import is_native_web_search
+from model_library.base import (
+    LLM,
+    BatchResult,
+    FileBase,
+    FileInput,
+    FileWithBase64,
+    FileWithId,
+    FileWithUrl,
+    FinishReason,
+    FinishReasonInfo,
+    InputItem,
+    LLMBatchMixin,
+    LLMConfig,
+    ProviderConfig,
+    QueryResult,
+    QueryResultCost,
+    QueryResultExtras,
+    QueryResultMetadata,
+    RawInput,
+    RawResponse,
+    SystemInput,
+    TextInput,
+    ToolBody,
+    ToolCall,
+    ToolDefinition,
+    ToolResult,
+)
+from model_library.base.input import normalize_query_input
+from model_library.base.output.builder import QueryResultBuilder
+from model_library.base.output.result import ProviderToolEvent
+from model_library.rate_limits import (
+    RateLimit,
+    RateLimitCapacity,
+    RequestRateLimit,
+    TokenRateLimit,
+    rate_limit_header_int,
+    rate_limit_timestamp_from_headers,
+)
+from model_library.exceptions import (
+    BadInputError,
+    ImmediateRetryException,
+    ModelNoOutputError,
+    NoMatchingToolCallError,
+    UnexpectedSystemInputError,
+    handle_empty_response,
+)
+from model_library.model_utils import get_default_budget_tokens
+from model_library.providers.openai import OpenAIModel
+from model_library.register_models import register_provider
+from model_library.utils import (
+    create_anthropic_client_with_defaults,
+)
+
+ANTHROPIC_FILES_BETA = "files-api-2025-04-14"
+ANTHROPIC_INTERLEAVED_THINKING_BETA = "interleaved-thinking-2025-05-14"
+ANTHROPIC_SERVER_SIDE_FALLBACK_BETA = "server-side-fallback-2026-06-01"
+ANTHROPIC_TASK_BUDGET_BETA = "task-budgets-2026-03-13"
+# Anthropic rejects an assistant message whose final block is thinking, so a turn that ran out of
+# tokens mid-thought is replayed with this block appended.
+TRUNCATED_THINKING_MARKER = "[response cut off at the output token limit]"
+
+
+def _json_safe_anthropic_value(value: Any) -> Any:
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json", exclude_none=True)
+    if hasattr(value, "model_dump"):
+        return _json_safe_anthropic_value(
+            value.model_dump(mode="json", exclude_none=True)
+        )
+    if isinstance(value, dict):
+        dict_value = cast(dict[object, object], value)
+        return {
+            str(key): _json_safe_anthropic_value(nested)
+            for key, nested in dict_value.items()
+        }
+    if isinstance(value, list | tuple):
+        sequence_value = cast(list[object] | tuple[object, ...], value)
+        return [_json_safe_anthropic_value(item) for item in sequence_value]
+    return str(value)
+
+
+def _strip_fallback_blocks(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Drop `fallback` blocks, which only the beta messages endpoint accepts."""
+    stripped: list[dict[str, Any]] = []
+    for message in messages:
+        content: Any = message.get("content")
+        if isinstance(content, list):
+            message = {
+                **message,
+                "content": [
+                    block
+                    for block in cast(list[Any], content)
+                    if not isinstance(block, BetaFallbackBlock)
+                ],
+            }
+        stripped.append(message)
+    return stripped
+
+
+def map_anthropic_finish_reason(
+    stop_reason: str | None,
+) -> FinishReasonInfo:
+    match stop_reason:
+        case "end_turn":
+            reason = FinishReason.STOP
+        case "max_tokens":
+            reason = FinishReason.MAX_TOKENS
+        case "model_context_window_exceeded":
+            reason = FinishReason.CONTEXT_WINDOW_EXCEEDED
+        case "stop_sequence":
+            reason = FinishReason.STOP_SEQUENCE
+        case "tool_use":
+            reason = FinishReason.TOOL_CALLS
+        case "pause_turn":
+            reason = FinishReason.PAUSED
+        case "refusal":
+            reason = FinishReason.CONTENT_FILTER
+        case _:
+            reason = FinishReason.UNKNOWN
+
+    return FinishReasonInfo(reason=reason, raw=stop_reason)
+
+
+class AnthropicConfig(ProviderConfig):
+    supports_compute_effort: bool = False
+    supports_auto_thinking: bool = False
+    task_budget_tokens: int | None = None
+    returns_thinking_truncated_turns: bool = False
+    fallback_models: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_fallback_models(self) -> "AnthropicConfig":
+        if len(self.fallback_models) > 3:
+            raise ValueError("fallback_models supports at most 3 entries")
+        if len(set(self.fallback_models)) != len(self.fallback_models):
+            raise ValueError("fallback_models must not contain duplicate models")
+        return self
+
+
+class AnthropicBatchMixin(LLMBatchMixin):
+    """Batch processing support for Anthropic's Message Batches API."""
+
+    COMPLETED_RESULT_TYPES = ["succeeded", "errored", "canceled", "expired"]
+
+    def __init__(self, model: "AnthropicModel"):
+        self._root = model
+
+    @override
+    async def create_batch_query_request(
+        self,
+        custom_id: str,
+        input: Sequence[InputItem],
+        output_schema: dict[str, Any] | type[BaseModel] | None = None,
+        **kwargs: object,
+    ) -> dict[str, Any]:
+        """Create a single batch request in Anthropic's format.
+
+        Format: {"custom_id": str, "params": {...message params...}}
+        """
+        tools = cast(list[ToolDefinition], kwargs.pop("tools", []))
+        body = await self._root.build_body(
+            input, tools=tools, output_schema=output_schema, **kwargs
+        )
+
+        return {
+            "custom_id": custom_id,
+            "params": body,
+        }
+
+    @override
+    async def batch_query(
+        self,
+        batch_name: str,
+        requests: list[dict[str, Any]],
+    ) -> str:
+        """Submit a batch of requests to Anthropic's Message Batches API.
+
+        Returns the batch ID for status tracking.
+        """
+        client = self._root.get_client()
+
+        # Create the batch using Anthropic's batches API
+        batch = await client.messages.batches.create(
+            requests=cast(Any, requests),  # Type mismatch in SDK, cast to Any
+        )
+
+        self._root.instance_logger.info(
+            f"Created Anthropic batch {batch.id} with {len(requests)} requests"
+        )
+
+        return batch.id
+
+    @override
+    async def get_batch_results(self, batch_id: str) -> list[BatchResult]:
+        """Retrieve results from a completed batch.
+
+        Streams results using the SDK's batches.results() method.
+        """
+        client = self._root.get_client()
+
+        # Get batch status to verify it's completed
+        batch = await client.messages.batches.retrieve(batch_id)
+
+        if batch.processing_status != "ended":
+            raise ValueError(
+                f"Batch {batch_id} is not completed yet. Status: {batch.processing_status}"
+            )
+
+        # Stream results using the SDK's results method
+        batch_results: list[BatchResult] = []
+        async for result_item in await client.messages.batches.results(batch_id):
+            # result_item is a MessageBatchIndividualResponse - convert to dict
+            result_dict = result_item.model_dump()
+            custom_id = cast(str, result_dict["custom_id"])
+            result_type = cast(str, result_dict["result"]["type"])
+
+            if result_type not in self.COMPLETED_RESULT_TYPES:
+                self._root.instance_logger.warning(
+                    f"Unknown result type '{result_type}' for request {custom_id}"
+                )
+                continue
+
+            if result_type == "succeeded":
+                # Extract the message from the successful result
+                message_data = cast(dict[str, Any], result_dict["result"]["message"])
+
+                # Parse the message content to extract text, reasoning, and tool calls
+                text = ""
+                reasoning = ""
+                tool_calls: list[ToolCall] = []
+
+                for content in message_data.get("content", []):
+                    if content.get("type") == "text":
+                        text += content.get("text", "")
+                    elif content.get("type") == "thinking":
+                        reasoning += content.get("thinking", "")
+                    elif content.get("type") == "tool_use":
+                        tool_calls.append(
+                            ToolCall(
+                                id=content["id"],
+                                name=content["name"],
+                                args=content.get("input", {}),
+                            )
+                        )
+
+                # Extract usage information
+                usage = message_data.get("usage", {})
+                metadata = QueryResultMetadata(
+                    in_tokens=usage.get("input_tokens", 0),
+                    out_tokens=usage.get("output_tokens", 0),
+                    cache_read_tokens=usage.get("cache_read_input_tokens", 0),
+                    cache_write_tokens=usage.get("cache_creation_input_tokens", 0),
+                )
+
+                query_result = QueryResult(
+                    output_text=text,
+                    reasoning=reasoning,
+                    metadata=metadata,
+                    tool_calls=tool_calls,
+                    history=[],  # History not available in batch results
+                    extras=QueryResultExtras(
+                        provider_response_id=message_data.get("id"),
+                    ),
+                )
+
+                batch_results.append(
+                    BatchResult(
+                        custom_id=custom_id,
+                        output=query_result,
+                    )
+                )
+
+            elif result_type == "errored":
+                # Handle errored results
+                error = cast(dict[str, Any], result_dict["result"]["error"])
+                error_message = f"{error.get('type', 'unknown_error')}: {error.get('message', 'Unknown error')}"
+                output = QueryResult(output_text=error_message)
+                batch_results.append(
+                    BatchResult(
+                        custom_id=custom_id,
+                        output=output,
+                        error_message=error_message,
+                    )
+                )
+
+            elif result_type in ["canceled", "expired"]:
+                # Handle canceled/expired results
+                error_message = f"Request {result_type}"
+                batch_results.append(
+                    BatchResult(
+                        custom_id=custom_id,
+                        output=QueryResult(output_text=""),
+                        error_message=error_message,
+                    )
+                )
+
+        return batch_results
+
+    @override
+    async def get_batch_progress(self, batch_id: str) -> int:
+        """Get the number of completed requests in a batch."""
+        client = self._root.get_client()
+        batch = await client.messages.batches.retrieve(batch_id)
+
+        # Return the number of processed requests
+        request_counts = batch.request_counts
+        return (
+            request_counts.succeeded
+            + request_counts.errored
+            + request_counts.canceled
+            + request_counts.expired
+        )
+
+    @override
+    async def cancel_batch_request(self, batch_id: str) -> None:
+        """Cancel a running batch request."""
+        client = self._root.get_client()
+        await client.messages.batches.cancel(batch_id)
+        self._root.instance_logger.info(f"Canceled Anthropic batch {batch_id}")
+
+    @override
+    async def get_batch_status(self, batch_id: str) -> str:
+        """Get the current status of a batch."""
+        client = self._root.get_client()
+        batch = await client.messages.batches.retrieve(batch_id)
+        return batch.processing_status
+
+    @classmethod
+    def is_batch_status_completed(cls, batch_status: str) -> bool:
+        """Check if a batch status indicates completion."""
+        return batch_status == "ended"
+
+    @classmethod
+    def is_batch_status_failed(cls, batch_status: str) -> bool:
+        """Check if a batch status indicates failure."""
+        # Anthropic batches can have individual request failures but the batch
+        # itself doesn't have a "failed" status - it just ends
+        return False
+
+    @classmethod
+    def is_batch_status_cancelled(cls, batch_status: str) -> bool:
+        """Check if a batch status indicates cancellation."""
+        return batch_status == "canceling" or batch_status == "canceled"
+
+
+@register_provider("anthropic")
+class AnthropicModel(LLM):
+    provider_config = AnthropicConfig()
+
+    def _get_default_api_key(self) -> str:
+        return model_library_settings.ANTHROPIC_API_KEY
+
+    @override
+    def get_client(
+        self, api_key: str | None = None, base_url: str | None = None
+    ) -> AsyncAnthropic:
+        if not self.has_client():
+            assert api_key
+            headers: dict[str, str] = {}
+            client = create_anthropic_client_with_defaults(
+                base_url=base_url,
+                api_key=api_key,
+                default_headers=headers,
+            )
+            self.assign_client(client)
+        return super().get_client()
+
+    def __init__(
+        self,
+        model_name: str,
+        provider: str = "anthropic",
+        *,
+        config: LLMConfig | None = None,
+    ):
+        super().__init__(model_name, provider, config=config)
+
+        # https://docs.anthropic.com/en/api/openai-sdk
+        if self.native:
+            self.delegate = None
+        else:
+            config = config or LLMConfig()
+            config.custom_endpoint = (
+                config.custom_endpoint or "https://api.anthropic.com/v1/"
+            )
+            config.custom_api_key = config.custom_api_key or SecretStr(
+                model_library_settings.ANTHROPIC_API_KEY
+            )
+
+            # flip native back on for the delegate so it initializes its own
+            # client registry; the outer model stays non-native.
+            config.native = True
+            self.delegate = OpenAIModel(
+                model_name=self.model_name,
+                provider=self.provider,
+                config=config,
+                use_completions=True,
+            )
+            config.native = False
+
+        # Initialize batch support if enabled
+        # Disable batch when using custom_client (similar to OpenAI)
+        self.supports_batch: bool = (
+            self.supports_batch and self.native and not self.custom_endpoint
+        )
+        self.batch: LLMBatchMixin | None = (
+            AnthropicBatchMixin(self) if self.supports_batch else None
+        )
+
+    def _fallback_models_for_request(self) -> list[str]:
+        fallback_models = self.provider_config.fallback_models
+        if self.model_name in fallback_models:
+            raise ValueError("fallback_models must not include requested model")
+        return fallback_models
+
+    async def get_tool_call_ids(self, input: Sequence[InputItem]) -> list[str]:
+        raw_responses = [x for x in input if isinstance(x, RawResponse)]
+        tool_call_ids: list[str] = []
+
+        calls = [
+            y
+            for x in raw_responses
+            if isinstance(x.response, ParsedBetaMessage)
+            for y in x.response.content  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            if isinstance(y, BetaToolUseBlock)
+        ]
+        tool_call_ids.extend([x.id for x in calls])
+        return tool_call_ids
+
+    def _last_container_id(self, input: Sequence[InputItem]) -> str | None:
+        """Most recent code-execution container id in history, needed to resume a paused turn."""
+        for item in reversed(input):
+            if not isinstance(item, RawResponse):
+                continue
+            container = getattr(item.response, "container", None)
+            if container is not None:
+                return getattr(container, "id", None)
+        return None
+
+    @override
+    async def parse_input(
+        self,
+        input: Sequence[InputItem],
+        **kwargs: Any,
+    ) -> list[dict[str, Any] | Any]:
+        new_input: list[dict[str, Any] | Any] = []
+
+        content_user: list[dict[str, Any]] = []
+
+        def flush_content_user():
+            if content_user:
+                # NOTE: must make new object as we clear()
+                new_input.append({"role": "user", "content": content_user.copy()})
+                content_user.clear()
+
+        def flush_after_tool_result():
+            if content_user and content_user[-1]["type"] == "tool_result":
+                flush_content_user()
+
+        tool_call_ids = await self.get_tool_call_ids(input)
+
+        for item in input:
+            if isinstance(item, TextInput):
+                flush_after_tool_result()
+                content_user.append({"type": "text", "text": item.text})
+                continue
+
+            if isinstance(item, FileBase):
+                match item.type:
+                    case "image":
+                        parsed = await self.parse_image(item)
+                    case "file":
+                        parsed = await self.parse_file(item)
+                flush_after_tool_result()
+                content_user.append(parsed)
+                continue
+
+            if isinstance(item, ToolResult):
+                if item.tool_call.id not in tool_call_ids:
+                    raise NoMatchingToolCallError()
+
+                if content_user and content_user[-1]["type"] != "tool_result":
+                    flush_content_user()
+                content_user.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": item.tool_call.id,
+                        "content": [{"type": "text", "text": item.result}],
+                    }
+                )
+                continue
+
+            # non content user item
+            flush_content_user()
+
+            match item:
+                case RawResponse():
+                    assistant_content: list[BetaContentBlock] = list(
+                        cast(ParsedBetaMessage, item.response).content
+                    )
+                    if (
+                        self.provider_config.returns_thinking_truncated_turns
+                        and assistant_content
+                        and assistant_content[-1].type
+                        in ("thinking", "redacted_thinking")
+                    ):
+                        assistant_content.append(
+                            BetaTextBlock(
+                                type="text",
+                                text=TRUNCATED_THINKING_MARKER,
+                                citations=None,
+                            )
+                        )
+                    new_input.append(
+                        {"role": "assistant", "content": assistant_content}
+                    )
+                case RawInput():
+                    new_input.append(item.input)
+                case SystemInput():
+                    raise UnexpectedSystemInputError()
+
+        # in case content user item is the last item
+        flush_content_user()
+
+        # cache control
+        if new_input:
+            last_msg = new_input[-1]
+            if not isinstance(last_msg, dict):
+                return new_input
+
+            last_msg_dict: dict[str, Any] = cast(dict[str, Any], last_msg)
+            if last_msg_dict.get("role") != "user":
+                return new_input
+
+            content = last_msg_dict.get("content")
+            if not isinstance(content, list) or not content:
+                return new_input
+
+            content_list: list[Any] = cast(list[Any], content)
+            last_block = content_list[-1]
+            if isinstance(last_block, dict):
+                last_block_dict: dict[str, Any] = cast(dict[str, Any], last_block)
+                last_block_dict.setdefault("cache_control", self.cache_control)
+
+        return new_input
+
+    @override
+    async def parse_image(
+        self,
+        image: FileInput,
+    ) -> dict[str, Any]:
+        match image:
+            case FileWithBase64():
+                return {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": f"image/{image.mime}",
+                        "data": image.base64,
+                    },
+                }
+            case FileWithUrl():
+                return {
+                    "type": "image",
+                    "source": {
+                        "type": "url",
+                        "url": image.url,
+                    },
+                }
+            case FileWithId():
+                return {
+                    "type": "image",
+                    "source": {
+                        "type": "file",
+                        "file_id": image.file_id,
+                    },
+                }
+            case _:
+                raise BadInputError("Anthropic does not support byte-backed files")
+
+    @override
+    async def parse_file(
+        self,
+        file: FileInput,
+    ) -> dict[str, Any]:
+        match file:
+            case FileWithBase64():
+                return {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": file.mime,
+                        "data": file.base64,
+                    },
+                }
+            case FileWithUrl():
+                return {
+                    "type": "document",
+                    "source": {
+                        "type": "url",
+                        "url": file.url,
+                    },
+                }
+            case FileWithId():
+                return {
+                    "type": "document",
+                    "source": {
+                        "type": "file",
+                        "file_id": file.file_id,
+                    },
+                }
+            case _:
+                raise BadInputError("Anthropic does not support byte-backed files")
+
+    @property
+    @override
+    def search_tool(self) -> dict[str, str]:
+        return {"type": "web_search_20260209", "name": "web_search"}
+
+    @override
+    async def parse_tools(
+        self,
+        tools: list[ToolDefinition],
+    ) -> list[dict[str, Any]]:
+        parsed_tools: list[dict[str, Any]] = []
+        for tool in tools:
+            body = tool.body
+            if is_native_web_search(body):
+                parsed_tools.append(self.search_tool)
+                continue
+            if not isinstance(body, ToolBody):
+                parsed_tools.append(body)
+                continue
+            parsed_tools.append(
+                {
+                    "name": body.name,
+                    "description": body.description,
+                    "input_schema": {
+                        "type": "object",
+                        "properties": body.properties,
+                        "required": body.required,
+                    },
+                }
+            )
+        return parsed_tools
+
+    @override
+    async def upload_file(
+        self,
+        name: str,
+        mime: str,
+        bytes: io.BytesIO,
+        type: Literal["image", "file"] = "file",
+    ) -> FileWithId:
+        file_mime = f"image/{mime}" if type == "image" else mime
+        response = await self.get_client().beta.files.upload(
+            file=(
+                name,
+                bytes,
+                file_mime,
+            ),
+        )
+
+        return FileWithId(
+            type=type,
+            file_id=response.id,
+            name=response.filename,
+            mime=mime,
+        )
+
+    cache_control = {"type": "ephemeral"}  # 5 min cache
+
+    @override
+    async def build_body(
+        self,
+        input: Sequence[InputItem],
+        *,
+        tools: list[ToolDefinition],
+        output_schema: dict[str, Any] | type[BaseModel] | None = None,
+        **kwargs: object,
+    ) -> dict[str, Any]:
+        system_text: str | None = None
+        if isinstance(input[0], SystemInput):
+            system_text = input[0].text
+            input = input[1:]
+
+        body: dict[str, Any] = {
+            "model": self.model_name,
+            "messages": await self.parse_input(input),
+        }
+
+        container_id = self._last_container_id(input)
+        if container_id is not None:
+            body["container"] = container_id
+
+        if system_text is not None:
+            body["system"] = [
+                {
+                    "type": "text",
+                    "text": system_text,
+                    "cache_control": self.cache_control,
+                }
+            ]
+
+        if not self.max_tokens:
+            raise Exception("Anthropic models require a max_tokens parameter")
+
+        body["max_tokens"] = self.max_tokens
+
+        if self.provider_config.supports_auto_thinking:
+            if self.reasoning:
+                body["thinking"] = {"type": "adaptive"}
+            else:
+                body["thinking"] = {"type": "disabled"}
+        elif self.reasoning:
+            budget_tokens = kwargs.pop(
+                "budget_tokens", get_default_budget_tokens(self.max_tokens)
+            )
+            body["thinking"] = {
+                "type": "enabled",
+                "budget_tokens": budget_tokens,
+            }
+
+        # effort controls compute allocation for text, tool calls, and thinking. Opus-4.5+
+        # use instead of reasoning_effort with auto_thinking
+        output_config: dict[str, Any] = {}
+        if self.provider_config.supports_compute_effort and self.compute_effort:
+            output_config["effort"] = self.compute_effort
+        if self.provider_config.task_budget_tokens:
+            output_config["task_budget"] = {
+                "type": "tokens",
+                "total": self.provider_config.task_budget_tokens,
+            }
+        if output_config:
+            body["output_config"] = output_config
+
+        # Thinking models don't support temperature: https://docs.claude.com/en/docs/build-with-claude/extended-thinking#feature-compatibility
+        if self.supports_temperature and not self.reasoning:
+            if self.temperature is not None:
+                body["temperature"] = self.temperature
+
+        if output_schema is not None:
+            schema = transform_schema(output_schema)
+            output_config = body.get("output_config", {})
+            output_config["format"] = {
+                "type": "json_schema",
+                "schema": schema,
+            }
+            body["output_config"] = output_config
+
+        parsed_tools = await self.parse_tools(tools)
+        if parsed_tools:
+            if "system" not in body:
+                parsed_tools[-1]["cache_control"] = self.cache_control
+            body["tools"] = parsed_tools
+
+        body.update(kwargs)
+
+        return body
+
+    @override
+    async def _query_impl(
+        self,
+        input: Sequence[InputItem],
+        *,
+        tools: list[ToolDefinition],
+        query_logger: logging.Logger,
+        output_schema: dict[str, Any] | type[BaseModel] | None = None,
+        **kwargs: object,
+    ) -> QueryResult:
+        if self.delegate:
+            return await self.delegate_query(
+                input,
+                tools=tools,
+                query_logger=query_logger,
+                output_schema=output_schema,
+                **kwargs,
+            )
+
+        body = await self.build_body(
+            input, tools=tools, output_schema=output_schema, **kwargs
+        )
+
+        client = self.get_client()
+
+        # only send betas for the official Anthropic endpoint
+        is_anthropic_endpoint = self.custom_endpoint is None
+        if not is_anthropic_endpoint:
+            client_base_url = getattr(client, "_base_url", None) or getattr(
+                client, "base_url", None
+            )
+            if client_base_url:
+                is_anthropic_endpoint = "api.anthropic.com" in str(client_base_url)
+
+        stream_kwargs: dict[str, Any] = {**body}
+        if is_anthropic_endpoint:
+            betas = [ANTHROPIC_FILES_BETA]
+            if not self.provider_config.supports_auto_thinking:
+                betas.append(ANTHROPIC_INTERLEAVED_THINKING_BETA)
+
+            request_output_config = cast(
+                dict[str, Any], body.get("output_config") or {}
+            )
+            if request_output_config.get("task_budget"):
+                betas.append(ANTHROPIC_TASK_BUDGET_BETA)
+
+            fallback_models = self._fallback_models_for_request()
+            if fallback_models:
+                betas.append(ANTHROPIC_SERVER_SIDE_FALLBACK_BETA)
+                extra_body = cast(
+                    dict[str, Any], stream_kwargs.setdefault("extra_body", {})
+                )
+                extra_body["fallbacks"] = [
+                    {"model": model} for model in fallback_models
+                ]
+
+            stream_kwargs["betas"] = betas
+
+        result_builder = QueryResultBuilder()
+        stream_thinking_tokens: int | None = None
+
+        try:
+            async with client.beta.messages.stream(
+                **stream_kwargs,
+            ) as stream:  # pyright: ignore[reportAny]
+                async for event in stream:
+                    event_type = getattr(event, "type", None)
+                    if event_type == "content_block_start":
+                        content_block = getattr(event, "content_block", None)
+                        if getattr(content_block, "type", None) == "tool_use":
+                            result_builder.start_tool_call_segment().record_tool_call_ready()
+                    elif event_type == "content_block_delta":
+                        delta = getattr(event, "delta", None)
+                        delta_type = getattr(delta, "type", None)
+                        match delta_type:
+                            case "thinking_delta":
+                                result_builder.append_reasoning_delta(
+                                    getattr(delta, "thinking", None)
+                                )
+                            case "text_delta":
+                                result_builder.append_content_delta(
+                                    getattr(delta, "text", None)
+                                )
+                            case "input_json_delta":
+                                if getattr(delta, "partial_json", None):
+                                    result_builder.record_tool_call_delta()
+                            case _:
+                                pass
+                    elif event_type == "content_block_stop":
+                        result_builder.finish_current_segment()
+                    elif event_type == "message_delta":
+                        event_usage = getattr(event, "usage", None)
+                        output_token_details = getattr(
+                            event_usage, "output_tokens_details", None
+                        )
+                        thinking_tokens = getattr(
+                            output_token_details, "thinking_tokens", None
+                        )
+                        if thinking_tokens is not None:
+                            stream_thinking_tokens = thinking_tokens
+                message = await stream.get_final_message()
+            query_logger.debug(f"Anthropic Response finished: {message.id}")
+        except APIConnectionError:
+            raise ImmediateRetryException("Failed to connect to Anthropic")
+
+        text_parts: list[str] = []
+        reasoning_parts: list[str] = []
+        tool_calls: list[ToolCall] = []
+        provider_tool_events: list[ProviderToolEvent] = []
+        fallback_blocks: list[dict[str, Any]] = []
+        web_search_queries: dict[str, str] = {}
+        for i, content in enumerate(message.content):
+            if content.type == "text":
+                text_parts.append(content.text)
+            elif content.type == "thinking":
+                reasoning_parts.append(content.thinking)
+            elif content.type == "tool_use":
+                tool_calls.append(
+                    ToolCall(
+                        id=content.id,
+                        name=content.name,
+                        args=cast(Any, content.input),
+                        sequence=i,
+                    )
+                )
+            elif isinstance(content, BetaFallbackBlock):
+                fallback_blocks.append(
+                    content.model_dump(mode="json", by_alias=True, exclude_none=True)
+                )
+            if (
+                content.type == "server_tool_use"
+                and cast(Any, content).name == "web_search"
+            ):
+                web_search_queries[cast(Any, content).id] = cast(Any, content).input[
+                    "query"
+                ]
+            if isinstance(content, BetaWebSearchToolResultBlock):
+                if isinstance(content.content, list):
+                    sources: list[JsonValue] = [block.url for block in content.content]
+                    provider_tool_events.append(
+                        ProviderToolEvent.web_search(
+                            provider="anthropic",
+                            kind="web_search_tool_result",
+                            query=web_search_queries[content.tool_use_id],
+                            sources=sources,
+                            sequence=i,
+                            id=content.tool_use_id,
+                        )
+                    )
+                else:
+                    provider_tool_events.append(
+                        ProviderToolEvent(
+                            provider="anthropic",
+                            type="web_search_tool_result",
+                            name="web_search",
+                            status="error",
+                            input=web_search_queries[content.tool_use_id],
+                            output=content.content.error_code,
+                            sequence=i,
+                            id=content.tool_use_id,
+                        )
+                    )
+
+        text = "".join(text_parts)
+        reasoning = "".join(reasoning_parts)
+        mapped_finish_reason = map_anthropic_finish_reason(message.stop_reason)
+
+        if text_parts:
+            result_builder.set_output_text(text)
+        if reasoning:
+            result_builder.set_reasoning(reasoning)
+
+        has_observed_output = (
+            result_builder.has_output_text
+            or result_builder.has_reasoning
+            or bool(tool_calls)
+            or bool(provider_tool_events)
+        )
+        truncated_inside_thinking = (
+            mapped_finish_reason.reason == FinishReason.MAX_TOKENS
+            and bool(message.content)
+            and message.content[-1].type in ("thinking", "redacted_thinking")
+        )
+        # A turn cut off inside thinking can carry no text and, when the cut lands before any
+        # thinking is emitted, no reasoning either; keys that continue such turns keep it.
+        continuable = (
+            self.provider_config.returns_thinking_truncated_turns
+            and truncated_inside_thinking
+        )
+        if not has_observed_output and not continuable:
+            handle_empty_response(mapped_finish_reason, {"raw": str(message)})
+
+        # Anthropic rejects an assistant message whose final block is thinking, so a turn that
+        # ran out of tokens mid-thought cannot be replayed in a later request.
+        if truncated_inside_thinking and not (
+            self.provider_config.returns_thinking_truncated_turns
+        ):
+            raise ModelNoOutputError(
+                str(
+                    {
+                        "reason": "response truncated inside a thinking block",
+                        "finish_reason": mapped_finish_reason.raw,
+                        "response_id": message.id,
+                    }
+                )
+            )
+
+        usage = message.usage
+        output_token_details = getattr(usage, "output_tokens_details", None)
+        reasoning_tokens = (
+            stream_thinking_tokens
+            or getattr(output_token_details, "thinking_tokens", None)
+            or None
+        )
+        metadata_extra: dict[str, Any] = {
+            "anthropic_response_model": message.model,
+        }
+        if fallback_blocks:
+            metadata_extra["anthropic_fallback_blocks"] = fallback_blocks
+        if usage.iterations is not None:
+            metadata_extra["anthropic_usage_iterations"] = _json_safe_anthropic_value(
+                usage.iterations
+            )
+            if any(
+                iteration.type == "fallback_message" for iteration in usage.iterations
+            ):
+                metadata_extra["fallback"] = True
+
+        return result_builder.build(
+            finish_reason=mapped_finish_reason,
+            metadata=QueryResultMetadata(
+                # see _calculate_cost
+                in_tokens=usage.input_tokens,
+                out_tokens=usage.output_tokens - (reasoning_tokens or 0),
+                reasoning_tokens=reasoning_tokens,
+                cache_read_tokens=usage.cache_read_input_tokens,
+                cache_write_tokens=usage.cache_creation_input_tokens,
+                extra=metadata_extra,
+            ),
+            extras=QueryResultExtras(
+                provider_response_id=message.id,
+                provider_request_id=getattr(message, "_request_id", None),
+            ),
+            tool_calls=tool_calls,
+            provider_tool_events=provider_tool_events,
+            history=[*input, RawResponse(response=message)],
+        )
+
+    @override
+    async def get_rate_limit(self) -> RateLimit | None:
+        response = await self.get_client().messages.with_raw_response.create(
+            max_tokens=1,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Do not think. Say 'ok'",
+                }
+            ],
+            model=self.model_name,
+        )
+        headers = response.headers
+
+        def capacity(name: str) -> RateLimitCapacity | None:
+            prefix = f"anthropic-ratelimit-{name}"
+            limit = rate_limit_header_int(headers, f"{prefix}-limit")
+            if limit is None:
+                return None
+            return RateLimitCapacity(
+                limit=limit,
+                remaining=rate_limit_header_int(headers, f"{prefix}-remaining"),
+            )
+
+        request_capacity = capacity("requests")
+        input_capacity = capacity("input-tokens")
+        output_capacity = capacity("output-tokens")
+        total_capacity = (
+            capacity("tokens")
+            if input_capacity is None or output_capacity is None
+            else None
+        )
+
+        requests = (
+            (
+                RequestRateLimit(
+                    limit=request_capacity.limit,
+                    remaining=request_capacity.remaining,
+                ),
+            )
+            if request_capacity is not None
+            else ()
+        )
+        if total_capacity is not None:
+            tokens = TokenRateLimit(total=total_capacity)
+        elif input_capacity is not None and output_capacity is not None:
+            tokens = TokenRateLimit(input=input_capacity, output=output_capacity)
+        else:
+            tokens = None
+
+        if not requests and tokens is None:
+            return None
+        return RateLimit(
+            requests=requests,
+            tokens=tokens,
+            unix_timestamp=rate_limit_timestamp_from_headers(headers),
+        )
+
+    @override
+    async def count_tokens(
+        self,
+        input: Sequence[InputItem],
+        *,
+        history: Sequence[InputItem] = [],
+        tools: list[ToolDefinition] = [],
+        **kwargs: object,
+    ) -> int:
+        """
+        Count the number of tokens using Anthropic's native token counting API.
+        https://docs.anthropic.com/en/docs/build-with-claude/token-counting
+        """
+        input = normalize_query_input(input, history=history, kwargs=kwargs)
+        if not input:
+            return 0
+
+        # Anthropic native count rejects:
+        # - PDF URLs: omit; don't download them.
+        # - uploaded file IDs: omit; don't download them.
+        countable_input = [
+            item
+            for item in input
+            if not isinstance(item, FileWithId)
+            and not (
+                isinstance(item, FileWithUrl)
+                and item.type == "file"
+                and item.mime == "application/pdf"
+            )
+        ]
+        if not countable_input:
+            return await super().count_tokens(input, history=[], tools=tools, **kwargs)
+
+        try:
+            body = await self.build_body(
+                countable_input, tools=tools, output_schema=None, **kwargs
+            )
+
+            # Remove fields not supported by count_tokens endpoint
+            body.pop("max_tokens", None)
+            body.pop("temperature", None)
+            output_config = cast(dict[str, Any], body.get("output_config") or {})
+            output_config.pop("task_budget", None)
+            if not output_config:
+                body.pop("output_config", None)
+            body["messages"] = _strip_fallback_blocks(cast(list[Any], body["messages"]))
+
+            client = self.get_client()
+            response = await client.messages.count_tokens(**body)
+
+            return response.input_tokens
+        except Exception as e:
+            self.instance_logger.error(f"Error counting tokens: {e}")
+            return await super().count_tokens(input, history=[], tools=tools, **kwargs)
+
+    @override
+    async def _calculate_cost(
+        self,
+        metadata: QueryResultMetadata,
+        batch: bool = False,
+        bill_reasoning: bool = True,
+    ) -> QueryResultCost | None:
+        """
+        Future Cost considerations
+        Per 1000 calls:
+        - Web Search
+        Free:
+        - Web Fetch
+        """
+        # prompt caching manually enabled
+        # assumed that cache tokens are ephemeral_5m_input_tokens
+        return await super()._calculate_cost(
+            metadata,
+            batch,
+            bill_reasoning=False or metadata.reasoning_tokens is not None,
+        )

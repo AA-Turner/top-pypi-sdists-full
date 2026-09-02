@@ -64,12 +64,12 @@ class LiftChart(APIObject):
     Attributes
     ----------
     source : str
-        Lift chart data source. Can be 'validation', 'crossValidation' or 'holdout'.
+        Lift chart data source. Can be ``validation``, ``crossValidation``, or ``holdout``.
     bins : list of dict
-        List of dicts with schema described as ``LiftChartBin`` above.
+        A list of dicts with schema described as ``LiftChartBin`` above.
     source_model_id : str
         ID of the model this lift chart represents; in some cases,
-        insights from the parent of a frozen model may be used
+        insights from the parent of a frozen model may be used.
     target_class : Optional[str]
         For multiclass lift - target class for this lift chart data.
     data_slice_id: string or None
@@ -160,7 +160,7 @@ class LiftChart(APIObject):
         ----------
         data : dict
             The directly translated dict of JSON from the server. No casing fixes have
-            taken place
+            taken place.
         use_insights_format : Optional[bool]
             Whether to repack the data from the format used in the GET `/insights/liftChart/` URL
             to the format used in the legacy URL.
@@ -190,10 +190,10 @@ class SlicedLiftChart(LiftChart):
         ----------
         data : dict
             The directly translated dict of JSON from the server. No casing fixes have
-            taken place.
+            taken place..
         keep_attrs : iterable
             List, set or tuple of the dotted namespace notations for attributes to keep within the
-            object structure even if their values are None
+            object structure even if their values are None.
         use_insights_format : Optional[bool]
             Whether to repack the data from the format used in the GET `/insights/liftChart/` URL
             to the format used in the legacy URL.

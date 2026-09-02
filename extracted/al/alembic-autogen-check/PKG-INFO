@@ -1,0 +1,42 @@
+Metadata-Version: 2.1
+Name: alembic-autogen-check
+Version: 1.1.1
+Summary: CLI to check with alembic migrations are in sync with your SQLAlchemy models.
+Home-page: https://github.com/4Catalyzer/alembic-autogen-check
+Author: 4Catalyzer
+Author-email: sloria@butterflynetinc.com
+License: MIT
+Description: # alembic-autogen-check
+        
+        [![Travis-CI](https://badgen.net/travis/4Catalyzer/alembic-autogen-check/master)](https://travis-ci.org/4Catalyzer/alembic-autogen-check)
+        
+        ## Install
+        
+        ```
+        pip install alembic-autogen-check
+        ```
+        
+        ## Usage
+        
+        ```
+        PYTHONPATH=. alembic-autogen-check
+        ```
+        
+        This assumes that an `alembic.ini` file exists in the current working
+        directory. You can explicitly pass a config file:
+        
+        ```
+        PYTHONPATH=. alembic-autogen-check --config path/to/alembic.ini
+        ```
+        
+Keywords: sqlalchemy alembic
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Provides-Extra: lint
+Provides-Extra: dev
+Provides-Extra: tests

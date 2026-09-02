@@ -1,0 +1,109 @@
+Metadata-Version: 2.4
+Name: slack-types
+Version: 1.2.6
+Summary: Slack API Types in Python
+Project-URL: Homepage, https://github.com/warrenseine/slack-types
+Project-URL: Bug Tracker, https://github.com/warrenseine/slack-types/issues
+Author-email: Warren Seine <warren.seine@gmail.com>
+License-Expression: MIT
+License-File: LICENSE.txt
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Typing :: Typed
+Requires-Python: >=3.12
+Requires-Dist: pydantic>=2
+Description-Content-Type: text/markdown
+
+# slack-types
+
+Pydantic v2 type definitions for the Slack APIs:
+
+- Web API (`slack_types.web_api`)
+- Events API (`slack_types.events_api`)
+- Real Time Messaging API (`slack_types.rtm_api`)
+- App backend payloads (`slack_types.app_backend.{dialogs,interactive_components,slash_commands,views}`)
+- Audit Logs API (`slack_types.audit_api.v1`)
+- SCIM API (`slack_types.scim_api.{v1,v2}`)
+
+PyPI: https://pypi.org/project/slack-types
+
+## Install
+
+```bash
+uv add slack-types
+# or
+pip install slack-types
+```
+
+## Use
+
+```python
+from typing import Callable
+
+from slack_bolt.async_app import AsyncApp
+from slack_sdk.web.async_client import AsyncWebClient
+from slack_types.events_api.app_mention_payload import Event as AppMentionEvent
+
+app = AsyncApp()
+
+
+@app.event("app_mention")
+async def handle_mentions(event: dict, client: AsyncWebClient, say: Callable):
+    mention = AppMentionEvent.model_validate(event)
+    await client.reactions_add(
+        channel=mention.channel,
+        timestamp=mention.ts,
+        name="eyes",
+    )
+    await say("What's up?")
+
+
+if __name__ == "__main__":
+    app.start(3000)
+```
+
+Web API responses use the same Pydantic interface:
+
+```python
+from slack_types.web_api.conversations_history_response import ConversationsHistoryResponse
+
+response = await client.conversations_history(channel="C123")
+history = ConversationsHistoryResponse.model_validate(response.data)
+for message in history.messages or []:
+    print(message.ts, message.text)
+```
+
+All fields are `Optional` with defaults of `None` because Slack does not
+guarantee any field on any response. Validate at the boundary; don't rely on
+required-ness.
+
+## How types are generated
+
+Input samples come from [java-slack-sdk](https://github.com/slackapi/java-slack-sdk)
+(recorded JSON responses). Each sample is converted to a JSON Schema with
+[genson](https://github.com/wolverdude/GenSON), then handed to
+[datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator)
+to emit a Pydantic v2 module.
+
+Coverage may not be 100% and some properties may be incorrect. File issues at
+https://github.com/warrenseine/slack-types/issues.
+
+To re-generate:
+
+```bash
+uv sync --group dev
+uv run python scripts/build.py  # clones java-slack-sdk/ on first run
+uv run pytest                   # smoke + round-trip tests
+```
+
+To publish:
+
+```bash
+uv build
+uv publish
+```
+
+## License
+
+MIT

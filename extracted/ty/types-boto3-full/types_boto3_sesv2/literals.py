@@ -44,9 +44,11 @@ __all__ = (
     "ExportSourceTypeType",
     "FeatureStatusType",
     "HttpsPolicyType",
+    "IdentityCertificateStatusType",
     "IdentityTypeType",
     "ImportDestinationTypeType",
     "JobStatusType",
+    "ListEmailIdentityCertificatesPaginatorName",
     "ListMultiRegionEndpointsPaginatorName",
     "ListRecommendationsFilterKeyType",
     "ListReputationEntitiesPaginatorName",
@@ -76,6 +78,7 @@ __all__ = (
     "ScalingModeType",
     "SendingStatusType",
     "ServiceName",
+    "SignatureFormatType",
     "StatusType",
     "SubscriptionStatusType",
     "SuppressionConfidenceVerdictThresholdType",
@@ -170,9 +173,13 @@ EventTypeType = Literal[
 ExportSourceTypeType = Literal["MESSAGE_INSIGHTS", "METRICS_DATA"]
 FeatureStatusType = Literal["DISABLED", "ENABLED"]
 HttpsPolicyType = Literal["OPTIONAL", "REQUIRE", "REQUIRE_OPEN_ONLY"]
+IdentityCertificateStatusType = Literal[
+    "ACTIVE", "DEPROVISIONING", "FAILED", "INACTIVE", "PROVISIONING"
+]
 IdentityTypeType = Literal["DOMAIN", "EMAIL_ADDRESS", "MANAGED_DOMAIN"]
 ImportDestinationTypeType = Literal["CONTACT_LIST", "SUPPRESSION_LIST"]
 JobStatusType = Literal["CANCELLED", "COMPLETED", "CREATED", "FAILED", "PROCESSING"]
+ListEmailIdentityCertificatesPaginatorName = Literal["list_email_identity_certificates"]
 ListMultiRegionEndpointsPaginatorName = Literal["list_multi_region_endpoints"]
 ListRecommendationsFilterKeyType = Literal["IMPACT", "RESOURCE_ARN", "STATUS", "TYPE"]
 ListReputationEntitiesPaginatorName = Literal["list_reputation_entities"]
@@ -212,6 +219,7 @@ ResourceTypeType = Literal["CONFIGURATION_SET", "EMAIL_IDENTITY", "EMAIL_TEMPLAT
 ReviewStatusType = Literal["DENIED", "FAILED", "GRANTED", "PENDING"]
 ScalingModeType = Literal["MANAGED", "STANDARD"]
 SendingStatusType = Literal["DISABLED", "ENABLED", "REINSTATED"]
+SignatureFormatType = Literal["DETACHED"]
 StatusType = Literal["CREATING", "DELETING", "FAILED", "READY"]
 SubscriptionStatusType = Literal["OPT_IN", "OPT_OUT"]
 SuppressionConfidenceVerdictThresholdType = Literal["HIGH", "MANAGED", "MEDIUM"]
@@ -670,6 +678,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_email_identity_certificates",
     "list_multi_region_endpoints",
     "list_reputation_entities",
     "list_resource_tenants",

@@ -1,0 +1,92 @@
+use std::{collections::HashMap, sync::Arc};
+
+use pyo3::{prelude::*, types::PyAny};
+use pyo3_async_runtimes::tokio::future_into_py;
+
+use crate::error::RustError;
+use crate::schema::SchemaFieldSpec;
+use crate::{data::collection::Collection, schema::Schema};
+
+#[pyclass]
+pub struct AsyncCollectionsClient {
+    client: Arc<topk_rs::Client>,
+}
+
+impl AsyncCollectionsClient {
+    pub fn new(client: Arc<topk_rs::Client>) -> Self {
+        Self { client }
+    }
+}
+
+#[pymethods]
+impl AsyncCollectionsClient {
+    pub fn get(&self, py: Python<'_>, collection_name: String) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+
+        future_into_py(py, async move {
+            let collection = client
+                .collections()
+                .get(&collection_name)
+                .await
+                .map_err(RustError)?;
+
+            let collection: Collection = collection.into();
+
+            Ok(collection)
+        })
+        .map(|result| result.into())
+    }
+
+    pub fn list(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+
+        future_into_py(py, async move {
+            let collections = client.collections().list().await.map_err(RustError)?;
+
+            Ok(collections
+                .into_iter()
+                .map(|i| i.into())
+                .collect::<Vec<Collection>>())
+        })
+        .map(|result| result.into())
+    }
+
+    pub fn create(
+        &self,
+        py: Python<'_>,
+        collection_name: String,
+        schema: HashMap<String, SchemaFieldSpec>,
+    ) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+
+        future_into_py(py, async move {
+            let schema = Schema(schema.into_iter().map(|(k, v)| (k, v.0)).collect());
+
+            let collection = client
+                .collections()
+                .create(&collection_name, schema, None)
+                .await
+                .map_err(RustError)?;
+
+            let collection: Collection = collection.into();
+
+            Ok(collection)
+        })
+        .map(|result| result.into())
+    }
+
+    pub fn delete(&self, py: Python<'_>, collection_name: String) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+
+        future_into_py(py, async move {
+            client
+                .collections()
+                .delete(&collection_name)
+                .await
+                .map_err(RustError)?;
+
+            Ok(())
+        })
+        .map(|result| result.into())
+    }
+}

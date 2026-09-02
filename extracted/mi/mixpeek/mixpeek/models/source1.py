@@ -36,7 +36,7 @@ SOURCE1_ONE_OF_SCHEMAS = ["ColumnSource", "ConstantSource", "DrivePropertySource
 
 class Source1(BaseModel):
     """
-    Source extractor defining where to get the value. Options: tag, metadata, filename_regex, column, drive_property, folder_path, constant. The 'file' source is not valid for field mappings (use blob instead).
+    Source extractor defining where to get the value. Options: tag, metadata, filename_regex, column, drive_property, folder_path, constant, rss_field, rtsp_field. The 'file' source is not valid for field mappings (use blob instead).
     """
     # data type: S3TagSource
     oneof_schema_1_validator: Optional[S3TagSource] = None

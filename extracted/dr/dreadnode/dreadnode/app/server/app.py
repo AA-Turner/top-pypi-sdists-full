@@ -6,17 +6,19 @@ FastAPI server with REST endpoints and websocket-first interactive transport.
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import os
 import time
 import typing as t
-from contextlib import asynccontextmanager, suppress
+from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from uuid import UUID, uuid4
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
+from fastapi import FastAPI, HTTPException, Query, Request, Response, WebSocket, status
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from starlette.responses import JSONResponse
@@ -55,6 +57,7 @@ from dreadnode.app.server.prompt import (
     get_platform_context,
     get_project_memory_background_context,
     get_runtime_shell_prompt,
+    get_tooling_health_context,
     render_project_memory_preload_xml,
 )
 from dreadnode.app.server.prompt_registry import SessionPromptRegistry
@@ -82,6 +85,7 @@ if t.TYPE_CHECKING:
     from dreadnode.agents.events import AgentEvent
     from dreadnode.capabilities.capability import Capability
     from dreadnode.capabilities.types import AgentDef
+    from dreadnode.core.hook import Hook
     from dreadnode.generators.generator import Generator
     from dreadnode.generators.message import Message
     from dreadnode.policies import SessionPolicy
@@ -456,6 +460,12 @@ def create_agent(
     if capability_system_prompt:
         instructions = instructions + "\n" + capability_system_prompt
 
+    # Surface failed preflight checks (missing/broken tools) so the agent stops
+    # and engages the operator instead of half-completing a tool-dependent task.
+    tooling_health = get_tooling_health_context(capability)
+    if tooling_health:
+        instructions = instructions + "\n" + tooling_health
+
     # Append CLI --system-prompt content as the final layer
     if system_prompt_append:
         instructions = instructions + "\n\n" + system_prompt_append
@@ -725,30 +735,101 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
             await registry.mcp_manager.stop()
 
 
+async def _stop_started_managers() -> None:
+    """Stop any MCP/worker managers that were started, ignoring failures.
+
+    A backstop for a cancelled `server_lifecycle.__aenter__`, so it runs on a
+    path where teardown is already unwinding and must not raise.
+    """
+    registry = get_state().capability_registry
+    if registry is None:
+        return
+    for manager in (registry.worker_manager, registry.mcp_manager):
+        if manager is None:
+            continue
+        with suppress(Exception):
+            await manager.stop()
+
+
+async def _deferred_startup(stack: AsyncExitStack, startup: StartupState) -> None:
+    """Configure, discover capabilities and start MCP/workers, off the bind path.
+
+    Every step here can reach the network, and two of them are unbounded in
+    practice: scope validation retries with backoff, and capability installs get
+    600s *per step* on a connected deployment. uvicorn creates its listening
+    socket only after lifespan startup returns (``uvicorn/server.py`` ``startup()``
+    awaits ``lifespan.startup()`` first), so running any of this inline meant the
+    runtime port refused connections for the whole duration.
+
+    Failures are recorded rather than raised. A runtime that cannot resolve its
+    platform scope can still serve, and reporting a sanitized failure state on
+    ``/api/ready`` is more useful than exiting before anything can ask. The full
+    exception remains in server logs.
+    """
+    state = get_state()
+    try:
+        startup.advance(StartupStage.CONFIGURING)
+        if state.instance is None:
+            from dreadnode import _get_default_instance
+
+            state.instance = _get_default_instance()
+        instance = state.instance
+        configure = state.deferred_configure
+        if configure is not None:
+            await asyncio.to_thread(configure)
+        elif not instance._initialized:
+            await asyncio.to_thread(instance.configure)
+
+        startup.advance(StartupStage.INSTALLING)
+        if state.capability_registry is None:
+            await asyncio.to_thread(_populate_registry, instance)
+
+        startup.advance(StartupStage.CONNECTING)
+        # Registered before the context is entered, not after. `enter_async_context`
+        # only registers `server_lifecycle`'s own teardown once `__aenter__` returns,
+        # so a cancellation landing inside it — `worker_manager.start()` awaiting a
+        # subprocess, say — would leave started workers and MCP connects running with
+        # nothing to stop them. This backstop unwinds after `server_lifecycle`'s own
+        # exit (the stack is LIFO), and both managers' `stop()` filter by state, so
+        # on the normal path it finds nothing left to do.
+        stack.push_async_callback(_stop_started_managers)
+        await stack.enter_async_context(server_lifecycle())
+
+        startup.mark_ready()
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        startup.mark_failed(exc)
+
+
 @asynccontextmanager
 async def _lifespan(_app_instance: t.Any) -> t.AsyncIterator[None]:
-    """FastAPI lifespan: populate registry then delegate to server_lifecycle.
+    """FastAPI lifespan: bind first, then initialize in the background.
 
-    Registry population is done here (rather than only in ``run_server()``)
-    so that uvicorn ``--reload`` and externalized uvicorn invocations work:
-    on reload the module is reimported and ``app.state`` is fresh, so the
-    lifespan re-discovers capabilities automatically.
+    Registry population is driven from here (rather than only from
+    ``run_server()``) so uvicorn ``--reload`` and externalized uvicorn
+    invocations work: on reload the module is reimported and ``app.state`` is
+    fresh, so the lifespan re-discovers capabilities automatically.
+
+    This returns immediately so uvicorn can bind, which is what lets the port
+    answer at all during the work below. ``/api/health`` stays unconditional —
+    the server is answering — and ``/api/ready`` carries readiness, reporting
+    503 with the current stage until this task finishes. Splitting them is what
+    keeps every existing caller of health working while giving the platform a
+    signal that can tell "still installing" from "startup failed".
     """
-    from dreadnode import _get_default_instance
-
     state = get_state()
+    stack = AsyncExitStack()
+    task = asyncio.create_task(_deferred_startup(stack, state.startup))
 
-    # Populate registry if not already done (supports both direct and reload paths).
-    # When run_server() is used, it populates before uvicorn starts and we skip.
-    # When uvicorn is invoked directly (e.g. from Docker provider), we populate here.
-    if state.capability_registry is None:
-        instance = _get_default_instance()
-        if not instance._initialized:
-            instance.configure()
-        await asyncio.to_thread(_populate_registry, instance)
-
-    async with server_lifecycle():
+    try:
         yield
+    finally:
+        if not task.done():
+            task.cancel()
+        with suppress(asyncio.CancelledError, Exception):
+            await task
+        await stack.aclose()
 
 
 app = FastAPI(
@@ -852,11 +933,115 @@ def _normalize_platform_session(s: dict[str, t.Any]) -> dict[str, t.Any]:
     }
 
 
+class StartupStage(StrEnum):
+    """Where deferred startup has got to.
+
+    Exposed on ``/api/health`` so a caller that finds the runtime not-ready can
+    tell *why* rather than guessing. The platform's readiness poll previously
+    saw connection-refused for every cause — a dead process and a slow capability
+    install were indistinguishable, which is what made on-prem startup failures
+    undiagnosable.
+    """
+
+    CONFIGURING = "configuring"
+    """Resolving credentials and validating scope against the platform."""
+
+    INSTALLING = "installing"
+    """Syncing capabilities and installing their declared dependencies."""
+
+    CONNECTING = "connecting"
+    """Starting MCP servers and workers."""
+
+    READY = "ready"
+    """Fully initialized. The only stage that reports healthy."""
+
+    FAILED = "failed"
+    """Deferred startup raised. Public detail carries only a stable code."""
+
+
+class StartupState:
+    """Progress of the initialization that runs after the port is bound.
+
+    Startup used to run inline ahead of ``uvicorn.run()``, so nothing answered on
+    the runtime port until capability installs finished — a budget the platform
+    caps at 60s while a single install step is allowed 600s. Binding first turns
+    that silence into an answer; this object is what the answer says.
+    """
+
+    def __init__(self) -> None:
+        self.stage: StartupStage = StartupStage.CONFIGURING
+        self.detail: str | None = None
+        self.started_at: float = time.monotonic()
+        self.finished_at: float | None = None
+
+    @property
+    def is_ready(self) -> bool:
+        return self.stage is StartupStage.READY
+
+    @property
+    def elapsed_sec(self) -> float:
+        end = self.finished_at if self.finished_at is not None else time.monotonic()
+        return round(end - self.started_at, 3)
+
+    def advance(self, stage: StartupStage) -> None:
+        self.stage = stage
+        logger.info("Runtime startup | stage={} | elapsed={}s", stage.value, self.elapsed_sec)
+
+    def mark_ready(self) -> None:
+        self.finished_at = time.monotonic()
+        self.stage = StartupStage.READY
+        self.detail = None
+        logger.info("Runtime startup complete | elapsed={}s", self.elapsed_sec)
+
+    def mark_failed(self, error: BaseException) -> None:
+        self.finished_at = time.monotonic()
+        self.stage = StartupStage.FAILED
+        self.detail = "startup_failed"
+        logger.opt(exception=error).error(
+            "Runtime startup failed | stage={} | elapsed={}s | error_type={} | error={}",
+            self.stage.value,
+            self.elapsed_sec,
+            type(error).__name__,
+            error,
+        )
+
+
 class ServerState:
     """Server state container stored on app.state."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        working_dir: Path | None = None,
+        recreate_missing_working_dir: bool | None = None,
+    ) -> None:
+        configured_root = os.environ.get("DREADNODE_PROJECT_ROOT")
+        if working_dir is None:
+            if configured_root:
+                working_dir = Path(configured_root).expanduser()
+            else:
+                try:
+                    working_dir = Path.cwd()
+                except OSError as exc:
+                    raise FileNotFoundError(
+                        "Cannot initialize runtime: the current working directory no longer "
+                        "exists. Start the runtime from a valid working directory."
+                    ) from exc
+        if not working_dir.is_absolute():
+            working_dir = Path.cwd() / working_dir
+        self.working_dir = working_dir
+        self.recreate_missing_working_dir = (
+            configured_root is not None
+            if recreate_missing_working_dir is None
+            else recreate_missing_working_dir
+        )
         self.capability_registry: capability_manager.CapabilityRegistry | None = None
+        # Authoritative Dreadnode instance for this server. ``run_server`` may
+        # receive a non-default instance, so deferred configuration and registry
+        # discovery must never rediscover the module singleton independently.
+        self.instance: t.Any | None = None
+        self.startup = StartupState()
+        self.deferred_configure: t.Callable[[], t.Any] | None = None
         self.event_bus = runtime_events.EventBus()
         self._sessions: dict[str, SessionRuntime] = {}
         self._session_hydrator = SessionHydrator(
@@ -885,6 +1070,34 @@ class ServerState:
         # Live websocket connections, tracked so an N-1 rollback can retire
         # sockets authenticated with the token it replaces.
         self.ws_connections = WebSocketConnectionRegistry()
+
+    def ensure_working_directory(self) -> Path:
+        """Restore the process to the runtime's authoritative working directory.
+
+        Managed sandboxes declare ``DREADNODE_PROJECT_ROOT`` and can safely
+        recreate that directory if an agent removes it. Local runtimes fail
+        explicitly: relocating them to HOME or recreating an emptied project
+        directory would silently change workspace semantics.
+        """
+        if not self.working_dir.is_dir():
+            if not self.recreate_missing_working_dir:
+                raise FileNotFoundError(
+                    "Runtime working directory no longer exists: "
+                    f"{self.working_dir}. Restart the runtime with a valid working directory."
+                )
+            self.working_dir.mkdir(parents=True, exist_ok=True)
+            logger.warning(
+                "Managed runtime working directory was deleted; recreated {}",
+                self.working_dir,
+            )
+
+        try:
+            current = Path.cwd()
+        except OSError:
+            current = None
+        if current != self.working_dir:
+            os.chdir(self.working_dir)
+        return self.working_dir
 
     def _get_session_store(self) -> SessionStore | None:
         """Get the local SQLite session store for legacy read-only fallback.
@@ -1714,6 +1927,17 @@ def get_state() -> ServerState:
     return app.state.server
 
 
+def _working_directory_guard() -> Hook:
+    """Create a hook that restores the runtime workspace before every tool."""
+    from dreadnode.agents.events import ToolStart
+    from dreadnode.core.hook import Hook
+
+    async def ensure_working_directory(_event: ToolStart) -> None:
+        get_state().ensure_working_directory()
+
+    return Hook(ensure_working_directory, ToolStart)
+
+
 # =============================================================================
 # Session Runtime
 # =============================================================================
@@ -2152,6 +2376,8 @@ class SessionRuntime:
         Agents are ephemeral — created per-turn with current params.
         Trajectory lives on the session, not the agent.
         """
+        state = get_state()
+        state.ensure_working_directory()
         self._ensure_session_dir()
         capability = self._capability
         agent_def = self._agent_def_for_turn(agent_name)
@@ -2160,7 +2386,7 @@ class SessionRuntime:
         extra_tools = self._registry.all_tools() if self._registry else []
         capability_hooks = self._registry.all_hooks() if self._registry else []
         policy_hooks = self._policy.hooks
-        extra_hooks = [*capability_hooks, *policy_hooks]
+        extra_hooks = [_working_directory_guard(), *capability_hooks, *policy_hooks]
 
         model_config = model_resolution.resolve_turn_model_config(model, self.model, agent_def)
         effective_model = model_resolution.build_turn_generator(model_config)
@@ -2184,7 +2410,7 @@ class SessionRuntime:
             extra_tools=extra_tools,
             extra_hooks=extra_hooks,
             inherent_toolsets=inherent_toolsets,
-            system_prompt_append=get_state().system_prompt_append,
+            system_prompt_append=state.system_prompt_append,
             # Session-level engine (sticky) overrides the agent's declaration;
             # ``None`` falls through to agent_def.engine then native.
             engine=self._engine,
@@ -3985,13 +4211,14 @@ async def list_files(
     # When DREADNODE_PROJECT_ROOT is set (E2B sandboxes), scope the file
     # browser to the workspace directory instead of showing the entire
     # home directory (which may contain pip-installed SDK source trees).
+    working_dir = get_state().ensure_working_directory()
     project_root = os.environ.get("DREADNODE_PROJECT_ROOT")
     if project_root:
-        base = Path(project_root)
+        base = working_dir
     elif path:
         base = Path(path)
     else:
-        base = Path.cwd()
+        base = working_dir
     if not base.is_dir():
         return JSONResponse({"path": str(base), "entries": [], "error": "Not a directory"})
 
@@ -4052,7 +4279,8 @@ async def execute_shell(
     if not command.strip():
         return JSONResponse({"error": "Empty command"}, status_code=400)
 
-    work_dir = cwd or str(Path.cwd())
+    working_dir = get_state().ensure_working_directory()
+    work_dir = cwd or str(working_dir)
     try:
         proc = await _asyncio.create_subprocess_shell(
             command,
@@ -4080,17 +4308,52 @@ async def execute_shell(
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
-    """Health check endpoint."""
-    return HealthResponse(status="ok")
+    """Liveness: the process is up and serving.
+
+    Deliberately unconditional. Everything that starts a runtime — the TUI,
+    subprocess workers, `dn --print` — treats a 200 here as "the server is
+    answering", and readiness is a separate question with a separate endpoint.
+    `stage` and `detail` ride along so a caller can see startup progress without
+    a second request.
+    """
+    startup = get_state().startup
+    return HealthResponse(
+        status="ok",
+        stage=startup.stage.value,
+        detail=startup.detail,
+        elapsed_sec=startup.elapsed_sec,
+    )
+
+
+@app.get("/api/ready", response_model=HealthResponse)
+async def readiness_check(response: Response) -> HealthResponse:
+    """Readiness: scope is configured and capabilities are installed.
+
+    Split from liveness because the runtime now binds its port before doing any
+    of that. The platform's provisioning poll wants this one — it is what
+    distinguishes a sandbox still installing dependencies from one whose startup
+    failed, which a connection-refused probe never could.
+    """
+    startup = get_state().startup
+    if not startup.is_ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return HealthResponse(
+        status="ok" if startup.is_ready else "starting",
+        stage=startup.stage.value,
+        detail=startup.detail,
+        elapsed_sec=startup.elapsed_sec,
+    )
 
 
 @app.get("/api/runtime", response_model=RuntimeInfoResponse)
 async def runtime_info() -> RuntimeInfoResponse:
     """Expose loaded capability metadata for CLI/runtime synchronization."""
-    registry = get_state().capability_registry
+    state = get_state()
+    working_dir = state.ensure_working_directory()
+    registry = state.capability_registry
     if registry is None:
-        return RuntimeInfoResponse(working_dir=str(Path.cwd()))
-    return registry.to_runtime_info(working_dir=Path.cwd())
+        return RuntimeInfoResponse(working_dir=str(working_dir))
+    return registry.to_runtime_info(working_dir=working_dir)
 
 
 def _tool_description(tool: t.Any) -> str:
@@ -4329,9 +4592,10 @@ async def reload_capabilities() -> RuntimeInfoResponse:
         payload={"capability_count": capability_count},
     )
 
+    working_dir = get_state().ensure_working_directory()
     if registry is None:
-        return RuntimeInfoResponse(working_dir=str(Path.cwd()))
-    return registry.to_runtime_info(working_dir=Path.cwd())
+        return RuntimeInfoResponse(working_dir=str(working_dir))
+    return registry.to_runtime_info(working_dir=working_dir)
 
 
 @app.get("/api/mcp/{capability}/{server_name}")
@@ -4605,10 +4869,11 @@ def _populate_registry(instance: t.Any) -> None:
     )
 
     state = get_state()
+    working_dir = state.ensure_working_directory()
     registry = capability_manager.CapabilityRegistry()
 
     builtin_capabilities, builtin_failures = load_builtin_capabilities(
-        cwd=Path.cwd(),
+        cwd=working_dir,
         storage=instance.storage,
         capability_dirs=state.capability_dirs,
     )
@@ -4652,7 +4917,7 @@ def _populate_registry(instance: t.Any) -> None:
     shadowed_names: set[str] = set()
     try:
         result = Capability.discover(
-            cwd=Path.cwd(),
+            cwd=working_dir,
             storage=instance.storage,
             capability_dirs=state.capability_dirs,
             workspace_dir=workspace_dir,
@@ -4876,6 +5141,7 @@ def initialize_app(
 
     # Store CLI overrides on state so they persist across /reload
     state = get_state()
+    state.instance = instance
     state.capability_dirs = capability_dirs
     state.enabled_capabilities = enabled_capabilities
     state.capability_flag_overrides = capability_flag_overrides
@@ -4908,7 +5174,10 @@ def reset_app_state() -> None:
     for session in state.list_sessions():
         session.close()
 
-    app.state.server = ServerState()
+    app.state.server = ServerState(
+        working_dir=state.working_dir,
+        recreate_missing_working_dir=state.recreate_missing_working_dir,
+    )
 
 
 def _on_runtime_credential_retired(retired: str) -> None:
@@ -4936,18 +5205,33 @@ def run_server(
 ) -> None:
     """Run the FastAPI server with uvicorn."""
     from dreadnode import _get_default_instance
+    from dreadnode.core.tls import ensure_trust_installed
+
+    # Before anything opens a socket. `configure()` immediately below is the
+    # first outbound TLS call, and on a deployment behind an interception proxy
+    # it is the one that fails without the operator CA. Kept explicit even
+    # though context creation now also installs trust, because subprocesses the
+    # runtime spawns inherit this process's environment and nothing guarantees a
+    # context gets built before the first one starts.
+    ensure_trust_installed()
 
     if instance is None:
         instance = _get_default_instance()
-    instance.configure(
+
+    # Deferred, not called here. `configure()` validates scope against the
+    # platform and `_populate_registry()` installs capability dependencies;
+    # both reach the network, and running them ahead of `uvicorn.run()` is what
+    # kept the runtime port closed past the platform's readiness budget.
+    state = get_state()
+    state.instance = instance
+    state.deferred_configure = functools.partial(
+        instance.configure,
         server=server,
         api_key=api_key,
         organization=organization,
         workspace=workspace,
         project=project,
     )
-
-    _populate_registry(instance)
 
     resolved_host = host or read_env_with_deprecation(
         "DREADNODE_RUNTIME_HOST", "DREADNODE_SERVER_HOST", "127.0.0.1"
@@ -4963,7 +5247,6 @@ def run_server(
     advertised_host = (
         "127.0.0.1" if resolved_host in {"0.0.0.0", "::"} else resolved_host  # noqa: S104
     )
-    state = get_state()
     state.runtime_url = f"http://{advertised_host}:{resolved_port}"
 
     # The file is dormant under the current immutable-credential lifecycle,

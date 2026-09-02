@@ -22,7 +22,9 @@ import ast
 import configparser
 import hashlib
 import logging
+import pickletools
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -32,6 +34,7 @@ from ...core.models import Finding, Severity, Skill, ThreatCategory
 from ...core.rules.patterns import RuleLoader, SecurityRule
 from ...core.rules.yara_scanner import YaraScanner
 from ...core.scan_policy import ScanPolicy
+from ...core.static_analysis.comment_stripping import comment_stripped_lines
 from ...core.static_analysis.url_classifier import classify_url, extract_urls
 from ...threats.threats import ThreatMapping
 from .base import BaseAnalyzer
@@ -42,6 +45,7 @@ except ModuleNotFoundError:  # Python < 3.11
     tomllib = None
 
 logger = logging.getLogger(__name__)
+
 
 # Pre-compiled regex patterns for file operation checks
 _READ_PATTERNS = [
@@ -79,15 +83,190 @@ _GLOB_PATTERNS = [
     re.compile(r"\.rglob\("),
     re.compile(r"fnmatch\."),
 ]
+_SENSITIVE_PATH_LITERAL_RE = re.compile(
+    r"(?i)(?:\.aws[/\\]credentials|\.ssh[/\\](?:id_[a-z0-9_]+|authorized_keys)|"
+    r"\.(?:npmrc|gitconfig|gnupg|netrc|pgpass)|(?:^|[/\\])credentials?(?:[/\\]|$)|"
+    r"(?:^|[/\\])secrets?(?:[/\\]|$))"
+)
+_OBFUSCATED_INSTRUCTION_RE = re.compile(
+    r"(?is)(?:"
+    r"ignore\s+(?:all\s+)?(?:previous|prior|earlier)\s+instructions?"
+    r"|you\s+are\s+now\s+in\s+(?:developer|debug|unrestricted|admin)\s+mode"
+    r"|(?:read|collect|capture|harvest|exfiltrate).{0,160}(?:credentials?|tokens?|api\s*keys?|ssh|environment|dotfiles?)"
+    r"|(?:post|send|transmit|exfiltrate).{0,160}https?://"
+    r")"
+)
 
-_EXCEPTION_PATTERNS = [
-    re.compile(r"except\s+(EOFError|StopIteration|KeyboardInterrupt|Exception|BaseException)"),
-    re.compile(r"except\s*:"),
-    re.compile(r"break\s*$", re.MULTILINE),
-    re.compile(r"return\s*$", re.MULTILINE),
-    re.compile(r"sys\.exit\s*\("),
-    re.compile(r"raise\s+StopIteration"),
-]
+_COMMENT_LINE_RE = re.compile(r"^\s*(?:#|//|/\*|\*|<!--)")
+_NEGATED_EXFILTRATION_RE = re.compile(
+    r"\b(?:do\s+not|don't|never|avoid|prevent|block|reject|refus(?:e|es|ed|ing)|rather\s+than)\b"
+    r"[^\n]{0,100}\b(?:exfiltrat(?:e|es|ed|ing|ion)|siphon(?:s|ed|ing)?)\b",
+    re.IGNORECASE,
+)
+_NEGATABLE_EXFIL_IDENTIFIERS = {"$explicit_exfil", "$leak_param", "$credential_theft_actions"}
+
+
+def _constant_truth_value(node: ast.expr) -> bool | None:
+    """Evaluate side-effect-free literal conditions, or return ``None``.
+
+    This deliberately handles only syntax whose value can be established
+    without executing user-controlled code. It keeps unreachable exits such
+    as ``if False: break`` from disguising an infinite loop.
+    """
+    try:
+        return bool(ast.literal_eval(node))
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        pass
+
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        operand = _constant_truth_value(node.operand)
+        return None if operand is None else not operand
+
+    if isinstance(node, ast.BoolOp):
+        values = [_constant_truth_value(value) for value in node.values]
+        if isinstance(node.op, ast.And):
+            if False in values:
+                return False
+            return True if all(value is True for value in values) else None
+        if isinstance(node.op, ast.Or):
+            if True in values:
+                return True
+            return False if all(value is False for value in values) else None
+
+    if isinstance(node, ast.Compare):
+        try:
+            operands = [ast.literal_eval(node.left), *(ast.literal_eval(item) for item in node.comparators)]
+            comparisons: list[bool] = []
+            for left, operator_node, right in zip(operands[:-1], node.ops, operands[1:], strict=True):
+                if isinstance(operator_node, ast.Eq):
+                    comparisons.append(left == right)
+                elif isinstance(operator_node, ast.NotEq):
+                    comparisons.append(left != right)
+                elif isinstance(operator_node, ast.Lt):
+                    comparisons.append(left < right)
+                elif isinstance(operator_node, ast.LtE):
+                    comparisons.append(left <= right)
+                elif isinstance(operator_node, ast.Gt):
+                    comparisons.append(left > right)
+                elif isinstance(operator_node, ast.GtE):
+                    comparisons.append(left >= right)
+                elif isinstance(operator_node, ast.Is):
+                    comparisons.append(left is right)
+                elif isinstance(operator_node, ast.IsNot):
+                    comparisons.append(left is not right)
+                elif isinstance(operator_node, ast.In):
+                    comparisons.append(left in right)
+                elif isinstance(operator_node, ast.NotIn):
+                    comparisons.append(left not in right)
+                else:
+                    return None
+            return all(comparisons)
+        except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+            return None
+
+    return None
+
+
+class _LoopExitVisitor:
+    """Find potentially reachable exits belonging to one enclosing loop."""
+
+    def block_has_exit(self, statements: list[ast.stmt], *, nested_loop_depth: int = 0) -> bool:
+        """Return whether a reachable path through *statements* exits the loop."""
+        has_exit, _ = self._block_flow(statements, nested_loop_depth=nested_loop_depth)
+        return has_exit
+
+    def _block_flow(self, statements: list[ast.stmt], *, nested_loop_depth: int) -> tuple[bool, bool]:
+        has_exit = False
+        falls_through = True
+        for statement in statements:
+            if not falls_through:
+                break
+            statement_exit, falls_through = self._statement_flow(
+                statement,
+                nested_loop_depth=nested_loop_depth,
+            )
+            has_exit = has_exit or statement_exit
+        return has_exit, falls_through
+
+    def _statement_flow(self, node: ast.stmt, *, nested_loop_depth: int) -> tuple[bool, bool]:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            return False, True
+        if isinstance(node, (ast.Return, ast.Raise)):
+            return True, False
+        if (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Attribute)
+            and isinstance(node.value.func.value, ast.Name)
+            and node.value.func.value.id == "sys"
+            and node.value.func.attr == "exit"
+        ):
+            return True, False
+        if isinstance(node, ast.Break):
+            return nested_loop_depth == 0, False
+        if isinstance(node, ast.Continue):
+            return False, False
+
+        if isinstance(node, ast.If):
+            truth_value = _constant_truth_value(node.test)
+            if truth_value is True:
+                return self._block_flow(node.body, nested_loop_depth=nested_loop_depth)
+            if truth_value is False:
+                return self._block_flow(node.orelse, nested_loop_depth=nested_loop_depth)
+
+            body_exit, body_falls_through = self._block_flow(
+                node.body,
+                nested_loop_depth=nested_loop_depth,
+            )
+            if node.orelse:
+                else_exit, else_falls_through = self._block_flow(
+                    node.orelse,
+                    nested_loop_depth=nested_loop_depth,
+                )
+            else:
+                else_exit, else_falls_through = False, True
+            return body_exit or else_exit, body_falls_through or else_falls_through
+
+        if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+            if isinstance(node, ast.While) and _constant_truth_value(node.test) is False:
+                return self._block_flow(node.orelse, nested_loop_depth=nested_loop_depth)
+            body_exit, _ = self._block_flow(node.body, nested_loop_depth=nested_loop_depth + 1)
+            else_exit, _ = self._block_flow(node.orelse, nested_loop_depth=nested_loop_depth)
+            # A nested loop may complete or break, so the enclosing block can
+            # continue even when one path through its body does not.
+            return body_exit or else_exit, True
+
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            return self._block_flow(node.body, nested_loop_depth=nested_loop_depth)
+
+        if isinstance(node, (ast.Try, getattr(ast, "TryStar", ast.Try))):
+            protected_blocks = [node.body, node.orelse, *(handler.body for handler in node.handlers)]
+            protected_exit = any(
+                self._block_flow(block, nested_loop_depth=nested_loop_depth)[0] for block in protected_blocks if block
+            )
+            if not node.finalbody:
+                return protected_exit, True
+
+            final_exit, final_falls_through = self._block_flow(
+                node.finalbody,
+                nested_loop_depth=nested_loop_depth,
+            )
+            if not final_falls_through:
+                # An unconditional continue/exit in finally overrides control
+                # flow from the protected block.
+                return final_exit, False
+            return protected_exit or final_exit, True
+
+        if isinstance(node, ast.Match):
+            case_flows = [
+                self._block_flow(case.body, nested_loop_depth=nested_loop_depth)
+                for case in node.cases
+                if case.guard is None or _constant_truth_value(case.guard) is not False
+            ]
+            return any(flow[0] for flow in case_flows), True
+
+        return False, True
+
 
 _SKILL_NAME_PATTERN = re.compile(r"[a-z0-9-]+")
 _MARKDOWN_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^\)]+)\)")
@@ -316,6 +495,7 @@ class StaticAnalyzer(BaseAnalyzer):
         findings.extend(self._check_manifest(skill))
         findings.extend(self._scan_instruction_body(skill))
         findings.extend(self._scan_scripts(skill))
+        findings.extend(self._check_dynamic_sensitive_file_access(skill))
         findings.extend(self._check_consistency(skill))
         findings.extend(self._check_dependency_pinning(skill))
         findings.extend(self._scan_config_files(skill))
@@ -323,6 +503,7 @@ class StaticAnalyzer(BaseAnalyzer):
         findings.extend(self._check_binary_files(skill))
         findings.extend(self._check_hidden_files(skill))
         findings.extend(self._check_ascii_smuggling(skill))
+        findings.extend(self._check_unicode_obfuscated_instructions(skill))
         findings.extend(self._check_file_inventory(skill))
         findings.extend(self._check_pdf_documents(skill))
         findings.extend(self._check_office_documents(skill))
@@ -533,22 +714,34 @@ class StaticAnalyzer(BaseAnalyzer):
                 matches = rule.scan_content(content, skill_file.relative_path)
                 for match in matches:
                     if rule.id == "RESOURCE_ABUSE_INFINITE_LOOP" and skill_file.file_type == "python":
-                        if self._is_loop_with_exception_handler(content, match["line_number"]):
+                        if self._python_loop_has_exit(content, match["line_number"]):
                             continue
                     findings.append(self._create_finding_from_match(rule, match))
 
         return findings
 
-    def _is_loop_with_exception_handler(self, content: str, loop_line_num: int) -> bool:
-        """Check if a while True loop has an exception handler in surrounding context."""
-        context_size = self.policy.analysis_thresholds.exception_handler_context_lines
-        lines = content.split("\n")
-        context_lines = lines[loop_line_num - 1 : min(loop_line_num + context_size, len(lines))]
-        context_text = "\n".join(context_lines)
+    @staticmethod
+    def _python_loop_has_exit(content: str, loop_line_num: int) -> bool:
+        """Return whether the matched constant loop has an exit in its body.
 
-        for pattern in _EXCEPTION_PATTERNS:
-            if pattern.search(context_text):
-                return True
+        Regex context cannot reliably associate ``return`` or ``break`` with a
+        particular loop.  The Python AST lets us suppress bounded ``while
+        True``/``while 1`` loops without borrowing exits from a later block or
+        a nested function.  A break belonging to a nested loop is likewise not
+        an exit from the matched outer loop.
+        """
+        try:
+            tree = ast.parse(content)
+        except (SyntaxError, ValueError):
+            return False
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.While) or node.lineno != loop_line_num:
+                continue
+            if not isinstance(node.test, ast.Constant) or node.test.value not in (True, 1):
+                continue
+
+            return _LoopExitVisitor().block_has_exit(node.body)
 
         return False
 
@@ -592,6 +785,103 @@ class StaticAnalyzer(BaseAnalyzer):
                     analyzer="static",
                 )
             )
+
+        return findings
+
+    @staticmethod
+    def _attribute_path(node: ast.AST) -> str | None:
+        """Return a dotted attribute path for a simple AST expression."""
+        parts: list[str] = []
+        current = node
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if isinstance(current, ast.Name):
+            parts.append(current.id)
+            return ".".join(reversed(parts))
+        return None
+
+    def _check_dynamic_sensitive_file_access(self, skill: Skill) -> list[Finding]:
+        """Detect glob/open flows that enumerate credential files indirectly.
+
+        Regex signatures cannot connect a sensitive path literal in an
+        ``os.path.join`` list to a later ``glob.glob(pattern)`` or ``open(path)``.
+        This conservative AST check only reports a file when the same lexical scope
+        contains both a credential-like path literal and a glob operation.
+        """
+        findings: list[Finding] = []
+
+        for sf in skill.get_scripts():
+            if sf.file_type != "python":
+                continue
+            content = sf.read_content()
+            try:
+                tree = ast.parse(content, filename=sf.relative_path)
+            except (SyntaxError, ValueError):
+                continue
+
+            def _owned_nodes(scope: ast.AST) -> list[ast.AST]:
+                """Return nodes owned by one scope, excluding nested scopes."""
+                owned: list[ast.AST] = []
+                stack = list(ast.iter_child_nodes(scope))
+                while stack:
+                    node = stack.pop()
+                    owned.append(node)
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+                        continue
+                    stack.extend(ast.iter_child_nodes(node))
+                return owned
+
+            scope_types = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+            scopes: list[ast.AST] = [tree, *(node for node in ast.walk(tree) if isinstance(node, scope_types))]
+            for scope in scopes:
+                scope_nodes = _owned_nodes(scope)
+                has_sensitive_literal = any(
+                    isinstance(node, ast.Constant)
+                    and isinstance(node.value, str)
+                    and _SENSITIVE_PATH_LITERAL_RE.search(node.value)
+                    for node in scope_nodes
+                )
+                if not has_sensitive_literal:
+                    continue
+
+                for node in scope_nodes:
+                    if not isinstance(node, ast.Call):
+                        continue
+                    call_path = self._attribute_path(node.func)
+                    attribute_name = node.func.attr if isinstance(node.func, ast.Attribute) else None
+                    is_glob_call = call_path in {
+                        "glob.glob",
+                        "glob.iglob",
+                        "pathlib.Path.glob",
+                        "pathlib.Path.rglob",
+                        "Path.glob",
+                        "Path.rglob",
+                    } or attribute_name in {"glob", "iglob", "rglob"}
+                    if not is_glob_call:
+                        continue
+                    line = getattr(node, "lineno", 1)
+                    findings.append(
+                        Finding(
+                            id=self._generate_finding_id("DATA_EXFIL_SENSITIVE_FILES", f"{sf.relative_path}:{line}"),
+                            rule_id="DATA_EXFIL_SENSITIVE_FILES",
+                            category=ThreatCategory.DATA_EXFILTRATION,
+                            severity=Severity.HIGH,
+                            title="Dynamic enumeration of sensitive files",
+                            description=(
+                                f"{sf.relative_path}:{line} enumerates files with a glob operation in a scope "
+                                "that also constructs credential-like paths. Dynamic path construction can hide "
+                                "credential harvesting from literal-pattern checks."
+                            ),
+                            file_path=sf.relative_path,
+                            line_number=line,
+                            snippet=ast.get_source_segment(content, node),
+                            remediation="Do not enumerate credential or configuration files from a skill; use explicit, non-sensitive inputs.",
+                            analyzer="static",
+                            metadata={"detection_method": "ast_sensitive_path_and_glob"},
+                        )
+                    )
+                    break
 
         return findings
 
@@ -1201,6 +1491,10 @@ class StaticAnalyzer(BaseAnalyzer):
             if skill_file.file_type != "binary":
                 continue
 
+            if ext in {".pkl", ".pickle"}:
+                findings.append(self._pickle_finding(skill_file))
+                continue
+
             if ext in INERT_EXTENSIONS:
                 continue
 
@@ -1247,6 +1541,144 @@ class StaticAnalyzer(BaseAnalyzer):
             )
 
         return findings
+
+    def _pickle_finding(self, skill_file) -> Finding:
+        """Report serialized Python objects as executable, untrusted content.
+
+        Pickle is not a data-only format: loading a pickle can invoke arbitrary
+        callables encoded by the producer.  Inspect opcodes with ``pickletools``
+        (which never unpickles the object) to distinguish an ordinary serialized
+        object from one that visibly references a code-execution primitive.
+        Even a syntactically valid pickle remains HIGH because static analysis
+        cannot make loading attacker-controlled pickle data safe.
+        """
+        dangerous_globals: list[str] = []
+        executable_opcodes: list[str] = []
+        parse_error: str | None = None
+        inspection_skipped_reason: str | None = None
+        inspection_limit = max(0, self.policy.file_limits.max_loader_file_size_bytes)
+
+        def _record_global(module: str, name: str) -> None:
+            reference = f"{module} {name}"
+            if module in {"builtins", "os", "posix", "nt", "subprocess", "commands"} or name in {
+                "eval",
+                "exec",
+                "system",
+                "popen",
+                "spawn",
+                "Popen",
+            }:
+                dangerous_globals.append(reference)
+
+        if skill_file.size_bytes > inspection_limit:
+            inspection_skipped_reason = "size-limit"
+        else:
+            try:
+                # Bound the actual read as well as checking the loader's size
+                # metadata, so a file replacement race cannot exhaust memory.
+                with skill_file.path.open("rb") as handle:
+                    payload = handle.read(inspection_limit + 1)
+                if len(payload) > inspection_limit:
+                    inspection_skipped_reason = "size-limit"
+                else:
+                    stack: list[object] = []
+                    memo: dict[int, object] = {}
+                    next_memo_index = 0
+                    mark = object()
+                    string_opcodes = {
+                        "STRING",
+                        "BINSTRING",
+                        "SHORT_BINSTRING",
+                        "UNICODE",
+                        "BINUNICODE",
+                        "SHORT_BINUNICODE",
+                        "BINUNICODE8",
+                    }
+
+                    for opcode, argument, _ in pickletools.genops(payload):
+                        opcode_name = opcode.name
+                        if opcode_name in string_opcodes:
+                            if isinstance(argument, bytes):
+                                stack.append(argument.decode("utf-8", errors="replace"))
+                            else:
+                                stack.append(argument if isinstance(argument, str) else None)
+                        elif opcode_name == "MEMOIZE":
+                            memo[next_memo_index] = stack[-1] if stack else None
+                            next_memo_index += 1
+                        elif opcode_name in {"PUT", "BINPUT", "LONG_BINPUT"}:
+                            memo[int(argument)] = stack[-1] if stack else None
+                        elif opcode_name in {"GET", "BINGET", "LONG_BINGET"}:
+                            stack.append(memo.get(int(argument)))
+                        elif opcode_name == "GLOBAL" and isinstance(argument, str):
+                            module, _, name = argument.partition(" ")
+                            _record_global(module, name)
+                            stack.append(None)
+                        elif opcode_name == "STACK_GLOBAL":
+                            executable_opcodes.append(opcode_name)
+                            name = stack.pop() if stack else None
+                            module = stack.pop() if stack else None
+                            if isinstance(module, str) and isinstance(name, str):
+                                _record_global(module, name)
+                            stack.append(None)
+                        elif opcode_name == "REDUCE":
+                            executable_opcodes.append(opcode_name)
+                            if stack:
+                                stack.pop()
+                            if stack:
+                                stack.pop()
+                            stack.append(None)
+                        elif opcode_name == "MARK":
+                            stack.append(mark)
+                        elif opcode_name == "POP":
+                            if stack:
+                                stack.pop()
+                        elif opcode_name == "POP_MARK":
+                            while stack and stack.pop() is not mark:
+                                pass
+                        elif opcode_name == "DUP" and stack:
+                            stack.append(stack[-1])
+            except Exception as exc:  # noqa: BLE001 - malformed untrusted bytes must not abort a scan
+                parse_error = type(exc).__name__
+
+        suspicious = bool(dangerous_globals)
+        details = ""
+        if dangerous_globals:
+            details = f" Detected executable pickle opcode references: {', '.join(sorted(set(dangerous_globals)))}."
+        elif inspection_skipped_reason:
+            details = (
+                f" Opcode inspection was skipped because the file exceeds the {inspection_limit}-byte "
+                "inspection limit; the file must still be treated as untrusted."
+            )
+        elif parse_error:
+            details = f" Opcode inspection failed ({parse_error}); the file must still be treated as untrusted."
+
+        metadata: dict[str, object] = {
+            "opcode_inspection": "pickletools.genops",
+            "dangerous_opcodes": dangerous_globals,
+            "observed_executable_opcodes": sorted(set(executable_opcodes)),
+            "inspection_limit_bytes": inspection_limit,
+        }
+        if inspection_skipped_reason:
+            metadata["inspection_skipped_reason"] = inspection_skipped_reason
+        if parse_error:
+            metadata["parse_error"] = parse_error
+
+        return Finding(
+            id=self._generate_finding_id("PICKLE_FILE_DETECTED", skill_file.relative_path),
+            rule_id="PICKLE_FILE_DETECTED",
+            category=ThreatCategory.COMMAND_INJECTION,
+            severity=Severity.CRITICAL if suspicious else Severity.HIGH,
+            title="Executable Python pickle detected",
+            description=(
+                f"Pickle file found: {skill_file.relative_path}. Python pickle loading can execute "
+                f"arbitrary code supplied by the file producer; do not load it from an untrusted skill."
+                f"{details}"
+            ),
+            file_path=skill_file.relative_path,
+            remediation="Remove pickle files from skills. Use a non-executable data format such as JSON instead.",
+            analyzer="static",
+            metadata=metadata,
+        )
 
     def _check_hidden_files(self, skill: Skill) -> list[Finding]:
         """Check for hidden files (dotfiles) and __pycache__ in skill package."""
@@ -1309,7 +1741,12 @@ class StaticAnalyzer(BaseAnalyzer):
                 if any(p.lower() in benign_dotdirs for p in hidden_parts):
                     continue
 
-                if ext in CODE_EXTENSIONS:
+                if ext in CODE_EXTENSIONS or skill_file.file_type in {
+                    "python",
+                    "bash",
+                    "javascript",
+                    "typescript",
+                }:
                     findings.append(
                         Finding(
                             id=self._generate_finding_id("HIDDEN_EXECUTABLE_SCRIPT", rel_path),
@@ -1451,6 +1888,188 @@ class StaticAnalyzer(BaseAnalyzer):
 
         return findings
 
+    @staticmethod
+    def _socket_target_is_local(node: ast.AST | None) -> bool:
+        """Return whether a socket call target is explicitly local-only."""
+        if isinstance(node, (ast.Tuple, ast.List)) and node.elts:
+            node = node.elts[0]
+
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value.strip().lower().rstrip(".") in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+
+        if isinstance(node, ast.Call):
+            return not node.args and StaticAnalyzer._attribute_path(node.func) == "socket.gethostname"
+
+        return False
+
+    def _socket_call_can_contact_remote(self, node: ast.Call) -> bool:
+        """Classify one supported socket call using its own target argument."""
+        call_path = self._attribute_path(node.func)
+        if (
+            call_path is None
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "connect"
+            and isinstance(node.func.value, ast.Call)
+            and self._attribute_path(node.func.value.func) == "socket.socket"
+        ):
+            call_path = "socket.socket.connect"
+
+        target_apis = {
+            "socket.connect",
+            "socket.socket.connect",
+            "socket.create_connection",
+            "socket.getaddrinfo",
+            "socket.gethostbyname",
+            "socket.gethostbyname_ex",
+            "socket.getnameinfo",
+            "socket.getfqdn",
+        }
+        if call_path not in target_apis:
+            return False
+
+        # getfqdn() without an argument resolves the current host only.
+        if call_path == "socket.getfqdn" and not node.args:
+            return False
+
+        target = node.args[0] if node.args else None
+        return not self._socket_target_is_local(target)
+
+    def _content_uses_external_socket_api(self, content: str) -> bool:
+        """Return whether any individual socket call can contact a remote host."""
+        try:
+            tree = ast.parse(content)
+        except (SyntaxError, ValueError):
+            # Preserve conservative detection for malformed or partial Python.
+            return bool(
+                re.search(
+                    r"socket\.(?:connect|create_connection|getaddrinfo|gethostbyname(?:_ex)?|getnameinfo|getfqdn)\s*\(",
+                    content,
+                )
+                or re.search(r"socket\.socket\s*\([^)]*\)\.connect\s*\(", content)
+            )
+
+        return any(self._socket_call_can_contact_remote(node) for node in ast.walk(tree) if isinstance(node, ast.Call))
+
+    @staticmethod
+    def _decode_obfuscated_unicode(text: str) -> tuple[str, set[str]]:
+        """Decode common Unicode instruction-obfuscation representations."""
+        try:
+            from confusable_homoglyphs import confusables  # type: ignore[import-untyped]
+        except ImportError:
+            confusables = None
+
+        normalized = unicodedata.normalize("NFKC", text)
+        decoded: list[str] = []
+        encodings: set[str] = set()
+        for char in normalized:
+            codepoint = ord(char)
+            replacement: str | None = None
+
+            # Variation Selectors Supplement encoding used by the reported PoC.
+            if 0xE0100 <= codepoint <= 0xE017E:
+                value = codepoint - 0xE0100
+                if value == 10 or 0x20 <= value <= 0x7E:
+                    replacement = chr(value)
+                    encodings.add("variation-selectors-supplement")
+
+            # A Braille offset encoding is not a Braille document: printable
+            # ASCII shifted into U+2800–U+28FF is a strong steganography signal.
+            elif 0x2800 <= codepoint <= 0x28FF:
+                value = codepoint - 0x2800
+                if value == 10 or 0x20 <= value <= 0x7E:
+                    replacement = chr(value)
+                    encodings.add("braille-offset")
+
+            # Map non-Latin confusables back to an ASCII lookalike when the
+            # optional Unicode Consortium data is available.
+            elif confusables is not None and not char.isascii():
+                info = confusables.is_confusable(char, preferred_aliases=["LATIN"])
+                if info:
+                    for entry in info:
+                        for glyph in entry.get("homoglyphs", []):
+                            candidate = glyph.get("c", "")
+                            if len(candidate) == 1 and candidate.isascii() and candidate.isalnum():
+                                replacement = candidate
+                                encodings.add("unicode-confusable")
+                                break
+                        if replacement is not None:
+                            break
+
+            if replacement is not None:
+                decoded.append(replacement)
+            else:
+                decoded.append(char)
+
+        result = "".join(decoded)
+        if result != text and not encodings:
+            encodings.add("unicode-normalization")
+        return result, encodings
+
+    def _check_unicode_obfuscated_instructions(self, skill: Skill) -> list[Finding]:
+        """Detect high-signal prompt injections hidden behind Unicode variants.
+
+        Detection runs over a normalized/decoded view so visually disguised text
+        cannot evade ordinary instruction signatures. This is intentionally not
+        a blanket ban on non-ASCII text; a transformed payload must also contain
+        explicit instruction or data-theft language.
+        """
+        findings: list[Finding] = []
+        for sf in skill.files:
+            if sf.content is None or sf.file_type not in {"markdown", "python", "bash"}:
+                continue
+            content = sf.content
+            decoded, encodings = self._decode_obfuscated_unicode(content)
+            if not encodings or decoded == content:
+                continue
+
+            # Require repeated encoded characters for offset encodings. A lone
+            # Braille character can be legitimate; a supplementary variation
+            # selector is itself an invisible format signal.
+            encoded_counts = {
+                "variation-selectors-supplement": sum(0xE0100 <= ord(ch) <= 0xE017E for ch in content),
+                "braille-offset": sum(0x2800 <= ord(ch) <= 0x28FF for ch in content),
+                "unicode-confusable": sum(not ch.isascii() for ch in content),
+                "unicode-normalization": sum(unicodedata.normalize("NFKC", ch) != ch for ch in content),
+            }
+            if encoded_counts["braille-offset"] < 8 and "braille-offset" in encodings:
+                encodings.discard("braille-offset")
+            if encoded_counts["unicode-confusable"] < 3 and "unicode-confusable" in encodings:
+                encodings.discard("unicode-confusable")
+            if encoded_counts["unicode-normalization"] < 3 and "unicode-normalization" in encodings:
+                encodings.discard("unicode-normalization")
+            if not encodings or not _OBFUSCATED_INSTRUCTION_RE.search(decoded):
+                continue
+
+            first_line = next(
+                (
+                    line_no
+                    for line_no, line in enumerate(content.splitlines(), 1)
+                    if any(not ch.isascii() for ch in line)
+                ),
+                1,
+            )
+            preview = " ".join(decoded.split())[:160]
+            findings.append(
+                Finding(
+                    id=self._generate_finding_id("UNICODE_OBFUSCATED_INSTRUCTION", sf.relative_path),
+                    rule_id="UNICODE_OBFUSCATED_INSTRUCTION",
+                    category=ThreatCategory.PROMPT_INJECTION,
+                    severity=Severity.HIGH,
+                    title="Obfuscated prompt-injection instructions detected",
+                    description=(
+                        f"Unicode-obfuscated instructions were detected in {sf.relative_path} using "
+                        f"{', '.join(sorted(encodings))}. Recovered text includes a high-risk instruction or "
+                        f"data-access pattern: {preview}"
+                    ),
+                    file_path=sf.relative_path,
+                    line_number=first_line,
+                    remediation="Remove the obfuscated Unicode content and review the skill for prompt-injection and data-exfiltration behavior.",
+                    analyzer="static",
+                    metadata={"encodings": sorted(encodings), "decoded_preview": preview},
+                )
+            )
+        return findings
+
     def _skill_uses_network(self, skill: Skill) -> bool:
         """Check if skill code uses network libraries for EXTERNAL communication."""
         external_network_indicators = [
@@ -1463,21 +2082,14 @@ class StaticAnalyzer(BaseAnalyzer):
             "import aiohttp",
         ]
 
-        socket_external_indicators = ["socket.connect", "socket.create_connection"]
-        socket_localhost_indicators = ["localhost", "127.0.0.1", "::1"]
-
         for skill_file in skill.get_scripts():
             content = skill_file.read_content()
 
             if any(indicator in content for indicator in external_network_indicators):
                 return True
 
-            if "import socket" in content:
-                has_socket_connect = any(ind in content for ind in socket_external_indicators)
-                is_localhost_only = any(ind in content for ind in socket_localhost_indicators)
-
-                if has_socket_connect and not is_localhost_only:
-                    return True
+            if "import socket" in content and self._content_uses_external_socket_api(content):
+                return True
 
         return False
 
@@ -1693,13 +2305,13 @@ class StaticAnalyzer(BaseAnalyzer):
             "http.client",
             "httpx.",
             "aiohttp.",
-            "socket.connect",
-            "socket.create_connection",
         ]
 
         for skill_file in skill.get_scripts():
             content = skill_file.read_content()
-            if any(indicator in content for indicator in network_indicators):
+            if any(indicator in content for indicator in network_indicators) or self._content_uses_external_socket_api(
+                content
+            ):
                 return True
         return False
 
@@ -2336,24 +2948,26 @@ class StaticAnalyzer(BaseAnalyzer):
             dangerous_lines: list[tuple[int, str, list[dict]]] = []
             in_triple_quote_block = False
             triple_quote_delim = ""
+            original_lines = content.split("\n")
+            analysis_lines = comment_stripped_lines(content, sf.file_type)
 
-            for line_num, line in enumerate(content.split("\n"), 1):
+            for line_num, (line, analysis_line) in enumerate(zip(original_lines, analysis_lines, strict=True), 1):
                 # Skip comments and empty lines
-                stripped = line.strip()
-                if not stripped or stripped.startswith("#") or stripped.startswith("//"):
+                stripped = analysis_line.strip()
+                if not stripped or stripped.startswith("//"):
                     continue
 
                 # When benign-context filtering is enabled, skip Python docstring
                 # blocks to avoid flagging multilingual documentation text.
                 if filter_math_context and sf.file_type == "python":
                     if in_triple_quote_block:
-                        if triple_quote_delim and triple_quote_delim in line:
+                        if triple_quote_delim and triple_quote_delim in analysis_line:
                             in_triple_quote_block = False
                             triple_quote_delim = ""
                         continue
-                    if '"""' in line or "'''" in line:
-                        delim = '"""' if '"""' in line else "'''"
-                        if line.count(delim) % 2 == 1:
+                    if '"""' in analysis_line or "'''" in analysis_line:
+                        delim = '"""' if '"""' in analysis_line else "'''"
+                        if analysis_line.count(delim) % 2 == 1:
                             in_triple_quote_block = True
                             triple_quote_delim = delim
                         continue
@@ -2393,7 +3007,7 @@ class StaticAnalyzer(BaseAnalyzer):
                             and (_MATH_OPERATOR_RE.search(stripped) or _GREEK_CHAR_RE.search(stripped))
                         ):
                             continue
-                    dangerous_lines.append((line_num, stripped, result))
+                    dangerous_lines.append((line_num, line.strip(), result))
 
             # Require multiple dangerous lines to reduce single-line i18n FPs.
             # A genuine homoglyph attack typically uses confusables across
@@ -2653,6 +3267,13 @@ class StaticAnalyzer(BaseAnalyzer):
             if string_identifier.startswith("$documentation") or string_identifier.startswith("$safe"):
                 continue
 
+            if (
+                rule_name in {"credential_harvesting_generic", "tool_chaining_abuse_generic"}
+                and string_identifier in _NEGATABLE_EXFIL_IDENTIFIERS
+                and self._is_negated_exfiltration_comment(string_match.get("line_content", ""))
+            ):
+                continue
+
             if rule_name == "code_execution_generic":
                 line_content = string_match.get("line_content", "").lower()
                 matched_data = string_match.get("matched_data", "").lower()
@@ -2793,6 +3414,11 @@ class StaticAnalyzer(BaseAnalyzer):
             )
 
         return findings
+
+    @staticmethod
+    def _is_negated_exfiltration_comment(line: str) -> bool:
+        """Recognize a refusal/negation local to an exfiltration comment."""
+        return bool(_COMMENT_LINE_RE.search(line) and _NEGATED_EXFILTRATION_RE.search(line))
 
     def _map_yara_rule_to_threat(self, rule_name: str, meta: dict[str, Any]) -> tuple:
         """Map YARA rule to ThreatCategory and Severity."""

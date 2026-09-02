@@ -1,0 +1,41 @@
+"""Provider-neutral coding-session bridge contracts."""
+
+from .models import (
+    BridgeAccountIdentity,
+    BridgeAction,
+    BridgeCapabilities,
+    BridgeCheckpoint,
+    BridgeConversation,
+    BridgeEntry,
+    BridgeHealth,
+    BridgeHookEvent,
+    BridgeOrigin,
+    BridgeProjectionReceipt,
+    BridgeProvider,
+    BridgeRequest,
+    BridgeResponse,
+    BridgeSourceMetadata,
+    EntryFidelity,
+    EntryFormat,
+    ProjectionStatus,
+)
+
+__all__ = [
+    "BridgeAccountIdentity",
+    "BridgeAction",
+    "BridgeCapabilities",
+    "BridgeCheckpoint",
+    "BridgeConversation",
+    "BridgeEntry",
+    "BridgeHealth",
+    "BridgeHookEvent",
+    "BridgeOrigin",
+    "BridgeProjectionReceipt",
+    "BridgeProvider",
+    "BridgeRequest",
+    "BridgeResponse",
+    "BridgeSourceMetadata",
+    "EntryFidelity",
+    "EntryFormat",
+    "ProjectionStatus",
+]

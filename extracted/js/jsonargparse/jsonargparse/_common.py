@@ -21,9 +21,12 @@ from ._optionals import (
     capture_typing_extension_shadows,
     get_alias_target,
     get_annotated_base_type,
+    get_new_type_supertype,
     is_alias_type,
     is_annotated,
     is_attrs_class,
+    is_literal_string,
+    is_new_type,
     is_pydantic_model,
     typing_extensions_import,
 )
@@ -117,6 +120,163 @@ def parser_context(**kwargs):
             context_var.reset(token)
 
 
+class ImportDenied(ImportError, ValueError):
+    """Raised when an import path given as a value is not allowed.
+
+    Both bases are needed so that the existing handlers report it as a parsing
+    error: subclass specs catch ``ImportError`` and typehint checking catches
+    ``ValueError``.
+    """
+
+
+# Import paths denied by default. Only checked for paths that come from parsed
+# values, i.e. class paths, callables, types and modules given in configs, the
+# command line or environment variables. Paths that come from code, e.g. type
+# annotations and defaults, are never checked. Groups from higher to lower risk.
+# Entries such as posix and _pickle are the C implementations that objects are
+# defined in, e.g. os.system is defined in posix. They are next to the module
+# that exposes them and both are needed, since a pure Python implementation is
+# used when the C one is unavailable.
+default_import_path_denylist = (
+    # Policy self-modification. Naming jsonargparse itself would give a value a
+    # way to change the settings that decide what values are allowed, which is
+    # why it is also not accepted in import_path_allowlist.
+    "jsonargparse",
+    # Command and code execution. Instantiation is the execution, so a class
+    # path plus init_args suffices to run arbitrary code or shell commands.
+    "builtins.eval",
+    "builtins.exec",
+    "builtins.compile",
+    "builtins.__import__",
+    "os",
+    "posix",
+    "nt",
+    "subprocess",
+    "_posixsubprocess",
+    "_winapi",
+    "multiprocessing",
+    "_multiprocessing",
+    "ctypes",
+    "_ctypes",
+    "runpy",
+    "code",
+    "codeop",
+    "pty",
+    "timeit",
+    "pdb",
+    "bdb",
+    "builtins.breakpoint",
+    "trace",
+    "cProfile",
+    "profile",
+    "doctest",
+    # Untrusted deserialization. Loading attacker influenced bytes is execution,
+    # and only a loader plus a file path is needed, not the payload itself.
+    "pickle",
+    "_pickle",
+    "marshal",
+    "shelve",
+    "dbm",
+    # Import machinery and package installation. Resolve or install code by name
+    # at runtime, which would reopen everything the other groups deny.
+    "importlib",
+    "_frozen_importlib",
+    "_frozen_importlib_external",
+    "_imp",
+    "pkgutil",
+    "zipimport",
+    "pydoc",
+    "builtins.help",
+    "unittest",
+    "sys",
+    "site",
+    "pip",
+    "pkg_resources",
+    "setuptools",
+    "distutils",
+    "venv",
+    "ensurepip",
+    "sysconfig",
+    # Callable adapters and reflection. Wrap or synthesize a callable so that the
+    # call happens later in code that receives it, where no type check applies.
+    "functools",
+    "_functools",
+    "operator",
+    "_operator",
+    "inspect",
+    "types",
+    "ast",
+    "py_compile",
+    "compileall",
+    "builtins.getattr",
+    "builtins.setattr",
+    "builtins.delattr",
+    "builtins.vars",
+    "builtins.globals",
+    # Filesystem and process lifetime. Destructive or disruptive instead of
+    # executing, e.g. deleting trees, signals or deferring a call to exit.
+    "shutil",
+    "tempfile",
+    "pathlib",
+    "signal",
+    "_signal",
+    "atexit",
+    "gc",
+    "resource",
+    "faulthandler",
+    "builtins.exit",
+    "builtins.quit",
+    "_sitebuiltins",
+    # File access. Opening a path for writing truncates or creates it, and the
+    # archive and database openers do the same, so only a path is needed to
+    # destroy or plant a file, not any payload. builtins.open and the io classes
+    # are the primitives, the rest wrap them.
+    "builtins.open",
+    "codecs.open",
+    "io",
+    "_io",
+    "fileinput",
+    "mmap",
+    "fcntl",
+    "gzip",
+    "bz2",
+    "lzma",
+    "zipfile",
+    "tarfile",
+    "sqlite3",
+    "_sqlite3",
+    "logging.config",
+    "logging.handlers",
+    "logging.FileHandler",
+    "winreg",
+    # Network and external launch. Exfiltration primitives and launching an
+    # external program with an argument that the config decides. The client and
+    # server modules connect or listen with a destination the config decides.
+    "socket",
+    "_socket",
+    "ssl",
+    "webbrowser",
+    "antigravity",
+    "asyncio",
+    "urllib",
+    "http",
+    "ftplib",
+    "smtplib",
+    "poplib",
+    "imaplib",
+    "nntplib",
+    "telnetlib",
+    "socketserver",
+    "xml",
+    "xmlrpc",
+    "wsgiref",
+)
+
+
+# key that configs may have to point to a JSON Schema, only for editor support, so ignored when parsing
+config_schema_key = "$schema"
+
+
 parsing_settings: dict = {
     "validate_defaults": False,
     "validate_subclass_spec_in_any": False,
@@ -126,7 +286,69 @@ parsing_settings: dict = {
     "stubs_resolver_allow_py_files": False,
     "omegaconf_absolute_to_relative_paths": False,
     "unset_sentinel": None,
+    "import_path_verdicts": {entry: False for entry in default_import_path_denylist},
+    "import_paths_enforced": False,  # v5.0.0: change default to True
 }
+
+
+def get_settings_logger() -> logging.Logger:
+    """Returns the logger for parsing settings, which being global have no parser to take one from."""
+    return parse_logger({"level": "DEBUG"} if debug_mode_active() else False, "set_parsing_settings")
+
+
+def set_import_path_verdicts(denylist: list[str] | None, allowlist: list[str] | None) -> None:
+    """Adds entries to the import path policy, allowlist taking precedence."""
+    logger = get_settings_logger()
+    verdicts = dict(parsing_settings["import_path_verdicts"])
+    for entries, allowed in [(denylist, False), (allowlist, True)]:
+        state = "allowed" if allowed else "denied"
+        for entry in entries or []:
+            if entry == "*" and allowed:
+                raise ValueError("'*' is only accepted in import_path_denylist, to deny all not allowed paths.")
+            if not isinstance(entry, str) or (entry != "*" and not all(p.isidentifier() for p in entry.split("."))):
+                raise ValueError(f"Expected import path entries to be dot import paths or '*', but got {entry!r}.")
+            if allowed and (entry == "jsonargparse" or entry.startswith("jsonargparse.")):
+                raise ValueError(
+                    "Import paths under 'jsonargparse' can't be allowed, since a value that names them "
+                    "would be able to change the import path policy itself."
+                )
+            previous = verdicts.get(entry)
+            verdicts[entry] = allowed
+            if previous is None:
+                logger.debug(f"Import path {entry!r} added as {state}")
+            elif previous == allowed:
+                logger.debug(f"Import path {entry!r} already {state}")
+            else:
+                logger.debug(f"Import path {entry!r} changed to {state}")
+    parsing_settings["import_path_verdicts"] = verdicts
+    parsing_settings["import_paths_enforced"] = True
+
+
+def denying_import_path_entry(path: str) -> str | None:
+    """Returns the most specific entry that denies an import path, if any."""
+    verdicts = get_parsing_setting("import_path_verdicts")
+    parts = path.split(".")
+    for num in range(len(parts), 0, -1):
+        entry = ".".join(parts[:num])
+        if entry in verdicts:
+            return None if verdicts[entry] else entry
+    return "*" if "*" in verdicts else None  # '*' is only accepted as a denylist entry
+
+
+def check_import_path(path: str) -> None:
+    """Fails or warns when an import path given as a value is denied."""
+    entry = denying_import_path_entry(path)
+    if entry is None:
+        return
+    message = (
+        f"Importing '{path}' is not allowed, denied by the {entry!r} entry of the import path denylist. "
+        "Add the import path to import_path_allowlist in set_parsing_settings to allow it."
+    )
+    if get_parsing_setting("import_paths_enforced"):
+        raise ImportDenied(message)
+    from ._deprecated import import_paths_not_enforced
+
+    import_paths_not_enforced(path, message)
 
 
 def get_env_var_bool(name: str) -> bool:
@@ -153,6 +375,8 @@ def set_parsing_settings(
     unset_sentinel: bool | None = None,
     subclasses_disabled: list[type | Callable[[type], bool]] | None = None,
     subclasses_enabled: list[type | str] | None = None,
+    import_path_denylist: list[str] | None = None,
+    import_path_allowlist: list[str] | None = None,
 ) -> None:
     """
     Modify global parser settings that affect parser creation and parsing behavior.
@@ -193,8 +417,9 @@ def set_parsing_settings(
             positionals are applied to optionals in the order that they were
             added to the parser. By default, this is ``False``.
         add_print_completion_argument: If ``True``, top-level parsers
-            automatically include ``--print_completion`` argument when
-            ``shtab`` is installed.
+            automatically include a ``--print_completion`` argument. Its
+            accepted values are ``jsonschema`` and, when ``shtab`` is installed,
+            one ``shtab-*`` value per supported shell.
         stubs_resolver_allow_py_files: Whether the stubs resolver should search
             in ``.py`` files in addition to ``.pyi`` files.
         omegaconf_absolute_to_relative_paths: If ``True``, when loading configs
@@ -217,6 +442,17 @@ def set_parsing_settings(
             corresponding function from ``subclasses_disabled``. By default, the
             following disable functions are registered: ``is_pure_dataclass``,
             ``is_pydantic_model``, ``is_attrs_class`` and ``is_final_class``.
+        import_path_denylist: Import paths that a value is not allowed to name,
+            added to the ones denied by default. An entry denies a dot import
+            path and everything under it, e.g. ``os`` also denies ``os.system``.
+            The entry ``*`` denies everything, so that only what the allowlist
+            permits is importable.
+        import_path_allowlist: Import paths that a value is allowed to name,
+            taking precedence over the denylist for the same entry. The most
+            specific entry decides, so ``functools.partial`` here allows only
+            that path out of a denied ``functools``. Paths under ``jsonargparse``
+            are not accepted, since a value that names them would be able to
+            change these settings.
     """
     # validate_defaults
     if isinstance(validate_defaults, bool):
@@ -272,6 +508,9 @@ def set_parsing_settings(
         parsing_settings["unset_sentinel"] = Unset if unset_sentinel else None
     elif unset_sentinel is not None:
         raise ValueError(f"unset_sentinel must be a boolean, but got {unset_sentinel}.")
+    # import paths
+    if import_path_denylist is not None or import_path_allowlist is not None:
+        set_import_path_verdicts(import_path_denylist, import_path_allowlist)
     # subclass behavior
     if subclasses_disabled or subclasses_enabled:
         subclass_type_behavior(
@@ -385,6 +624,14 @@ def get_generic_origins(class_or_tuple):
     return get_generic_origin(class_or_tuple)
 
 
+def get_unsubscripted_alias_origin(typehint):
+    """Origin class of an unsubscripted typing alias, e.g. typing.List -> list, else None."""
+    if isinstance(typehint, type) or hasattr(typehint, "__args__"):
+        return None
+    origin = getattr(typehint, "__origin__", None)
+    return origin if isinstance(origin, type) else None
+
+
 def get_unaliased_type(cls):
     new_cls = cls
     while True:
@@ -393,6 +640,13 @@ def get_unaliased_type(cls):
             new_cls = get_annotated_base_type(new_cls)
         if is_alias_type(new_cls):
             new_cls = get_alias_target(new_cls)
+        if is_new_type(new_cls):
+            new_cls = get_new_type_supertype(new_cls)
+        if is_literal_string(new_cls):
+            new_cls = str
+        origin = get_unsubscripted_alias_origin(new_cls)
+        if origin is not None:
+            new_cls = origin
         if new_cls == cur_cls:
             break
     return cur_cls

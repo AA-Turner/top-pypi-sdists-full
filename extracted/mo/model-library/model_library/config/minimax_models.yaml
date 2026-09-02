@@ -1,0 +1,111 @@
+base-config:
+  company: MiniMax
+  country: China
+  documentation_url: https://platform.minimax.io/docs
+  open_source: true
+  supports:
+    images: false
+    files: true
+    tools: true
+    temperature: true
+  properties:
+    reasoning_model: false
+
+m3-models:
+  minimax/MiniMax-M3:
+    label: MiniMax-M3
+    release_date: 2026-05-31
+    supports:
+      images: true
+      videos: true
+    properties:
+      reasoning_model: true
+      context_window: 1_000_000
+      max_tokens: 512_000
+    costs_per_million_token:
+      input: 0.60
+      output: 2.40
+      cache:
+        read: 0.12
+      context:
+        threshold: 512_000
+        input: 1.20
+        output: 4.80
+        cache:
+          read: 0.24
+    default_parameters:
+      temperature: 1.0
+      top_p: 0.95
+
+m2-models:
+  minimax/MiniMax-M2.7:
+    label: MiniMax-M2.7
+    release_date: 2026-03-17
+    properties:
+      reasoning_model: true
+      context_window: 196_608
+      max_tokens: 80_000 # provider rejects requests whose prompt + max_tokens exceeds the window
+    costs_per_million_token:
+      input: 0.30
+      output: 1.20
+      cache:
+        read: 0.03
+        write: 0.375
+    default_parameters:
+      temperature: 1.0
+      top_p: 0.95
+
+  minimax/MiniMax-M2.5:
+    label: MiniMax-M2.5
+    release_date: 2026-02-12
+    properties:
+      reasoning_model: true
+      context_window: 196_608 # from BadRequestError
+      max_tokens: 196_608
+    default_parameters:
+      temperature: 1.0
+      top_p: 0.95
+    costs_per_million_token:
+      input: 0.30
+      output: 1.20
+      cache:
+        read: 0.03
+        write: 0.375
+    alternative_keys:
+      - minimax/MiniMax-M2.5-Lightning: # faster!
+          costs_per_million_token:
+            output: 2.40
+
+  minimax/MiniMax-M2.1:
+    label: MiniMax-M2.1
+    release_date: 2025-12-23
+    properties:
+      context_window: 204_800
+      max_tokens: 131_000
+      reasoning_model: true
+    default_parameters:
+      temperature: 1.0
+      top_p: 0.95
+    costs_per_million_token:
+      input: 0.30
+      output: 1.20
+      cache:
+        read: 0.03
+        write: 0.375
+
+  minimax/MiniMax-M2:
+    label: MiniMax-M2
+    release_date: 2025-10-26
+    properties:
+      context_window: 204_800
+      max_tokens: 131_000
+      reasoning_model: true
+    default_parameters:
+      temperature: 1.0
+      top_p: 0.95
+    costs_per_million_token:
+      input: 0.30
+      output: 1.20
+      cache:
+        read: 0.03
+        write: 0.375

@@ -31,11 +31,11 @@ class DescribeVpcsRequest(DaraModel):
         self.dhcp_options_set_id = dhcp_options_set_id
         # Specifies whether to perform a dry run. Valid values:
         # 
-        # - **true**: performs a dry run. The system checks the request for potential issues, including invalid AccessKey pairs, unauthorized RAM users, and missing parameter values. If the request fails the dry run, the corresponding error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
+        # - **true**: performs a dry run. The system checks the request for potential issues, including invalid AccessKey pairs, unauthorized Resource Access Management (RAM) users, and missing parameter values. If the request fails the dry run, the corresponding error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
         # 
-        # - **false** (default): sends a normal request. If the request passes the check, an HTTP 2xx status code is returned and the operation is performed.
+        # - **false** (default): sends a Normal request, and the resource status is directly queried after the request passes the authorization check. An HTTP 2xx status code is returned.
         self.dry_run = dry_run
-        # Specifies whether to query VPCs that have IPv6 CIDR blocks enabled in the specified region. The default value is empty, which means no filtering is applied based on IPv6 enablement. Valid values:
+        # Specifies whether to query VPCs that have IPv6 CIDR blocks enabled in the specified region. The default value is empty, which means no filtering is performed based on IPv6 enablement. Valid values:
         # 
         # - **false**: IPv6 is not enabled.
         # - **true**: IPv6 is enabled.
@@ -50,7 +50,7 @@ class DescribeVpcsRequest(DaraModel):
         self.owner_id = owner_id
         # The page number. Default value: **1**.
         self.page_number = page_number
-        # The number of entries per page for paging queries. Maximum value: **50**. Default value: **10**.
+        # The number of entries per page in paging queries. Maximum value: **50**. Default value: **10**.
         self.page_size = page_size
         # The region ID of the VPC. 
         # 
@@ -66,11 +66,11 @@ class DescribeVpcsRequest(DaraModel):
         self.tag = tag
         # The ID of the VPC. 
         # 
-        # You can specify up to 20 VPC IDs. Separate multiple IDs with commas (,).
+        # You can specify up to 20 VPC IDs. Separate multiple VPC IDs with commas (,).
         self.vpc_id = vpc_id
         # The name of the VPC.
         self.vpc_name = vpc_name
-        # The Alibaba Cloud account ID of the VPC owner.
+        # The Alibaba Cloud account ID that owns the VPC.
         self.vpc_owner_id = vpc_owner_id
 
     def validate(self):

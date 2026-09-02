@@ -1,0 +1,848 @@
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Component, Path};
+
+use regex::Regex;
+use serde_json::Value;
+
+use super::wire::{
+    ChopEngineError, ChopLaunchProposalWire, ChopReportBlockWire,
+    ChopReportBulletWire, ChopReportKvItemWire, ChopReportRowWire,
+    ChopReportWire, ChopResultDocumentWire, ChopResultStatusWire,
+    ProposalWaitOnWire, CHOP_RESULT_SCHEMA_VERSION,
+};
+
+const CLAN_SUMMARY_MAX_BYTES: usize = 32 * 1024;
+pub const CHOP_REPORT_MAX_BYTES: usize = 32 * 1024;
+const CHOP_REPORT_MAX_BLOCKS: usize = 48;
+const CHOP_REPORT_MAX_ENTRIES: usize = 64;
+const CHOP_REPORT_MAX_COLUMNS: usize = 6;
+const CHOP_REPORT_MAX_TEXT_CHARS: usize = 512;
+const CHOP_REPORT_MAX_TITLE_CHARS: usize = 64;
+const CHOP_REPORT_GLYPHS: &[char] = &[
+    '▲', '◆', '•', '·', '●', '○', '✓', '✗', '↗', '↷', '⏱', '!', '▸', '─',
+];
+
+/// Parse and validate one versioned chop result JSON document.
+pub fn parse_chop_result(
+    document: &str,
+) -> Result<ChopResultDocumentWire, ChopEngineError> {
+    let value: Value = serde_json::from_str(document).map_err(|error| {
+        ChopEngineError::new(
+            "invalid_json",
+            "$",
+            format!(
+                "chop result is not valid JSON at line {}, column {}: {error}",
+                error.line(),
+                error.column()
+            ),
+        )
+    })?;
+    validate_result_value(&value)?;
+    let result: ChopResultDocumentWire = serde_json::from_value(value)
+        .map_err(|error| {
+            ChopEngineError::new(
+                "invalid_result",
+                "$",
+                format!("chop result has an invalid field: {error}"),
+            )
+        })?;
+    validate_chop_result(&result)?;
+    Ok(result)
+}
+
+fn validate_result_value(value: &Value) -> Result<(), ChopEngineError> {
+    let object = value.as_object().ok_or_else(|| {
+        ChopEngineError::new(
+            "invalid_result",
+            "$",
+            "chop result must be a JSON object",
+        )
+    })?;
+    let version = object
+        .get("schema_version")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            ChopEngineError::new(
+                "missing_schema_version",
+                "$.schema_version",
+                "schema_version must be an integer",
+            )
+        })?;
+    if version != CHOP_RESULT_SCHEMA_VERSION as u64 {
+        return Err(ChopEngineError::new(
+            "schema_version_mismatch",
+            "$.schema_version",
+            format!("got {version}, expected {CHOP_RESULT_SCHEMA_VERSION}"),
+        ));
+    }
+    Ok(())
+}
+
+/// Validate an already-decoded chop result document.
+pub fn validate_chop_result(
+    result: &ChopResultDocumentWire,
+) -> Result<(), ChopEngineError> {
+    if result.schema_version != CHOP_RESULT_SCHEMA_VERSION {
+        return Err(ChopEngineError::new(
+            "schema_version_mismatch",
+            "$.schema_version",
+            format!(
+                "got {}, expected {CHOP_RESULT_SCHEMA_VERSION}",
+                result.schema_version
+            ),
+        ));
+    }
+    validate_optional_text(result.summary.as_deref(), "$.summary")?;
+    validate_optional_text(result.reason.as_deref(), "$.reason")?;
+    if let Some(report) = result.report.as_ref() {
+        validate_chop_report(report)?;
+    }
+    for key in result.counters.keys() {
+        if key.trim().is_empty() {
+            return Err(ChopEngineError::new(
+                "invalid_counter",
+                "$.counters",
+                "counter names must not be blank",
+            ));
+        }
+    }
+    for (index, evidence) in result.evidence.iter().enumerate() {
+        validate_evidence_path(evidence, index)?;
+    }
+    if result.status != ChopResultStatusWire::Ok
+        && !result.proposed_launches.is_empty()
+    {
+        return Err(ChopEngineError::new(
+            "proposals_for_non_actionable_status",
+            "$.proposed_launches",
+            "only an `ok` chop result may propose agent launches",
+        ));
+    }
+
+    let mut prior_ids = Vec::new();
+    let mut all_ids = BTreeSet::new();
+    let mut clan_summaries: BTreeMap<&str, (&str, usize)> = BTreeMap::new();
+    for (index, proposal) in result.proposed_launches.iter().enumerate() {
+        validate_chop_proposal(proposal, index, &prior_ids)?;
+        if let (Some(clan), Some(summary)) =
+            (proposal.clan.as_deref(), proposal.clan_summary.as_deref())
+        {
+            if let Some((agreed, first_index)) = clan_summaries.get(clan) {
+                if summary != *agreed {
+                    return Err(ChopEngineError::new(
+                        "conflicting_clan_summary",
+                        format!("$.proposed_launches[{index}].clan_summary"),
+                        format!(
+                            "clan summary for raw clan `{clan}` conflicts with proposal {first_index}"
+                        ),
+                    ));
+                }
+            } else {
+                clan_summaries.insert(clan, (summary, index));
+            }
+        }
+        if let Some(id) = proposal.id.as_ref() {
+            if !all_ids.insert(id.clone()) {
+                return Err(ChopEngineError::new(
+                    "duplicate_proposal_id",
+                    format!("$.proposed_launches[{index}].id"),
+                    format!("proposal id `{id}` is duplicated"),
+                ));
+            }
+            prior_ids.push(id.clone());
+        }
+    }
+    Ok(())
+}
+
+fn validate_chop_report(
+    report: &ChopReportWire,
+) -> Result<(), ChopEngineError> {
+    let serialized = serde_json::to_vec(report).map_err(|error| {
+        ChopEngineError::new(
+            "invalid_report",
+            "$.report",
+            format!("report could not be serialized: {error}"),
+        )
+    })?;
+    if serialized.len() > CHOP_REPORT_MAX_BYTES {
+        return Err(ChopEngineError::new(
+            "report_too_large",
+            "$.report",
+            format!(
+                "report must not exceed {CHOP_REPORT_MAX_BYTES} UTF-8 bytes"
+            ),
+        ));
+    }
+    if let Some(title) = report.title.as_deref() {
+        validate_report_text(
+            title,
+            "$.report.title",
+            "report title",
+            CHOP_REPORT_MAX_TITLE_CHARS,
+        )?;
+    }
+    validate_report_count(
+        report.blocks.len(),
+        "$.report.blocks",
+        "report blocks",
+        CHOP_REPORT_MAX_BLOCKS,
+    )?;
+
+    for (block_index, block) in report.blocks.iter().enumerate() {
+        let base = format!("$.report.blocks[{block_index}]");
+        match block {
+            ChopReportBlockWire::Headline { text, .. } => {
+                validate_report_text(
+                    text,
+                    &format!("{base}.text"),
+                    "headline text",
+                    CHOP_REPORT_MAX_TEXT_CHARS,
+                )?;
+            }
+            ChopReportBlockWire::Heading { text } => {
+                validate_report_text(
+                    text,
+                    &format!("{base}.text"),
+                    "heading text",
+                    CHOP_REPORT_MAX_TEXT_CHARS,
+                )?;
+            }
+            ChopReportBlockWire::Text { text, .. } => {
+                validate_report_text(
+                    text,
+                    &format!("{base}.text"),
+                    "text block",
+                    CHOP_REPORT_MAX_TEXT_CHARS,
+                )?;
+            }
+            ChopReportBlockWire::Kv { items } => {
+                validate_report_count(
+                    items.len(),
+                    &format!("{base}.items"),
+                    "key/value items",
+                    CHOP_REPORT_MAX_ENTRIES,
+                )?;
+                for (item_index, item) in items.iter().enumerate() {
+                    validate_report_kv_item(
+                        item,
+                        &format!("{base}.items[{item_index}]"),
+                    )?;
+                }
+            }
+            ChopReportBlockWire::Rows { columns, rows } => {
+                validate_report_rows(columns.as_deref(), rows, &base)?;
+            }
+            ChopReportBlockWire::Bullets { items } => {
+                validate_report_count(
+                    items.len(),
+                    &format!("{base}.items"),
+                    "bullet items",
+                    CHOP_REPORT_MAX_ENTRIES,
+                )?;
+                for (item_index, item) in items.iter().enumerate() {
+                    validate_report_bullet(
+                        item,
+                        &format!("{base}.items[{item_index}]"),
+                    )?;
+                }
+            }
+            ChopReportBlockWire::Gauge {
+                label, value, max, ..
+            } => {
+                validate_report_text(
+                    label,
+                    &format!("{base}.label"),
+                    "gauge label",
+                    CHOP_REPORT_MAX_TEXT_CHARS,
+                )?;
+                if *max <= 0 {
+                    return Err(ChopEngineError::new(
+                        "invalid_report_gauge",
+                        format!("{base}.max"),
+                        "gauge max must be greater than zero",
+                    ));
+                }
+                if *value < 0 {
+                    return Err(ChopEngineError::new(
+                        "invalid_report_gauge",
+                        format!("{base}.value"),
+                        "gauge value must be non-negative",
+                    ));
+                }
+            }
+            ChopReportBlockWire::Divider {} => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_report_kv_item(
+    item: &ChopReportKvItemWire,
+    base: &str,
+) -> Result<(), ChopEngineError> {
+    validate_report_text(
+        &item.key,
+        &format!("{base}.key"),
+        "key/value key",
+        CHOP_REPORT_MAX_TEXT_CHARS,
+    )?;
+    validate_report_text(
+        &item.value,
+        &format!("{base}.value"),
+        "key/value value",
+        CHOP_REPORT_MAX_TEXT_CHARS,
+    )
+}
+
+fn validate_report_bullet(
+    item: &ChopReportBulletWire,
+    base: &str,
+) -> Result<(), ChopEngineError> {
+    validate_report_text(
+        &item.text,
+        &format!("{base}.text"),
+        "bullet text",
+        CHOP_REPORT_MAX_TEXT_CHARS,
+    )?;
+    if let Some(glyph) = item.glyph.as_deref() {
+        validate_report_glyph(glyph, &format!("{base}.glyph"))?;
+    }
+    Ok(())
+}
+
+fn validate_report_rows(
+    columns: Option<&[String]>,
+    rows: &[ChopReportRowWire],
+    base: &str,
+) -> Result<(), ChopEngineError> {
+    validate_report_count(
+        rows.len(),
+        &format!("{base}.rows"),
+        "rows",
+        CHOP_REPORT_MAX_ENTRIES,
+    )?;
+
+    let expected_cells = if let Some(columns) = columns {
+        if columns.is_empty() || columns.len() > CHOP_REPORT_MAX_COLUMNS {
+            return Err(ChopEngineError::new(
+                "invalid_report_columns",
+                format!("{base}.columns"),
+                format!(
+                    "columns must contain 1–{CHOP_REPORT_MAX_COLUMNS} names"
+                ),
+            ));
+        }
+        for (column_index, column) in columns.iter().enumerate() {
+            validate_report_text(
+                column,
+                &format!("{base}.columns[{column_index}]"),
+                "column name",
+                CHOP_REPORT_MAX_TEXT_CHARS,
+            )?;
+        }
+        columns.len()
+    } else {
+        let first_cells = rows[0].cells.len();
+        if first_cells == 0 || first_cells > CHOP_REPORT_MAX_COLUMNS {
+            return Err(ChopEngineError::new(
+                "invalid_report_cells",
+                format!("{base}.rows[0].cells"),
+                format!("rows must contain 1–{CHOP_REPORT_MAX_COLUMNS} cells"),
+            ));
+        }
+        first_cells
+    };
+
+    for (row_index, row) in rows.iter().enumerate() {
+        let row_base = format!("{base}.rows[{row_index}]");
+        if row.cells.len() != expected_cells {
+            return Err(ChopEngineError::new(
+                "ragged_report_rows",
+                format!("{row_base}.cells"),
+                format!(
+                    "row has {} cells, expected {expected_cells}",
+                    row.cells.len()
+                ),
+            ));
+        }
+        for (cell_index, cell) in row.cells.iter().enumerate() {
+            validate_report_text(
+                cell,
+                &format!("{row_base}.cells[{cell_index}]"),
+                "row cell",
+                CHOP_REPORT_MAX_TEXT_CHARS,
+            )?;
+        }
+        if let Some(glyph) = row.glyph.as_deref() {
+            validate_report_glyph(glyph, &format!("{row_base}.glyph"))?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_report_count(
+    count: usize,
+    path: &str,
+    label: &str,
+    maximum: usize,
+) -> Result<(), ChopEngineError> {
+    if count == 0 || count > maximum {
+        return Err(ChopEngineError::new(
+            "invalid_report_count",
+            path,
+            format!("{label} must contain 1–{maximum} entries"),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_report_text(
+    value: &str,
+    path: &str,
+    label: &str,
+    maximum_chars: usize,
+) -> Result<(), ChopEngineError> {
+    if value.trim().is_empty() {
+        return Err(ChopEngineError::new(
+            "blank_report_text",
+            path,
+            format!("{label} must not be blank"),
+        ));
+    }
+    if value.chars().any(char::is_control) {
+        return Err(ChopEngineError::new(
+            "invalid_report_text",
+            path,
+            format!("{label} must not contain control characters"),
+        ));
+    }
+    if value.chars().count() > maximum_chars {
+        return Err(ChopEngineError::new(
+            "report_text_too_long",
+            path,
+            format!("{label} must not exceed {maximum_chars} characters"),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_report_glyph(
+    glyph: &str,
+    path: &str,
+) -> Result<(), ChopEngineError> {
+    let mut characters = glyph.chars();
+    let character = characters.next();
+    if characters.next().is_some()
+        || !character.is_some_and(|item| CHOP_REPORT_GLYPHS.contains(&item))
+    {
+        return Err(ChopEngineError::new(
+            "invalid_report_glyph",
+            path,
+            "glyph must be exactly one allowlisted character",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_optional_text(
+    value: Option<&str>,
+    path: &str,
+) -> Result<(), ChopEngineError> {
+    if value.is_some_and(|item| item.trim().is_empty()) {
+        return Err(ChopEngineError::new(
+            "blank_value",
+            path,
+            "value must not be blank when present",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_evidence_path(
+    evidence: &str,
+    index: usize,
+) -> Result<(), ChopEngineError> {
+    let path_label = format!("$.evidence[{index}]");
+    if evidence.trim().is_empty() {
+        return Err(ChopEngineError::new(
+            "invalid_evidence",
+            path_label,
+            "evidence path must not be blank",
+        ));
+    }
+    let path = Path::new(evidence);
+    if path.is_absolute()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir
+                    | Component::RootDir
+                    | Component::Prefix(_)
+            )
+        })
+    {
+        return Err(ChopEngineError::new(
+            "invalid_evidence",
+            path_label,
+            "evidence must be a relative path inside the chop run directory",
+        ));
+    }
+    Ok(())
+}
+
+/// Validate one proposal and any `wait_on` reference to earlier proposals.
+pub fn validate_chop_proposal(
+    proposal: &ChopLaunchProposalWire,
+    index: usize,
+    prior_ids: &[String],
+) -> Result<(), ChopEngineError> {
+    let base = format!("$.proposed_launches[{index}]");
+    if let Some(id) = proposal.id.as_deref() {
+        validate_token(id, &format!("{base}.id"), "proposal id")?;
+    }
+    if proposal.prompt.trim().is_empty() {
+        return Err(ChopEngineError::new(
+            "blank_prompt",
+            format!("{base}.prompt"),
+            "proposal prompt must not be blank",
+        ));
+    }
+    let workflow_reference = Regex::new(r"(?m)^\s*#!\S+")
+        .expect("standalone workflow regex is valid");
+    if workflow_reference.is_match(&proposal.prompt) {
+        return Err(ChopEngineError::new(
+            "workflow_reference_forbidden",
+            format!("{base}.prompt"),
+            "standalone `#!workflow` references are not allowed in chop proposals; put the work directly in the proposal prompt",
+        ));
+    }
+    validate_token(
+        &proposal.workspace,
+        &format!("{base}.workspace"),
+        "workspace reference",
+    )?;
+    validate_optional_token(
+        proposal.agent_name.as_deref(),
+        &format!("{base}.agent_name"),
+        "agent name template",
+    )?;
+    validate_optional_token(
+        proposal.clan.as_deref(),
+        &format!("{base}.clan"),
+        "agent clan template or reference",
+    )?;
+    if let Some(summary) = proposal.clan_summary.as_deref() {
+        validate_literal_clan_summary(
+            summary,
+            &format!("{base}.clan_summary"),
+        )?;
+        if proposal.clan.is_none() {
+            return Err(ChopEngineError::new(
+                "clan_summary_requires_clan",
+                format!("{base}.clan_summary"),
+                "clan_summary is only valid on a clan-scoped proposal",
+            ));
+        }
+    }
+    validate_optional_token(
+        proposal.tribe.as_deref(),
+        &format!("{base}.tribe"),
+        "tribe",
+    )?;
+    validate_optional_token(
+        proposal.model.as_deref(),
+        &format!("{base}.model"),
+        "model",
+    )?;
+    validate_optional_token(
+        proposal.effort.as_deref(),
+        &format!("{base}.effort"),
+        "effort",
+    )?;
+    validate_optional_text(
+        proposal.dedupe_key.as_deref(),
+        &format!("{base}.dedupe_key"),
+    )?;
+    if let Some(clan) = proposal.clan.as_deref() {
+        let member = proposal.agent_name.as_deref().ok_or_else(|| {
+            ChopEngineError::new(
+                "clan_member_required",
+                format!("{base}.agent_name"),
+                "a clan-scoped proposal requires agent_name as its member id",
+            )
+        })?;
+        if proposal.tribe.is_some() {
+            return Err(ChopEngineError::new(
+                "clan_tribe_conflict",
+                format!("{base}.tribe"),
+                "a clan-scoped proposal cannot also set tribe; the runner assigns the clan tribe",
+            ));
+        }
+        validate_clan_member_identity(clan, member, &base)?;
+    }
+
+    let env_name = Regex::new(r"^[A-Za-z_][A-Za-z0-9_]*$")
+        .expect("environment name regex is valid");
+    for (name, value) in &proposal.env {
+        if !env_name.is_match(name) {
+            return Err(ChopEngineError::new(
+                "invalid_env_name",
+                format!("{base}.env.{name}"),
+                format!("`{name}` is not a valid environment variable name"),
+            ));
+        }
+        if value.contains('\0') {
+            return Err(ChopEngineError::new(
+                "invalid_env_value",
+                format!("{base}.env.{name}"),
+                "environment values must not contain NUL bytes",
+            ));
+        }
+    }
+
+    if let Some(wait_on) = proposal.wait_on.as_ref() {
+        match wait_on {
+            ProposalWaitOnWire::Index(wait_index) if *wait_index >= index => {
+                return Err(ChopEngineError::new(
+                    "invalid_wait_on",
+                    format!("{base}.wait_on"),
+                    format!(
+                        "wait_on index {wait_index} must refer to an earlier proposal"
+                    ),
+                ));
+            }
+            ProposalWaitOnWire::Id(wait_id)
+                if !prior_ids.iter().any(|prior| prior == wait_id) =>
+            {
+                return Err(ChopEngineError::new(
+                    "invalid_wait_on",
+                    format!("{base}.wait_on"),
+                    format!(
+                        "wait_on id `{wait_id}` does not name an earlier proposal"
+                    ),
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_literal_clan_summary(
+    value: &str,
+    path: &str,
+) -> Result<(), ChopEngineError> {
+    if value.trim().is_empty() {
+        return Err(ChopEngineError::new(
+            "blank_value",
+            path,
+            "clan summary must not be blank",
+        ));
+    }
+    if value.contains('\0') {
+        return Err(ChopEngineError::new(
+            "invalid_clan_summary",
+            path,
+            "clan summary must not contain NUL bytes",
+        ));
+    }
+    if value.len() > CLAN_SUMMARY_MAX_BYTES {
+        return Err(ChopEngineError::new(
+            "clan_summary_too_large",
+            path,
+            format!("clan summary must not exceed {CLAN_SUMMARY_MAX_BYTES} UTF-8 bytes"),
+        ));
+    }
+    if value.contains("]]") {
+        return Err(ChopEngineError::new(
+            "unrepresentable_clan_summary",
+            path,
+            "clan summary must not contain the `]]` text-block terminator",
+        ));
+    }
+    if value.contains('+') {
+        return Err(ChopEngineError::new(
+            "unrepresentable_clan_summary",
+            path,
+            "clan summary must not contain `+`, which xprompt argument decoding changes to a space",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_optional_token(
+    value: Option<&str>,
+    path: &str,
+    label: &str,
+) -> Result<(), ChopEngineError> {
+    if let Some(value) = value {
+        validate_token(value, path, label)?;
+    }
+    Ok(())
+}
+
+fn validate_token(
+    value: &str,
+    path: &str,
+    label: &str,
+) -> Result<(), ChopEngineError> {
+    if value.trim().is_empty() {
+        return Err(ChopEngineError::new(
+            "blank_value",
+            path,
+            format!("{label} must not be blank"),
+        ));
+    }
+    if value.chars().any(char::is_whitespace) || value.contains('\0') {
+        return Err(ChopEngineError::new(
+            "invalid_token",
+            path,
+            format!("{label} must be a single non-NUL token"),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_clan_member_identity(
+    clan: &str,
+    member: &str,
+    base: &str,
+) -> Result<(), ChopEngineError> {
+    validate_dotted_agent_name(clan, &format!("{base}.clan"), "agent clan")?;
+    validate_dotted_agent_name(
+        member,
+        &format!("{base}.agent_name"),
+        "clan member id",
+    )?;
+
+    // The clan template and the member template each carry at most one `@`
+    // marker (enforced per component above). A composed identity may therefore
+    // hold two markers: the clan token is allocated for the whole proposal
+    // group first, then each templated member is allocated inside the concrete
+    // clan.
+    let composed = format!("{clan}.{member}");
+    if composed.contains("--") {
+        return Err(ChopEngineError::new(
+            "invalid_clan_member_name",
+            format!("{base}.agent_name"),
+            format!(
+                "composed clan member name `{composed}` contains `--`, which is reserved for agent families"
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_dotted_agent_name(
+    value: &str,
+    path: &str,
+    label: &str,
+) -> Result<(), ChopEngineError> {
+    if value.split('.').any(str::is_empty) {
+        return Err(ChopEngineError::new(
+            "malformed_agent_hood",
+            path,
+            format!(
+                "{label} `{value}` must not start or end with `.` or contain empty dotted hood segments"
+            ),
+        ));
+    }
+    if value.matches('@').count() > 1 {
+        return Err(ChopEngineError::new(
+            "invalid_agent_name_template",
+            path,
+            format!(
+                "{label} `{value}` may contain at most one `@` template marker"
+            ),
+        ));
+    }
+    if value.contains([',', '(', ')', '=']) || value.starts_with('!') {
+        return Err(ChopEngineError::new(
+            "unrepresentable_clan_directive",
+            path,
+            format!(
+                "{label} `{value}` cannot be represented safely in a clan membership directive"
+            ),
+        ));
+    }
+    Ok(())
+}
+
+/// Derive the default `%id` value for a proposal.
+pub fn derive_chop_agent_name(
+    chop_name: &str,
+    target_key: Option<&str>,
+    proposal_index: usize,
+    run_token: Option<&str>,
+) -> Result<String, ChopEngineError> {
+    let chop = sanitized_component(chop_name);
+    if chop.is_empty() {
+        return Err(ChopEngineError::new(
+            "invalid_chop_name",
+            "$.chop_name",
+            "chop name must contain at least one letter or digit",
+        ));
+    }
+    let mut parts = vec!["chop".to_string(), chop];
+    if let Some(target) = target_key {
+        let target = sanitized_component(target);
+        if target.is_empty() {
+            return Err(ChopEngineError::new(
+                "invalid_target_key",
+                "$.target_key",
+                "target key must contain at least one letter or digit",
+            ));
+        }
+        parts.push(target);
+    }
+    if let Some(run_token) = run_token {
+        let mut run_token = sanitized_component(run_token);
+        // Chop run ids begin with a sortable date shared by every run that
+        // day; keep the entropy-bearing seconds/microseconds at the tail.
+        if run_token.len() > 8 {
+            run_token = run_token.split_off(run_token.len() - 8);
+        }
+        while run_token.starts_with('-') || run_token.starts_with('_') {
+            run_token.remove(0);
+        }
+        while run_token.ends_with('-') || run_token.ends_with('_') {
+            run_token.pop();
+        }
+        if run_token.is_empty() {
+            return Err(ChopEngineError::new(
+                "invalid_run_token",
+                "$.run_token",
+                "run token must contain at least one letter or digit",
+            ));
+        }
+        parts.push(run_token);
+    }
+    parts.push((proposal_index + 1).to_string());
+    let mut value = parts.join(".");
+    if value.len() > 120 {
+        value.truncate(120);
+        while value.ends_with('.')
+            || value.ends_with('-')
+            || value.ends_with('_')
+        {
+            value.pop();
+        }
+    }
+    Ok(value)
+}
+
+fn sanitized_component(value: &str) -> String {
+    let mut output = String::new();
+    let mut separator = false;
+    for character in value.trim().chars() {
+        if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+            output.push(character.to_ascii_lowercase());
+            separator = false;
+        } else if !output.is_empty() && !separator {
+            output.push('-');
+            separator = true;
+        }
+    }
+    output.trim_matches('-').to_string()
+}

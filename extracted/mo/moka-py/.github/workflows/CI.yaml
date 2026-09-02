@@ -1,0 +1,198 @@
+name: "CI"
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: "lint & format"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: ${{ github.event_name == 'pull_request' }}
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: github.event_name == 'pull_request'
+        with:
+          lookup-only: false # zizmor: ignore[cache-poisoning]
+
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses]
+        with:
+          components: rustfmt, clippy
+
+      # The `lint-fmt` pre-commit hook shells out to `just`
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+
+      # Runs `just` (ruff check + format, cargo fmt, clippy) plus the
+      # file-hygiene, typos, taplo, actionlint and zizmor hooks.
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+
+  cargo-deny:
+    name: "cargo deny"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check advisories bans licenses sources
+
+  pip-audit:
+    name: "pip audit"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: ${{ github.event_name == 'pull_request' }}
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+
+      - run: just audit-py
+
+  coverage:
+    name: "coverage"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Dependabot PRs run against the Dependabot secret store, which does not
+      # carry CODECOV_TOKEN. Compute the flag here (job-level env is visible to
+      # a step's own `if:`, step-level env is not) and skip the upload rather
+      # than failing the whole run.
+      HAS_CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: ${{ github.event_name == 'pull_request' }}
+
+      - name: "Create and activate .venv"
+        run: |
+          uv venv .venv --python 3.13
+          echo ".venv/bin" >> "$GITHUB_PATH"
+          echo "PYO3_PYTHON=.venv/bin/python3" >> "$GITHUB_ENV"
+
+      - name: "Install dependencies"
+        run: uv pip install --group ci
+
+      - name: "Build and install the extension"
+        run: |
+          maturin build --out wheel --features mimalloc
+          uv pip install wheel/*.whl
+
+      - name: "Run tests with coverage"
+        run: pytest tests/ --ignore=tests/test_benches.py --ignore=tests/test_wasm.py --cov --cov-report=xml
+
+      - name: "Upload coverage to Codecov"
+        if: env.HAS_CODECOV_TOKEN == 'true'
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: coverage.xml
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: "Skipped coverage upload (no CODECOV_TOKEN)"
+        if: env.HAS_CODECOV_TOKEN != 'true'
+        run: echo "::notice::CODECOV_TOKEN is not available to this run; coverage was measured but not uploaded."
+
+  tests:
+    uses: ./.github/workflows/tests.yaml
+
+  manylinux:
+    if: github.event_name == 'pull_request'
+    needs: [ tests, lint ]
+    uses: ./.github/workflows/manylinux.yaml
+
+  musllinux:
+    if: github.event_name == 'pull_request'
+    needs: [ tests, lint ]
+    uses: ./.github/workflows/musllinux.yaml
+
+  windows:
+    if: github.event_name == 'pull_request'
+    needs: [ tests, lint ]
+    uses: ./.github/workflows/windows.yaml
+
+  macos:
+    if: github.event_name == 'pull_request'
+    needs: [ tests, lint ]
+    uses: ./.github/workflows/macos.yaml
+
+  wasm:
+    if: github.event_name == 'pull_request'
+    needs: [ tests, lint ]
+    uses: ./.github/workflows/wasm.yaml
+
+  android:
+    if: github.event_name == 'pull_request'
+    needs: [ tests, lint ]
+    uses: ./.github/workflows/android.yaml
+
+  build-sdist:
+    name: "build sdist"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Build sdist"
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          command: sdist
+          args: --out dist
+
+      - name: "Upload sdist"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheels-sdist
+          path: dist
+
+  # Single job to require as a status check: green here means the PR is green.
+  ci-ok:
+    name: "CI ok"
+    if: always()
+    needs: [lint, cargo-deny, pip-audit, coverage, tests, manylinux, musllinux, windows, macos, wasm, android, build-sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Fail if any dependency failed"
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+
+      - run: echo "All checks passed"

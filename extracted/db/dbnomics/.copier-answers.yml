@@ -1,0 +1,12 @@
+# Changes here will be overwritten by Copier
+_commit: 64dea1a
+_src_path: /home/cbenz/Dev/templates/python-package-template
+author_email: christophe.benz@nomics.world
+author_name: Christophe Benz
+issues_url: https://git.nomics.world/dbnomics/dbnomics-python-client/-/issues
+package_description: Python client for the API of DBnomics
+package_name: dbnomics
+python_line_length: 120
+python_version: '3.13'
+repo_url: https://git.nomics.world/dbnomics/dbnomics-python-client
+

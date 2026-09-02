@@ -1,0 +1,23 @@
+[package]
+name = "xa11y-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core types, traits, and selector engine for xa11y cross-platform accessibility"
+
+[features]
+strict-roles = []
+# Opt-in shared mock Provider used by binding tests. Kept off by default so
+# production consumers don't pull the extra fixture code.
+test-support = []
+
+[dependencies]
+png = "0.18"
+serde = { workspace = true }
+serde_json = { workspace = true }
+strum = { version = "0.28", features = ["derive"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

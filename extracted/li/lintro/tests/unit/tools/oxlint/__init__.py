@@ -1,1 +1,0 @@
-"""Oxlint plugin tests."""

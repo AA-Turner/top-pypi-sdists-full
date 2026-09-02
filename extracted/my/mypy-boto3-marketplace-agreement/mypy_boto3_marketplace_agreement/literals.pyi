@@ -31,6 +31,8 @@ __all__ = (
     "BillingAdjustmentErrorCodeType",
     "BillingAdjustmentReasonCodeType",
     "BillingAdjustmentStatusType",
+    "EndTimeBehaviorReasonCodeType",
+    "EndTimeBehaviorTypeType",
     "GetAgreementEntitlementsPaginatorName",
     "GetAgreementTermsPaginatorName",
     "IntentType",
@@ -104,6 +106,13 @@ BillingAdjustmentReasonCodeType = Literal[
     "UNINTENDED_RENEWAL",
 ]
 BillingAdjustmentStatusType = Literal["COMPLETED", "PENDING", "VALIDATION_FAILED"]
+EndTimeBehaviorReasonCodeType = Literal[
+    "ACCEPTOR_RENEW_OPTED_OUT",
+    "NO_RENEWAL_TERM",
+    "PROPOSER_RENEW_OPTED_OUT",
+    "RENEWAL_LIMIT_EXHAUSTED",
+]
+EndTimeBehaviorTypeType = Literal["EXPIRE", "RENEW", "REPLACE"]
 GetAgreementEntitlementsPaginatorName = Literal["get_agreement_entitlements"]
 GetAgreementTermsPaginatorName = Literal["get_agreement_terms"]
 IntentType = Literal["AMEND", "NEW", "REPLACE"]
@@ -126,6 +135,7 @@ AgreementServiceServiceName = Literal["marketplace-agreement"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -304,6 +314,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",

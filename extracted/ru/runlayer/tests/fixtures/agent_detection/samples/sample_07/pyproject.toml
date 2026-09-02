@@ -1,0 +1,8 @@
+[project]
+name = "openai-agents-python-agent"
+version = "0.1.0"
+description = "Minimal OpenAI Agents SDK agent (framework detection corpus)."
+requires-python = ">=3.10"
+dependencies = [
+    "openai-agents>=0.0.1",
+]

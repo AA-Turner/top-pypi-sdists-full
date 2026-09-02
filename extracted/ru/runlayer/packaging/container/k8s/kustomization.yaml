@@ -1,0 +1,27 @@
+# Kustomize entrypoint for the AI Watch scanner.
+#
+# Defaults to the RECOMMENDED per-node DaemonSet. To use the CronJob instead,
+# swap daemonset.yaml for cronjob.yaml below — RUN ONE, NOT BOTH (they'd
+# double-report every node; see the header comments in each manifest).
+#
+# The Secret is intentionally NOT listed here: create it imperatively so the
+# API key never lands in git (see secret.example.yaml):
+#   kubectl -n runlayer create secret generic runlayer-aiwatch \
+#     --from-literal=RUNLAYER_API_KEY=rl_org_xxxx
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - daemonset.yaml
+  # - cronjob.yaml   # alternative to daemonset.yaml — enable ONE, not both
+
+# Substitute the real image here instead of editing every manifest. Fill in
+# with the ref pushed by the ECR-publish chunk, e.g.:
+#   newName: 088332244652.dkr.ecr.us-east-1.amazonaws.com/runlayer/ai-watch-linux
+#   newTag: "1.2.3"
+images:
+  - name: <ECR_REGISTRY>/runlayer/ai-watch-linux
+    newName: <ECR_REGISTRY>/runlayer/ai-watch-linux
+    newTag: "<tag>"

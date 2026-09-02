@@ -47,9 +47,9 @@ class ImageEmbedding(APIObject):
     target_bins : Optional[List[Dict[str, float]]]
         For regression projects, a list of target bins of this project.
     project_id : str
-        Id of the project this Image Embedding belongs to.
+        ID of the project this Image Embedding belongs to.
     model_id : str
-        Id of the model this Image Embedding belongs to.
+        ID of the model this Image Embedding belongs to.
     """
 
     _compute_path = "projects/{project_id}/models/{model_id}/imageEmbeddings/"
@@ -129,19 +129,19 @@ class ImageEmbedding(APIObject):
     @classmethod
     def models(cls, project_id: str) -> List[Tuple[str, str]]:
         """
-        For a given project_id, list all model_id - feature_name pairs with available
+        For a given ``project_id``, returns all ``model_id`` - ``feature_name`` pairs with available
         Image Embeddings.
 
         Parameters
         ----------
         project_id : str
-            Id of the project to list model_id - feature_name pairs with available Image Embeddings
+            ID of the project to list ``model_id`` - ``feature_name`` pairs with available Image Embeddings
             for.
 
         Returns
         -------
         list( tuple(model_id, feature_name) )
-             List of model and feature name pairs.
+             A list of model and feature name pairs.
         """
         path = cls._list_metadata_path.format(project_id=project_id)
         r_data = cls._client.get(path).json()
@@ -154,9 +154,9 @@ class ImageEmbedding(APIObject):
         Parameters
         ----------
         project_id: str
-            Id of the project the model belongs to.
+            ID of the project the model belongs to.
         model_id: str
-            Id of the model to list Image Embeddings for.
+            ID of the model to list Image Embeddings for.
         feature_name: str
             Name of feature column to list Image Embeddings for.
         """
@@ -203,9 +203,9 @@ class ImageActivationMap(APIObject):
     target_bins : Optional[List[Dict[str, float]]]
         For regression projects a list of target bins.
     project_id : str
-        Id of the project this Activation Map belongs to.
+        ID of the project this Activation Map belongs to.
     model_id : str
-        Id of the model this Activation Map belongs to.
+        ID of the model this Activation Map belongs to.
     """
 
     _compute_path = "projects/{project_id}/models/{model_id}/imageActivationMaps/"
@@ -300,19 +300,19 @@ class ImageActivationMap(APIObject):
     @classmethod
     def models(cls, project_id: str) -> List[Tuple[str, str]]:
         """
-        For a given project_id, list all model_id - feature_name pairs with available
+        For a given ``project_id``, returns all ``model_id`` - ``feature_name`` pairs with available
         Image Activation Maps.
 
         Parameters
         ----------
         project_id : str
-            Id of the project to list model_id - feature_name pairs with available
+            ID of the project to list ``model_id`` - ``feature_name`` pairs with available
             Image Activation Maps for.
 
         Returns
         -------
         list( tuple(model_id, feature_name) )
-             List of model and feature name pairs.
+             A list of model and feature name pairs.
         """
         path = cls._list_metadata_path.format(project_id=project_id)
         r_data = cls._client.get(path).json()

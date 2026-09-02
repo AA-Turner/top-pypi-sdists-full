@@ -51,7 +51,7 @@ class RegisteredModelVersionsListFilters:
     compatible_with_leaderboard_model_id: str or None.
         If specified, limit results to versions (model packages) of the Leaderboard model with the specified ID.
     compatible_with_model_package_id: str or None.
-        Returns versions compatible with the given model package (version) ID. If used, it will only return versions
+        Returns the versions compatible with the given model package (version) ID. If used, it will only return versions
         that match `target.name`, `target.type`, `target.classNames` (for classification models),
         `modelKind.isTimeSeries` and `modelKind.isMultiseries` for the specified model package (version).
     for_challenger: bool or None
@@ -59,11 +59,11 @@ class RegisteredModelVersionsListFilters:
         models; for external model packages (versions), instead of returning similar external model packages (versions),
         similar DataRobot and Custom model packages (versions) will be retrieved.
     prediction_threshold: float or None
-        Return versions with the specified prediction threshold used for binary classification models.
+        Returns the versions with the specified prediction threshold used for binary classification models.
     imported: bool or None
         If specified, return either imported (true) or non-imported (false) versions (model packages).
     prediction_environment_id: str or None
-        Can be used to filter versions (model packages) by what is supported by the prediction environment
+        Can be used to filter versions (model packages) by what is supported by the prediction environment.
     model_kind: str or None
         Can be used to filter versions (model packages) by model kind.
     build_status: str or None
@@ -159,7 +159,8 @@ class RegisteredModelListFilters:
         If specified, limit results to registered models containing versions (model packages)
         for the leaderboard model with the specified ID.
     compatible_with_model_package_id : str
-        Return registered models that have versions (model packages) compatible with given model package (version) ID.
+        Returns the registered models that have versions (model packages) compatible with given model package (version)
+        ID.
         If used, will only return registered models which have versions that match `target.name`, `target.type`,
         `target.classNames` (for classification models), `modelKind.isTimeSeries`, and `modelKind.isMultiseries`
         of the specified model package (version).
@@ -177,7 +178,7 @@ class RegisteredModelListFilters:
     prediction_environment_id : str
         Can be used to filter registered models by what is supported by the prediction environment.
     model_kind : str
-        Return models that contain versions matching a specific format.
+        Returns the models that contain versions matching a specific format.
     build_status : str
         If specified, only return models that have versions with specified build status.
     """
@@ -340,12 +341,12 @@ class RegisteredModel(APIObject, BrowserMixin):
         Parameters
         ----------
         registered_model_id : str
-            ID of the registered model to retrieve
+            ID of the registered model to retrieve.
 
         Returns
         -------
         registered_model : RegisteredModel
-            Registered Model Object
+            Registered Model object.
 
         Examples
         --------
@@ -372,20 +373,20 @@ class RegisteredModel(APIObject, BrowserMixin):
         filters: Optional[RegisteredModelListFilters] = None,
     ) -> List[TRegisteredModel]:
         """
-        List all registered models a user can view.
+        Returns a list of all registered models a user can view.
 
         Parameters
         ----------
         limit : Optional[int]
-            Maximum number of registered models to return
+            Maximum number of registered models to return.
         offset : Optional[int]
-            Number of registered models to skip before returning results
+            Number of registered models to skip before returning results.
         sort_key : RegisteredModelSortKey, optional
-            Key to order result by
+            Key to order result by.
         sort_direction : RegisteredModelSortDirection, optional
-            Sort direction
+            Sort direction.
         search : Optional[str]
-            A term to search for in registered model name, description, or target name
+            A term to search for in registered model name, description, or target name.
         filters : RegisteredModelListFilters, optional
             An object containing all filters that you'd like to apply to the
             resulting list of registered models.
@@ -441,7 +442,7 @@ class RegisteredModel(APIObject, BrowserMixin):
         Parameters
         ----------
         registered_model_id : str
-            ID of the registered model to be archived
+            ID of the registered model to be archived.
 
         Returns
         -------
@@ -458,14 +459,14 @@ class RegisteredModel(APIObject, BrowserMixin):
         Parameters
         ----------
         registered_model_id : str
-            ID of the registered model to be updated
+            ID of the registered model to be updated.
         name : str
-            New name for the registered model
+            New name for the registered model.
 
         Returns
         -------
         registered_model : RegisteredModel
-            Updated registered model object
+            Updated registered model object.
 
         """
         url = f"{cls._path}{registered_model_id}/"

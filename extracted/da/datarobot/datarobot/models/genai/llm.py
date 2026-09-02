@@ -64,7 +64,7 @@ class LLMSettingDefinitionDict(TypedDict):
 
 
 class LLMDefinitionDict(TypedDict):
-    """Dict representation of LLMDefinition."""
+    """Dict representation of ``LLMDefinition``."""
 
     id: str
     name: str
@@ -188,7 +188,7 @@ class LLMSettingConstraint(APIObject):
 
 class LLMSettingDefinition(APIObject):
     """
-    Metadata for DataRobot GenAI LLMSetting.
+    Metadata for DataRobot GenAI ``LLMSetting``.
     Attributes
     ----------
     id : str
@@ -200,7 +200,7 @@ class LLMSettingDefinition(APIObject):
     type : str
         The data type associated with this setting.
     format : str or None
-        The string format, multiline or None.
+        The string format, ``multiline``, or None.
     is_nullable : bool
         Whether the setting is nullable.
     constraints : LLMSettingConstraint or None
@@ -266,9 +266,9 @@ class LLMDefinition(APIObject):
     supported_languages : str
         Languages supported by this model.
     settings : list of LLMSettingDefinition
-        Settings for this model
+        Settings for this model.
     context_size : int
-        The context size for this model
+        The context size for this model.
     retirement_date: datetime.date, optional
         When the LLM is expected to be retired and no longer
         available for submitting new prompts.
@@ -320,25 +320,25 @@ class LLMDefinition(APIObject):
         moderation_supported_only: bool = False,
     ) -> Union[List[LLMDefinition], List[LLMDefinitionDict]]:
         """
-        List all large language models (LLMs) available to the user.
+        Returns a list of all large language models (``LLMs``) available to the user.
 
         Parameters
         ----------
         use_case : Optional[UseCase or str], optional
-            The returned LLMs, including external LLMs, available
+            The returned ``LLMs``, including external ``LLMs``, available
             for the specified Use Case.
             Accepts either the entity or the Use Case ID.
 
         as_dict : bool, optional
-            Returns the LLMs as a dictionary when `True` instead of `LLMDefinition` objects.
+            Returns the ``LLMs`` as a dictionary when `True` instead of ``LLMDefinition`` objects.
 
         moderation_supported_only : bool, optional
-            When `True`, only list LLMs that are available to use in a moderation or metric.
+            When `True`, only list ``LLMs`` that are available to use in a moderation or metric.
 
         Returns
         -------
         llms : list[LLMDefinition] or list[LLMDefinitionDict]
-            A list of large language models (LLMs) available to the user.
+            A list of large language models (``LLMs``) available to the user.
         """
         url = f"{cls._client.domain}/{cls._path}/"
         params = {

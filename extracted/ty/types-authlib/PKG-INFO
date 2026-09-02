@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-Authlib
-Version: 1.7.2.20260827
+Version: 1.7.2.20260901
 Summary: Typing stubs for Authlib
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -14,6 +14,10 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cryptography
+Provides-Extra: all
+Requires-Dist: requests; extra == "all"
+Provides-Extra: requests
+Requires-Dist: requests; extra == "requests"
 Dynamic: license-file
 
 ## Typing stubs for Authlib
@@ -38,4 +42,4 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`c10142fb9463b1dd0c581d3f08f4c01c5c08a09e`](https://github.com/python/typeshed/commit/c10142fb9463b1dd0c581d3f08f4c01c5c08a09e).
+[`cf09d2a4d7614f648e9109dce609887499a7c6ee`](https://github.com/python/typeshed/commit/cf09d2a4d7614f648e9109dce609887499a7c6ee).

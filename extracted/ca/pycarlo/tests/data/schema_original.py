@@ -709,13 +709,14 @@ class AgenticFindingType(sgqlc.types.Enum):
 
 class AgenticPlatformPipelineStatus(sgqlc.types.Enum):
     """Lifecycle status of a single pipeline execution.      ``QUEUED →
-    RUNNING → COMPLETED | ERROR``. Only pipelines with a
+    RUNNING → COMPLETED | ERROR | CANCELLED``. Only pipelines with a
     concurrent-run cap (``MAX_CONCURRENT_RUNS_BY_PIPELINE_TYPE`` in
     the     orchestrator service, ORB-342) ever enter ``QUEUED``;
     uncapped pipelines     are created directly as ``RUNNING``.
 
     Enumeration Choices:
 
+    * `CANCELLED`None
     * `COMPLETED`None
     * `ERROR`None
     * `QUEUED`None
@@ -723,7 +724,7 @@ class AgenticPlatformPipelineStatus(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("COMPLETED", "ERROR", "QUEUED", "RUNNING")
+    __choices__ = ("CANCELLED", "COMPLETED", "ERROR", "QUEUED", "RUNNING")
 
 
 class AgenticPlatformPipelineType(sgqlc.types.Enum):
@@ -2203,6 +2204,52 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
         "TOTAL_TOKENS",
         "TURNS",
         "WORKFLOW",
+    )
+
+
+class ConversationMetricAggregation(sgqlc.types.Enum):
+    """How a field is aggregated over a cluster's conversations. MEDIAN
+    and P95 are approximate on ClickHouse-backed spaces — quantile
+    samples past ~8k conversations per group, so values can shift
+    slightly between identical reads.
+
+    Enumeration Choices:
+
+    * `AVG`None
+    * `MEDIAN`None
+    * `P95`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AVG", "MEDIAN", "P95")
+
+
+class ConversationMetricField(sgqlc.types.Enum):
+    """A conversation-grain field a cluster aggregate is computed over.
+    ACTIVE_DURATION_SECONDS is execution duration (per-turn processing
+    time summed); DURATION_SECONDS is elapsed wall-clock duration;
+    TOTAL_TOKENS is the platform-native token cost — not comparable
+    across platforms, and 0 on platforms that report no token counts
+    (check the agent's supportsTokenMetrics); TURN_COUNT is the
+    conversation's turns; HAS_ERRORS is 1 when the conversation had
+    errors and 0 otherwise, so its AVG is the error rate.
+
+    Enumeration Choices:
+
+    * `ACTIVE_DURATION_SECONDS`None
+    * `DURATION_SECONDS`None
+    * `HAS_ERRORS`None
+    * `TOTAL_TOKENS`None
+    * `TURN_COUNT`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "ACTIVE_DURATION_SECONDS",
+        "DURATION_SECONDS",
+        "HAS_ERRORS",
+        "TOTAL_TOKENS",
+        "TURN_COUNT",
     )
 
 
@@ -10734,7 +10781,7 @@ class AlertsFilterDataRequestType(sgqlc.types.Input):
 
 class AlertsFilterDataSearchCriteriaType(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("updated_time", "created_time", "filters")
+    __field_names__ = ("updated_time", "created_time", "filters", "from_agent_monitor")
     updated_time = sgqlc.types.Field("DateTimeRangeInput", graphql_name="updatedTime")
     """Supply a time range to filter alerts by their updated time. Either
     this or `createdTime` must be supplied.
@@ -10749,6 +10796,13 @@ class AlertsFilterDataSearchCriteriaType(sgqlc.types.Input):
         sgqlc.types.list_of(AlertsFilterDataFilterType), graphql_name="filters"
     )
     """List of filters to apply to alerts"""
+
+    from_agent_monitor = sgqlc.types.Field(Boolean, graphql_name="fromAgentMonitor")
+    """Scope the aggregated counts to alerts whose monitor was created by
+    an agent (`true`) or not (`false`). Mirrors the `getAlerts` filter
+    of the same name so the facet counts match the list. Omit for no
+    constraint.
+    """
 
 
 class AlertsFilterExclusionCriteriaInput(sgqlc.types.Input):
@@ -11454,6 +11508,22 @@ class ClusterFilterInput(sgqlc.types.Input):
     cluster_keys = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
     )
+
+
+class ClusterMetricInput(sgqlc.types.Input):
+    """One aggregate to compute: a field paired with how to aggregate it.
+    Any combination is accepted.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("field", "aggregation")
+    field = sgqlc.types.Field(sgqlc.types.non_null(ConversationMetricField), graphql_name="field")
+    """The field to aggregate."""
+
+    aggregation = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationMetricAggregation), graphql_name="aggregation"
+    )
+    """How to aggregate it."""
 
 
 class ClusteringConfigInput(sgqlc.types.Input):
@@ -27644,6 +27714,27 @@ class CaasUpdateCollectionStorageVersion(sgqlc.types.Type):
     """Boolean indicating if the operation was successful"""
 
 
+class CancelMonitoringRun(sgqlc.types.Type):
+    """Cancel the in-flight monitoring run for a metadata domain.  At
+    most one run per domain is in flight at a time, so the domain
+    names the target unambiguously. The agent stops at its next step;
+    findings the run already published stay published, and the domain
+    can be re-run right away via ``runMonitoringForDomain``. When the
+    run settled on its own in the meantime, its execution is returned
+    in its actual terminal state rather than claimed as cancelled.
+    Raises when the domain has no in-flight run.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("execution",)
+    execution = sgqlc.types.Field(
+        sgqlc.types.non_null(AgenticPlatformPipelineExecutionOutput), graphql_name="execution"
+    )
+    """The cancelled execution, or its actual state when it reached its
+    own terminal status before the cancel landed.
+    """
+
+
 class CatalogMapping(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("from_name", "to_name")
@@ -29152,6 +29243,27 @@ class ConversationClusterEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class ConversationClusterMetric(sgqlc.types.Type):
+    """One computed aggregate. Echoes the requested (field, aggregation)
+    pair so a caller can match a cluster's entry against the matching
+    baseline entry.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("field", "aggregation", "value")
+    field = sgqlc.types.Field(sgqlc.types.non_null(ConversationMetricField), graphql_name="field")
+
+    aggregation = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationMetricAggregation), graphql_name="aggregation"
+    )
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="value")
+    """The raw aggregate value — deltas against the baseline are the
+    caller's to compute. Seconds for the duration fields, a 0–1
+    fraction for AVG of HAS_ERRORS.
+    """
+
+
 class ConversationClusterStat(sgqlc.types.Type):
     """A cluster's windowed share of classified conversations (panel
     card).
@@ -29168,6 +29280,7 @@ class ConversationClusterStat(sgqlc.types.Type):
         "share_pct",
         "condition",
         "rule",
+        "metrics",
     )
     cluster_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clusterKey")
     """Stable cluster slug."""
@@ -29217,6 +29330,15 @@ class ConversationClusterStat(sgqlc.types.Type):
     "[custom SQL condition]" instead of a readable rule, and a
     percentile-derived cluster renders its still-unresolved marker
     rather than the resolved threshold. Null on LLM-derived clusters.
+    """
+
+    metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationClusterMetric))),
+        graphql_name="metrics",
+    )
+    """The requested aggregates for this cluster's conversations in the
+    window. Empty when no metrics were requested, and when the cluster
+    has no conversations in the window.
     """
 
 
@@ -29326,6 +29448,7 @@ class ConversationClusteringResult(sgqlc.types.Type):
         "clusters",
         "eligible_conversation_count",
         "classified_conversation_count",
+        "baseline_metrics",
     )
     state = sgqlc.types.Field(
         sgqlc.types.non_null(ConversationClusteringState), graphql_name="state"
@@ -29361,6 +29484,16 @@ class ConversationClusteringResult(sgqlc.types.Type):
     evaluation writes no Uncategorized sentinel — a conversation
     matching no rule simply gets no assignment row — so this is
     exactly the N in "N of M conversations carry at least one issue."
+    """
+
+    baseline_metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationClusterMetric))),
+        graphql_name="baselineMetrics",
+    )
+    """The same requested aggregates over every eligible conversation in
+    the window, assigned or not — the comparison point for each
+    cluster's metrics. Empty when no metrics were requested, before a
+    taxonomy exists, or when the window held no conversations.
     """
 
 
@@ -46051,6 +46184,7 @@ class Mutation(sgqlc.types.Type):
         "configure_agentic_platform",
         "trigger_agentic_platform_pipeline",
         "run_monitoring_for_domain",
+        "cancel_monitoring_run",
         "update_agentic_platform_pipeline",
         "update_triage_automation_config",
         "create_or_update_agentic_notification_route",
@@ -51455,9 +51589,9 @@ class Mutation(sgqlc.types.Type):
     * `dry_run` (`Boolean`): Dry run? (default: `false`)
     * `endpoint` (`String`): Bucket name, IP address or URL of the
       agent.
-    * `friendly_name` (`String`): Friendly name for the agent, for now
-      used only for connections automatically created when registering
-      Snowflake agents.
+    * `friendly_name` (`String`): Display name for the agent or data
+      store. Also names the warehouse and connection created for a
+      Snowflake agent.
     * `image_build` (`String`): Build number of agent image. Ignored
       if agent type is DATA_STORE_AGENT.
     * `image_version` (`String`): The image version of the Agent. Null
@@ -59365,7 +59499,7 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """Run a custom rule as a circuit breaker immediately. Supports rules
-    that create a single query.
+    that produce a single pollable job execution.
 
     Arguments:
 
@@ -63236,6 +63370,31 @@ class Mutation(sgqlc.types.Type):
       Applied in addition to any instructions saved for the account or
       domain; saved restrictions still apply. Not persisted beyond the
       run. Truncated to 2000 characters; blank text is ignored.
+    """
+
+    cancel_monitoring_run = sgqlc.types.Field(
+        CancelMonitoringRun,
+        graphql_name="cancelMonitoringRun",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Cancels the domain's in-flight (running or queued)
+    monitoring run. The run stops at the agent's next step; findings
+    already published stay published, and the domain can be re-run
+    immediately via runMonitoringForDomain.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain whose in-
+      flight monitoring run to cancel.
     """
 
     update_agentic_platform_pipeline = sgqlc.types.Field(
@@ -75963,13 +76122,22 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="scopeWorkflow", default=None),
                 ),
                 ("facet", sgqlc.types.Arg(ClusteringFacet, graphql_name="facet", default=None)),
+                (
+                    "metrics",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(ClusterMetricInput)),
+                        graphql_name="metrics",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
     """(experimental) Conversation-clustering panel for one (agent,
     scope) over the requested [startTime, endTime] window: enablement
-    state, the space, per-cluster stats, and eligible/classified
-    coverage. Returns a result even before opt-in (state OPT_IN).
+    state, the space, per-cluster stats, eligible/classified coverage,
+    and the requested aggregate metrics. Returns a result even before
+    opt-in (state OPT_IN).
 
     Arguments:
 
@@ -75979,6 +76147,11 @@ class Query(sgqlc.types.Type):
     * `facet` (`ClusteringFacet`): Which facet's panel to read;
       defaults to INTENT. Alias the field twice to read both facets in
       one query.
+    * `metrics` (`[ClusterMetricInput!]`): Aggregates to compute per
+      cluster, plus a baseline over the whole window. Omit it (or pass
+      an empty list) to compute nothing — there is no default set, and
+      metrics/baselineMetrics then come back empty. Duplicate pairs
+      are collapsed.
     """
 
     get_agent_metadata = sgqlc.types.Field(
@@ -108162,12 +108335,16 @@ class TriggerAgenticPlatformPipeline(sgqlc.types.Type):
 
 class TriggerCircuitBreakerRule(sgqlc.types.Type):
     """Run a custom rule as a circuit breaker immediately. Supports rules
-    that create a single query.
+    that produce a single pollable job execution.
     """
 
     __schema__ = schema
     __field_names__ = ("job_execution_uuid",)
     job_execution_uuid = sgqlc.types.Field(UUID, graphql_name="jobExecutionUuid")
+    """The UUID of the job execution that can be polled for a result. A
+    run may also dispatch data-collection-only executions, which are
+    not returned.
+    """
 
 
 class TriggerCircuitBreakerRuleV2(sgqlc.types.Type):
@@ -111597,6 +111774,7 @@ class AgentTraceTable(sgqlc.types.Type, Node):
         "recommendations_generated_at",
         "supports_conversation_eval",
         "supports_conversation_clustering",
+        "supports_token_metrics",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -111642,6 +111820,14 @@ class AgentTraceTable(sgqlc.types.Type, Node):
     )
     """Whether conversation clustering can be enabled for this agent —
     gates the Clusters panel and the clustering opt-in.
+    """
+
+    supports_token_metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsTokenMetrics"
+    )
+    """Whether this agent reports token counts. When false, token-based
+    metrics compute as 0 — hide them rather than read that as real
+    usage.
     """
 
 
@@ -111724,6 +111910,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "audiences",
         "monitor_tags",
         "monitor_uuids",
+        "from_agent_monitor",
         "notification_status",
         "invalid_rows",
         "execution_error",
@@ -111832,6 +112019,12 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
     can group events from multiple monitors; the list is deduped.
     Empty for alerts with no monitor-backed events (e.g. pipeline
     alerts).
+    """
+
+    from_agent_monitor = sgqlc.types.Field(Boolean, graphql_name="fromAgentMonitor")
+    """Whether this alert's monitor was created by an agent. True when
+    any of the alert's events points at an agent-created monitor.
+    Consistent with the `getAlerts` `fromAgentMonitor` filter.
     """
 
     notification_status = sgqlc.types.Field(
@@ -118896,6 +119089,7 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "display_name",
         "supports_conversation_eval",
         "supports_conversation_clustering",
+        "supports_token_metrics",
         "trace_table_mcon",
         "trace_table_ingested",
         "collector_status",
@@ -118996,6 +119190,14 @@ class PlatformAgent(sgqlc.types.Type, Node):
     )
     """Whether conversation clustering can be enabled for this agent —
     gates the Clusters panel and the clustering opt-in.
+    """
+
+    supports_token_metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsTokenMetrics"
+    )
+    """Whether this agent reports token counts. When false (e.g.
+    Databricks Genie, which reports none), token-based metrics compute
+    as 0 — hide them rather than read that as real usage.
     """
 
     trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")

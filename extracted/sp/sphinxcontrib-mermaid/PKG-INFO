@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: sphinxcontrib-mermaid
-Version: 2.1.0
+Version: 2.1.1
 Summary: Mermaid diagrams in your Sphinx-powered docs
 Project-URL: Repository, https://github.com/mgaitan/sphinxcontrib-mermaid
 Project-URL: Homepage, https://github.com/mgaitan/sphinxcontrib-mermaid

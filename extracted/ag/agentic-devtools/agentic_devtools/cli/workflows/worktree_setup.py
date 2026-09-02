@@ -1,0 +1,4919 @@
+"""
+Worktree setup automation for workflows.
+
+This module provides functions to automatically set up git worktrees
+and open VS Code workspaces for workflow execution.
+It also includes placeholder issue creation for create workflows.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import platform
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import threading
+from dataclasses import dataclass
+from datetime import UTC
+from pathlib import Path
+
+from agentic_devtools.cli.vscode_tasks import remove_auto_start_task
+from agentic_devtools.file_locking import FileLockError, locked_file
+from agentic_devtools.state import BOOTSTRAP_FILENAME, IDENTITY_CACHE_FILENAME
+
+# Exported for dynamic invocation by run_function_in_background
+__all__ = ["_setup_worktree_from_state"]
+
+# ---------------------------------------------------------------------------
+# Copilot-safe prompt design best practices
+# ---------------------------------------------------------------------------
+# - Do NOT use "CRITICAL", "WARNING", "DANGER", or similar alarm words; Copilot
+#   CLI interprets these as unsafe and may halt execution.
+# - Do NOT use "--- " separator dashes; they can be misinterpreted as unsafe
+#   directive markers.
+# - Use direct, actionable language, e.g. "Please run this command now:".
+# - Avoid excessive emphasis (all-caps, bold, emojis) unless essential.
+# - Each prompt MUST remain a single line (no ``\n``) and contain no template
+#   variables (no ``{{`` / ``}}``).
+# ---------------------------------------------------------------------------
+
+# Workflow-agnostic fallback prompt used when ``workflow_name`` is not found in
+# ``_WORKFLOW_PROMPT_FILENAMES`` and no resolved path is available.  No rendered
+# prompt file can be named for an unknown workflow, so this one names the
+# ``agdt-get-next-workflow-prompt`` command instead, which re-renders the current
+# step regardless of the specific workflow and is therefore always safe to use as
+# a default.
+_WORKFLOW_AGNOSTIC_FALLBACK_PROMPT = (
+    "Please run this command now: agdt-get-next-workflow-prompt. "
+    "It prints the current workflow instructions. "
+    "Wait to begin any work until it has finished. "
+    "The agentic-devtools workflow will guide you through each step."
+)
+
+# Mapping from workflow name → prompt filename used by
+# ``_start_copilot_session_for_workflow()`` to locate the rendered prompt
+# file.  Extracted from the workflow-specific wrapper functions so that
+# ``setup_worktree_in_background_sync()`` can call the generic session
+# starter without importing the wrappers.
+_WORKFLOW_PROMPT_FILENAMES: dict[str, str] = {
+    "pull-request-review": "temp-pull-request-review-initiate-prompt.md",
+    "apply-pull-request-review-suggestions": "temp-apply-pull-request-review-suggestions-initiate-prompt.md",
+    "work-on-jira-issue": "temp-work-on-jira-issue-planning-prompt.md",
+    "create-jira-issue": "temp-create-jira-issue-initiate-prompt.md",
+    "create-jira-epic": "temp-create-jira-epic-initiate-prompt.md",
+    "create-jira-subtask": "temp-create-jira-subtask-initiate-prompt.md",
+    "update-jira-issue": "temp-update-jira-issue-make-updates-prompt.md",
+}
+
+
+def _build_session_start_prompt(prompt_file_relative_path: str) -> str:
+    """Build a Copilot session start prompt that names the exact resolved prompt file.
+
+    Uses the exact relative path from the worktree root rather than a glob pattern,
+    so the model receives a path that is guaranteed to resolve regardless of state
+    directory layout (scoped, ``_unscoped``, or ``AGENTIC_DEVTOOLS_STATE_DIR``
+    override).
+
+    Args:
+        prompt_file_relative_path: Path to the prompt file relative to the worktree
+            root, as returned by :func:`_prompt_file_relative_path`.
+
+    Returns:
+        A single-line start prompt string naming the exact file.
+    """
+    return (
+        f"Please read this file now: {prompt_file_relative_path}. "
+        "It contains the workflow instructions. "
+        "Wait to begin any work until you have read it. "
+        "The agentic-devtools workflow will guide you through each step."
+    )
+
+
+def _build_recovery_start_prompt(command: list[str] | None = None) -> str:
+    """Build a single-line prompt that retries the failed setup command."""
+    if not command:
+        return _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT
+
+    command_text = " ".join(_quote_recovery_argument(part) for part in command)
+    if platform.system() == "Windows":
+        command_text = f"& {command_text}"
+    return f"Please rerun this exact command now: {command_text}"
+
+
+def _quote_recovery_argument(value: object) -> str:
+    """Quote a recovery command argument for the terminal that will run it."""
+    text = str(value).replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+    if platform.system() == "Windows":
+        return "'" + text.replace("'", "''") + "'"
+
+    import shlex
+
+    return shlex.quote(text)
+
+
+def _in_test_environment() -> bool:
+    """Check if running inside a pytest session.
+
+    Returns ``True`` when ``PYTEST_CURRENT_TEST`` is set in the
+    environment.  Used as a guard in functions that launch VS Code
+    windows or write ``tasks.json`` with ``runOn: folderOpen`` to
+    prevent unexpected side-effects during test runs.
+
+    The check is isolated in its own function so that tests which
+    need to exercise the guarded logic can ``@patch`` it to return
+    ``False`` while keeping the guard active for all other tests.
+    """
+    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
+
+
+def is_vscode_available() -> bool:
+    """Check if VS Code CLI is available on PATH.
+
+    Returns:
+        True if the ``code`` command is found on PATH, False otherwise.
+    """
+    return shutil.which("code") is not None
+
+
+def _contains_windows_cmd_metacharacters(value: str) -> bool:
+    """Return True when *value* contains cmd.exe metacharacters or line separators.
+
+    When ``shell=True`` is in effect on Windows, cmd.exe interprets ``&``, ``|``,
+    ``<``, ``>``, ``^``, ``%``, and ``!`` as command separators or variable
+    delimiters. It also treats carriage-return/newline as command separators.
+    A value that contains any of these characters must not be passed to a
+    shell-spawned process without this check.
+    """
+    return any(ch in value for ch in "&|<>^%!\r\n")
+
+
+def _contains_send_sequence_shell_metacharacters(value: str) -> bool:
+    """Return True when *value* contains metacharacters dangerous in VS Code sendSequence text.
+
+    ``sendSequence`` types text directly into the user's VS Code integrated
+    terminal.  The active shell may be PowerShell, Git Bash, or any POSIX shell,
+    where ``$``/backticks trigger substitution and quotes/``;`` can terminate
+    or append shell statements. These characters must not appear in
+    marker-derived values sent via ``sendSequence``.
+
+    This is a superset of :func:`_contains_windows_cmd_metacharacters` — it
+    covers cmd.exe metacharacters as well as cross-shell injection characters.
+    """
+    return any(ch in value for ch in "&|<>^%!\r\n$`;'\"")
+
+
+def find_workspace_file(directory: str) -> str | None:
+    """
+    Find a VS Code workspace file in the given directory.
+
+    Searches for any file matching the ``*.code-workspace`` glob pattern
+    in the directory root.  Returns the full path to the first match, or
+    ``None`` if no workspace file is found.
+
+    Args:
+        directory: Path to the directory to search in.
+
+    Returns:
+        Full path to the workspace file, or None if not found.
+    """
+    try:
+        matches = sorted(
+            entry.path for entry in os.scandir(directory) if entry.is_file() and entry.name.endswith(".code-workspace")
+        )
+        return matches[0] if matches else None
+    except (FileNotFoundError, NotADirectoryError):
+        pass
+    except OSError as exc:
+        print(f"Warning: unexpected OS error scanning '{directory}': {exc}", file=sys.stderr)
+    return None
+
+
+def generate_workflow_branch_name(
+    issue_key: str,
+    issue_type: str,
+    workflow_name: str,
+    parent_key: str | None = None,
+) -> str:
+    """
+    Generate a branch name based on issue type and workflow.
+
+    Patterns:
+    - Create workflows: <issueType>/<issue_key>/create-<issueType>
+    - Update workflows: <issueType>/<issue_key>/update-<issueType>
+    - Subtask create: subtask/<parent_key>/<issue_key>/create-subtask
+
+    Args:
+        issue_key: The Jira issue key (e.g., "PROJECT-1234")
+        issue_type: The issue type (Task, Epic, Sub-task, Bug, etc.)
+        workflow_name: The workflow name (create-jira-issue, create-jira-epic, etc.)
+        parent_key: For subtasks, the parent issue key (e.g., "PROJECT-1233")
+
+    Returns:
+        The branch name following the pattern
+    """
+    # Normalize issue type to lowercase for branch naming
+    normalized_type = issue_type.lower().replace(" ", "-")
+
+    # Handle Sub-task specially
+    if normalized_type == "sub-task":
+        normalized_type = "subtask"
+
+    # Determine workflow action from workflow name
+    if "update" in workflow_name.lower():
+        action = f"update-{normalized_type}"
+    else:
+        action = f"create-{normalized_type}"
+
+    # For subtasks with a parent, include parent key
+    if normalized_type == "subtask" and parent_key:
+        return f"{normalized_type}/{parent_key}/{issue_key}/{action}"
+
+    # Standard pattern: <type>/<key>/<action>
+    return f"{normalized_type}/{issue_key}/{action}"
+
+
+@dataclass
+class WorktreeSetupResult:
+    """Result of worktree setup operation."""
+
+    success: bool
+    worktree_path: str
+    branch_name: str
+    error_message: str | None = None
+    vscode_opened: bool = False
+    target_setup_status: str | None = None
+    target_setup_exit_code: str | None = None
+    target_setup_error: str | None = None
+    created_worktree: bool = False
+    created_branch: bool = False
+    copilot_trust_added: bool = False
+
+
+@dataclass
+class WorktreeSetupScriptResult:
+    """Outcome of the optional target-repository setup script."""
+
+    status: str
+    exit_code: int | None = None
+    error_message: str | None = None
+    category: str | None = None
+
+
+def is_in_worktree() -> bool:
+    """
+    Check if we're currently in a git worktree (not the main repo).
+
+    Returns:
+        True if in a worktree, False if in main repo or not in a git repo.
+    """
+    try:
+        # git rev-parse --is-inside-work-tree returns "true" if in a work tree
+        # git worktree list shows all worktrees
+        # Simplest check: compare git-dir to git-common-dir
+        result_dir = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        result_common = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        if result_dir.returncode != 0 or result_common.returncode != 0:
+            return False
+
+        git_dir = Path(result_dir.stdout.strip()).resolve()
+        git_common_dir = Path(result_common.stdout.strip()).resolve()
+
+        # In main repo: git_dir == ".git" (resolves to same as git_common_dir)
+        # In worktree: git_dir is a file pointing elsewhere, or is different path
+        # The git-dir in a worktree points to .git/worktrees/<name>
+        return git_dir != git_common_dir
+
+    except (FileNotFoundError, OSError):
+        return False
+
+
+def get_current_branch() -> str | None:
+    """
+    Get the current git branch name.
+
+    Returns:
+        The current branch name, or None if not in a git repo or detached HEAD.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--show-current"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip() or None
+        return None
+    except (FileNotFoundError, OSError):  # pragma: no cover
+        return None
+
+
+def switch_to_main_branch() -> bool:
+    """
+    Switch to the main branch.
+
+    Returns:
+        True if switch was successful, False otherwise.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "switch", "main"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, OSError):
+        return False
+
+
+def get_main_repo_root() -> str | None:
+    """
+    Get the root directory of the main git repository (not worktree).
+
+    For worktrees, this returns the path to the main repository.
+    For the main repo, this returns the repo root.
+
+    Returns:
+        The absolute path to the main repo root, or None if not in a git repo.
+    """
+    try:
+        # First, get the common git directory (shared between main repo and worktrees)
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+
+        git_common_dir = result.stdout.strip()
+
+        # The git-common-dir is usually .git in main repo or path/to/main/.git for worktrees
+        # We need the parent of the .git directory
+        git_path = Path(git_common_dir).resolve()
+
+        # If it ends with .git, go to parent
+        if git_path.name == ".git":
+            return str(git_path.parent)
+
+        # For worktrees, git-common-dir points to main/.git directly
+        return str(git_path.parent)
+
+    except (FileNotFoundError, OSError):
+        return None
+
+
+def get_repos_parent_dir() -> str | None:
+    """
+    Get the parent directory where repos are stored.
+
+    This is typically one level up from the main repo root (e.g., c:\\repos).
+
+    Returns:
+        The absolute path to the repos parent directory, or None if not determinable.
+    """
+    main_repo = get_main_repo_root()
+    if main_repo:
+        return str(Path(main_repo).parent)
+    return None
+
+
+def _propagate_agdt_cache(worktree_path: str, worktree_key: str | None = None, *, strict: bool = False) -> None:
+    """Copy identity.json and runtime-bootstrap.json from the main repo into the new worktree.
+
+    When *worktree_key* is provided, ``runtime-bootstrap.json`` is written with
+    ``{"worktree_key": "<worktree_key>"}`` instead of being copied from the main
+    repo, ensuring the worktree gets the correct key even if the main repo's
+    bootstrap file has a stale value.
+
+    Non-fatal by default: ``OSError`` and ``ValueError`` exceptions are logged to
+    stderr and the worktree setup continues.  Pass ``strict=True`` to re-raise
+    instead, which allows callers that require the cache to be propagated (e.g.
+    ``propagate_agdt_cache``) to signal failure.
+    """
+    try:
+        main_repo = get_main_repo_root()
+        if not main_repo:
+            if strict:
+                raise ValueError("Cannot propagate AGDT cache: unable to resolve main repository root")
+            return
+
+        main_repo_path = Path(main_repo)
+        src_identity = main_repo_path / ".agdt" / IDENTITY_CACHE_FILENAME
+        src_bootstrap = main_repo_path / ".agdt" / BOOTSTRAP_FILENAME
+
+        # If there is nothing to propagate and no explicit worktree_key override,
+        # retain the previous no-op behaviour and avoid creating .agdt/ at all.
+        if worktree_key is None and not src_identity.is_file() and not src_bootstrap.is_file():
+            return
+
+        dst_agdt = Path(worktree_path) / ".agdt"
+        dst_agdt.mkdir(parents=True, exist_ok=True)
+
+        # Best-effort copy of identity.json; failure here should not block
+        # propagation of the runtime bootstrap file.
+        if src_identity.is_file():
+            shutil.copy2(str(src_identity), str(dst_agdt / IDENTITY_CACHE_FILENAME))
+
+        # Propagate runtime-bootstrap.json so that the worktree resolves
+        # to the correct scoped state directory. This is independent of
+        # whether identity.json was present or successfully copied.
+        dst_bootstrap = dst_agdt / BOOTSTRAP_FILENAME
+        if worktree_key is not None:
+            bootstrap_data = json.dumps({"worktree_key": worktree_key})
+            dst_bootstrap.write_text(bootstrap_data, encoding="utf-8")
+        elif src_bootstrap.is_file():
+            shutil.copy2(str(src_bootstrap), str(dst_bootstrap))
+    except (OSError, ValueError) as exc:
+        if strict:
+            raise
+        print(
+            f"Warning: failed to propagate AGDT cache (identity/bootstrap) to worktree: {exc}",
+            file=sys.stderr,
+        )
+
+
+def propagate_agdt_cache(worktree_path: str, worktree_key: str | None = None) -> None:
+    """Public entry-point for propagating identity.json and runtime-bootstrap.json.
+
+    Delegates to :func:`_propagate_agdt_cache` in strict mode so that callers
+    (e.g. ``orchestrator_commands``) receive failures as exceptions instead of
+    silently-swallowed warnings.  ``OSError`` and ``ValueError`` propagate to
+    the caller unchanged.
+    """
+    _propagate_agdt_cache(worktree_path, worktree_key=worktree_key, strict=True)
+
+
+def create_worktree(
+    issue_key: str,
+    branch_prefix: str = "feature",
+    branch_name: str | None = None,
+    use_existing_branch: bool = False,
+    start_point: str | None = None,
+) -> WorktreeSetupResult:
+    """
+    Create a git worktree for the given issue key.
+
+    The worktree will be created as a sibling directory to the main repo,
+    named after the issue key (e.g., ../PROJECT-1234).
+
+    Args:
+        issue_key: The issue key (e.g., "PROJECT-1234")
+        branch_prefix: Prefix for the branch name (default: "feature").
+            Ignored if branch_name is provided.
+        branch_name: Exact branch name to use. If provided, branch_prefix is ignored.
+            Used for PR review workflows where the branch already exists on origin.
+        use_existing_branch: If True and branch_name is provided, checkout the
+            existing branch from origin instead of creating a new one.
+            Enables safety checks before proceeding.
+        start_point: Optional git ref to anchor the new branch tip to. When
+            provided (and ``use_existing_branch`` is False), the standard
+            new-branch flow runs ``git worktree add <path> -b <branch> <start_point>``
+            so the branch starts from that ref (e.g. a freshly-fetched
+            ``origin/main`` HEAD) rather than the caller's current HEAD. Ignored
+            when ``use_existing_branch`` is True (that path tracks the remote
+            branch explicitly).
+
+    Returns:
+        WorktreeSetupResult with success status and paths
+    """
+    import uuid
+    from datetime import datetime
+
+    from ..git.operations import (
+        BranchSafetyCheckResult,
+        check_branch_safe_to_recreate,
+        delete_local_branch,
+        fetch_branch,
+        get_short_commit_hash,
+        rename_local_branch,
+    )
+
+    repos_parent = get_repos_parent_dir()
+    if not repos_parent:
+        return WorktreeSetupResult(
+            success=False,
+            worktree_path="",
+            branch_name="",
+            error_message="Could not determine repository parent directory",
+        )
+
+    worktree_path = os.path.join(repos_parent, issue_key)
+
+    def _seed_copilot_worktree_trust() -> bool:
+        # Pre-seed Copilot's trusted folders so auto-started sessions in this
+        # worktree do not block on the interactive "Confirm folder trust" prompt.
+        # Best-effort; no-ops in tests and when auto-trust is disabled.
+        # Returns the *ownership* flag (added=True) so the caller can remove the
+        # entry on cleanup — not the success signal, which would be True even for
+        # a path that was already trusted before this invocation.
+        from ..copilot.trust import seed_worktree_trust_result
+
+        return seed_worktree_trust_result(worktree_path, repos_parent=repos_parent).added
+
+    # Determine the branch name to use
+    if branch_name:
+        resolved_branch_name = branch_name
+    else:
+        resolved_branch_name = f"{branch_prefix}/{issue_key}/implementation"
+
+    # Check if worktree already exists
+    if os.path.exists(worktree_path):
+        # Verify it's a valid git worktree
+        git_file = os.path.join(worktree_path, ".git")
+        if os.path.exists(git_file):
+            # Keep reused worktrees aligned with current scoped runtime bootstrap
+            # so re-invocations do not fall back to _unscoped state.
+            _propagate_agdt_cache(worktree_path, worktree_key=issue_key)
+            _seed_copilot_worktree_trust()
+            return WorktreeSetupResult(
+                success=True,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message=None,
+            )
+        else:
+            return WorktreeSetupResult(
+                success=False,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message=f"Directory {worktree_path} exists but is not a git worktree",
+            )
+
+    current_branch = get_current_branch()
+    in_worktree = is_in_worktree()
+
+    # Check if we're currently on the target branch in the main repo.
+    # Git doesn't allow creating a worktree for a branch that's already checked out.
+    # For new-branch creation (not use_existing_branch), switch to main here.
+    # For PR-review (use_existing_branch=True), the safety check below determines the
+    # right strategy: unsafe branches use temp-rename (which frees the name without
+    # needing a branch switch), while the SAFE path handles the switch just before
+    # the worktree-add call.
+    if current_branch == resolved_branch_name and not in_worktree and not use_existing_branch:
+        print(f"Currently on branch '{resolved_branch_name}' in main repo.")
+        print("Switching to 'main' branch to allow worktree creation...")
+        if not switch_to_main_branch():
+            return WorktreeSetupResult(
+                success=False,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message="Failed to switch to main branch. Cannot create worktree while on target branch.",
+            )
+        print("Switched to 'main' branch successfully.")
+
+    # For PR review workflows with existing branches, perform safety checks
+    if use_existing_branch and branch_name:
+        print(f"Checking if branch '{branch_name}' is safe to use...")
+
+        # First fetch the branch from origin
+        fetch_branch(branch_name)
+
+        # Perform safety check
+        safety_result = check_branch_safe_to_recreate(branch_name)
+
+        if not safety_result.is_safe:
+            status = safety_result.status
+
+            # For BRANCH_NOT_ON_ORIGIN, check whether a local branch with this
+            # name already exists.  Wrap the check in try/except so that an
+            # environment problem (git missing, OS error) is treated as "no
+            # local branch found" rather than crashing create_worktree().
+            local_branch_exists = False
+            if status == BranchSafetyCheckResult.BRANCH_NOT_ON_ORIGIN:
+                try:
+                    local_branch_exists = (
+                        subprocess.run(
+                            ["git", "rev-parse", "--verify", branch_name],
+                            capture_output=True,
+                            encoding="utf-8",
+                            errors="replace",
+                            check=False,
+                        ).returncode
+                        == 0
+                    )
+                except (FileNotFoundError, OSError):
+                    local_branch_exists = False
+
+            # When UNCOMMITTED_CHANGES is reported, it refers to the current
+            # branch (HEAD), which might not be the target branch for the
+            # worktree. Resolve the current branch name so we only treat this
+            # as local work on the target branch when the names match.
+            current_branch_name: str | None = None
+            if status == BranchSafetyCheckResult.UNCOMMITTED_CHANGES:
+                current_branch_name = get_current_branch()
+
+            # Determine if we need the temp-rename flow to preserve local work
+            needs_temp_rename = (
+                status == BranchSafetyCheckResult.DIVERGED_FROM_ORIGIN
+                or (status == BranchSafetyCheckResult.UNCOMMITTED_CHANGES and current_branch_name == branch_name)
+                or (status == BranchSafetyCheckResult.BRANCH_NOT_ON_ORIGIN and local_branch_exists)
+            )
+
+            if needs_temp_rename:
+                temp_suffix = uuid.uuid4().hex[:8]
+                temp_branch_name = f"{branch_name}-tmp-{temp_suffix}"
+
+                print(f"Local branch '{branch_name}' has local work. Temporarily renaming to '{temp_branch_name}'...")
+                try:
+                    rename_ok = rename_local_branch(branch_name, temp_branch_name)
+                except (FileNotFoundError, OSError) as exc:
+                    return WorktreeSetupResult(
+                        success=False,
+                        worktree_path=worktree_path,
+                        branch_name=resolved_branch_name,
+                        error_message=(f"Failed to rename local branch '{branch_name}' to '{temp_branch_name}': {exc}"),
+                    )
+                if not rename_ok:
+                    return WorktreeSetupResult(
+                        success=False,
+                        worktree_path=worktree_path,
+                        branch_name=resolved_branch_name,
+                        error_message=(f"Failed to rename local branch '{branch_name}' to '{temp_branch_name}'."),
+                    )
+
+                # Attempt worktree creation using the original branch name from origin
+                try:
+                    print(f"Creating worktree at {worktree_path}...")
+                    worktree_result = subprocess.run(
+                        [
+                            "git",
+                            "worktree",
+                            "add",
+                            worktree_path,
+                            "--track",
+                            "-b",
+                            branch_name,
+                            f"origin/{branch_name}",
+                        ],
+                        capture_output=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        check=False,
+                    )
+                except (FileNotFoundError, OSError) as e:
+                    # Revert the rename before propagating the error.
+                    # If the revert also fails, include the recovery command in the error message.
+                    error_msg = f"Error creating worktree: {e}"
+                    try:
+                        revert_ok = rename_local_branch(temp_branch_name, branch_name)
+                    except (FileNotFoundError, OSError) as rename_exc:
+                        revert_ok = False
+                        error_msg += f" (revert also failed: {rename_exc})"
+                    if not revert_ok:
+                        error_msg += (
+                            f"\nWarning: Failed to revert branch rename. "
+                            f"Branch is still named '{temp_branch_name}'. "
+                            f"Manually rename it back with: git branch -m {temp_branch_name} {branch_name}"
+                        )
+                    return WorktreeSetupResult(
+                        success=False,
+                        worktree_path=worktree_path,
+                        branch_name=resolved_branch_name,
+                        error_message=error_msg,
+                    )
+
+                if worktree_result.returncode != 0:
+                    # Worktree creation failed — revert temp rename to keep local work intact.
+                    # If the revert also fails, include the recovery command in the error message.
+                    print("Worktree creation failed. Reverting temp rename...")
+                    error_msg = f"Failed to create worktree: {worktree_result.stderr.strip()}"
+                    try:
+                        revert_ok = rename_local_branch(temp_branch_name, branch_name)
+                    except (FileNotFoundError, OSError) as rename_exc:
+                        revert_ok = False
+                        error_msg += f" (revert also failed: {rename_exc})"
+                    if not revert_ok:
+                        error_msg += (
+                            f"\nWarning: Failed to revert branch rename. "
+                            f"Branch is still named '{temp_branch_name}'. "
+                            f"Manually rename it back with: git branch -m {temp_branch_name} {branch_name}"
+                        )
+                    return WorktreeSetupResult(
+                        success=False,
+                        worktree_path=worktree_path,
+                        branch_name=resolved_branch_name,
+                        error_message=error_msg,
+                    )
+
+                # Worktree created successfully — rename temp branch to final PR review name.
+                # Wrap in try/except so an unexpected git error here doesn't crash
+                # create_worktree() after the worktree has already been created.
+                print(f"Worktree created successfully at {worktree_path}")
+                try:
+                    commit_hash_short = get_short_commit_hash(temp_branch_name) or "unknown"
+                    timestamp = datetime.now(UTC).strftime("%Y-%m-%d-%H-%M-%S")
+                    final_review_name = f"{branch_name}-pr-review-{commit_hash_short}-{timestamp}"
+                    print(f"Renaming temp branch to final PR review name: '{final_review_name}'...")
+                    if not rename_local_branch(temp_branch_name, final_review_name):
+                        print(
+                            f"Warning: Could not rename temp branch '{temp_branch_name}' to "
+                            f"'{final_review_name}'. Temp branch retained."
+                        )
+                except (FileNotFoundError, OSError) as e:
+                    # Non-fatal: the worktree is functional; only the cleanup rename failed.
+                    print(
+                        f"Warning: Failed to finalize temp branch name: {e}. "
+                        f"Branch is still named '{temp_branch_name}'.",
+                        file=sys.stderr,
+                    )
+
+                _propagate_agdt_cache(worktree_path, worktree_key=issue_key)
+                copilot_trust_added = _seed_copilot_worktree_trust()
+
+                return WorktreeSetupResult(
+                    success=True,
+                    worktree_path=worktree_path,
+                    branch_name=resolved_branch_name,
+                    created_worktree=True,
+                    created_branch=True,
+                    copilot_trust_added=copilot_trust_added,
+                )
+            else:
+                # NOT_ON_BRANCH, or BRANCH_NOT_ON_ORIGIN with no local branch — fail immediately
+                return WorktreeSetupResult(
+                    success=False,
+                    worktree_path=worktree_path,
+                    branch_name=resolved_branch_name,
+                    error_message=f"Cannot safely create worktree:\n{safety_result.message}",
+                )
+
+        print(f"Safety check passed: {safety_result.message}")
+
+        # SAFE status but currently on the target branch in the main repo:
+        # switch to main so the git worktree add below doesn't fail with
+        # "already checked out".  This is safe here because SAFE guarantees
+        # there are no dirty local changes.
+        if current_branch == resolved_branch_name and not in_worktree:
+            print(f"Currently on branch '{resolved_branch_name}' in main repo.")
+            print("Switching to 'main' branch to allow worktree creation...")
+            if not switch_to_main_branch():
+                return WorktreeSetupResult(
+                    success=False,
+                    worktree_path=worktree_path,
+                    branch_name=resolved_branch_name,
+                    error_message="Failed to switch to main branch. Cannot create worktree while on target branch.",
+                )
+            print("Switched to 'main' branch successfully.")
+
+    # Create the worktree
+    try:
+        print(f"Creating worktree at {worktree_path}...")
+        created_branch = False
+        deleted_existing_local_ref = False
+
+        if use_existing_branch and branch_name:
+            # For PR review: checkout existing branch from origin
+            result = subprocess.run(
+                ["git", "worktree", "add", worktree_path, branch_name],
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+
+            if result.returncode != 0:
+                # If the branch is already checked out elsewhere, it may be due to a
+                # stale worktree association.  Run `git worktree prune` first to remove
+                # stale entries, then delete the local ref and retry.
+                if "already checked out" in result.stderr.lower():
+                    print(
+                        f"Branch '{branch_name}' is already checked out. "
+                        "Pruning stale worktree entries and deleting local ref before retrying..."
+                    )
+                    # Best-effort prune — non-fatal if it fails
+                    subprocess.run(
+                        ["git", "worktree", "prune"],
+                        capture_output=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        check=False,
+                    )
+                    # Use force=True because git branch -d fails for branches not yet
+                    # merged into HEAD.  The safety check already confirmed the local ref
+                    # matches origin, so force-deleting is safe here.
+                    if not delete_local_branch(branch_name, force=True):
+                        return WorktreeSetupResult(
+                            success=False,
+                            worktree_path=worktree_path,
+                            branch_name=resolved_branch_name,
+                            error_message=(
+                                f"Branch '{branch_name}' is already checked out in another worktree "
+                                f"and the local ref could not be deleted. "
+                                f"Please remove the existing worktree or detach the branch manually."
+                            ),
+                        )
+                    deleted_existing_local_ref = True
+                # Try tracking the remote branch (covers both the delete+retry case and
+                # the case where no local branch exists at all)
+                result = subprocess.run(
+                    [
+                        "git",
+                        "worktree",
+                        "add",
+                        worktree_path,
+                        "--track",
+                        "-b",
+                        branch_name,
+                        f"origin/{branch_name}",
+                    ],
+                    capture_output=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                )
+                # --track -b creates a new local branch; mark ownership so cleanup can
+                # remove it when the target setup script fails after worktree creation.
+                # If we only recreated a pre-existing local ref that this invocation had
+                # to delete first, do not claim ownership.
+                if result.returncode == 0:
+                    created_branch = not deleted_existing_local_ref
+        else:
+            # Standard flow: create new branch
+            add_args = ["git", "worktree", "add", worktree_path, "-b", resolved_branch_name]
+            created_branch = True
+            if start_point:
+                add_args.append(start_point)
+            result = subprocess.run(
+                add_args,
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+
+            if result.returncode != 0:
+                # Check if branch already exists - try without -b
+                if "already exists" in result.stderr:
+                    if start_point:
+                        # start_point was supplied to anchor the new branch tip; silently
+                        # reusing a potentially-stale local branch would ignore it and
+                        # could create a worktree that is not rebased onto origin/main.
+                        return WorktreeSetupResult(
+                            success=False,
+                            worktree_path=worktree_path,
+                            branch_name=resolved_branch_name,
+                            error_message=(
+                                f"Branch '{resolved_branch_name}' already exists and cannot be "
+                                f"anchored to '{start_point}'; delete the local branch or use "
+                                "detect_existing_worktree() to resume instead of creating fresh."
+                            ),
+                        )
+                    print(f"Branch {resolved_branch_name} already exists, using existing branch...")
+                    created_branch = False
+                    result = subprocess.run(
+                        ["git", "worktree", "add", worktree_path, resolved_branch_name],
+                        capture_output=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        check=False,
+                    )
+
+        if result.returncode != 0:
+            return WorktreeSetupResult(
+                success=False,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message=f"Failed to create worktree: {result.stderr.strip()}",
+            )
+
+        print(f"Worktree created successfully at {worktree_path}")
+
+        _propagate_agdt_cache(worktree_path, worktree_key=issue_key)
+        copilot_trust_added = _seed_copilot_worktree_trust()
+
+        return WorktreeSetupResult(
+            success=True,
+            worktree_path=worktree_path,
+            branch_name=resolved_branch_name,
+            created_worktree=True,
+            created_branch=created_branch,
+            copilot_trust_added=copilot_trust_added,
+        )
+
+    except (FileNotFoundError, OSError) as e:
+        return WorktreeSetupResult(
+            success=False,
+            worktree_path=worktree_path,
+            branch_name=resolved_branch_name,
+            error_message=f"Error creating worktree: {e}",
+        )
+
+
+def open_vscode_workspace(worktree_path: str) -> bool:
+    """
+    Open VS Code with the workspace file in the worktree.
+
+    Searches for any ``*.code-workspace`` file in the worktree directory and
+    opens it in a new VS Code window.  If no workspace file is found, falls
+    back to opening VS Code at the worktree root directory.
+
+    Args:
+        worktree_path: Path to the worktree directory
+
+    Returns:
+        True if VS Code was opened, False otherwise
+    """
+    # Guard: skip launching external VS Code windows during tests to keep them
+    # hermetic.  On Windows, mock paths like /repos/PROJECT-1234 resolve to
+    # C:\repos\PROJECT-1234 which may be a real worktree.
+    if _in_test_environment():
+        print("Detected test environment (PYTEST_CURRENT_TEST) - skipping VS Code window opening")
+        return False
+
+    if not is_vscode_available():
+        print("VS Code not found on PATH — skipping window opening", file=sys.stderr)
+        return False
+
+    workspace_file = find_workspace_file(worktree_path)
+
+    if workspace_file is None:
+        print(
+            f"No .code-workspace file found in {worktree_path}, opening folder instead.",
+        )
+        target = worktree_path
+    else:
+        target = workspace_file
+
+    print(f"Opening VS Code: {target}")
+
+    # Guard against cmd.exe metacharacter injection on Windows (shell=True required
+    # to locate code.cmd via PATH, so paths with metacharacters must be rejected).
+    if platform.system() == "Windows" and _contains_windows_cmd_metacharacters(target):
+        print(
+            f"Warning: refusing to open VS Code on Windows because path contains cmd.exe metacharacters: {target!r}",
+            file=sys.stderr,
+        )
+        return False
+
+    # Do not leak the parent/background-task ``AGENTIC_DEVTOOLS_STATE_DIR`` (which
+    # points at the *main-repo* scope) into the VS Code process. Otherwise every
+    # integrated-terminal ``agdt-*`` command the review agent runs resolves to the
+    # wrong state dir, cannot find the freshly-initialized ``_workflow`` state, and
+    # re-initiates the workflow — spawning a duplicate Copilot session (#2162).
+    # Pin VS Code to the worktree's own identity-scoped state dir when resolvable,
+    # otherwise strip the vars so resolution falls back to the worktree's pin file /
+    # runtime-bootstrap.json instead of the inherited main-repo value.
+    vscode_env = os.environ.copy()
+    vscode_env.pop("AGDT_AI_HELPERS_STATE_DIR", None)
+    worktree_state_file, _ = _resolve_state_context_in_worktree(worktree_path)
+    if worktree_state_file is not None:
+        vscode_env["AGENTIC_DEVTOOLS_STATE_DIR"] = str(worktree_state_file.parent)
+    else:
+        vscode_env.pop("AGENTIC_DEVTOOLS_STATE_DIR", None)
+
+    try:
+        # Open VS Code in a new window (non-blocking)
+        # Check actual platform (not mocked) for subprocess flags availability
+        if platform.system() == "Windows" and hasattr(subprocess, "DETACHED_PROCESS"):
+            # On Windows, 'code' is a .cmd batch file, so we need shell=True
+            # to find it via PATH. We also use creationflags to detach the process.
+            _DETACHED = getattr(subprocess, "DETACHED_PROCESS", 0)
+            _NEW_PG = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            subprocess.Popen(  # nosec B602 - shell=True required on Windows to find 'code.cmd' via PATH; metacharacter check above guards the path
+                ["code", target],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                shell=True,
+                creationflags=_DETACHED | _NEW_PG,
+                env=vscode_env,
+            )
+        else:
+            # On Unix-like systems, start_new_session works correctly
+            subprocess.Popen(
+                ["code", target],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+                env=vscode_env,
+            )
+
+        print("VS Code window opened")
+        return True
+
+    except (FileNotFoundError, OSError) as e:
+        print(f"Warning: Could not open VS Code: {e}", file=sys.stderr)
+        return False
+
+
+def _detect_git_root() -> str:
+    """
+    Detect the Git for Windows installation root directory.
+
+    Attempts to find the Git executable using ``where.exe`` and derives the
+    installation root from its path.  Falls back to
+    ``C:\\Program Files\\Git`` if detection fails.
+
+    Returns:
+        Absolute path to the Git installation root directory.
+    """
+    from pathlib import PureWindowsPath
+
+    fallback = r"C:\Program Files\Git"
+    try:
+        result = subprocess.run(
+            ["where.exe", "git"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode == 0:
+            stdout_stripped = result.stdout.strip()
+            if stdout_stripped:
+                git_exe = stdout_stripped.splitlines()[0]
+                git_path = PureWindowsPath(git_exe)
+                # git.exe lives in <root>\cmd\git.exe or <root>\bin\git.exe
+                if git_path.parent.name.lower() in ("cmd", "bin"):
+                    return str(git_path.parent.parent)
+    except (FileNotFoundError, OSError):
+        pass
+    return fallback
+
+
+def _detect_python_scripts_dir() -> str | None:
+    """
+    Detect the directory containing ``agdt-*`` CLI entry points.
+
+    Tries candidates in priority order and returns the first directory that
+    contains an ``agdt-advance-workflow`` executable.  Returns ``None`` if no
+    candidate directory contains the entry point.
+
+    Candidate priority:
+    1. ``shutil.which("agdt-advance-workflow")`` — if already on PATH, derive
+       the directory from the result.
+    2. ``~/.agdt/bin`` — the managed install location.
+    3. ``sysconfig.get_path("scripts")`` — the Scripts directory of the active
+       Python installation (may be a venv).
+    4. Directory of ``sys.executable`` and, on Windows, its ``Scripts``
+       subdirectory — covers standard CPython layout where the Scripts dir sits
+       next to ``python.exe``.
+
+    Returns:
+        Absolute path to the directory containing ``agdt-advance-workflow``,
+        or ``None`` if not found.
+    """
+    import sysconfig
+
+    entry_point = "agdt-advance-workflow"
+    if sys.platform == "win32":
+        entry_point_exe = entry_point + ".exe"
+    else:
+        entry_point_exe = entry_point
+
+    # Candidate 1: already on PATH — derive directory from which result.
+    which_result = shutil.which("agdt-advance-workflow")
+    if which_result:
+        return os.path.dirname(os.path.realpath(which_result))
+
+    # Candidates 2-4: check directory existence and entry-point presence.
+    # entry_point_exe is already platform-appropriate (with or without .exe),
+    # so we can use a single path build on all platforms, but also validate
+    # executability on POSIX to avoid accepting non-executable files.
+    def _contains_entry_point(directory: str) -> bool:
+        try:
+            candidate_path = os.path.join(directory, entry_point_exe)
+            if not os.path.isfile(candidate_path):
+                return False
+            # On Windows, existence of the .exe file is typically sufficient.
+            if os.name == "nt":
+                return True
+            # On POSIX, require execute permission as well.
+            return os.access(candidate_path, os.X_OK)
+        except OSError:
+            return False
+
+    candidates: list[str] = []
+
+    # Candidate 2: ~/.agdt/bin
+    candidates.append(os.path.join(os.path.expanduser("~"), ".agdt", "bin"))
+
+    # Candidate 3: sysconfig Scripts directory
+    try:
+        scripts_dir = sysconfig.get_path("scripts")
+        if scripts_dir:
+            candidates.append(scripts_dir)
+    except Exception:
+        pass
+
+    # Candidate 4: directory containing sys.executable, and on Windows also
+    # the ``Scripts`` subdirectory next to it (standard CPython layout:
+    # <python_root>\python.exe  +  <python_root>\Scripts\agdt-*.exe).
+    if sys.executable:
+        exe_dir = os.path.dirname(sys.executable)
+        candidates.append(exe_dir)
+        if sys.platform == "win32":
+            candidates.append(os.path.join(exe_dir, "Scripts"))
+
+    for candidate in candidates:
+        try:
+            if os.path.isdir(candidate) and _contains_entry_point(candidate):
+                return candidate
+        except OSError:
+            continue
+
+    return None
+
+
+def inject_git_path_settings(worktree_path: str) -> None:
+    """
+    Inject ``.vscode/settings.json`` into the worktree with Git for Windows PATH entries.
+
+    VS Code terminal sessions opened in a fresh worktree window on Windows may
+    not inherit the full PATH that includes Git for Windows' internal binary
+    directories (``cmd`` and ``usr\\bin``).  Without those directories, ``git
+    push`` and other operations that shell out to credential helpers or internal
+    utilities fail silently with exit code 128.
+
+    This function creates or merges into ``.vscode/settings.json`` a
+    ``terminal.integrated.env.windows`` entry that appends both
+    ``<git_root>\\cmd`` and ``<git_root>\\usr\\bin`` to PATH.
+
+    This function is a no-op on non-Windows platforms.
+
+    Args:
+        worktree_path: Path to the worktree directory.
+    """
+    if platform.system() != "Windows":
+        return
+
+    if not is_vscode_available():
+        print("VS Code not found on PATH — skipping settings injection", file=sys.stderr)
+        return
+
+    git_root = _detect_git_root()
+    # Use explicit backslash joining so paths are correct Windows paths
+    # regardless of the host OS (e.g. when tests run on Linux).
+    git_cmd_dir = git_root + "\\cmd"
+    git_usr_bin_dir = git_root + "\\usr\\bin"
+
+    vscode_dir = os.path.join(worktree_path, ".vscode")
+    settings_path = os.path.join(vscode_dir, "settings.json")
+
+    settings: dict = {}
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, encoding="utf-8") as fh:
+                loaded = json.load(fh)
+        except (json.JSONDecodeError, OSError) as exc:
+            # Don't overwrite a file we can't parse — it may be JSONC (with
+            # comments or trailing commas) which is valid in VS Code but not
+            # in stdlib json.  Silently wiping it would destroy user settings.
+            print(f"Warning: could not read {settings_path}: {exc}", file=sys.stderr)
+            return
+        if not isinstance(loaded, dict):
+            # A JSON array, string, or other non-object root would cause
+            # settings.setdefault(...) to raise AttributeError.
+            print(
+                f"Warning: {settings_path} does not contain a JSON object at the root; "
+                "skipping Git PATH settings injection",
+                file=sys.stderr,
+            )
+            return
+        settings = loaded
+
+    # Ensure terminal.integrated.env.windows is a dict before modifying it.
+    existing_env_windows = settings.get("terminal.integrated.env.windows")
+    if existing_env_windows is None:
+        env_windows: dict = {}
+        settings["terminal.integrated.env.windows"] = env_windows
+    elif isinstance(existing_env_windows, dict):
+        env_windows = existing_env_windows
+    else:
+        print(
+            "Warning: terminal.integrated.env.windows is not a JSON object; skipping Git PATH settings injection",
+            file=sys.stderr,
+        )
+        return
+
+    existing_path = env_windows.get("PATH", "${env:PATH}")
+    if not isinstance(existing_path, str):
+        print(
+            "Warning: terminal.integrated.env.windows.PATH is not a string; "
+            "falling back to ${env:PATH} for Git PATH settings injection",
+            file=sys.stderr,
+        )
+        existing_path = "${env:PATH}"
+    # Split PATH into segments and compare case-insensitively to avoid both
+    # false positives from substring matches and missed entries on the
+    # case-insensitive Windows filesystem.
+    path_segments = {seg.strip().casefold() for seg in existing_path.split(";") if seg.strip()}
+    missing_dirs = [d for d in (git_cmd_dir, git_usr_bin_dir) if d.casefold() not in path_segments]
+    if missing_dirs:
+        env_windows["PATH"] = existing_path + ";" + ";".join(missing_dirs)
+
+    # Avoid unnecessary rewriting of settings.json when no changes are needed
+    # and the file already exists, to prevent file churn and noisy diffs.
+    if not missing_dirs and os.path.exists(settings_path):
+        print(f"Git PATH settings already configured in {settings_path}")
+        return
+
+    try:
+        os.makedirs(vscode_dir, exist_ok=True)
+        with open(settings_path, "w", encoding="utf-8") as fh:
+            json.dump(settings, fh, indent=2)
+            fh.write("\n")
+        if missing_dirs:
+            print(f"Injected Git PATH settings into {settings_path}")
+        else:
+            print(f"Git PATH settings already configured in {settings_path}")
+    except OSError as exc:
+        print(f"Warning: could not write {settings_path}: {exc}", file=sys.stderr)
+
+
+def inject_python_path_settings(worktree_path: str) -> None:
+    """
+    Inject ``.vscode/settings.json`` with the Python Scripts directory that contains ``agdt-*`` entry points.
+
+    When VS Code opens a worktree window, the Python extension may not have
+    activated yet (or the user dismisses the "relaunch terminal" prompt),
+    leaving the ``agdt-*`` CLI entry points invisible to the Copilot agent.
+    This function creates or merges into ``.vscode/settings.json`` a
+    ``terminal.integrated.env.*`` entry for the **current runtime platform**
+    that prepends the detected Scripts directory to PATH.
+
+    Only the key matching the current runtime platform is injected:
+
+    - ``terminal.integrated.env.windows`` on Windows (``sys.platform == "win32"``)
+    - ``terminal.integrated.env.osx`` on macOS (``sys.platform == "darwin"``)
+    - ``terminal.integrated.env.linux`` on all other platforms
+
+    This prevents a Windows-style path (e.g. ``C:\\Python...``) from being
+    written into the Linux/macOS keys where the drive-letter colon would be
+    treated as a PATH separator, corrupting the PATH value in Remote/WSL
+    terminals.  Each platform that runs worktree setup contributes its own key.
+
+    The ``is_vscode_available()`` check is intentionally **not** applied here.
+    The ``code`` CLI not being on PATH does not prevent VS Code from being
+    installed and opening the worktree — VS Code can run integrated terminals
+    without the ``code`` command-line utility.  Writing ``.vscode/settings.json``
+    is always safe and is picked up the next time VS Code opens the folder.
+
+    A no-op (with a warning to stderr) when:
+    - :func:`_detect_python_scripts_dir` cannot find the Scripts directory, or
+    - an existing ``settings.json`` cannot be parsed (e.g. JSONC with comments
+      or trailing commas) — the file is left untouched so that valid JSONC
+      settings are never silently discarded, or
+    - ``settings.json`` contains valid JSON but not a root object, or
+    - the existing OS-specific env block exists but is not a JSON object.
+
+    When the existing ``PATH`` value is not a string, a warning is emitted and
+    the Scripts dir is still injected using ``${env:PATH}`` as the base.
+
+    Args:
+        worktree_path: Path to the worktree directory.
+    """
+    scripts_dir = _detect_python_scripts_dir()
+    if scripts_dir is None:
+        print(
+            "Warning: could not detect Python Scripts directory containing agdt-* entry points; "
+            "skipping Python PATH settings injection",
+            file=sys.stderr,
+        )
+        return
+
+    vscode_dir = os.path.join(worktree_path, ".vscode")
+    settings_path = os.path.join(vscode_dir, "settings.json")
+
+    settings: dict = {}
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, encoding="utf-8") as fh:
+                loaded = json.load(fh)
+        except (json.JSONDecodeError, OSError) as exc:
+            # Don't overwrite a file we can't parse — it may be JSONC (with
+            # comments or trailing commas) which is valid in VS Code but not
+            # in stdlib json.  Silently wiping it would destroy user settings.
+            print(f"Warning: could not read {settings_path}: {exc}", file=sys.stderr)
+            return
+        if not isinstance(loaded, dict):
+            # A JSON array, string, or other non-object root would cause
+            # settings.setdefault / env_block.get to raise AttributeError.
+            print(
+                f"Warning: {settings_path} does not contain a JSON object at the root; "
+                "skipping Python PATH settings injection",
+                file=sys.stderr,
+            )
+            return
+        settings = loaded
+
+    # Only inject the terminal env key that matches the current runtime
+    # platform.  Writing a Windows path into terminal.integrated.env.linux
+    # (or vice versa) would corrupt PATH on the other platform.
+    if sys.platform == "win32":
+        os_key = "terminal.integrated.env.windows"
+        sep = ";"
+        case_insensitive = True
+    elif sys.platform == "darwin":
+        os_key = "terminal.integrated.env.osx"
+        sep = ":"
+        case_insensitive = False
+    else:
+        os_key = "terminal.integrated.env.linux"
+        sep = ":"
+        case_insensitive = False
+
+    # Retrieve or create the env block for this platform, guarding against
+    # non-dict values stored under the key (e.g. a JSON string or array).
+    existing_env_block = settings.get(os_key)
+    if existing_env_block is None:
+        env_block: dict = {}
+        settings[os_key] = env_block
+    elif not isinstance(existing_env_block, dict):
+        print(
+            f"Warning: {os_key} in {settings_path} is not a JSON object; skipping Python PATH settings injection",
+            file=sys.stderr,
+        )
+        return
+    else:
+        env_block = existing_env_block
+
+    existing_path_raw = env_block.get("PATH", "${env:PATH}")
+    if not isinstance(existing_path_raw, str):
+        # PATH stored as a non-string (e.g. list or number) — fall back to the
+        # VS Code env-expansion placeholder and warn, but still inject so the
+        # agdt-* entry points are on PATH rather than abandoning the operation.
+        print(
+            f"Warning: PATH value in {os_key} of {settings_path} is not a string "
+            f"(got {type(existing_path_raw).__name__!r}); "
+            "falling back to ${env:PATH} as the base PATH",
+            file=sys.stderr,
+        )
+        existing_path: str = "${env:PATH}"
+    else:
+        existing_path = existing_path_raw
+    existing_segments = [seg.strip() for seg in existing_path.split(sep) if seg.strip()]
+
+    def _normalize_segment(segment: str) -> str:
+        # Normalize a PATH segment for comparison/deduplication:
+        # 1. Strip surrounding whitespace.
+        # 2. Strip a single pair of surrounding quotes (common on Windows when
+        #    PATH entries contain spaces), if present.
+        # 3. Apply os.path.normpath.
+        cleaned = segment.strip()
+        if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in ("'", '"'):
+            cleaned = cleaned[1:-1]
+        normalized = os.path.normpath(cleaned)
+        if case_insensitive:
+            return normalized.casefold()
+        return normalized
+
+    normalized_existing = {_normalize_segment(s) for s in existing_segments}
+    normalized_scripts_dir = _normalize_segment(scripts_dir)
+    already_present = normalized_scripts_dir in normalized_existing
+
+    modified = False
+
+    if not already_present:
+        env_block["PATH"] = scripts_dir + sep + existing_path
+        modified = True
+
+    if not modified and os.path.exists(settings_path):
+        print(f"Python PATH settings already configured in {settings_path}")
+        return
+
+    try:
+        os.makedirs(vscode_dir, exist_ok=True)
+        with open(settings_path, "w", encoding="utf-8") as fh:
+            json.dump(settings, fh, indent=2)
+            fh.write("\n")
+        print(f"Injected Python PATH settings into {settings_path}")
+    except OSError as exc:
+        print(f"Warning: could not write {settings_path}: {exc}", file=sys.stderr)
+
+
+def _strip_jsonc_comments(json_str: str) -> str:
+    import re
+
+    # Remove single-line (//) and multi-line (/* */) comments, skipping string literals.
+    comment_pattern = r'("(?:[^"\\]|\\.)*")|(/\*.*?\*/|//[^\r\n]*)'
+    comment_regex = re.compile(comment_pattern, re.MULTILINE | re.DOTALL)
+
+    def _replacer(match: re.Match) -> str:
+        return match.group(1) if match.group(1) is not None else ""
+
+    without_comments = comment_regex.sub(_replacer, json_str)
+
+    # Remove trailing commas before ] or } that are not inside string literals.
+    # This handles the case where JSONC files contain trailing commas.
+    trailing_comma_pattern = r'("(?:[^"\\]|\\.)*")|(,)(\s*[}\]])'
+    trailing_regex = re.compile(trailing_comma_pattern, re.MULTILINE | re.DOTALL)
+
+    def _trailing_replacer(match: re.Match) -> str:
+        if match.group(1) is not None:
+            return match.group(1)
+        return match.group(3)
+
+    return trailing_regex.sub(_trailing_replacer, without_comments)
+
+
+def inject_task_permission_settings(worktree_path: str) -> None:
+    """Inject ``task.allowAutomaticTasks`` into ``.vscode/settings.json``.
+
+    Sets ``"task.allowAutomaticTasks": "on"`` so that tasks with
+    ``"runOn": "folderOpen"`` execute immediately when VS Code opens
+    the workspace, without prompting the user.
+
+    The ``is_vscode_available()`` check is intentionally **not** applied
+    here — writing ``.vscode/settings.json`` is always safe, following
+    the same reasoning as :func:`inject_python_path_settings`.
+
+    Behavior by existing value:
+
+    - Missing, ``"auto"``, or any other unexpected value: set to ``"on"``
+      (eliminates the permission dialog).
+    - ``"on"``: no-op (already configured).
+    - ``"off"``: no-op with warning (respects explicit user choice).
+
+    A no-op (with a warning to stderr) when:
+
+    - An existing ``settings.json`` cannot be parsed after JSONC normalization
+      (comments/trailing commas), or
+    - ``settings.json`` contains valid JSON but not a root object.
+
+    Args:
+        worktree_path: Path to the worktree directory.
+    """
+    _SETTING_KEY = "task.allowAutomaticTasks"
+
+    vscode_dir = os.path.join(worktree_path, ".vscode")
+    settings_path = os.path.join(vscode_dir, "settings.json")
+
+    settings: dict = {}
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, encoding="utf-8") as fh:
+                raw_text = fh.read()
+            loaded = json.loads(_strip_jsonc_comments(raw_text))
+        except (json.JSONDecodeError, OSError) as exc:
+            print(
+                f"Warning: could not read {settings_path}: {exc}",
+                file=sys.stderr,
+            )
+            return
+        if not isinstance(loaded, dict):
+            print(
+                f"Warning: {settings_path} does not contain a JSON object at the root; "
+                "skipping task permission settings injection",
+                file=sys.stderr,
+            )
+            return
+        settings = loaded
+
+    existing_value = settings.get(_SETTING_KEY)
+
+    if existing_value == "on":
+        print(f"Task permission settings already configured in {settings_path}")
+    elif existing_value == "off":
+        print(
+            f'Warning: {_SETTING_KEY} is set to "off" in {settings_path}; '
+            "automatic tasks are disabled by user choice — skipping injection",
+            file=sys.stderr,
+        )
+        return
+    else:
+        # Value is missing, "auto", or any other unexpected value — set to "on".
+        settings[_SETTING_KEY] = "on"
+
+        try:
+            os.makedirs(vscode_dir, exist_ok=True)
+            with open(settings_path, "w", encoding="utf-8") as fh:
+                json.dump(settings, fh, indent=2)
+                fh.write("\n")
+            print(f"Injected task permission settings into {settings_path}")
+        except OSError as exc:
+            print(f"Warning: could not write {settings_path}: {exc}", file=sys.stderr)
+
+    # Also inject into the .code-workspace file if one exists.
+    # Workspace-level settings take precedence over .vscode/settings.json
+    # in multi-root workspaces, so we must set the permission there too
+    # to ensure VS Code doesn't show a "Allow automatic tasks?" dialog
+    # that blocks the runOn:folderOpen task from executing.
+    workspace_file = find_workspace_file(worktree_path)
+    if workspace_file:
+        try:
+            with open(workspace_file, encoding="utf-8") as fh:
+                raw_ws_text = fh.read()
+            ws_data = json.loads(_strip_jsonc_comments(raw_ws_text))
+        except (json.JSONDecodeError, OSError) as exc:
+            print(
+                f"Warning: could not read workspace file {workspace_file}: {exc}",
+                file=sys.stderr,
+            )
+            ws_data = None
+
+        if isinstance(ws_data, dict):
+            ws_settings = ws_data.get("settings")
+            if not isinstance(ws_settings, dict):
+                ws_settings = {}
+                ws_data["settings"] = ws_settings
+
+            ws_existing = ws_settings.get(_SETTING_KEY)
+            if ws_existing == "off":
+                print(
+                    f'Warning: {_SETTING_KEY} is set to "off" in {workspace_file}; skipping workspace-level injection',
+                    file=sys.stderr,
+                )
+            elif ws_existing != "on":
+                ws_settings[_SETTING_KEY] = "on"
+                try:
+                    with open(workspace_file, "w", encoding="utf-8") as fh:
+                        json.dump(ws_data, fh, indent=2)
+                        fh.write("\n")
+                    print(f"Injected task permission settings into {workspace_file}")
+                except OSError as exc:
+                    print(
+                        f"Warning: could not write {workspace_file}: {exc}",
+                        file=sys.stderr,
+                    )
+
+
+# ---------------------------------------------------------------------------
+# Label used to identify the injected auto-start task so it can be removed
+# during cleanup without affecting other user-defined tasks.
+# ---------------------------------------------------------------------------
+_AUTO_START_TASK_LABEL = "agdt-copilot-auto-start"
+_AUTO_START_TASK_LOCK_PATH = Path(".agdt/locks/auto-start-tasks.lock")
+_PENDING_AUTO_START_MARKER_LOCK_PATH = Path(".agdt/locks/pending-auto-start-marker.lock")
+_AUTO_START_FILE_LOCK_TIMEOUT_SECONDS = 5.0
+
+
+def _get_auto_start_task_lock_path(worktree_path: str) -> Path:
+    """Return the sidecar lock path that serializes auto-start task updates."""
+    return Path(worktree_path) / _AUTO_START_TASK_LOCK_PATH
+
+
+def _get_pending_auto_start_marker_lock_path(worktree_path: str) -> Path:
+    """Return the sidecar lock path that serializes pending-marker updates."""
+    return Path(worktree_path) / _PENDING_AUTO_START_MARKER_LOCK_PATH
+
+
+def _remove_stale_auto_start_task(
+    tasks_path: str,
+    vscode_dir: str,
+    task_label: str,
+    expected_run_id: str | None = None,
+) -> None:
+    """Best-effort remove a stale auto-start task from ``tasks.json``.
+
+    Thin wrapper around :func:`~agentic_devtools.cli.vscode_tasks.remove_auto_start_task`
+    used by :func:`inject_auto_start_task` and run-scoped cleanup callers.
+
+    Called when the current run ID is already in the triggered set, indicating
+    a previous run succeeded but its cleanup may have failed.  If the task is
+    found and removed:
+
+    * When other tasks remain the file is rewritten.
+    * When no tasks remain **and** the stale task's ``"args"`` list contained
+      ``"--created-new"`` (meaning the file was created fresh by the injection)
+      **and** the file has no other top-level keys besides ``version`` and
+      ``tasks``, the file is **deleted** and ``.vscode/`` is removed if empty.
+    * In all other cases (old-format tasks without ``"args"``, missing flag, or
+      extra top-level keys) the file is rewritten, never deleted — this prevents
+      inadvertent deletion of a pre-existing user ``tasks.json``.
+
+    When ``expected_run_id`` is provided, cleanup is scoped to a matching
+    injected task only. If the current task's ``--run-id`` no longer matches,
+    cleanup fails closed to avoid deleting a newer invocation's task.
+
+    All errors are silently caught so this never prevents the caller from
+    proceeding.
+    """
+    # Infer delete_if_empty by inspecting the stale task's "args" list.
+    # Default to False (conservative) when the task cannot be read, has no
+    # "args", or the "--created-new" flag is absent — this prevents inadvertent
+    # deletion of a pre-existing user tasks.json.
+    normalized_expected_run_id: str | None = None
+    if isinstance(expected_run_id, str):
+        normalized_expected_run_id = expected_run_id.strip()
+        if not normalized_expected_run_id:
+            return
+
+    delete_if_empty = False
+    try:
+        if os.path.isfile(tasks_path):
+            with open(tasks_path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            if isinstance(data, dict):
+                tasks_list = data.get("tasks")
+                if isinstance(tasks_list, list):
+                    matching_task_found = normalized_expected_run_id is None
+                    for task in tasks_list:
+                        if isinstance(task, dict) and task.get("label") == task_label:
+                            if normalized_expected_run_id is not None:
+                                if _extract_auto_start_task_run_id(task) != normalized_expected_run_id:
+                                    continue
+                                matching_task_found = True
+                            args = task.get("args", [])
+                            delete_if_empty = isinstance(args, list) and "--created-new" in args
+                            break
+                    if not matching_task_found:
+                        return
+                elif normalized_expected_run_id is not None:
+                    return
+            elif normalized_expected_run_id is not None:
+                return
+    except Exception:
+        if normalized_expected_run_id is not None:
+            return
+    remove_auto_start_task(
+        tasks_path,
+        vscode_dir,
+        task_label,
+        delete_if_empty=delete_if_empty,
+        run_id=normalized_expected_run_id,
+    )
+
+
+def _extract_auto_start_task_run_id(task: object) -> str | None:
+    """Return ``--run-id`` from an auto-start task definition, if present."""
+    if not isinstance(task, dict):
+        return None
+    args = task.get("args")
+    if not isinstance(args, list):
+        return None
+    for idx, token in enumerate(args):
+        if token == "--run-id" and idx + 1 < len(args):  # nosec B105 - CLI flag name, not a credential
+            run_id_value = args[idx + 1]
+            if isinstance(run_id_value, str):
+                normalized = run_id_value.strip()
+                return normalized or None
+            return None
+    return None
+
+
+def _cleanup_stale_auto_start_task_for_worktree(worktree_path: str, expected_run_id: str | None = None) -> None:
+    """Remove any stale auto-start task from a worktree's ``.vscode/tasks.json``.
+
+    Best-effort helper that derives the paths from *worktree_path* and
+    delegates to :func:`_remove_stale_auto_start_task`.  Called before
+    starting a new Copilot session to prevent a leftover ``runOn: folderOpen``
+    task from a previous workflow from spawning a duplicate session when
+    VS Code reloads.
+
+    When ``expected_run_id`` is provided, cleanup is scoped to the matching
+    injected task only. If the current task's ``--run-id`` no longer matches,
+    cleanup is skipped to avoid deleting a newer invocation's task.
+
+    All errors are silently caught so this never prevents the caller from
+    proceeding.
+    """
+    try:
+        if not os.path.isdir(worktree_path):
+            return
+        vscode_dir = os.path.join(worktree_path, ".vscode")
+        tasks_path = os.path.join(vscode_dir, "tasks.json")
+        if os.path.isfile(tasks_path):
+            with locked_file(
+                _get_auto_start_task_lock_path(worktree_path),
+                mode="a+",
+                exclusive=True,
+                timeout=_AUTO_START_FILE_LOCK_TIMEOUT_SECONDS,
+            ):
+                _remove_stale_auto_start_task(
+                    tasks_path,
+                    vscode_dir,
+                    _AUTO_START_TASK_LABEL,
+                    expected_run_id=expected_run_id,
+                )
+    except Exception:
+        pass
+
+
+class WorktreeStateContext:
+    """Context manager for cross-worktree state resolution.
+
+    Saves the current CWD and state-related env vars, clears them, and
+    changes to *worktree_path* so that ``get_state_dir()`` /
+    ``get_state_file_path()`` resolve from the target worktree's
+    ``.agdt/runtime-bootstrap.json``. On exit it makes a best-effort
+    attempt to restore the original CWD and env vars.
+
+    Usage::
+
+        with WorktreeStateContext(worktree_path):
+            state_dir = get_state_dir()   # resolves in worktree context
+    """
+
+    _ENV_VARS = ("AGENTIC_DEVTOOLS_STATE_DIR", "AGDT_AI_HELPERS_STATE_DIR")
+
+    def __init__(self, worktree_path: str) -> None:
+        self.worktree_path = worktree_path
+        self._previous_cwd: str = ""
+        self._previous_env: dict[str, str | None] = {}
+
+    def __enter__(self) -> WorktreeStateContext:
+        self._previous_cwd = os.getcwd()
+        for var in self._ENV_VARS:
+            self._previous_env[var] = os.environ.pop(var, None)
+        try:
+            os.chdir(self.worktree_path)
+        except Exception:
+            # Restore env vars before re-raising since __exit__ won't run.
+            self._restore_env_vars()
+            raise
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        try:
+            os.chdir(self._previous_cwd)
+        except OSError:
+            pass
+
+        self._restore_env_vars()
+
+    def _restore_env_vars(self) -> None:
+        for var in self._ENV_VARS:
+            try:
+                prev = self._previous_env.get(var)
+                if prev is not None:
+                    os.environ[var] = prev
+                else:
+                    os.environ.pop(var, None)
+            except Exception:
+                pass
+
+
+#: Convenience alias so call sites read as ``with worktree_state_context(...):``
+worktree_state_context = WorktreeStateContext
+
+
+def _resolve_state_context_in_worktree(
+    worktree_path: str,
+    *,
+    include_run_id: bool = False,
+) -> tuple[Path | None, str]:
+    """Resolve workflow state using the target worktree context."""
+    try:
+        with worktree_state_context(worktree_path):
+            from agentic_devtools.state import get_state_file_path
+
+            state_file_path = get_state_file_path()
+            run_id = ""
+            if include_run_id:
+                from agentic_devtools.state import get_value
+
+                run_id_value = get_value("agdt_run_id")
+                run_id = run_id_value.strip() if isinstance(run_id_value, str) else ""
+            return state_file_path, run_id
+    except Exception:
+        return None, ""
+
+
+def inject_auto_start_task(
+    worktree_path: str,
+    start_prompt: str,
+    run_id: str,
+    task_label: str = _AUTO_START_TASK_LABEL,
+    model: str | None = None,
+) -> bool:
+    """Write a ``.vscode/tasks.json`` task that auto-runs when the folder opens.
+
+    The task is configured with ``"runOn": "folderOpen"`` so that VS Code
+    executes ``agdt-copilot-auto-start`` in the integrated terminal immediately
+    when the workspace window opens.  All run-ID-check, copilot-invocation,
+    and cleanup logic is delegated to that CLI command.
+
+    The task uses VS Code's ``"type": "process"`` format, which means VS Code
+    passes ``command`` and each element of ``args`` directly to the OS without
+    going through a shell.  This eliminates all quoting and escaping concerns
+    on both Windows (cmd.exe) and Unix regardless of the characters in the
+    worktree path or start prompt.
+
+    When ``tasks.json`` did not exist before injection the ``--created-new``
+    flag is passed so cleanup can delete the file instead of rewriting when no
+    tasks remain.
+
+    The function merges the new task into an existing ``tasks.json`` if one
+    is present, preserving any user-defined tasks.
+
+    This is a **no-op** when ``is_vscode_available()`` returns ``False``.
+
+    Args:
+        worktree_path: Absolute path to the worktree directory.
+        start_prompt: The prompt text to pass to the Copilot binary via
+            ``agdt-copilot-auto-start --start-prompt``.
+        run_id: Unique run ID for this workflow invocation.  Passed
+            through to ``agdt-copilot-auto-start --run-id``.
+        task_label: Label for the injected task (default:
+            ``"agdt-copilot-auto-start"``).  Used to identify the task
+            during cleanup.
+        model: Optional Copilot model ID (e.g. ``"gpt-4o"``).
+            When not ``None``, ``--model <model>`` is appended to the
+            ``agdt-copilot-auto-start`` args so the auto-start session
+            uses the same model as the workflow that triggered it.
+
+    Returns:
+        ``True`` if the task was written successfully, ``False`` otherwise
+        (e.g. VS Code not available, filesystem errors).
+    """
+    if not is_vscode_available():
+        return False
+
+    # Validate that the start_prompt is a non-empty string.
+    if not start_prompt or not isinstance(start_prompt, str):
+        return False
+
+    # Validate that the worktree path exists and is a directory. A bad or
+    # typo path would otherwise cause us to create stray folders when
+    # calling os.makedirs(vscode_dir, ...).
+    if not worktree_path or not os.path.isdir(worktree_path):
+        return False
+
+    vscode_dir = os.path.join(worktree_path, ".vscode")
+    tasks_path = os.path.join(vscode_dir, "tasks.json")
+
+    # Skip injection when the run ID has already been triggered — the command
+    # was already executed successfully in a previous window open.  Without
+    # this guard the task would be written but then exit immediately in
+    # the run-ID short-circuit, leaving an orphaned entry in tasks.json.
+    # --- Build the simple CLI invocation -------------------------------------
+    # Delegate all run-ID-check, copilot-invocation, and cleanup logic to
+    # agdt-copilot-auto-start.  Using a "process"-type task with a separate
+    # "command" + "args" array means VS Code passes each argument directly to
+    # the process without going through a shell, so no quoting or escaping is
+    # needed regardless of the platform or the characters in the path/prompt.
+    if not isinstance(run_id, str) or not run_id.strip():
+        # Without a non-empty, non-whitespace string run_id we would generate a
+        # broken auto-start task that fails on every folderOpen.  Instead of
+        # raising (the function is documented as returning bool), log a warning
+        # and skip injection.
+        print(
+            "Warning: inject_auto_start_task called with invalid run_id; skipping auto-start task injection.",
+            file=sys.stderr,
+        )
+        return False
+
+    normalized_run_id = run_id.strip()
+
+    # --- Resolve absolute path to agdt-copilot-auto-start --------------------
+    # Process-type tasks resolve the command from the system PATH, not from
+    # terminal.integrated.env.*.PATH. To ensure the task works when the
+    # Scripts directory is not on the system PATH (e.g., virtualenv or
+    # user-site installs), resolve the absolute path at injection time.
+    auto_start_exe = "agdt-copilot-auto-start"
+    scripts_dir = _detect_python_scripts_dir()
+    if scripts_dir is not None:
+        if sys.platform == "win32":
+            candidate = os.path.join(scripts_dir, auto_start_exe + ".exe")
+            if os.path.isfile(candidate):
+                auto_start_exe = candidate
+            else:
+                print(
+                    "Warning: agdt-copilot-auto-start not found at "
+                    f"{candidate!r}; using bare command name fallback "
+                    "(may fail if not on system PATH)",
+                    file=sys.stderr,
+                )
+        else:
+            candidate = os.path.join(scripts_dir, auto_start_exe)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                auto_start_exe = candidate
+            elif os.path.isfile(candidate):
+                print(
+                    "Warning: detected agdt-copilot-auto-start at absolute path "
+                    f"{candidate!r}, but it is not executable; using bare command "
+                    "name fallback instead",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "Warning: agdt-copilot-auto-start not found at "
+                    f"{candidate!r}; using bare command name fallback "
+                    "(may fail if not on system PATH)",
+                    file=sys.stderr,
+                )
+    else:
+        print(
+            "Warning: could not detect agdt-copilot-auto-start absolute path; "
+            "using bare command name (may fail if not on system PATH)",
+            file=sys.stderr,
+        )
+
+    command_args = [
+        "--worktree-path",
+        worktree_path,
+        "--start-prompt",
+        start_prompt,
+        "--task-label",
+        task_label,
+        "--run-id",
+        run_id.strip(),
+    ]
+    # Normalize model: treat empty/whitespace-only strings as "not provided"
+    # so that the auto-start command falls back to its state → default chain
+    # rather than receiving a blank --model value.
+    normalized_model: str | None = None
+    if isinstance(model, str):
+        stripped = model.strip()
+        if stripped:
+            normalized_model = stripped
+    if normalized_model is not None:
+        command_args.extend(["--model", normalized_model])
+
+    try:
+        with locked_file(
+            _get_auto_start_task_lock_path(worktree_path),
+            mode="a+",
+            exclusive=True,
+            timeout=_AUTO_START_FILE_LOCK_TIMEOUT_SECONDS,
+        ):
+            from agentic_devtools.cli.copilot.auto_start import _is_run_triggered
+
+            state_file_path, _ = _resolve_state_context_in_worktree(worktree_path)
+            if state_file_path and _is_run_triggered(state_file_path, normalized_run_id):
+                # Best-effort cleanup: remove any stale auto-start task that may
+                # have been left behind from a previous run whose cleanup failed
+                # or was interrupted.  This prevents the orphaned task entry from
+                # persisting permanently in tasks.json.
+                _remove_stale_auto_start_task(
+                    tasks_path,
+                    vscode_dir,
+                    task_label,
+                    expected_run_id=normalized_run_id,
+                )
+                return False
+
+            # --- Read existing tasks.json (if any) -----------------------------------
+            tasks_config: dict = {"version": "2.0.0", "tasks": []}
+            file_existed = os.path.exists(tasks_path)
+            if file_existed:
+                try:
+                    with open(tasks_path, encoding="utf-8") as fh:
+                        loaded = json.load(fh)
+                    # Guard: a valid tasks.json could be any JSON type; treat
+                    # non-dict top-levels as malformed and overwrite.
+                    if isinstance(loaded, dict):
+                        tasks_config = loaded
+                        # Ensure the required ``version`` field is present so VS Code
+                        # will accept the file even if the existing one was missing it.
+                        tasks_config.setdefault("version", "2.0.0")
+                    else:
+                        print(
+                            f"Warning: {tasks_path} is not a JSON object — will overwrite",
+                            file=sys.stderr,
+                        )
+                except (json.JSONDecodeError, OSError) as exc:
+                    print(
+                        f"Warning: could not read {tasks_path}: {exc} — will overwrite",
+                        file=sys.stderr,
+                    )
+
+            # Ensure the tasks list exists
+            if "tasks" not in tasks_config or not isinstance(tasks_config.get("tasks"), list):
+                tasks_config["tasks"] = []
+
+            # Remove any previously-injected task with the same label to avoid duplicates.
+            # Guard with isinstance(t, dict) so non-dict items don't raise on .get().
+            tasks_config["tasks"] = [
+                t for t in tasks_config["tasks"] if not isinstance(t, dict) or t.get("label") != task_label
+            ]
+
+            if not file_existed:
+                command_args_with_created_new = [*command_args, "--created-new"]
+            else:
+                command_args_with_created_new = command_args
+
+            # --- Build the task definition -------------------------------------------
+            task_def = {
+                "label": task_label,
+                "type": "process",
+                "command": auto_start_exe,
+                "args": command_args_with_created_new,
+                "runOptions": {"runOn": "folderOpen"},
+                "presentation": {
+                    "reveal": "always",
+                    "focus": True,
+                },
+                "problemMatcher": [],
+            }
+
+            tasks_config["tasks"].append(task_def)
+
+            # --- Write tasks.json ----------------------------------------------------
+            try:
+                os.makedirs(vscode_dir, exist_ok=True)
+                with open(tasks_path, "w", encoding="utf-8") as fh:
+                    json.dump(tasks_config, fh, indent=2)
+                    fh.write("\n")
+                print(f"Injected auto-start task '{task_label}' into {tasks_path}")
+                return True
+            except OSError as exc:
+                print(f"Warning: could not write {tasks_path}: {exc}", file=sys.stderr)
+                return False
+    except (FileLockError, OSError) as exc:
+        print(f"Warning: could not acquire auto-start task lock for {tasks_path}: {exc}", file=sys.stderr)
+        return False
+
+
+_SETUP_DIAGNOSTIC_CREDENTIAL_PATTERN = re.compile(
+    r"(?i)(?:['\"])?\b(?:[a-z][a-z0-9]*(?:_[a-z0-9]+)*_)?"
+    r"(?:api[_-]?key|access[_-]?key(?:[_-]?id)?|secret[_-]?access[_-]?key|access[_-]?token|authorization|bearer|password|passwd|pat|secret|token)\b"
+    r"(?:['\"])?\s*[:=]\s*(?:(?P<q>['\"])[^'\"]*(?P=q)?|(?:(?:basic|bearer|digest|negotiate|ntlm)\s+)?[^\s,;'\"]*)(?:['\"])?"
+)
+_SETUP_DIAGNOSTIC_TOKEN_PATTERN = re.compile(r"(?i)\b(?:gh[pousr]_|github_pat_|xox[baprs]-|sk-|azdopt-)[a-z0-9_-]+")
+_SETUP_DIAGNOSTIC_BEARER_PATTERN = re.compile(r"(?i)\bbearer\s+[^\s,;]+")
+_SETUP_STDERR_READ_LIMIT = 4096
+# Minimum extra bytes captured beyond _SETUP_STDERR_READ_LIMIT so that
+# credential patterns or value-based sanitizers can match a secret that
+# straddles the output boundary. The effective overlap grows to the length of
+# the longest configured value-based secret for the current process so that a
+# full secret is always present for redaction before the final bounded slice.
+_SETUP_STDERR_SANITIZE_OVERLAP = 512
+_SETUP_SCRIPT_TIMEOUT_SECONDS = 60
+_SETUP_SCRIPT_KILL_WAIT_SECONDS = 5
+_SETUP_CLEANUP_TIMEOUT_SECONDS = 30
+_SETUP_CLEANUP_CONFIRMATION_TIMEOUT_SECONDS = 10
+_SETUP_CLEANUP_CONFIRMATION_POLL_SECONDS = 1
+
+
+def _sanitize_worktree_setup_diagnostic(value: object) -> str:
+    """Redact credentials and bound untrusted setup-script diagnostics."""
+    from agentic_devtools.cli.setup.log_sanitizer import sanitize as _log_sanitize  # noqa: PLC0415
+
+    text = str(value)
+    text = "".join(" " if ord(char) < 32 or ord(char) == 127 else char for char in text)
+    text = re.sub(r"\s+", " ", text).strip()
+    # Value-based redaction first (catches raw env-var secrets without labels).
+    text = _log_sanitize(text)
+    text = _SETUP_DIAGNOSTIC_CREDENTIAL_PATTERN.sub("<redacted>", text)
+    text = _SETUP_DIAGNOSTIC_BEARER_PATTERN.sub("<redacted>", text)
+    text = _SETUP_DIAGNOSTIC_TOKEN_PATTERN.sub("<redacted>", text)
+    return text[:_SETUP_STDERR_READ_LIMIT]
+
+
+def _get_worktree_setup_stderr_capture_limit() -> int:
+    """Return a bounded stderr capture size that still guarantees secret redaction."""
+    overlap = _SETUP_STDERR_SANITIZE_OVERLAP
+    for env_var in ("AZURE_DEV_OPS_COPILOT_PAT", "GITHUB_TOKEN", "JIRA_COPILOT_PAT"):
+        overlap = max(overlap, len(os.environ.get(env_var, "")))
+    return _SETUP_STDERR_READ_LIMIT + overlap
+
+
+def _terminate_worktree_setup_process_tree(proc: subprocess.Popen[str]) -> None:
+    """Best-effort terminate the setup-script process tree within a bounded wait."""
+
+    def _kill_process() -> None:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+
+    if platform.system() == "Windows":
+        try:
+            result = subprocess.run(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                shell=False,
+                timeout=_SETUP_SCRIPT_KILL_WAIT_SECONDS,
+            )
+            if result.returncode != 0:
+                _kill_process()
+        except subprocess.TimeoutExpired:
+            _kill_process()
+        except OSError:
+            _kill_process()
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)  # type: ignore[attr-defined]
+        except (ProcessLookupError, PermissionError, OSError):
+            _kill_process()
+
+    try:
+        proc.wait(timeout=_SETUP_SCRIPT_KILL_WAIT_SECONDS)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def run_worktree_setup_script(
+    worktree_path: str,
+    timeout_seconds: int = _SETUP_SCRIPT_TIMEOUT_SECONDS,
+) -> WorktreeSetupScriptResult:
+    """
+    Run the project-specific worktree setup script if it exists.
+
+    Looks for ``.agdt/agentic-devtools-worktree-setup.py`` in the worktree
+    root.  If found, executes it using the current Python interpreter with the
+    worktree root passed as the first argument and the worktree root set as the
+    working directory.  An absent script is a successful no-op; all failures
+    for a present script are returned explicitly.
+
+    Security: symlinks are rejected and the resolved script path must remain
+    inside the worktree root to guard against malicious repos using symlinks to
+    point the setup script at arbitrary files outside the worktree.
+
+    Args:
+        worktree_path: Path to the worktree directory.
+        timeout_seconds: Maximum time to allow the setup script to run.
+
+    Returns:
+        A ``WorktreeSetupScriptResult`` with ``missing``, ``succeeded``, or
+        ``failed`` status. Failure diagnostics contain stderr only and are
+        bounded and credential-redacted.
+    """
+    if timeout_seconds < 0:
+        raise ValueError("timeout_seconds must be non-negative")
+    try:
+        worktree_root = Path(worktree_path).resolve()
+        script_path = worktree_root / ".agdt" / "agentic-devtools-worktree-setup.py"
+        # Use lstat so that only a genuine FileNotFoundError produces the
+        # "missing" no-op outcome.  Other OSErrors (e.g. EACCES, ENOTDIR on a
+        # path component) propagate to the except-OSError handler below and are
+        # recorded as a "validation" failure rather than silently treated as
+        # absent.  lstat also distinguishes a truly absent script from a broken
+        # symlink (which lstat succeeds on), matching the subsequent is_symlink
+        # check.
+        try:
+            os.lstat(str(script_path))
+        except FileNotFoundError:
+            return WorktreeSetupScriptResult(status="missing")
+
+        if script_path.is_symlink():
+            print(
+                f"target setup script failure: refusing symlinked script {script_path}",
+                file=sys.stderr,
+            )
+            return WorktreeSetupScriptResult(
+                status="failed",
+                error_message="setup script path is a symlink",
+                category="validation",
+            )
+
+        if not script_path.is_file():
+            print(
+                "target setup script failure: setup script path is not a regular file",
+                file=sys.stderr,
+            )
+            return WorktreeSetupScriptResult(
+                status="failed",
+                error_message="setup script path is not a regular file",
+                category="invalid-path",
+            )
+
+        if not os.access(str(script_path), os.R_OK):
+            print("target setup script failure: setup script is not readable", file=sys.stderr)
+            return WorktreeSetupScriptResult(
+                status="failed",
+                error_message="setup script is not readable",
+                category="validation",
+            )
+
+        resolved_script_path = script_path.resolve()
+        try:
+            resolved_script_path.relative_to(worktree_root)
+        except ValueError:
+            print(
+                "target setup script failure: setup script resolves outside worktree",
+                file=sys.stderr,
+            )
+            return WorktreeSetupScriptResult(
+                status="failed",
+                error_message="setup script resolves outside the worktree",
+                category="validation",
+            )
+    except OSError as exc:
+        message = _sanitize_worktree_setup_diagnostic(f"path validation failed: {type(exc).__name__}: {exc}")
+        print(f"target setup script failure: {message}", file=sys.stderr)
+        return WorktreeSetupScriptResult(
+            status="failed",
+            error_message=message,
+            category="validation",
+        )
+
+    print(f"Running worktree setup script: {resolved_script_path}")
+    try:
+        if platform.system() == "Windows":
+            proc = subprocess.Popen(
+                [sys.executable, str(resolved_script_path), str(worktree_root)],
+                cwd=str(worktree_root),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                encoding="utf-8",
+                errors="replace",
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+            )
+        else:
+            proc = subprocess.Popen(
+                [sys.executable, str(resolved_script_path), str(worktree_root)],
+                cwd=str(worktree_root),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                encoding="utf-8",
+                errors="replace",
+                start_new_session=True,
+            )
+        stderr_chunks: list[str] = []
+        stderr_limit = _get_worktree_setup_stderr_capture_limit()
+        captured_length = 0
+        stderr_lock = threading.Lock()
+        stderr_pipe = proc.stderr
+
+        def _drain_stderr() -> None:
+            nonlocal captured_length
+            if stderr_pipe is None:
+                return
+            while True:
+                try:
+                    chunk = stderr_pipe.read(1024)
+                except (OSError, ValueError):
+                    break
+                if not chunk:
+                    break
+                with stderr_lock:
+                    remaining = stderr_limit - captured_length
+                    if remaining <= 0:
+                        continue
+                    kept = chunk[:remaining]
+                    stderr_chunks.append(kept)
+                    captured_length += len(kept)
+
+        stderr_reader = threading.Thread(target=_drain_stderr, daemon=True)
+        stderr_reader.start()
+
+        stderr_text = ""
+        try:
+            proc.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            _terminate_worktree_setup_process_tree(proc)
+            try:
+                proc.wait(timeout=_SETUP_SCRIPT_KILL_WAIT_SECONDS)
+            except subprocess.TimeoutExpired:
+                pass
+            raise
+        finally:
+            # Do not close stderr_pipe here: BufferedReader.close() acquires the
+            # same lock that read() holds in _drain_stderr, so calling close()
+            # while the reader is blocked would deadlock.  The bounded join()
+            # below is the only gate needed — the daemon reader thread will exit
+            # once the pipe reaches EOF (all writers closed) or when the
+            # background task process itself exits.
+            stderr_reader.join(timeout=_SETUP_SCRIPT_KILL_WAIT_SECONDS)
+            with stderr_lock:
+                stderr_text = "".join(stderr_chunks)
+        returncode = proc.returncode
+        if returncode != 0:
+            diagnostic = _sanitize_worktree_setup_diagnostic(stderr_text)
+            if not diagnostic:
+                diagnostic = "setup script exited without diagnostic output"
+            message = f"{diagnostic}"
+            print(
+                f"target setup script failure: exit code {returncode}: {message}",
+                file=sys.stderr,
+            )
+            return WorktreeSetupScriptResult(
+                status="failed",
+                exit_code=returncode,
+                error_message=message,
+                category="exit",
+            )
+        else:
+            print("Worktree setup script completed successfully.")
+            return WorktreeSetupScriptResult(status="succeeded", exit_code=0)
+    except subprocess.TimeoutExpired:
+        message = f"setup script timed out after {timeout_seconds} seconds"
+        print(f"target setup script failure: {message}", file=sys.stderr)
+        return WorktreeSetupScriptResult(status="failed", error_message=message, category="timeout")
+    except (FileNotFoundError, OSError) as exc:
+        message = _sanitize_worktree_setup_diagnostic(f"could not execute setup script: {type(exc).__name__}: {exc}")
+        print(f"target setup script failure: {message}", file=sys.stderr)
+        return WorktreeSetupScriptResult(status="failed", error_message=message, category="execution")
+
+
+def setup_worktree_environment(
+    issue_key: str,
+    branch_prefix: str = "feature",
+    branch_name: str | None = None,
+    use_existing_branch: bool = False,
+    open_vscode: bool = True,
+    defer_path_settings: bool = False,
+    defer_task_permission_settings: bool = False,
+    target_setup_timeout: int = _SETUP_SCRIPT_TIMEOUT_SECONDS,
+) -> WorktreeSetupResult:
+    """
+    Complete worktree setup: create worktree and open VS Code.
+
+    This is the main entry point for setting up a new development environment
+    for an issue. It:
+    1. Creates a git worktree for the issue
+    2. Injects ``.vscode/settings.json`` with Git for Windows PATH entries (Windows only)
+    3. Injects ``.vscode/settings.json`` with Python Scripts directory PATH entries (all platforms)
+    4. Injects ``task.allowAutomaticTasks: "on"`` into the VS Code settings
+    5. Runs ``.agdt/agentic-devtools-worktree-setup.py`` if present
+    6. Opens VS Code with the workspace file only after target setup succeeds
+
+    When ``defer_path_settings`` is True, steps 2-3 are left to the caller.
+    When ``defer_task_permission_settings`` is True, step 4 is left to the
+    caller. Background workflow setup may defer both so any nested auto-execute
+    command sees a clean tracked workspace file; the caller applies these
+    settings only after the nested command succeeds and before VS Code opens.
+
+    Args:
+        issue_key: The issue key (e.g., "PROJECT-1234")
+        branch_prefix: Prefix for the branch name (default: "feature").
+            Ignored if branch_name is provided.
+        branch_name: Exact branch name to use. If provided, branch_prefix is ignored.
+            Used for PR review workflows where the branch already exists on origin.
+        use_existing_branch: If True and branch_name is provided, checkout the
+            existing branch from origin instead of creating a new one.
+        open_vscode: Whether to open VS Code (default: True)
+        defer_path_settings: Leave PATH settings injection to the caller
+            (default: False).
+        defer_task_permission_settings: Leave automatic-task permission
+            injection to the caller (default: False).
+        target_setup_timeout: Maximum time in seconds for the target setup
+            script (default: 60).
+
+    Returns:
+        WorktreeSetupResult with success status and details.  A present target
+        setup script that fails returns an unsuccessful result and prevents VS
+        Code from opening.
+    """
+    if target_setup_timeout < 0:
+        raise ValueError("target_setup_timeout must be non-negative")
+    # Step 1: Create worktree
+    result = create_worktree(
+        issue_key=issue_key,
+        branch_prefix=branch_prefix,
+        branch_name=branch_name,
+        use_existing_branch=use_existing_branch,
+    )
+
+    if not result.success:
+        return result
+
+    # Step 2: Inject VS Code settings for Windows Git PATH
+    if not defer_path_settings:
+        inject_git_path_settings(result.worktree_path)
+
+    # Step 3: Inject VS Code settings for Python/agdt-* Scripts PATH (all platforms)
+    if not defer_path_settings:
+        inject_python_path_settings(result.worktree_path)
+
+    # Step 4: Inject task.allowAutomaticTasks permission for runOn:folderOpen tasks
+    if not defer_task_permission_settings:
+        inject_task_permission_settings(result.worktree_path)
+
+    # Step 5: Run project-specific worktree setup script if present
+    script_result = run_worktree_setup_script(
+        result.worktree_path,
+        timeout_seconds=target_setup_timeout,
+    )
+    if isinstance(script_result, WorktreeSetupScriptResult):
+        script_status = script_result.status
+        if script_status not in {"missing", "succeeded", "failed"}:
+            script_status = "failed"
+            script_result = WorktreeSetupScriptResult(
+                status="failed",
+                error_message="target setup script returned an invalid status",
+                category="execution",
+            )
+    else:
+        # Keep callers that mock the historical no-return helper compatible.
+        script_status = "succeeded"
+
+    if script_status == "failed":
+        category = script_result.category or "execution"
+        error_message = _sanitize_worktree_setup_diagnostic(
+            f"{category}: {script_result.error_message or 'target setup script failed'}"
+        )
+        result.success = False
+        result.target_setup_status = "failed"
+        result.target_setup_exit_code = (
+            str(script_result.exit_code)
+            if script_result.exit_code is not None
+            else "timeout"
+            if category == "timeout"
+            else "blocked"
+        )
+        result.target_setup_error = error_message
+        result.error_message = _sanitize_worktree_setup_diagnostic(f"target setup script failure: {error_message}")
+        return result
+
+    result.target_setup_status = script_status
+    result.target_setup_exit_code = (
+        str(script_result.exit_code)
+        if isinstance(script_result, WorktreeSetupScriptResult) and script_result.exit_code is not None
+        else "0"
+    )
+    result.target_setup_error = None
+
+    # Step 6: Open VS Code
+    if open_vscode:
+        result.vscode_opened = open_vscode_workspace(result.worktree_path)
+
+    return result
+
+
+def _wait_for_worktree_removal(worktree_path: str) -> bool:
+    """Wait briefly for a timed-out worktree removal to finish asynchronously."""
+    import time
+
+    deadline = time.monotonic() + _SETUP_CLEANUP_CONFIRMATION_TIMEOUT_SECONDS
+    while os.path.exists(worktree_path) and time.monotonic() < deadline:
+        time.sleep(_SETUP_CLEANUP_CONFIRMATION_POLL_SECONDS)
+    return not os.path.exists(worktree_path)
+
+
+def _remove_invocation_trust_if_worktree_gone(result: WorktreeSetupResult) -> None:
+    """Remove trust only when this invocation added it and the path is gone."""
+    if result.copilot_trust_added and not os.path.exists(result.worktree_path):
+        from ..copilot.trust import remove_trusted_folder
+
+        remove_trusted_folder(result.worktree_path)
+
+
+def _cleanup_failed_worktree_setup(result: WorktreeSetupResult) -> None:
+    """Best-effort cleanup of invocation-owned worktree and created local branch."""
+    if not result.created_worktree:
+        return
+
+    try:
+        try:
+            cleanup_result = subprocess.run(
+                ["git", "worktree", "remove", "--force", result.worktree_path],
+                cwd=get_main_repo_root(),
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                shell=False,
+                timeout=_SETUP_CLEANUP_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            print(
+                "Cleanup failed; retain the original target setup script failure. "
+                f"Manual recovery may be required for worktree {result.worktree_path}: "
+                f"{' '.join(str(a) for a in exc.cmd) if exc.cmd else 'git worktree remove'} "
+                f"timed out after {_SETUP_CLEANUP_TIMEOUT_SECONDS}s",
+                file=sys.stderr,
+            )
+            if result.copilot_trust_added and _wait_for_worktree_removal(result.worktree_path):
+                _remove_invocation_trust_if_worktree_gone(result)
+            return
+        if cleanup_result.returncode == 0:
+            print(
+                f"Cleanup attempted for worktree created by this setup: {result.worktree_path} "
+                f"(branch: {result.branch_name})"
+            )
+            if os.path.exists(result.worktree_path):
+                print(
+                    "Cleanup failed; retain the original target setup script failure. "
+                    f"Manual recovery may be required for worktree {result.worktree_path}: "
+                    "git worktree remove reported success but path still exists",
+                    file=sys.stderr,
+                )
+                return
+            _remove_invocation_trust_if_worktree_gone(result)
+            if result.created_branch:
+                try:
+                    branch_cleanup = subprocess.run(
+                        ["git", "branch", "-D", result.branch_name],
+                        cwd=get_main_repo_root(),
+                        capture_output=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        check=False,
+                        shell=False,
+                        timeout=_SETUP_CLEANUP_TIMEOUT_SECONDS,
+                    )
+                except subprocess.TimeoutExpired as exc:
+                    print(
+                        "Cleanup failed; retain the original target setup script failure. "
+                        f"Manual recovery may be required for branch {result.branch_name}: "
+                        f"{' '.join(str(a) for a in exc.cmd) if exc.cmd else 'git branch -D'} "
+                        f"timed out after {_SETUP_CLEANUP_TIMEOUT_SECONDS}s",
+                        file=sys.stderr,
+                    )
+                    return
+                if branch_cleanup.returncode != 0:
+                    diagnostic = (
+                        _sanitize_worktree_setup_diagnostic(branch_cleanup.stderr or "") or "git branch cleanup failed"
+                    )
+                    print(
+                        "Cleanup failed; retain the original target setup script failure. "
+                        f"Manual recovery may be required for branch {result.branch_name}: {diagnostic}",
+                        file=sys.stderr,
+                    )
+        else:
+            diagnostic = (
+                _sanitize_worktree_setup_diagnostic(cleanup_result.stderr or "") or "git worktree remove failed"
+            )
+            print(
+                "Cleanup failed; retain the original target setup script failure. "
+                f"Manual recovery may be required for worktree {result.worktree_path}: {diagnostic}",
+                file=sys.stderr,
+            )
+    except (FileNotFoundError, OSError) as exc:
+        print(
+            "Cleanup failed; retain the original target setup script failure. "
+            f"Manual recovery may be required for worktree {result.worktree_path}: "
+            f"{_sanitize_worktree_setup_diagnostic(exc)}",
+            file=sys.stderr,
+        )
+
+
+def check_worktree_exists(issue_key: str) -> str | None:
+    """
+    Check if a worktree for the given issue key already exists.
+
+    Args:
+        issue_key: The issue key to check for
+
+    Returns:
+        The worktree path if it exists, None otherwise
+    """
+    repos_parent = get_repos_parent_dir()
+    if not repos_parent:
+        return None
+
+    worktree_path = os.path.join(repos_parent, issue_key)
+
+    if os.path.exists(worktree_path):
+        # Verify it's a valid git worktree
+        git_file = os.path.join(worktree_path, ".git")
+        if os.path.exists(git_file):
+            return worktree_path
+
+    return None
+
+
+def get_worktree_continuation_prompt(
+    issue_key: str,
+    workflow_name: str,
+    user_request: str | None = None,
+    additional_params: dict | None = None,
+    model: str | None = None,
+) -> str:
+    """
+    Generate a prompt for continuing a workflow in a new VS Code window.
+
+    This generates a copy/paste ready command that the user can paste into
+    the AI chat in the new VS Code window to continue the workflow.
+
+    Args:
+        issue_key: The issue key
+        workflow_name: The workflow name (e.g., "work-on-jira-issue", "pull-request-review")
+        user_request: The user's explanation/request for what they want
+            (AI will use this to populate Jira fields appropriately)
+        additional_params: Additional parameters to include in the command
+            (e.g., {"pull_request_id": "12345"})
+        model: Optional Copilot model identifier to preserve in the
+            continuation command.
+
+    Returns:
+        A formatted prompt string to paste in the new VS Code window
+    """
+    # Build the base command for each workflow
+    workflow_base_commands = {
+        "work-on-jira-issue": "agdt-initiate-work-on-jira-issue-workflow",
+        "pull-request-review": "agdt-initiate-pull-request-review-workflow",
+        "apply-pull-request-review-suggestions": "agdt-initiate-apply-pr-suggestions-workflow",
+        "create-jira-issue": "agdt-initiate-create-jira-issue-workflow",
+        "create-jira-epic": "agdt-initiate-create-jira-epic-workflow",
+        "create-jira-subtask": "agdt-initiate-create-jira-subtask-workflow",
+        "update-jira-issue": "agdt-initiate-update-jira-issue-workflow",
+        "optimize-issue-for-ai-agent": "agdt-initiate-optimize-issue-for-ai-agent-workflow",
+        "break-down-issue-into-subtasks": "agdt-initiate-break-down-issue-into-subtasks-workflow",
+    }
+
+    base_command = workflow_base_commands.get(workflow_name, "")
+
+    if not base_command:
+        return f"Continue working on issue {issue_key} in the new VS Code window."
+
+    # Build the full command with all parameters
+    command_parts = [base_command, f"--issue-key {issue_key}"]
+
+    # Add user-request if provided (for create workflows)
+    if user_request:
+        # Escape quotes in the value for shell safety
+        escaped_request = user_request.replace('"', '\\"')
+        command_parts.append(f'--user-request "{escaped_request}"')
+
+    # Add additional parameters if provided
+    if additional_params:
+        param_order = ["parent_key", "pull_request_id"]
+        for param_name in param_order:
+            if param_name in additional_params and additional_params[param_name]:
+                value = str(additional_params[param_name])
+                # Escape quotes in the value for shell safety
+                escaped_value = value.replace('"', '\\"')
+                cli_param = param_name.replace("_", "-")
+                command_parts.append(f'--{cli_param} "{escaped_value}"')
+
+    if isinstance(model, str) and model.strip():
+        command_parts.append(f"--model {_quote_recovery_argument(model.strip())}")
+
+    full_command = " ".join(command_parts)
+
+    # Generate a friendly description of what to do
+    return f"""
+================================================================================
+📋 WORKFLOW CONTINUATION
+================================================================================
+
+A Copilot session will start automatically in the new VS Code window.
+If the session doesn't start, paste this command in the VS Code AI chat:
+
+```
+{full_command}
+```
+
+This command is a fallback — normally the session starts automatically.
+================================================================================"""
+
+
+def get_ai_agent_continuation_prompt(
+    issue_key: str,
+    workflow_name: str = "work-on-jira-issue",
+    user_request: str | None = None,
+    additional_params: dict | None = None,
+    model: str | None = None,
+) -> str:
+    """
+    Generate a detailed prompt for AI agents to continue working on an issue.
+
+    This is used when a new VS Code window is opened in a worktree to provide
+    the AI agent with clear instructions on how to proceed.
+
+    Args:
+        issue_key: The Jira issue key (e.g., "PROJECT-1234") or PR identifier (e.g., "PR24031")
+        workflow_name: The workflow being executed (e.g., "update-jira-issue")
+        user_request: The user's request/explanation for the workflow
+        additional_params: Additional parameters for the command (e.g., {"pull_request_id": "24031"})
+        model: Optional Copilot model identifier to preserve in the
+            continuation command.
+
+    Returns:
+        A detailed prompt string formatted for AI agents
+    """
+    # Build the base command for each workflow
+    workflow_base_commands = {
+        "work-on-jira-issue": "agdt-initiate-work-on-jira-issue-workflow",
+        "pull-request-review": "agdt-initiate-pull-request-review-workflow",
+        "apply-pull-request-review-suggestions": "agdt-initiate-apply-pr-suggestions-workflow",
+        "create-jira-issue": "agdt-initiate-create-jira-issue-workflow",
+        "create-jira-epic": "agdt-initiate-create-jira-epic-workflow",
+        "create-jira-subtask": "agdt-initiate-create-jira-subtask-workflow",
+        "update-jira-issue": "agdt-initiate-update-jira-issue-workflow",
+        "optimize-issue-for-ai-agent": "agdt-initiate-optimize-issue-for-ai-agent-workflow",
+        "break-down-issue-into-subtasks": "agdt-initiate-break-down-issue-into-subtasks-workflow",
+    }
+
+    base_command = workflow_base_commands.get(workflow_name, "agdt-initiate-work-on-jira-issue-workflow")
+
+    # Build the full command with parameters
+    # For PR-based workflows, use --pull-request-id instead of --issue-key
+    if (
+        workflow_name in ("pull-request-review", "apply-pull-request-review-suggestions")
+        and additional_params
+        and additional_params.get("pull_request_id")
+    ):
+        pull_request_id = additional_params["pull_request_id"]
+        command_parts = [base_command, f"--pull-request-id {pull_request_id}"]
+    else:
+        command_parts = [base_command, f"--issue-key {issue_key}"]
+
+    if user_request:  # pragma: no cover
+        # Escape quotes for shell safety
+        escaped_request = user_request.replace('"', '\\"')
+        command_parts.append(f'--user-request "{escaped_request}"')
+
+    if isinstance(model, str) and model.strip():
+        command_parts.append(f"--model {_quote_recovery_argument(model.strip())}")
+
+    full_command = " ".join(command_parts)
+
+    # Generate workflow-appropriate prompt text
+    if workflow_name == "update-jira-issue":
+        task_description = "assigned to update a Jira issue's metadata"
+        action_description = (
+            "update the Jira issue fields (summary, description, acceptance criteria) as specified in the user request"
+        )
+    elif workflow_name in ("create-jira-issue", "create-jira-epic", "create-jira-subtask"):
+        task_description = "assigned to create a new Jira issue"
+        action_description = (
+            "populate the placeholder Jira issue with proper summary, description, "
+            "and acceptance criteria based on the user request"
+        )
+    elif workflow_name == "pull-request-review":
+        task_description = "assigned to review a pull request"
+        action_description = "review the pull request thoroughly and provide feedback"
+    elif workflow_name == "apply-pull-request-review-suggestions":
+        task_description = "assigned to apply pull request review suggestions"
+        action_description = "apply the PR review suggestions to the codebase as specified in the workflow prompt"
+    elif workflow_name == "optimize-issue-for-ai-agent":
+        task_description = "assigned to optimize a Jira issue for AI-agent clarity"
+        action_description = (
+            "rewrite the Jira issue to be clear and actionable for an AI agent, "
+            "then apply the update via agdt-update-jira-issue"
+        )
+    elif workflow_name == "break-down-issue-into-subtasks":
+        task_description = "assigned to break down a Jira issue into subtasks"
+        action_description = "analyze the Jira issue and create subtasks via agdt-initiate-create-jira-subtask-workflow"
+    else:
+        task_description = "assigned an issue to work on"
+        action_description = "work on the issue until you have completed the workflow"
+
+    return f"""NOTE: A Copilot session should start automatically in the VS Code integrated terminal. \
+The instructions below are a fallback in case the auto-start did not succeed.
+
+You are a senior software engineer and expert architect who has been {task_description}.
+
+Please run the following command:
+
+{full_command}
+
+to initiate the workflow and then follow the instructions logged to the console to {action_description}.
+
+Work as independently as possible, only pausing to ask questions or seek approval if absolutely \
+necessary. As a senior software engineer and expert architect you don't want or need individual \
+approval for every command that you execute, so use the example commands which can be auto approved \
+and you will be able to develop a quality solution much more efficiently.
+
+It is anyway not sensible to ask questions or ask for approval, because once your work is complete \
+another senior software engineer and expert architect in your team will thoroughly review your work. \
+So work through the entire process to the best of your abilities knowing that a trusted colleague \
+will review it all thoroughly and provide feedback at that time if necessary."""
+
+
+def _run_auto_execute_command(
+    command: list[str],
+    worktree_path: str,
+    timeout: int,
+    workflow: str | None = None,
+) -> int:
+    """
+    Execute a command inside a worktree and log the output.
+
+    Args:
+        command: The command and arguments to run.
+        worktree_path: The working directory for the command.
+        timeout: Maximum seconds to wait for the command.
+        workflow: Optional workflow name. When provided, a pin file is written
+            to the target worktree's ``.agdt/`` directory before spawning the
+            subprocess, ensuring the VS Code auto-start task resolves the same
+            state directory.
+
+    Returns:
+        The process exit code, or -1 if the command could not be started or timed out.
+    """
+    print(f"\n--- Executing command in worktree: {' '.join(command)} ---")
+    # Inherit current environment and pin AGENTIC_DEVTOOLS_STATE_DIR to the
+    # target worktree's identity-scoped state directory whenever a valid
+    # ``identity`` (read from ``.agdt/identity.json`` when present, otherwise
+    # from ``runtime-bootstrap.json``) and ``worktree_key`` (from
+    # ``runtime-bootstrap.json``) can be resolved. Falls back to ``_unscoped``
+    # when either file is missing, unreadable, or malformed, when either key
+    # is absent or empty, or when either segment fails ``is_safe_dir_segment()``
+    # validation. This propagates into any nested background tasks spawned by
+    # the auto-execute command so that prompt files and state are written to
+    # the correct worktree location instead of falling back to a
+    # Python-install-relative temp directory.
+    env = os.environ.copy()
+
+    # Read identity from the identity cache file (new) with fallback to runtime-bootstrap.json (legacy).
+    # worktree_key always comes from runtime-bootstrap.json.
+    identity_cache_path = Path(worktree_path) / ".agdt" / IDENTITY_CACHE_FILENAME
+    identity = ""
+    worktree_key = ""
+    try:
+        if identity_cache_path.is_file():
+            data = json.loads(identity_cache_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                raw_id = data.get("identity", "")
+                identity = raw_id.strip() if isinstance(raw_id, str) else ""
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        pass
+
+    bootstrap_path = Path(worktree_path) / ".agdt" / "runtime-bootstrap.json"
+    try:
+        if bootstrap_path.is_file():
+            data = json.loads(bootstrap_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                raw_wk = data.get("worktree_key", "")
+                worktree_key = raw_wk.strip() if isinstance(raw_wk, str) else ""
+                # Legacy fallback: read identity from bootstrap when identity.json absent
+                if not identity:
+                    raw_id = data.get("identity", "")
+                    identity = raw_id.strip() if isinstance(raw_id, str) else ""
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        pass
+
+    # Validate that identity/worktree_key are safe single-component directory
+    # names (no path separators, no ``..``) to prevent the state dir from
+    # escaping the .agdt/workflows subtree via a malformed bootstrap file.
+    from ...state import is_safe_dir_segment
+
+    if identity and worktree_key and is_safe_dir_segment(identity) and is_safe_dir_segment(worktree_key):
+        state_dir = Path(worktree_path) / ".agdt" / "workflows" / identity / worktree_key
+    else:
+        if identity and worktree_key:
+            # Both values present but at least one failed safety validation.
+            print(
+                f"WARNING: unsafe bootstrap identity/worktree_key "
+                f"({identity!r}/{worktree_key!r}), falling back to _unscoped"
+            )
+        state_dir = Path(worktree_path) / ".agdt" / "workflows" / "_unscoped"
+    try:
+        state_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"WARNING: Failed to create state directory {state_dir!s}: {e}")
+    env["AGENTIC_DEVTOOLS_STATE_DIR"] = str(state_dir)
+    print(f"   Resolved state directory: {state_dir!s}")
+
+    # Write pin file to target worktree so the VS Code auto-start task
+    # resolves the same state directory (fixes #1913).
+    if workflow:
+        try:
+            from ...state import write_pin_file
+
+            pin_result = write_pin_file(
+                state_dir,
+                workflow=workflow,
+                target_git_root=Path(worktree_path),
+            )
+            if pin_result:
+                print(f"   Pinned state dir: {state_dir!s}")
+        except (ValueError, OSError) as e:
+            print(f"WARNING: Failed to write pin file: {e}", file=sys.stderr)
+
+    import threading
+
+    timed_out = False
+
+    def _kill_on_timeout():
+        nonlocal timed_out
+        if process.poll() is None:
+            timed_out = True
+            try:
+                process.kill()
+            except (ProcessLookupError, OSError):
+                # The process may exit between poll() and kill(); treat that as a
+                # successful timeout enforcement so the caller still returns -1.
+                pass
+
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=worktree_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+            shell=False,  # Security: no shell expansion
+            env=env,
+        )
+
+        timer = threading.Timer(timeout, _kill_on_timeout)
+        timer.start()
+        try:
+            if process.stdout:
+                for line in process.stdout:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+            process.wait()
+        finally:
+            try:
+                if process.stdout:
+                    process.stdout.close()
+            finally:
+                timer.cancel()
+
+        if timed_out:
+            print(f"WARNING: Command timed out after {timeout} seconds")
+            return -1
+
+        if process.returncode != 0:
+            print(f"WARNING: Command exited with code {process.returncode}")
+
+        return process.returncode
+
+    except (FileNotFoundError, OSError) as e:
+        print(f"WARNING: Command failed to execute: {e}")
+        return -1
+
+
+def _wait_for_prompt_file(
+    prompt_path: Path,
+    timeout: float = 300,
+    poll_interval: float = 5.0,
+) -> bool:
+    """
+    Poll for a prompt file to appear on disk.
+
+    The file may be written by a background process started by the
+    auto-execute command, so we wait up to *timeout* seconds for it
+    to be created.
+
+    Args:
+        prompt_path: Absolute path to the expected prompt file.
+        timeout: Maximum seconds to wait (default: 300; accepts fractional seconds).
+        poll_interval: Seconds between checks (default: 5).
+
+    Returns:
+        True when the file exists; False if the timeout was reached.
+    """
+    import time
+
+    elapsed = 0.0
+    while elapsed < timeout:
+        if prompt_path.exists():
+            return True
+        time.sleep(poll_interval)
+        elapsed += poll_interval
+    return prompt_path.exists()
+
+
+def _start_copilot_session_for_workflow(
+    worktree_path: str,
+    prompt_file_relative_path: str,
+    workflow_name: str,
+    interactive: bool = False,
+    model: str | None = None,
+    autostart_injected: bool = False,
+    run_id: str | None = None,
+    recovery_start_prompt: str | None = None,
+    is_recovery_failure: bool = False,
+) -> bool:
+    """Wait for the workflow setup to complete, then start a ``gh copilot`` session.
+
+    This is the generic helper that all workflow-specific wrappers delegate
+    to.  It waits for a prompt file to appear on disk, detects VS Code /
+    TTY availability, handles the auto-start task run-ID check, and
+    finally calls :func:`start_copilot_session`.
+
+    **Auto-start task handling**: When *autostart_injected* is ``True``,
+    the VS Code auto-start task was already successfully written to
+    ``tasks.json`` before VS Code opened.  In that case this function
+    returns ``True`` immediately after spawning delayed verification
+    rather than starting an immediate duplicate background session.
+    VS Code still gets the first chance to handle the Copilot session
+    via the ``runOn: folderOpen`` task, while the verifier later claims
+    the run atomically and launches the non-interactive fallback only if
+    that task never fired. This eliminates the race condition where a
+    permission/trust dialog delays VS Code task execution beyond the
+    previous timeout and caused a duplicate background session to be
+    spawned.
+
+    When *autostart_injected* is ``False`` (injection failed or was
+    skipped), the original behaviour is preserved: wait for the run ID,
+    try terminal sendSequence, then fall back to a background session.
+
+    In interactive mode the Copilot session inherits the terminal so the
+    user can interact with it; in non-interactive mode it runs in the
+    background (pipeline use-case).
+
+    When VS Code is not available the session is forced non-interactive
+    regardless of the *interactive* argument.
+
+    Args:
+        worktree_path: Absolute path to the worktree root.
+        prompt_file_relative_path: Path to the prompt file relative to
+            *worktree_path* (forward-slash separated segments joined via
+            ``Path(worktree_path) / prompt_file_relative_path``).
+        workflow_name: Human-readable workflow name for log messages.
+        interactive: Whether to start the Copilot session interactively.
+        autostart_injected: Whether the VS Code auto-start task was
+            successfully injected. When ``True``, skip the immediate
+            background launch and delegate fallback ownership to the
+            delayed verifier thread.
+        run_id: The exact run ID that was injected into the VS Code
+            auto-start task.  Forwarded to the delayed verification so it
+            polls for the same run ID the task marks as triggered, rather
+            than re-reading a possibly-mutated ``agdt_run_id`` from state.
+        recovery_start_prompt: Optional one-line prompt to use directly
+            instead of waiting for a rendered prompt file.  When
+            *is_recovery_failure* is ``True`` this is a failure-recovery
+            prompt (printed with a "preflight failed" banner); when
+            ``False`` it is a bootstrap prompt for workflows that have no
+            prompt-filename mapping (printed with a neutral bootstrap
+            banner).
+        is_recovery_failure: ``True`` when *recovery_start_prompt* is being
+            used because auto-execute preflight failed.  ``False`` (default)
+            when it is used as a workflow-agnostic bootstrap for a workflow
+            with no prompt-filename mapping. Controls recovery-safe behavior:
+            when ``True`` this function skips stale auto-start task cleanup and
+            avoids opening the log file in VS Code so tracked workspace files
+            are not mutated before nested recovery reruns.
+
+    Returns:
+        ``True`` when a Copilot session was started successfully or the
+        VS Code auto-start task was confirmed running.  ``False`` when
+        the prompt file was not found or was not a regular file.
+    """
+    from ..copilot.session import start_copilot_session
+
+    if isinstance(recovery_start_prompt, str) and recovery_start_prompt:
+        if is_recovery_failure:
+            print("\n--- Auto-execute preflight failed; using the exact nested-command recovery prompt. ---")
+        else:
+            print("\n--- No prompt-file mapping; using workflow-agnostic bootstrap prompt. ---")
+        start_prompt = recovery_start_prompt
+    else:
+        prompt_file = Path(worktree_path) / prompt_file_relative_path
+
+        print(f"\n--- Waiting for initiate prompt file ({workflow_name}): {prompt_file} ---")
+        if not _wait_for_prompt_file(prompt_file):
+            print("WARNING: Initiate prompt file not found after waiting. Skipping Copilot session.")
+            return False
+        if not prompt_file.is_file():
+            print("WARNING: Initiate prompt path exists but is not a regular file. Skipping Copilot session.")
+            return False
+
+        # Build the start prompt from the exact resolved path so the model
+        # receives a path that is guaranteed to resolve regardless of state
+        # directory layout (scoped, _unscoped, or AGENTIC_DEVTOOLS_STATE_DIR override).
+        start_prompt = _build_session_start_prompt(prompt_file_relative_path)
+
+    # Non-interactive mode when VS Code is not available (pipeline scenario),
+    # or when there is no TTY attached (e.g. running inside run_function_in_background
+    # where stdin/stdout are redirected to DEVNULL/log files).
+    has_tty = getattr(sys.stdin, "isatty", lambda: False)() and getattr(sys.stdout, "isatty", lambda: False)()
+
+    # --- Auto-start injection confirmed: delayed verification fallback ------
+    # When the caller confirms the auto-start task was successfully injected
+    # into tasks.json, we trust that VS Code *will probably* execute it.
+    # However, the task can still fail (e.g., copilot binary locked, permission
+    # dialog dismissed, VS Code crash).  Instead of blindly returning True,
+    # we spawn a non-daemon thread that waits for the run ID to appear in state
+    # (proving the task ran).  If it doesn't appear within the grace period,
+    # the thread starts a non-interactive background session as a safety net.
+    if autostart_injected and not has_tty:
+        print(
+            "\n--- VS Code auto-start task was successfully injected. "
+            f"A delayed verification (up to {_AUTOSTART_VERIFICATION_DELAY_S:.0f}s) "
+            "will confirm it ran and may keep this task running; if not, a "
+            "background fallback session will be started automatically. ---"
+        )
+        _spawn_delayed_autostart_verification(
+            worktree_path=worktree_path,
+            start_prompt=start_prompt,
+            workflow_name=workflow_name,
+            model=model,
+            run_id=run_id,
+        )
+        return True
+
+    # --- Legacy check for auto-start task (when autostart_injected=False) ----
+    # _maybe_inject_auto_start_before_vscode() injects the task *before* VS
+    # Code opens so that ``runOn: folderOpen`` fires with the task present.
+    # When that happened and we're in a background context (no TTY), we wait
+    # briefly for the run ID to appear in ``copilot.auto_start_triggered_runs``
+    # confirming the VS Code task actually started.  If the run ID appears,
+    # VS Code is handling the session and we can skip.  If it doesn't appear
+    # within a reasonable window (e.g. VS Code failed to open or the task
+    # didn't fire), we fall through and start the session ourselves as a
+    # fallback.
+    # NOTE: The check intentionally does NOT require interactive=True.
+    # Injection happens regardless of the interactive flag (see
+    # _maybe_inject_auto_start_before_vscode), so we must check for the
+    # auto-start task even when interactive=False.
+    if not has_tty and is_vscode_available():
+        tasks_path = os.path.join(worktree_path, ".vscode", "tasks.json")
+        if os.path.exists(tasks_path):
+            try:
+                with open(tasks_path, encoding="utf-8") as fh:
+                    data = json.load(fh)
+                if isinstance(data, dict):
+                    tasks_list = data.get("tasks")
+                    if not isinstance(tasks_list, list):
+                        tasks_list = []
+                    if any(isinstance(t, dict) and t.get("label") == _AUTO_START_TASK_LABEL for t in tasks_list):
+                        from agentic_devtools.cli.copilot.auto_start import _is_run_triggered
+
+                        state_file_path, current_run_id = _resolve_state_context_in_worktree(
+                            worktree_path,
+                            include_run_id=True,
+                        )
+
+                        if state_file_path:
+                            # If we have a state file but no current run ID, there is
+                            # nothing meaningful to wait for. This can happen when a
+                            # stale tasks.json is present but no VS Code task has
+                            # populated the run ID yet. In that case we must fall
+                            # through immediately so the user still gets a Copilot
+                            # session without an unconditional delay.
+                            if not current_run_id:
+                                print(
+                                    "\n--- VS Code auto-start task present but no run ID "
+                                    "is available in state. Falling back to background "
+                                    "Copilot session. ---"
+                                )
+                            # Check whether the run ID is already triggered *before*
+                            # we start waiting.  A pre-existing triggered run ID
+                            # (e.g. from a previous run) would cause the VS Code
+                            # task to exit immediately without starting a session.
+                            # In that case we must fall through to the background
+                            # session so the user still gets a Copilot session.
+                            elif _is_run_triggered(state_file_path, current_run_id):
+                                print(
+                                    "\n--- Run ID already triggered. "
+                                    "VS Code task will skip; falling back to "
+                                    "background Copilot session. ---"
+                                )
+                            else:
+                                print(
+                                    "\n--- VS Code auto-start task present. "
+                                    "Waiting for VS Code to start the Copilot session... ---"
+                                )
+                                # Wait up to 15 seconds for the run ID to appear in state,
+                                # which means the VS Code task actually executed.
+                                import time
+
+                                _TRIGGERED_WAIT_SECONDS = 15
+                                _TRIGGERED_POLL_INTERVAL = 1.0
+                                waited = 0.0
+                                while waited < _TRIGGERED_WAIT_SECONDS:
+                                    if _is_run_triggered(state_file_path, current_run_id):
+                                        print(
+                                            "--- VS Code auto-start task confirmed running. "
+                                            "Copilot session is in the integrated terminal. ---"
+                                        )
+                                        return True
+                                    time.sleep(_TRIGGERED_POLL_INTERVAL)
+                                    waited += _TRIGGERED_POLL_INTERVAL
+                                print(
+                                    "--- VS Code auto-start task did not fire within "
+                                    f"{_TRIGGERED_WAIT_SECONDS}s. "
+                                    "Trying terminal sendSequence fallback... ---"
+                                )
+                                if _try_terminal_send_fallback(worktree_path, expected_run_id=current_run_id):
+                                    return True
+                                print("--- Falling back to background Copilot session. ---")
+            except (json.JSONDecodeError, OSError):
+                pass  # Fall through to starting the session directly
+
+    if not has_tty and not is_vscode_available():
+        print(
+            "NOTE: VS Code integrated terminal auto-start not available. "
+            "Copilot session will run in the background. "
+            "Run agdt-task-log to view output."
+        )
+
+    effective_interactive = interactive and is_vscode_available() and has_tty
+
+    # Remove any stale auto-start task from tasks.json BEFORE starting a new
+    # session. A leftover runOn:folderOpen task from a previous workflow
+    # invocation can fire when VS Code reloads, causing a duplicate Copilot
+    # session alongside the one we are about to start. See #1742.
+    #
+    # For recovery failures we intentionally avoid mutating tracked workspace
+    # files before the nested recovery command reruns reset_branch_to_origin().
+    if not is_recovery_failure:
+        _cleanup_stale_auto_start_task_for_worktree(worktree_path)
+
+    print(
+        f"\n--- Starting gh copilot session for {workflow_name} "
+        f"(mode: {'interactive' if effective_interactive else 'non-interactive'}) ---"
+    )
+    # start_copilot_session() resolves paths via get_state_dir(), so we enter
+    # worktree_state_context(worktree_path), which changes into the target worktree
+    # and clears both AGENTIC_DEVTOOLS_STATE_DIR and the legacy
+    # AGDT_AI_HELPERS_STATE_DIR override variables for cross-worktree resolution.
+    # We then set AGENTIC_DEVTOOLS_STATE_DIR to the resolved target state dir so
+    # downstream writes stay pinned to the target worktree for this session.
+    with worktree_state_context(worktree_path):
+        from ...state import get_state_dir
+
+        state_dir = get_state_dir()
+        os.environ["AGENTIC_DEVTOOLS_STATE_DIR"] = str(state_dir)
+        session_result = start_copilot_session(
+            prompt=start_prompt,
+            working_directory=worktree_path,
+            interactive=effective_interactive,
+            model=model,
+        )
+        # Open the log file in VS Code for non-interactive sessions so the
+        # user can watch Copilot output in real time.  Skip in CI (no VS Code
+        # or no TTY on the *original* caller — here we check is_vscode_available
+        # which is False in headless CI).
+        if (
+            not effective_interactive
+            and session_result is not None
+            and session_result.log_file
+            and is_vscode_available()
+            and not _in_test_environment()
+            and not is_recovery_failure
+        ):
+            _open_log_in_vscode(session_result.log_file, worktree_path)
+        return True
+
+
+def _start_copilot_session_for_pr_review(
+    worktree_path: str,
+    interactive: bool = False,
+    model: str | None = None,
+) -> bool:
+    """Start a Copilot session for the pull-request-review workflow.
+
+    Thin wrapper around :func:`_start_copilot_session_for_workflow` that
+    supplies PR-review-specific parameters (prompt file path and start
+    prompt text).
+
+    Args:
+        worktree_path: Absolute path to the worktree root.
+        interactive: Whether to start the Copilot session interactively.
+        model: Optional Copilot model ID to use.
+
+    Returns:
+        ``True`` when a Copilot session was started or the auto-start task
+        confirmed running, ``False`` otherwise.
+    """
+    return _start_copilot_session_for_workflow(
+        worktree_path=worktree_path,
+        prompt_file_relative_path=_prompt_file_relative_path(
+            worktree_path, "temp-pull-request-review-initiate-prompt.md"
+        ),
+        workflow_name="pull-request-review",
+        interactive=interactive,
+        model=model,
+    )
+
+
+def _prompt_file_relative_path(worktree_path: str, prompt_filename: str) -> str:
+    """Resolve the prompt file path relative to *worktree_path*.
+
+    The prompt file lives in the state directory (returned by
+    :func:`get_state_dir`).  This helper computes the relative path from
+    *worktree_path* so that ``_start_copilot_session_for_workflow`` can
+    construct the absolute path via ``Path(worktree_path) / relative``.
+
+    When ``AGENTIC_DEVTOOLS_STATE_DIR`` is already set *and* points to a
+    directory under the target worktree, the env-var value is used directly.
+    This is the path where prompt files were written by the auto-execute
+    subprocess (see :func:`_run_auto_execute_command`), so using it ensures
+    prompt generation and prompt lookup agree.  The containment check uses
+    ``os.path.normcase`` so that drive-letter and path casing differences
+    on Windows do not cause a false negative.
+
+    When the env var is absent or points outside the worktree,
+    ``get_state_dir()`` is resolved inside the *worktree* context
+    (CWD + env override cleared) so the returned path points to the
+    worktree's own state directory — not the caller's.
+    """
+    from ...state import get_state_dir
+
+    # Fast path: honour AGENTIC_DEVTOOLS_STATE_DIR when it already points
+    # under the target worktree — this is the path the auto-execute
+    # subprocess used to write the prompt files.  Unsetting the env var and
+    # resolving via bootstrap could yield a different (scoped) directory,
+    # causing the session launcher to wait for a file that will never appear
+    # at the bootstrap-resolved path.
+    env_state_dir = os.environ.get("AGENTIC_DEVTOOLS_STATE_DIR")
+    if env_state_dir:
+        try:
+            real_env = os.path.normcase(os.path.realpath(env_state_dir))
+            real_wt = os.path.normcase(os.path.realpath(worktree_path))
+            if real_env == real_wt or real_env.startswith(real_wt + os.sep):
+                state_dir = Path(env_state_dir)
+                return os.path.relpath(str(state_dir / prompt_filename), worktree_path)
+        except (OSError, ValueError):
+            pass  # Fall through to bootstrap resolution
+
+    # Slow path: resolve get_state_dir() in the worktree context.
+    with worktree_state_context(worktree_path):
+        state_dir = get_state_dir()
+        return os.path.relpath(str(state_dir / prompt_filename), worktree_path)
+
+
+def _start_copilot_session_for_apply_pr_suggestions(
+    worktree_path: str,
+    interactive: bool = False,
+    model: str | None = None,
+) -> bool:
+    """Start a Copilot session for the apply-pull-request-review-suggestions workflow.
+
+    Thin wrapper around :func:`_start_copilot_session_for_workflow` that
+    supplies apply-pr-suggestions-specific parameters.
+
+    Args:
+        worktree_path: Absolute path to the worktree root.
+        interactive: Whether to start the Copilot session interactively.
+        model: Optional Copilot model ID to use.
+
+    Returns:
+        ``True`` when a Copilot session was started or the auto-start task
+        confirmed running, ``False`` otherwise.
+    """
+    return _start_copilot_session_for_workflow(
+        worktree_path=worktree_path,
+        prompt_file_relative_path=_prompt_file_relative_path(
+            worktree_path, "temp-apply-pull-request-review-suggestions-initiate-prompt.md"
+        ),
+        workflow_name="apply-pull-request-review-suggestions",
+        interactive=interactive,
+        model=model,
+    )
+
+
+def _start_copilot_session_for_work_on_jira_issue(
+    worktree_path: str,
+    interactive: bool = False,
+    model: str | None = None,
+) -> bool:
+    """Start a Copilot session for the work-on-jira-issue workflow.
+
+    Thin wrapper around :func:`_start_copilot_session_for_workflow` that
+    supplies work-on-jira-issue-specific parameters.
+
+    Args:
+        worktree_path: Absolute path to the worktree root.
+        interactive: Whether to start the Copilot session interactively.
+        model: Optional Copilot model ID to use.
+
+    Returns:
+        ``True`` when a Copilot session was started or the auto-start task
+        confirmed running, ``False`` otherwise.
+    """
+    return _start_copilot_session_for_workflow(
+        worktree_path=worktree_path,
+        prompt_file_relative_path=_prompt_file_relative_path(
+            worktree_path, "temp-work-on-jira-issue-planning-prompt.md"
+        ),
+        workflow_name="work-on-jira-issue",
+        interactive=interactive,
+        model=model,
+    )
+
+
+def _start_copilot_session_for_create_jira_issue(
+    worktree_path: str,
+    interactive: bool = False,
+    model: str | None = None,
+) -> bool:
+    """Start a Copilot session for the create-jira-issue workflow.
+
+    Thin wrapper around :func:`_start_copilot_session_for_workflow` that
+    supplies create-jira-issue-specific parameters.
+
+    Args:
+        worktree_path: Absolute path to the worktree root.
+        interactive: Whether to start the Copilot session interactively.
+        model: Optional Copilot model ID to use.
+
+    Returns:
+        ``True`` when a Copilot session was started or the auto-start task
+        confirmed running, ``False`` otherwise.
+    """
+    return _start_copilot_session_for_workflow(
+        worktree_path=worktree_path,
+        prompt_file_relative_path=_prompt_file_relative_path(
+            worktree_path, "temp-create-jira-issue-initiate-prompt.md"
+        ),
+        workflow_name="create-jira-issue",
+        interactive=interactive,
+        model=model,
+    )
+
+
+def _start_copilot_session_for_create_jira_epic(
+    worktree_path: str,
+    interactive: bool = False,
+    model: str | None = None,
+) -> bool:
+    """Start a Copilot session for the create-jira-epic workflow.
+
+    Thin wrapper around :func:`_start_copilot_session_for_workflow` that
+    supplies create-jira-epic-specific parameters.
+
+    Args:
+        worktree_path: Absolute path to the worktree root.
+        interactive: Whether to start the Copilot session interactively.
+        model: Optional Copilot model ID to use.
+
+    Returns:
+        ``True`` when a Copilot session was started or the auto-start task
+        confirmed running, ``False`` otherwise.
+    """
+    return _start_copilot_session_for_workflow(
+        worktree_path=worktree_path,
+        prompt_file_relative_path=_prompt_file_relative_path(worktree_path, "temp-create-jira-epic-initiate-prompt.md"),
+        workflow_name="create-jira-epic",
+        interactive=interactive,
+        model=model,
+    )
+
+
+def _start_copilot_session_for_create_jira_subtask(
+    worktree_path: str,
+    interactive: bool = False,
+    model: str | None = None,
+) -> bool:
+    """Start a Copilot session for the create-jira-subtask workflow.
+
+    Thin wrapper around :func:`_start_copilot_session_for_workflow` that
+    supplies create-jira-subtask-specific parameters.
+
+    Args:
+        worktree_path: Absolute path to the worktree root.
+        interactive: Whether to start the Copilot session interactively.
+        model: Optional Copilot model ID to use.
+
+    Returns:
+        ``True`` when a Copilot session was started or the auto-start task
+        confirmed running, ``False`` otherwise.
+    """
+    return _start_copilot_session_for_workflow(
+        worktree_path=worktree_path,
+        prompt_file_relative_path=_prompt_file_relative_path(
+            worktree_path, "temp-create-jira-subtask-initiate-prompt.md"
+        ),
+        workflow_name="create-jira-subtask",
+        interactive=interactive,
+        model=model,
+    )
+
+
+def _start_copilot_session_for_update_jira_issue(
+    worktree_path: str,
+    interactive: bool = False,
+    model: str | None = None,
+    step: str = "initiate",
+) -> bool:
+    """Start a Copilot session for the update-jira-issue workflow.
+
+    Thin wrapper around :func:`_start_copilot_session_for_workflow` that
+    supplies update-jira-issue-specific parameters.
+
+    Args:
+        worktree_path: Absolute path to the worktree root.
+        interactive: Whether to start the Copilot session interactively.
+        model: Optional Copilot model ID to use.
+        step: Workflow step name used to construct the rendered prompt
+            filename.  Defaults to ``"initiate"`` for backward compatibility;
+            pass ``"make-updates"`` when the Jira pre-fetch succeeded and the
+            workflow skipped the ``initiate`` step.
+
+    Returns:
+        ``True`` when a Copilot session was started or the auto-start task
+        confirmed running, ``False`` otherwise.
+    """
+    if step not in ("initiate", "make-updates") or "/" in step or "\\" in step:
+        raise ValueError(f"Invalid workflow step: {step!r}")
+
+    return _start_copilot_session_for_workflow(
+        worktree_path=worktree_path,
+        prompt_file_relative_path=_prompt_file_relative_path(
+            worktree_path,
+            f"temp-update-jira-issue-{step}-prompt.md",
+        ),
+        workflow_name="update-jira-issue",
+        interactive=interactive,
+        model=model,
+    )
+
+
+_PENDING_AUTO_START_FILENAME = "pending-auto-start.json"
+_FOCUS_SETTLE_SECONDS: float = 2.0
+
+# Grace period (seconds) for the delayed auto-start verification.
+# VS Code may show a workspace trust or task permission dialog before
+# executing runOn:folderOpen, so the window must be generous.
+_AUTOSTART_VERIFICATION_DELAY_S: float = 45.0
+_AUTOSTART_VERIFICATION_POLL_S: float = 3.0
+
+
+def _spawn_delayed_autostart_verification(
+    worktree_path: str,
+    start_prompt: str,
+    workflow_name: str,
+    model: str | None = None,
+    run_id: str | None = None,
+) -> None:
+    """Spawn a non-daemon thread that verifies the VS Code auto-start task ran.
+
+    After a grace period, the thread checks whether the auto-start task
+    wrote its run ID into ``copilot.auto_start_triggered_runs``.  If not,
+    it starts a non-interactive background Copilot session as a fallback
+    and opens the log file in VS Code (when available). If the verifier
+    cannot resolve both a state file and run ID, it fails closed and skips
+    fallback startup so no unclaimed duplicate session is launched.
+
+    The thread is non-daemon so it keeps the parent process alive until
+    verification completes. This includes the initial grace-period poll and,
+    when a fallback child is started, waiting for that child to exit so the
+    run can be finalized as ``completed`` or ``failed``. The fallback
+    session's non-daemon tee thread still keeps the parent process alive for
+    the duration of the Copilot subprocess output drain.
+
+    **Safety guard**: This function is a no-op inside test environments
+    (``PYTEST_CURRENT_TEST`` set) to prevent threads from outliving test
+    cases and accidentally spawning real Copilot sessions.
+
+    Args:
+        run_id: The exact run ID injected into the VS Code auto-start task.
+            When provided, the verification polls for this ID instead of
+            re-reading ``agdt_run_id`` from state, fixing a desync where a
+            nested setup command overwrites ``agdt_run_id`` after injection
+            and the verification would spuriously start a duplicate session.
+    """
+    if _in_test_environment():
+        return
+
+    state_file_path, state_run_id = _resolve_state_context_in_worktree(worktree_path, include_run_id=True)
+
+    def _verify_and_fallback() -> None:
+        import time
+
+        from agentic_devtools.cli.copilot.auto_start import _is_run_triggered
+
+        # Prefer the explicitly-injected run_id (the exact ID written into the VS
+        # Code auto-start task), then fall back to state, then the pending marker.
+        # This fixes the desync (#2161) where a nested --skip-copilot-session setup
+        # command overwrites agdt_run_id AFTER the task was injected, which would
+        # otherwise make this verification poll for a run ID the task never marks
+        # as triggered — causing a spurious duplicate fallback session.
+        current_run_id = run_id.strip() if isinstance(run_id, str) else ""
+        if not current_run_id:
+            current_run_id = state_run_id.strip()
+        if not current_run_id:
+            marker_path = os.path.join(worktree_path, ".vscode", _PENDING_AUTO_START_FILENAME)
+            try:
+                if os.path.isfile(marker_path):
+                    with open(marker_path, encoding="utf-8") as fh:
+                        marker = json.load(fh)
+                    if isinstance(marker, dict):
+                        run_id_value = marker.get("run_id")
+                        if isinstance(run_id_value, str):
+                            current_run_id = run_id_value.strip()
+            except (OSError, json.JSONDecodeError, ValueError):
+                current_run_id = ""
+
+        if state_file_path is None or not current_run_id:
+            # Cannot verify or claim atomically — fail closed so a fallback
+            # session is never launched without run ownership.
+            print(
+                "\n--- Delayed verification: no state file or run ID available. "
+                "Skipping fallback startup to avoid an unclaimed duplicate session; "
+                "pending auto-start artifacts remain for retry. ---",
+                file=sys.stderr,
+            )
+            return
+
+        # Poll for the run ID until the grace period expires.
+        elapsed = 0.0
+        while elapsed < _AUTOSTART_VERIFICATION_DELAY_S:
+            if _is_run_triggered(state_file_path, current_run_id):
+                # Auto-start task confirmed running — no fallback needed.
+                return
+            time.sleep(_AUTOSTART_VERIFICATION_POLL_S)
+            elapsed += _AUTOSTART_VERIFICATION_POLL_S
+
+        print(
+            f"\n--- Delayed verification: VS Code auto-start task did NOT run "
+            f"within {_AUTOSTART_VERIFICATION_DELAY_S:.0f}s. "
+            f"Starting background fallback Copilot session for {workflow_name}. ---",
+            file=sys.stderr,
+        )
+
+        # Claim the run ID before starting the fallback. A folder-open task can
+        # fire after the polling window expires; the atomic claim makes that
+        # late task observe an already-triggered run and exit without launching
+        # a second Copilot session.
+        assert state_file_path is not None
+        assert current_run_id
+
+        from agentic_devtools.cli.copilot.auto_start import _mark_run_triggered
+
+        try:
+            fallback_claimed = _mark_run_triggered(state_file_path, current_run_id)
+        except Exception as exc:
+            print(
+                f"Warning: delayed fallback could not claim auto-start run {current_run_id!r}: {exc}",
+                file=sys.stderr,
+            )
+            return
+
+        if not fallback_claimed:
+            print(
+                "\n--- Delayed verification: the VS Code auto-start task "
+                "claimed the run while fallback was preparing; skipping "
+                "fallback Copilot startup. ---",
+                file=sys.stderr,
+            )
+            return
+
+        from agentic_devtools.cli.copilot.auto_start import _record_run_outcome
+
+        _record_run_outcome(state_file_path, current_run_id, "running")
+
+        # Start the fallback non-interactive session.
+        child_ownership_established = False
+        session_result = None
+        try:
+            from ..copilot.session import start_copilot_session
+
+            # Pin state writes to the target worktree state dir when available.
+            target_state_dir = os.path.dirname(state_file_path)
+            previous_state_dir = os.environ.get("AGENTIC_DEVTOOLS_STATE_DIR")
+            os.environ["AGENTIC_DEVTOOLS_STATE_DIR"] = target_state_dir
+            try:
+                session_result = start_copilot_session(
+                    prompt=start_prompt,
+                    working_directory=worktree_path,
+                    interactive=False,
+                    model=model,
+                )
+            finally:
+                if previous_state_dir is None:
+                    os.environ.pop("AGENTIC_DEVTOOLS_STATE_DIR", None)
+                else:
+                    os.environ["AGENTIC_DEVTOOLS_STATE_DIR"] = previous_state_dir
+
+            if session_result is None:
+                raise RuntimeError("delayed fallback Copilot session did not launch a child process")
+            if session_result.process is None:
+                existing_pid = session_result.pid
+                if isinstance(existing_pid, int) and existing_pid > 0:
+                    print(
+                        "\n--- Delayed verification: fallback found an existing live "
+                        f"Copilot session (pid={existing_pid}); recording skipped outcome. ---",
+                        file=sys.stderr,
+                    )
+                    _record_run_outcome(state_file_path, current_run_id, "skipped")
+                    return
+                raise RuntimeError("delayed fallback Copilot session did not launch a child process")
+            child_ownership_established = True
+
+            # The fallback has taken over responsibility for this launch. Remove
+            # the pending folder-open path immediately so a late VS Code event
+            # cannot start a duplicate session.  Infer delete_if_empty from the
+            # task's "--created-new" arg so injection-created tasks.json files
+            # are deleted rather than rewritten empty.
+            _cleanup_stale_auto_start_task_for_worktree(worktree_path, expected_run_id=current_run_id)
+            _cleanup_pending_auto_start_marker(worktree_path, expected_run_id=current_run_id)
+            # Open log in VS Code so the user can monitor.
+            if (
+                session_result is not None
+                and session_result.log_file
+                and is_vscode_available()
+                and not _in_test_environment()
+            ):
+                _open_log_in_vscode(session_result.log_file, worktree_path)
+            exit_code = session_result.process.wait()
+            terminal_outcome = "completed" if exit_code == 0 else "failed"
+            _record_run_outcome(state_file_path, current_run_id, terminal_outcome, exit_code)
+        except Exception as exc:
+            # When start_copilot_session() raises CopilotChildAliveError the
+            # Copilot child process may still be alive and holds the session
+            # mutex.  Do NOT unmark or record "failed" — preserving the run
+            # claim prevents a late folder-open task from launching a duplicate.
+            try:
+                from ..copilot.session import CopilotChildAliveError
+
+                is_child_alive_error = isinstance(exc, CopilotChildAliveError)
+            except Exception:
+                is_child_alive_error = False
+            try:
+                from agentic_devtools.cli.copilot.auto_start import _record_run_outcome, _unmark_run_triggered
+
+                if child_ownership_established and session_result is not None and session_result.process is not None:
+                    try:
+                        exit_code = session_result.process.wait()
+                        terminal_outcome = "completed" if exit_code == 0 else "failed"
+                        _record_run_outcome(state_file_path, current_run_id, terminal_outcome, exit_code)
+                    except Exception as wait_exc:
+                        print(
+                            f"Warning: delayed fallback could not finalize Copilot run outcome: {wait_exc}",
+                            file=sys.stderr,
+                        )
+                elif not is_child_alive_error:
+                    _unmark_run_triggered(state_file_path, current_run_id)
+                    _record_run_outcome(state_file_path, current_run_id, "failed", 1)
+            except Exception:
+                pass
+            print(
+                f"Warning: delayed fallback Copilot session failed: {exc}",
+                file=sys.stderr,
+            )
+
+    thread = threading.Thread(
+        target=_verify_and_fallback,
+        name="autostart-verification",
+        daemon=False,
+    )
+    thread.start()
+
+
+def _write_pending_auto_start_marker(
+    worktree_path: str,
+    run_id: str,
+    start_prompt: str,
+    model: str | None = None,
+) -> None:
+    """Write a JSON marker file for the terminal-send fallback mechanism.
+
+    The marker is written to ``<worktree_path>/.vscode/pending-auto-start.json``
+    and contains the parameters needed to reconstruct the
+    ``agdt-copilot-auto-start`` command line if the primary ``runOn: folderOpen``
+    task does not fire.
+
+    This is a best-effort operation: errors are printed to stderr but never
+    raised to the caller.
+    """
+    from datetime import datetime
+
+    vscode_dir = os.path.join(worktree_path, ".vscode")
+    marker_path = os.path.join(vscode_dir, _PENDING_AUTO_START_FILENAME)
+    marker = {
+        "run_id": run_id,
+        "start_prompt": start_prompt,
+        "model": model,
+        "worktree_path": worktree_path,
+        "created_utc": datetime.now(UTC).isoformat(),
+        "task_label": _AUTO_START_TASK_LABEL,
+    }
+    try:
+        with locked_file(
+            _get_pending_auto_start_marker_lock_path(worktree_path),
+            mode="a+",
+            exclusive=True,
+            timeout=_AUTO_START_FILE_LOCK_TIMEOUT_SECONDS,
+        ):
+            os.makedirs(vscode_dir, exist_ok=True)
+            with open(marker_path, "w", encoding="utf-8") as fh:
+                json.dump(marker, fh, indent=2, ensure_ascii=False)
+    except (FileLockError, OSError) as exc:
+        print(
+            f"Warning: failed to write pending auto-start marker at {marker_path}: {exc}",
+            file=sys.stderr,
+        )
+
+
+def _cleanup_pending_auto_start_marker(worktree_path: str, expected_run_id: str | None = None) -> None:
+    """Delete the pending auto-start marker file if it exists.
+
+    Cleanup is scoped to ``expected_run_id`` and fails closed when the caller
+    does not provide a non-blank owning run ID. Best-effort: errors are printed
+    to stderr but never raised.
+    """
+    marker_path = os.path.join(worktree_path, ".vscode", _PENDING_AUTO_START_FILENAME)
+    try:
+        if not isinstance(expected_run_id, str):
+            return
+        normalized_expected_run_id = expected_run_id.strip()
+        if not normalized_expected_run_id:
+            return
+        if not os.path.isdir(worktree_path):
+            return
+        if os.path.exists(marker_path):
+            with locked_file(
+                _get_pending_auto_start_marker_lock_path(worktree_path),
+                mode="a+",
+                exclusive=True,
+                timeout=_AUTO_START_FILE_LOCK_TIMEOUT_SECONDS,
+            ):
+                try:
+                    with open(marker_path, encoding="utf-8") as fh:
+                        marker = json.load(fh)
+                except (OSError, json.JSONDecodeError, ValueError):
+                    return
+                if not isinstance(marker, dict):
+                    return
+                marker_run_id = marker.get("run_id")
+                if not isinstance(marker_run_id, str):
+                    return
+                if marker_run_id.strip() != normalized_expected_run_id:
+                    return
+                os.remove(marker_path)
+    except (FileLockError, OSError) as exc:
+        print(
+            f"Warning: failed to remove pending auto-start marker at {marker_path}: {exc}",
+            file=sys.stderr,
+        )
+
+
+def _focus_vscode_window(worktree_path: str) -> bool:
+    """Bring the VS Code window for the given worktree to focus.
+
+    Calls ``code <target>`` where *target* is the ``.code-workspace`` file
+    if one exists, otherwise the worktree folder path.  When VS Code
+    already has a window open for this folder, the CLI brings it to
+    focus; when no window exists, a new one is opened (acceptable —
+    ``sendSequence`` will target it).
+
+    Returns ``True`` when the ``code`` process exits with returncode 0,
+    ``False`` on any error.
+    """
+    target = find_workspace_file(worktree_path) or worktree_path
+    try:
+        use_shell = platform.system() == "Windows"
+        if use_shell and _contains_windows_cmd_metacharacters(target):
+            print(
+                "Warning: refusing to focus VS Code on Windows because "
+                f"path contains cmd.exe metacharacters: {target!r}",
+                file=sys.stderr,
+            )
+            return False
+        proc = subprocess.run(  # nosec B602 - shell=True only on Windows to find 'code.cmd' via PATH; metacharacter check above guards the path
+            ["code", target],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            shell=use_shell,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        print("--- Pre-focus: 'code' command failed or timed out. ---")
+        return False
+
+    if proc.returncode != 0:
+        print(f"--- Pre-focus: 'code' exited with code {proc.returncode}. ---")
+        return False
+
+    return True
+
+
+def _open_log_in_vscode(log_file_path: str, worktree_path: str) -> None:
+    """Open the Copilot session log file in VS Code for live monitoring.
+
+    Uses ``code <log_file_path>`` to request opening the file in VS Code.
+    The CLI decides which window receives the file (often the most recently
+    active window). Best-effort: errors are printed to stderr but never raised.
+
+    Args:
+        log_file_path: Absolute path to the ``.log`` file.
+        worktree_path: The worktree root (used for context in messages).
+    """
+    try:
+        log_file_path = os.path.abspath(log_file_path)
+        use_shell = platform.system() == "Windows"
+        if use_shell and _contains_windows_cmd_metacharacters(log_file_path):
+            print(
+                "Warning: refusing to open log file in VS Code on Windows because "
+                f"path contains cmd.exe metacharacters: {log_file_path!r}",
+                file=sys.stderr,
+            )
+            return
+        proc = subprocess.run(  # nosec B602 - shell=True only on Windows to find 'code.cmd' via PATH; args is a fixed list, and the metacharacter check above guards the path
+            ["code", log_file_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            shell=use_shell,
+        )
+        if proc.returncode == 0:
+            print(f"--- Opened Copilot session log in VS Code: {log_file_path} (worktree: {worktree_path}) ---")
+        else:
+            print(
+                f"Warning: 'code' exited with {proc.returncode} when opening log file "
+                f"{log_file_path!r} (worktree: {worktree_path}).",
+                file=sys.stderr,
+            )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(
+            f"Warning: could not open log file in VS Code: {exc} (worktree: {worktree_path}, file: {log_file_path!r})",
+            file=sys.stderr,
+        )
+
+
+def _try_terminal_send_fallback(worktree_path: str, expected_run_id: str | None = None) -> bool:
+    """Attempt to start the Copilot session via VS Code terminal sendSequence.
+
+    Reads the ``pending-auto-start.json`` marker file, constructs the
+    ``agdt-copilot-auto-start`` command, and sends it to the VS Code
+    integrated terminal using ``code --command workbench.action.terminal.sendSequence``.
+
+    When *expected_run_id* is provided, the marker's ``run_id`` must match it
+    exactly.  This prevents stale markers (from a prior run) from triggering
+    a false-positive confirmation and causing the caller to skip starting a
+    new background Copilot session.
+
+    Returns ``True`` when the fallback session was confirmed (run ID appeared
+    in ``copilot.auto_start_triggered_runs`` within 15 seconds), ``False``
+    otherwise.
+
+    This function is a **no-op** (returns ``False``) when running in a test
+    environment, mirroring the guard in ``_maybe_inject_auto_start_before_vscode()``.
+    """
+    import time
+
+    if _in_test_environment():
+        return False
+
+    marker_path = os.path.join(worktree_path, ".vscode", _PENDING_AUTO_START_FILENAME)
+    if not os.path.isfile(marker_path):
+        return False
+
+    try:
+        with open(marker_path, encoding="utf-8") as fh:
+            marker = json.load(fh)
+    except (json.JSONDecodeError, OSError):
+        return False
+
+    if not isinstance(marker, dict):
+        return False
+
+    run_id = marker.get("run_id")
+    start_prompt = marker.get("start_prompt")
+    if not isinstance(run_id, str) or not run_id or not isinstance(start_prompt, str) or not start_prompt:
+        return False
+
+    if expected_run_id and run_id != expected_run_id:
+        print(
+            f"--- Terminal sendSequence fallback: marker run_id ({run_id}) "
+            f"does not match expected run_id ({expected_run_id}). Skipping stale marker. ---"
+        )
+        return False
+
+    # Build the agdt-copilot-auto-start command line.
+    # Validate that all values destined for _shell_quote() are strings;
+    # a corrupted marker file could contain non-str values that would
+    # cause AttributeError/TypeError in _shell_quote().
+    wt_path = marker.get("worktree_path")
+    model = marker.get("model")
+    if not isinstance(wt_path, str):
+        wt_path = worktree_path
+    cmd_parts: list[str] = [
+        "agdt-copilot-auto-start",
+        "--worktree-path",
+        wt_path,
+        "--start-prompt",
+        start_prompt,
+        "--run-id",
+        run_id,
+    ]
+    if isinstance(model, str) and model:
+        cmd_parts.extend(["--model", model])
+
+    marker_values = {
+        "worktree_path": wt_path,
+        "start_prompt": start_prompt,
+        "run_id": run_id,
+    }
+    if isinstance(model, str) and model:
+        marker_values["model"] = model
+    rejected_fields = [
+        key
+        for key, value in marker_values.items()
+        if isinstance(value, str) and _contains_send_sequence_shell_metacharacters(value)
+    ]
+    if rejected_fields:
+        print(
+            "Warning: refusing terminal sendSequence fallback because marker "
+            f"value(s) contain shell metacharacters (cmd.exe, PowerShell, or bash): {', '.join(rejected_fields)}",
+            file=sys.stderr,
+        )
+        return False
+
+    command_string = " ".join(_shell_quote(p) for p in cmd_parts)
+    send_sequence_arg = json.dumps({"text": command_string + "\n"})
+
+    print("--- Attempting terminal sendSequence fallback for auto-start... ---")
+
+    # Pre-focus the worktree window so sendSequence targets the right terminal.
+    if _focus_vscode_window(worktree_path):
+        print("--- Pre-focus succeeded; waiting for window to settle... ---")
+        time.sleep(_FOCUS_SETTLE_SECONDS)
+    else:
+        print("--- Pre-focus failed; proceeding with sendSequence anyway. ---")
+
+    try:
+        use_shell = platform.system() == "Windows"
+        proc = subprocess.run(  # noqa: S603, S607 # nosec B602 - shell=True only on Windows to find 'code.cmd' via PATH; marker-derived args are guarded above
+            ["code", "--command", "workbench.action.terminal.sendSequence", send_sequence_arg],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            shell=use_shell,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        print("--- Terminal sendSequence fallback: 'code --command' failed or timed out. ---")
+        return False
+
+    if proc.returncode != 0:
+        print(f"--- Terminal sendSequence fallback: 'code --command' exited with code {proc.returncode}. ---")
+        return False
+
+    # Wait up to 15 seconds for the run ID to appear in state
+    from agentic_devtools.cli.copilot.auto_start import _is_run_triggered
+
+    state_file_path, _ = _resolve_state_context_in_worktree(worktree_path)
+    if not state_file_path:
+        return False
+
+    _FALLBACK_WAIT_SECONDS = 15
+    _FALLBACK_POLL_INTERVAL = 1.0
+    waited = 0.0
+    while waited < _FALLBACK_WAIT_SECONDS:
+        if _is_run_triggered(state_file_path, run_id):
+            print("--- Terminal sendSequence fallback confirmed: Copilot session is in the integrated terminal. ---")
+            _cleanup_pending_auto_start_marker(worktree_path, expected_run_id=run_id)
+            return True
+        time.sleep(_FALLBACK_POLL_INTERVAL)
+        waited += _FALLBACK_POLL_INTERVAL
+
+    print(f"--- Terminal sendSequence fallback: run ID not confirmed within {_FALLBACK_WAIT_SECONDS}s. ---")
+    return False
+
+
+def _shell_quote(s: str) -> str:
+    """Quote a string for safe embedding in a shell command.
+
+    Uses :func:`shlex.quote` on non-Windows platforms. On Windows, wraps
+    the string in double quotes, doubles embedded double quotes, and
+    doubles percent signs to avoid ``%VAR%`` expansion by ``cmd.exe``.
+
+    Note: The quoted strings are embedded in a VS Code terminal
+    ``sendSequence`` text payload. The data originates from the
+    ``pending-auto-start.json`` marker file that we wrote ourselves, so
+    injection risk is minimal.
+    """
+    if platform.system() == "Windows":
+        # This Windows branch does not attempt full cmd.exe metacharacter
+        # escaping. It only doubles embedded double quotes and percent
+        # signs, then wraps the result in double quotes.
+        escaped = s.replace('"', '""').replace("%", "%%")
+        return '"' + escaped + '"'
+    import shlex  # noqa: PLC0415 — lazy import; not needed on Windows
+
+    return shlex.quote(s)
+
+
+def _maybe_inject_auto_start_before_vscode(
+    worktree_path: str,
+    start_prompt: str = _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT,
+    model: str | None = None,
+    run_id: str | None = None,
+) -> bool:
+    """Inject a VS Code auto-start task before VS Code opens.
+
+    Called right before ``open_vscode_workspace()`` so the task exists when
+    the ``folderOpen`` event fires.  Uses *start_prompt* to tell the Copilot
+    agent which workflow to execute — callers should pass the correct
+    workflow-specific prompt (see :func:`_build_session_start_prompt`).
+
+    Injection is attempted regardless of the ``interactive`` flag passed to
+    the outer worktree-setup flow.  Internal guards (``is_vscode_available()``,
+    run-ID state check, etc.) prevent inappropriate injection.
+
+    This is a best-effort helper: if ``build_copilot_args()`` returns
+    ``None`` (start prompt exceeds argv limits) or ``inject_auto_start_task()`` fails,
+    the caller continues without the auto-start task; the existing
+    fallback behaviour in the workflow-specific session launcher will
+    handle the session.  Each non-trivial failure path prints a diagnostic
+    message to stdout so that log files capture why injection was skipped
+    (the ``_in_test_environment()`` guard returns silently).
+
+    Args:
+        run_id: Optional pre-generated run ID.  When provided (non-empty
+            after stripping whitespace), the function uses it directly
+            instead of reading ``agdt_run_id`` from the target worktree's
+            state — this eliminates the race condition where the background
+            task that writes ``agdt_run_id`` hasn't completed yet.  When
+            ``None`` or empty/whitespace, the existing read-from-state
+            behaviour is preserved.
+
+    Returns:
+        ``True`` if the auto-start task was successfully written to
+        ``tasks.json``, ``False`` otherwise.
+    """
+    # Guard: skip writing tasks.json to real filesystem paths during tests to
+    # keep them hermetic.  On Windows, mock paths like /repos/PROJECT-1234 resolve
+    # to C:\repos\PROJECT-1234 which may be a real worktree — writing
+    # runOn:folderOpen tasks there causes VS Code to open unexpected windows.
+    if _in_test_environment():
+        return False
+
+    from ..copilot import build_copilot_args
+
+    # Determine the run ID: use the caller-provided value if it's a
+    # non-empty string after stripping whitespace; otherwise fall back to
+    # reading from the target worktree's state.
+    provided_run_id = run_id.strip() if isinstance(run_id, str) else ""
+    if provided_run_id:
+        # Caller pre-generated a run ID — skip the state read for run_id
+        # but still resolve state_file_path for the _is_run_triggered guard.
+        state_file_path, _ = _resolve_state_context_in_worktree(worktree_path, include_run_id=False)
+        if state_file_path is None:
+            print(f"Auto-start injection skipped: could not resolve state context in {worktree_path}.")
+            return False
+        run_id = provided_run_id
+    else:
+        # Read the run ID from the TARGET worktree's state context,
+        # not the parent process's state.
+        state_file_path, run_id = _resolve_state_context_in_worktree(worktree_path, include_run_id=True)
+
+        if state_file_path is None:
+            # _resolve_state_context_in_worktree failed (unreadable state).
+            print(f"Auto-start injection skipped: could not read agdt_run_id from state in {worktree_path}.")
+            return False
+
+        if not run_id:
+            # run_id is empty — the agdt_run_id value is missing or was
+            # whitespace-only in the target worktree's state.
+            print(f"Auto-start injection skipped: missing or empty agdt_run_id in {worktree_path}.")
+            return False
+
+    # Write marker BEFORE injection so the terminal sendSequence fallback
+    # is available even when inject_auto_start_task() fails.
+    _write_pending_auto_start_marker(worktree_path, run_id, start_prompt, model=model)
+
+    copilot_args = build_copilot_args(start_prompt, interactive=True, model=model)
+    if copilot_args is not None:
+        injected = inject_auto_start_task(worktree_path, start_prompt, run_id=run_id, model=model)
+        if injected:
+            print("   VS Code auto-start task injected (will run on window open).")
+        else:
+            print(
+                "WARNING: VS Code auto-start task injection failed. "
+                "Auto-start is disabled; Copilot session fallback will be used."
+            )
+        return injected
+    print("Auto-start injection skipped: Copilot prompt exceeds argv limits.")
+    return False
+
+
+def _print_agent_instructions_block(
+    autostart_injected: bool,
+    issue_key: str,
+    workflow_name: str,
+    user_request: str | None = None,
+    additional_params: dict | None = None,
+    model: str | None = None,
+) -> None:
+    """Print the AI agent instructions block with conditional messaging.
+
+    The header and introductory text vary depending on whether the VS Code
+    auto-start task was successfully injected:
+
+    * **Injected** (``autostart_injected=True``): header says ``(FALLBACK)``
+      and the text explains that an auto-start task was injected and the
+      session will start when the VS Code window opens.
+    * **Not injected** (``autostart_injected=False``): header says
+      ``(MANUAL START REQUIRED)`` and the text instructs the user to start
+      the session manually using the prompt below.
+
+    The ``--- BEGIN/END PROMPT ---`` markers and the prompt itself are always
+    printed regardless of the injection result.
+    """
+    if autostart_injected:
+        print("\n" + "=" * 80)
+        print("AI AGENT INSTRUCTIONS (FALLBACK)")
+        print("=" * 80)
+        print(
+            "\nAn auto-start task was injected into the VS Code workspace.\n"
+            "The Copilot session will start when the VS Code window opens.\n"
+            "The prompt below is a fallback — only provide it to the user if the auto-session did not start:\n"
+        )
+    else:
+        print("\n" + "=" * 80)
+        print("AI AGENT INSTRUCTIONS (MANUAL START REQUIRED)")
+        print("=" * 80)
+        print(
+            "\nAuto-start injection was not successful.\n"
+            "Provide the prompt below to the user to start the Copilot session manually:\n"
+        )
+    print("--- BEGIN PROMPT FOR USER TO COPY ---")
+    print(get_ai_agent_continuation_prompt(issue_key, workflow_name, user_request, additional_params, model=model))
+    print("--- END PROMPT FOR USER TO COPY ---")
+
+
+def setup_worktree_in_background_sync(
+    issue_key: str,
+    branch_prefix: str = "feature",
+    branch_name: str | None = None,
+    use_existing_branch: bool = False,
+    workflow_name: str = "work-on-jira-issue",
+    user_request: str | None = None,
+    additional_params: dict | None = None,
+    auto_execute_command: list[str] | None = None,
+    auto_execute_timeout: int = 60,
+    interactive: bool = False,
+    model: str | None = None,
+) -> None:
+    """
+    Perform worktree setup synchronously (called from background task).
+
+    This function is designed to be called from a background task runner.
+    It performs the full worktree setup and prints the continuation prompt.
+
+    For ``pull-request-review`` workflows with an ``auto_execute_command``,
+    the auto-execute command re-runs the full workflow inside the worktree,
+    which handles starting the Copilot session itself.
+
+    Args:
+        issue_key: The Jira issue key
+        branch_prefix: Prefix for the branch name (default: "feature").
+            Ignored if branch_name is provided.
+        branch_name: Exact branch name to use. If provided, branch_prefix is ignored.
+            Used for PR review workflows where the branch already exists on origin.
+        use_existing_branch: If True and branch_name is provided, checkout the
+            existing branch from origin instead of creating a new one.
+        workflow_name: The workflow name for continuation prompt
+        user_request: The user's explanation of what they want
+        additional_params: Additional parameters for continuation command
+        auto_execute_command: Optional command to run inside the worktree after
+            creation. If the command fails, the error is logged but setup continues.
+        auto_execute_timeout: Timeout in seconds for the auto-execute command
+            and, for newly created worktrees, the target setup script
+            (default: 60).
+        interactive: Whether to start the Copilot session interactively after
+            setup (default: False). Set to True for interactive mode.
+        model: Copilot model identifier to use for the session (e.g.
+            ``"claude-3.5-sonnet"``).  Passed through to
+            ``_maybe_inject_auto_start_before_vscode()`` so the model is
+            resolved from the caller's context rather than from state.
+    """
+    import uuid
+
+    from ...state import delete_value, get_workflow_state, set_value
+
+    # Each invocation starts with a clean outcome so stale values cannot make a
+    # blocked target setup look like a successful nested command.
+    for state_key in (
+        "worktree_setup.target_setup_status",
+        "worktree_setup.target_setup_exit_code",
+        "worktree_setup.target_setup_error",
+        "worktree_setup.auto_execute_exit_code",
+        "worktree_setup.auto_execute_failed",
+    ):
+        delete_value(state_key)
+
+    def _record_target_setup(result: WorktreeSetupResult) -> None:
+        if result.target_setup_status is None:
+            return
+        set_value("worktree_setup.target_setup_status", result.target_setup_status)
+        set_value("worktree_setup.target_setup_exit_code", result.target_setup_exit_code or "blocked")
+        if result.target_setup_error:
+            set_value("worktree_setup.target_setup_error", result.target_setup_error)
+        else:
+            delete_value("worktree_setup.target_setup_error")
+
+    def _resolve_prompt_filename(target_path: str, *, auto_execute_failed: bool = False) -> tuple[str | None, bool]:
+        """Resolve the prompt filename for the current workflow.
+
+        Returns:
+            A 2-tuple ``(filename, is_headless_langchain)`` where *filename* is
+            the resolved prompt filename (``None`` when the workflow is unknown
+            or has no mapped file) and *is_headless_langchain* is ``True`` only
+            for a successful headless LangChain PR-review invocation.  Callers
+            must use *is_headless_langchain* — not a ``None`` filename check —
+            to decide whether to suppress Copilot session startup; an unknown
+            workflow resolves to a ``None`` filename but still needs a session
+            started via the workflow-agnostic fallback prompt.
+        """
+        if workflow_name == "pull-request-review":
+            # Determine the engine from the current invocation's auto_execute_command
+            # rather than reading persisted "review.engine" state.  Persisted state
+            # from a previous LangChain run would still read "langchain" if the
+            # current auto-execute failed before updating it, incorrectly suppressing
+            # the recovery Copilot session.
+            is_langchain_invocation = (
+                not auto_execute_failed
+                and auto_execute_command is not None
+                and "--engine" in auto_execute_command
+                and auto_execute_command[auto_execute_command.index("--engine") + 1] == "langchain"
+            )
+            if is_langchain_invocation:
+                return None, True
+
+        filename = _WORKFLOW_PROMPT_FILENAMES.get(workflow_name)
+        if workflow_name == "update-jira-issue":
+            with worktree_state_context(target_path):
+                raw_workflow_state = get_workflow_state()
+            wf_state = raw_workflow_state if isinstance(raw_workflow_state, dict) else {}
+            step = wf_state.get("step")
+            if step in ("initiate", "make-updates"):
+                return f"temp-update-jira-issue-{step}-prompt.md", False
+        return filename, False
+
+    # Pre-generate a run ID for auto-start injection.  This eliminates
+    # the race condition where the background task spawned by the
+    # auto-execute command hasn't written ``agdt_run_id`` to state yet
+    # when ``_maybe_inject_auto_start_before_vscode()`` tries to read it.
+    pre_run_id = uuid.uuid4().hex[:12]
+
+    print(f"\n{'=' * 80}")
+    print("BACKGROUND WORKTREE SETUP")
+    print("=" * 80)
+
+    defer_workspace_path_settings = auto_execute_command is not None
+
+    # Check if worktree already exists
+    existing_path = check_worktree_exists(issue_key)
+    if existing_path:
+        print(f"\nWorktree already exists at: {existing_path}")
+        _propagate_agdt_cache(existing_path, worktree_key=issue_key)
+
+        # Inject VS Code PATH settings immediately only when there is no nested
+        # auto-execute command.  With nested auto-execute these writes are
+        # deferred until the command succeeds, so a tracked workspace file
+        # stays clean for recovery reruns that call reset_branch_to_origin().
+        if not defer_workspace_path_settings:
+            inject_git_path_settings(existing_path)
+            inject_python_path_settings(existing_path)
+
+        # When a data-fetching command is provided, run it first so that all
+        # workflow context is ready before VS Code opens.  The auto-start task
+        # fires on ``folderOpen``, so completing data-fetching before opening
+        # the window ensures the Copilot agent starts with full context.
+        auto_execute_failed = False
+        if auto_execute_command:
+            delete_value("worktree_setup.auto_execute_failed")
+            exit_code = _run_auto_execute_command(
+                auto_execute_command, existing_path, auto_execute_timeout, workflow=workflow_name
+            )
+            set_value("worktree_setup.auto_execute_exit_code", str(exit_code))
+            if exit_code != 0:
+                print(
+                    f"\n⚠️  Auto-execute command exited with code {exit_code}. Review data may be incomplete.",
+                    file=sys.stderr,
+                )
+                set_value("worktree_setup.auto_execute_failed", "true")
+                auto_execute_failed = True
+
+        # Inject workspace settings only after auto-execute has completed and
+        # only when it succeeded. On failure the recovery session reruns the
+        # exact auto-execute command, which calls reset_branch_to_origin()
+        # internally; that helper refuses to proceed when there are local
+        # changes, so tracked workspace files must remain clean on the failure
+        # path.
+        if not auto_execute_failed:
+            if defer_workspace_path_settings:
+                inject_git_path_settings(existing_path)
+                inject_python_path_settings(existing_path)
+            inject_task_permission_settings(existing_path)
+
+        # Resolve the exact prompt filename and build the session start prompt
+        # *after* the auto-execute command has run.  For workflows such as
+        # update-jira-issue the step (initiate vs make-updates) is only written
+        # to state by the auto-execute Jira prefetch; resolving before that
+        # command runs would pick the wrong filename if the prefetch fails.
+        prompt_filename, is_headless_langchain = _resolve_prompt_filename(
+            existing_path, auto_execute_failed=auto_execute_failed
+        )
+        prompt_relative_path: str | None = None
+        if prompt_filename:
+            prompt_relative_path = _prompt_file_relative_path(existing_path, prompt_filename)
+        if auto_execute_failed:
+            wf_prompt = _build_recovery_start_prompt(auto_execute_command)
+        elif prompt_relative_path:
+            wf_prompt = _build_session_start_prompt(prompt_relative_path)
+        else:
+            wf_prompt = _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT
+
+        # Guard session startup on is_headless_langchain — not on prompt_filename.
+        # An unknown/custom workflow also produces prompt_filename=None (by design,
+        # so _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT is used), but it still needs a
+        # Copilot session; only a successful headless LangChain invocation skips it.
+        # Skip auto-start injection on the failure path: _maybe_inject_auto_start_before_vscode
+        # writes .vscode/tasks.json and .vscode/pending-auto-start.json, which can include
+        # tracked files that dirty the worktree and cause reset_branch_to_origin() to reject
+        # the recovery rerun.  The direct-session fallback in _start_copilot_session_for_workflow
+        # handles launching the recovery session without writing those files.
+        autostart_injected = False
+        if not is_headless_langchain and not auto_execute_failed:
+            autostart_injected = _maybe_inject_auto_start_before_vscode(
+                existing_path, start_prompt=wf_prompt, model=model, run_id=pre_run_id
+            )
+
+        # Open VS Code only for workflows that launch a Copilot session.
+        vscode_opened = False
+        if not is_headless_langchain and not auto_execute_failed:
+            print("Opening VS Code in the existing worktree (using the workspace file if available)...")
+            vscode_opened = open_vscode_workspace(existing_path)
+        print(f"   VS Code opened: {'Yes' if vscode_opened else 'No'}")
+
+        # Start Copilot session as a secondary fallback. The primary
+        # mechanism is the VS Code ``runOn: folderOpen`` task injected above.
+        # When autostart_injected=True and VS Code was successfully opened,
+        # the helper returns immediately after spawning delayed verification
+        # instead of launching a direct background session here.
+        if not is_headless_langchain:
+            _start_copilot_session_for_workflow(
+                worktree_path=existing_path,
+                prompt_file_relative_path=_prompt_file_relative_path(existing_path, prompt_filename)
+                if prompt_filename
+                else "",
+                workflow_name=workflow_name,
+                interactive=interactive,
+                model=model,
+                autostart_injected=autostart_injected and vscode_opened,
+                run_id=pre_run_id,
+                recovery_start_prompt=wf_prompt if not prompt_filename or auto_execute_failed else None,
+                is_recovery_failure=auto_execute_failed,
+            )
+
+        print("\n✅ Environment ready!")
+        if not is_headless_langchain:
+            print(
+                get_worktree_continuation_prompt(issue_key, workflow_name, user_request, additional_params, model=model)
+            )
+            _print_agent_instructions_block(
+                autostart_injected, issue_key, workflow_name, user_request, additional_params, model=model
+            )
+        return
+
+    # Create new worktree environment
+    print(f"\nCreating worktree for issue {issue_key}...")
+    if use_existing_branch and branch_name:  # pragma: no cover
+        print(f"   Using existing branch from origin: {branch_name}")
+
+    result = setup_worktree_environment(
+        issue_key=issue_key,
+        branch_prefix=branch_prefix,
+        branch_name=branch_name,
+        use_existing_branch=use_existing_branch,
+        open_vscode=False,
+        defer_path_settings=defer_workspace_path_settings,
+        defer_task_permission_settings=True,
+        target_setup_timeout=auto_execute_timeout,
+    )
+
+    _record_target_setup(result)
+    if result.target_setup_status == "failed":
+        set_value("worktree_setup.auto_execute_exit_code", "blocked:target-setup-failed")
+        error_message = result.target_setup_error or result.error_message or "target setup script failed"
+        print(
+            f"\n❌ target setup script failure for worktree {result.worktree_path} "
+            f"(branch: {result.branch_name}, exit/status: {result.target_setup_exit_code or 'blocked'}): "
+            f"{error_message}",
+            file=sys.stderr,
+        )
+        _cleanup_failed_worktree_setup(result)
+        raise RuntimeError(f"Target setup script failure: {error_message}")
+
+    if result.success:
+        # When a data-fetching command is provided, run it first so that all
+        # workflow context is ready before VS Code opens.  The auto-start task
+        # fires on ``folderOpen``, so completing data-fetching before opening
+        # the window ensures the Copilot agent starts with full context.
+        auto_execute_failed = False
+        if auto_execute_command:
+            delete_value("worktree_setup.auto_execute_failed")
+            exit_code = _run_auto_execute_command(
+                auto_execute_command, result.worktree_path, auto_execute_timeout, workflow=workflow_name
+            )
+            set_value("worktree_setup.auto_execute_exit_code", str(exit_code))
+            if exit_code != 0:
+                print(
+                    f"\n⚠️  Auto-execute command exited with code {exit_code}. Review data may be incomplete.",
+                    file=sys.stderr,
+                )
+                set_value("worktree_setup.auto_execute_failed", "true")
+                auto_execute_failed = True
+
+        # Inject workspace settings only after auto-execute has completed and
+        # only when it succeeded. On failure the recovery session reruns the
+        # exact auto-execute command, which calls reset_branch_to_origin()
+        # internally; that helper refuses to proceed when there are local
+        # changes, so tracked workspace files must remain clean on the failure
+        # path.
+        if not auto_execute_failed:
+            if defer_workspace_path_settings:
+                inject_git_path_settings(result.worktree_path)
+                inject_python_path_settings(result.worktree_path)
+            inject_task_permission_settings(result.worktree_path)
+
+        # Resolve the exact prompt filename and build the session start prompt
+        # *after* the auto-execute command has run.  For workflows such as
+        # update-jira-issue the step (initiate vs make-updates) is only written
+        # to state by the auto-execute Jira prefetch; resolving before that
+        # command runs would pick the wrong filename if the prefetch fails.
+        prompt_filename, is_headless_langchain = _resolve_prompt_filename(
+            result.worktree_path, auto_execute_failed=auto_execute_failed
+        )
+        prompt_relative_path = None
+        if prompt_filename:
+            prompt_relative_path = _prompt_file_relative_path(result.worktree_path, prompt_filename)
+        if auto_execute_failed:
+            wf_prompt = _build_recovery_start_prompt(auto_execute_command)
+        elif prompt_relative_path:
+            wf_prompt = _build_session_start_prompt(prompt_relative_path)
+        else:
+            wf_prompt = _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT
+
+        # Guard session startup on is_headless_langchain — not on prompt_filename.
+        # An unknown/custom workflow also produces prompt_filename=None (by design,
+        # so _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT is used), but it still needs a
+        # Copilot session; only a successful headless LangChain invocation skips it.
+        # Skip auto-start injection on the failure path: _maybe_inject_auto_start_before_vscode
+        # writes .vscode/tasks.json and .vscode/pending-auto-start.json, which can include
+        # tracked files that dirty the worktree and cause reset_branch_to_origin() to reject
+        # the recovery rerun.  The direct-session fallback in _start_copilot_session_for_workflow
+        # handles launching the recovery session without writing those files.
+        autostart_injected = False
+        if not is_headless_langchain and not auto_execute_failed:
+            autostart_injected = _maybe_inject_auto_start_before_vscode(
+                result.worktree_path,
+                start_prompt=wf_prompt,
+                model=model,
+                run_id=pre_run_id,
+            )
+
+        # Open VS Code after task injection, except for headless LangChain runs.
+        if not is_headless_langchain and not auto_execute_failed:
+            result.vscode_opened = open_vscode_workspace(result.worktree_path)
+
+        # Start Copilot session as a secondary fallback. The primary
+        # mechanism is the VS Code ``runOn: folderOpen`` task injected above.
+        # When autostart_injected=True and VS Code was successfully opened,
+        # the helper returns immediately after spawning delayed verification
+        # instead of launching a direct background session here.
+        if not is_headless_langchain:
+            _start_copilot_session_for_workflow(
+                worktree_path=result.worktree_path,
+                prompt_file_relative_path=_prompt_file_relative_path(result.worktree_path, prompt_filename)
+                if prompt_filename
+                else "",
+                workflow_name=workflow_name,
+                interactive=interactive,
+                model=model,
+                autostart_injected=autostart_injected and result.vscode_opened,
+                run_id=pre_run_id,
+                recovery_start_prompt=wf_prompt if not prompt_filename or auto_execute_failed else None,
+                is_recovery_failure=auto_execute_failed,
+            )
+
+        print("\n✅ Environment setup complete!")
+        print(f"   Worktree: {result.worktree_path}")
+        print(f"   Branch: {result.branch_name}")
+        print(f"   VS Code opened: {'Yes' if result.vscode_opened else 'No'}")
+        if not is_headless_langchain:
+            print(
+                get_worktree_continuation_prompt(issue_key, workflow_name, user_request, additional_params, model=model)
+            )
+            _print_agent_instructions_block(
+                autostart_injected, issue_key, workflow_name, user_request, additional_params, model=model
+            )
+    else:
+        print(f"\n❌ Setup failed: {result.error_message}")
+        raise RuntimeError(f"Worktree setup failed: {result.error_message}")
+
+
+def _setup_worktree_from_state() -> None:
+    """
+    Wrapper function for background task execution.
+
+    This function is called dynamically by run_function_in_background
+    via string reference (see __all__ export at module top).
+
+    This reads parameters from state and calls setup_worktree_in_background_sync.
+    Used by run_function_in_background since it only supports parameterless functions.
+    """
+    import json
+
+    from ...state import get_value
+
+    # Read parameters from state
+    issue_key = get_value("worktree_setup.issue_key")
+    branch_prefix = get_value("worktree_setup.branch_prefix") or "feature"
+    branch_name = get_value("worktree_setup.branch_name")
+    use_existing_branch = get_value("worktree_setup.use_existing_branch") == "true"
+    workflow_name = get_value("worktree_setup.workflow_name") or "work-on-jira-issue"
+    user_request = get_value("worktree_setup.user_request")
+    additional_params_str = get_value("worktree_setup.additional_params")
+    auto_execute_command_str = get_value("worktree_setup.auto_execute_command")
+    auto_execute_timeout_str = get_value("worktree_setup.auto_execute_timeout")
+    interactive_str = get_value("worktree_setup.interactive")
+    # Normalize to str | None — get_value() returns Any.
+    model_raw = get_value("worktree_setup.model")
+    model = (model_raw.strip() or None) if isinstance(model_raw, str) else None
+
+    additional_params = None
+    if additional_params_str:
+        try:
+            additional_params = json.loads(additional_params_str)
+        except json.JSONDecodeError:
+            pass
+
+    auto_execute_command = None
+    if auto_execute_command_str:
+        try:
+            auto_execute_command = json.loads(auto_execute_command_str)
+        except json.JSONDecodeError:
+            pass
+
+    auto_execute_timeout = 60
+    if auto_execute_timeout_str:
+        try:
+            auto_execute_timeout = int(auto_execute_timeout_str)
+        except ValueError:
+            pass
+
+    # Default interactive to False; stored as "true" string to enable
+    interactive = interactive_str == "true"
+
+    if not issue_key:
+        raise ValueError("worktree_setup.issue_key not set in state")
+
+    # Call the actual setup function
+    setup_worktree_in_background_sync(
+        issue_key=issue_key,
+        branch_prefix=branch_prefix,
+        branch_name=branch_name,
+        use_existing_branch=use_existing_branch,
+        workflow_name=workflow_name,
+        user_request=user_request,
+        additional_params=additional_params,
+        auto_execute_command=auto_execute_command,
+        auto_execute_timeout=auto_execute_timeout,
+        interactive=interactive,
+        model=model,
+    )
+
+
+def start_worktree_setup_background(
+    issue_key: str,
+    branch_prefix: str = "feature",
+    branch_name: str | None = None,
+    use_existing_branch: bool = False,
+    workflow_name: str = "work-on-jira-issue",
+    user_request: str | None = None,
+    additional_params: dict | None = None,
+    auto_execute_command: list[str] | None = None,
+    auto_execute_timeout: int = 60,
+    interactive: bool = False,
+    model: str | None = None,
+) -> str:
+    """
+    Start worktree setup as a background task.
+
+    This spawns a background process to create the worktree, install helpers,
+    and open VS Code. The calling process returns immediately, allowing the
+    command line to be available.
+
+    Args:
+        issue_key: The Jira issue key
+        branch_prefix: Prefix for the branch name (default: "feature").
+            Ignored if branch_name is provided.
+        branch_name: Exact branch name to use. If provided, branch_prefix is ignored.
+            Used for PR review workflows where the branch already exists on origin.
+        use_existing_branch: If True and branch_name is provided, checkout the
+            existing branch from origin instead of creating a new one.
+        workflow_name: The workflow name for continuation prompt
+        user_request: The user's explanation of what they want
+        additional_params: Additional parameters for continuation command
+        auto_execute_command: Optional command to run inside the worktree after
+            creation. Passed through to setup_worktree_in_background_sync.
+        auto_execute_timeout: Timeout in seconds for the auto-execute command
+            and, for newly created worktrees, the target setup script
+            (default: 60).
+        interactive: Whether to start the Copilot session interactively after
+            setup (default: False). Set to True for interactive mode.
+        model: The Copilot model ID to use. When provided (non-None, non-empty
+            after stripping), takes precedence over copilot.model_id in state.
+
+    Returns:
+        The background task ID for tracking progress
+    """
+    import json
+
+    from ...background_tasks import run_function_in_background
+    from ...state import delete_value, get_value, set_value
+
+    # Store parameters in state for the background function to read.
+    # Every optional key is explicitly set or deleted so stale values from
+    # a prior run (e.g. a PR-review branch_name leaking into a later
+    # work-on-jira-issue invocation) cannot affect the current setup.
+    set_value("worktree_setup.issue_key", issue_key)
+    set_value("worktree_setup.branch_prefix", branch_prefix)
+    set_value("worktree_setup.workflow_name", workflow_name)
+    if branch_name:  # pragma: no cover
+        set_value("worktree_setup.branch_name", branch_name)
+    else:
+        delete_value("worktree_setup.branch_name")
+    set_value("worktree_setup.use_existing_branch", "true" if use_existing_branch else "false")
+    if user_request:
+        set_value("worktree_setup.user_request", user_request)
+    else:
+        delete_value("worktree_setup.user_request")
+    if additional_params:
+        set_value("worktree_setup.additional_params", json.dumps(additional_params))
+    else:
+        delete_value("worktree_setup.additional_params")
+    # Always clear or persist auto_execute_command so stale commands from a
+    # prior run (e.g. a PR review Copilot session) cannot leak into later
+    # invocations that omit the command.
+    if auto_execute_command:
+        set_value("worktree_setup.auto_execute_command", json.dumps(auto_execute_command))
+    else:
+        delete_value("worktree_setup.auto_execute_command")
+    # Always persist the effective timeout so stale non-default values from
+    # prior runs (e.g. 300s for PR review) cannot leak into later invocations.
+    set_value("worktree_setup.auto_execute_timeout", str(auto_execute_timeout))
+    set_value("worktree_setup.interactive", "true" if interactive else "false")
+
+    # Prefer explicit model parameter; fall back to state for backward compatibility.
+    effective_model: str | None = None
+    if isinstance(model, str) and model.strip():
+        effective_model = model.strip()
+    else:
+        copilot_model = get_value("copilot.model_id")
+        if isinstance(copilot_model, str) and copilot_model.strip():
+            effective_model = copilot_model.strip()
+    if effective_model is not None:
+        set_value("worktree_setup.model", effective_model)
+    else:
+        delete_value("worktree_setup.model")
+
+    # Build display name for the task
+    display_name = f"agdt-setup-worktree-background --issue-key {issue_key}"
+
+    # Start background task using function-based runner
+    # This avoids the need for global CLI commands to be installed
+    task = run_function_in_background(
+        module_path="agentic_devtools.cli.workflows.worktree_setup",
+        function_name="_setup_worktree_from_state",
+        command_display_name=display_name,
+        args={
+            "issue_key": issue_key,
+            "branch_prefix": branch_prefix,
+            "branch_name": branch_name,
+            "use_existing_branch": use_existing_branch,
+            "workflow_name": workflow_name,
+        },
+    )
+
+    return task.id
+
+
+# =============================================================================
+# Placeholder Issue Creation for Create Workflows
+# =============================================================================
+
+
+@dataclass
+class PlaceholderIssueResult:
+    """Result of placeholder issue creation."""
+
+    success: bool
+    issue_key: str | None = None
+    error_message: str | None = None
+
+
+def create_placeholder_issue(
+    project_key: str,
+    issue_type: str = "Task",
+    parent_key: str | None = None,
+) -> PlaceholderIssueResult:
+    """
+    Create a placeholder Jira issue with minimal fields.
+
+    This creates an issue with a placeholder summary and description
+    that will be updated later in the workflow.
+
+    Args:
+        project_key: Jira project key (e.g., "PROJECT")
+        issue_type: Issue type (Task, Epic, Sub-task)
+        parent_key: Parent issue key (required for Sub-task type)
+
+    Returns:
+        PlaceholderIssueResult with success status and issue key
+    """
+    try:
+        from ..jira.create_commands import create_issue_sync
+
+        # Generate placeholder values
+        placeholder_summary = f"[Placeholder] {issue_type} created via workflow"
+        placeholder_description = (
+            "This issue was created as a placeholder by the workflow automation.\n\n"
+            "Please update the summary, description, and other fields as needed."
+        )
+        placeholder_labels = ["workflow-placeholder"]
+
+        # For Epic, we need an epic name
+        epic_name = None
+        if issue_type.lower() == "epic":
+            epic_name = placeholder_summary
+
+        print(f"Creating placeholder {issue_type} in project {project_key}...")
+
+        result = create_issue_sync(
+            project_key=project_key,
+            summary=placeholder_summary,
+            issue_type=issue_type,
+            description=placeholder_description,
+            labels=placeholder_labels,
+            epic_name=epic_name,
+            parent_key=parent_key,
+        )
+
+        issue_key = result.get("key")
+        if issue_key:
+            print(f"✅ Placeholder {issue_type} created: {issue_key}")
+            return PlaceholderIssueResult(success=True, issue_key=issue_key)
+        else:
+            return PlaceholderIssueResult(
+                success=False,
+                error_message="API did not return an issue key",
+            )
+
+    except Exception as e:
+        return PlaceholderIssueResult(
+            success=False,
+            error_message=str(e),
+        )
+
+
+def create_placeholder_and_setup_worktree(
+    project_key: str,
+    issue_type: str = "Task",
+    parent_key: str | None = None,
+    workflow_name: str = "create-jira-issue",
+) -> tuple[bool, str | None]:
+    """
+    Create a placeholder issue and set up a worktree for it.
+
+    This is the main entry point for create workflows that need both
+    issue creation and environment setup.
+
+    Args:
+        project_key: Jira project key (e.g., "PROJECT")
+        issue_type: Issue type (Task, Epic, Sub-task)
+        parent_key: Parent issue key (required for Sub-task type)
+        workflow_name: Name of the workflow for branch-name generation
+
+    Returns:
+        Tuple of (success, issue_key). If success is True, issue_key contains
+        the created issue key. If success is False, issue_key is None unless
+        placeholder issue creation succeeded before setup failed.
+    """
+    print(f"\n{'=' * 80}")
+    print(f"CREATE WORKFLOW: {workflow_name}")
+    print("=" * 80)
+
+    # Step 1: Create placeholder issue
+    print("\n📝 Step 1: Creating placeholder Jira issue...")
+    issue_result = create_placeholder_issue(
+        project_key=project_key,
+        issue_type=issue_type,
+        parent_key=parent_key,
+    )
+
+    if not issue_result.success:
+        print(f"\n❌ Failed to create placeholder issue: {issue_result.error_message}")
+        return False, None
+
+    issue_key = issue_result.issue_key
+    if issue_key is None:
+        return False, None
+    print(f"   Issue key: {issue_key}")
+
+    # Set the issue key in state for later use
+    from ...state import set_value
+
+    set_value("jira.issue_key", issue_key)
+
+    # Step 2: Set up worktree environment
+    print("\n🔧 Step 2: Setting up worktree environment...")
+
+    # Check if worktree already exists (unlikely for new issue, but check anyway)
+    existing_path = check_worktree_exists(issue_key)
+    if existing_path:
+        print(f"   Worktree already exists at: {existing_path}")
+        return True, issue_key
+
+    # Generate branch name based on issue type and workflow
+    branch_name = generate_workflow_branch_name(
+        issue_key=issue_key,
+        issue_type=issue_type,
+        workflow_name=workflow_name,
+        parent_key=parent_key,
+    )
+
+    # Create new worktree with generated branch name
+    result = setup_worktree_environment(
+        issue_key=issue_key,
+        branch_name=branch_name,
+        open_vscode=False,
+    )
+
+    if result.success:
+        print("\n✅ Environment setup complete!")
+        print(f"   Worktree: {result.worktree_path}")
+        print(f"   Branch: {result.branch_name}")
+        return True, issue_key
+    else:
+        print(f"\n❌ Worktree setup failed: {result.error_message}")
+        print(f"   Issue {issue_key} was created but environment setup failed.")
+        print("   Please set up the worktree manually:")
+        print(f"   git worktree add ../{issue_key} -b {branch_name}")
+        return False, issue_key

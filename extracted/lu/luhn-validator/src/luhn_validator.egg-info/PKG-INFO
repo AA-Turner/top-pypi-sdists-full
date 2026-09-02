@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: luhn-validator
+Version: 1.2.0.post4
+Summary: Simple validator for identification numbers based on the Luhn algorithm
+Home-page: 
+Author: Mohammed Alshehri
+Author-email: 
+License: MIT
+Keywords: luhn,validator,validation,numbers,identification,imei,credit-card
+Classifier: Development Status :: 7 - Inactive
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# luhn-validator
+
+A Python package to validate identification numbers using the Luhn algorithm
+with additional optional checks.
+
+> ⚠️ **Deprecation Notice**
+>
+> This package has been **deprecated** and will not receive future updates.
+> Please use the [luhncheck](https://pypi.org/project/luhncheck/) package
+> instead.

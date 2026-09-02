@@ -83,3 +83,12 @@ releases:
       - 1.4.0.yml
       - 23-code-blocks.yml
     release_date: '2025-12-27'
+  1.4.1:
+    changes:
+      bugfixes:
+        - Address a deprecation introduced in docutils 0.22 (https://github.com/ansible-community/antsibull-docutils/pull/24).
+      release_summary: Maintenance release.
+    fragments:
+      - 1.4.1.yml
+      - 24-docutils-0.22.yml
+    release_date: '2026-09-01'

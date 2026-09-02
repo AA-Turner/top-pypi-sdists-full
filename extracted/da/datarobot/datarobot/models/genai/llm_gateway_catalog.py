@@ -31,8 +31,8 @@ class LLMReferenceDict(TypedDict):
 
 class AvailableLiteLLMEndpointsDict(TypedDict):
     """Dict representation of supported endpoints for LLM.
-    Currently includes supports_chat_completions (for /chat/completions)
-    and supports_responses (for /responses)."""
+    Currently includes ``supports_chat_completions`` (for /chat/completions)
+    and ``supports_responses`` (for /responses)."""
 
     supports_chat_completions: bool
     supports_responses: bool
@@ -204,7 +204,7 @@ class LLMGatewayCatalogEntry(APIObject):
     license : str
         The license of the LLM.
     is_preview : bool
-        Whether the LLM is part of fast-track LLMs.
+        Whether the LLM is part of fast-track ``LLMs``.
     is_metered : bool
         Whether the LLM is metered for consumption-based pricing.
     retirement_date : date or None
@@ -312,7 +312,7 @@ class LLMGatewayCatalogEntry(APIObject):
 
 class LLMGatewayCatalog(APIObject):
     """
-    LLM Gateway catalog management for listing and validating available LLMs.
+    LLM Gateway catalog management for listing and validating available ``LLMs``.
 
     This class provides convenient methods for interacting with the LLM Gateway catalog,
     including filtering for active, non-deprecated models and validating model availability.
@@ -331,7 +331,7 @@ class LLMGatewayCatalog(APIObject):
         only_non_deprecated: bool = True,
     ) -> List[LLMGatewayCatalogEntry]:
         """
-        List LLMs available in the LLM Gateway catalog.
+        Returns a list of ``LLMs`` available in the LLM Gateway catalog.
 
         Parameters
         ----------
@@ -342,11 +342,11 @@ class LLMGatewayCatalog(APIObject):
         llm_id : str, optional
             Get the catalog entries for a specific LLM ID.
         chat_completions_supported_only: bool, optional
-            If True, only return LLMs that support the chat completions endpoint (/chat/completions).
+            If True, only return ``LLMs`` that support the chat completions endpoint (/chat/completions).
         only_active : bool, default True
-            If True, only return active LLMs.
+            If True, only return active ``LLMs``.
         only_non_deprecated : bool, default True
-            If True, only return non-deprecated LLMs.
+            If True, only return non-deprecated ``LLMs``.
         Returns
         -------
         list of LlmGatewayCatalogEntry
@@ -415,7 +415,7 @@ class LLMGatewayCatalog(APIObject):
         only_non_deprecated: bool = True,
     ) -> List[LLMGatewayCatalogEntryDict]:
         """
-        List LLMs available in the LLM Gateway catalog as dictionaries.
+        Returns a list of ``LLMs`` available in the LLM Gateway catalog as dictionaries.
 
         This is a type-safe version that returns dictionaries instead of objects.
 
@@ -428,11 +428,11 @@ class LLMGatewayCatalog(APIObject):
         llm_id : str, optional
             Get the catalog entries for a specific LLM ID.
         chat_completions_supported_only: bool, optional
-            If True, only return LLMs that support the chat completions endpoint (/chat/completions).
+            If True, only return ``LLMs`` that support the chat completions endpoint (/chat/completions).
         only_active : bool, default True
-            If True, only return active LLMs.
+            If True, only return active ``LLMs``.
         only_non_deprecated : bool, default True
-            If True, only return non-deprecated LLMs.
+            If True, only return non-deprecated ``LLMs``.
 
         Returns
         -------
@@ -518,7 +518,7 @@ class LLMGatewayCatalog(APIObject):
         Parameters
         ----------
         model_id : str
-            The model identifier to validate. Can be either 'model' or 'llmId'.
+            The model identifier to validate. Can be either ``model`` or ``llmId``.
 
         Returns
         -------
@@ -576,7 +576,7 @@ class LLMGatewayCatalog(APIObject):
         Parameters
         ----------
         model_id : str
-            The model identifier. Can be either 'model' or 'llmId'.
+            The model identifier. Can be either ``model`` or ``llmId``.
 
         Returns
         -------

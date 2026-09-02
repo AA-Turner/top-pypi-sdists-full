@@ -2,24 +2,26 @@
 
 """trie module unit tests."""
 
-__author__ = 'Michal Nazarewicz <mina86@mina86.com>'
+__author__ = 'Michał Nazarewicz <mina86@mina86.com>'
 __copyright__ = ('Copyright 2014-2017 Google LLC',
-                 'Copyright 2018-2019 Michal Nazarewicz <mina86@mina86.com>')
+                 'Copyright 2018-2019 Michał Nazarewicz <mina86@mina86.com>')
 
 import array
 import base64
 import collections
 import copy
 import pickle
-import sys
 import unittest
+import warnings
 
 import pygtrie
 
-# pylint: disable=missing-docstring
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
+# pylint: disable=missing-docstring,too-few-public-methods
 
 
-class _TrieFactoryParameteriser(object):
+class _TrieFactoryParameteriser:
     # pylint: disable=no-self-argument, invalid-name
 
     def __make_update_trie_factory(update):  # pylint: disable=unused-private-member
@@ -125,15 +127,6 @@ class TrieTestCase(unittest.TestCase):
         return tuple(path)
 
     # End of stuff that needs to be overwritten by subclasses
-
-    def __init__(self, *args, **kw):
-        super(TrieTestCase, self).__init__(*args, **kw)
-        # Python 2 compatibility.  Noisy code to confuse pylint so it does not
-        # issue deprecated-method warning. pylint: disable=invalid-name
-        for new, old in (('assertRegex', 'assertRegexpMatches'),
-                         ('assertRaisesRegex', 'assertRaisesRegexp')):
-            if not hasattr(self, new):
-                setattr(self, new, getattr(self, old))
 
     def key_from_key(self, key):
         """Turns a key into a form that the Trie will return e.g. in keys()."""
@@ -276,11 +269,6 @@ class TrieTestCase(unittest.TestCase):
         """Test various methods check for invalid arguments"""
         d = dict.fromkeys((self._SHORT_KEY, self._LONG_KEY), 42)
         t = trie_factory(self._TRIE_CTOR, d)
-
-        self.assertRaisesRegex(
-            ValueError, 'update.. takes at most one positional argument,',
-            t.update, (self._LONG_KEY, 42), (self._VERY_LONG_KEY, 42))
-
         self.assertRaisesRegex(TypeError, r'slice\(.*, None\)',
                                lambda: t[self._SHORT_KEY:self._LONG_KEY])
         self.assertRaisesRegex(TypeError, r"slice\(.*, 'foo'\)",
@@ -385,10 +373,14 @@ class TrieTestCase(unittest.TestCase):
             if expected[0]:
                 self.assertTrue(got)
             else:
+                def set_value():
+                    got.value = 10
+
                 self.assertFalse(got)
                 self.assertFalse(got.is_set)
                 self.assertFalse(got.has_subtrie)
                 self.assertIsNone(got.get())
+                self.assertRaisesRegex(AttributeError, 'read only', set_value)
 
         assert_pair(short_pair, t.shortest_prefix(self._VERY_LONG_KEY))
         assert_pair(short_pair, t.shortest_prefix(self._LONG_KEY))
@@ -462,7 +454,7 @@ class TrieTestCase(unittest.TestCase):
             self.assertEqual('42', step.value)
 
             # pylint: disable=protected-access
-            step.value = 42 if is_set else pygtrie._EMPTY
+            step.value = 42 if is_set else pygtrie._NOVAL
 
         def assert_steps(key, raises=False):
             try:
@@ -560,6 +552,10 @@ class TrieTestCase(unittest.TestCase):
             self.assertEqual([very_long_key],
                              list(ps.iter(self._VERY_LONG_KEY)))
             self.assertEqual([], list(ps.iter(self._OTHER_KEY)))
+
+        self.assertRaises(NotImplementedError, ps.discard, self._LONG_KEY)
+        self.assertRaises(NotImplementedError, ps.remove, self._LONG_KEY)
+        self.assertRaises(NotImplementedError, ps.pop)
 
         ps.add(self._SHORT_KEY)
         self.assertTrue(ps)
@@ -670,7 +666,6 @@ class TrieTestCase(unittest.TestCase):
         want = self._TRIE_CTOR((key, 42) for key in ('foo', 'bar', 'baz'))
         self.assertUnpickling(want, self._PICKLED_PROTO_0)
 
-    @unittest.skipIf(sys.version_info[0] < 3, "Protocol 3 requires Python 3+")
     def test_pickling_proto3(self):
         want = self._TRIE_CTOR((key, 42) for key in ('foo', 'bar', 'baz'))
         self.assertUnpickling(want, self._PICKLED_PROTO_3)
@@ -717,7 +712,6 @@ class CharTrieTestCase(TrieTestCase):
                                  factory=pygtrie.CharTrie)
         self.assertUnpickling(want, pickled)
 
-    @unittest.skipIf(sys.version_info[0] < 3, "Protocol 3 requires Python 3+")
     def test_prefix_set_pickling_proto3(self):
         pickled = (
             'gANjcHlndHJpZQpQcmVmaXhTZXQKcQApgXEBfXECWAUAAABfdHJpZXEDY3B5Z3RyaW'
@@ -729,11 +723,27 @@ class CharTrieTestCase(TrieTestCase):
                                  factory=pygtrie.CharTrie)
         self.assertUnpickling(want, pickled)
 
-    def test_step_repr(self):
+    def test_step_formatting(self):
         t = self._TRIE_CTOR({'foo': 42, 'foobar': 64})
+
+        self.assertEqual('(foo: 42)', str(t.shortest_prefix('foobarbaz')))
         self.assertEqual("('foo': 42)", repr(t.shortest_prefix('foobarbaz')))
+
+        self.assertEqual('(foobar: 64)', str(t.longest_prefix('foobarbaz')))
         self.assertEqual("('foobar': 64)", repr(t.longest_prefix('foobarbaz')))
-        self.assertEqual("(None Step)", repr(t.longest_prefix('qux')))
+
+        self.assertEqual('(None Step)', str(t.longest_prefix('qux')))
+        self.assertEqual('(None Step)', repr(t.longest_prefix('qux')))
+
+        steps = list(t.walk_towards('foo'))
+        self.assertEqual('(: <no value>), '
+                         '(f: <no value>), '
+                         '(fo: <no value>), '
+                         '(foo: 42)', ', '.join(map(str, steps)))
+        self.assertEqual("('': <no value>), "
+                         "('f': <no value>), "
+                         "('fo': <no value>), "
+                         "('foo': 42)", ', '.join(map(repr, steps)))
 
 
 class StringTrieTestCase(TrieTestCase):
@@ -802,8 +812,7 @@ class StringTrieTestCase(TrieTestCase):
 class SortTest(unittest.TestCase):
     def _do_test_enable_sorting(self, cls, keys):
         keys = sorted(keys)
-        # In Python 3 keys are returned in insertion order so we reverse the
-        # insertion here.
+        # In keys are returned in insertion order so reverse the insertion here.
         t = cls.fromkeys(reversed(keys))
 
         # Unless dict's hash function is weird, trie's keys should not be
@@ -974,7 +983,7 @@ class RecursionTest(unittest.TestCase):
         """Converts trie into a graph and returns its nodes."""
         Node = collections.namedtuple('Node', 'label neighbours')  # pylint: disable=invalid-name
 
-        class Builder(object):
+        class Builder:
             def __init__(self, path_conv, path, children, _=None):
                 self.node = Node(path_conv(path), [])
                 self.children = children
@@ -1024,12 +1033,9 @@ class RecursionTest(unittest.TestCase):
 
     def test_large_trie(self):
         """Test handling of large tries which would overflow stack."""
-        tostring = (getattr(array.array, 'tobytes', None) or # Python 3
-                    getattr(array.array, 'tostring'))  # Python 3
-
         trie = pygtrie.Trie()
         for x in range(100):
-            y = tostring(array.array('h', range(x, 1000)))
+            y = array.array('h', range(x, 1000)).tobytes()
             trie[y] = x
 
         # Plain iteration
@@ -1082,13 +1088,8 @@ class EqualityTest(unittest.TestCase):
 
     def test_mapping_eq(self):
         """Test comparison with non-Trie mapping types."""
-        # pylint: disable=import-outside-toplevel
-        try:
-            from collections import abc
-        except ImportError:  # Python 2 compatibility
-            abc = collections
 
-        class Mapping(abc.Mapping):
+        class Mapping(collections.abc.Mapping):
             def __getitem__(self, key):
                 if key == 'foo/bar.baz':
                     return 42
@@ -1159,6 +1160,24 @@ class MergeTest(unittest.TestCase):
              True)
         test({'foo/bar': 42, 'q/u/x': 2}, pygtrie.Trie({'qux': 2}), False)
         test({'foo/bar': 42, 'q/u/x': 2}, pygtrie.CharTrie({'qux': 2}), False)
+
+
+class NoCopyTest(unittest.TestCase):
+    """Tests _NoCopy class.  Not gonna lie.  This is here just to bump up
+    coverage.  The test case doesn’t really make much sense."""
+    # pylint: disable=protected-access
+
+    def test_singleton_values(self):
+        for v in (pygtrie._SENTINEL, pygtrie._NOVAL):
+            self.assertIs(v, copy.copy(v))
+            self.assertIs(v, copy.deepcopy(v))
+
+    def test_singleton_types(self):
+        for t in (pygtrie._FalsyIterator, pygtrie._NoChildren):
+            v = t()
+            self.assertIs(v, t())
+            self.assertIs(v, copy.copy(v))
+            self.assertIs(v, copy.deepcopy(v))
 
 
 if __name__ == '__main__':

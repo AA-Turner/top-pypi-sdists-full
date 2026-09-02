@@ -10,6 +10,7 @@ import math
 import pytest
 
 from cwsandbox import (
+    DataPlaneMode,
     EgressRule,
     FileSystemSnapshotOptions,
     NetworkOptions,
@@ -45,6 +46,7 @@ class TestSandboxDefaults:
 
         # Tags should default to empty tuple (immutable)
         assert defaults.tags == ()
+        assert defaults.data_plane_mode == DataPlaneMode.AUTO
 
         # Profile/runner IDs should default to None (no filtering)
         assert defaults.placement_mode is None
@@ -438,6 +440,23 @@ class TestSandboxDefaultsFromDict:
         with pytest.raises(TypeError, match="profile_names"):
             SandboxDefaults.from_dict({"profile_names": ["default"]})
 
+    def test_from_dict_coerces_containers_dicts(self) -> None:
+        from cwsandbox import Container
+
+        defaults = SandboxDefaults.from_dict(
+            {
+                "containers": [
+                    {"image": "python:3.11", "name": "main", "primary": True},
+                    {"image": "redis:7", "name": "cache"},
+                ]
+            }
+        )
+        assert defaults.containers is not None
+        assert len(defaults.containers) == 2
+        assert isinstance(defaults.containers[0], Container)
+        assert defaults.containers[0].name == "main"
+        assert defaults.containers[1].image == "redis:7"
+
     def test_from_dict_coerces_services_and_volumes_dicts(self) -> None:
         from cwsandbox._types import ScratchVolumeOptions, Service
 
@@ -459,6 +478,37 @@ class TestSandboxDefaultsFromDict:
         assert len(defaults.volumes) == 1
         assert isinstance(defaults.volumes[0], ScratchVolumeOptions)
         assert defaults.volumes[0].mount_path == "/workspace"
+
+    def test_from_dict_coerces_registered_volume_and_security_context(self) -> None:
+        from cwsandbox._types import (
+            ObjectStorageAccess,
+            RegisteredVolumeOptions,
+            SecurityContext,
+        )
+
+        defaults = SandboxDefaults.from_dict(
+            {
+                "runtime_class": "gvisor",
+                "working_dir": "/app",
+                "security_context": {"privileged": True},
+                "object_storage_access": {"buckets": ["b1"], "permission": "read"},
+                "volumes": [
+                    {
+                        "name": "data",
+                        "volume_id": "vol-1",
+                        "mount_path": "/data",
+                    }
+                ],
+            }
+        )
+        assert defaults.runtime_class == "gvisor"
+        assert defaults.working_dir == "/app"
+        assert isinstance(defaults.security_context, SecurityContext)
+        assert defaults.security_context.privileged is True
+        assert isinstance(defaults.object_storage_access, ObjectStorageAccess)
+        assert defaults.object_storage_access.buckets == ("b1",)
+        assert isinstance(defaults.volumes[0], RegisteredVolumeOptions)
+        assert defaults.volumes[0].volume_id == "vol-1"
 
     def test_from_dict_coerces_network_dict(self) -> None:
         """from_dict converts network dict to NetworkOptions."""

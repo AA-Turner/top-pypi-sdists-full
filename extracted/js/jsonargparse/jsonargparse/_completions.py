@@ -1,5 +1,5 @@
 import argparse
-import inspect
+import json
 import locale
 import os
 import re
@@ -27,11 +27,12 @@ from ._typehints import (
     callable_origin_types,
     get_all_subclass_paths,
     get_callable_return_type,
+    get_help_types,
     get_typed_dict_key_type,
     get_typehint_origin,
     is_single_subclass_or_closed_type,
+    is_structured_value_type,
     is_subclass,
-    is_typed_dict,
     type_to_str,
 )
 from ._util import NoneType, Path, import_object, merge_config, unique
@@ -43,7 +44,7 @@ def handle_completions(parser):
 
 
 def add_print_completion_argument(parser):
-    if getattr(parser, "parent_parser", None) or not find_spec("shtab"):
+    if getattr(parser, "parent_parser", None):
         return
     print_completion_argument = get_parsing_setting("add_print_completion_argument")
     if not print_completion_argument and "--print_shtab" not in parser._option_string_actions:
@@ -128,14 +129,17 @@ class PrintCompletionAction(NonParsingAction):
         default=argparse.SUPPRESS,
         **kwargs,
     ):
-        import shtab
+        choices = ["jsonschema"]
+        if find_spec("shtab"):
+            import shtab
 
+            choices.extend(f"shtab-{shell}" for shell in shtab.SUPPORTED_SHELLS)
         super().__init__(
             option_strings=option_strings,
             dest=dest,
             default=default,
-            choices=[f"shtab-{shell}" for shell in shtab.SUPPORTED_SHELLS],
-            help="Print shell completion script.",
+            choices=choices,
+            help="Print completion script.",
         )
 
     def __call__(self, parser, namespace, completion_type, option_string=None):
@@ -144,11 +148,17 @@ class PrintCompletionAction(NonParsingAction):
 
 
 def get_completion_script(parser, completion_type: str, **kwargs) -> str:
+    if completion_type == "jsonschema":
+        from ._completions_jsonschema import config_jsonschema
+
+        return json.dumps(config_jsonschema(parser), indent=2)  # doesn't modify the parser
     if not completion_type.startswith("shtab-"):
         raise ValueError(f"Unsupported completion_type: {completion_type}.")
     if not find_spec("shtab"):
         raise ValueError(f"shtab package is required for completion type '{completion_type}'.")
-    return get_shtab_script(parser, completion_type[len("shtab-") :], **kwargs)
+    script = get_shtab_script(parser, completion_type[len("shtab-") :], **kwargs)
+    parser._invalidate_by_completion_script()
+    return script
 
 
 def get_shtab_script(parser, shell: str, preambles: list[str] | None = None) -> str:
@@ -265,6 +275,10 @@ bash_compgen_typehint_name = "_jsonargparse_{prog}_compgen_typehint"
 # redraw-current-line, making readline itself redraw once the completion function returns.
 bash_compgen_typehint = """
 [[ $- == *i* ]] && bind '"\\e[0n": redraw-current-line' 2>/dev/null
+# tput gives the message colors when available, ignoring its errors, e.g. not installed or
+# TERM unset, which leaves the colors empty
+%(b)s="$(tput setaf 5 2>/dev/null || true)"
+%(n)s="$(tput sgr0 2>/dev/null || true)"
 %(name)s() {
   local CHOICES="$1" WORD="$2" MESSAGE="$3" REQUIRE_PREFIX="$4" TOTAL="$5"
   local IFS=$'\\n'  # choices may contain spaces, so split matches on newline only
@@ -280,7 +294,7 @@ bash_compgen_typehint = """
   fi
   if [ ${#MATCH[@]} = 0 ]; then
     if [ "$COMP_TYPE" = 63 ]; then
-      printf "%(b)s\\n%%s%%s\\n%(n)s" "$MESSAGE" "$MATCHED" >&2
+      printf "${%(b)s}\\n%%s%%s\\n${%(n)s}" "$MESSAGE" "$MATCHED" >&2
       printf '\\033[5n' >&2
     fi
   else
@@ -288,14 +302,14 @@ bash_compgen_typehint = """
       echo "$match"
     done
     if [ "$COMP_TYPE" = 63 ]; then
-      printf "%(b)s\\n%%s%%s%(n)s" "$MESSAGE" "$MATCHED" >&2
+      printf "${%(b)s}\\n%%s%%s${%(n)s}" "$MESSAGE" "$MATCHED" >&2
     fi
   fi
 }
 """ % {
     "name": bash_compgen_typehint_name,
-    "b": "$(tput setaf 5)",
-    "n": "$(tput sgr0)",
+    "b": "_jsonargparse_{prog}_color_message",
+    "n": "_jsonargparse_{prog}_color_reset",
 }
 
 
@@ -360,11 +374,12 @@ def get_typehint_choices(typehint, prefix, parser, skip, added_subclasses=None) 
             choices = add_subactions_and_get_subclass_choices(typehint, prefix, parser, skip, added_subclasses)
             return choices, True, False
 
-        if is_typed_dict(typehint) or (
+        if is_structured_value_type(typehint) or (
             is_single_subclass_or_closed_type(typehint, origin) and is_subclasses_disabled(typehint)
         ):
-            # a dataclass-like type is only inlined as a group when not in a union and a typed
-            # dict never is, so their init args or keys need to be added as options to complete them
+            # a dataclass-like type is only inlined as a group when not in a union and a typed dict
+            # or named tuple never is, so their init args, keys or fields need to be added as
+            # options to complete them
             added_subclasses.add(typehint)
             add_subactions_and_get_subclass_choices(typehint, prefix, parser, skip, added_subclasses, closed_type=True)
             return [], False, True
@@ -398,7 +413,7 @@ def add_subactions_and_get_subclass_choices(
         if isinstance(class_or_path, str):
             choices.append(class_or_path)
         try:
-            cls = import_object(class_or_path) if isinstance(class_or_path, str) else class_or_path
+            cls = import_object(class_or_path, check_path=False) if isinstance(class_or_path, str) else class_or_path
             params = get_signature_parameters(cls, None, parser._logger)
         except Exception as ex:
             parser._logger.debug(f"Unable to get signature parameters for '{name}': {ex}")
@@ -439,14 +454,11 @@ def add_subactions_and_get_subclass_choices(
 
 
 def get_help_class_choices(typehint) -> list[str]:
-    choices = []
-    if get_typehint_origin(typehint) == Union:
-        for subtype in typehint.__args__:
-            # a subscripted generic typed dict is a generic alias instead of a class
-            if inspect.isclass(subtype) or is_typed_dict(subtype):
-                choices.extend(get_help_class_choices(subtype))
-    elif is_typed_dict(typehint):
-        choices = [typehint.__name__]  # typed dicts don't accept a class path, only their name
-    else:
-        choices = get_all_subclass_paths(typehint)
+    choices: list[str] = []
+    for help_type in get_help_types(typehint) or []:
+        if is_structured_value_type(help_type):
+            # a typed dict or named tuple doesn't accept a class path, only its name
+            choices.append(help_type.__name__)
+        else:
+            choices += [p for p in get_all_subclass_paths(help_type) if p not in choices]
     return choices

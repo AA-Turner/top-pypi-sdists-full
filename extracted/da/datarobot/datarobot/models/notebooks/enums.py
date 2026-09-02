@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import List
+from typing import List, Union
 
 from strenum import StrEnum
 
@@ -138,7 +138,7 @@ class CellType(StrEnum):
 
 class RuntimeLanguage(StrEnum):
     """
-    Languages as used in notebook jupyter kernels.
+    Languages as used in notebook Jupyter kernels.
     """
 
     PYTHON = "python3"
@@ -163,8 +163,8 @@ class KernelSpec(StrEnum):
     R = "ir"
 
     @classmethod
-    def from_image_language(cls, image_language: ImageLanguage) -> KernelSpec:
-        if image_language == ImageLanguage.R:
+    def from_image_language(cls, image_language: Union[ImageLanguage, str]) -> KernelSpec:
+        if image_language in {ImageLanguage.R, ImageLanguage.R.lower()}:
             return cls.R
         return cls.PYTHON
 

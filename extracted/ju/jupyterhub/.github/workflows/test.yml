@@ -36,8 +36,8 @@ permissions:
 jobs:
   # Run "pytest jupyterhub/tests" in various configurations
   pytest:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
 
     strategy:
       # Keep running even if one variation of the job fail
@@ -74,13 +74,13 @@ jobs:
         # Python versions available at:
         #   https://github.com/actions/python-versions/blob/HEAD/versions-manifest.json
         include:
-          - python: "3.8"
+          - python: "3.10"
             oldest_dependencies: oldest_dependencies
             legacy_notebook: legacy_notebook
-          - python: "3.8"
+          - python: "3.11"
             jupyter_server: "1.*"
             subset: singleuser
-          - python: "3.9"
+          - python: "3.12"
             db: mysql
           - python: "3.12"
             db: postgres
@@ -90,10 +90,10 @@ jobs:
           - python: "3.13"
             ssl: ssl
             serverextension: serverextension
-          - python: "3.11"
+          - python: "3.13"
             jupyverse: jupyverse
             subset: singleuser
-          - python: "3.11"
+          - python: "3.13"
             subdomain: subdomain
             noextension: noextension
             subset: singleuser
@@ -103,7 +103,7 @@ jobs:
             subset: singleuser
           - python: "3.13"
             browser: browser
-          - python: "3.11"
+          - python: "3.12"
             subdomain: subdomain
             browser: browser
           - python: "3.14"
@@ -126,6 +126,9 @@ jobs:
           fi
           if [ "${{ matrix.ssl }}" == "ssl" ]; then
               echo "SSL_ENABLED=1" >> $GITHUB_ENV
+              # limit tests to those relevant to ssl
+              echo "PYTEST_ADDOPTS=$PYTEST_ADDOPTS" -m ssl >> "${GITHUB_ENV}"
+
           fi
           if [ "${{ matrix.db }}" == "postgres" ]; then
               echo "PGHOST=127.0.0.1" >> $GITHUB_ENV
@@ -141,12 +144,12 @@ jobs:
           if [ "${{ matrix.jupyverse }}" != "" ]; then
               echo "JUPYTERHUB_SINGLEUSER_APP=jupyverse" >> $GITHUB_ENV
           fi
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
       - name: Install Node
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: "24"
 
@@ -157,7 +160,7 @@ jobs:
           npm list
 
       - name: Install Python ${{ matrix.python }}
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "${{ matrix.python }}"
           cache: pip
@@ -175,7 +178,7 @@ jobs:
             # make sure our `>=` pins really do express our minimum supported versions
             pip install -r ci/oldest-dependencies/requirements.old -e .
           else
-            pip install --pre -e ".[test]" "pycurl; python_version >= '3.10'" 'cryptography<47'
+            pip install --pre -e ".[test]" "pycurl; python_version >= '3.10'"
           fi
 
           if [ "${{ matrix.main_dependencies }}" != "" ]; then
@@ -247,6 +250,8 @@ jobs:
               DB=postgres bash ci/docker-db.sh
               DB=postgres bash ci/init-db.sh
           fi
+          # limit db runs to subset of tests
+          echo "PYTEST_ADDOPTS=$PYTEST_ADDOPTS -m db" >> "${GITHUB_ENV}"
 
       - name: Configure browser tests
         if: matrix.browser
@@ -260,4 +265,4 @@ jobs:
         run: |
           pytest -k "${{ matrix.subset }}" --maxfail=2 --cov=jupyterhub jupyterhub/tests
 
-      - uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v5

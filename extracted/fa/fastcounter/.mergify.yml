@@ -1,0 +1,23 @@
+pull_request_rules:
+  - name: automatic merge
+    conditions:
+      - "status-success=pep8"
+      - "status-success=test"
+      - "#approved-reviews-by>=1"
+    actions:
+      merge:
+        strict: "smart"
+        method: merge
+  - name: automatic merge no review
+    conditions:
+      - author=jd
+      - "status-success=pep8"
+      - "status-success=test"
+    actions:
+      merge:
+        strict: "smart"
+        method: merge
+  - name: dismiss reviews
+    conditions: []
+    actions:
+      dismiss_reviews: {}

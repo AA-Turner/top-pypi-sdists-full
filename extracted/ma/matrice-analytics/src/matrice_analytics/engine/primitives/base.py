@@ -391,13 +391,16 @@ class PipelineDetection(Detection):
         """
         segmentation = None
         if self.mask is not None and self.mask.rle is not None and self.mask.size is not None:
-            segmentation = WireSegmentationMask(encoding=self.mask.encoding, counts=self.mask.rle, size=self.mask.size)
+            segmentation = WireSegmentationMask(
+                encoding=self.mask.encoding, counts=self.mask.rle, size=self.mask.size
+            )
         return Detection(
             category=self.category,
             confidence=self.confidence,
             bounding_box=self.bounding_box,
             track_id=self.track_id,
             segmentation=segmentation,
+            is_blur=self.is_blur,
         )
 
 
@@ -756,7 +759,9 @@ def resolve_value(outputs: Mapping[str, PrimitiveOutput], source: str) -> Scalar
     """
     stage, _, value_name = source.partition(".")
     if not stage or not value_name:
-        raise SourceResolutionError(f"source {source!r} is not '<stage>.<value>', e.g. 'unique_count.new'")
+        raise SourceResolutionError(
+            f"source {source!r} is not '<stage>.<value>', e.g. 'unique_count.new'"
+        )
     if stage not in outputs:
         raise SourceResolutionError(
             f"source {source!r} names stage {stage!r}, which is not in the pipeline. "
@@ -904,8 +909,12 @@ def conformance_problems(impl: type[Any], *, custom: bool = False) -> list[str]:
             )
 
     config_model = getattr(impl, "Config", None)
-    if config_model is not None and not (isinstance(config_model, type) and issubclass(config_model, BaseModel)):
-        problems.append(f"{impl.__name__}.Config must be a pydantic BaseModel subclass, got {config_model!r}")
+    if config_model is not None and not (
+        isinstance(config_model, type) and issubclass(config_model, BaseModel)
+    ):
+        problems.append(
+            f"{impl.__name__}.Config must be a pydantic BaseModel subclass, got {config_model!r}"
+        )
 
     if not custom:
         stated = getattr(impl, "name", None)
@@ -1015,7 +1024,8 @@ class PrimitiveRegistry:
             problems = conformance_problems(cls)
             if problems:
                 raise PrimitiveRegistrationError(
-                    f"{cls.__name__} does not implement the Primitive protocol:\n  - " + "\n  - ".join(problems)
+                    f"{cls.__name__} does not implement the Primitive protocol:\n  - "
+                    + "\n  - ".join(problems)
                 )
             self._impls[key] = cls
             return cls
@@ -1100,7 +1110,7 @@ def _manifest_primitive_names() -> frozenset[str]:
     """
     try:
         from matrice_analytics.engine.manifest.models import PRIMITIVES  # noqa: PLC0415
-    except Exception:  # pragma: no cover - sibling package unavailable
+    except Exception:  # pragma: no cover - sibling package unavailable  # noqa: BLE001
         return frozenset()
     return frozenset(PRIMITIVES)
 

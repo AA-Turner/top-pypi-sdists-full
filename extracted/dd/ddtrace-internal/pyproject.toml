@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ddtrace-internal"
+version = "0.1.0"
+description = "Stub internal Datadog Python package (ddtrace-internal)."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Datadog, Inc.", email = "dev@datadoghq.com" }]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# Tests live at tests/<module_path>/test.py, mirroring the source layout so
+# sibling fixtures/data for a module's tests have a natural home -- pytest's
+# default `test_*.py`/`*_test.py` globs don't match a bare `test.py`.
+python_files = ["test.py", "test_*.py"]
+
+[tool.deptry]
+# `setup.py`/`scripts/`/`tests/`/`riotfile.py` aren't part of the installable
+# package and pull in their own build/dev-only imports; deptry's `exclude`
+# is `re.match`-anchored, hence the leading `.*` to match regardless of
+# invocation path.
+exclude = [".*/scripts(/|$)", ".*/setup\\.py$", ".*/tests(/|$)", ".*/riotfile\\.py$"]

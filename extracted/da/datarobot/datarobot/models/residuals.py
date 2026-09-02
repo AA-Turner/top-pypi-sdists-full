@@ -31,7 +31,7 @@ class ResidualsChart(APIObject):
 
     .. versionadded:: v2.18
 
-    This data is calculated over a randomly downsampled subset of the source data
+    This data is calculated over a randomly ``downsampled`` subset of the source data
     (capped at 1000 rows).
 
     Notes
@@ -47,18 +47,18 @@ class ResidualsChart(APIObject):
     Attributes
     ----------
     source : str
-        Lift chart data source. Can be 'validation', 'crossValidation' or 'holdout'.
+        Residual chart data source. Can be ``validation``, ``crossValidation``, or ``holdout``.
     data : list
-        List of lists with schema described as ``ResidualsChartRow`` above.
+        A list of lists with schema described as ``ResidualsChartRow`` above.
     coefficient_of_determination : float
-        The r-squared value for the downsampled dataset
+        The r-squared value for the ``downsampled`` dataset.
     residual_mean : float
-        The arithmetic mean of the residual (predicted value minus actual value)
+        The arithmetic mean of the residual (predicted value minus actual value).
     source_model_id : str
         ID of the model this chart represents; in some cases,
-        insights from the parent of a frozen model may be used
+        insights from the parent of a frozen model may be used.
     standard_deviation : float
-        standard_deviation of residual values
+        Standard deviation of residual values.
     data_slice_id: string or None
         The slice to retrieve Feature Effects for; if None, retrieve unsliced data.
     """
@@ -137,8 +137,8 @@ class ResidualsChart(APIObject):
             The directly translated dict of JSON from the server. No casing fixes have
             taken place.
         keep_attrs : iterable
-            List, set or tuple of the dotted namespace notations for attributes to keep within the
-            object structure even if their values are None
+            List, set, or tuple of the dotted namespace notations for attributes to keep within the
+            object structure even if their values are None.
         use_insights_format : Optional[bool]
             Whether to repack the data from the format used in the GET `/insights/residuals/` URL
             to the format used in the legacy URL.
@@ -171,8 +171,8 @@ class SlicedResidualsChart(ResidualsChart):
             The directly translated dict of JSON from the server. No casing fixes have
             taken place.
         keep_attrs : iterable
-            List, set or tuple of the dotted namespace notations for attributes to keep within the
-            object structure even if their values are None
+            List, set, or tuple of the dotted namespace notations for attributes to keep within the
+            object structure even if their values are None.
         use_insights_format : Optional[bool]
             Whether to repack the data from the format used in the GET `/insights/liftChart/` URL
             to the format used in the legacy URL.

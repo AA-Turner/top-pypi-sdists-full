@@ -1,0 +1,777 @@
+from __future__ import annotations
+
+import asyncio
+import gc
+import os
+import shlex
+import socket
+import subprocess
+import sys
+import threading
+import time
+import unittest
+import warnings
+
+import rsloop
+
+
+def get_event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=DeprecationWarning,
+            message="'asyncio\\.get_event_loop_policy' is deprecated.*",
+        )
+        return asyncio.get_event_loop_policy()
+
+
+def set_event_loop_policy(policy: asyncio.AbstractEventLoopPolicy) -> None:
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=DeprecationWarning,
+            message="'asyncio\\.set_event_loop_policy' is deprecated.*",
+        )
+        asyncio.set_event_loop_policy(policy)
+
+
+def default_event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=DeprecationWarning,
+            message="'asyncio\\.DefaultEventLoopPolicy' is deprecated.*",
+        )
+        return asyncio.DefaultEventLoopPolicy()
+
+
+async def run_in_thread(func, /, *args):
+    to_thread = getattr(asyncio, "to_thread", None)
+    if to_thread is not None:
+        return await to_thread(func, *args)
+
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, func, *args)
+
+
+class RunTests(unittest.TestCase):
+    def test_transport_stats_shape_and_reset(self) -> None:
+        rsloop.reset_transport_stats()
+        stats = rsloop.transport_stats()
+        self.assertEqual(
+            set(stats),
+            {
+                "enabled",
+                "read_events",
+                "read_bytes",
+                "read_wakeups",
+                "python_read_drains",
+                "staged_writes",
+                "direct_write_attempts",
+                "poll_rebinds",
+            },
+        )
+        self.assertIsInstance(stats["enabled"], bool)
+        self.assertTrue(
+            all(value == 0 for key, value in stats.items() if key != "enabled")
+        )
+
+    def test_build_info_describes_native_extension(self) -> None:
+        info = rsloop.build_info()
+        expected_reactor = (
+            "iocp"
+            if sys.platform == "win32"
+            else "io_uring"
+            if sys.platform.startswith("linux")
+            else "kqueue"
+        )
+
+        self.assertEqual(
+            set(info),
+            {
+                "version",
+                "profile",
+                "target_os",
+                "target_arch",
+                "free_threaded",
+                "reactor",
+                "runtime_profile",
+                "minimum_os",
+                "tls_backend",
+                "profiler",
+            },
+        )
+        self.assertEqual(info["version"], rsloop.__version__)
+        self.assertIn(info["profile"], {"debug", "release"})
+        self.assertTrue(info["target_os"])
+        self.assertTrue(info["target_arch"])
+        self.assertIsInstance(info["free_threaded"], bool)
+        self.assertEqual(info["reactor"], expected_reactor)
+        self.assertEqual(info["runtime_profile"], "rsloop")
+        self.assertTrue(info["minimum_os"])
+        self.assertEqual(info["tls_backend"], "rustls")
+        self.assertEqual(info["profiler"], rsloop.profiler_compiled())
+
+    def test_install_makes_asyncio_create_rsloop_loops(self) -> None:
+        original_policy = get_event_loop_policy()
+        try:
+            set_event_loop_policy(default_event_loop_policy())
+
+            rsloop.install()
+            self.assertIsInstance(
+                get_event_loop_policy(),
+                rsloop.EventLoopPolicy,
+            )
+
+            loop = asyncio.new_event_loop()
+            try:
+                self.assertIsInstance(loop, rsloop.Loop)
+            finally:
+                loop.close()
+        finally:
+            rsloop.uninstall()
+            set_event_loop_policy(original_policy)
+
+    def test_installed_policy_affects_asyncio_run(self) -> None:
+        original_policy = get_event_loop_policy()
+        try:
+            set_event_loop_policy(default_event_loop_policy())
+            rsloop.install()
+
+            async def main() -> bool:
+                return isinstance(asyncio.get_running_loop(), rsloop.Loop)
+
+            self.assertTrue(asyncio.run(main()))
+        finally:
+            rsloop.uninstall()
+            set_event_loop_policy(original_policy)
+
+    def test_uninstall_restores_previous_event_loop_policy(self) -> None:
+        original_policy = get_event_loop_policy()
+        previous_policy = default_event_loop_policy()
+        try:
+            set_event_loop_policy(previous_policy)
+            rsloop.install()
+            rsloop.uninstall()
+
+            self.assertIs(get_event_loop_policy(), previous_policy)
+            loop = asyncio.new_event_loop()
+            try:
+                self.assertNotIsInstance(loop, rsloop.Loop)
+            finally:
+                loop.close()
+        finally:
+            rsloop.uninstall()
+            set_event_loop_policy(original_policy)
+
+    def test_uninstall_does_not_replace_newly_installed_policy(self) -> None:
+        original_policy = get_event_loop_policy()
+        other_policy = default_event_loop_policy()
+        try:
+            rsloop.install()
+            set_event_loop_policy(other_policy)
+            rsloop.uninstall()
+
+            self.assertIs(get_event_loop_policy(), other_policy)
+        finally:
+            rsloop.uninstall()
+            set_event_loop_policy(original_policy)
+
+    def test_set_event_loop_accepts_rsloop_loop(self) -> None:
+        loop = rsloop.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            self.assertIs(asyncio.get_event_loop(), loop)
+        finally:
+            asyncio.set_event_loop(None)
+            loop.close()
+
+    def test_run_executes_coroutine(self) -> None:
+        async def main() -> str:
+            return "ok"
+
+        self.assertEqual(rsloop.run(main()), "ok")
+
+    def test_repeated_delayed_thread_completions_wake_loop(self) -> None:
+        def delayed_result(value: int) -> int:
+            # Let the loop leave its short spin window and park in the OS
+            # selector before the worker schedules its completion.
+            time.sleep(0.001)
+            return value
+
+        async def main() -> None:
+            for expected in range(500):
+                actual = await run_in_thread(delayed_result, expected)
+                self.assertEqual(actual, expected)
+
+        rsloop.run(main())
+
+    def test_repeated_command_dispatch_across_runs(self) -> None:
+        loop = rsloop.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            for expected in range(10_000):
+                future = loop.create_future()
+                loop.call_soon(future.set_result, expected)
+                self.assertEqual(loop.run_until_complete(future), expected)
+        finally:
+            asyncio.set_event_loop(None)
+            loop.close()
+
+    def test_repeated_command_dispatch_across_loop_lifecycles(self) -> None:
+        for expected in range(1_000):
+            loop = rsloop.new_event_loop()
+            try:
+                future = loop.create_future()
+                loop.call_soon(future.set_result, expected)
+                self.assertEqual(loop.run_until_complete(future), expected)
+            finally:
+                loop.close()
+
+    def test_run_waits_for_runtime_finish_acknowledgement(self) -> None:
+        async def main() -> None:
+            loop = asyncio.get_running_loop()
+            reader, writer = socket.socketpair()
+            try:
+                # Replacing an FD watcher queues work for the runtime thread.
+                # Finishing the run must wait for that queue instead of using
+                # the much shorter signal-polling interval as a deadline.
+                for _ in range(10_000):
+                    loop.add_reader(reader, lambda: None)
+
+                loop.remove_reader(reader)
+            finally:
+                reader.close()
+                writer.close()
+
+        rsloop.run(main())
+
+    def test_baseexception_does_not_leak_wakeups(self) -> None:
+        # A callback that completes the awaited future (queuing the suspended
+        # task's __wakeup) and then raises a BaseException unwinds run_forever
+        # mid-batch. The queued wakeup must survive into the next run; otherwise
+        # the task can never be resumed and a later run_until_complete hangs
+        # forever.
+        loop = rsloop.new_event_loop()
+
+        # Guard against the regression actually hanging the test suite.
+        watchdog = threading.Timer(5.0, loop.call_soon_threadsafe, (loop.stop,))
+        watchdog.start()
+        try:
+            asyncio.set_event_loop(loop)
+            fut: asyncio.Future[str] = loop.create_future()
+
+            def trigger() -> None:
+                fut.set_result("woken")
+                raise SystemExit(5)
+
+            async def main() -> str:
+                loop.call_soon(trigger)
+                return await fut
+
+            main_task = loop.create_task(main())
+            with self.assertRaises(SystemExit):
+                loop.run_until_complete(main_task)
+
+            # The future completed, but the task was suspended when SystemExit
+            # unwound the loop. Its wakeup must have been preserved.
+            self.assertTrue(fut.done())
+            self.assertFalse(main_task.done())
+
+            self.assertEqual(loop.run_until_complete(main_task), "woken")
+        finally:
+            watchdog.cancel()
+            asyncio.set_event_loop(None)
+            loop.close()
+
+    def test_run_fallback_handles_sigint(self) -> None:
+        script = r"""
+import asyncio
+import signal
+import sys
+import threading
+
+import rsloop
+import rsloop._run as rsloop_run
+
+rsloop_run.__sys.version_info = (3, 11)
+
+async def main():
+    try:
+        await asyncio.sleep(60)
+    finally:
+        print("main-cancelled", flush=True)
+
+threading.Timer(0.1, lambda: signal.raise_signal(signal.SIGINT)).start()
+try:
+    rsloop.run(main())
+except KeyboardInterrupt:
+    print("keyboard-interrupt", flush=True)
+    raise SystemExit(0)
+except BaseException as exc:
+    print(f"unexpected: {type(exc).__name__}: {exc}", flush=True)
+    raise SystemExit(2)
+else:
+    print("no-interrupt", flush=True)
+    raise SystemExit(3)
+"""
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            text=True,
+            capture_output=True,
+            timeout=5,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("main-cancelled", proc.stdout)
+        self.assertIn("keyboard-interrupt", proc.stdout)
+
+    @unittest.skipUnless(
+        os.name == "posix" and os.path.isdir("/proc/self/fd"),
+        "requires /proc/self/fd",
+    )
+    def test_create_connection_does_not_leak_file_descriptors(self) -> None:
+        def fd_count() -> int:
+            return len(os.listdir("/proc/self/fd"))
+
+        async def main() -> None:
+            loop = asyncio.get_running_loop()
+
+            class ServerProtocol(asyncio.Protocol):
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    transport.close()
+
+            server = await loop.create_server(ServerProtocol, "127.0.0.1", 0)
+            try:
+                port = server.sockets[0].getsockname()[1]
+
+                for _ in range(64):
+                    closed = loop.create_future()
+
+                    class ClientProtocol(asyncio.Protocol):
+                        def connection_made(
+                            self, transport: asyncio.BaseTransport
+                        ) -> None:
+                            transport.close()
+
+                        def connection_lost(self, exc: Exception | None) -> None:
+                            if not closed.done():
+                                closed.set_result(None)
+
+                    await loop.create_connection(ClientProtocol, "127.0.0.1", port)
+                    await asyncio.wait_for(closed, 1.0)
+                    await asyncio.sleep(0)
+            finally:
+                server.close()
+                await server.wait_closed()
+
+        before = fd_count()
+        rsloop.run(main())
+        gc.collect()
+        after = fd_count()
+        self.assertLessEqual(after, before + 4)
+
+    def test_connect_pipe_round_trip(self) -> None:
+        async def main() -> tuple[str, str]:
+            loop = asyncio.get_running_loop()
+            read_done: asyncio.Future[str] = loop.create_future()
+            write_done: asyncio.Future[None] = loop.create_future()
+
+            class ReadProtocol(asyncio.Protocol):
+                def __init__(self) -> None:
+                    self.parts: list[bytes] = []
+
+                def data_received(self, data: bytes) -> None:
+                    self.parts.append(data)
+
+                def connection_lost(self, exc: Exception | None) -> None:
+                    if not read_done.done():
+                        read_done.set_result(b"".join(self.parts).decode())
+
+            class WriteProtocol(asyncio.Protocol):
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    transport.write(b"pipe-write-demo")
+                    transport.close()
+
+                def connection_lost(self, exc: Exception | None) -> None:
+                    if not write_done.done():
+                        write_done.set_result(None)
+
+            r_fd, w_fd = os.pipe()
+            with (
+                os.fdopen(r_fd, "rb", buffering=0) as rfile,
+                os.fdopen(w_fd, "wb", buffering=0) as wfile,
+            ):
+                read_transport, _ = await loop.connect_read_pipe(ReadProtocol, rfile)
+                wfile.write(b"pipe-read-demo")
+                wfile.flush()
+                wfile.close()
+                read_value = await asyncio.wait_for(read_done, 1.0)
+                read_transport.close()
+
+            r_fd2, w_fd2 = os.pipe()
+            with (
+                os.fdopen(r_fd2, "rb", buffering=0) as rfile2,
+                os.fdopen(w_fd2, "wb", buffering=0) as wfile2,
+            ):
+                write_transport, _ = await loop.connect_write_pipe(
+                    WriteProtocol, wfile2
+                )
+                write_value = rfile2.read(len(b"pipe-write-demo")).decode()
+                await asyncio.wait_for(write_done, 1.0)
+                write_transport.close()
+
+            return read_value, write_value
+
+        self.assertEqual(rsloop.run(main()), ("pipe-read-demo", "pipe-write-demo"))
+
+    def test_write_pipe_transport_reports_write_buffer_flow_control(self) -> None:
+        async def main() -> dict[str, object]:
+            loop = asyncio.get_running_loop()
+            done: asyncio.Future[dict[str, object]] = loop.create_future()
+            payload = b"x" * (256 * 1024)
+
+            def drain_pipe(fd: int, expected: int) -> int:
+                total = 0
+                while total < expected:
+                    chunk = os.read(fd, min(65536, expected - total))
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                return total
+
+            class WriteProtocol(asyncio.Protocol):
+                def __init__(self) -> None:
+                    self.events: list[str] = []
+
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    self.transport = transport
+                    self.default_limits = transport.get_write_buffer_limits()
+                    transport.set_write_buffer_limits(high=1, low=0)
+                    self.updated_limits = transport.get_write_buffer_limits()
+                    self.invalid_limits_raised = False
+                    try:
+                        transport.set_write_buffer_limits(high=1, low=2)
+                    except ValueError:
+                        self.invalid_limits_raised = True
+                    transport.write(payload)
+                    self.size_after_write = transport.get_write_buffer_size()
+
+                def pause_writing(self) -> None:
+                    self.events.append("pause")
+
+                def resume_writing(self) -> None:
+                    self.events.append("resume")
+                    if not done.done():
+                        done.set_result(
+                            {
+                                "default_limits": self.default_limits,
+                                "updated_limits": self.updated_limits,
+                                "invalid_limits_raised": self.invalid_limits_raised,
+                                "size_after_write": self.size_after_write,
+                                "size_after_resume": self.transport.get_write_buffer_size(),
+                                "events": list(self.events),
+                            }
+                        )
+                    self.transport.close()
+
+            r_fd, w_fd = os.pipe()
+            with (
+                os.fdopen(r_fd, "rb", buffering=0) as rfile,
+                os.fdopen(w_fd, "wb", buffering=0) as wfile,
+            ):
+                read_task = asyncio.create_task(
+                    run_in_thread(drain_pipe, rfile.fileno(), len(payload))
+                )
+                transport, _ = await loop.connect_write_pipe(WriteProtocol, wfile)
+                try:
+                    result = await asyncio.wait_for(done, 3.0)
+                    self.assertEqual(
+                        await asyncio.wait_for(read_task, 3.0), len(payload)
+                    )
+                    return result
+                finally:
+                    transport.close()
+
+        self.assertEqual(
+            rsloop.run(main()),
+            {
+                "default_limits": (16384, 65536),
+                "updated_limits": (0, 1),
+                "invalid_limits_raised": True,
+                "size_after_write": 256 * 1024,
+                "size_after_resume": 0,
+                "events": ["pause", "resume"],
+            },
+        )
+
+    def test_subprocess_exec_round_trip(self) -> None:
+        async def main() -> dict[str, object]:
+            loop = asyncio.get_running_loop()
+            done: asyncio.Future[dict[str, object]] = loop.create_future()
+
+            class ProcessProtocol(asyncio.SubprocessProtocol):
+                def __init__(self) -> None:
+                    self.stdout = bytearray()
+                    self.stderr = bytearray()
+
+                def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    self.transport = transport
+
+                def pipe_data_received(self, fd: int, data: bytes) -> None:
+                    if fd == 1:
+                        self.stdout.extend(data)
+                    elif fd == 2:
+                        self.stderr.extend(data)
+
+                def connection_lost(self, exc: Exception | None) -> None:
+                    if not done.done():
+                        done.set_result(
+                            {
+                                "stdout": self.stdout.decode(),
+                                "stderr": self.stderr.decode(),
+                                "returncode": self.transport.get_returncode(),
+                            }
+                        )
+
+            if os.name == "nt":
+                program = sys.executable
+                args = (
+                    "-c",
+                    "import sys; data = sys.stdin.buffer.read(); "
+                    "sys.stdout.buffer.write(data.upper()); "
+                    "sys.stderr.write('stderr-ok')",
+                )
+            else:
+                program = "/bin/sh"
+                args = ("-c", "tr '[:lower:]' '[:upper:]'; printf stderr-ok >&2")
+
+            transport, _ = await loop.subprocess_exec(
+                ProcessProtocol,
+                program,
+                *args,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdin_transport = transport.get_pipe_transport(0)
+            stdin_transport.write(b"hello subprocess")
+            stdin_transport.close()
+            return await asyncio.wait_for(done, 3.0)
+
+        self.assertEqual(
+            rsloop.run(main()),
+            {
+                "stdout": "HELLO SUBPROCESS",
+                "stderr": "stderr-ok",
+                "returncode": 0,
+            },
+        )
+
+    def test_subprocess_exec_accepts_defaulted_popen_keywords(self) -> None:
+        """Regression test for issue #68.
+
+        Wrappers around ``loop.subprocess_exec()`` — AnyIO is the one that
+        caught this — forward the whole ``subprocess.Popen`` keyword set
+        unconditionally, so each keyword has to be accepted at the default value
+        a caller gets when it says nothing.
+        """
+        defaults: dict[str, object] = {
+            "close_fds": True,
+            "creationflags": 0,
+            "cwd": None,
+            "env": None,
+            "executable": None,
+            "pipesize": -1,
+            "restore_signals": True,
+            "start_new_session": False,
+            "startupinfo": None,
+        }
+        if os.name != "nt":
+            defaults |= {
+                "extra_groups": None,
+                "group": None,
+                "pass_fds": (),
+                "preexec_fn": None,
+                "process_group": None,
+                "umask": -1,
+                "user": None,
+            }
+
+        async def main() -> int:
+            loop = asyncio.get_running_loop()
+            transport, _ = await loop.subprocess_exec(
+                asyncio.SubprocessProtocol,
+                sys.executable,
+                "-c",
+                "pass",
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                **defaults,
+            )
+            try:
+                for _ in range(300):
+                    if transport.get_returncode() is not None:
+                        break
+                    await asyncio.sleep(0.01)
+                return transport.get_returncode()
+            finally:
+                transport.close()
+
+        self.assertEqual(rsloop.run(main()), 0)
+
+    @unittest.skipIf(os.name == "nt", "POSIX-only platform validation")
+    def test_subprocess_exec_rejects_windows_only_keywords_on_posix(self) -> None:
+        for keyword, value in (("startupinfo", object()), ("creationflags", 8)):
+            with self.subTest(keyword=keyword):
+
+                async def main(keyword: str = keyword, value: object = value) -> None:
+                    loop = asyncio.get_running_loop()
+                    await loop.subprocess_exec(
+                        asyncio.SubprocessProtocol,
+                        sys.executable,
+                        "-c",
+                        "pass",
+                        **{keyword: value},
+                    )
+
+                with self.assertRaises(ValueError) as caught:
+                    rsloop.run(main())
+                self.assertIn(
+                    "only supported on Windows platforms", str(caught.exception)
+                )
+
+    def test_subprocess_shell_round_trip(self) -> None:
+        async def main() -> dict[str, object]:
+            result: dict[str, object] | None = None
+            for _ in range(10):
+                proc = await asyncio.create_subprocess_shell(
+                    "echo shell-ok",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), 3.0)
+                result = {
+                    "stdout": stdout.decode().strip(),
+                    "stderr": stderr.decode().strip(),
+                    "returncode": proc.returncode,
+                }
+            assert result is not None
+            return result
+
+        self.assertEqual(
+            rsloop.run(main()),
+            {
+                "stdout": "shell-ok",
+                "stderr": "",
+                "returncode": 0,
+            },
+        )
+
+    def test_subprocess_exec_text_mode_round_trip(self) -> None:
+        async def main() -> dict[str, object]:
+            script = (
+                "import sys; "
+                "data = sys.stdin.read().rstrip('\\n'); "
+                "sys.stdout.write('out:' + data + '\\r\\nsecond\\n'); "
+                "sys.stderr.write('err:' + data + '\\r')"
+            )
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                script,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+            )
+            assert proc.stdin is not None
+            assert proc.stdout is not None
+            assert proc.stderr is not None
+            proc.stdin.write("cafe\n")
+            await proc.stdin.drain()
+            proc.stdin.close()
+            first_line = await asyncio.wait_for(proc.stdout.readline(), 3.0)
+            rest = await asyncio.wait_for(proc.stdout.read(), 3.0)
+            stderr = await asyncio.wait_for(proc.stderr.read(), 3.0)
+            return {
+                "stdin_type": type(proc.stdin).__name__,
+                "stdout_type": type(proc.stdout).__name__,
+                "stderr_type": type(proc.stderr).__name__,
+                "first_line": first_line,
+                "rest": rest,
+                "stderr": stderr,
+                "returncode": await asyncio.wait_for(proc.wait(), 3.0),
+            }
+
+        self.assertEqual(
+            rsloop.run(main()),
+            {
+                "stdin_type": "_TextStreamWriter",
+                "stdout_type": "_TextStreamReader",
+                "stderr_type": "_TextStreamReader",
+                "first_line": "out:cafe\n",
+                "rest": "second\n",
+                "stderr": "err:cafe\n",
+                "returncode": 0,
+            },
+        )
+
+    def test_subprocess_shell_text_mode_round_trip(self) -> None:
+        async def main() -> dict[str, object]:
+            script = (
+                "import sys; "
+                "sys.stdout.write('shell-out\\r\\n'); "
+                "sys.stderr.write('shell-err\\r')"
+            )
+            if os.name == "nt":
+                cmd = subprocess.list2cmdline([sys.executable, "-c", script])
+            else:
+                cmd = shlex.join([sys.executable, "-c", script])
+
+            proc = await asyncio.create_subprocess_shell(
+                cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), 3.0)
+            return {
+                "stdout": stdout,
+                "stderr": stderr,
+                "stdout_value_type": type(stdout).__name__,
+                "stderr_value_type": type(stderr).__name__,
+                "returncode": proc.returncode,
+            }
+
+        self.assertEqual(
+            rsloop.run(main()),
+            {
+                "stdout": "shell-out\n",
+                "stderr": "shell-err\n",
+                "stdout_value_type": "str",
+                "stderr_value_type": "str",
+                "returncode": 0,
+            },
+        )
+
+    def test_getaddrinfo_accepts_type_keyword(self) -> None:
+        async def main() -> list[tuple[object, ...]]:
+            loop = asyncio.get_running_loop()
+            return await loop.getaddrinfo(
+                "localhost",
+                80,
+                type=socket.SOCK_STREAM,
+            )
+
+        addrinfos = rsloop.run(main())
+        self.assertTrue(addrinfos)
+        self.assertTrue(
+            all(addrinfo[1] == socket.SOCK_STREAM for addrinfo in addrinfos),
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

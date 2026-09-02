@@ -1,0 +1,267 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_versions:
+        description: "Space-separated supported Python versions to test (3.10–3.14, 3.14t)"
+        required: false
+        type: string
+      build_mode:
+        description: "Build profile to use with maturin develop"
+        required: true
+        default: debug
+        type: choice
+        options:
+          - debug
+          - release
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-test:
+    name: rust tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.95.0
+
+      - name: Cache Cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Generate TLS test certificates
+        run: python3 scripts/generate_test_tls_certs.py
+
+      - name: Run Rust tests
+        run: python3 scripts/run_rust_tests.py
+
+  clippy:
+    name: clippy (pedantic)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.95.0
+          components: clippy
+
+      - name: Cache Cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  type-check:
+    name: pyright
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          python-version: "3.13"
+          cache-suffix: pyright
+
+      - name: Run pyright
+        run: |
+          uv sync --group dev --no-install-project
+          uv run --no-sync pyright
+
+  anyio-test:
+    # AnyIO drives the loop through APIs the other package tests never touch —
+    # subprocess_exec with the full Popen keyword set, socket creation,
+    # run_in_executor, cancel scopes. Issue #68 was a break on that path that
+    # only AnyIO noticed, so it gets its own job rather than waiting for a
+    # downstream bug report.
+    name: anyio
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          python-version: "3.13"
+          cache-suffix: anyio
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.95.0
+
+      - name: Cache Cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+
+      - name: Build rsloop and run the AnyIO checks
+        env:
+          RSLOOP_BUILD_MODE: ${{ inputs.build_mode || 'debug' }}
+        run: |
+          uv run --no-project --python 3.13 --with maturin --with anyio python - <<'PY'
+          import os
+          import subprocess
+          import sys
+
+          maturin = ["maturin", "develop"]
+          if os.environ.get("RSLOOP_BUILD_MODE") == "release":
+              maturin.append("--release")
+          # maturin installs into the interpreter uv built for this run, which is
+          # the same one that then imports rsloop below.
+          subprocess.run(maturin, check=True)
+          subprocess.run(
+              [sys.executable, "-u", "tests/packages/anyio_test.py"], check=True
+          )
+          PY
+
+  test-matrix:
+    name: test matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Build test matrix
+        id: matrix
+        shell: bash
+        env:
+          RSLOOP_PYTHON_VERSIONS_INPUT: ${{ inputs.python_versions || '' }}
+        run: |
+          source scripts/python-versions.sh
+          RSLOOP_PYTHON_VERSIONS_OVERRIDE="$RSLOOP_PYTHON_VERSIONS_INPUT"
+          rsloop_load_python_versions
+
+          python3 - "${RSLOOP_PYTHON_VERSIONS[@]}" <<'PY'
+          import json
+          import os
+          import sys
+
+          supported_versions = {"3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"}
+          unsupported_versions = sorted(set(sys.argv[1:]) - supported_versions)
+          if unsupported_versions:
+              raise SystemExit(
+                  "Unsupported Python version(s): "
+                  + ", ".join(unsupported_versions)
+                  + ". Supported versions: "
+                  + ", ".join(sorted(supported_versions))
+              )
+
+          oses = [
+              {"os_name": "linux", "runner": "ubuntu-latest"},
+              {"os_name": "macos", "runner": "macos-15"},
+              {"os_name": "windows", "runner": "windows-latest"},
+          ]
+          versions = sys.argv[1:]
+          matrix = {
+              "include": [
+                  {**os_entry, "python_version": version}
+                  for os_entry in oses
+                  for version in versions
+              ]
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              print(f"matrix={json.dumps(matrix, separators=(',', ':'))}", file=output)
+          PY
+
+  test-supported-pythons:
+    name: ${{ matrix.os_name }} / Python ${{ matrix.python_version }}
+    needs: test-matrix
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.test-matrix.outputs.matrix) }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          python-version: ${{ matrix.python_version }}
+          cache-suffix: ${{ matrix.os_name }}-py${{ matrix.python_version }}
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.95.0
+
+      - name: Cache Cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+
+      - name: Run tests for Python ${{ matrix.python_version }}
+        timeout-minutes: 15
+        shell: bash
+        env:
+          RSLOOP_PYTHON_VERSIONS: ${{ matrix.python_version }}
+          RSLOOP_BUILD_MODE: ${{ inputs.build_mode || 'debug' }}
+        run: |
+          # setup-uv has already installed this matrix entry's interpreter.
+          args=(--skip-python-install)
+          if [[ "$RSLOOP_BUILD_MODE" == "debug" ]]; then
+            args+=(--debug)
+          fi
+          scripts/test-supported-pythons.sh "${args[@]}"

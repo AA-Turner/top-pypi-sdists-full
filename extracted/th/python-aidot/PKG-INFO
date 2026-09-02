@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: python-aidot
+Version: 0.3.56
+Summary: aidot control wifi lights
+Home-page: https://github.com/Aidot-Development-Team/python-aidot
+Author: aidotdev2024
+Classifier: Programming Language :: Python :: 3.12
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+Requires-Dist: cryptography
+Requires-Dist: dacite
+Requires-Dist: requests
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+# python-aidot
+ Can control the WiFi lights of AIDOT in the local area network

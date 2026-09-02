@@ -31,6 +31,7 @@ class FailureCategory(str, Enum):
     INFRASTRUCTURE = 'infrastructure'
     ORPHANED = 'orphaned'
     PIPELINE = 'pipeline'
+    MVS_DURABILITY = 'mvs_durability'
     VALIDATION = 'validation'
     UNKNOWN = 'unknown'
 

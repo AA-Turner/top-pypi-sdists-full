@@ -1,0 +1,92 @@
+Metadata-Version: 2.4
+Name: napari-metadata
+Version: 0.4.0
+Summary: View and edit layer metadata
+Author: napari-metadata contributors
+Author-email: Andy Sweet <andrewdsweet@gmail.com>, napari team <napari-steering-council@googlegroups.com>
+License-Expression: BSD-3-Clause
+Project-URL: Bug Tracker, https://github.com/napari/napari-metadata/issues
+Project-URL: Documentation, https://napari.org/napari-metadata
+Project-URL: Source Code, https://github.com/napari/napari-metadata
+Project-URL: User Support, https://github.com/napari/napari-metadata/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: napari
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Image Processing
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: qtpy
+Requires-Dist: pint
+Requires-Dist: superqt>=0.8.2
+Requires-Dist: typing_extensions
+Dynamic: license-file
+
+# napari-metadata
+
+[![License BSD-3](https://img.shields.io/pypi/l/napari-metadata.svg?color=green)](https://github.com/napari/napari-metadata/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/napari-metadata.svg?color=green)](https://pypi.org/project/napari-metadata/)
+[![Python Version](https://img.shields.io/pypi/pyversions/napari-metadata.svg?color=green)](https://python.org)
+[![tests](https://github.com/napari/napari-metadata/workflows/tests/badge.svg)](https://github.com/napari/napari-metadata/actions)
+[![codecov](https://codecov.io/gh/napari/napari-metadata/branch/main/graph/badge.svg)](https://codecov.io/gh/napari/napari-metadata)
+[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-metadata)](https://napari-hub.org/plugins/napari-metadata)
+
+napari-metadata is a [napari](https://napari.org) plugin that visually exposes the functionality of napari's handling of layer metadata by directly connecting with the public API of napari layers.
+
+> [!NOTE]
+> This plugin is in active development. *You should not depend on any API, as it is likely to change*. Instead, understand that this plugin intends to serve as a GUI to manage already available public API of napari layers.
+> If you find a feature of this plugin useful, but it is not available in napari's core API, please consider opening an issue here or in the [napari repository](https://github.com/napari/napari/issues/new/choose).
+
+## Installation
+
+You can install `napari-metadata` from PyPI:
+
+```bash
+pip install napari-metadata
+```
+
+or from conda-forge:
+
+```bash
+conda install napari-metadata
+```
+
+## Usage
+
+This plugin adds a dock widget to napari that allows you to view and edit metadata for each layer in your napari viewer. The widget is intended to be used in the typical vertical widget layout and additionally is designed to work great in a horizontal layout.
+
+![horizontal layout of metadata widget](https://raw.githubusercontent.com/napari/napari-metadata/main/docs/images/horizontal-widget.png)
+
+### File Metadata
+
+The File Metadata section displays metadata related to the source of the layer, such as name, shape, dtype, and file size. All information except layer name is read-only.
+
+### Axes Metadata
+
+The Axes Metadata section allows you to view and edit metadata related to the axes of the layer, such as axis labels, transforms, scales, and units. You can modify these properties directly in the widget, and the changes will be reflected in the layer, and visa versa.
+
+> [!TIP]
+> Layers can be linked using the napari layer context menu `Link Layers`. When `axes metadata` is changed in the widget, all linked layers will update their `axes metadata` accordingly.
+
+### Axes Inheritance
+
+The Axes Inheritance widget can be used to propagate axes metadata from one layer to other layers. Select a template layer from the dropdown, and apply any `axes metadata` with `checked` boolean boxes to the currently active layer and any linked layers.
+
+## Contributing
+
+Contributions are very welcome! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) file for details.
+
+## License
+
+Distributed under the terms of the [BSD-3](https://opensource.org/licenses/BSD-3-Clause) license,
+"napari-metadata" is free and open source software

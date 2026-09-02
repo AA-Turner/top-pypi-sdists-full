@@ -1,0 +1,540 @@
+# pyright: reportPrivateUsage=false
+"""Smooth python SDK types and models."""
+
+import warnings
+from typing import Annotated, Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, SerializationInfo, computed_field, model_validator
+from pydantic.functional_serializers import PlainSerializer
+
+
+def _serialize_secret(v: SecretStr, info: SerializationInfo) -> str:
+  if info.context and info.context.get("reveal_secrets"):
+    return v.get_secret_value()
+  return "**********"
+
+
+SensitiveStr = Annotated[SecretStr, PlainSerializer(_serialize_secret, when_used="always")]
+
+# --- Models ---
+
+
+DeviceType = Literal["desktop", "mobile", "desktop-lg"]
+
+class Secret(BaseModel):
+  """A secret value with URL-based access control."""
+
+  value: SensitiveStr = Field(description="The secret value.")
+  allowed_urls: list[str] = Field(description="URL patterns where this secret can be used (e.g. 'https://github.com/*').")
+
+
+class Certificate(BaseModel):
+  """Client certificate for accessing secure websites.
+
+  Attributes:
+      file: p12 file object to be uploaded (e.g., open("cert.p12", "rb")).
+      password: Password to decrypt the certificate file. Optional.
+  """
+
+  file: SensitiveStr | Any = Field(description="p12 file object to be uploaded (e.g., open('cert.p12', 'rb')).")
+  password: SensitiveStr | None = Field(default=None, description="Password to decrypt the certificate file. Optional.")
+  filters: list[list[str]] | None = Field(
+    default=None,
+    description="Reserved for future use to specify URL patterns where the certificate should be applied. Optional.",
+  )
+
+
+class ToolSignature(BaseModel):
+  """Tool signature model."""
+
+  name: str = Field(description="The name of the tool.")
+  description: str = Field(description="A brief description of the tool.")
+  inputs: dict[str, Any] = Field(description="The input parameters for the tool.")
+  output: str = Field(description="The output produced by the tool.")
+
+
+class TaskEvent(BaseModel):
+  """Task event model."""
+
+  name: str = Field(description="The name of the event.")
+  payload: dict[str, Any] = Field(description="The payload of the event.")
+  id: str | None = Field(default=None, description="The ID of the event.")
+  timestamp: int | None = Field(default=None, description="The timestamp of the event.")
+
+
+class TaskEventResponse(BaseModel):
+  """Task event response model."""
+
+  id: str = Field(description="The ID of the event.")
+
+
+class TaskRequest(BaseModel):
+  """Run task request model."""
+
+  model_config = ConfigDict(extra="allow")
+
+  task: str | None = Field(
+    default=None, description="The task to run. If None, opens a blank browser and waits for further instructions."
+  )
+  response_model: dict[str, Any] | None = Field(
+    default=None,
+    description="If provided, the JSON schema describing the desired output structure. Default is None",
+  )
+  url: str | None = Field(
+    default=None,
+    description="The starting URL for the task. If not provided, the agent will infer it from the task.",
+  )
+  metadata: dict[str, str | int | float | bool] | None = Field(
+    default=None,
+    description="A dictionary containing variables or parameters that will be passed to the agent.",
+  )
+  files: list[str] | None = Field(default=None, description="A list of file ids to pass to the agent.")
+  agent: str = Field(default="smooth", description="The agent to use for the task. Default is 'smooth'.")
+  max_steps: int = Field(
+    default=32,
+    ge=2,
+    le=128,
+    description="Maximum number of steps the agent can take (min 2, max 128).",
+  )
+  device: DeviceType = Field(default="desktop", description="Device type for the task. Default is desktop.")
+  allowed_urls: list[str] | None = Field(
+    default=None,
+    description=(
+      "List of allowed URL patterns using wildcard syntax (e.g., https://*example.com/*). If None, all URLs are allowed."
+    ),
+  )
+  enable_recording: bool = Field(
+    default=True,
+    description="Enable video recording of the task execution. Default is True",
+  )
+  profile_id: str | None = Field(
+    default=None,
+    description=("Browser profile ID to use. Each profile maintains its own state, such as cookies and login credentials."),
+  )
+  profile_read_only: bool = Field(
+    default=False,
+    description=(
+      "If true, the profile specified by `profile_id` will be loaded in read-only mode. "
+      "Changes made during the task will not be saved back to the profile."
+    ),
+  )
+  stealth_mode: bool = Field(
+    default=False,
+    description="(Deprecated, ignored) Use `use_stealth` instead. Stealth is on by default.",
+    deprecated=True,
+  )
+  use_stealth: bool = Field(default=True, description="Run the browser in stealth mode. Default is True.")
+  proxy_server: str | None = Field(
+    default=None,
+    description=("Proxy server url to route browser traffic through."),
+  )
+  proxy_username: str | None = Field(default=None, description="Proxy server username.")
+  proxy_password: SensitiveStr | None = Field(default=None, description="Proxy server password.")
+  certificates: list[Certificate] | None = Field(
+    default=None,
+    description=(
+      "List of client certificates to use when accessing secure websites. "
+      "Each certificate is a dictionary with the following fields:\n"
+      " - `file`: p12 file object to be uploaded (e.g., open('cert.p12', 'rb')).\n"
+      " - `password` (optional): Password to decrypt the certificate file."
+    ),
+  )
+  use_adblock: bool | None = Field(
+    default=True,
+    description="Enable adblock for the browser session. Default is True.",
+  )
+  use_captcha_solver: bool | None = Field(
+    default=True,
+    description="Enable captcha solver for the browser session. Default is True.",
+  )
+  additional_tools: dict[str, dict[str, Any] | None] | None = Field(
+    default=None, description="Additional tools to enable for the task."
+  )
+  custom_tools: list[ToolSignature] | None = Field(default=None, description="Custom tools to register for the task.")
+  experimental_features: dict[str, Any] | None = Field(
+    default=None, description="Experimental features to enable for the task."
+  )
+  extensions: list[str] | None = Field(default=None, description="List of extensions to install for the task.")
+  show_cursor: bool = Field(
+    default=False,
+    description="Show mouse cursor. Default is False.",
+  )
+
+  @model_validator(mode="before")
+  @classmethod
+  def _handle_deprecated_session_id(cls, data: Any) -> Any:
+    if isinstance(data, dict) and "session_id" in data and "profile_id" not in data:
+      warnings.warn(
+        "'session_id' is deprecated, use 'profile_id' instead",
+        DeprecationWarning,
+        stacklevel=2,
+      )
+      data["profile_id"] = data.pop("session_id")  # pyright: ignore[reportUnknownMemberType]
+    return data  # pyright: ignore[reportUnknownVariableType]
+
+  @computed_field(return_type=str | None)
+  @property
+  def session_id(self):
+    """(Deprecated) Returns the session ID."""
+    warnings.warn(
+      "'session_id' is deprecated, use 'profile_id' instead",
+      DeprecationWarning,
+      stacklevel=2,
+    )
+    return self.profile_id
+
+  @session_id.setter
+  def session_id(self, value: str | None):
+    """(Deprecated) Sets the session ID."""
+    warnings.warn(
+      "'session_id' is deprecated, use 'profile_id' instead",
+      DeprecationWarning,
+      stacklevel=2,
+    )
+    self.profile_id = value
+
+  def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+    """Dump model to dict, including deprecated session_id for retrocompatibility."""
+    data = super().model_dump(**kwargs)
+    # Add deprecated session_id field for retrocompatibility
+    if "profile_id" in data:
+      data["session_id"] = data["profile_id"]
+    return data
+
+
+class TaskResponse(BaseModel):
+  """Task response model."""
+
+  model_config = ConfigDict(extra="allow")
+
+  id: str = Field(description="The ID of the task.")
+  status: Literal["waiting", "running", "done", "failed", "cancelled"] = Field(description="The status of the task.")
+  output: Any | None = Field(default=None, description="The output of the task.")
+  credits_used: int | None = Field(default=None, description="The amount of credits used to perform the task.")
+  device: DeviceType | None = Field(default=None, description="The device type used for the task.")
+  live_url: str | None = Field(
+    default=None,
+    description="The URL to view and interact with the task execution.",
+  )
+  recording_url: str | None = Field(default=None, description="The URL to view the task recording.")
+  downloads_url: str | None = Field(
+    default=None,
+    description="The URL of the archive containing the downloaded files.",
+  )
+  created_at: int | None = Field(default=None, description="The timestamp when the task was created.")
+  tool_calls: dict[str, "ToolCall"] | None = Field(
+    default=None, description="Contains a list of pending tool calls.", deprecated=True
+  )
+  events: list[TaskEvent] | None = Field(default=None, description="The list of new events fired.")
+
+
+class ProfileRequest(BaseModel):
+  """Request model for creating a browser profile."""
+
+  model_config = ConfigDict(extra="allow")
+
+  id: str | None = Field(
+    default=None,
+    description=("The ID to assign to the new profile. If None, a random name will be generated."),
+  )
+
+
+class ProfileResponse(BaseModel):
+  """Response model for creating a browser profile."""
+
+  model_config = ConfigDict(extra="allow")
+
+  id: str = Field(description="The ID of the created browser profile.")
+  cookie_domains: list[str] | None = Field(
+    default=None,
+    description="Registered domains (e.g. 'amazon.com') with cookies in this profile, most-recently-accessed first.",
+  )
+  cookie_count: int | None = Field(default=None, description="Total number of cookies stored in the profile.")
+  profile_size_bytes: int | None = Field(default=None, description="Size of the stored profile archive in bytes.")
+  last_saved_at: int | None = Field(default=None, description="Unix epoch seconds of the most recent profile save.")
+
+
+class UploadFileResponse(BaseModel):
+  """Response model for uploading a file."""
+
+  model_config = ConfigDict(extra="allow")
+
+  id: str = Field(description="The ID assigned to the uploaded file.")
+
+
+class UploadExtensionResponse(BaseModel):
+  """Response model for uploading an extension."""
+
+  model_config = ConfigDict(extra="allow")
+
+  id: str = Field(description="The uploaded extension ID.")
+
+
+class Extension(BaseModel):
+  """Extension model."""
+
+  model_config = ConfigDict(extra="allow")
+
+  id: str = Field(description="The ID of the extension.")
+  file_name: str = Field(description="The name of the extension.")
+  creation_time: int = Field(description="The creation timestamp.")
+
+
+###############################################################################################################
+# --- Action Responses ---
+###############################################################################################################
+
+
+class BaseActionResponse(BaseModel):
+  """Base response model for actions."""
+
+  credits_used: float = Field(default=0.0, description="The amount of credits used to perform the action.")
+  duration: float = Field(default=0.0, description="The duration taken to perform the action.")
+
+
+class ActionGotoResponse(BaseActionResponse):
+  """Response model for goto action."""
+
+  pass
+
+class ActionCloseResponse(BaseActionResponse):
+  """Response model for close action."""
+
+  output: bool = Field(description="Indicates if the browser session was closed successfully.")
+
+class ActionExtractResponse(BaseActionResponse):
+  """Response model for extract action."""
+
+  output: Any = Field(description="The extracted data.")
+
+
+class ActionEvaluateJSResponse(BaseActionResponse):
+  """Response model for evaluate_js action."""
+
+  output: Any = Field(description="The result of the JavaScript evaluation.")
+
+
+class ActionRunTaskResponse(BaseActionResponse):
+  """Response model for run_task action."""
+
+  output: Any = Field(description="The task output.")
+
+
+###############################################################################################################
+# --- Deprecated ---
+###############################################################################################################
+
+
+class ToolCall(BaseModel):
+  """Tool call model."""
+
+  model_config = ConfigDict(extra="allow")  # we use the same field for request and response
+
+  # Request params
+  name: str | None = Field(default=None, description="The name of the tool being called.")
+  input: str | None = Field(default=None, description="The input provided to the tool (json encoded).")
+
+  # Response params
+  code: int | None = Field(default=None, description="The tool call returned HTTP status code.")
+  output: str | None = Field(default=None, description="The output produced by the tool (json encoded).")
+
+
+class ToolCallResponse(BaseModel):
+  """Tool call response model."""
+
+  model_config = ConfigDict(extra="allow")  # we use the same field for request and response
+
+  id: str = Field(description="The ID of the tool call.")
+  code: int = Field(description="The HTTP status code of the tool call.")
+  output: str = Field(description="The output produced by the tool (json encoded).")
+
+
+class TaskUpdateRequest(BaseModel):
+  """Update task request model."""
+
+  model_config = ConfigDict(extra="allow")
+
+  tool_response: ToolCallResponse | None = Field(default=None, description="The tool response to the agent query.")
+
+
+class BrowserSessionRequest(BaseModel):
+  """Request model for creating a browser session."""
+
+  model_config = ConfigDict(extra="allow")
+
+  profile_id: str | None = Field(
+    default=None,
+    description=("The profile ID to use for the browser session. If None, a new profile will be created."),
+  )
+  live_view: bool | None = Field(
+    default=True,
+    description="Request a live URL to interact with the browser session.",
+  )
+  device: DeviceType | None = Field(default="desktop", description="The device type to use.")
+  url: str | None = Field(default=None, description="The URL to open in the browser session.")
+  proxy_server: str | None = Field(
+    default=None,
+    description=("Proxy server address to route browser traffic through."),
+  )
+  proxy_username: str | None = Field(default=None, description="Proxy server username.")
+  proxy_password: SensitiveStr | None = Field(default=None, description="Proxy server password.")
+  extensions: list[str] | None = Field(default=None, description="List of extensions to install for the task.")
+  use_stealth: bool = Field(default=True, description="Run the browser in stealth mode. Default is True.")
+
+  @model_validator(mode="before")
+  @classmethod
+  def _handle_deprecated_session_id(cls, data: Any) -> Any:
+    if isinstance(data, dict) and "session_id" in data and "profile_id" not in data:
+      warnings.warn(
+        "'session_id' is deprecated, use 'profile_id' instead",
+        DeprecationWarning,
+        stacklevel=2,
+      )
+      data["profile_id"] = data.pop("session_id")  # pyright: ignore[reportUnknownMemberType]
+    return data  # pyright: ignore[reportUnknownVariableType]
+
+  @model_validator(mode="before")
+  @classmethod
+  def _handle_deprecated_stealth_mode(cls, data: Any) -> Any:
+    if isinstance(data, dict) and "stealth_mode" in data:
+      warnings.warn(
+        "'stealth_mode' is deprecated and ignored, use 'use_stealth' instead (defaults to True)",
+        DeprecationWarning,
+        stacklevel=2,
+      )
+    return data  # pyright: ignore[reportUnknownVariableType]
+
+  @computed_field(return_type=str | None)
+  @property
+  def session_id(self):
+    """(Deprecated) Returns the session ID."""
+    warnings.warn(
+      "'session_id' is deprecated, use 'profile_id' instead",
+      DeprecationWarning,
+      stacklevel=2,
+    )
+    return self.profile_id
+
+  @session_id.setter
+  def session_id(self, value: str | None):
+    """(Deprecated) Sets the session ID."""
+    warnings.warn(
+      "'session_id' is deprecated, use 'profile_id' instead",
+      DeprecationWarning,
+      stacklevel=2,
+    )
+    self.profile_id = value
+
+  def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+    """Dump model to dict, including deprecated session_id for retrocompatibility."""
+    data = super().model_dump(**kwargs)
+    # Add deprecated session_id field for retrocompatibility
+    if "profile_id" in data:
+      data["session_id"] = data["profile_id"]
+    return data
+
+
+class BrowserSessionResponse(BaseModel):
+  """Browser session response model."""
+
+  model_config = ConfigDict(extra="allow")
+
+  profile_id: str = Field(description="The ID of the browser profile associated with the opened browser instance.")
+  live_id: str | None = Field(default=None, description="The ID of the live browser session.")
+  live_url: str | None = Field(default=None, description="The live URL to interact with the browser session.")
+
+  @model_validator(mode="before")
+  @classmethod
+  def _handle_deprecated_session_id(cls, data: Any) -> Any:
+    if isinstance(data, dict) and "session_id" in data and "profile_id" not in data:
+      warnings.warn(
+        "'session_id' is deprecated, use 'profile_id' instead",
+        DeprecationWarning,
+        stacklevel=2,
+      )
+      data["profile_id"] = data.pop("session_id")  # pyright: ignore[reportUnknownMemberType]
+    return data  # pyright: ignore[reportUnknownVariableType]
+
+  @computed_field(return_type=str | None)
+  @property
+  def session_id(self):
+    """(Deprecated) Returns the session ID."""
+    warnings.warn(
+      "'session_id' is deprecated, use 'profile_id' instead",
+      DeprecationWarning,
+      stacklevel=2,
+    )
+    return self.profile_id
+
+  @session_id.setter
+  def session_id(self, value: str):
+    """(Deprecated) Sets the session ID."""
+    warnings.warn(
+      "'session_id' is deprecated, use 'profile_id' instead",
+      DeprecationWarning,
+      stacklevel=2,
+    )
+    self.profile_id = value
+
+
+class BrowserProfilesResponse(BaseModel):
+  """Response model for listing browser profiles."""
+
+  model_config = ConfigDict(extra="allow")
+
+  profile_ids: list[str] = Field(description="The IDs of the browser profiles.")
+
+  @model_validator(mode="before")
+  @classmethod
+  def _handle_deprecated_session_ids(cls, data: Any) -> Any:
+    if isinstance(data, dict) and "session_ids" in data and "profile_ids" not in data:
+      warnings.warn(
+        "'session_ids' is deprecated, use 'profile_ids' instead",
+        DeprecationWarning,
+        stacklevel=2,
+      )
+      data["profile_ids"] = data.pop("session_ids")  # pyright: ignore[reportUnknownMemberType]
+    return data  # pyright: ignore[reportUnknownVariableType]
+
+  @computed_field(return_type=list[str])
+  @property
+  def session_ids(self):
+    """(Deprecated) Returns the session IDs."""
+    warnings.warn(
+      "'session_ids' is deprecated, use 'profile_ids' instead",
+      DeprecationWarning,
+      stacklevel=2,
+    )
+    return self.profile_ids
+
+  @session_ids.setter
+  def session_ids(self, value: list[str]):
+    """(Deprecated) Sets the session IDs."""
+    warnings.warn(
+      "'session_ids' is deprecated, use 'profile_ids' instead",
+      DeprecationWarning,
+      stacklevel=2,
+    )
+    self.profile_ids = value
+
+  def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+    """Dump model to dict, including deprecated session_ids for retrocompatibility."""
+    data = super().model_dump(**kwargs)
+    # Add deprecated session_ids field for retrocompatibility
+    if "profile_ids" in data:
+      data["session_ids"] = data["profile_ids"]
+    return data
+
+
+class BrowserSessionsResponse(BrowserProfilesResponse):
+  """Response model for listing browser profiles."""
+
+  pass
+
+
+class ListExtensionsResponse(BaseModel):
+  """Response model for listing extensions."""
+
+  model_config = ConfigDict(extra="allow")
+
+  extensions: list[Extension] = Field(description="The list of extensions.")

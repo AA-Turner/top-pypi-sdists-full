@@ -1,0 +1,136 @@
+name: Lint and Test
+
+on:
+  push:
+    branches:
+      - main
+      - renovate/*
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' # pre-commit-ci/lite-action only runs here
+    strategy:
+      matrix:
+        python-version: [3.11, 3.14] # Our min and max supported Python versions
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # For setuptools-scm, replace with fetch-tags after https://github.com/actions/checkout/issues/1471
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+          activate-environment: true # Activate for simple `uv sync` below
+      - run: uv sync
+      - uses: j178/prek-action@v2
+      - uses: pre-commit-ci/lite-action@v1.1.0
+        if: always()
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      UV_VENV_CLEAR: 1 # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+    strategy:
+      matrix:
+        python-version: [3.11, 3.14] # Our min and max supported Python versions
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          cache-local-path: /tmp/baipp-uv_cache_dir # Work around https://github.com/hynek/build-and-inspect-python-package/issues/181
+          python-version: ${{ matrix.python-version }}
+      - name: Check ldp build
+        id: build-ldp
+        if: matrix.python-version == '3.11'
+        uses: hynek/build-and-inspect-python-package@v2
+        with:
+          upload-name-suffix: -ldp
+      - name: Clean up ldp build # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+        if: matrix.python-version == '3.11'
+        run: rm -r ${{ steps.build-ldp.outputs.dist }}
+      - name: Check fhlmi build
+        id: build-fhlmi
+        if: matrix.python-version == '3.11'
+        uses: hynek/build-and-inspect-python-package@v2
+        with:
+          path: packages/lmi
+          upload-name-suffix: -fhlmi
+      - name: Clean up aviary.fhlmi build # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+        if: matrix.python-version == '3.11'
+        run: rm -r ${{ steps.build-fhlmi.outputs.dist }}
+      - run: uv sync
+      - run: uv run refurb .
+      - name: Run deptry on LMI
+        run: uv run --directory packages/lmi deptry .
+      - name: Run deptry on LDP
+        run: uv run deptry .
+      - if: matrix.python-version == '3.11' # Only need to run this on one version
+        uses: suzuki-shunsuke/github-action-renovate-config-validator@v2.1.0
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+      - name: Confirm dependency compilation
+        run: uv sync
+  test-ldp-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.11, 3.12, 3.13, 3.14]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync
+      - run: uv run pytest -n 16 --dist=loadfile tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - run:
+          | # this is to check that we can run README examples with lazily imported dependencies (the [scg] subpackage)
+          uv pip uninstall dm-tree usearch networkx && uv run --no-sync pytest --noconftest tests/test_readme.py
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  test-ldp:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: test-ldp-matrix
+    steps:
+      - run: test "${{ needs.test-ldp-matrix.result }}" = success
+  test-lmi-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.11, 3.12, 3.13, 3.14]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+      - uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync
+      - run: |
+          uv run pytest -n 16 --dist=loadfile packages/lmi/tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  test-lmi:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: test-lmi-matrix
+    steps:
+      - run: test "${{ needs.test-lmi-matrix.result }}" = success

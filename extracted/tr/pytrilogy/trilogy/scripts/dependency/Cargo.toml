@@ -1,0 +1,64 @@
+[package]
+name = "trilogy-parser"
+# version is synced from python __init__ in build backend/deploy flow;
+# crates.io releases ride the same stream (see pythonpublish.yml), so a
+# published crate version always corresponds to the pytrilogy release
+# whose grammar it carries.
+version = "0.3.339"
+edition = "2021"
+description = "Parser and import/datasource dependency resolver for the Trilogy language"
+license = "MIT"
+repository = "https://github.com/trilogy-data/pytrilogy"
+keywords = ["trilogy", "preql", "parser", "dependency", "sql"]
+categories = ["parser-implementations"]
+readme = "README.md"
+
+[lib]
+name = "trilogy_parser"
+crate-type = ["cdylib", "rlib"]
+
+# Distinct from the lib target: both the bin and the cdylib emit linked
+# artifacts, and identical stems collide on the Windows .pdb output
+# (rust-lang/cargo#6313, slated to become a hard error).
+[[bin]]
+name = "trilogy-parser-cli"
+path = "src/main.rs"
+
+[dependencies]
+# Parser generator
+pest = "2.7"
+pest_derive = "2.7"
+
+# CLI argument parsing
+clap = { version = "4.4", features = ["derive"] }
+
+# Serialization for structured output
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+
+# Path manipulation
+pathdiff = "0.2"
+
+# Python bindings — optional so pure-Rust consumers (the CLI, downstream
+# crates such as trilogy-cloud's API) build without a Python toolchain.
+# Wheel builds enable the `python` feature plus `pyo3/extension-module`
+# through [tool.maturin] features in pyproject.toml.
+# Pinned to 0.26 (not latest): 0.27+ introduced a `thread_local!` in
+# pyo3::internal::state whose mangled closure symbol emcc rejects as an
+# invalid export name, breaking wasm32-unknown-emscripten (Pyodide) builds.
+# 0.26 is what pydantic-core ships emscripten wheels with.
+pyo3 = { version = "0.26", optional = true }
+
+[features]
+default = []
+python = ["dep:pyo3"]
+
+[dev-dependencies]
+tempfile = "3.0"
+
+[profile.release]
+opt-level = 3
+lto = true

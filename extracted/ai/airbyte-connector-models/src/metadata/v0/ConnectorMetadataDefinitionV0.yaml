@@ -83,6 +83,7 @@ properties:
                 - api_reference
                 - api_release_history
                 - authentication_guide
+                - code_repository
                 - data_model_reference
                 - developer_community
                 - migration_guide
@@ -90,6 +91,7 @@ properties:
                 - other
                 - permissions_scopes
                 - rate_limits
+                - spec_repository
                 - sql_reference
                 - status_page
             requiresLogin:

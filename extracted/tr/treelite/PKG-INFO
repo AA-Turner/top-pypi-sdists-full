@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: treelite
-Version: 4.7.1
+Version: 4.7.2
 Summary: Treelite: Universal model exchange format for decision tree forests
 Author-Email: Hyunsu Cho <chohyu01@cs.washington.edu>
 License: Apache-2.0
@@ -9,13 +9,16 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Project-URL: documentation, https://treelite.readthedocs.io/en/latest/
 Project-URL: repository, https://github.com/dmlc/treelite
-Requires-Python: >=3.11
+Requires-Python: >=3.8
 Requires-Dist: numpy
 Requires-Dist: scipy
 Requires-Dist: packaging

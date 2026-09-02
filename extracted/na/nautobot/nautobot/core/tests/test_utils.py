@@ -1,0 +1,1566 @@
+import os
+import sys
+import tempfile
+from unittest import mock
+import uuid
+import warnings
+
+from django import forms as django_forms
+from django.apps import apps
+from django.contrib.auth.models import Group
+from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.db.models import Q
+from django.http import QueryDict
+from django.test import override_settings, tag
+
+from nautobot.circuits import models as circuits_models
+from nautobot.core import exceptions, forms, settings_funcs
+from nautobot.core.api import utils as api_utils
+from nautobot.core.celery.encoders import NautobotKombuJSONEncoder
+from nautobot.core.forms.utils import compress_range
+from nautobot.core.models import fields as core_fields, utils as models_utils, validators
+from nautobot.core.testing import TestCase
+from nautobot.core.utils import data as data_utils, deprecation, filtering, lookup, querysets, requests
+from nautobot.core.utils.cache import cache_get_or_set, construct_cache_key, get_request_cache, request_cache
+from nautobot.core.utils.migrations import update_object_change_ct_for_replaced_models
+from nautobot.core.utils.module_loading import (
+    check_name_safe_to_import_privately,
+    import_modules_privately,
+    import_string_optional,
+)
+from nautobot.data_validation import models as data_validation_models
+from nautobot.dcim import (
+    filters as dcim_filters,
+    forms as dcim_forms,
+    models as dcim_models,
+    tables,
+    views as dcim_views,
+)
+from nautobot.extras import models as extras_models, utils as extras_utils
+from nautobot.extras.choices import ObjectChangeActionChoices, RelationshipTypeChoices
+from nautobot.extras.filters import StatusFilterSet
+from nautobot.extras.forms import StatusForm
+from nautobot.extras.models import ObjectChange
+from nautobot.ipam import models as ipam_models
+
+
+class ConstructCacheKeyTest(TestCase):
+    """
+    Validate the operation of construct_cache_key().
+    """
+
+    def test_construct_cache_key_basics(self):
+        # We don't in general care much about the specific structure of the key, but we do care that it's successful.
+
+        # Key for a model instance
+        instance = dcim_models.Location.objects.first()
+        self.assertIsNotNone(instance)
+        ck = construct_cache_key(instance, method_name="display")
+        self.assertIsInstance(ck, str)
+        # Model instance cache keys should use the content-type and the PK as part of the key
+        self.assertIn("dcim.location", ck)
+        self.assertIn(str(instance.pk), ck)
+        self.assertIn("display", ck)
+        # In the absence of the version-control App, branch_aware should be a no-op
+        self.assertEqual(ck, construct_cache_key(instance, method_name="display", branch_aware=True))
+        self.assertEqual(ck, construct_cache_key(instance, method_name="display", branch_aware=False))
+
+        # Key for a model manager instance
+        self.assertIsInstance(construct_cache_key(dcim_models.Location.objects, method_name="max_depth"), str)
+        ck = construct_cache_key(extras_models.CustomField.objects, method_name="get_for_model")
+        self.assertIsInstance(ck, str)
+        self.assertIn("get_for_model", ck)
+        # Additional arbitrary params should modify the key
+        ck2 = construct_cache_key(extras_models.CustomField.objects, method_name="get_for_model", label="dcim.location")
+        self.assertIsInstance(ck2, str)
+        # The base (no extra params) key should be a prefix for the extended key.
+        # This is needed for cases where we are using cache.clear_pattern() in signals and the like.
+        self.assertTrue(ck2.startswith(ck))
+        # Both the param name and the param value should be present in the extended key
+        self.assertIn("label", ck2)
+        self.assertIn("dcim.location", ck2)
+
+        # Key for a model class
+        ck = construct_cache_key(data_validation_models.MinMaxValidationRule, method_name="get_for_model")
+        self.assertIsInstance(ck, str)
+        # Model class cache keys should use the content-type as part of the key
+        self.assertIn("data_validation.minmaxvalidationrule", ck)
+        self.assertIn("get_for_model", ck)
+
+        # Key for a non-model class
+        ck = construct_cache_key(extras_utils.FeatureQuery, method_name="list_subclasses")
+        self.assertIsInstance(ck, str)
+        # Non-model classes should use the module as part of the key
+        self.assertIn("nautobot.extras.utils", ck)
+        self.assertIn("FeatureQuery", ck)
+        self.assertIn("list_subclasses", ck)
+
+        # Key for a non-model class instance
+        ck = construct_cache_key(extras_utils.FeatureQuery("graphql"), method_name="list_subclasses")
+        self.assertIsInstance(ck, str)
+        # Non-model classes should use the module as part of the key
+        self.assertIn("nautobot.extras.utils", ck)
+        self.assertIn("FeatureQuery", ck)
+        self.assertIn("list_subclasses", ck)
+
+        # Key for a function
+        ck = construct_cache_key(extras_utils.change_logged_models_queryset)
+        self.assertIsInstance(ck, str)
+        # Functions should use the module as a part of the key
+        self.assertIn("nautobot.extras.utils", ck)
+        self.assertIn("change_logged_models_queryset", ck)
+
+    @override_settings(PLUGINS=["nautobot_version_control"])
+    def test_branch_aware_and_unaware(self):
+        instance = dcim_models.Location.objects.first()
+        self.assertIsNotNone(instance)
+
+        mock_active_branch = mock.MagicMock(return_value="some_branch_name")
+        mock_vc_utils = mock.Mock(active_branch=mock_active_branch)
+        with mock.patch.dict(sys.modules, {"nautobot_version_control.utils": mock_vc_utils}):
+            ck = construct_cache_key(instance, method_name="display", branch_aware=True)
+            self.assertIsInstance(ck, str)
+            self.assertIn("dcim.location", ck)
+            self.assertIn(str(instance.pk), ck)
+            self.assertIn("display", ck)
+            self.assertIn("some_branch_name", ck)
+
+            ck_unaware = construct_cache_key(instance, method_name="display", branch_aware=False)
+            self.assertIsInstance(ck_unaware, str)
+            self.assertIn("dcim.location", ck_unaware)
+            self.assertIn(str(instance.pk), ck_unaware)
+            self.assertIn("display", ck_unaware)
+            self.assertNotIn("some_branch_name", ck_unaware)
+
+            mock_active_branch.return_value = "another_branch"
+
+            self.assertNotEqual(ck, construct_cache_key(instance, method_name="display", branch_aware=True))
+            self.assertEqual(ck_unaware, construct_cache_key(instance, method_name="display", branch_aware=False))
+
+
+class RequestCacheTest(TestCase):
+    """
+    Validate the operation of `request_cache()`/`get_request_cache()`.
+    """
+
+    def test_get_request_cache_returns_none_outside_of_scope(self):
+        self.assertIsNone(get_request_cache())
+
+    def test_request_cache_provides_a_dict_scoped_to_the_block(self):
+        self.assertIsNone(get_request_cache())
+        with request_cache():
+            request_scoped_cache = get_request_cache()
+            self.assertIsInstance(request_scoped_cache, dict)
+            request_scoped_cache["some_key"] = "some_value"
+            self.assertEqual(get_request_cache()["some_key"], "some_value")
+        # Cache is discarded once the block exits.
+        self.assertIsNone(get_request_cache())
+
+    def test_request_cache_does_not_leak_between_sibling_scopes(self):
+        with request_cache():
+            get_request_cache()["some_key"] = "some_value"
+        with request_cache():
+            self.assertNotIn("some_key", get_request_cache())
+
+    def test_nested_request_cache_reuses_outer_scope(self):
+        with request_cache():
+            get_request_cache()["some_key"] = "some_value"
+            with request_cache():
+                # The nested scope should see (and be able to mutate) the same dict as the outer scope.
+                self.assertEqual(get_request_cache()["some_key"], "some_value")
+                get_request_cache()["another_key"] = "another_value"
+            self.assertEqual(get_request_cache()["another_key"], "another_value")
+        self.assertIsNone(get_request_cache())
+
+
+class CacheGetOrSetTest(TestCase):
+    """
+    Validate the operation of `cache_get_or_set()`.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.cache_key = f"nautobot.core.tests.cache_get_or_set.{uuid.uuid4()}"
+        self.addCleanup(cache.delete, self.cache_key)
+
+    def test_computes_and_caches_on_miss(self):
+        compute = mock.Mock(return_value="computed value")
+        value, hit = cache_get_or_set(self.cache_key, compute, timeout=None)
+        self.assertEqual(value, "computed value")
+        self.assertFalse(hit)
+        compute.assert_called_once()
+        # A subsequent call should be served from Redis, not recompute.
+        compute.reset_mock()
+        value, hit = cache_get_or_set(self.cache_key, compute, timeout=None)
+        self.assertEqual(value, "computed value")
+        self.assertTrue(hit)
+        compute.assert_not_called()
+
+    def test_outside_request_cache_scope_still_uses_redis(self):
+        self.assertIsNone(get_request_cache())
+        compute = mock.Mock(return_value="computed value")
+        cache_get_or_set(self.cache_key, compute, timeout=None)
+        with mock.patch.object(cache, "get", wraps=cache.get) as mock_cache_get:
+            value, hit = cache_get_or_set(self.cache_key, compute, timeout=None)
+        self.assertEqual(value, "computed value")
+        self.assertTrue(hit)
+        mock_cache_get.assert_called_once_with(self.cache_key)
+
+    def test_within_request_cache_scope_avoids_repeated_redis_lookups(self):
+        compute = mock.Mock(return_value="computed value")
+        with request_cache():
+            cache_get_or_set(
+                self.cache_key, compute, timeout=None
+            )  # First call: Redis miss, computes and populates both caches.
+            with mock.patch.object(cache, "get", wraps=cache.get) as mock_cache_get:
+                for _ in range(5):
+                    value, hit = cache_get_or_set(self.cache_key, compute, timeout=None)
+                    self.assertEqual(value, "computed value")
+                    self.assertTrue(hit)
+            mock_cache_get.assert_not_called()
+        compute.assert_called_once()
+
+    def test_cache_hit_callback_is_called_with_the_hit_value(self):
+        compute = mock.Mock(return_value="computed value")
+        cache_hit_callback = mock.Mock()
+        # Miss: compute() is called, cache_hit_callback should be called with False.
+        cache_get_or_set(self.cache_key, compute, timeout=None, cache_hit_callback=cache_hit_callback)
+        cache_hit_callback.assert_called_once_with(False)
+        # Hit: compute() is not called, cache_hit_callback should be called with True.
+        cache_hit_callback.reset_mock()
+        cache_get_or_set(self.cache_key, compute, timeout=None, cache_hit_callback=cache_hit_callback)
+        cache_hit_callback.assert_called_once_with(True)
+
+
+class DictToFilterParamsTest(TestCase):
+    """
+    Validate the operation of dict_to_filter_params().
+    """
+
+    def test_dict_to_filter_params(self):
+        input_ = {
+            "a": True,
+            "foo": {
+                "bar": 123,
+                "baz": 456,
+            },
+            "x": {"y": {"z": False}},
+        }
+
+        output = {
+            "a": True,
+            "foo__bar": 123,
+            "foo__baz": 456,
+            "x__y__z": False,
+        }
+
+        self.assertEqual(api_utils.dict_to_filter_params(input_), output)
+
+        input_["x"]["y"]["z"] = True
+
+        self.assertNotEqual(api_utils.dict_to_filter_params(input_), output)
+
+
+class NormalizeQueryDictTest(TestCase):
+    """
+    Validate normalize_querydict() utility function.
+    """
+
+    def test_normalize_querydict(self):
+        self.assertDictEqual(
+            requests.normalize_querydict(QueryDict("foo=1&bar=2&bar=3&baz=")),
+            {"foo": "1", "bar": ["2", "3"], "baz": ""},
+        )
+
+        self.assertDictEqual(
+            requests.normalize_querydict(QueryDict("name=Sample Status&content_types=1"), form_class=StatusForm),
+            {"name": "Sample Status", "content_types": ["1"]},
+        )
+
+        self.assertDictEqual(
+            requests.normalize_querydict(
+                QueryDict("name=Sample Status&content_types=dcim.device"), filterset=StatusFilterSet()
+            ),
+            {"name": ["Sample Status"], "content_types": ["dcim.device"]},
+        )
+
+        self.assertDictEqual(
+            requests.normalize_querydict({"name": ["Sample Status"], "content_types": ["1"]}, form_class=StatusForm),
+            {"name": "Sample Status", "content_types": ["1"]},
+        )
+
+        self.assertDictEqual(
+            requests.normalize_querydict(
+                requests.convert_querydict_to_dict(QueryDict("name=Sample Status&content_types=1")),
+                form_class=StatusForm,
+            ),
+            {"name": "Sample Status", "content_types": ["1"]},
+        )
+
+
+class ConvertQueryDictToDictTest(TestCase):
+    """
+    Validate convert_querydict_to_dict() utility function.
+    """
+
+    def test_convert_querydict_to_dict(self):
+        self.assertDictEqual(
+            requests.convert_querydict_to_dict(QueryDict("foo=1&bar=2&bar=3&baz=")),
+            {"foo": ["1"], "bar": ["2", "3"], "baz": [""]},
+        )
+
+        self.assertDictEqual(
+            requests.convert_querydict_to_dict(QueryDict("name=Sample Status&content_types=1")),
+            {"name": ["Sample Status"], "content_types": ["1"]},
+        )
+
+        self.assertDictEqual(
+            requests.convert_querydict_to_dict(QueryDict("name=Sample Status&content_types=dcim.device")),
+            {"name": ["Sample Status"], "content_types": ["dcim.device"]},
+        )
+
+
+class DeepMergeTest(TestCase):
+    """
+    Validate the behavior of the deepmerge() utility.
+    """
+
+    def test_deepmerge(self):
+        dict1 = {
+            "active": True,
+            "foo": 123,
+            "fruits": {
+                "orange": 1,
+                "apple": 2,
+                "pear": 3,
+            },
+            "vegetables": None,
+            "dairy": {
+                "milk": 1,
+                "cheese": 2,
+            },
+            "deepnesting": {
+                "foo": {
+                    "a": 10,
+                    "b": 20,
+                    "c": 30,
+                },
+            },
+        }
+
+        dict2 = {
+            "active": False,
+            "bar": 456,
+            "fruits": {
+                "banana": 4,
+                "grape": 5,
+            },
+            "vegetables": {
+                "celery": 1,
+                "carrots": 2,
+                "corn": 3,
+            },
+            "dairy": None,
+            "deepnesting": {
+                "foo": {
+                    "a": 100,
+                    "d": 40,
+                },
+            },
+        }
+
+        merged = {
+            "active": False,
+            "foo": 123,
+            "bar": 456,
+            "fruits": {
+                "orange": 1,
+                "apple": 2,
+                "pear": 3,
+                "banana": 4,
+                "grape": 5,
+            },
+            "vegetables": {
+                "celery": 1,
+                "carrots": 2,
+                "corn": 3,
+            },
+            "dairy": None,
+            "deepnesting": {
+                "foo": {
+                    "a": 100,
+                    "b": 20,
+                    "c": 30,
+                    "d": 40,
+                },
+            },
+        }
+
+        self.assertEqual(data_utils.deepmerge(dict1, dict2), merged)
+
+
+class FlattenIterableTest(TestCase):
+    """Tests for the `flatten_iterable()` function."""
+
+    def test_list_of_lists(self):
+        items = [[1, 2, 3], [4, 5], 6]
+        expected = [1, 2, 3, 4, 5, 6]
+        self.assertEqual(list(data_utils.flatten_iterable(items)), expected)
+
+    def test_list_of_strings(self):
+        items = ["foo", ["bar"], ["baz"]]
+        expected = ["foo", "bar", "baz"]
+        self.assertEqual(list(data_utils.flatten_iterable(items)), expected)
+
+
+class GetFooForModelTest(TestCase):
+    """Tests for the various `get_foo_for_model()` functions."""
+
+    def test_get_user_from_instance_field_named_user(self):
+        instance = extras_models.Note.objects.create(
+            assigned_object_type=ContentType.objects.get_for_model(extras_models.Status),
+            assigned_object_id=extras_models.Status.objects.first().pk,
+            user=self.user,
+        )
+        self.assertEqual(lookup.get_user_from_instance(instance), self.user)
+
+    def test_get_user_from_instance_null_user_field(self):
+        instance = extras_models.Note.objects.create(
+            assigned_object_type=ContentType.objects.get_for_model(extras_models.Status),
+            assigned_object_id=extras_models.Status.objects.first().pk,
+            user=None,
+        )
+        self.assertIsNone(lookup.get_user_from_instance(instance))
+
+    def test_get_user_from_instance_no_user_field(self):
+        instance = extras_models.GraphQLQuery.objects.create(name="FizzBuzz", query="{devices { name }}")
+        self.assertIsNone(lookup.get_user_from_instance(instance))
+
+    def test_get_breadcrumbs_for_model(self):
+        breadcrumbs = lookup.get_breadcrumbs_for_model(dcim_models.Device)
+        self.assertEqual(breadcrumbs.items, dcim_views.DeviceUIViewSet.get_breadcrumbs(dcim_models.Device).items)
+        breadcrumbs = lookup.get_breadcrumbs_for_model(dcim_models.Device, view_type="")
+        self.assertEqual(
+            breadcrumbs.items, dcim_views.DeviceUIViewSet.get_breadcrumbs(dcim_models.Device, view_type="").items
+        )
+
+    def test_get_detail_view_components_context_for_model(self):
+        context = lookup.get_detail_view_components_context_for_model(dcim_models.Device)
+        self.assertEqual(
+            context["breadcrumbs"].items, lookup.get_breadcrumbs_for_model(dcim_models.Device, view_type="").items
+        )
+        self.assertEqual(
+            context["object_detail_content"], lookup.get_object_detail_content_for_model(dcim_models.Device)
+        )
+        self.assertEqual(
+            context["view_titles"].titles, lookup.get_view_titles_for_model(dcim_models.Device, view_type="").titles
+        )
+        self.assertEqual(
+            lookup.get_extra_detail_view_action_buttons_for_model(dcim_models.Device),
+            (),  # default should be an empty list
+        )
+        self.assertEqual(
+            context["extra_detail_view_action_buttons"],
+            lookup.get_extra_detail_view_action_buttons_for_model(dcim_models.Device),
+        )
+
+    def test_get_filterset_for_model(self):
+        """
+        Test that `get_filterset_for_model` returns the right FilterSet for various inputs.
+        """
+        self.assertEqual(lookup.get_filterset_for_model("dcim.device"), dcim_filters.DeviceFilterSet)
+        self.assertEqual(lookup.get_filterset_for_model(dcim_models.Device), dcim_filters.DeviceFilterSet)
+        self.assertEqual(lookup.get_filterset_for_model("dcim.location"), dcim_filters.LocationFilterSet)
+        self.assertEqual(lookup.get_filterset_for_model(dcim_models.Location), dcim_filters.LocationFilterSet)
+
+    def test_get_form_for_model(self):
+        """
+        Test that `get_form_for_model` returns the right Form for various inputs.
+        """
+        self.assertEqual(lookup.get_form_for_model("dcim.device", "Filter"), dcim_forms.DeviceFilterForm)
+        self.assertEqual(lookup.get_form_for_model(dcim_models.Device, "Filter"), dcim_forms.DeviceFilterForm)
+        self.assertEqual(lookup.get_form_for_model("dcim.location", "Filter"), dcim_forms.LocationFilterForm)
+        self.assertEqual(lookup.get_form_for_model(dcim_models.Location, "Filter"), dcim_forms.LocationFilterForm)
+        self.assertEqual(lookup.get_form_for_model("dcim.device"), dcim_forms.DeviceForm)
+        self.assertEqual(lookup.get_form_for_model(dcim_models.Device), dcim_forms.DeviceForm)
+        self.assertEqual(lookup.get_form_for_model("dcim.location"), dcim_forms.LocationForm)
+        self.assertEqual(lookup.get_form_for_model(dcim_models.Location), dcim_forms.LocationForm)
+
+    def test_get_object_detail_content_for_model(self):
+        self.assertEqual(
+            lookup.get_object_detail_content_for_model(dcim_models.Device),
+            dcim_views.DeviceUIViewSet.object_detail_content,
+        )
+
+    def test_get_extra_detail_view_action_buttons(self):
+        self.assertEqual(
+            lookup.get_extra_detail_view_action_buttons_for_model(dcim_models.Device),
+            (),  # default should be an empty list
+        )
+        self.assertEqual(
+            lookup.get_extra_detail_view_action_buttons_for_model(dcim_models.Device),
+            dcim_views.DeviceUIViewSet.extra_detail_view_action_buttons,
+        )
+
+    def test_get_related_field_for_models(self):
+        """
+        Test that `get_related_field_for_models` returns the appropriate field for various inputs.
+        """
+        # No direct relation found
+        self.assertIsNone(lookup.get_related_field_for_models(dcim_models.Device, dcim_models.LocationType))
+        # ForeignKey and reverse
+        self.assertEqual(lookup.get_related_field_for_models(dcim_models.Device, dcim_models.Location).name, "location")
+        self.assertEqual(lookup.get_related_field_for_models(dcim_models.Location, dcim_models.Device).name, "devices")
+        # ManyToMany and reverse
+        self.assertEqual(
+            lookup.get_related_field_for_models(ipam_models.Prefix, dcim_models.Location).name, "locations"
+        )
+        self.assertEqual(lookup.get_related_field_for_models(dcim_models.Location, ipam_models.Prefix).name, "prefixes")
+        # Multiple candidate fields
+        with self.assertRaises(AttributeError):
+            # both primary_ip4 and primary_ip6 are candidates
+            lookup.get_related_field_for_models(dcim_models.Device, ipam_models.IPAddress)
+
+    @tag("example_app")
+    def test_get_route_for_model(self):
+        """
+        Test that `get_route_for_model` returns the appropriate URL route name for various inputs.
+        """
+        from example_app.models import ExampleModel
+
+        # UI
+        self.assertEqual(lookup.get_route_for_model("dcim.device", "list"), "dcim:device_list")
+        self.assertEqual(lookup.get_route_for_model(dcim_models.Device, "list"), "dcim:device_list")
+        self.assertEqual(lookup.get_route_for_model("dcim.location", "list"), "dcim:location_list")
+        self.assertEqual(lookup.get_route_for_model(dcim_models.Location, "list"), "dcim:location_list")
+        self.assertEqual(
+            lookup.get_route_for_model("example_app.examplemodel", "list"),
+            "plugins:example_app:examplemodel_list",
+        )
+        self.assertEqual(lookup.get_route_for_model(ExampleModel, "list"), "plugins:example_app:examplemodel_list")
+
+        # API
+        self.assertEqual(lookup.get_route_for_model("dcim.device", "list", api=True), "dcim-api:device-list")
+        self.assertEqual(lookup.get_route_for_model(dcim_models.Device, "list", api=True), "dcim-api:device-list")
+        self.assertEqual(lookup.get_route_for_model("dcim.location", "detail", api=True), "dcim-api:location-detail")
+        self.assertEqual(lookup.get_route_for_model(ContentType, "list", api=True), "extras-api:contenttype-list")
+        self.assertEqual(lookup.get_route_for_model(ContentType, "detail", api=True), "extras-api:contenttype-detail")
+        self.assertEqual(lookup.get_route_for_model(Group, "list", api=True), "users-api:group-list")
+        self.assertEqual(lookup.get_route_for_model(Group, "detail", api=True), "users-api:group-detail")
+        self.assertEqual(
+            lookup.get_route_for_model(dcim_models.Location, "detail", api=True), "dcim-api:location-detail"
+        )
+        self.assertEqual(
+            lookup.get_route_for_model("example_app.examplemodel", "list", api=True),
+            "plugins-api:example_app-api:examplemodel-list",
+        )
+        self.assertEqual(
+            lookup.get_route_for_model(ExampleModel, "list", api=True),
+            "plugins-api:example_app-api:examplemodel-list",
+        )
+
+    def test_get_table_for_model(self):
+        """
+        Test that `get_table_for_model` returns the appropriate Table for various inputs.
+        """
+        self.assertEqual(lookup.get_table_for_model("dcim.device"), tables.DeviceTable)
+        self.assertEqual(lookup.get_table_for_model(dcim_models.Device), tables.DeviceTable)
+        self.assertEqual(lookup.get_table_for_model("dcim.location"), tables.LocationTable)
+        self.assertEqual(lookup.get_table_for_model(dcim_models.Location), tables.LocationTable)
+
+    def test_get_model_from_name(self):
+        """
+        Test the util function `get_model_from_name` returns the appropriate Model, if the dotted name provided.
+        """
+        self.assertEqual(lookup.get_model_from_name("dcim.device"), dcim_models.Device)
+        self.assertEqual(lookup.get_model_from_name("dcim.location"), dcim_models.Location)
+
+    @tag("example_app")
+    def test_get_model_for_view_name(self):
+        """
+        Test that `get_model_for_view_name` returns the appropriate Model, if the colon separated view name provided.
+        """
+        from example_app.models import ExampleModel
+
+        with self.subTest("Test core UI view."):
+            self.assertEqual(lookup.get_model_for_view_name("dcim:device_list"), dcim_models.Device)
+            self.assertEqual(lookup.get_model_for_view_name("dcim:device"), dcim_models.Device)
+        with self.subTest("Test app UI view."):
+            self.assertEqual(lookup.get_model_for_view_name("plugins:example_app:examplemodel_list"), ExampleModel)
+            self.assertEqual(lookup.get_model_for_view_name("plugins:example_app:examplemodel"), ExampleModel)
+        with self.subTest("Test core API view."):
+            self.assertEqual(lookup.get_model_for_view_name("dcim-api:device-list"), dcim_models.Device)
+            self.assertEqual(lookup.get_model_for_view_name("dcim-api:device-detail"), dcim_models.Device)
+        with self.subTest("Test app API view."):
+            self.assertEqual(
+                lookup.get_model_for_view_name("plugins-api:example_app-api:examplemodel-detail"), ExampleModel
+            )
+            self.assertEqual(
+                lookup.get_model_for_view_name("plugins-api:example_app-api:examplemodel-list"), ExampleModel
+            )
+        with self.subTest("Test unconventional model views."):
+            self.assertEqual(lookup.get_model_for_view_name("extras-api:contenttype-detail"), ContentType)
+            self.assertEqual(lookup.get_model_for_view_name("users-api:group-detail"), Group)
+        with self.subTest("Test unexpected view."):
+            with self.assertRaises(ValueError) as err:
+                lookup.get_model_for_view_name("unknown:plugins:example_app:examplemodel_list")
+            self.assertEqual(str(err.exception), "Unexpected View Name: unknown:plugins:example_app:examplemodel_list")
+
+    def test_get_table_class_string_from_view_name(self):
+        # Testing UIViewSet
+        self.assertEqual(lookup.get_table_class_string_from_view_name("circuits:circuit_list"), "CircuitTable")
+        # Testing Legacy View
+        self.assertEqual(lookup.get_table_class_string_from_view_name("dcim:location_list"), "LocationTable")
+        # Testing unconventional table name
+        self.assertEqual(lookup.get_table_class_string_from_view_name("ipam:prefix_list"), "PrefixDetailTable")
+
+    def test_get_view_titles_for_model(self):
+        view_titles = lookup.get_view_titles_for_model(dcim_models.Device)
+        self.assertEqual(view_titles.titles, dcim_views.DeviceUIViewSet.get_view_titles(dcim_models.Device).titles)
+        view_titles = lookup.get_view_titles_for_model(dcim_models.Device, view_type="")
+        self.assertEqual(
+            view_titles.titles, dcim_views.DeviceUIViewSet.get_view_titles(dcim_models.Device, view_type="").titles
+        )
+
+
+class IsTaggableTest(TestCase):
+    def test_is_taggable_true(self):
+        # Classes
+        self.assertTrue(models_utils.is_taggable(dcim_models.Location))
+        self.assertTrue(models_utils.is_taggable(dcim_models.Device))
+
+        # Instances
+        self.assertTrue(models_utils.is_taggable(dcim_models.Location(name="Test Location")))
+
+    def test_is_taggable_false(self):
+        class FakeOut:
+            tags = "Nope!"
+
+        # Classes
+        self.assertFalse(models_utils.is_taggable(dcim_models.Manufacturer))
+        self.assertFalse(models_utils.is_taggable(FakeOut))
+
+        # Instances
+        self.assertFalse(models_utils.is_taggable(dcim_models.Manufacturer(name="Test Manufacturer")))
+        self.assertFalse(models_utils.is_taggable(FakeOut()))
+
+        self.assertFalse(models_utils.is_taggable(None))
+
+
+class IsTruthyTest(TestCase):
+    def test_is_truthy(self):
+        self.assertTrue(settings_funcs.is_truthy("true"))
+        self.assertTrue(settings_funcs.is_truthy("True"))
+        self.assertTrue(settings_funcs.is_truthy(True))
+        self.assertTrue(settings_funcs.is_truthy("yes"))
+        self.assertTrue(settings_funcs.is_truthy("on"))
+        self.assertTrue(settings_funcs.is_truthy("y"))
+        self.assertTrue(settings_funcs.is_truthy("1"))
+        self.assertTrue(settings_funcs.is_truthy(1))
+
+        self.assertFalse(settings_funcs.is_truthy("false"))
+        self.assertFalse(settings_funcs.is_truthy("False"))
+        self.assertFalse(settings_funcs.is_truthy(False))
+        self.assertFalse(settings_funcs.is_truthy("no"))
+        self.assertFalse(settings_funcs.is_truthy("n"))
+        self.assertFalse(settings_funcs.is_truthy(0))
+        self.assertFalse(settings_funcs.is_truthy("0"))
+
+
+class WarnDeprecatedAtCallerTest(TestCase):
+    """Tests for `warn_deprecated_at_caller()`."""
+
+    @staticmethod
+    def _make_shim():
+        """Build a deprecation shim that lives in a *different* file than this test module.
+
+        `warn_deprecated_at_caller()` walks out of its immediate caller's module (the shim) before
+        attributing the warning, so exercising that walk correctly requires the shim's `co_filename`
+        to differ from this test's -- otherwise the walk would step over the test frame too.
+        `compile()` with an explicit filename gives us that distinct frame without a second source
+        file on disk. The returned `shim(message)` simply forwards to `warn_deprecated_at_caller()`.
+        """
+        namespace = {"warn_deprecated_at_caller": deprecation.warn_deprecated_at_caller}
+        code = compile(
+            "def shim(message):\n    warn_deprecated_at_caller(message)\n",
+            "<deprecation-shim-stand-in>",
+            "exec",
+        )
+        exec(code, namespace)  # noqa: S102  # pylint: disable=exec-used  # controlled, test-only source
+        return namespace["shim"]
+
+    def test_emits_deprecation_warning(self):
+        """The message is emitted as a `DeprecationWarning`."""
+        with self.assertWarns(DeprecationWarning) as cm:
+            deprecation.warn_deprecated_at_caller("legacy thing is deprecated")
+        self.assertEqual(str(cm.warning), "legacy thing is deprecated")
+
+    def test_warning_is_attributed_to_caller_of_shim(self):
+        """`stacklevel` skips the shim frame so the warning points at the app code that called it."""
+        shim = self._make_shim()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            expected_lineno = sys._getframe().f_lineno + 1  # the shim() call is the next line
+            shim("legacy thing is deprecated")
+        self.assertEqual(len(caught), 1)
+        # Blamed here (the shim's caller), not on the shim's file or on deprecation.py.
+        self.assertEqual(os.path.basename(caught[0].filename), os.path.basename(__file__))
+        self.assertEqual(caught[0].lineno, expected_lineno)
+
+    def test_logs_warning_with_matching_stacklevel_when_enabled(self):
+        """With `LOG_DEPRECATION_WARNINGS` set, a `logger.warning` fires, attributed to the same caller."""
+        shim = self._make_shim()
+        with mock.patch.object(deprecation, "LOG_DEPRECATION_WARNINGS", True):
+            with warnings.catch_warnings(record=True):
+                warnings.simplefilter("always")
+                with self.assertLogs(deprecation.logger, level="WARNING") as logs:
+                    expected_lineno = sys._getframe().f_lineno + 1  # the shim() call is the next line
+                    shim("legacy thing is deprecated")
+        self.assertEqual(len(logs.records), 1)
+        record = logs.records[0]
+        self.assertIn("legacy thing is deprecated", record.getMessage())
+        self.assertEqual(os.path.basename(record.pathname), os.path.basename(__file__))
+        self.assertEqual(record.lineno, expected_lineno)
+
+    def test_does_not_log_when_log_deprecation_warnings_disabled(self):
+        """With the setting off, only the (silenced) warning fires -- no log line."""
+        with mock.patch.object(deprecation, "LOG_DEPRECATION_WARNINGS", False):
+            with self.assertWarns(DeprecationWarning):
+                with self.assertNoLogs(deprecation.logger, level="WARNING"):
+                    deprecation.warn_deprecated_at_caller("legacy thing is deprecated")
+
+
+class PrettyPrintQueryTest(TestCase):
+    """Tests for `pretty_print_query()."""
+
+    def test_pretty_print_query(self):
+        """Test that each Q object, from deeply nested to flat, pretty prints as expected."""
+        # TODO: Remove pylint disable after issue is resolved (see: https://github.com/PyCQA/pylint/issues/7381)
+        # pylint: disable=unsupported-binary-operation
+        queries = [
+            ((Q(location__name="ams01") | Q(location__name="ang01")) & ~Q(status__name="Active"))
+            | Q(status__name="Planned"),
+            (Q(location__name="ams01") | Q(location__name="ang01")) & ~Q(status__name="Active"),
+            Q(location__name="ams01") | Q(location__name="ang01"),
+            Q(location__name="ang01") & ~Q(status__name="Active"),
+            Q(location__name="ams01", status__name="Planned"),
+            Q(location__name="ang01"),
+            Q(status__id=12345),
+            Q(location__name__in=["ams01", "ang01"]),
+        ]
+        # pylint: enable=unsupported-binary-operation
+        results = [
+            """\
+(
+  (
+    (
+      location__name='ams01' OR location__name='ang01'
+    ) AND (
+      NOT (status__name='Active')
+    )
+  ) OR status__name='Planned'
+)""",
+            """\
+(
+  (
+    location__name='ams01' OR location__name='ang01'
+  ) AND (
+    NOT (status__name='Active')
+  )
+)""",
+            """\
+(
+  location__name='ams01' OR location__name='ang01'
+)""",
+            """\
+(
+  location__name='ang01' AND (
+    NOT (status__name='Active')
+  )
+)""",
+            """\
+(
+  location__name='ams01' AND status__name='Planned'
+)""",
+            """\
+(
+  location__name='ang01'
+)""",
+            """\
+(
+  status__id=12345
+)""",
+            """\
+(
+  location__name__in=['ams01', 'ang01']
+)""",
+        ]
+
+        tests = zip(queries, results)
+
+        for query, expected in tests:
+            with self.subTest(query=query):
+                self.assertEqual(models_utils.pretty_print_query(query), expected)
+
+
+class CompressRangeTest(TestCase):
+    """Tests for compress_range()."""
+
+    def test_compress_range_sparse(self):
+        values = [1500, 200, 10, 2222, 3000, 4096]
+        self.assertEqual(
+            list(compress_range(values)),
+            [
+                (10, 10),
+                (200, 200),
+                (1500, 1500),
+                (2222, 2222),
+                (3000, 3000),
+                (4096, 4096),
+            ],
+        )
+
+    def test_compress_range_dense(self):
+        values = [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            100,
+            101,
+            102,
+            103,
+            104,
+            105,
+            1100,
+            1101,
+            1102,
+            1103,
+            1104,
+            1105,
+            1106,
+        ]
+        self.assertEqual(
+            list(compress_range(values)),
+            [(1, 10), (100, 105), (1100, 1106)],
+        )
+
+    def test_compress_range_complex(self):
+        values = [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            100,
+            200,
+            210,
+            211,
+            212,
+            222,
+            500,
+            501,
+            502,
+            503,
+            600,
+        ]
+        self.assertEqual(
+            list(compress_range(values)),
+            [
+                (10, 15),
+                (100, 100),
+                (200, 200),
+                (210, 212),
+                (222, 222),
+                (500, 503),
+                (600, 600),
+            ],
+        )
+
+
+class SlugifyFunctionsTest(TestCase):
+    """Test custom slugify functions."""
+
+    def test_slugify_dots_to_dashes(self):
+        for content, expected in (
+            ("Hello.World", "hello-world"),
+            ("apps.my_app.jobs", "apps-my_app-jobs"),
+            ("Lots of . spaces  ... and such", "lots-of-spaces-and-such"),
+        ):
+            self.assertEqual(core_fields.slugify_dots_to_dashes(content), expected)
+
+    def test_slugify_dashes_to_underscores(self):
+        for content, expected in (
+            ("Locations / Regions", "locations_regions"),
+            ("alpha-beta_gamma delta", "alpha_beta_gamma_delta"),
+            ("123 main st", "a123_main_st"),
+            (" 123 main st", "a_123_main_st"),
+        ):
+            self.assertEqual(core_fields.slugify_dashes_to_underscores(content), expected)
+
+
+class LaxURLFieldTest(TestCase):
+    """Test LaxURLField and related functionality."""
+
+    VALID_URLS = [
+        "http://example.com",
+        "https://local-dns/foo/bar.git",  # not supported out-of-the-box by Django, hence our custom classes
+        "https://1.1.1.1:8080/",
+        "https://[2001:db8::]/",
+    ]
+    INVALID_URLS = [
+        "unknown://example.com/",
+        "foo:/",
+        "http://file://",
+    ]
+
+    def test_enhanced_url_validator(self):
+        for valid in self.VALID_URLS:
+            with self.subTest(valid=valid):
+                validators.EnhancedURLValidator()(valid)
+
+        for invalid in self.INVALID_URLS:
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(django_forms.ValidationError):
+                    validators.EnhancedURLValidator()(invalid)
+
+    def test_forms_lax_url_field(self):
+        for valid in self.VALID_URLS:
+            with self.subTest(valid=valid):
+                forms.LaxURLField().clean(valid)
+
+        for invalid in self.INVALID_URLS:
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(django_forms.ValidationError):
+                    forms.LaxURLField().clean(invalid)
+
+    def test_models_lax_url_field(self):
+        for valid in self.VALID_URLS:
+            with self.subTest(valid=valid):
+                core_fields.LaxURLField().run_validators(valid)
+
+        for invalid in self.INVALID_URLS:
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValidationError):
+                    core_fields.LaxURLField().run_validators(invalid)
+
+
+class LookupRelatedFunctionTest(TestCase):
+    def test_is_single_choice_field(self):
+        """
+        Assert that is_single_choice_field() correctly distinguishes between single-value and multi-value filter fields.
+        """
+        location_filterset = dcim_filters.LocationFilterSet()
+
+        single_choice_fields = ("has_vlans", "has_clusters")
+        for field in single_choice_fields:
+            with self.subTest(f"Single choice field: {field}"):
+                self.assertTrue(requests.is_single_choice_field(location_filterset, field))
+
+        multi_choice_fields = ("created", "status", "tenant", "tags")
+        for field in multi_choice_fields:
+            with self.subTest(f"Multi choice field: {field}"):
+                self.assertFalse(requests.is_single_choice_field(location_filterset, field))
+
+    def test_build_lookup_label(self):
+        with self.subTest():
+            label = filtering.build_lookup_label("name__iew", "iendswith")
+            self.assertEqual(label, "ends with (iew)")
+
+        with self.subTest("Test negation"):
+            label = filtering.build_lookup_label("name__niew", "iendswith")
+            self.assertEqual(label, "not ends with (niew)")
+
+        with self.subTest("Test for exact: without a lookup expr"):
+            label = filtering.build_lookup_label("name", "exact")
+            self.assertEqual(label, "exact")
+
+    def test_get_all_lookup_expr_for_field(self):
+        with self.subTest():
+            lookup_expr = filtering.get_all_lookup_expr_for_field(dcim_models.Location, "status")
+            self.assertEqual(
+                lookup_expr,
+                [{"id": "status", "name": "exact"}, {"id": "status__n", "name": "not exact (n)"}],
+            )
+
+        with self.subTest("Test field with has_ prefix"):
+            lookup_expr = filtering.get_all_lookup_expr_for_field(dcim_models.Location, "has_vlans")
+            self.assertEqual(
+                lookup_expr,
+                [{"id": "has_vlans", "name": "exact"}],
+            )
+
+        with self.subTest("Test unknown field"):
+            with self.assertRaises(exceptions.FilterSetFieldNotFound) as err:
+                filtering.get_all_lookup_expr_for_field(dcim_models.Location, "unknown_field")
+            self.assertEqual(str(err.exception), "field_name not found")
+
+    def test_get_filterset_field(self):
+        location_filterset = dcim_filters.LocationFilterSet()
+        with self.subTest():
+            field = filtering.get_filterset_field(location_filterset, "name")
+            self.assertEqual(field.__class__, location_filterset.filters.get("name").__class__)
+
+        with self.subTest("Test invalid field"):
+            with self.assertRaises(exceptions.FilterSetFieldNotFound) as err:
+                filtering.get_filterset_field(location_filterset, "unknown")
+            self.assertEqual(str(err.exception), "unknown is not a valid LocationFilterSet field")
+
+    def test_get_filterset_parameter_form_field(self):
+        with self.subTest("Test get CharFields"):
+            location_fields = ["comments", "name", "contact_email", "physical_address", "shipping_address"]
+            for field_name in location_fields:
+                form_field = filtering.get_filterset_parameter_form_field(dcim_models.Location, field_name)
+                self.assertIsInstance(form_field, forms.MultiValueCharField)
+
+            device_fields = ["serial", "name"]
+            for field_name in device_fields:
+                form_field = filtering.get_filterset_parameter_form_field(dcim_models.Device, field_name)
+                self.assertIsInstance(form_field, forms.MultiValueCharField)
+
+        with self.subTest("Test IntegerField"):
+            form_field = filtering.get_filterset_parameter_form_field(dcim_models.Location, "asn")
+            self.assertIsInstance(form_field, django_forms.IntegerField)
+
+            device_fields = ["vc_position", "vc_priority"]
+            for field_name in device_fields:
+                form_field = filtering.get_filterset_parameter_form_field(dcim_models.Device, field_name)
+                self.assertIsInstance(form_field, django_forms.IntegerField)
+
+        with self.subTest("Test DynamicModelMultipleChoiceField"):
+            location_fields = ["tenant", "status"]
+            for field_name in location_fields:
+                form_field = filtering.get_filterset_parameter_form_field(dcim_models.Location, field_name)
+                self.assertIsInstance(form_field, forms.DynamicModelMultipleChoiceField)
+
+            device_fields = ["cluster", "device_type", "location"]
+            for field_name in device_fields:
+                form_field = filtering.get_filterset_parameter_form_field(dcim_models.Device, field_name)
+                self.assertIsInstance(form_field, forms.DynamicModelMultipleChoiceField)
+
+            location_fields = ["has_circuit_terminations", "has_devices"]
+            for field_name in location_fields:
+                with self.subTest("Test ChoiceField", model=dcim_models.Location, field_name=field_name):
+                    form_field = filtering.get_filterset_parameter_form_field(dcim_models.Location, field_name)
+                    self.assertIsInstance(form_field, django_forms.ChoiceField)
+                    self.assertIsInstance(form_field.widget, forms.StaticSelect2)
+
+            device_fields = ["has_console_ports", "has_interfaces", "local_config_context_data"]
+            for field_name in device_fields:
+                with self.subTest("Test ChoiceField", model=dcim_models.Device, field_name=field_name):
+                    form_field = filtering.get_filterset_parameter_form_field(dcim_models.Device, field_name)
+                    self.assertIsInstance(form_field, django_forms.ChoiceField)
+                    self.assertIsInstance(form_field.widget, forms.StaticSelect2)
+
+        with self.subTest("Test MultipleChoiceField"):
+            form_field = filtering.get_filterset_parameter_form_field(dcim_models.Device, "face")
+            self.assertIsInstance(form_field, django_forms.MultipleChoiceField)
+
+        with self.subTest("Test DateTimePicker"):
+            form_field = filtering.get_filterset_parameter_form_field(dcim_models.Location, "last_updated")
+            self.assertIsInstance(form_field.widget, forms.DateTimePicker)
+
+            form_field = filtering.get_filterset_parameter_form_field(dcim_models.Device, "last_updated")
+            self.assertIsInstance(form_field.widget, forms.DateTimePicker)
+
+        with self.subTest("Test DatePicker"):
+            form_field = filtering.get_filterset_parameter_form_field(circuits_models.Circuit, "install_date")
+            self.assertIsInstance(form_field.widget, forms.DatePicker)
+
+        with self.subTest("Test Invalid parameter"):
+            with self.assertRaises(exceptions.FilterSetFieldNotFound) as err:
+                filtering.get_filterset_parameter_form_field(dcim_models.Location, "unknown")
+            self.assertEqual(str(err.exception), "unknown is not a valid LocationFilterSet field")
+
+        with self.subTest("Test Content types"):
+            form_field = filtering.get_filterset_parameter_form_field(extras_models.Status, "content_types")
+            self.assertIsInstance(form_field, forms.MultipleContentTypeField)
+
+            # Assert total ContentTypes generated by form_field is == total `content_types` generated by TaggableClassesQuery
+            form_field = filtering.get_filterset_parameter_form_field(extras_models.Tag, "content_types")
+            self.assertIsInstance(form_field, forms.MultipleContentTypeField)
+            self.assertQuerySetEqualAndNotEmpty(form_field.queryset, extras_utils.TaggableClassesQuery().as_queryset())
+
+            form_field = filtering.get_filterset_parameter_form_field(extras_models.JobHook, "content_types")
+            self.assertIsInstance(form_field, forms.MultipleContentTypeField)
+            self.assertQuerySetEqualAndNotEmpty(
+                form_field.queryset, extras_utils.ChangeLoggedModelsQuery().as_queryset()
+            )
+
+            form_field = filtering.get_filterset_parameter_form_field(
+                extras_models.ObjectMetadata, "assigned_object_type"
+            )
+            self.assertIsInstance(form_field, forms.MultipleContentTypeField)
+            self.assertQuerySetEqualAndNotEmpty(
+                form_field.queryset,
+                ContentType.objects.filter(extras_utils.FeatureQuery("metadata").get_query()).order_by(
+                    "app_label", "model"
+                ),
+            )
+
+        with self.subTest("Test prefers_id"):
+            form_field = filtering.get_filterset_parameter_form_field(dcim_models.Device, "location")
+            self.assertEqual("id", form_field.to_field_name)
+            form_field = filtering.get_filterset_parameter_form_field(dcim_models.Location, "vlans")
+            self.assertEqual("id", form_field.to_field_name)
+            # Test prefers_id=False (default)
+            form_field = filtering.get_filterset_parameter_form_field(dcim_models.Location, "racks")
+            self.assertEqual("name", form_field.to_field_name)
+
+    def test_convert_querydict_to_factory_formset_dict(self):
+        location_filter_set = dcim_filters.LocationFilterSet()
+
+        with self.subTest("Convert QueryDict to an acceptable factory formset QueryDict and discards invalid params"):
+            request_querydict = QueryDict(mutable=True)
+            request_querydict.setlistdefault("status", ["active", "decommissioning"])
+            request_querydict.setlistdefault("name__ic", ["location"])
+            request_querydict.setlistdefault("invalid_field", ["invalid"])  # Should be ignored
+            request_querydict.setlistdefault("name__iew", [""])  # Should be ignored since it has no value
+
+            data = requests.convert_querydict_to_factory_formset_acceptable_querydict(
+                request_querydict, location_filter_set
+            )
+            expected_querydict = QueryDict(mutable=True)
+            expected_querydict.setlistdefault("form-TOTAL_FORMS", [3])
+            expected_querydict.setlistdefault("form-INITIAL_FORMS", [0])
+            expected_querydict.setlistdefault("form-MIN_NUM_FORMS", [0])
+            expected_querydict.setlistdefault("form-MAX_NUM_FORMS", [100])
+            expected_querydict.setlistdefault("form-0-lookup_field", ["status"])
+            expected_querydict.setlistdefault("form-0-lookup_type", ["status"])
+            expected_querydict.setlistdefault("form-0-lookup_value", ["active", "decommissioning"])
+            expected_querydict.setlistdefault("form-1-lookup_field", ["name"])
+            expected_querydict.setlistdefault("form-1-lookup_type", ["name__ic"])
+            expected_querydict.setlistdefault("form-1-lookup_value", ["location"])
+
+            self.assertEqual(data, expected_querydict)
+
+        with self.subTest("Convert an empty QueryDict to an acceptable factory formset QueryDict"):
+            request_querydict = QueryDict(mutable=True)
+
+            data = requests.convert_querydict_to_factory_formset_acceptable_querydict(
+                request_querydict, location_filter_set
+            )
+            expected_querydict = QueryDict(mutable=True)
+            expected_querydict.setlistdefault("form-TOTAL_FORMS", [3])
+            expected_querydict.setlistdefault("form-INITIAL_FORMS", [0])
+            expected_querydict.setlistdefault("form-MIN_NUM_FORMS", [0])
+            expected_querydict.setlistdefault("form-MAX_NUM_FORMS", [100])
+
+            self.assertEqual(data, expected_querydict)
+
+        with self.subTest("Ignores q field"):
+            request_querydict = QueryDict(mutable=True)
+            request_querydict.setlistdefault("status", ["active"])
+            request_querydict.setlistdefault("q", "location")  # Should be ignored
+
+            data = requests.convert_querydict_to_factory_formset_acceptable_querydict(
+                request_querydict, location_filter_set
+            )
+            expected_querydict = QueryDict(mutable=True)
+            expected_querydict.setlistdefault("form-TOTAL_FORMS", [3])
+            expected_querydict.setlistdefault("form-INITIAL_FORMS", [0])
+            expected_querydict.setlistdefault("form-MIN_NUM_FORMS", [0])
+            expected_querydict.setlistdefault("form-MAX_NUM_FORMS", [100])
+            expected_querydict.setlistdefault("form-0-lookup_field", ["status"])
+            expected_querydict.setlistdefault("form-0-lookup_type", ["status"])
+            expected_querydict.setlistdefault("form-0-lookup_value", ["active"])
+
+            self.assertEqual(data, expected_querydict)
+
+    def test_get_filterable_params_from_filter_params(self):
+        filter_params = QueryDict(mutable=True)
+        filter_params.update({"page": "1", "per_page": "20", "name": "Location 1"})
+        filter_params.setlistdefault("status", ["active", "planned"])
+
+        non_filter_params = ["page", "per_page"]
+        data = requests.get_filterable_params_from_filter_params(
+            filter_params, non_filter_params, dcim_filters.LocationFilterSet()
+        )
+
+        self.assertEqual(data, {"name": ["Location 1"], "status": ["active", "planned"]})
+
+    def test_ensure_content_type_and_field_name_in_query_params(self):
+        with self.assertRaises(django_forms.ValidationError) as err:
+            requests.ensure_content_type_and_field_name_in_query_params({})
+        self.assertEqual(str(err.exception.args[0]), "content_type and field_name are required parameters")
+        self.assertEqual(err.exception.code, 400)
+
+        with self.assertRaises(django_forms.ValidationError) as err:
+            requests.ensure_content_type_and_field_name_in_query_params(
+                {"field_name": "name", "content_type": "dcim.abc"}
+            )
+        self.assertEqual(str(err.exception.args[0]), "content_type not found")
+        self.assertEqual(err.exception.code, 404)
+
+
+class GetFilterFieldLabelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        device_ct = ContentType.objects.get_for_model(dcim_models.Device)
+        cls.peer_relationship = extras_models.Relationship(
+            label="HA Device Peer",
+            key="ha_device_peer",
+            source_type=device_ct,
+            destination_type=device_ct,
+            source_label="Peer",
+            destination_label="Peer",
+            type=RelationshipTypeChoices.TYPE_ONE_TO_ONE_SYMMETRIC,
+        )
+        cls.peer_relationship.validated_save()
+
+        cls.custom_field = extras_models.CustomField(key="labeled_custom_field", label="Moo!", type="text")
+        cls.custom_field.validated_save()
+        cls.custom_field.content_types.add(device_ct)
+
+    def test_get_filter_field_label(self):
+        """Validate the operation of get_filter_field_label()."""
+
+        device_filter_set_filters = dcim_filters.DeviceFilterSet().filters
+
+        with self.subTest("Simple field name"):
+            self.assertEqual(filtering.get_filter_field_label(device_filter_set_filters["id"]), "Id")
+
+        with self.subTest("Semi-complex field name"):
+            self.assertEqual(
+                filtering.get_filter_field_label(device_filter_set_filters["has_interfaces"]), "Has interfaces"
+            )
+
+        with self.subTest("Relationship field name"):
+            self.assertEqual(
+                filtering.get_filter_field_label(device_filter_set_filters[f"cr_{self.peer_relationship.key}__peer"]),
+                self.peer_relationship.source_label,
+            )
+
+        with self.subTest("Custom field with label"):
+            self.assertEqual(
+                filtering.get_filter_field_label(device_filter_set_filters[f"cf_{self.custom_field.key}"]),
+                "Moo!",
+            )
+
+
+class FieldNameToDisplayTest(TestCase):
+    def test__field_name_to_display(self):
+        """Validate the operation of _field_name_to_display()."""
+
+        with self.subTest("id => Id"):
+            self.assertEqual(filtering._field_name_to_display("id"), "Id")
+
+        with self.subTest("device_type => Device Type"):
+            self.assertEqual(filtering._field_name_to_display("device_type"), "Device type")
+
+        with self.subTest("_custom_field_data__site_type => Site Type"):
+            self.assertEqual(filtering._field_name_to_display("_custom_field_data__site_type"), "Site type")
+
+        with self.subTest("cr_sister_sites__peer => Peer"):
+            # This shouldn't ever be an input because get_filter_field_label
+            # will use the label from the custom field instead of the field name
+            self.assertEqual(filtering._field_name_to_display("cr_sister_sites__peer"), "Cr_sister_sites peer")
+
+
+class IsFooTest(TestCase):
+    def test_is_url(self):
+        """Validate the operation of `is_url()`."""
+        with self.subTest("Test a valid URL."):
+            self.assertTrue(
+                data_utils.is_url("http://localhost:3000/api/extras/statuses/3256ead7-0745-432a-a031-3928c9b7d075/")
+            )
+        with self.subTest("Test an nvalid URL."):
+            self.assertFalse(data_utils.is_url("pizza"))
+
+    def test_is_uuid(self):
+        """Validate the operation of `is_uuid()`."""
+        with self.subTest("Test valid UUID."):
+            self.assertTrue(data_utils.is_uuid(uuid.uuid4()))
+            self.assertTrue(data_utils.is_uuid(str(uuid.uuid4())))
+        with self.subTest("Test invalid UUID."):
+            self.assertFalse(data_utils.is_uuid(None))
+            self.assertFalse(data_utils.is_uuid(1))
+            self.assertFalse(data_utils.is_uuid("abc123"))
+
+
+class MergeDictsWithoutCollisionTest(TestCase):
+    """Test the merge_dicts_without_collision() data utility function."""
+
+    def test_no_collisions(self):
+        self.assertEqual({"a": 1, "b": 2}, data_utils.merge_dicts_without_collision({"a": 1}, {"b": 2}))
+
+    def test_collision_but_same_value(self):
+        self.assertEqual(
+            {"a": 1, "b": 2, "c": 3}, data_utils.merge_dicts_without_collision({"a": 1, "c": 3}, {"b": 2, "c": 3})
+        )
+
+    def test_collision_differing_values(self):
+        with self.assertRaises(ValueError) as err:
+            data_utils.merge_dicts_without_collision({"a": 1}, {"a": 2})
+        self.assertEqual(str(err.exception), 'Conflicting values for key "a": (1, 2)')
+
+
+class TestMigrationUtils(TestCase):
+    def test_update_object_change_ct_for_replaced_models(self):
+        """Assert update and update reverse of ObjectChange"""
+        location = dcim_models.Location.objects.first()
+        request_id = uuid.uuid4()
+        location_ct = ContentType.objects.get_for_model(dcim_models.Location)
+        device_ct = ContentType.objects.get_for_model(dcim_models.Device)
+        ObjectChange.objects.create(
+            user_name="test-user",
+            request_id=request_id,
+            action=ObjectChangeActionChoices.ACTION_UPDATE,
+            changed_object=location,
+            related_object=location,
+            object_repr=str(location),
+            object_data={"name": location.name},
+        )
+
+        with self.subTest("Update ObjectChange ContentType"):
+            update_object_change_ct_for_replaced_models(
+                apps=apps,
+                new_app_model={"app_name": "dcim", "model": "device"},
+                replaced_apps_models=[{"app_name": "dcim", "model": "location"}],
+            )
+            self.assertEqual(ObjectChange.objects.get(request_id=request_id).changed_object_type, device_ct)
+            self.assertEqual(ObjectChange.objects.get(request_id=request_id).related_object_type, device_ct)
+
+        with self.subTest("Reverse ObjectChange ContentType changes"):
+            update_object_change_ct_for_replaced_models(
+                apps=apps,
+                new_app_model={"app_name": "dcim", "model": "device"},
+                replaced_apps_models=[{"app_name": "dcim", "model": "location"}],
+                reverse_migration=True,
+            )
+            self.assertEqual(ObjectChange.objects.get(request_id=request_id).changed_object_type, location_ct)
+            self.assertEqual(ObjectChange.objects.get(request_id=request_id).related_object_type, location_ct)
+
+
+class TestModuleLoadingUtils(TestCase):
+    def test_check_name_safe_to_import_privately(self):
+        for invalid in (
+            "foo.bar",  # not a valid identifier
+            "😂",  # not a valid identifier
+            "from",  # reserved keyword
+            "sys",  # Python builtin
+            "nautobot",  # installed package
+            "tkinter",  # system library
+        ):
+            with self.subTest(f"Invalid name: {invalid}"):
+                permitted, reason = check_name_safe_to_import_privately(invalid)
+                self.assertFalse(permitted)
+                self.assertIsInstance(reason, str)
+
+    def test_import_string_optional(self):
+        with self.subTest("Nonexistent module should return None"):
+            self.assertIsNone(import_string_optional("no_such_module.no_such_attribute"))
+            self.assertIsNone(import_string_optional("no_such_module.no_such_submodule.no_such_attribute"))
+            self.assertIsNone(import_string_optional("nautobot.no_such_submodule.no_such_attribute"))
+            self.assertIsNone(import_string_optional("nautobot.core.no_such_submodule.no_such_attribute"))
+
+        with self.subTest("Existing module but nonexistent attribute should return None"):
+            self.assertIsNone(import_string_optional("nautobot.core.no_such_attribute"))
+            self.assertIsNone(import_string_optional("nautobot.core.no_such_attribute"))
+            self.assertIsNone(import_string_optional("sys.no_such_attribute"))
+
+        with self.subTest("Other import errors should propagate upward still"):
+            with self.assertRaises(ImportError):
+                import_string_optional("nautobot.extras.test_jobs.invalid_import.MyJob")
+            with self.assertRaises(ImportError):
+                import_string_optional("nautobot.extras.test_jobs.missing_import.MyJob")
+
+        with self.subTest("Successful imports should succeed"):
+            self.assertEqual(
+                import_string_optional("nautobot.core.tests.test_utils.TestModuleLoadingUtils"), self.__class__
+            )
+
+    def _write_consumer_shared_fixture(self, package_dir):
+        """
+        Write the minimal 3-file fixture that exposes class-identity divergence.
+
+        `consumer.py` sorts before `shared.py` alphabetically, so the walker re-execs
+        `shared.py` after `consumer.py` has already captured `Widget`.
+        """
+        os.makedirs(package_dir, exist_ok=True)
+        with open(os.path.join(package_dir, "__init__.py"), "w"):
+            pass
+        with open(os.path.join(package_dir, "consumer.py"), "w") as fd:
+            fd.write("from .shared import Widget\nCAPTURED = Widget\n")
+        with open(os.path.join(package_dir, "shared.py"), "w") as fd:
+            fd.write("class Widget:\n    pass\n")
+
+    def _clear_test_modules(self, *prefixes):
+        for cached in list(sys.modules):
+            if any(cached == prefix or cached.startswith(f"{prefix}.") for prefix in prefixes):
+                del sys.modules[cached]
+
+    def test_import_modules_privately_preserves_class_identity(self):
+        """
+        Regression test for NTC-5779: a class imported by one sibling module and re-defined by the
+        walker on a subsequent iteration must remain a single object identity in sys.modules after
+        the loader returns.
+        """
+        package_name = f"pkg_{uuid.uuid4().hex[:8]}"
+        try:
+            with tempfile.TemporaryDirectory() as tempdir:
+                self._write_consumer_shared_fixture(os.path.join(tempdir, package_name))
+                import_modules_privately(tempdir)
+
+                consumer_module = sys.modules[f"{package_name}.consumer"]
+                shared_module = sys.modules[f"{package_name}.shared"]
+
+                self.assertIs(consumer_module.CAPTURED, shared_module.Widget)
+                self.assertIsInstance(consumer_module.CAPTURED(), shared_module.Widget)
+        finally:
+            self._clear_test_modules(package_name)
+
+    def test_import_modules_privately_module_path_filter_preserves_class_identity(self):
+        """
+        Same invariant as above, but with `module_path=[outer, pkg]` filtering, and an
+        unrelated sibling package that should not be touched by the loader.
+        """
+        outer_name = f"outer_{uuid.uuid4().hex[:8]}"
+        sibling_name = f"sibling_{uuid.uuid4().hex[:8]}"
+        try:
+            with tempfile.TemporaryDirectory() as tempdir:
+                outer_dir = os.path.join(tempdir, outer_name)
+                os.makedirs(outer_dir)
+                with open(os.path.join(outer_dir, "__init__.py"), "w"):
+                    pass
+                self._write_consumer_shared_fixture(os.path.join(outer_dir, "pkg"))
+
+                sibling_dir = os.path.join(tempdir, sibling_name)
+                os.makedirs(sibling_dir)
+                with open(os.path.join(sibling_dir, "__init__.py"), "w"):
+                    pass
+                with open(os.path.join(sibling_dir, "should_not_load.py"), "w") as fd:
+                    fd.write("LOADED = True\n")
+
+                import_modules_privately(tempdir, module_path=[outer_name, "pkg"])
+
+                consumer_module = sys.modules[f"{outer_name}.pkg.consumer"]
+                shared_module = sys.modules[f"{outer_name}.pkg.shared"]
+                self.assertIs(consumer_module.CAPTURED, shared_module.Widget)
+
+                self.assertNotIn(f"{sibling_name}.should_not_load", sys.modules)
+        finally:
+            self._clear_test_modules(outer_name, sibling_name)
+
+    def test_import_modules_privately_cleans_up_deleted_submodules(self):
+        """
+        Loading a package with a submodule, deleting that submodule from disk, and reloading should
+        remove the stale entry from sys.modules so subsequent isinstance/import lookups don't see it.
+        """
+        package_name = f"pkg_{uuid.uuid4().hex[:8]}"
+        submodule = f"{package_name}.removable"
+        try:
+            with tempfile.TemporaryDirectory() as tempdir:
+                package_dir = os.path.join(tempdir, package_name)
+                os.makedirs(package_dir)
+                with open(os.path.join(package_dir, "__init__.py"), "w"):
+                    pass
+                removable_path = os.path.join(package_dir, "removable.py")
+                with open(removable_path, "w") as fd:
+                    fd.write("VALUE = 1\n")
+
+                import_modules_privately(tempdir)
+                self.assertIn(submodule, sys.modules)
+                self.assertEqual(sys.modules[submodule].VALUE, 1)
+
+                os.remove(removable_path)
+                import_modules_privately(tempdir)
+                self.assertNotIn(submodule, sys.modules)
+                self.assertIn(package_name, sys.modules)
+        finally:
+            self._clear_test_modules(package_name)
+
+    def test_import_modules_privately_raises_when_ignore_import_errors_false(self):
+        """
+        With ignore_import_errors=False, exceptions raised by either the top-level cascade
+        (Phase 3) or the leaf-sweep (Phase 4) must propagate to the caller.
+        """
+        with self.subTest("Top-level package import error propagates"):
+            package_name = f"pkg_{uuid.uuid4().hex[:8]}"
+            try:
+                with tempfile.TemporaryDirectory() as tempdir:
+                    package_dir = os.path.join(tempdir, package_name)
+                    os.makedirs(package_dir)
+                    with open(os.path.join(package_dir, "__init__.py"), "w") as fd:
+                        fd.write("raise ValueError('boom from __init__')\n")
+                    with self.assertRaisesRegex(ValueError, "boom from __init__"):
+                        import_modules_privately(tempdir, ignore_import_errors=False)
+                    # Same scenario with ignore_import_errors=True should swallow the exception.
+                    self.assertEqual(import_modules_privately(tempdir), [])
+            finally:
+                self._clear_test_modules(package_name)
+
+        with self.subTest("Leaf-sweep import error propagates"):
+            package_name = f"pkg_{uuid.uuid4().hex[:8]}"
+            try:
+                with tempfile.TemporaryDirectory() as tempdir:
+                    package_dir = os.path.join(tempdir, package_name)
+                    os.makedirs(package_dir)
+                    with open(os.path.join(package_dir, "__init__.py"), "w"):
+                        pass
+                    with open(os.path.join(package_dir, "leaf.py"), "w") as fd:
+                        fd.write("raise ValueError('boom from leaf')\n")
+                    with self.assertRaisesRegex(ValueError, "boom from leaf"):
+                        import_modules_privately(tempdir, ignore_import_errors=False)
+            finally:
+                self._clear_test_modules(package_name)
+
+
+class TestQuerySetUtils(TestCase):
+    def test_maybe_select_related(self):
+        # If possible, select_related should be called
+        queryset = ipam_models.IPAddress.objects.all()
+        with mock.patch.object(queryset, "select_related", wraps=queryset.select_related) as mock_select_related:
+            new_queryset = querysets.maybe_select_related(queryset, ["parent", "status"])
+            mock_select_related.assert_called_with("parent", "status")
+            self.assertIsNot(new_queryset, queryset)
+
+        # Case where it shouldn't be called
+        queryset = ipam_models.IPAddress.objects.values_list("host", flat=True)
+        with mock.patch.object(queryset, "select_related", wraps=queryset.select_related) as mock_select_related:
+            new_queryset = querysets.maybe_select_related(queryset, ["parent", "status"])
+            mock_select_related.assert_not_called()
+            self.assertIs(new_queryset, queryset)
+
+        # Another case where it shouldn't be called
+        queryset = ipam_models.IPAddress.objects.difference(ipam_models.IPAddress.objects.filter(ip_version=4))
+        with mock.patch.object(queryset, "select_related", wraps=queryset.select_related) as mock_select_related:
+            new_queryset = querysets.maybe_select_related(queryset, ["parent", "status"])
+            mock_select_related.assert_not_called()
+            self.assertIs(new_queryset, queryset)
+
+    def test_maybe_prefetch_related(self):
+        # If possible, prefetch_related should be called
+        queryset = ipam_models.IPAddress.objects.all()
+        with mock.patch.object(queryset, "prefetch_related", wraps=queryset.prefetch_related) as mock_prefetch_related:
+            new_queryset = querysets.maybe_prefetch_related(queryset, ["nat_outside_list"])
+            mock_prefetch_related.assert_called_with("nat_outside_list")
+            self.assertIsNot(new_queryset, queryset)
+
+        # Case where it shouldn't be called
+        queryset = ipam_models.IPAddress.objects.difference(ipam_models.IPAddress.objects.filter(ip_version=4))
+        with mock.patch.object(queryset, "prefetch_related", wraps=queryset.prefetch_related) as mock_prefetch_related:
+            new_queryset = querysets.maybe_prefetch_related(queryset, ["nat_outside_list"])
+            mock_prefetch_related.assert_not_called()
+            self.assertIs(new_queryset, queryset)
+
+
+class TestSerializeObjectV2(TestCase):
+    def test_serialize_object_v2_json_only(self):
+        """Make sure serialize_object_v2() returns a JSON-serializable dict and no lazy/deferred queryset data."""
+        for model_class in apps.get_models():
+            instance = model_class.objects.first()
+            if instance is None:
+                continue
+            data = models_utils.serialize_object_v2(instance)
+            with self.assertNumQueries(0):  # make sure we're not leaving a time bomb by including a lazy QuerySet
+                NautobotKombuJSONEncoder(ensure_ascii=False).encode(data)

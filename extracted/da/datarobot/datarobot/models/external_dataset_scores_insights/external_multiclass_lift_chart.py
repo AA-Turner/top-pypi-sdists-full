@@ -49,11 +49,11 @@ class ExternalMulticlassLiftChart(APIObject):
     Attributes
     ----------
     dataset_id: str
-        id of the external dataset with target
+        ID of the external dataset with target.
     target_class: str
-        target class for the lift chart
+        Target class for the lift chart.
     bins: list of dict
-        List of dicts with schema described as ``LiftChartBin`` above.
+        A list of dicts with schema described as ``LiftChartBin`` above.
     """
 
     _path = "projects/{project_id}/models/{model_id}/datasetMulticlassLiftCharts/"
@@ -89,21 +89,19 @@ class ExternalMulticlassLiftChart(APIObject):
         Parameters
         ----------
         project_id: str
-            id of the project
+            ID of the project.
         model_id: str
-            id of the model to retrieve a chart from
+            ID of the model to retrieve a chart from.
         dataset_id: Optional[str]
-            if specified, only lift chart for this dataset will be retrieved
+            If specified, only the lift chart for this dataset is retrieved.
         offset: Optional[int]
-            this many results will be skipped, default: 0
+            This many results will be skipped, default: 0.
         limit: Optional[int]
-            at most this many results are returned, default: 100, max 1000.
-            To return all results, specify 0
+            At most this many results are returned, default: 100, max 1000. To return all results, specify 0.
 
         Returns
         -------
-            A list of :py:class:`ExternalMulticlassLiftChart
-            <datarobot.ExternalMulticlassLiftChart>` objects
+            A list of :py:class:`ExternalMulticlassLiftChart <datarobot.ExternalMulticlassLiftChart>` objects
         """
         url = cls._path.format(project_id=project_id, model_id=model_id)
         params: Dict[str, Union[int, str]] = {"limit": limit, "offset": offset}
@@ -131,16 +129,18 @@ class ExternalMulticlassLiftChart(APIObject):
         target_class: str,
     ) -> ExternalMulticlassLiftChart:
         """Retrieve multiclass lift chart for the model and external dataset on a specific class.
+
         Parameters
         ----------
         project_id: str
-            project id
+            Project ID.
         model_id: str
-            model id
+            Model ID.
         dataset_id: str
-            external dataset id with target
+            External dataset ID with target.
         target_class: str
-            target class for the lift chart
+            Target class for the lift chart.
+
         Returns
         -------
             :py:class:`ExternalMulticlassLiftChart <datarobot.ExternalMulticlassLiftChart>` object

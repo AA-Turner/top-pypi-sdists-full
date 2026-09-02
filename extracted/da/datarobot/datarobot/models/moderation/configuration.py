@@ -169,35 +169,35 @@ class ModerationConfiguration(APIObject):
         Parameters
         ----------
         config_id: str
-            ID of the configuration
+            ID of the configuration.
 
         Returns
         -------
         ModerationConfiguration
-            retrieved configuration
+            Retrieved configuration.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = cls._config_path(config_id)
         return cls.from_location(path)
 
     @classmethod
     def list(cls, entity_id: str, entity_type: ModerationGuardEntityType) -> List[ModerationConfiguration]:
-        """List Guard Configurations.
+        """Returns a list of guard configurations.
 
         .. versionadded:: v3.6
 
         Parameters
         ----------
         entity_id: str
-            ID of the entity
+            ID of the entity.
         entity_type: ModerationGuardEntityType
-            Type of the entity
+            Type of the entity.
 
         Returns
         -------
@@ -207,9 +207,9 @@ class ModerationConfiguration(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         data = unpaginate(
             cls._path,
@@ -246,43 +246,43 @@ class ModerationConfiguration(APIObject):
         template_id: str
             ID of the template to base this configuration on.
         name: str
-            name of the configuration.
+            Name of the configuration.
         description: str
-            description of the configuration.
+            Description of the configuration.
         stages: List[ModerationGuardStage]
-            the stages of moderation where this guard is active
+            The stages of moderation where this guard is active.
         entity_id:
             ID of the custom model version or playground this configuration applies to.
         entity_type: ModerationGuardEntityType
-            Type of the associated entity_id
+            Type of the associated ``entity_id``.
         llm_type:
-            the backing LLM this guard uses.
+            The backing LLM this guard uses.
         nemo_info
-            additional configuration for NeMo Guardrails guards.
+            Additional configuration for NeMo Guardrails guards.
         model_info
-            additional configuration for guards using a deployed model.
+            Additional configuration for guards using a deployed model.
         intervention
-            the assessment conditions, and action the guard should take if conditions are met.
+            The assessment conditions, and action the guard should take if conditions are met.
         openai_api_key: str
-            Token to use for OpenAI. Deprecated; use openai_credential instead.
+            Token to use for OpenAI. Deprecated; use ``openai_credential`` instead.
         openai_api_base:
-            Base of the OpenAI connection
+            Base of the OpenAI connection.
         openai_deployment_id
-            ID of the OpenAI deployment
+            ID of the OpenAI deployment.
         openai_credential
             ID of the credential defined in DataRobot for OpenAI.
 
         Returns
         -------
         ModerationConfiguration
-            created ModerationConfiguration
+            Created ModerationConfiguration.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         # start with required fields, then optional
         payload = {
@@ -327,7 +327,7 @@ class ModerationConfiguration(APIObject):
         openai_deployment_id: Optional[str] = "",
         openai_credential: Optional[str] = "",
     ) -> None:
-        """Update configuration. All fields are optional, and omitted fields are left unchanged.
+        """Updates the configuration. All fields are optional, and omitted fields are left unchanged.
 
         entity_id, entity_type, and stages cannot be modified for a guard configuration,.
 
@@ -336,32 +336,32 @@ class ModerationConfiguration(APIObject):
         Parameters
         ----------
         name: str
-            name of the configuration.
+            Name of the configuration.
         description: str
-            description of the configuration.
+            Description of the configuration.
         llm_type:
-            the backing LLM this guard uses.
+            The backing LLM this guard uses.
         nemo_info
-            additional configuration for NeMo Guardrails guards.
+            Additional configuration for NeMo Guardrails guards.
         model_info
-            additional configuration for guards using a deployed model.
+            Additional configuration for guards using a deployed model.
         intervention
-            the assessment conditions, and action the guard should take if conditions are met.
+            The assessment conditions, and action the guard should take if conditions are met.
         openai_api_key: str
-            Token to use for OpenAI. Deprecated; use openai_credential instead.
+            Token to use for OpenAI. Deprecated; use ``openai_credential`` instead.
         openai_api_base:
-            Base of the OpenAI connection
+            Base of the OpenAI connection.
         openai_deployment_id
-            ID of the OpenAI deployment
+            ID of the OpenAI deployment.
         openai_credential
             ID of the credential defined in DataRobot for OpenAI.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         payload = {}
         payload.update(exclude_if("name", name))
@@ -382,23 +382,23 @@ class ModerationConfiguration(APIObject):
         self._update_values(new_version)
 
     def refresh(self: ModerationConfiguration) -> None:
-        """Update OverallModerationConfig with the latest data from server.
+        """Updates the moderation configuration with the latest data from server.
 
         .. versionadded:: v3.6
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         new_object = self.get(self.id)
         self._update_values(new_object)
 
     def delete(self: ModerationConfiguration) -> None:
-        """Delete configuration.
+        """Deletes the configuration.
 
         .. versionadded:: v3.6
 

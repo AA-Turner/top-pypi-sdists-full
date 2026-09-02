@@ -1,0 +1,144 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "event-tracking"
+description = "A simple event tracking system."
+requires-python = ">=3.12"
+license = "AGPL-3.0"
+license-files = ["LICENSE.TXT"]
+authors = [
+    {name = "edX", email = "oscm@edx.org"},
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+
+dynamic = ["readme", "version"]
+
+dependencies = [
+    "Django>=5.2",
+    "pymongo>=4.0.0",
+    "pytz",
+    "six",
+    "celery",
+    "edx-django-utils",
+    "openedx-events>=9.5.1",
+    "edx-toggles",
+]
+
+[project.urls]
+Homepage = "https://github.com/openedx/event-tracking"
+Repository = "https://github.com/openedx/event-tracking"
+
+[dependency-groups]
+test-base = [
+    "ddt",
+    "mock",
+    "pytest-cov",
+]
+test = [
+    {include-group = "test-base"},
+    "Django>=5.2,<5.3",
+]
+quality = [
+    {include-group = "test"},
+    "edx-lint",
+    "pycodestyle",
+]
+doc = [
+    {include-group = "test"},
+    "sphinx",
+]
+ci = [
+    {include-group = "test"},
+    {include-group = "quality"},
+    "tox",
+    "tox-uv",
+]
+dev = [
+    {include-group = "quality"},
+    {include-group = "ci"},
+    {include-group = "doc"},
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst"], content-type = "text/x-rst"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["eventtracking", "eventtracking.*"]
+exclude = ["*tests"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["tests*", "*.tests*", "spec*", "*.spec*"]
+
+[tool.setuptools_scm]
+version_scheme = "only-version"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
+
+[tool.semantic_release]
+build_command = "python -m pip install --upgrade build && SETUPTOOLS_SCM_PRETEND_VERSION=$NEW_VERSION python -m build"
+major_on_zero = false
+allow_zero_version = true
+tag_format = "v{version}"
+
+[tool.uv]
+package = true
+# DO NOT EDIT constraint-dependencies DIRECTLY.
+# This list is managed by `edx_lint write_uv_constraints`
+# and will be overwritten the next time `make upgrade` is run.
+#  - GLOBAL constraints: edit edx_lint/files/common_constraints.txt
+#  - REPO-SPECIFIC constraints: edit [tool.edx_lint].uv_constraints in this file
+constraint-dependencies = [
+    "Django<6.0",
+    "elasticsearch<7.14.0",
+    "social-auth-app-django<6.0.0",
+    "social-auth-core<5.0.0",
+    "pip<26.2.1",
+    "celery<6.0",
+]
+
+[tool.edx_lint]
+uv_constraints = [
+    "celery<6.0",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src/eventtracking"]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "*/__pycache__/*",
+    "*/settings.py",
+    "*/*performance*",
+    "*/*integration*",
+    "*/admin.py",
+    "*/apps.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

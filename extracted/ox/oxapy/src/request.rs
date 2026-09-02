@@ -1,0 +1,404 @@
+use std::sync::Arc;
+use tokio::sync::oneshot;
+
+use ahash::{HashMap, HashMapExt};
+use http_body_util::BodyExt;
+use pyo3::{
+    exceptions::{PyAttributeError, PyException},
+    prelude::*,
+    types::PyDict,
+};
+
+use hyper::Uri;
+use pyo3_stub_gen::derive::*;
+use url::form_urlencoded;
+
+use crate::response::Response;
+use crate::status::Status;
+use crate::{
+    Context, IntoPyException, ProcessRequest, json, multipart::File, templating::Template,
+};
+use crate::{middleware::Middleware, routing::MatchRoute, routing::OwnedMatchRoute};
+use crate::{multipart::parse_multipart, response::Body};
+
+/// HTTP request object containing information about the incoming request.
+///
+/// This class provides access to request details such as method, URI, headers,
+/// body content, form data, uploaded files, and session information.
+///
+/// Args:
+///     method (str): The HTTP method of the request (GET, POST, etc.)
+///     uri (str): The URI of the request
+///     headers (dict): HTTP headers as key-value pairs
+///
+/// Returns:
+///     Request: A new request object
+///
+/// Example:
+/// ```python
+/// from oxapy import get
+///
+/// # Request objects are typically created by the framework and
+/// # passed to your handler functions:
+///
+/// @get("/hello")
+/// def handler(request):
+///     user_agent = request.headers.get("user-agent")
+///     return f"Hello from {user_agent}"
+/// ```
+#[gen_stub_pyclass]
+#[pyclass(from_py_object)]
+#[derive(Clone, Debug, Default)]
+pub struct Request {
+    /// The HTTP method of the request (e.g., GET, POST, PUT).
+    #[pyo3(get)]
+    pub method: String,
+    /// The full URI of the request including path and query string.
+    #[pyo3(get)]
+    pub uri: String,
+    /// HTTP headers as key-value pairs.
+    #[pyo3(get)]
+    pub headers: HashMap<String, String>,
+    /// The raw data content of the request as a string, if present.
+    #[pyo3(get)]
+    pub data: Option<String>,
+    /// Form data parsed from the request body, available when content type is application/x-www-form-urlencoded.
+    #[pyo3(get)]
+    pub form: HashMap<String, String>,
+    /// Files uploaded in a multipart form request, mapping field names to File objects.
+    #[pyo3(get)]
+    pub files: HashMap<String, File>,
+    pub app_data: Option<Arc<Py<PyAny>>>,
+    pub template: Option<Arc<Template>>,
+    pub ext: HashMap<String, Arc<Py<PyAny>>>,
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl Request {
+    /// Create a new Request instance.
+    ///
+    /// Note: This is primarily for internal use. Request objects are typically created
+    /// by the framework and passed to your handler functions.
+    ///
+    /// Args:
+    ///     method (str): The HTTP method of the request (GET, POST, etc.)
+    ///     uri (str): The URI of the request
+    ///     headers (dict): HTTP headers as key-value pairs
+    ///
+    /// Returns:
+    ///     Request: A new request object
+    #[new]
+    #[gen_stub(override_return_type(type_repr = "typing_extensions.Self", imports = ("typing_extensions",)))]
+    pub fn new(method: String, uri: String, headers: HashMap<String, String>) -> Self {
+        Self {
+            method,
+            uri,
+            headers,
+            ..Default::default()
+        }
+    }
+
+    /// Parse the request body as JSON and return it as a dictionary.
+    ///
+    /// Args:
+    ///     None
+    ///
+    /// Returns:
+    ///     dict: The parsed JSON data as a Python dictionary
+    ///
+    /// Raises:
+    ///     Exception: If the body is not present or cannot be parsed as JSON
+    ///
+    /// Example:
+    /// ```python
+    /// from oxapy import post
+    ///
+    /// @post("/api/data")
+    /// def handle_data(request):
+    ///     data = request.json()
+    ///     value = data["key"]
+    ///     return {"received": value}
+    /// ```
+    pub fn json(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let data = self
+            .data
+            .as_ref()
+            .ok_or_else(|| PyException::new_err("The body is not present"))?;
+        json::loads(data, py)
+    }
+
+    /// Get application-wide data that was set with HttpServer.app_data.
+    ///
+    /// Args:
+    ///     None
+    ///
+    /// Returns:
+    ///     any: The application data object, or None if no app_data was set
+    ///
+    /// Example:
+    /// ```python
+    /// from oxapy import get
+    ///
+    /// @get("/counter")
+    /// def get_counter(request):
+    ///     app_state = request.app_data
+    ///     app_state.counter += 1
+    ///     return {"count": app_state.counter}
+    /// ```
+    #[getter]
+    fn app_data(&self, py: Python<'_>) -> Py<PyAny> {
+        self.app_data
+            .as_ref()
+            .map(|d| d.clone_ref(py))
+            .unwrap_or(py.None())
+    }
+
+    /// Parse and return the query parameters from the request URI.
+    ///
+    /// Args:
+    ///     None
+    ///
+    /// Returns:
+    ///     dict: Dictionary of query parameters
+    ///
+    /// Raises:
+    ///     Exception: If the URI cannot be parsed
+    ///
+    /// Example:
+    /// ```python
+    /// from oxapy import get
+    ///
+    /// # For a request to /api?name=John&age=30
+    /// @get("/api")
+    /// def api_handler(request):
+    ///     query = request.query
+    ///     name = query.get("name")
+    ///     age = query.get("age")
+    ///     return {"name": name, "age": age}
+    /// ```
+    #[getter]
+    fn query(&self) -> PyResult<HashMap<String, String>> {
+        let uri: Uri = self.uri.parse().into_py_exception()?;
+        if let Some(query_string) = uri.query() {
+            let parsed_query = form_urlencoded::parse(query_string.as_bytes())
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect();
+            return Ok(parsed_query);
+        }
+        Ok(HashMap::default())
+    }
+
+    /// Get cookie value by the name from the request headers
+    ///
+    /// Retrieves the value of a specific cookie from the HTTP Cookie header.
+    /// Returns None if the cookie name is not found or if no Cookie header exists.
+    ///
+    /// Args:
+    ///     name (str): The name of the cookie to retrieve
+    ///
+    /// Returns:
+    ///     (str, optional): cookie's value and return none if name is presente
+    ///
+    /// Example
+    /// ```python
+    /// from oxapy import get, render
+    ///
+    /// @get("/")
+    /// def index(request):
+    ///     theme = request.get_cookie("theme") or "light"
+    ///     render(request, "index.html.j2", {"theme": theme})
+    /// ```
+    fn get_cookie(&self, name: &str) -> Option<&str> {
+        let cookie = self.headers.get("cookie")?;
+        let cookies = cookie.split(';');
+        for c in cookies {
+            let (k, v) = c.trim().split_once('=')?;
+            if k == name {
+                return Some(v);
+            }
+        }
+        None
+    }
+
+    fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyAny>> {
+        let message = format!("Request object has no attribute {name}");
+        let obj = self
+            .ext
+            .get(name)
+            .ok_or_else(|| PyAttributeError::new_err(message))?;
+        Ok(obj.clone_ref(py))
+    }
+
+    fn __setattr__(&mut self, name: &str, value: Py<PyAny>) -> PyResult<()> {
+        match name {
+            "method" | "uri" | "headers" | "body" | "template" => Err(PyException::new_err(
+                format!("Attribute '{}' is read-only and cannot be set", name),
+            )),
+            _ => {
+                self.ext.insert(name.to_string(), Arc::new(value));
+                Ok(())
+            }
+        }
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("{:#?}", self)
+    }
+}
+
+impl Request {
+    pub(crate) async fn process(
+        self,
+        ctx: Arc<Context>,
+    ) -> Result<hyper::Response<Body>, hyper::http::Error> {
+        if self.method == "OPTIONS"
+            && let Some(ref cors) = ctx.cors
+        {
+            return Response::try_from((**cors).clone())
+                .unwrap_or_else(Response::from)
+                .try_into();
+        }
+
+        let method = self.method.clone();
+        let uri = self.uri.clone();
+
+        let matched = ctx.routers.iter().find_map(|router| {
+            router
+                .find(&method, &uri)
+                .map(|m| (m, router.middlewares.clone()))
+        });
+
+        if let Some((match_route, middlewares)) = matched {
+            self.handle_found_route(&ctx, match_route, middlewares)
+                .await
+        } else {
+            self.handle_not_found(&ctx).await
+        }
+    }
+
+    async fn handle_found_route(
+        self,
+        ctx: &Context,
+        match_route: MatchRoute<'_>,
+        middlewares: Option<Arc<[Middleware]>>,
+    ) -> Result<hyper::Response<Body>, hyper::http::Error> {
+        let (response_sender, response_receiver) = oneshot::channel();
+
+        let owned_match_route = OwnedMatchRoute::from(match_route);
+
+        let process_request = ProcessRequest {
+            match_route: Some(owned_match_route),
+            middlewares,
+            request: Arc::new(self),
+            response_sender,
+            wrapper: ctx.wrapper.clone(),
+            cors: ctx.cors.clone(),
+        };
+
+        Self::send_and_wait_response(&ctx.request_sender, process_request, response_receiver).await
+    }
+
+    async fn handle_not_found(
+        self,
+        ctx: &Context,
+    ) -> Result<hyper::Response<Body>, hyper::http::Error> {
+        let (response_sender, response_receiver) = oneshot::channel();
+
+        let process_request = ProcessRequest {
+            match_route: None,
+            middlewares: None,
+            request: Arc::new(self),
+            response_sender,
+            wrapper: ctx.wrapper.clone(),
+            cors: ctx.cors.clone(),
+        };
+
+        Self::send_and_wait_response(&ctx.request_sender, process_request, response_receiver).await
+    }
+
+    async fn send_and_wait_response<T>(
+        request_sender: &tokio::sync::mpsc::Sender<T>,
+        process_request: T,
+        rx: oneshot::Receiver<Response>,
+    ) -> Result<hyper::Response<Body>, hyper::http::Error> {
+        if request_sender.send(process_request).await.is_ok()
+            && let Ok(response) = rx.await
+        {
+            return response.try_into();
+        }
+        Response::from(Status::INTERNAL_SERVER_ERROR).try_into()
+    }
+}
+
+pub struct RequestBuilder {
+    method: String,
+    uri: String,
+    headers: HashMap<String, String>,
+    app_data: Option<Arc<Py<PyAny>>>,
+    template: Option<Arc<Template>>,
+    req: hyper::Request<hyper::body::Incoming>,
+}
+
+impl RequestBuilder {
+    pub fn new(req: hyper::Request<hyper::body::Incoming>) -> Self {
+        let hyper_headers = req.headers();
+        let mut headers = HashMap::with_capacity(hyper_headers.len());
+
+        for (k, v) in hyper_headers {
+            headers.insert(k.to_string(), v.to_str().unwrap_or_default().to_string());
+        }
+
+        Self {
+            method: req.method().to_string(),
+            uri: req.uri().to_string(),
+            headers,
+            req,
+            app_data: None,
+            template: None,
+        }
+    }
+
+    pub fn with_app_data(mut self, app_data: &Option<Arc<Py<PyAny>>>) -> Self {
+        self.app_data = app_data.clone();
+        self
+    }
+
+    pub fn with_template(mut self, template: &Option<Arc<Template>>) -> Self {
+        self.template = template.clone();
+        self
+    }
+
+    pub async fn build(self) -> PyResult<Request> {
+        let mut request = Request::new(self.method, self.uri, self.headers);
+
+        let bytes = self.req.collect().await.into_py_exception()?.to_bytes();
+
+        if let Some(content_type) = request.headers.get("content-type") {
+            if content_type.starts_with("multipart/form-data") {
+                let parsed_multipart = parse_multipart(content_type, bytes)
+                    .await
+                    .into_py_exception()?;
+                request.form = parsed_multipart.fields;
+                request.files = parsed_multipart.files;
+            } else if content_type.starts_with("application/json") {
+                let body = String::from_utf8_lossy(&bytes).into_owned();
+                if !body.is_empty() {
+                    request.data = Some(body);
+                }
+            } else {
+                let form = String::from_utf8_lossy(&bytes).into_owned();
+                if !form.is_empty() {
+                    request.form = form_urlencoded::parse(form.as_bytes())
+                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .collect();
+                }
+            }
+        }
+
+        request.app_data = self.app_data;
+        request.template = self.template;
+
+        Ok(request)
+    }
+}

@@ -104,8 +104,8 @@ class ShapImpact(BaseInsight):
         external_dataset_id: Optional[str]
             External dataset ID to use when computing the insight.
         entity_type: Optional[ENTITY_TYPES]
-            The type of the entity associated with the insight. Select one of the ENTITY_TYPE enum
-            values, or accept the default, "datarobotModel".
+            The type of the entity associated with the insight. Select one of the ``ENTITY_TYPE``
+            values, or accept the default, ``datarobotModel``.
         quick_compute: Optional[bool]
             Sets whether to use quick-compute for the insight. If `True` or unspecified, the insight
             is computed using a 2500-row data sample. If `False`, the insight is computed using all
@@ -151,8 +151,8 @@ class ShapImpact(BaseInsight):
         external_dataset_id: Optional[str]
             External dataset ID to use when computing the insight.
         entity_type: Optional[ENTITY_TYPES]
-            The type of the entity associated with the insight. Select one of the ENTITY_TYPE enum
-            values, or accept the default, "datarobotModel".
+            The type of the entity associated with the insight. Select one of the ``ENTITY_TYPE``
+            values, or accept the default, ``datarobotModel``.
         quick_compute: Optional[bool]
             Sets whether to use quick-compute for the insight. If `True` or unspecified, the insight
             is computed using a 2500-row data sample. If `False`, the insight is computed using all
@@ -181,12 +181,14 @@ class ShapImpact(BaseInsight):
         return {"data": self.shap_impacts}
 
     def sort(self, key_name: str = "-impact_normalized") -> None:
-        """
-        Sorts insights data by key name.
+        """Sorts insights data by key name.
 
-        :param key_name: item key name to sort data.
-            One of 'feature_name', 'impact_normalized' or 'impact_unnormalized'.
-            Starting with '-' reverses sort order. Default '-impact_normalized'
+        Parameters
+        ----------
+        key_name : str
+            Item key name to sort data. One of ``feature_name``, ``impact_normalized``, or
+            ``impact_unnormalized``. Starting with ``-`` reverses sort order. Default
+            ``-impact_normalized``.
         """
         reverse = False
         if not isinstance(key_name, str):

@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: shazamio_core
+Version: 1.2.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
+Author-email: dotX12 <dev@shitposting.team>
+Maintainer-email: Danipulok <danipulok@gmail.com>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# shazamio-core

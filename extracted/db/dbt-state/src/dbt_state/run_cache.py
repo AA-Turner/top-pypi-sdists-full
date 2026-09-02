@@ -1008,6 +1008,15 @@ class RunCache:
                     should_run_hooks = False
                     return NoRunResult(query_cache_response.request_id, failed_to_clone=True)
             with events.downgrade_adapter_error_events():
+                # drop the clone target before attempting the clone, otherwise we can run into a problem where we try to clone
+                # a table on top of a view
+                if (
+                    existing_relation := self._adapter_ext.fqn_to_cached_relation(
+                        query_cache_response.clone_target
+                    )
+                ) and existing_relation.type != RelationType.Table:
+                    self._adapter.drop_relation(existing_relation)
+
                 if self._adapter_ext.IMPLEMENTS_CUSTOM_CLONE:
                     self._adapter_ext.clone(
                         query_cache_response.clone_sqls,

@@ -1,0 +1,287 @@
+Metadata-Version: 2.4
+Name: openmock
+Version: 3.2.0
+Summary: Python OpenSearch Mock for test purposes
+Project-URL: Bug Tracker, https://github.com/matthewdeanmartin/openmock/issues
+Project-URL: Change Log, https://github.com/matthewdeanmartin/openmock/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://openmock.readthedocs.io/en/latest/
+Author: Marcos Cardoso
+Author-email: Mathew Martin <matthewdeanmartin@gmail.com>
+License: MIT
+License-File: LICENSE
+Keywords: mocking,opensearch,testing
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: aiohttp
+Requires-Dist: opensearch-py
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: python-ranges==0.2.1
+Provides-Extra: all
+Requires-Dist: fastapi; extra == 'all'
+Requires-Dist: streamlit; extra == 'all'
+Requires-Dist: uvicorn; extra == 'all'
+Provides-Extra: rest
+Requires-Dist: fastapi; extra == 'rest'
+Requires-Dist: uvicorn; extra == 'rest'
+Provides-Extra: web
+Requires-Dist: fastapi; extra == 'web'
+Requires-Dist: streamlit; extra == 'web'
+Requires-Dist: uvicorn; extra == 'web'
+Description-Content-Type: text/markdown
+
+# Openmock
+
+Mock/fake of opensearch library, allows you to mock opensearch-py
+
+Fork of Python Elasticsearch(TM) Mock. Sometimes the developers who work with elasticsearch (TM),
+don't really have any input in choice of host and need to get work done.
+
+![Libraries.io dependency status for latest release](https://img.shields.io/librariesio/release/pypi/openmock) [![Downloads](https://pepy.tech/badge/openmock/month)](https://pepy.tech/project/openmock/month)
+
+## Installation
+
+```shell
+pip install openmock
+```
+
+## Usage
+
+To use Openmock, decorate your test method with **@openmock** decorator:
+
+```python
+from unittest import TestCase
+
+from openmock import openmock
+
+
+class TestClass(TestCase):
+
+    @openmock
+    def test_should_return_something_from_opensearch(self):
+        self.assertIsNotNone(some_function_that_uses_opensearch())
+```
+
+### Custom Behaviours
+
+You can also force the behaviour of the OpenSearch instance by importing the `openmock.behaviour` module:
+
+```python
+from unittest import TestCase
+
+from openmock import behaviour
+
+
+class TestClass(TestCase):
+
+    ...
+
+    def test_should_return_internal_server_error_when_simulate_server_error_is_true(self):
+        behaviour.server_failure.enable()
+        ...
+        behaviour.server_failure.disable()
+```
+
+You can also disable all behaviours by calling `behaviour.disable_all()` (Consider put this in your `def tearDown(self)` method)
+
+#### Available Behaviours
+
+- `server_failure`: Will make all calls to OpenSearch returns the following error message:
+  ```python
+  {
+      'status_code': 500,
+      'error': 'Internal Server Error'
+  }
+  ```
+
+## Code example
+
+Let's say you have a prod code snippet like this one:
+
+```python
+import opensearchpy
+
+class FooService:
+
+    def __init__(self):
+        self.es = opensearchpy.OpenSearch(hosts=[{'host': 'localhost', 'port': 9200}])
+
+    def create(self, index, body):
+        es_object = self.es.index(index, body)
+        return es_object.get('_id')
+
+    def read(self, index, id):
+        es_object = self.es.get(index, id)
+        return es_object.get('_source')
+
+```
+
+Then you should be able to test this class by mocking OpenSearch using the following test class:
+
+```python
+from unittest import TestCase
+from openmock import openmock
+from foo.bar import FooService
+
+class FooServiceTest(TestCase):
+
+    @openmock
+    def should_create_and_read_object(self):
+        # Variables used to test
+        index = 'test-index'
+        expected_document = {
+            'foo': 'bar'
+        }
+
+        # Instantiate service
+        service = FooService()
+
+        # Index document on OpenSearch
+        id = service.create(index, expected_document)
+        self.assertIsNotNone(id)
+
+        # Retrieve document from OpenSearch
+        document = service.read(index, id)
+        self.assertEquals(expected_document, document)
+
+```
+
+## Admin tools
+
+Openmock ships three interactive admin tools for exploring fake state outside of tests.
+
+**Streamlit web UI** (requires `pip install openmock[web]`):
+
+```bash
+openmock
+```
+
+**Tkinter desktop GUI** (no extra dependencies — uses Python's built-in `tkinter`):
+
+```bash
+openmock gui
+```
+
+**FastAPI REST Bridge** (requires `pip install openmock[rest]`):
+
+```bash
+openmock serve
+```
+
+These tools open a six-tab interface or an HTTP facade covering indices, search sandbox, cluster stats, CAT output, fake security (users/roles), and ingest pipelines. State in these tools is separate from your test processes.
+
+## Notes:
+
+- The mocked **search** method evaluates the query against indexed documents and returns matching results, not all documents. Use `match_all` if you want everything.
+- The mocked **suggest** method returns the exactly suggestions dictionary passed as body serialized in OpenSearch.suggest response. **Attention:** If the term is an *int*, the suggestion will be `python term + 1`. If not, the suggestion will be formatted as `python {0}_suggestion.format(term) `.
+  Example:
+  - **Suggestion Body**:
+  ```python
+  suggestion_body = {
+      'suggestion-string': {
+          'text': 'test_text',
+          'term': {
+              'field': 'string'
+          }
+      },
+      'suggestion-id': {
+          'text': 1234567,
+          'term': {
+              'field': 'id'
+          }
+      }
+  }
+  ```
+  - **Suggestion Response**:
+  ```python
+  {
+      'suggestion-string': [
+          {
+              'text': 'test_text',
+              'length': 1,
+              'options': [
+                  {
+                      'text': 'test_text_suggestion',
+                      'freq': 1,
+                      'score': 1.0
+                  }
+              ],
+              'offset': 0
+          }
+      ],
+      'suggestion-id': [
+          {
+              'text': 1234567,
+              'length': 1,
+              'options': [
+                  {
+                      'text': 1234568,
+                      'freq': 1,
+                      'score': 1.0
+                  }
+              ],
+              'offset': 0
+          }
+      ],
+  }
+  ```
+
+## Testing
+
+Preferred for testing one version of python.
+
+```bash
+pytest test
+```
+
+Run the same pytest suite against a disposable Docker OpenSearch instead of the in-memory
+fake:
+
+```bash
+uv run python scripts/opensearch_docker.py test
+```
+
+If you want to manage the container yourself, the backend seam is driven by
+`OPENMOCK_TEST_BACKEND=real` and `OPENMOCK_REAL_OPENSEARCH_URL=http://localhost:9200`.
+The default remains the in-memory mock backend.
+
+The collected tests are split into two marker groups:
+
+- `parity` for live-backend parity coverage,
+- `mock_backend` for tests that are specific to the in-memory fake.
+
+Examples:
+
+```bash
+uv run python -m pytest tests -m parity
+uv run python -m pytest tests -m mock_backend
+```
+
+Won't catch pytest tests.
+
+```bash
+python -m unittest
+```
+
+We are trying to support a full matrix of openmock versions and python versions 3.9+. This is slow.
+
+```bash
+tox
+```
+
+## Changelog
+
+See [CHANGELOG.md](https://github.com/matthewdeanmartin/openmock/blob/main/CHANGELOG.md)
+
+## License
+
+MIT with `normalize_host.py` being Apache 2 from Elasticsearch.

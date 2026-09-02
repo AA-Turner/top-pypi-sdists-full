@@ -1,0 +1,248 @@
+Metadata-Version: 2.4
+Name: gridstatusio
+Version: 0.16.0
+Summary: Python Client for GridStatus.io API
+Project-URL: Source Code, https://github.com/kmax12/gridstatusio/
+Project-URL: Issue Tracker, https://github.com/kmax12/gridstatusio/issues
+Author-email: Max Kanter <kmax12@gmail.com>
+Maintainer-email: Max Kanter <kmax12@gmail.com>
+License: Copyright 2022 James Max Kanter
+        
+        Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: LICENSE
+Keywords: energy,independent system operator
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <4,>=3.10
+Requires-Dist: brotli>=1.1.0; platform_python_implementation == 'CPython'
+Requires-Dist: brotlicffi>=1.1.0; platform_python_implementation != 'CPython'
+Requires-Dist: pandas>=2.3.0
+Requires-Dist: requests<3,>=2.32.2
+Requires-Dist: tabulate<0.10,>=0.9.0
+Requires-Dist: termcolor>=3.2.0
+Provides-Extra: all
+Requires-Dist: notebook>=7.0.0; extra == 'all'
+Requires-Dist: plotly>=5.20.0; extra == 'all'
+Requires-Dist: polars>=1.36.1; extra == 'all'
+Provides-Extra: notebooks
+Requires-Dist: notebook>=7.0.0; extra == 'notebooks'
+Requires-Dist: plotly>=5.20.0; extra == 'notebooks'
+Provides-Extra: polars
+Requires-Dist: polars>=1.36.1; extra == 'polars'
+Description-Content-Type: text/markdown
+
+<p align="center">
+<img width=75% src="/gridstatus-header.png" alt="gridstatus logo" />
+</p>
+<p align="center">
+  <a href="https://github.com/gridstatus/gridstatusio/actions/workflows/tests.yaml" target="_blank">
+        <img src="https://github.com/gridstatus/gridstatusio/actions/workflows/tests.yaml/badge.svg" alt="Tests" />
+    </a>
+   <a href="https://badge.fury.io/py/gridstatusio" target="_blank">
+        <img src="https://badge.fury.io/py/gridstatusio.svg?maxAge=2592000" alt="PyPI version">
+    </a>
+</p>
+
+# GridStatus.io Hosted API
+
+* Python client for accessing the [GridStatus.io Hosted API](https://www.gridstatus.io/api).
+* Browse all available datasets in our [Data Catalog](https://www.gridstatus.io/datasets).
+
+
+## Installation
+
+`gridstatusio` supports Python 3.10+. Install with uv or pip.
+
+```bash
+# Standard installation (includes pandas)
+uv pip install gridstatusio
+
+# With polars support (for polars DataFrames)
+uv pip install gridstatusio[polars]
+
+# With notebook support (for running example notebooks)
+uv pip install gridstatusio[notebooks]
+
+# With all optional dependencies
+uv pip install gridstatusio[all]
+```
+
+## Getting Started
+
+* Sign up for a Grid Status account and get your API key from the [Settings page](https://www.gridstatus.io/settings/api)
+* Set your API key as an environment variable: `export GRIDSTATUS_API_KEY=your_api_key` or pass to the client with `client = GridStatusClient(api_key="<your_api_key>")`
+* You're now ready to start querying. List datasets with:
+
+```python
+from gridstatusio import GridStatusClient
+client = GridStatusClient()
+
+data = client.get_dataset('ercot_fuel_mix', limit=100, start='2025-01-01', end='2025-01-02')
+```
+
+* To see all available datasets, use `client.list_datasets()` or check out the complete Grid Status catalog at https://www.gridstatus.io/datasets
+
+* To get metadata for a single dataset (description, available time range, columns, and more), use `client.get_dataset_metadata(dataset_id)`. It always returns a dictionary, with timestamp fields parsed into timezone-aware datetimes:
+
+```python
+metadata = client.get_dataset_metadata("ercot_fuel_mix")
+
+# {
+#     "id": "ercot_fuel_mix",
+#     "name": "ERCOT Fuel Mix",
+#     "earliest_available_time_utc": datetime(2017, 1, 1, 6, 0, tzinfo=timezone.utc),
+#     "all_columns": [{"name": "interval_start_utc", ...}, ...],
+#     ...
+# }
+```
+
+* **NOTE**: the Grid Status API has a 500,000 rows per month limit on the free plan. This limit is _very_ easy to exceed when querying data, especially real time prices.
+  * Make sure to add `limit` to all of your `get_dataset` calls to avoid quickly exceeding the limit.
+
+
+* For more detailed examples, check out this notebook: [Getting Started](Examples/1.%20Getting%20Started.ipynb)
+* Other notebooks in the [Examples](Examples) directory:
+  - [Finding Hubs and Zones in Pricing Data](Examples/2.%20ISO%20Hubs.ipynb)
+  - [ERCOT Pricing Data](Examples/3.%20ERCOT%20Pricing%20Data.ipynb)
+  - [CAISO April Net Load Analysis](Examples/4.%20CAISO%20April%20Net%20Load.ipynb)
+  - [Stacked Net Load Visualization](Examples/5.%20Stacked%20Net%20Load%20Visualization.ipynb)
+  - [Resample Data to Different Frequencies](Examples/6.%20Resampling%20Data.ipynb)
+
+## Return Formats
+
+The client supports three return formats for data: **pandas DataFrames**, **polars DataFrames**, and **Python objects** (list of dictionaries). You can specify the format at the client level or per-call.
+
+```python
+from gridstatusio import GridStatusClient
+
+# Set default format when creating the client
+client = GridStatusClient(return_format="pandas")  # or "polars" or "python"
+
+# Override format for a specific call
+data = client.get_dataset('ercot_fuel_mix', limit=100, return_format="python")
+```
+
+### Format Options
+
+| Format | Return Type | Description |
+|--------|------------|-------------|
+| `"pandas"` | `pd.DataFrame` | Pandas DataFrame with parsed datetime columns |
+| `"polars"` | `pl.DataFrame` | Polars DataFrame with parsed datetime columns |
+| `"python"` | `list[dict]` | List of dictionaries with parsed datetime columns |
+
+### Default Behavior
+
+If `return_format` is not specified, the client returns **pandas DataFrames** by default.
+
+### Example: Python Format
+
+```python
+from gridstatusio import GridStatusClient
+
+client = GridStatusClient(return_format="python")
+data = client.get_dataset('ercot_fuel_mix', limit=5)
+
+# Returns a list of dictionaries
+# [
+#     {"interval_start_utc": "2025-01-01T00:00:00+00:00", "coal": 1234.5, ...},
+#     {"interval_start_utc": "2025-01-01T00:05:00+00:00", "coal": 1235.2, ...},
+#     ...
+# ]
+```
+
+### Example: Polars Format
+
+```python
+from gridstatusio import GridStatusClient
+
+client = GridStatusClient(return_format="polars")
+df = client.get_dataset('ercot_fuel_mix', limit=100)
+
+# Returns a polars DataFrame
+print(type(df))  # <class 'polars.dataframe.frame.DataFrame'>
+```
+
+### Using Without Pandas (Advanced)
+
+While pandas is a required dependency, the library uses lazy loading so pandas is only imported when actually needed. This allows advanced users to use the library without pandas in minimal environments:
+
+```bash
+# Install without dependencies (advanced usage only)
+uv pip install gridstatusio --no-deps
+
+# Then manually install only the required non-pandas dependencies
+uv pip install requests termcolor tabulate
+```
+
+When using the library without pandas:
+
+```python
+from gridstatusio import GridStatusClient
+
+# Must explicitly set return_format="python" to avoid pandas import
+client = GridStatusClient(api_key="your_key", return_format="python")
+data = client.get_dataset('ercot_fuel_mix', limit=100)
+
+# Returns list of dicts - no pandas required
+```
+
+Note: If you don't specify `return_format="python"`, the client will attempt to use pandas and raise an error if it's not installed.
+
+## Checking your API usage
+
+```python
+usage = client.get_api_usage()
+```
+
+* This shows the limits for your API key, the start and end of the current usage period, and the API usage in the current period. Note a limit of -1 means no limit.
+
+## Retry Configuration
+
+* The Grid Status API has rate limits that restrict the number of requests that are allowed each second, minute and hour. If rate limits are hit the client will automatically retry the request after a delay. You can configure the maximum number of retries using the `max_retries` parameter when initializing the client. If you find yourself hitting rate limits, you may need to add a delay between your requests. The [Grid Status Pricing Page](https://www.gridstatus.io/pricing) contains more details on specific rate limits.
+* The client retries failed requests due to rate limits (429), server errors (5xx), and network issues using exponential backoff. You can customize retry behavior:
+
+```python
+client = GridStatusClient(
+    max_retries=3,        # Maximum retries (default: 5)
+    base_delay=1.0,       # Base delay in seconds (default: 2.0)
+    exponential_base=1.5, # Exponential backoff multiplier (default: 2.0)
+)
+```
+
+The retry delay follows the formula `delay = base_delay * (exponential_base ** retry_count)`.
+
+Retries are useful when:
+
+* You're making pagination-heavy requests and risk hitting short-term rate limits
+* A request fails due to a temporary server error
+* A network issue or timeout interrupts the request
+
+To disable retries entirely, set `max_retries=0`.
+
+## Version Check
+
+The client checks for updates to the library when it is imported. It does this by making a call to the [library on PyPI](https://pypi.org/project/gridstatusio/). For certain applications, this call can be problematic, and can be disabled by setting the environment variable `GSIO_SKIP_VERSION_CHECK` to `true`.
+
+```bash
+export GSIO_SKIP_VERSION_CHECK=true
+```
+
+## Open Source
+
+If you prefer to use an open source library that fetches data directly from the source, you can check out this [github repo](https://github.com/gridstatus/gridstatus).
+
+## Get Help
+
+We'd love to answer any usage or data access questions! Please let us know by emailing us at contact@gridstatus.io

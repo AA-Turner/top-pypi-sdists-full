@@ -1,0 +1,914 @@
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from functools import cached_property
+from pathlib import Path
+from typing import Any, Union
+
+from trilogy.constants import CONFIG, DEFAULT_NAMESPACE
+from trilogy.core.enums import (
+    ChartPlaceKind,
+    ChartType,
+    ConceptSource,
+    CreateMode,
+    FunctionClass,
+    IOType,
+    JoinType,
+    Modifier,
+    PersistMode,
+    PublishAction,
+    QueryComparison,
+    ScaleType,
+    SetOperator,
+    ShowCategory,
+    ValidationScope,
+)
+from trilogy.core.models.author import (
+    AggregateGrouping,
+    AggregateWrapper,
+    AlignClause,
+    ArgBinding,
+    Concept,
+    ConceptRef,
+    CustomType,
+    DeriveClause,
+    Expr,
+    FilterItem,
+    Function,
+    FunctionCallWrapper,
+    Grain,
+    HasUUID,
+    HavingClause,
+    Metadata,
+    MultiSelectLineage,
+    OrderBy,
+    Parenthetical,
+    RowsetItem,
+    SelectLineage,
+    SubselectItem,
+    UndefinedConcept,
+    UnionSelectLineage,
+    WhereClause,
+    WindowItem,
+    combine_staged_wheres,
+    get_concept_arguments,
+)
+from trilogy.core.models.datasource import Address, ColumnAssignment, Datasource
+from trilogy.core.models.environment import (
+    Environment,
+    EnvironmentConceptDict,
+    validate_concepts,
+)
+from trilogy.core.statements.common import SelectTypeMixin
+from trilogy.utility import unique
+
+
+@dataclass
+class ConceptTransform:
+    function: (
+        Function
+        | FilterItem
+        | WindowItem
+        | AggregateWrapper
+        | FunctionCallWrapper
+        | Parenthetical
+        | SubselectItem
+    )
+    output: Concept  # this has to be a full concept, as it may not exist in environment
+    modifiers: list[Modifier] = field(default_factory=list)
+
+    def with_namespace(self, namespace: str) -> "ConceptTransform":
+        return ConceptTransform(
+            function=self.function.with_namespace(namespace),
+            output=self.output.with_namespace(namespace),
+            modifiers=self.modifiers,
+        )
+
+
+@dataclass
+class SelectItem:
+    content: ConceptTransform | ConceptRef
+    modifiers: list[Modifier] = field(default_factory=list)
+
+    def __post_init__(self):
+        if isinstance(self.content, Concept):
+            self.content = self.content.reference
+
+    @property
+    def concept(self) -> ConceptRef:
+        if isinstance(self.content, ConceptRef):
+            return self.content
+        elif isinstance(self.content, Concept):
+            return self.content.reference
+        return self.content.output.reference
+
+    @property
+    def is_undefined(self) -> bool:
+        return bool(isinstance(self.content, UndefinedConcept))
+
+
+def _row_grain_arguments(node: Any) -> list[ConceptRef]:
+    """Concept arguments of a SELECT-derived expression that a HAVING/ORDER BY
+    may reference without being a direct output column. Scalar functions pass
+    their operands through; an aggregate exposes all of its arguments (matching
+    a `sum(x)` in HAVING to the `sum(x) as total` output via the shared `x`).
+    A window contributes nothing: its partition/order/content live at the
+    pre-window grain and are grouped away in the outer scope, so a bare
+    dimension that appears only inside a window is NOT an available output."""
+    if isinstance(node, ConceptRef):
+        return [node]
+    if isinstance(node, WindowItem):
+        return []
+    if isinstance(node, AggregateWrapper):
+        return list(node.concept_arguments)
+    if isinstance(node, Function):
+        if node.operator in FunctionClass.AGGREGATE_FUNCTIONS.value:
+            return list(node.concept_arguments)
+        out: list[ConceptRef] = []
+        for arg in node.arguments:
+            out += _row_grain_arguments(arg)
+        return out
+    if isinstance(node, FunctionCallWrapper):
+        out = _row_grain_arguments(node.content)
+        for arg in node.args:
+            out += _row_grain_arguments(arg)
+        return out
+    if isinstance(node, Parenthetical):
+        return _row_grain_arguments(node.content)
+    if isinstance(node, FilterItem):
+        return _row_grain_arguments(node.content) + list(node.where.concept_arguments)
+    # Conditional / Comparison / Between and other expression nodes carry no
+    # grain collapse — descend through their plain concept arguments.
+    return list(get_concept_arguments(node))
+
+
+@dataclass
+class FromClause:
+    sources: list[str]
+
+
+@dataclass
+class SelectJoin:
+    """A query-scoped join: a local merge of `source` (the brought-in key) into
+    `target` (the anchor key kept in this select). Applied only to the per-query
+    environment, never the global one.
+
+    `join_type` is always one of the two relation mechanisms (LEFT_OUTER /
+    FULL); `authored` keeps the surface declaration (SUBSET / UNION / LEFT /
+    FULL) for round-trip rendering and optimizer metadata — a SUBSET is stored
+    with its operands swapped onto the superset anchor."""
+
+    join_type: JoinType
+    source_address: str
+    target_address: str
+    authored: JoinType | None = None
+
+    @property
+    def modifiers(self) -> list[Modifier]:
+        return self.join_type.merge_modifiers
+
+
+@dataclass
+class SelectStatement(HasUUID, SelectTypeMixin):
+    selection: list[SelectItem]
+    # Ordered `then where` stages, and the ONLY stored form of the row gate:
+    # `where_clause` is their AND fold, derived. A flat where is a single
+    # stage, so this is empty only when there is no where at all. Later stages'
+    # aggregates and windows compute over rows passing all earlier stages
+    # (applied at v4 discovery).
+    where_clauses: list[WhereClause] = field(default_factory=list)
+    having_clause: HavingClause | None = None
+    order_by: OrderBy | None = None
+    limit: int | None = None
+    eligible_datasources: list[str] | None = None
+    join_clauses: list[SelectJoin] = field(default_factory=list)
+    meta: Metadata = field(default_factory=Metadata)
+    local_concepts: EnvironmentConceptDict = field(
+        default_factory=EnvironmentConceptDict
+    )
+    grain: Grain = field(default_factory=Grain)
+    # SELECT-level multi-level grouping (`by rollup (a, b)` etc.); carried on
+    # the lineage and applied to un-pinned aggregates by the build factory, so
+    # no shared authoring object is ever mutated with the spec.
+    grouping: AggregateGrouping | None = None
+    _folded_where: WhereClause | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _folded_from: list[WhereClause] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self):
+        new = []
+        for item in self.selection:
+            if isinstance(item, (Concept, ConceptTransform)):
+                new.append(SelectItem(content=item))
+            else:
+                new.append(item)
+        self.selection = new
+        if not isinstance(self.local_concepts, EnvironmentConceptDict):
+            self.local_concepts = validate_concepts(self.local_concepts)
+
+    @property
+    def where_clause(self) -> WhereClause | None:
+        """The AND fold of `where_clauses` — the canonical row gate.
+
+        Derived rather than stored so the gate and its staged decomposition
+        cannot describe two different conditions. Memoized on the stage list's
+        identity: folding allocates, and conditions are compared by identity in
+        places, so a fresh object per read would be both wasteful and wrong.
+        """
+        if self._folded_from is not self.where_clauses:
+            self._folded_where = combine_staged_wheres(self.where_clauses)
+            self._folded_from = self.where_clauses
+        return self._folded_where
+
+    @property
+    def first_where_stage(self) -> WhereClause | None:
+        """Stage 1 of the chain — the only stage read back against the SELECT.
+
+        A later stage's aggregate has its inputs gated by the earlier stages,
+        so an identical-looking spelling is a genuinely different computation
+        and the rules that redirect a WHERE aggregate to HAVING must not see
+        it."""
+        return self.where_clauses[0] if self.where_clauses else None
+
+    def as_lineage(self, environment: Environment) -> SelectLineage:
+        derived = [
+            x.concept.address
+            for x in self.selection
+            if isinstance(x.content, ConceptTransform)
+        ]
+        return SelectLineage(
+            selection=[
+                # An ephemeral parse never commits its select aliases, so a
+                # locally-derived output may exist only on the statement.
+                (
+                    self.local_concepts[x.concept.address]
+                    if x.concept.address not in environment.concepts
+                    and x.concept.address in self.local_concepts
+                    else environment.concepts[x.concept.address]
+                ).reference
+                for x in self.selection
+            ],
+            order_by=self.order_by,
+            limit=self.limit,
+            where_clauses=self.where_clauses,
+            having_clause=self.having_clause,
+            local_concepts={
+                k: v
+                for k, v in self.local_concepts.items()
+                # Keep transform-derived locals, plus union/rowset-derived locals
+                # (inline `from union(...) -> (...)`): their bare names (`dt`,
+                # `val`) are referenced but never appear as a ConceptTransform
+                # output, so the `derived` filter alone would drop the lineage.
+                if k in derived or isinstance(v.lineage, RowsetItem)
+            },
+            hidden_components=self.hidden_components,
+            grain=self.grain,
+            meta=self.meta,
+            scoped_joins=[
+                (j.source_address, j.target_address, j.join_type)
+                for j in self.join_clauses
+            ],
+            grouping=self.grouping,
+        )
+
+    @classmethod
+    def from_inputs(
+        cls,
+        environment: Environment,
+        selection: list[SelectItem],
+        order_by: OrderBy | None = None,
+        limit: int | None = None,
+        meta: Metadata | None = None,
+        where_clause: WhereClause | None = None,
+        having_clause: HavingClause | None = None,
+        eligible_datasources: list[str] | None = None,
+    ) -> "SelectStatement":
+        # Takes the flat gate its callers have; a flat where is one stage.
+        output = SelectStatement(
+            selection=selection,
+            where_clauses=[where_clause] if where_clause else [],
+            having_clause=having_clause,
+            limit=limit,
+            order_by=order_by,
+            meta=meta or Metadata(),
+            eligible_datasources=eligible_datasources,
+        )
+
+        output.grain = output.calculate_grain(environment, output.local_concepts)
+        output_addresses = set()
+        for x in selection:
+            if x.is_undefined and environment.concepts.fail_on_missing:
+                environment.concepts.raise_undefined(
+                    x.concept.address, meta.line_number if meta else None
+                )
+            elif isinstance(x.content, ConceptTransform):
+                if isinstance(x.content.output, UndefinedConcept):
+                    continue
+                if CONFIG.parsing.select_as_definition and not environment.frozen:
+                    if x.concept.address not in environment.concepts:
+                        environment.add_concept(x.content.output)
+                    elif x.concept.address in environment.concepts:
+                        version = environment.concepts[x.concept.address]
+                        if version.metadata.concept_source == ConceptSource.SELECT:
+                            environment.add_concept(x.content.output, force=True)
+                x.content.output = x.content.output.set_select_grain(
+                    output.grain, environment
+                )
+                # we might not need this
+                output.local_concepts[x.content.output.address] = x.content.output
+                if x.content.output.address in output_addresses:
+                    raise SyntaxError(
+                        f"Duplicate select output for {x.content.output.address}; Line: {meta.line_number if meta else 'unknown'}"
+                    )
+                output_addresses.add(x.content.output.address)
+            elif isinstance(x.content, ConceptRef):
+                output.local_concepts[x.content.address] = environment.concepts[
+                    x.content.address
+                ]
+                if x.content.address in output_addresses:
+                    raise SyntaxError(
+                        f"Duplicate select output for {x.content.address}; Line: {meta.line_number if meta else 'unknown'}"
+                    )
+                output_addresses.add(x.content.address)
+        output.grain = output.calculate_grain(environment, output.local_concepts)
+        output.validate_syntax(environment)
+        return output
+
+    def calculate_grain(
+        self,
+        environment: Environment | None = None,
+        local_concepts: Mapping[str, Concept] | None = None,
+    ) -> Grain:
+        targets = []
+        for x in self.selection:
+            targets.append(x.concept)
+
+        result = Grain.from_concepts(
+            targets,
+            where_clause=self.where_clause,
+            environment=environment,
+            local_concepts=local_concepts,
+        )
+        if self.join_clauses:
+            result = self._collapse_join_keys_in_grain(result)
+        return result
+
+    def _collapse_join_keys_in_grain(self, grain: Grain) -> Grain:
+        """Fold each query-scoped JOIN source key into its canonical target
+        within the grain. The query grain is computed here, at authoring time,
+        before the build-time merge — without this it carries every joined key
+        separately (e.g. both `ascending.rnk_a` AND `descending.rnk_d`) instead
+        of the single collapsed key, and that wrong grain then poisons every
+        concept grain the build derives from it."""
+        parent: dict[str, str] = {}
+
+        def find(x: str) -> str:
+            parent.setdefault(x, x)
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        for join in self.join_clauses:
+            rs, rt = find(join.source_address), find(join.target_address)
+            if rs != rt:
+                parent[rs] = rt
+        new_order: list[str] = []
+        seen: set[str] = set()
+        for c in grain.component_order:
+            rc = find(c) if c in parent else c
+            if rc not in seen:
+                seen.add(rc)
+                new_order.append(rc)
+        return Grain(
+            components={find(c) if c in parent else c for c in grain.components},
+            where_clause=grain.where_clause,
+            component_order=new_order,
+        )
+
+    def validate_syntax(self, environment: Environment):
+        if self.where_clause:
+            replacements: list[tuple[str, ConceptRef]] = []
+            for x in self.where_clause.concept_arguments:
+                if isinstance(x, UndefinedConcept):
+                    validate = environment.concepts.get(x.address)
+                    if validate:
+                        replacements.append((x.address, validate.reference))
+                    else:
+                        environment.concepts.raise_undefined(
+                            x.address, x.metadata.line_number if x.metadata else None
+                        )
+            if replacements:
+                self.where_clauses = [
+                    wc.with_reference_replacement(replacements)
+                    for wc in self.where_clauses
+                ]
+        # Only a SCALAR select (no grouping key) restricts a WHERE aggregate that is
+        # also derived in the select; a grouped select computes it at the select
+        # grain over the WHERE-unfiltered universe as a valid pre-aggregation gate.
+        first_stage = self.first_where_stage
+        if first_stage and not self.grain.components:
+            for cref in first_stage.concept_arguments:
+                concept = environment.concepts[cref.address]
+                if isinstance(concept, UndefinedConcept):
+                    continue
+                concept_lineage = (
+                    concept.lineage.content
+                    if isinstance(concept.lineage, FunctionCallWrapper)
+                    else concept.lineage
+                )
+                if (
+                    concept_lineage
+                    and isinstance(concept_lineage, Function)
+                    and concept_lineage.operator
+                    in FunctionClass.AGGREGATE_FUNCTIONS.value
+                ) and concept.address in self.locally_derived:
+                    raise SyntaxError(
+                        f"Cannot reference an aggregate derived in the select ({concept.address}) in the same statement where clause; move to the HAVING clause instead; Line: {self.meta.line_number}"
+                    )
+
+                if (
+                    concept_lineage
+                    and isinstance(concept_lineage, AggregateWrapper)
+                    and concept_lineage.function.operator
+                    in FunctionClass.AGGREGATE_FUNCTIONS.value
+                ) and concept.address in self.locally_derived:
+                    raise SyntaxError(
+                        f"Cannot reference an aggregate derived in the select ({concept.address}) in the same statement where clause; move to the HAVING clause instead; Line: {self.meta.line_number}"
+                    )
+        output_addresses = {x.address for x in self.output_components}
+        alias_sources = self.alias_source_addresses
+        allowed_addresses = output_addresses | alias_sources
+        if self.having_clause:
+            for cref in self.having_clause.concept_arguments:
+                if cref.address not in allowed_addresses:
+                    raise SyntaxError(
+                        f"HAVING references '{cref.address}', which is not in the "
+                        f"SELECT projection (line {self.meta.line_number}). Fix one of: "
+                        f"(a) add it to SELECT — prefix with `--` to keep it out of "
+                        f"the output rows, e.g. `select ..., --{cref.address}`; "
+                        f"(b) move the filter to WHERE — for an aggregate condition "
+                        f"on a non-output grain, write the aggregate inline as "
+                        f"`agg(x) by grain` directly in WHERE."
+                    )
+        if self.order_by:
+            for cref in self.order_by.concept_arguments:
+                if cref.address not in allowed_addresses:
+                    raise SyntaxError(
+                        f"ORDER BY references '{cref.address}', which is not in the "
+                        f"SELECT projection (line {self.meta.line_number}). Add it to "
+                        f"SELECT to sort by it — prefix with `--` to keep it out of "
+                        f"the output rows, e.g. `select ..., --{cref.address} "
+                        f"order by {cref.address} asc`."
+                    )
+
+    def __str__(self):
+        from trilogy.parsing.render import render_query
+
+        return render_query(self)
+
+    @property
+    def locally_derived(self) -> set[str]:
+        locally_derived: set[str] = set()
+        for item in self.selection:
+            if isinstance(item.content, ConceptTransform):
+                locally_derived.add(item.concept.address)
+        return locally_derived
+
+    @property
+    def alias_source_addresses(self) -> set[str]:
+        sources: set[str] = set()
+        for item in self.selection:
+            if isinstance(item.content, ConceptTransform):
+                for arg in _row_grain_arguments(item.content.function):
+                    sources.add(arg.address)
+        return sources
+
+    @property
+    def output_components(self) -> list[ConceptRef]:
+        return [x.concept for x in self.selection]
+
+    @property
+    def hidden_components(self) -> set[str]:
+        return {
+            x.concept.address for x in self.selection if Modifier.HIDDEN in x.modifiers
+        }
+
+    def to_datasource(
+        self,
+        namespace: str,
+        name: str,
+        address: Address,
+        environment: Environment,
+        grain: Grain | None = None,
+    ) -> Datasource:
+        if self.where_clause or self.having_clause:
+            modifiers = [Modifier.PARTIAL]
+        else:
+            modifiers = []
+        columns = [
+            # TODO: replace hardcoded replacement here
+            # if the concept is a locally derived concept, it cannot ever be partial
+            # but if it's a concept pulled in from upstream and we have a where clause, it should be partial
+            ColumnAssignment(
+                alias=(
+                    c.address.replace(".", "_")
+                    if c.namespace != DEFAULT_NAMESPACE
+                    else c.name
+                ),
+                concept=environment.concepts[c.address].reference,
+                modifiers=modifiers if c.address not in self.locally_derived else [],
+            )
+            for c in self.output_components
+        ]
+
+        condition = None
+        if self.where_clause:
+            condition = self.where_clause.conditional
+        if self.having_clause:
+            if condition:
+                condition = self.having_clause.conditional + condition
+            else:
+                condition = self.having_clause.conditional
+
+        new_datasource = Datasource(
+            name=name,
+            address=address,
+            grain=grain or self.grain,
+            columns=columns,
+            namespace=namespace,
+            non_partial_for=WhereClause(conditional=condition) if condition else None,
+            non_partial_for_embedded=bool(condition),
+        )
+        return new_datasource
+
+
+@dataclass
+class RawSQLStatement:
+    text: str
+    meta: Metadata | None = field(default_factory=Metadata)
+
+
+@dataclass
+class CopyStatement:
+    target: str
+    target_type: IOType
+    select: Union[SelectStatement, "ChartStatement"]
+    options: dict[str, Any] = field(default_factory=dict)
+    meta: Metadata | None = field(default_factory=Metadata)
+
+
+@dataclass
+class CallStatement:
+    target: str
+    select: SelectStatement | None = None
+    meta: Metadata | None = field(default_factory=Metadata)
+
+
+def call_arg_name(address: str) -> str:
+    """The ``--flag`` name a call select output supplies (validated at parse)."""
+    return address.rsplit(".", 1)[-1]
+
+
+@dataclass
+class MultiSelectStatement(HasUUID, SelectTypeMixin):
+    selects: list[SelectStatement]
+    align: AlignClause
+    namespace: str
+    derived_concepts: list[Concept]
+    where_clause: WhereClause | None = None
+    having_clause: HavingClause | None = None
+    order_by: OrderBy | None = None
+    limit: int | None = None
+    meta: Metadata | None = field(default_factory=Metadata)
+    local_concepts: EnvironmentConceptDict = field(
+        default_factory=EnvironmentConceptDict
+    )
+    derive: DeriveClause | None = None
+
+    def as_lineage(self, environment: Environment):
+        return MultiSelectLineage(
+            selects=[x.as_lineage(environment) for x in self.selects],
+            align=self.align,
+            derive=self.derive,
+            namespace=self.namespace,
+            # derived_concepts = self.derived_concepts,
+            limit=self.limit,
+            order_by=self.order_by,
+            where_clause=self.where_clause,
+            having_clause=self.having_clause,
+            hidden_components=self.hidden_components,
+        )
+
+    def __repr__(self):
+        return "MultiSelect<" + " MERGE ".join([str(s) for s in self.selects]) + ">"
+
+    @property
+    def grain(self):
+        base = Grain()
+        for select in self.selects:
+            base += select.grain
+        return base
+
+    @property
+    def output_components(self) -> list[ConceptRef]:
+        output = [x.reference for x in self.derived_concepts]
+        for select in self.selects:
+            output += [
+                x
+                for x in select.output_components
+                if x.address not in select.hidden_components
+            ]
+        return unique(output, "address")
+
+    @cached_property
+    def hidden_components(self) -> set[str]:
+        output: set[str] = set()
+        for select in self.selects:
+            output = output.union(select.hidden_components)
+        for item in self.align.items:
+            if item.hidden:
+                output.add(item.aligned_concept)
+        return output
+
+    @property
+    def locally_derived(self) -> set[str]:
+        locally_derived: set[str] = {x.address for x in self.derived_concepts}
+        for select in self.selects:
+            locally_derived = locally_derived.union(select.locally_derived)
+        return locally_derived
+
+
+@dataclass
+class UnionSelectStatement(MultiSelectStatement):
+    """Relational `union(...)`/`except(...)`/`intersect(...)` TVF: a positional
+    column-stack (SQL set operation) of the arm selects. Reuses the multiselect
+    arm structure (`selects`, `align` as the positional output binding,
+    `derived_concepts` as the bound outputs) but exposes only the bound columns
+    and lowers to a `UnionSelectLineage`. ``operator`` picks the SQL combinator;
+    for EXCEPT the arm order is semantic (left-fold)."""
+
+    operator: SetOperator = SetOperator.UNION_ALL
+
+    def as_lineage(self, environment: Environment) -> UnionSelectLineage:
+        new_selects = [x.as_lineage(environment) for x in self.selects]
+        return UnionSelectLineage(
+            selects=new_selects,
+            align=self.align,
+            derive=None,
+            namespace=self.namespace,
+            limit=self.limit,
+            order_by=self.order_by,
+            where_clause=self.where_clause,
+            having_clause=self.having_clause,
+            hidden_components={y for x in new_selects for y in x.hidden_components},
+            operator=self.operator,
+        )
+
+    @property
+    def output_components(self) -> list[ConceptRef]:
+        # Only the bound union outputs; arm columns are internal.
+        return unique([x.reference for x in self.derived_concepts], "address")
+
+
+@dataclass
+class RowsetDerivationStatement(HasUUID):
+    name: str
+    select: SelectStatement | MultiSelectStatement
+    namespace: str
+
+    def __repr__(self):
+        return f"RowsetDerivation<{self.select!s}>"
+
+    def __str__(self):
+        return self.__repr__()
+
+
+@dataclass
+class MergeStatementV2(HasUUID):
+    sources: list[Concept]
+    targets: dict[str, Concept]
+    source_wildcard: str | None = None
+    target_wildcard: str | None = None
+    modifiers: list[Modifier] = field(default_factory=list)
+
+
+@dataclass
+class KeyMergeStatement(HasUUID):
+    keys: set[str]
+    target: ConceptRef
+
+
+@dataclass
+class ImportStatement(HasUUID):
+    # import abc.def as bar
+    # the bit after 'as', eg bar
+    alias: str
+    # the bit after import, abc.def
+    input_path: str
+    # what it actually resolves to, typically a filepath
+    path: Path
+    # whether this is a self-import (self import as X)
+    is_self: bool = False
+    # explicit concept filter: import field1, field2 from abc
+    concepts: list[str] | None = None
+    # count of leading "." tokens in the source (e.g. ``..store_sales`` -> 2);
+    # preserved for round-trip rendering since N>=2 leading dots mean parent dirs.
+    leading_dots: int = 0
+
+
+@dataclass
+class PersistStatement(HasUUID):
+    datasource: Datasource
+    select: SelectStatement
+    persist_mode: PersistMode = PersistMode.OVERWRITE
+    partition_by: list[ConceptRef] = field(default_factory=list)
+    meta: Metadata | None = field(default_factory=Metadata)
+    # DDL an OVERWRITE emits ahead of its insert. `create ... with data` lowers
+    # to a persist and keeps its own (stricter) create mode.
+    create_mode: CreateMode = CreateMode.CREATE_OR_REPLACE
+
+    @property
+    def identifier(self):
+        return self.datasource.identifier
+
+    @property
+    def address(self):
+        return self.datasource.address
+
+
+@dataclass
+class ValidateStatement:
+    scope: ValidationScope
+    targets: list[str] | None = None
+
+
+@dataclass
+class NaturalSelectStatement:
+    """`select natural '<question>'` — an agent answers the question with a
+    generated query at execution time."""
+
+    question: str
+
+
+@dataclass
+class ValidateNaturalStatement:
+    """`validate [name] select natural '...' matches ( select ... ) with (...)` —
+    an embedded LLM eval question with an authored expected answer."""
+
+    query: NaturalSelectStatement
+    expected: SelectStatement
+    name: str | None = None
+    repetitions: int = 1
+    target: float = 1.0
+    comparison: QueryComparison = QueryComparison.TOLERANT
+    tags: list[str] = field(default_factory=list)
+    timeout: int | None = None
+
+
+@dataclass
+class MockStatement:
+    scope: ValidationScope
+    targets: list[str]
+    # rows for the shallowest entity; facts above it still fan out per level.
+    # Nothing cardinality-dependent in the planner is reachable from the unit
+    # tier without a spelling for this.
+    scale_factor: int | None = None
+
+
+@dataclass
+class PublishStatement:
+    scope: ValidationScope
+    targets: list[str]
+    action: PublishAction = PublishAction.PUBLISH
+
+
+@dataclass
+class CreateStatement:
+    scope: ValidationScope
+    create_mode: CreateMode = CreateMode.CREATE_OR_REPLACE
+    targets: list[str] = field(default_factory=list)
+    # `with data`: run each target's own query after the DDL. Off by default —
+    # a create is DDL, and the empty table is what an `append` expects.
+    populate: bool = False
+
+
+@dataclass
+class ShowStatement:
+    content: (
+        SelectStatement
+        | PersistStatement
+        | ValidateStatement
+        | ValidateNaturalStatement
+        | NaturalSelectStatement
+        | ShowCategory
+    )
+
+
+@dataclass
+class Limit:
+    count: int
+
+
+@dataclass
+class ConceptDeclarationStatement(HasUUID):
+    concept: Concept
+
+
+@dataclass
+class PropertiesDeclarationStatement(HasUUID):
+    concepts: list[Concept]
+
+
+@dataclass
+class ConceptDerivationStatement:
+    concept: Concept
+
+
+@dataclass
+class TypeDeclaration:
+    type: CustomType
+
+
+@dataclass
+class FunctionDeclaration(HasUUID):
+    name: str
+    args: list[ArgBinding]
+    expr: Expr
+    meta: Metadata | None = field(default_factory=Metadata)
+
+
+CHART_ROLES: tuple[str, ...] = (
+    "x_axis",
+    "y_axis",
+    "color",
+    "size",
+    "group",
+    "x_trellis",
+    "y_trellis",
+    "geo",
+    "annotation",
+)
+
+
+@dataclass
+class ChartLayerBinding:
+    role: str
+    expr: Expr
+    alias: str | None = None
+
+
+@dataclass
+class ChartLayer:
+    layer_type: ChartType
+    bindings: list[ChartLayerBinding] = field(default_factory=list)
+    select: SelectStatement | None = None
+    # True when the author wrote `from select ...`; an implicit select is
+    # rebuilt from the bindings, so rendering must not echo it back.
+    explicit_select: bool = False
+
+
+@dataclass
+class ChartPlacement:
+    kind: ChartPlaceKind
+    value: object
+    label: str | None = None
+
+
+@dataclass
+class ChartStatement:
+    layers: list[ChartLayer]
+    placements: list[ChartPlacement] = field(default_factory=list)
+    hide_legend: bool = False
+    show_title: bool = False
+    scale_x: ScaleType | None = None
+    scale_y: ScaleType | None = None
+    meta: Metadata | None = field(default_factory=Metadata)
+
+
+STATEMENT_TYPES = (
+    SelectStatement
+    | RawSQLStatement
+    | CopyStatement
+    | CallStatement
+    | MultiSelectStatement
+    | RowsetDerivationStatement
+    | MergeStatementV2
+    | KeyMergeStatement
+    | ImportStatement
+    | PersistStatement
+    | ValidateStatement
+    | ValidateNaturalStatement
+    | NaturalSelectStatement
+    | MockStatement
+    | PublishStatement
+    | CreateStatement
+    | ShowStatement
+    | ConceptDeclarationStatement
+    | ConceptDerivationStatement
+    | TypeDeclaration
+    | FunctionDeclaration
+    | ChartStatement
+)

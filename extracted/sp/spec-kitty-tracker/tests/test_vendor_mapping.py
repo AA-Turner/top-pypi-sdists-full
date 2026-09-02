@@ -50,9 +50,7 @@ def test_jira_payload_mapping() -> None:
 
 
 async def test_linear_payload_mapping() -> None:
-    connector = LinearConnector(
-        LinearConnectorConfig(api_key="lin_api", team_id="team-1")
-    )
+    connector = LinearConnector(LinearConnectorConfig(api_key="lin_api", team_id="team-1"))
 
     issue = connector._to_canonical(  # noqa: SLF001
         {

@@ -1,0 +1,167 @@
+Metadata-Version: 2.5
+Name: novita-sandbox
+Version: 2.1.0
+Summary: Novita Agent Sandbox SDK - Python library for Novita Agent Sandbox
+Project-URL: Homepage, https://novita.ai
+Project-URL: Documentation, https://novita.ai/docs/guides/sandbox-overview
+Project-URL: Bug Tracker, https://novita.ai
+Project-URL: Changelog, https://novita.ai/docs/changelog
+Author-email: Novita <support@novita.ai>
+Maintainer-email: Novita <support@novita.ai>
+License: MIT
+License-File: LICENSE
+Keywords: Novita,agent,ai,code-interpreter,desktop-automation,sandbox,sdk
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Operating System
+Requires-Python: >=3.9
+Requires-Dist: attrs>=23.2.0
+Requires-Dist: dockerfile-parse<3.0.0,>=2.0.1
+Requires-Dist: httpcore>=1.0.5
+Requires-Dist: httpx<1.0.0,>=0.27.0
+Requires-Dist: packaging>=24.1
+Requires-Dist: protobuf>=5.26.1
+Requires-Dist: pydantic<3.0.0,>=2.12.4
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: rich>=14.0.0
+Requires-Dist: typing-extensions>=4.1.0
+Requires-Dist: wcmatch<11.0,>=10.1
+Provides-Extra: all
+Requires-Dist: matplotlib>=3.6.0; extra == 'all'
+Requires-Dist: numpy>=1.21.0; extra == 'all'
+Requires-Dist: opencv-python>=4.7.0; extra == 'all'
+Requires-Dist: pandas>=1.5.0; extra == 'all'
+Requires-Dist: pillow>=9.0.0; extra == 'all'
+Requires-Dist: plotly>=5.0.0; extra == 'all'
+Requires-Dist: pyautogui>=0.9.54; extra == 'all'
+Requires-Dist: pynput>=1.7.6; extra == 'all'
+Requires-Dist: python-dateutil>=2.8.2; extra == 'all'
+Requires-Dist: starlette<0.51.0,>=0.48.0; extra == 'all'
+Requires-Dist: uvicorn<0.41.0,>=0.38.0; extra == 'all'
+Provides-Extra: runtime
+Requires-Dist: starlette<0.51.0,>=0.48.0; extra == 'runtime'
+Requires-Dist: uvicorn<0.41.0,>=0.38.0; extra == 'runtime'
+Description-Content-Type: text/markdown
+
+# Novita Agent Sandbox SDK for Python
+
+A Python SDK for Novita Agent Sandbox environments that provides code execution, desktop automation, and cloud computing capabilities..
+
+[📖 Documentation](https://novita.ai/docs/guides/sandbox-overview) • [🔑 Get API Key](https://novita.ai/settings/key-management) 
+
+## Features
+
+- **Code Interpreter**: Execute Python, JavaScript, and other languages in isolated environments
+- **Desktop Automation**: Control desktop applications and GUI interactions
+- **Cloud Computing**: Scalable sandbox environments for various computing tasks
+- **Data Visualization**: Built-in charting and visualization capabilities
+- **File System Operations**: Complete file system management and monitoring
+
+
+## Installation
+
+```bash
+pip install novita-sandbox
+```
+
+## Quick Start
+
+### Authentication
+
+Get your Novita API key from the [key management page](https://novita.ai/settings/key-management).
+
+### Core Sandbox
+
+Use the high-level `Novita` client to share one set of credentials across namespaces.
+
+```python
+import os
+from novita_sandbox import Novita
+
+novita = Novita(api_key=os.getenv("NOVITA_API_KEY", ""))
+
+# Using the official template `base` by default
+sandbox = novita.sandbox.create("base")
+
+# File operations
+sandbox.files.write('/tmp/test.txt', 'Hello, World!')
+content = sandbox.files.read('/tmp/test.txt')
+
+# Command execution
+result = sandbox.commands.run('ls -la /tmp')
+print(result.stdout)
+
+sandbox.kill()
+```
+
+### Code Interpreter
+
+The Code Interpreter sandbox is available through the same client.
+
+```python
+import os
+from novita_sandbox import Novita
+
+novita = Novita(api_key=os.getenv("NOVITA_API_KEY", ""))
+
+sandbox = novita.code_interpreter.create()
+
+# Execute Python code
+result = sandbox.run_code('print("Hello, World!")')
+print(result.logs)
+
+sandbox.kill()
+```
+
+### Desktop Automation
+
+The Desktop sandbox is available through the same client.
+
+```python
+import os
+from novita_sandbox import Novita
+
+novita = Novita(api_key=os.getenv("NOVITA_API_KEY", ""))
+
+desktop = novita.desktop.create()
+
+# Take a screenshot
+screenshot = desktop.screenshot()
+
+# Automate mouse and keyboard
+desktop.left_click(100, 200)
+desktop.press('Return')
+desktop.write('Hello, World!')
+
+desktop.kill()
+```
+
+## Documentation
+
+For comprehensive guides, API references, and examples, visit our [official documentation](https://novita.ai/docs/guides/sandbox-overview).
+
+## Development
+
+### Install
+
+```bash
+poetry install --with dev --extras "all" 
+```
+
+### Test
+
+```bash
+make test
+make test-core
+make test-code-interpreter
+make test-desktop
+```

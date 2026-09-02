@@ -1,0 +1,285 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+from __future__ import annotations
+
+import os
+import shutil
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional
+
+import requests
+from simple_parsing import field
+
+from nemo_evaluator_launcher.common.build_config import (
+    build_config,
+    resolve_output_path,
+)
+from nemo_evaluator_launcher.common.logging_utils import logger
+from nemo_evaluator_launcher.package_info import __version__
+
+_REPO = "NVIDIA-NeMo/Evaluator"
+_SKILLS_REPO_PATHS = [
+    "packages/nemo-evaluator-launcher/.claude/skills",
+    "packages/nemo-evaluator/.claude/skills",
+]
+
+_AGENT_PATHS: dict[str, tuple[Path, Path]] = {
+    # (user-level, project-level)
+    "claude": (Path.home() / ".claude" / "skills", Path(".claude") / "skills"),
+    "codex": (Path.home() / ".agents" / "skills", Path(".agents") / "skills"),
+    "cursor": (Path.home() / ".cursor" / "skills", Path(".cursor") / "skills"),
+    "opencode": (
+        Path.home() / ".config" / "opencode" / "skills",
+        Path(".opencode") / "skills",
+    ),
+}
+
+_ALL_AGENTS = list(_AGENT_PATHS)
+
+_SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+
+def _progress(skill_name: str, step: int, total: int) -> None:
+    """Print an inline progress indicator with spinner, or a final checkmark when *done*."""
+    pct = step * 100 // total if total else 100
+    if step == total:
+        print(f"\r  ✓ Downloaded {skill_name} {step}/{total} ({pct}%)          ")
+    else:
+        frame = _SPINNER[step % len(_SPINNER)]
+        print(
+            f"\r  {frame} Downloading {skill_name} {step}/{total} ({pct}%)",
+            end="",
+            flush=True,
+        )
+
+
+def _github_headers() -> dict[str, str]:
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "nemo-evaluator-launcher",
+    }
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+_RATE_LIMIT_HINT = (
+    "GitHub API rate limit exceeded. Set a personal access token to increase the limit:\n"
+    "  export GITHUB_TOKEN=ghp_...\n"
+    "Generate one at https://github.com/settings/tokens"
+)
+
+
+def _github_list_dir(path: str, ref: str) -> list[dict]:
+    url = f"https://api.github.com/repos/{_REPO}/contents/{path}?ref={ref}"
+    resp = requests.get(url, timeout=30, headers=_github_headers())
+    if resp.status_code == 403 and "rate limit" in resp.text.lower():
+        raise RuntimeError(_RATE_LIMIT_HINT)
+    if resp.status_code == 404:
+        raise RuntimeError(f"GitHub ref '{ref}' not found in {_REPO}.")
+    if resp.status_code != 200:
+        raise RuntimeError(f"GitHub API error ({resp.status_code}): {resp.text}")
+    data = resp.json()
+    return [data] if isinstance(data, dict) else data
+
+
+def _collect_files(path: str, ref: str) -> list[dict]:
+    """Recursively list all files under *path* via GitHub Contents API."""
+    files: list[dict] = []
+    for item in _github_list_dir(path, ref):
+        if item["type"] == "dir":
+            files.extend(_collect_files(item["path"], ref))
+        else:
+            files.append(item)
+    return files
+
+
+def _discover_skills(ref: str) -> list[tuple[str, str]]:
+    """Return (skill_name, repo_path) pairs found under all skills repo paths."""
+    skills: list[tuple[str, str]] = []
+    for base_path in _SKILLS_REPO_PATHS:
+        try:
+            items = _github_list_dir(base_path, ref)
+        except RuntimeError:
+            logger.debug("Skills path not found, skipping", path=base_path)
+            continue
+        for item in items:
+            if item["type"] == "dir":
+                skills.append((item["name"], base_path))
+    return skills
+
+
+def _download_skill(skill_name: str, ref: str, dest: Path, base_path: str) -> None:
+    """Download a single skill tree from GitHub into *dest*."""
+    skill_repo_path = f"{base_path}/{skill_name}"
+    files = _collect_files(skill_repo_path, ref)
+    total = len(files)
+
+    for i, item in enumerate(files):
+        rel = Path(item["path"]).relative_to(skill_repo_path)
+        target = dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        dl_url = item.get("download_url")
+        if not dl_url:
+            raise RuntimeError(f"No download_url for {item['path']}")
+        logger.debug("Downloading skill file", file=str(rel), url=dl_url)
+        r = requests.get(dl_url, timeout=30, headers=_github_headers())
+        if r.status_code != 200:
+            raise RuntimeError(f"Download failed ({r.status_code}): {dl_url}")
+        target.write_bytes(r.content)
+        _progress(skill_name, i + 1, total)
+
+
+@dataclass
+class AddCmd:
+    """Add NEL agent skills for AI coding assistants.
+
+    Examples:
+      nel skills add --claude
+      nel skills add --claude --codex --cursor --opencode
+      nel skills add --cursor --project
+      nel skills add --ref main --claude
+    """
+
+    claude: bool = field(
+        default=False, action="store_true", help="Install for Claude Code"
+    )
+    codex: bool = field(default=False, action="store_true", help="Install for Codex")
+    cursor: bool = field(default=False, action="store_true", help="Install for Cursor")
+    opencode: bool = field(
+        default=False, action="store_true", help="Install for OpenCode"
+    )
+    project: bool = field(
+        default=False,
+        action="store_true",
+        help="Install into project directory instead of user home",
+    )
+    ref: Optional[str] = field(
+        default=None,
+        help="Git ref (branch, tag, sha). Defaults to the tag matching the installed nel version.",
+    )
+    force: bool = field(
+        default=False,
+        action="store_true",
+        help="Overwrite existing skill directories",
+    )
+
+    def execute(self) -> None:
+        ref = self.ref or f"nemo-evaluator-launcher-v{__version__}"
+        agents = [a for a in _ALL_AGENTS if getattr(self, a)] or _ALL_AGENTS
+
+        print(f"Fetching skill list from {_REPO} (ref: {ref}) ...")
+        skills = _discover_skills(ref)
+
+        if not skills and self.ref is None:
+            logger.warning(
+                f"No skills found for ref '{ref}'. "
+                f"Falling back to 'main'. "
+                f"Use --ref to point at an existing branch, tag, or commit SHA."
+            )
+            ref = "main"
+            skills = _discover_skills(ref)
+
+        if not skills:
+            raise RuntimeError(f"No skills found in {_REPO} (ref: {ref})")
+
+        for skill_name, base_path in skills:
+            for agent in agents:
+                user_dir, project_dir = _AGENT_PATHS[agent]
+                root = project_dir if self.project else user_dir
+                dest = root / skill_name
+
+                if dest.exists() and not self.force:
+                    print(f"Already installed: {dest} (use --force to overwrite)")
+                    continue
+
+                if dest.exists():
+                    shutil.rmtree(dest)
+
+                dest.mkdir(parents=True, exist_ok=True)
+                _download_skill(skill_name, ref, dest, base_path)
+                print(f"Installed {skill_name} -> {dest} (ref: {ref})")
+
+
+@dataclass
+class BuildConfigCmd:
+    """Build evaluation config from templates.
+
+    Examples:
+      nel skills build-config -e local -d vllm -m chat_reasoning -b core_reasoning long_context
+      nel skills build-config -e slurm -d nim -m chat_reasoning -b agentic multilingual -x mlflow
+      nel skills build-config -e local -d vllm -m base -b general_knowledge coding -o my_config.yaml
+    """
+
+    execution: str = field(
+        alias=["-e"],
+        choices=["local", "slurm"],
+        help="Execution type",
+    )
+    deployment: str = field(
+        alias=["-d"],
+        choices=["none", "vllm", "sglang", "nim", "trtllm"],
+        help="Deployment type",
+    )
+    model_type: str = field(
+        alias=["-m"],
+        choices=["base", "chat_reasoning"],
+        help="Model type",
+    )
+    benchmarks: List[str] = field(
+        alias=["-b"],
+        nargs="+",
+        choices=[
+            "general_knowledge",
+            "coding",
+            "core_reasoning",
+            "agentic",
+            "long_context",
+            "multilingual",
+        ],
+        help="Benchmark bundles to include",
+    )
+    export: str = field(
+        alias=["-x"],
+        default="none",
+        choices=["none", "mlflow", "wandb"],
+        help="Export type (default: none)",
+    )
+    output: Optional[Path] = field(
+        alias=["-o"],
+        default=None,
+        help="Output path: file (*.yaml), directory, or omit for current dir. "
+        "Auto-generates filename from config choices. Never overwrites existing files.",
+    )
+
+    def execute(self) -> None:
+        output_path = resolve_output_path(
+            output=self.output,
+            execution=self.execution,
+            deployment=self.deployment,
+            model_type=self.model_type,
+            benchmarks=self.benchmarks,
+        )
+        build_config(
+            execution=self.execution,
+            deployment=self.deployment,
+            export=self.export,
+            model_type=self.model_type,
+            benchmarks=self.benchmarks,
+            output=output_path,
+        )

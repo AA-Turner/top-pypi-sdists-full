@@ -1,0 +1,33 @@
+Metadata-Version: 2.4
+Name: ddtrace-internal
+Version: 0.1.0
+Summary: Stub internal Datadog Python package (ddtrace-internal).
+Author-email: "Datadog, Inc." <dev@datadoghq.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+
+# ddtrace-internal
+
+Stub Python distribution for code used by multiple products in dd-trace-py
+
+## Local install (editable)
+
+```bash
+python -m pip install -e .
+```
+
+## Running tests
+
+```bash
+cd packages/ddtrace-internal
+riot run                # all supported Python versions
+riot run -p 3.12        # a single version
+```
+
+`riot` installs the package fresh into each test venv, so it must be run from this directory (not the repo root). In CI, `riot --wheel-path <dir>` is used instead to test the actual built wheel.
+
+## Layout
+
+- `src/_ddtrace_internal/` — package root
+- `tests/<module_path>/test.py` — tests, mirroring the source layout (e.g. `src/_ddtrace_internal/foo.py` → `tests/foo/test.py`)
+- `riotfile.py` — test venv/matrix definitions

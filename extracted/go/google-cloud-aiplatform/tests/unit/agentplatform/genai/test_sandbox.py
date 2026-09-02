@@ -130,12 +130,10 @@ class TestSandbox:
         mock_http_client.request.return_value = genai_types.HttpResponse(
             body=b'{"endpoint": "test/endpoint"}', headers={}
         )
-        ws_url, headers = (
-            self.client.sandboxes.generate_browser_ws_headers(
-                sandbox_environment=mock_sandbox,
-                service_account_email=_TEST_SERVICE_ACCOUNT_EMAIL,
-                timeout=3600,
-            )
+        ws_url, headers = self.client.sandboxes.generate_browser_ws_headers(
+            sandbox_environment=mock_sandbox,
+            service_account_email=_TEST_SERVICE_ACCOUNT_EMAIL,
+            timeout=3600,
         )
         assert ws_url == "wss://test-us-central1.example.vertexai.goog/test/endpoint"
         assert (
@@ -296,6 +294,217 @@ class TestSandbox:
 
         mock_create.assert_not_called()
 
+    @staticmethod
+    def _exec_response(payload):
+        """Builds the response the sandbox proxy returns for POST /exec."""
+        return agentplatform_types.ExecuteSandboxEnvironmentResponse(
+            outputs=[
+                agentplatform_types.Chunk(
+                    mime_type="application/json",
+                    data=json.dumps(payload).encode("utf-8"),
+                )
+            ]
+        )
+
+    @staticmethod
+    def _sent_chunks(mock_execute_code):
+        """Returns the uri, port and JSON body sent to the sandbox."""
+        _, kwargs = mock_execute_code.call_args
+        chunks = {chunk.mime_type: chunk.data for chunk in kwargs["inputs"]}
+        return (
+            chunks["application/x.sandbox-request-uri"],
+            chunks["application/x.sandbox-request-port"],
+            json.loads(chunks["application/json"]),
+        )
+
+    @mock.patch.object(sandboxes.Sandboxes, "_execute_code")
+    def test_execute_bash_runs_command_and_parses_result(self, mock_execute_code):
+        """A command is sent to /exec and its JSON result is returned."""
+        expected = {
+            "stdout": "hello\n",
+            "stderr": "",
+            "returncode": 0,
+            "duration_ms": 5,
+        }
+        mock_execute_code.return_value = self._exec_response(expected)
+
+        result = self.client.sandboxes.execute_bash(
+            name=_TEST_SANDBOX_RESOURCE_NAME,
+            command="echo hello",
+        )
+
+        assert result == expected
+        _, kwargs = mock_execute_code.call_args
+        assert kwargs["name"] == _TEST_SANDBOX_RESOURCE_NAME
+        uri, port, body = self._sent_chunks(mock_execute_code)
+        assert uri == b"/exec"
+        assert port == b"8080"
+        # cwd and timeout are left to the sandbox's own defaults when unset.
+        assert body == {"command": "echo hello"}
+
+    @mock.patch.object(sandboxes.Sandboxes, "_execute_code")
+    def test_execute_bash_forwards_cwd_and_timeout(self, mock_execute_code):
+        """cwd and timeout reach the container when the caller sets them."""
+        mock_execute_code.return_value = self._exec_response({"stdout": "/tmp\n"})
+
+        self.client.sandboxes.execute_bash(
+            name=_TEST_SANDBOX_RESOURCE_NAME,
+            command="pwd",
+            cwd="/tmp",
+            timeout=30,
+        )
+
+        _, _, body = self._sent_chunks(mock_execute_code)
+        assert body == {"command": "pwd", "cwd": "/tmp", "timeout": 30}
+
+    @mock.patch.object(sandboxes.Sandboxes, "_execute_code")
+    def test_execute_bash_uses_custom_port(self, mock_execute_code):
+        """A caller-supplied port overrides the shell server default."""
+        mock_execute_code.return_value = self._exec_response({"stdout": ""})
+
+        self.client.sandboxes.execute_bash(
+            name=_TEST_SANDBOX_RESOURCE_NAME,
+            command="true",
+            port="9222",
+        )
+
+        _, port, _ = self._sent_chunks(mock_execute_code)
+        assert port == b"9222"
+
+    @mock.patch.object(sandboxes.Sandboxes, "_execute_code")
+    def test_execute_bash_reports_failure_without_raising(self, mock_execute_code):
+        """A non-zero exit is returned on the result, not raised."""
+        expected = {
+            "stdout": "",
+            "stderr": "ls: cannot access '/nope': No such file or directory\n",
+            "returncode": 2,
+            "duration_ms": 4,
+        }
+        mock_execute_code.return_value = self._exec_response(expected)
+
+        result = self.client.sandboxes.execute_bash(
+            name=_TEST_SANDBOX_RESOURCE_NAME,
+            command="ls /nope",
+        )
+
+        assert result == expected
+
+    @mock.patch.object(sandboxes.Sandboxes, "_execute_code")
+    def test_execute_bash_forwards_config(self, mock_execute_code):
+        """The request config is passed through untouched."""
+        mock_execute_code.return_value = self._exec_response({"stdout": ""})
+        config = agentplatform_types.ExecuteCodeRuntimeSandboxConfig()
+
+        self.client.sandboxes.execute_bash(
+            name=_TEST_SANDBOX_RESOURCE_NAME,
+            command="true",
+            config=config,
+        )
+
+        _, kwargs = mock_execute_code.call_args
+        assert kwargs["config"] is config
+
+    @mock.patch.object(sandboxes.Sandboxes, "_execute_code")
+    def test_execute_bash_without_output_raises(self, mock_execute_code):
+        """An empty response is an error, not a silent success."""
+        mock_execute_code.return_value = (
+            agentplatform_types.ExecuteSandboxEnvironmentResponse(outputs=[])
+        )
+
+        with pytest.raises(ValueError, match="returned no output"):
+            self.client.sandboxes.execute_bash(
+                name=_TEST_SANDBOX_RESOURCE_NAME,
+                command="echo hello",
+            )
+
+
+@pytest.mark.usefixtures("google_auth_mock")
+class TestSandboxTemplates:
+    """Tests for sandbox_templates.SandboxTemplates.
+
+    Exercises the create-side wiring of fields on
+    `CreateSandboxEnvironmentTemplateConfig`, including
+    `ingress_control_config` (see cl/972355621), which is otherwise not
+    covered by the sandboxes.create tests above.
+    """
+
+    def setup_method(self):
+        importlib.reload(initializer)
+        importlib.reload(aiplatform)
+        importlib.reload(agentplatform)
+        self.client = agentplatform.Client(
+            project=_TEST_PROJECT,
+            location=_TEST_LOCATION,
+            credentials=_TEST_CREDENTIALS,
+        )
+
+    def teardown_method(self):
+        initializer.global_pool.shutdown(wait=True)
+
+    def test_create_config_ingress_control_config_is_optional(self):
+        """Constructing without ingress_control_config must succeed."""
+        config = agentplatform_types.CreateSandboxEnvironmentTemplateConfig()
+        assert config.ingress_control_config is None
+
+    def test_create_config_accepts_ingress_control_config_object(self):
+        """The typed field accepts a PrivateServiceConnectConfig instance."""
+        psc = agentplatform_types.PrivateServiceConnectConfig(
+            enable_private_service_connect=True,
+            project_allowlist=["test-project"],
+        )
+        config = agentplatform_types.CreateSandboxEnvironmentTemplateConfig(
+            ingress_control_config=psc,
+        )
+        assert config.ingress_control_config is not None
+        assert config.ingress_control_config.enable_private_service_connect is True
+        assert config.ingress_control_config.project_allowlist == ["test-project"]
+
+    def test_create_config_accepts_ingress_control_config_dict(self):
+        """The typed field validates and coerces a dict input."""
+        config = (
+            agentplatform_types.CreateSandboxEnvironmentTemplateConfig.model_validate(
+                {
+                    "ingress_control_config": {
+                        "enable_private_service_connect": True,
+                        "project_allowlist": ["test-project"],
+                    },
+                }
+            )
+        )
+        assert isinstance(
+            config.ingress_control_config,
+            agentplatform_types.PrivateServiceConnectConfig,
+        )
+        assert config.ingress_control_config.enable_private_service_connect is True
+        assert config.ingress_control_config.project_allowlist == ["test-project"]
+
+    @mock.patch.object(sandbox_templates.SandboxTemplates, "_create")
+    def test_create_forwards_ingress_control_config(self, mock_create):
+        """templates.create(...) passes ingress_control_config through to _create."""
+        mock_create.return_value = mock.Mock()
+
+        config = agentplatform_types.CreateSandboxEnvironmentTemplateConfig(
+            ingress_control_config=agentplatform_types.PrivateServiceConnectConfig(
+                enable_private_service_connect=True,
+                project_allowlist=["test-project"],
+            ),
+            wait_for_completion=False,
+        )
+        self.client.sandboxes.templates.create(
+            name=_TEST_AGENT_ENGINE_RESOURCE_NAME,
+            display_name="test-template",
+            config=config,
+        )
+
+        mock_create.assert_called_once()
+        _, kwargs = mock_create.call_args
+        assert kwargs["name"] == _TEST_AGENT_ENGINE_RESOURCE_NAME
+        assert kwargs["display_name"] == "test-template"
+        ingress = kwargs["config"].ingress_control_config
+        assert ingress is not None
+        assert ingress.enable_private_service_connect is True
+        assert ingress.project_allowlist == ["test-project"]
+
 
 _MODULES = pytest.mark.parametrize(
     "module",
@@ -412,9 +621,7 @@ def test_generate_access_token_retries_transient_failures(module, status_code):
         [transient, transient, _ok_response()],
     )
 
-    with default_patch, session_patch, mock.patch.object(
-        module.time, "sleep"
-    ) as sleep:
+    with default_patch, session_patch, mock.patch.object(module.time, "sleep") as sleep:
         client_obj = module.Sandboxes(api_client_=mock.Mock())
         token = client_obj.generate_access_token(
             service_account_email=_TEST_SERVICE_ACCOUNT_EMAIL

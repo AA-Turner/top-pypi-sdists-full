@@ -1,0 +1,12 @@
+from django.contrib import admin
+
+from dj_control_room_base.core import BasePanelAdmin
+
+from .conf import panel_config
+from .models import CachePanelPlaceholder
+
+
+@admin.register(CachePanelPlaceholder)
+class CachePanelPlaceholderAdmin(BasePanelAdmin):
+    redirect_url_name = "dj_cache_panel:index"
+    panel_config = panel_config

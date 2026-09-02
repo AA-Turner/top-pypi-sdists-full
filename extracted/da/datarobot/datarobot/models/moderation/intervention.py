@@ -128,7 +128,7 @@ class GuardInterventionForTemplate(APIObject):
 
     @classmethod
     def ensure_object(cls, maybe_dict: Dict[str, str] | GuardInterventionForTemplate) -> GuardInterventionForTemplate:
-        """intervention may arrive as an object, or as a dict. Return an object."""
+        """Intervention may arrive as an object, or as a dict. Return an object."""
         if isinstance(maybe_dict, GuardInterventionForTemplate):
             return maybe_dict
         elif isinstance(maybe_dict, dict):
@@ -201,7 +201,7 @@ class GuardInterventionForConfiguration(APIObject):
     def ensure_object(
         cls, maybe_dict: Dict[str, str] | GuardInterventionForConfiguration
     ) -> GuardInterventionForConfiguration:
-        """intervention may arrive as an object, or as a dict. Return an object."""
+        """Intervention may arrive as an object, or as a dict. Return an object."""
         if isinstance(maybe_dict, GuardInterventionForConfiguration):
             return maybe_dict
         elif isinstance(maybe_dict, dict):

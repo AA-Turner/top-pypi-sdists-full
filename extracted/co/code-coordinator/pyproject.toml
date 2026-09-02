@@ -1,0 +1,188 @@
+[build-system]
+requires = ["setuptools>=68", "setuptools-scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# #2104 (R-2, epic #2096): the DISTRIBUTION renamed `claude-coordinator` ->
+# `code-coordinator` here. Nothing else moved: the import package is still
+# `coord/`, the console script is still `coord`, the venvs are still
+# `~/.coord-venv` / `~/.coord-cli-venv`, and the systemd units are still
+# `coord-*`. Only the name pip resolves against changed.
+#
+# This is the single source of the dist name for the release path —
+# `scripts/verify_release_published.py` reads `[project] name` straight out
+# of this file rather than hardcoding one, so `verify-published`'s simple-
+# index poll follows the rename automatically instead of quietly polling the
+# old index page forever (which would fail every release rather than catch a
+# broken one).
+#
+# `claude-coordinator` on PyPI is now a permanent tombstone: PyPI cannot
+# rename a project, so the old name keeps its existing releases and gains no
+# new ones. Already-deployed agents that still have it installed are handled
+# by `coord/dist_name.py` (#2103, R-1), which resolves `code-coordinator`
+# first and falls back to `claude-coordinator` — that fallback is deliberate
+# and must outlive this rename until every agent has been updated past it.
+name = "code-coordinator"
+dynamic = ["version"]
+description = "Coordinate Claude Code workers across multiple machines and repos."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "LicenseRef-FSL-1.1-MIT"
+authors = [{ name = "John Donaghy", email = "johnfdonaghy@gmail.com" }]
+keywords = ["claude", "claude-code", "multi-agent", "coordinator", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Build Tools",
+]
+# #1237 (PKG-1): the BASE install is a *client*. It must stay small enough
+# that `pip install code-coordinator` gives a third party a working CLI for
+# driving a remote fleet without dragging in a web server. Anything only the
+# agent/serve/web/brain runtime needs belongs in the `server` extra below, and
+# must be imported function-locally (never at module scope on a path
+# `import coord.cli` can reach) — tests/test_client_base_install.py is the
+# regression gate for exactly that.
+dependencies = [
+    "click>=8.1",
+    "pyyaml>=6.0",
+    "httpx>=0.27",
+    # Cross-platform state-root resolution (#1156): OS-native app-data dirs on
+    # Windows/macOS while POSIX keeps the legacy ~/.coord path. Client-side —
+    # every command resolves the state root, so this stays in the base.
+    "platformdirs>=4.0",
+    # Windows ships no IANA time-zone database, so `zoneinfo` cannot
+    # resolve a named zone without this. NOT a test-only concern:
+    # coord/config.py, coord/models.py, coord/failure_class.py and
+    # coord/machine_pause.py all resolve named zones at runtime, so a
+    # Windows client hits ZoneInfoNotFoundError on ordinary use — which
+    # is why this belongs in the BASE deps and not in [dev] or [server].
+    # Found by the windows-latest job this issue adds: it died during
+    # collection on `America/Chicago` before running a single test.
+    "tzdata; sys_platform == 'win32'",
+]
+
+[project.urls]
+# #2104: deliberately still the OLD repo path. GitHub redirects a renamed
+# repo's old URL forever, so these keep resolving after the rename lands;
+# the reverse is not true — the new path 404s until it lands. A wheel is
+# immutable, so shipping a URL that is right only *after* an out-of-band
+# admin action would bake a dead link into a published release. Flip these
+# in the release that follows the repo rename, not the one that requests it.
+Homepage = "https://github.com/JDonaghy/claude-coordinator"
+Repository = "https://github.com/JDonaghy/claude-coordinator"
+Issues = "https://github.com/JDonaghy/claude-coordinator/issues"
+
+[project.optional-dependencies]
+# #1237 (PKG-1): the server runtime — `coord serve`, `coord web`, `coord
+# agent`. Every remote agent and the board daemon host need this; a pure
+# client does not. `pip install 'code-coordinator[server]'`.
+#
+# INVARIANT: every agent venv and the daemon host MUST install the extra —
+# `pip install 'code-coordinator[server]'`, not the bare name. install-agent.sh,
+# scripts/azure-workers/provision-worker.sh and `coord agent update`
+# (coord/agent_app.py) all carry the extra for this reason. A bare base
+# install on an agent still *imports* fine; it fails at `coord agent` with the
+# actionable message from `coord.commands._common.server_extra_guard`.
+server = [
+    "starlette>=0.37",
+    "uvicorn>=0.30",
+    # Required for uvicorn to perform a real WebSocket upgrade (101) rather
+    # than silently answering with a plain HTTP 200 (#1216). Pinned directly
+    # rather than via the `uvicorn[standard]` extra, which also pulls in
+    # httptools/uvloop that /ws/terminal doesn't need.
+    "websockets>=12.0",
+    # Agent-side process/host metrics behind GET /metrics (coord/agent_app.py).
+    "psutil>=5.9",
+]
+# #2886: the Postgres driver for `coord/sql.py`'s dialect seam (#2719+).
+# Optional and NEVER folded into `server`/`all`/`dev` below — every existing
+# deployment runs SQLite and must keep working without ever pulling this in;
+# adding it to a shared extra would make it a fleet-wide install change for
+# zero benefit to anyone still on SQLite. `pip install 'code-coordinator[postgres]'`
+# is the only way to get it. `coord/sql.py`'s Postgres call sites
+# (`connect`/`row_factory_for`/`driver_error`) guard the import through
+# `_import_psycopg()`, which names this extra in its error message rather
+# than surfacing a bare `ModuleNotFoundError`; `tests/backends.py` does the
+# same for the test suite's own `COORD_TEST_BACKEND=postgres` opt-in.
+postgres = ["psycopg[binary]>=3.1"]
+# Convenience alias: "give me everything a full node runs".
+all = ["code-coordinator[server]"]
+dev = [
+    # The test suite exercises serve_app/agent_app/dashboard end to end, so a
+    # dev install is necessarily a full-fat install. Self-referential extra
+    # (PEP 621) so there is exactly one list of server deps to keep current.
+    "code-coordinator[server]",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    # Parallel test execution. The suite is the dominant cost of the Test gate
+    # in an unattended run: 5m49s serial vs 1m36s-2m23s under `-n auto`, with
+    # identical results (4642 passed) across repeated runs. Not required —
+    # tooling that runs the suite should fall back to serial when it is absent.
+    "pytest-xdist>=3.5",
+    # #1238: the build backend itself, mirrored out of `[build-system].requires`
+    # above. Those are installed into an ephemeral, discarded venv by PEP 517
+    # build isolation, so a plain `pip install -e ".[dev]"` leaves them
+    # *unimportable* in the dev/CI interpreter. tests/test_version_single_source.py
+    # builds a real wheel from a tagged clone to assert the tag-derived version,
+    # and does so with `--no-build-isolation` (no network, no per-test venv
+    # rebuild) — which needs these importable here. Keep in sync with
+    # `[build-system].requires`.
+    "setuptools>=68",
+    "setuptools-scm>=8",
+    "wheel",
+]
+
+[project.scripts]
+coord = "coord.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["coord*"]
+exclude = ["tests*"]
+
+# #1238: the git tag is now the ONLY version source — no more hand-maintained
+# `version = "X.Y.Z"` here plus a matching `__version__` literal in
+# coord/__init__.py (they drifted; that drift caused the real 0.4.70-vs-0.4.71
+# torn-install incident #1182 exists to detect). Tagging `vX.Y.Z` on main and
+# pushing it *is* the release version — see docs/AGENT_OPERATIONS.md for the
+# release flow. `coord/__init__.py` reads the resolved version back out of
+# installed package metadata (`importlib.metadata`) rather than duplicating
+# it.
+#
+# A checkout with no reachable tag (shallow CI clone, tagless fork) or a tree
+# with commits past the last tag builds as `X.Y.Z.devN+g<sha>` instead of
+# crashing — see `fallback_version` below for the "no scm info at all" case
+# (e.g. a git-archive tarball with no `.git`).
+[tool.setuptools_scm]
+fallback_version = "0.0.0.dev0"
+
+[tool.setuptools.package-data]
+coord = [
+    "skills/**/*",
+    # #2009: `dashboard/webapp/dist/**/*` was here until the webapp moved to
+    # the `coord-web` repo. Nothing builds into that path any more, so the
+    # entry could only ever match zero files — see MANIFEST.in.
+    "agents/**/*",
+    # #1927: the systemd units the `unit_drift` check diffs installed copies
+    # against. Shipped INSIDE the package so the reference is the released
+    # artifact for the installed version rather than whatever the host's git
+    # checkout happens to be parked on. Kept byte-identical to the top-level
+    # `deploy/` by tests/test_packaged_deploy_units.py.
+    "deploy/*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    # #1895: tests that exercise a genuinely POSIX-only mechanism (real
+    # `pty.fork()`, `fcntl.flock()`, tmux/interactive-session control) that
+    # has no Windows port yet. Use `@pytest.mark.skipif(sys.platform ==
+    # \"win32\", reason=\"...\")` with a specific reason naming the
+    # unportable dependency — this marker just registers the label so
+    # `pytest --strict-markers` (if ever enabled) doesn't choke on it, and
+    # so these tests are greppable as a single set. The set should shrink as
+    # CP-1/CP-5/CP-7 port each mechanism; see docs/CROSS_PLATFORM.md.
+    "posix_only: needs a POSIX-only OS primitive (pty.fork/fcntl.flock/tmux) not yet ported to Windows",
+]

@@ -110,9 +110,9 @@ class OverallModerationConfig(APIObject):
         Parameters
         ----------
         entity_id: str
-            ID of the entity
+            ID of the entity.
         entity_type: str
-            Type of the entity
+            Type of the entity.
 
         Returns
         -------
@@ -122,9 +122,9 @@ class OverallModerationConfig(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         params = {
             "entityId": entity_id,
@@ -142,9 +142,9 @@ class OverallModerationConfig(APIObject):
         Parameters
         ----------
         entity_id: str
-            ID of the entity
+            ID of the entity.
         entity_type: str
-            Type of the entity
+            Type of the entity.
 
         Returns
         -------
@@ -154,9 +154,9 @@ class OverallModerationConfig(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         data = unpaginate(
             cls._path,
@@ -183,13 +183,13 @@ class OverallModerationConfig(APIObject):
         Parameters
         ----------
         timeout_sec: int
-            how long to wait for all moderation tasks in a phase to complete.
+            How long to wait for all moderation tasks in a phase to complete.
         timeout_action: ModerationTimeoutActionType
-            what to do if moderation times out.
+            What to do if moderation times out.
         entity_id: str
-            entity, such as customModelVersion, that this configuration applies to.
+            Entity, such as customModelVersion, that this configuration applies to.
         entity_type: ModerationGuardEntityType
-            type of the entity defined by entity_id
+            Type of the entity defined by ``entity_id``.
 
         Returns
         -------
@@ -199,9 +199,9 @@ class OverallModerationConfig(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         payload = {
             "timeoutSec": timeout_sec,
@@ -230,13 +230,13 @@ class OverallModerationConfig(APIObject):
         Parameters
         ----------
         timeout_sec: int
-            how long to wait for all moderation tasks in a phase to complete.
+            How long to wait for all moderation tasks in a phase to complete.
         timeout_action: ModerationTimeoutActionType
-            what to do if moderation times out.
+            What to do if moderation times out.
         entity_id: str
-            entity, such as customModelVersion, that this configuration applies to.
+            Entity, such as customModelVersion, that this configuration applies to.
         entity_type: ModerationGuardEntityType
-            type of the entity defined by entity_id
+            Type of the entity defined by ``entity_id``.
 
         Returns
         -------
@@ -246,9 +246,9 @@ class OverallModerationConfig(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
 
         payload = {
@@ -266,16 +266,16 @@ class OverallModerationConfig(APIObject):
         self._update_values(new_version)
 
     def refresh(self: OverallModerationConfig) -> None:
-        """Update OverallModerationConfig with the latest data from server.
+        """Updates the overall moderation configuration with the latest data from server.
 
         .. versionadded:: v3.6
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         new_object = self.locate(self.entity_id, self.entity_type)

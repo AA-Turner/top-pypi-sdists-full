@@ -1,0 +1,1649 @@
+//! Pure-Rust filesystem snapshot scanner for agent artifact trees.
+//!
+//! Mirrors `sase.core.agent_scan_facade.scan_agent_artifacts_python`. The
+//! scanner walks `projects_root/<project>/artifacts/<workflow>/<timestamp>/`
+//! and parses a small fixed set of marker JSON files into the wire shape
+//! defined in [`super::wire`].
+//!
+//! Soft errors (unreadable directories, malformed marker JSON, marker JSON
+//! whose top level is not an object) are absorbed silently and counted on
+//! [`AgentArtifactScanStatsWire`]. A single bad artifact never breaks a
+//! scan.
+//!
+//! Records are sorted deterministically by
+//! `(project_name, workflow_dir_name, timestamp)` before returning so a
+//! Python parity test can compare snapshots without extra agreement.
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::io::{self, Read};
+use std::path::{Path, PathBuf};
+
+use serde_json::{Map, Value};
+
+use super::context::resolve_clan_context_from_records;
+use super::layout::{
+    collect_workflow_artifact_candidates, parse_agent_artifact_path,
+    resolve_agent_artifact_path,
+};
+use super::wire::{
+    is_supported_workflow_dir, AgentArtifactRecordShapeWire,
+    AgentArtifactRecordWire, AgentArtifactScanOptionsWire,
+    AgentArtifactScanStatsWire, AgentArtifactScanWire, AgentMetaWire,
+    DoneMarkerWire, FamilyShellGateWire, FamilyShellMonitorWire,
+    FamilyShellWire, OutputVariableValue, PendingQuestionMarkerWire,
+    PlanPathMarkerWire, PromptStepMarkerWire, RunningMarkerWire,
+    UsedXPromptWire, WaitingMarkerWire, WorkflowStateWire,
+    WorkflowStepStateWire, AGENT_SCAN_WIRE_SCHEMA_VERSION,
+};
+use crate::project_spec::{
+    list_project_records, preferred_project_spec_path,
+    read_project_lifecycle_from_content, ProjectLifecycleState,
+};
+
+const RAW_PROMPT_FILE: &str = "raw_xprompt.md";
+const USED_XPROMPTS_FILE: &str = "xprompts.json";
+const MAX_OUTPUT_VARIABLE_DEPTH: usize = 8;
+const MAX_OUTPUT_VARIABLE_NODES: usize = 1_024;
+const MAX_OUTPUT_VARIABLE_ENCODED_BYTES: usize = 65_536;
+
+#[derive(Debug)]
+struct ArtifactCandidate {
+    project_name: String,
+    project_dir: PathBuf,
+    workflow_dir_name: String,
+    artifact_dir: PathBuf,
+    timestamp: String,
+}
+
+/// Scan `projects_root` and return a deterministic snapshot of every
+/// artifact directory's parsed marker files.
+///
+/// Returns an empty snapshot (with zero stats) if `projects_root` does
+/// not exist. Soft errors do not propagate; check
+/// [`AgentArtifactScanWire::stats`] for diagnostics.
+pub fn scan_agent_artifacts(
+    projects_root: &Path,
+    options: AgentArtifactScanOptionsWire,
+) -> AgentArtifactScanWire {
+    let mut stats = AgentArtifactScanStatsWire::default();
+    let mut records: Vec<AgentArtifactRecordWire> = Vec::new();
+
+    if projects_root.exists() {
+        let project_filter = project_filter_for_scan(projects_root, &options);
+        let candidates = collect_artifact_candidates(
+            projects_root,
+            &options,
+            project_filter.as_ref(),
+            &mut stats,
+        );
+        let mut completed_records = 0u32;
+        for candidate in candidates {
+            stats.artifact_dirs_visited += 1;
+            let has_done_marker =
+                candidate.artifact_dir.join("done.json").exists();
+            if has_done_marker
+                && options.not_before_timestamp.as_deref().is_some_and(
+                    |not_before| candidate.timestamp.as_str() < not_before,
+                )
+            {
+                continue;
+            }
+            if has_done_marker
+                && options
+                    .max_records
+                    .is_some_and(|max| completed_records >= max)
+            {
+                continue;
+            }
+
+            let record = scan_artifact_dir(
+                &candidate.project_name,
+                &candidate.project_dir,
+                &candidate.workflow_dir_name,
+                &candidate.artifact_dir,
+                &options,
+                &mut stats,
+            );
+            if record.has_done_marker {
+                completed_records += 1;
+            }
+            records.push(record);
+        }
+    }
+
+    sort_records(&mut records, options.newest_first);
+    let clan_context = resolve_clan_context_from_records(&records);
+
+    AgentArtifactScanWire {
+        schema_version: AGENT_SCAN_WIRE_SCHEMA_VERSION,
+        projects_root: projects_root.to_string_lossy().into_owned(),
+        options,
+        stats,
+        index_window: None,
+        records,
+        clan_context,
+    }
+}
+
+/// Scan an exact set of artifact timestamp directories under
+/// `projects_root`.
+///
+/// Missing directories, paths outside the canonical
+/// `projects_root/<project>/artifacts/<workflow>/<timestamp>` layout, and
+/// paths excluded by the supplied project/workflow filters are skipped. The
+/// returned snapshot has the same scanner-shaped wire contract as
+/// [`scan_agent_artifacts`], but it only visits the caller-supplied artifact
+/// directories.
+pub fn scan_agent_artifact_dirs(
+    projects_root: &Path,
+    artifact_dirs: &[PathBuf],
+    options: AgentArtifactScanOptionsWire,
+) -> AgentArtifactScanWire {
+    let mut stats = AgentArtifactScanStatsWire::default();
+    let mut records: Vec<AgentArtifactRecordWire> = Vec::new();
+    let mut seen_dirs: BTreeSet<String> = BTreeSet::new();
+    let mut seen_projects: BTreeSet<String> = BTreeSet::new();
+    let mut completed_records = 0u32;
+
+    for artifact_dir in artifact_dirs {
+        let dir_key = artifact_dir.to_string_lossy().into_owned();
+        if !seen_dirs.insert(dir_key) {
+            continue;
+        }
+        let Some(candidate) =
+            exact_artifact_candidate(projects_root, artifact_dir, &options)
+        else {
+            continue;
+        };
+
+        if seen_projects.insert(candidate.project_name.clone()) {
+            stats.projects_visited += 1;
+        }
+
+        let has_done_marker = candidate.artifact_dir.join("done.json").exists();
+        if has_done_marker
+            && options.not_before_timestamp.as_deref().is_some_and(
+                |not_before| candidate.timestamp.as_str() < not_before,
+            )
+        {
+            continue;
+        }
+        if has_done_marker
+            && options
+                .max_records
+                .is_some_and(|max| completed_records >= max)
+        {
+            continue;
+        }
+
+        stats.artifact_dirs_visited += 1;
+        let record = scan_artifact_dir(
+            &candidate.project_name,
+            &candidate.project_dir,
+            &candidate.workflow_dir_name,
+            &candidate.artifact_dir,
+            &options,
+            &mut stats,
+        );
+        if record.has_done_marker {
+            completed_records += 1;
+        }
+        records.push(record);
+    }
+
+    sort_records(&mut records, options.newest_first);
+    let clan_context = resolve_clan_context_from_records(&records);
+
+    AgentArtifactScanWire {
+        schema_version: AGENT_SCAN_WIRE_SCHEMA_VERSION,
+        projects_root: projects_root.to_string_lossy().into_owned(),
+        options,
+        stats,
+        index_window: None,
+        records,
+        clan_context,
+    }
+}
+
+fn collect_artifact_candidates(
+    projects_root: &Path,
+    options: &AgentArtifactScanOptionsWire,
+    project_filter: Option<&BTreeSet<String>>,
+    stats: &mut AgentArtifactScanStatsWire,
+) -> Vec<ArtifactCandidate> {
+    let mut candidates = Vec::new();
+    let project_dirs = sorted_dir_entries(projects_root, stats);
+    for project_dir in project_dirs {
+        if !project_dir.is_dir() {
+            continue;
+        }
+        let project_name = project_dir
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if !project_allowed_by_filter(&project_name, project_filter) {
+            continue;
+        }
+        stats.projects_visited += 1;
+
+        let artifacts_base = project_dir.join("artifacts");
+        if !artifacts_base.exists() {
+            continue;
+        }
+
+        let workflow_dirs = sorted_dir_entries(&artifacts_base, stats);
+        for workflow_dir in workflow_dirs {
+            if !workflow_dir.is_dir() {
+                continue;
+            }
+            let workflow_dir_name = match workflow_dir.file_name() {
+                Some(n) => n.to_string_lossy().into_owned(),
+                None => continue,
+            };
+            if !options.only_workflow_dirs.is_empty() {
+                if !options
+                    .only_workflow_dirs
+                    .iter()
+                    .any(|s| s == &workflow_dir_name)
+                {
+                    continue;
+                }
+            } else if !is_supported_workflow_dir(&workflow_dir_name) {
+                continue;
+            }
+
+            let collected = collect_workflow_artifact_candidates(
+                &workflow_dir,
+                &workflow_dir_name,
+                options.newest_first,
+            );
+            stats.os_errors += collected.os_errors;
+            for artifact in collected.candidates {
+                candidates.push(ArtifactCandidate {
+                    project_name: project_name.clone(),
+                    project_dir: project_dir.clone(),
+                    workflow_dir_name: workflow_dir_name.clone(),
+                    artifact_dir: artifact.artifact_dir,
+                    timestamp: artifact.timestamp,
+                });
+            }
+        }
+    }
+    sort_candidates(&mut candidates, options.newest_first);
+    candidates
+}
+
+fn sort_candidates(candidates: &mut [ArtifactCandidate], newest_first: bool) {
+    if newest_first {
+        candidates.sort_by(|a, b| {
+            b.timestamp
+                .cmp(&a.timestamp)
+                .then_with(|| a.project_name.cmp(&b.project_name))
+                .then_with(|| a.workflow_dir_name.cmp(&b.workflow_dir_name))
+        });
+    } else {
+        candidates.sort_by(|a, b| {
+            a.project_name
+                .cmp(&b.project_name)
+                .then_with(|| a.workflow_dir_name.cmp(&b.workflow_dir_name))
+                .then_with(|| a.timestamp.cmp(&b.timestamp))
+        });
+    }
+}
+
+fn sort_records(records: &mut [AgentArtifactRecordWire], newest_first: bool) {
+    if newest_first {
+        records.sort_by(|a, b| {
+            b.timestamp
+                .cmp(&a.timestamp)
+                .then_with(|| a.project_name.cmp(&b.project_name))
+                .then_with(|| a.workflow_dir_name.cmp(&b.workflow_dir_name))
+        });
+    } else {
+        records.sort_by(|a, b| {
+            (
+                a.project_name.as_str(),
+                a.workflow_dir_name.as_str(),
+                a.timestamp.as_str(),
+            )
+                .cmp(&(
+                    b.project_name.as_str(),
+                    b.workflow_dir_name.as_str(),
+                    b.timestamp.as_str(),
+                ))
+        });
+    }
+}
+
+/// Scan one artifact timestamp directory under `projects_root`.
+///
+/// Returns `None` when `artifact_dir` is not a directory in the canonical
+/// `projects_root/<project>/artifacts/<workflow>/<timestamp>` layout.
+pub fn scan_agent_artifact_dir(
+    projects_root: &Path,
+    artifact_dir: &Path,
+    options: &AgentArtifactScanOptionsWire,
+) -> Option<AgentArtifactRecordWire> {
+    let candidate =
+        exact_artifact_candidate(projects_root, artifact_dir, options)?;
+    let mut stats = AgentArtifactScanStatsWire::default();
+    Some(scan_artifact_dir(
+        &candidate.project_name,
+        &candidate.project_dir,
+        &candidate.workflow_dir_name,
+        &candidate.artifact_dir,
+        options,
+        &mut stats,
+    ))
+}
+
+fn exact_artifact_candidate(
+    projects_root: &Path,
+    artifact_dir: &Path,
+    options: &AgentArtifactScanOptionsWire,
+) -> Option<ArtifactCandidate> {
+    let resolved_artifact_dir =
+        resolve_agent_artifact_path(projects_root, artifact_dir);
+    if !resolved_artifact_dir.is_dir() {
+        return None;
+    }
+
+    let parsed =
+        parse_agent_artifact_path(projects_root, &resolved_artifact_dir)?;
+    if !options.only_projects.is_empty()
+        && !options
+            .only_projects
+            .iter()
+            .any(|s| s == &parsed.project_name)
+    {
+        return None;
+    }
+    if !project_matches_lifecycle_states(
+        &projects_root.join(&parsed.project_name),
+        &parsed.project_name,
+        &options.include_project_states,
+    ) {
+        return None;
+    }
+    if !options.only_workflow_dirs.is_empty()
+        && !options
+            .only_workflow_dirs
+            .iter()
+            .any(|s| s == &parsed.workflow_dir_name)
+    {
+        return None;
+    }
+    if options.only_workflow_dirs.is_empty()
+        && !is_supported_workflow_dir(&parsed.workflow_dir_name)
+    {
+        return None;
+    }
+    Some(ArtifactCandidate {
+        project_name: parsed.project_name.clone(),
+        project_dir: projects_root.join(&parsed.project_name),
+        workflow_dir_name: parsed.workflow_dir_name,
+        artifact_dir: resolved_artifact_dir,
+        timestamp: parsed.timestamp,
+    })
+}
+
+pub(crate) fn project_filter_for_scan(
+    projects_root: &Path,
+    options: &AgentArtifactScanOptionsWire,
+) -> Option<BTreeSet<String>> {
+    let mut filter = if options.only_projects.is_empty() {
+        None
+    } else {
+        Some(
+            options
+                .only_projects
+                .iter()
+                .cloned()
+                .collect::<BTreeSet<_>>(),
+        )
+    };
+
+    if include_project_states_disabled(&options.include_project_states) {
+        return filter;
+    }
+
+    let state_records = list_project_records(
+        projects_root,
+        &options.include_project_states,
+        true,
+        false,
+    )
+    .unwrap_or_default();
+    let state_names = state_records
+        .into_iter()
+        .map(|record| record.project_name)
+        .collect::<BTreeSet<_>>();
+    filter = Some(match filter {
+        Some(existing) => existing
+            .intersection(&state_names)
+            .cloned()
+            .collect::<BTreeSet<_>>(),
+        None => state_names,
+    });
+    filter
+}
+
+pub(crate) fn project_allowed_by_filter(
+    project_name: &str,
+    project_filter: Option<&BTreeSet<String>>,
+) -> bool {
+    match project_filter {
+        Some(allowed) => allowed.contains(project_name),
+        None => true,
+    }
+}
+
+fn include_project_states_disabled(states: &[String]) -> bool {
+    states.is_empty() || states.iter().any(|state| state == "all")
+}
+
+fn project_matches_lifecycle_states(
+    project_dir: &Path,
+    project_name: &str,
+    include_states: &[String],
+) -> bool {
+    if include_project_states_disabled(include_states) {
+        return true;
+    }
+    let Ok(include_filter) = include_states
+        .iter()
+        .map(|state| ProjectLifecycleState::parse_target(state))
+        .collect::<Result<BTreeSet<_>, _>>()
+    else {
+        return false;
+    };
+    let project_file =
+        preferred_project_spec_path(project_dir, project_name, false);
+    let Ok(content) = fs::read_to_string(&project_file) else {
+        return false;
+    };
+    let lifecycle = read_project_lifecycle_from_content(&content);
+    let Ok(state) = ProjectLifecycleState::parse_target(&lifecycle.state)
+    else {
+        return false;
+    };
+    include_filter.contains(&state)
+}
+
+/// List `path` entries sorted by file name. Soft-errors increment the
+/// `os_errors` counter and yield an empty list.
+fn sorted_dir_entries(
+    path: &Path,
+    stats: &mut AgentArtifactScanStatsWire,
+) -> Vec<PathBuf> {
+    let read_dir = match fs::read_dir(path) {
+        Ok(rd) => rd,
+        Err(err) => {
+            if err.kind() != io::ErrorKind::NotFound {
+                stats.os_errors += 1;
+            }
+            return Vec::new();
+        }
+    };
+    let mut entries: Vec<PathBuf> = Vec::new();
+    for entry in read_dir {
+        match entry {
+            Ok(e) => entries.push(e.path()),
+            Err(_) => stats.os_errors += 1,
+        }
+    }
+    entries.sort_by(|a, b| {
+        a.file_name()
+            .unwrap_or_default()
+            .cmp(b.file_name().unwrap_or_default())
+    });
+    entries
+}
+
+fn scan_artifact_dir(
+    project_name: &str,
+    project_dir: &Path,
+    workflow_dir_name: &str,
+    artifact_dir: &Path,
+    options: &AgentArtifactScanOptionsWire,
+    stats: &mut AgentArtifactScanStatsWire,
+) -> AgentArtifactRecordWire {
+    let project_file =
+        preferred_project_spec_path(project_dir, project_name, false);
+
+    let agent_meta =
+        load_marker_object(&artifact_dir.join("agent_meta.json"), stats)
+            .map(|m| agent_meta_from_object(&m));
+
+    let done_path = artifact_dir.join("done.json");
+    let has_done_marker = done_path.exists();
+    let done = if has_done_marker && options.include_done_markers {
+        match load_marker_object(&done_path, stats) {
+            Some(m) => Some(done_marker_from_object(&m)),
+            // Mirror Python: "done.json exists but unreadable" still counts
+            // as a completed-marker presence; expose a default DoneMarkerWire
+            // so `record.done.is_some()` agrees with `has_done_marker`.
+            None => Some(DoneMarkerWire::default()),
+        }
+    } else {
+        None
+    };
+
+    let running = load_marker_object(&artifact_dir.join("running.json"), stats)
+        .map(|m| running_marker_from_object(&m));
+
+    let waiting = if options.include_waiting {
+        load_marker_object(&artifact_dir.join("waiting.json"), stats)
+            .map(|m| waiting_marker_from_object(&m))
+    } else {
+        None
+    };
+
+    let pending_question_path = artifact_dir.join("pending_question.json");
+    let pending_question = if pending_question_path.exists() {
+        match load_marker_object(&pending_question_path, stats) {
+            Some(m) => Some(pending_question_marker_from_object(&m)),
+            // Marker present but unreadable: surface a default record so
+            // `record.pending_question.is_some()` agrees with existence.
+            None => Some(PendingQuestionMarkerWire::default()),
+        }
+    } else {
+        None
+    };
+
+    let workflow_state = if options.include_workflow_state {
+        load_marker_object(&artifact_dir.join("workflow_state.json"), stats)
+            .map(|m| workflow_state_from_object(&m))
+    } else {
+        None
+    };
+
+    let plan_path =
+        load_marker_object(&artifact_dir.join("plan_path.json"), stats)
+            .map(|m| plan_path_from_object(&m));
+
+    let mut prompt_steps: Vec<PromptStepMarkerWire> = Vec::new();
+    if options.include_prompt_step_markers {
+        let mut step_files: Vec<PathBuf> =
+            sorted_dir_entries(artifact_dir, stats)
+                .into_iter()
+                .filter(|p| {
+                    if !p.is_file() {
+                        return false;
+                    }
+                    let name =
+                        p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    name.starts_with("prompt_step_") && name.ends_with(".json")
+                })
+                .collect();
+        step_files.sort_by(|a, b| {
+            a.file_name()
+                .unwrap_or_default()
+                .cmp(b.file_name().unwrap_or_default())
+        });
+        for step_file in step_files {
+            if let Some(obj) = load_marker_object(&step_file, stats) {
+                stats.prompt_step_markers_parsed += 1;
+                let file_name = step_file
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                prompt_steps.push(prompt_step_from_object(file_name, &obj));
+            }
+        }
+    }
+
+    let raw_prompt_snippet = if options.include_raw_prompt_snippets {
+        read_raw_prompt_snippet(
+            artifact_dir,
+            options.max_prompt_snippet_bytes as usize,
+            stats,
+        )
+    } else {
+        None
+    };
+
+    let used_xprompts =
+        load_used_xprompts(&artifact_dir.join(USED_XPROMPTS_FILE), stats);
+
+    AgentArtifactRecordWire {
+        project_name: project_name.to_string(),
+        project_dir: project_dir.to_string_lossy().into_owned(),
+        project_file: project_file.to_string_lossy().into_owned(),
+        workflow_dir_name: workflow_dir_name.to_string(),
+        artifact_dir: artifact_dir.to_string_lossy().into_owned(),
+        timestamp: artifact_dir
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        agent_meta,
+        done,
+        running,
+        waiting,
+        pending_question,
+        workflow_state,
+        plan_path,
+        prompt_steps,
+        raw_prompt_snippet,
+        used_xprompts,
+        has_done_marker,
+        record_shape: AgentArtifactRecordShapeWire::Full,
+    }
+}
+
+/// Read `path`, parse as JSON, and return only when the top-level value
+/// is a JSON object. All soft-error variants (missing, unreadable,
+/// malformed, non-object) are reported by side effect on `stats`.
+fn load_marker_object(
+    path: &Path,
+    stats: &mut AgentArtifactScanStatsWire,
+) -> Option<Map<String, Value>> {
+    let bytes = match fs::read(path) {
+        Ok(b) => b,
+        Err(err) => {
+            if err.kind() != io::ErrorKind::NotFound {
+                stats.os_errors += 1;
+            }
+            return None;
+        }
+    };
+    let value: Value = match serde_json::from_slice(&bytes) {
+        Ok(v) => v,
+        Err(_) => {
+            stats.json_decode_errors += 1;
+            return None;
+        }
+    };
+    match value {
+        Value::Object(map) => {
+            stats.marker_files_parsed += 1;
+            Some(map)
+        }
+        _ => {
+            stats.json_decode_errors += 1;
+            None
+        }
+    }
+}
+
+/// Read and normalize launch-boundary xprompt usage.
+///
+/// Missing and unreadable files yield no usage. Malformed JSON and valid
+/// non-array payloads also yield no usage while incrementing the scanner's
+/// soft-error diagnostics.
+fn load_used_xprompts(
+    path: &Path,
+    stats: &mut AgentArtifactScanStatsWire,
+) -> Vec<UsedXPromptWire> {
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            if err.kind() != io::ErrorKind::NotFound {
+                stats.os_errors += 1;
+            }
+            return Vec::new();
+        }
+    };
+    let entries = match serde_json::from_slice::<Value>(&bytes) {
+        Ok(Value::Array(entries)) => {
+            stats.marker_files_parsed += 1;
+            entries
+        }
+        Ok(_) | Err(_) => {
+            stats.json_decode_errors += 1;
+            return Vec::new();
+        }
+    };
+
+    let mut by_name: BTreeMap<String, UsedXPromptWire> = BTreeMap::new();
+    for entry in entries {
+        let Value::Object(object) = entry else {
+            continue;
+        };
+        let Some(name) = object
+            .get("name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+        else {
+            continue;
+        };
+
+        if let Some(existing) = by_name.get_mut(name) {
+            existing.references = existing.references.saturating_add(1);
+            continue;
+        }
+
+        let kind = match object.get("kind").and_then(Value::as_str) {
+            Some("workflow") => "workflow",
+            Some("part") => "part",
+            Some("swarm") => "swarm",
+            _ => "unknown",
+        };
+        let tags = object
+            .get("tags")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|tag| !tag.is_empty())
+            .map(str::to_string)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        by_name.insert(
+            name.to_string(),
+            UsedXPromptWire {
+                name: name.to_string(),
+                kind: kind.to_string(),
+                tags,
+                references: 1,
+            },
+        );
+    }
+
+    by_name.into_values().collect()
+}
+
+fn read_raw_prompt_snippet(
+    artifact_dir: &Path,
+    max_bytes: usize,
+    stats: &mut AgentArtifactScanStatsWire,
+) -> Option<String> {
+    let raw_path = artifact_dir.join(RAW_PROMPT_FILE);
+    let mut file = match fs::File::open(&raw_path) {
+        Ok(f) => f,
+        Err(err) => {
+            if err.kind() != io::ErrorKind::NotFound {
+                stats.os_errors += 1;
+            }
+            return None;
+        }
+    };
+    let mut buf = String::new();
+    if let Err(_err) = file.read_to_string(&mut buf) {
+        stats.os_errors += 1;
+        return None;
+    }
+    let truncated: String = buf
+        .chars()
+        .scan(0usize, |bytes_so_far, c| {
+            let next = *bytes_so_far + c.len_utf8();
+            if next > max_bytes {
+                None
+            } else {
+                *bytes_so_far = next;
+                Some(c)
+            }
+        })
+        .collect();
+    Some(truncated.trim().to_string())
+}
+
+// ---------------------------------------------------------------------------
+// Coercion helpers
+// ---------------------------------------------------------------------------
+
+fn coerce_str(value: Option<&Value>) -> Option<String> {
+    match value {
+        Some(Value::String(s)) => Some(s.clone()),
+        _ => None,
+    }
+}
+
+fn coerce_int(value: Option<&Value>) -> Option<i64> {
+    match value {
+        Some(Value::Bool(_)) => None,
+        Some(Value::Number(n)) => {
+            if let Some(i) = n.as_i64() {
+                Some(i)
+            } else {
+                n.as_f64().map(|f| f as i64)
+            }
+        }
+        Some(Value::String(s)) => s.parse::<i64>().ok(),
+        _ => None,
+    }
+}
+
+fn coerce_float(value: Option<&Value>) -> Option<f64> {
+    match value {
+        Some(Value::Bool(_)) => None,
+        Some(Value::Number(n)) => n.as_f64(),
+        Some(Value::String(s)) => s.parse::<f64>().ok(),
+        _ => None,
+    }
+}
+
+fn coerce_str_list(value: Option<&Value>) -> Vec<String> {
+    match value {
+        Some(Value::String(s)) => vec![s.clone()],
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(|v| match v {
+                Value::String(s) => Some(s.clone()),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn coerce_object(value: Option<&Value>) -> Option<Map<String, Value>> {
+    match value {
+        Some(Value::Object(m)) => Some(m.clone()),
+        _ => None,
+    }
+}
+
+fn coerce_object_list(value: Option<&Value>) -> Vec<Map<String, Value>> {
+    match value {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(|v| match v {
+                Value::Object(m) => Some(m.clone()),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn coerce_str_str_map(
+    value: Option<&Value>,
+) -> Option<BTreeMap<String, String>> {
+    let map = match value {
+        Some(Value::Object(m)) => m,
+        _ => return None,
+    };
+    let mut out: BTreeMap<String, String> = BTreeMap::new();
+    for (k, v) in map.iter() {
+        if let Value::String(s) = v {
+            out.insert(k.clone(), s.clone());
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+fn coerce_output_variable_map(
+    value: Option<&Value>,
+) -> Option<BTreeMap<String, OutputVariableValue>> {
+    let map = match value {
+        Some(Value::Object(m)) => m,
+        _ => return None,
+    };
+    let mut out: BTreeMap<String, OutputVariableValue> = BTreeMap::new();
+    for (key, value) in map {
+        if output_variable_value_within_caps(value) {
+            out.insert(key.clone(), canonicalize_output_variable_value(value));
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+fn output_variable_value_within_caps(value: &Value) -> bool {
+    if serde_json::to_vec(value).map_or(true, |encoded| {
+        encoded.len() > MAX_OUTPUT_VARIABLE_ENCODED_BYTES
+    }) {
+        return false;
+    }
+
+    let mut node_count = 0usize;
+    let mut pending = vec![(value, 0usize)];
+    while let Some((node, depth)) = pending.pop() {
+        if depth > MAX_OUTPUT_VARIABLE_DEPTH {
+            return false;
+        }
+        node_count += 1;
+        if node_count > MAX_OUTPUT_VARIABLE_NODES {
+            return false;
+        }
+        match node {
+            Value::Array(items) => {
+                pending.extend(items.iter().map(|item| (item, depth + 1)));
+            }
+            Value::Object(items) => {
+                pending.extend(items.values().map(|item| (item, depth + 1)));
+            }
+            _ => {}
+        }
+    }
+    true
+}
+
+fn canonicalize_output_variable_value(value: &Value) -> Value {
+    match value {
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(canonicalize_output_variable_value)
+                .collect(),
+        ),
+        Value::Object(items) => {
+            let mut sorted_items: Vec<_> = items.iter().collect();
+            sorted_items.sort_by_key(|(key, _)| *key);
+            Value::Object(
+                sorted_items
+                    .into_iter()
+                    .map(|(key, value)| {
+                        (key.clone(), canonicalize_output_variable_value(value))
+                    })
+                    .collect(),
+            )
+        }
+        _ => value.clone(),
+    }
+}
+
+/// Python `bool(x)` semantics: anything truthy → true.
+fn coerce_bool_truthy(value: Option<&Value>) -> bool {
+    match value {
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(b)) => *b,
+        Some(Value::Number(n)) => {
+            if let Some(i) = n.as_i64() {
+                i != 0
+            } else if let Some(u) = n.as_u64() {
+                u != 0
+            } else {
+                n.as_f64().map(|f| f != 0.0).unwrap_or(false)
+            }
+        }
+        Some(Value::String(s)) => !s.is_empty(),
+        Some(Value::Array(a)) => !a.is_empty(),
+        Some(Value::Object(o)) => !o.is_empty(),
+    }
+}
+
+/// Preserve an explicitly stored boolean without truthiness coercion.
+fn coerce_strict_bool(value: Option<&Value>) -> Option<bool> {
+    match value {
+        Some(Value::Bool(value)) => Some(*value),
+        _ => None,
+    }
+}
+
+/// Strict-int variant for `retry_attempt` (the Python facade only accepts
+/// real `int` values here, mirroring the source dataclass field type).
+fn coerce_strict_int(value: Option<&Value>) -> Option<i64> {
+    match value {
+        Some(Value::Bool(_)) => None,
+        Some(Value::Number(n)) if n.is_i64() => n.as_i64(),
+        _ => None,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Marker -> wire converters
+// ---------------------------------------------------------------------------
+
+fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
+    let legacy_parallel = coerce_bool_truthy(data.get("agent_family_parallel"));
+    let raw_family = coerce_str(data.get("agent_family"));
+    let agent_clan = coerce_str(data.get("agent_clan")).or_else(|| {
+        if legacy_parallel {
+            raw_family.clone()
+        } else {
+            None
+        }
+    });
+    let agent_family = if legacy_parallel { None } else { raw_family };
+    let agent_family_role = if legacy_parallel {
+        None
+    } else {
+        coerce_str(data.get("agent_family_role"))
+    };
+
+    AgentMetaWire {
+        name: coerce_str(data.get("name")),
+        artifact_agent_id: coerce_str(data.get("artifact_agent_id")),
+        artifact_source_dir: coerce_str(data.get("artifact_source_dir")),
+        changespec_name: coerce_str(data.get("changespec_name")),
+        cl_name: coerce_str(data.get("cl_name")),
+        bead_id: coerce_str(data.get("bead_id")),
+        plan_path: coerce_str(data.get("plan_path")),
+        sdd_prompt_path: coerce_str(data.get("sdd_prompt_path")),
+        sdd_plan_path: coerce_str(data.get("sdd_plan_path")),
+        epic_plan_ref: coerce_str(data.get("epic_plan_ref")),
+        question_request_path: coerce_str(data.get("question_request_path")),
+        question_response_path: coerce_str(data.get("question_response_path")),
+        question_session_id: coerce_str(data.get("question_session_id")),
+        epic_bead_id: coerce_str(data.get("epic_bead_id")),
+        phase_bead_id: coerce_str(data.get("phase_bead_id")),
+        commit_changespec_name: coerce_str(data.get("commit_changespec_name")),
+        commit_entry_id: coerce_str(data.get("commit_entry_id")),
+        commit_result: coerce_str(data.get("commit_result")),
+        commit_diff_path: coerce_str(data.get("commit_diff_path")),
+        parent_agent_timestamp: coerce_str(data.get("parent_agent_timestamp")),
+        parent_agent_name: coerce_str(data.get("parent_agent_name")),
+        workflow_name: coerce_str(data.get("workflow_name")),
+        agent_clan,
+        agent_clan_generation: coerce_str(data.get("agent_clan_generation")),
+        clan_tribe: coerce_str(data.get("clan_tribe")),
+        clan_summary: coerce_str(data.get("clan_summary")),
+        agent_family,
+        agent_family_role,
+        agent_family_parallel: legacy_parallel,
+        plan_chain_root: coerce_bool_truthy(data.get("plan_chain_root")),
+        tribe: coerce_str(data.get("tribe"))
+            .or_else(|| coerce_str(data.get("tag"))),
+        output_variables: coerce_output_variable_map(
+            data.get("output_variables"),
+        )
+        .unwrap_or_default(),
+        output_path: coerce_str(data.get("output_path")),
+        pid: coerce_int(data.get("pid")),
+        model: coerce_str(data.get("model")),
+        llm_provider: coerce_str(data.get("llm_provider")),
+        reasoning_effort: coerce_str(data.get("reasoning_effort")),
+        model_alias: coerce_str(data.get("model_alias")),
+        model_alias_trail: coerce_str_list(data.get("model_alias_trail")),
+        model_alias_origin: coerce_str(data.get("model_alias_origin")),
+        vcs_provider: coerce_str(data.get("vcs_provider")),
+        role_suffix: coerce_str(data.get("role_suffix")),
+        parent_timestamp: coerce_str(data.get("parent_timestamp")),
+        workspace_num: coerce_int(data.get("workspace_num")),
+        workspace_dir: coerce_str(data.get("workspace_dir")),
+        linked_repos: coerce_object_list(data.get("linked_repos")),
+        approve: coerce_bool_truthy(data.get("approve")),
+        auto_approve_plan_action: coerce_str(
+            data.get("auto_approve_plan_action"),
+        ),
+        hidden: coerce_bool_truthy(data.get("hidden")),
+        plan: coerce_bool_truthy(data.get("plan")),
+        plan_approved: coerce_bool_truthy(data.get("plan_approved")),
+        plan_action: coerce_str(data.get("plan_action")),
+        plan_committed: coerce_strict_bool(data.get("plan_committed")),
+        wait_for: coerce_str_list(data.get("wait_for")),
+        wait_for_beads: coerce_str_list(data.get("wait_for_beads")),
+        wait_duration: coerce_float(data.get("wait_duration")),
+        wait_until: coerce_str(data.get("wait_until")),
+        wait_priority: coerce_int(data.get("wait_priority")),
+        wait_completed_at: coerce_str(data.get("wait_completed_at")),
+        plan_submitted_at: coerce_str_list(data.get("plan_submitted_at")),
+        epic_started_at: coerce_str(data.get("epic_started_at")),
+        feedback_submitted_at: coerce_str_list(
+            data.get("feedback_submitted_at"),
+        ),
+        questions_submitted_at: coerce_str_list(
+            data.get("questions_submitted_at"),
+        ),
+        retry_started_at: coerce_str_list(data.get("retry_started_at")),
+        run_started_at: coerce_str(data.get("run_started_at")),
+        stopped_at: coerce_str(data.get("stopped_at")),
+        retry_of_timestamp: coerce_str(data.get("retry_of_timestamp")),
+        retry_attempt: coerce_strict_int(data.get("retry_attempt")),
+        retry_chain_root_timestamp: coerce_str(
+            data.get("retry_chain_root_timestamp"),
+        ),
+        retried_as_timestamp: coerce_str(data.get("retried_as_timestamp")),
+        retry_terminal: coerce_bool_truthy(data.get("retry_terminal")),
+        retry_error_category: coerce_str(data.get("retry_error_category")),
+        family_shell: family_shell_from_object(data),
+        shell_kind: coerce_str(data.get("shell_kind")),
+        proc_id: coerce_str(data.get("proc_id")),
+    }
+}
+
+/// Fold the flat `monitor_*` / `gate_*` marker keys into one
+/// [`FamilyShellWire`], the compatibility projection for on-disk
+/// `agent_meta.json` / `done.json` files, which still carry the flat shape.
+///
+/// A family shell is either a monitor or a gate, never both -- the two are
+/// independent inheritance chains keyed off different launch mechanisms.
+/// If both prefixes are somehow present, `agent_family_role` disambiguates
+/// rather than silently dropping one side.
+fn family_shell_from_object(
+    data: &Map<String, Value>,
+) -> Option<FamilyShellWire> {
+    let mut has_monitor = data.keys().any(|k| k.starts_with("monitor_"));
+    let mut has_gate = data.keys().any(|k| k.starts_with("gate_"));
+    if has_monitor && has_gate {
+        has_monitor = coerce_str(data.get("agent_family_role")).as_deref()
+            != Some("gate");
+        has_gate = !has_monitor;
+    }
+    if has_monitor {
+        return Some(FamilyShellWire {
+            kind: "monitor".to_string(),
+            id: coerce_str(data.get("monitor_id")),
+            state: coerce_str(data.get("monitor_state")),
+            label: coerce_str(data.get("monitor_label")),
+            reason: coerce_str(data.get("monitor_reason")),
+            start_status: coerce_str(data.get("monitor_start_status")),
+            stop_status: coerce_str(data.get("monitor_stop_status")),
+            timeout_seconds: coerce_float(data.get("monitor_timeout_seconds")),
+            elapsed_seconds: coerce_float(data.get("monitor_elapsed_seconds")),
+            output_path: coerce_str(data.get("monitor_output_path")),
+            output_truncated: coerce_bool_truthy(
+                data.get("monitor_output_truncated"),
+            ),
+            request_fingerprint: coerce_str(
+                data.get("monitor_request_fingerprint"),
+            ),
+            next_action: coerce_str(data.get("monitor_next_action")),
+            next_output: coerce_str(data.get("monitor_next_output")),
+            next_model: coerce_str(data.get("monitor_next_model")),
+            followup_agent: coerce_str(data.get("monitor_followup_agent")),
+            followup_outcome: coerce_str(data.get("monitor_followup_outcome")),
+            followup_error: coerce_str(data.get("monitor_followup_error")),
+            followup_degraded_reason: coerce_str(
+                data.get("monitor_followup_degraded_reason"),
+            ),
+            followup_prompt_path: coerce_str(
+                data.get("monitor_followup_prompt_path"),
+            ),
+            monitor: Some(FamilyShellMonitorWire {
+                command: coerce_str(data.get("monitor_command")),
+                cwd: coerce_str(data.get("monitor_cwd")),
+                exit_code: coerce_int(data.get("monitor_exit_code")),
+                starter_agent: coerce_str(data.get("monitor_starter_agent")),
+                tail_lines: coerce_int(data.get("monitor_tail_lines")),
+                pgid: coerce_int(data.get("monitor_pgid")),
+                supervisor_identity: coerce_str(
+                    data.get("monitor_supervisor_identity"),
+                ),
+                settled: coerce_bool_truthy(data.get("monitor_settled")),
+                idle_timeout_seconds: coerce_float(
+                    data.get("monitor_idle_timeout_seconds"),
+                ),
+            }),
+            gate: None,
+        });
+    }
+    if has_gate {
+        return Some(FamilyShellWire {
+            kind: "gate".to_string(),
+            id: coerce_str(data.get("gate_id")),
+            state: coerce_str(data.get("gate_state")),
+            label: coerce_str(data.get("gate_label")),
+            reason: coerce_str(data.get("gate_reason")),
+            start_status: coerce_str(data.get("gate_start_status")),
+            stop_status: coerce_str(data.get("gate_stop_status")),
+            timeout_seconds: coerce_float(data.get("gate_timeout_seconds")),
+            elapsed_seconds: coerce_float(data.get("gate_elapsed_seconds")),
+            output_path: coerce_str(data.get("gate_output_path")),
+            output_truncated: coerce_bool_truthy(
+                data.get("gate_output_truncated"),
+            ),
+            request_fingerprint: coerce_str(
+                data.get("gate_request_fingerprint"),
+            ),
+            next_action: coerce_str(data.get("gate_next_action")),
+            next_output: coerce_str(data.get("gate_next_output")),
+            next_model: coerce_str(data.get("gate_next_model")),
+            followup_agent: coerce_str(data.get("gate_followup_agent")),
+            followup_outcome: coerce_str(data.get("gate_followup_outcome")),
+            followup_error: coerce_str(data.get("gate_followup_error")),
+            followup_degraded_reason: coerce_str(
+                data.get("gate_followup_degraded_reason"),
+            ),
+            followup_prompt_path: coerce_str(
+                data.get("gate_followup_prompt_path"),
+            ),
+            monitor: None,
+            gate: Some(FamilyShellGateWire {
+                kind: coerce_str(data.get("gate_kind")),
+                accent: coerce_str(data.get("gate_accent")),
+                creator_agent: coerce_str(data.get("gate_creator_agent")),
+                next_fork: coerce_str(data.get("gate_next_fork")),
+                workspace_policy: coerce_str(data.get("gate_workspace_policy")),
+                bundle_path: coerce_str(data.get("gate_bundle_path")),
+                notification_id: coerce_str(data.get("gate_notification_id")),
+                decision_path: coerce_str(data.get("gate_decision_path")),
+            }),
+        });
+    }
+    None
+}
+
+fn done_marker_from_object(data: &Map<String, Value>) -> DoneMarkerWire {
+    DoneMarkerWire {
+        outcome: coerce_str(data.get("outcome")),
+        finished_at: coerce_float(data.get("finished_at")),
+        finished_at_estimated: coerce_bool_truthy(
+            data.get("finished_at_estimated"),
+        ),
+        cl_name: coerce_str(data.get("cl_name")),
+        project_file: coerce_str(data.get("project_file")),
+        workspace_num: coerce_int(data.get("workspace_num")),
+        workspace_dir: coerce_str(data.get("workspace_dir")),
+        pid: coerce_int(data.get("pid")),
+        model: coerce_str(data.get("model")),
+        llm_provider: coerce_str(data.get("llm_provider")),
+        vcs_provider: coerce_str(data.get("vcs_provider")),
+        name: coerce_str(data.get("name")),
+        plan_path: coerce_str(data.get("plan_path")),
+        diff_path: coerce_str(data.get("diff_path")),
+        markdown_pdf_paths: coerce_str_list(data.get("markdown_pdf_paths")),
+        image_paths: coerce_str_list(data.get("image_paths")),
+        video_paths: coerce_str_list(data.get("video_paths")),
+        response_path: coerce_str(data.get("response_path")),
+        output_path: coerce_str(data.get("output_path")),
+        step_output: coerce_object(data.get("step_output")),
+        error: coerce_str(data.get("error")),
+        traceback: coerce_str(data.get("traceback")),
+        retried_as_timestamp: coerce_str(data.get("retried_as_timestamp")),
+        retry_chain_root_timestamp: coerce_str(
+            data.get("retry_chain_root_timestamp"),
+        ),
+        retry_error_category: coerce_str(data.get("retry_error_category")),
+        approve: coerce_bool_truthy(data.get("approve")),
+        hidden: coerce_bool_truthy(data.get("hidden")),
+        repeat_stopped: coerce_bool_truthy(data.get("repeat_stopped")),
+        stopped_by: coerce_str(data.get("stopped_by")),
+        imported_transaction_key: coerce_str(
+            data.get("imported_transaction_key"),
+        ),
+        status_label: coerce_str(data.get("status_label")),
+        family_shell: family_shell_from_object(data),
+    }
+}
+
+fn running_marker_from_object(data: &Map<String, Value>) -> RunningMarkerWire {
+    RunningMarkerWire {
+        pid: coerce_int(data.get("pid")),
+        cl_name: coerce_str(data.get("cl_name")),
+        model: coerce_str(data.get("model")),
+        llm_provider: coerce_str(data.get("llm_provider")),
+        vcs_provider: coerce_str(data.get("vcs_provider")),
+        workspace_dir: coerce_str(data.get("workspace_dir")),
+    }
+}
+
+fn waiting_marker_from_object(data: &Map<String, Value>) -> WaitingMarkerWire {
+    WaitingMarkerWire {
+        waiting_for: coerce_str_list(data.get("waiting_for")),
+        wait_for_beads: coerce_str_list(data.get("wait_for_beads")),
+        wait_duration: coerce_float(data.get("wait_duration")),
+        wait_until: coerce_str(data.get("wait_until")),
+        wait_runners: coerce_int(data.get("wait_runners")),
+        wait_priority: coerce_int(data.get("wait_priority")),
+        wait_priority_explicit: coerce_bool_truthy(
+            data.get("wait_priority_explicit"),
+        ),
+        wait_runners_explicit: coerce_bool_truthy(
+            data.get("wait_runners_explicit"),
+        ),
+        slot_requested_at: coerce_str(data.get("slot_requested_at")),
+    }
+}
+
+fn pending_question_marker_from_object(
+    data: &Map<String, Value>,
+) -> PendingQuestionMarkerWire {
+    PendingQuestionMarkerWire {
+        session_id: coerce_str(data.get("session_id")),
+        request_path: coerce_str(data.get("request_path")),
+        submitted_at: coerce_str(data.get("submitted_at")),
+    }
+}
+
+fn workflow_step_from_object(
+    data: &Map<String, Value>,
+) -> WorkflowStepStateWire {
+    WorkflowStepStateWire {
+        name: coerce_str(data.get("name")).unwrap_or_default(),
+        status: coerce_str(data.get("status"))
+            .unwrap_or_else(|| "pending".to_string()),
+        output: coerce_object(data.get("output")),
+        output_types: coerce_str_str_map(data.get("output_types")),
+        error: coerce_str(data.get("error")),
+        traceback: coerce_str(data.get("traceback")),
+    }
+}
+
+fn workflow_state_from_object(data: &Map<String, Value>) -> WorkflowStateWire {
+    let mut steps: Vec<WorkflowStepStateWire> = Vec::new();
+    if let Some(Value::Array(raw_steps)) = data.get("steps") {
+        for step in raw_steps {
+            if let Value::Object(map) = step {
+                steps.push(workflow_step_from_object(map));
+            }
+        }
+    }
+    let cl_name = match data.get("context") {
+        Some(Value::Object(ctx)) => coerce_str(ctx.get("cl_name")),
+        _ => None,
+    };
+    WorkflowStateWire {
+        workflow_name: coerce_str(data.get("workflow_name"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        cl_name,
+        status: coerce_str(data.get("status"))
+            .unwrap_or_else(|| "running".to_string()),
+        pid: coerce_int(data.get("pid")),
+        appears_as_agent: coerce_bool_truthy(data.get("appears_as_agent")),
+        is_anonymous: coerce_bool_truthy(data.get("is_anonymous")),
+        hidden: coerce_bool_truthy(data.get("hidden")),
+        current_step_index: coerce_int(data.get("current_step_index"))
+            .unwrap_or(0),
+        start_time: coerce_str(data.get("start_time")),
+        error: coerce_str(data.get("error")),
+        traceback: coerce_str(data.get("traceback")),
+        activity: coerce_str(data.get("activity")),
+        pdf_status: match data.get("pdf_status") {
+            Some(Value::Object(map)) => Some(map.clone()),
+            _ => None,
+        },
+        steps,
+    }
+}
+
+fn prompt_step_from_object(
+    file_name: String,
+    data: &Map<String, Value>,
+) -> PromptStepMarkerWire {
+    PromptStepMarkerWire {
+        file_name,
+        workflow_name: coerce_str(data.get("workflow_name"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        step_name: coerce_str(data.get("step_name"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        step_type: coerce_str(data.get("step_type"))
+            .unwrap_or_else(|| "agent".to_string()),
+        step_source: coerce_str(data.get("step_source")),
+        step_index: coerce_int(data.get("step_index")),
+        total_steps: coerce_int(data.get("total_steps")),
+        parent_step_index: coerce_int(data.get("parent_step_index")),
+        parent_total_steps: coerce_int(data.get("parent_total_steps")),
+        status: coerce_str(data.get("status"))
+            .unwrap_or_else(|| "completed".to_string()),
+        hidden: coerce_bool_truthy(data.get("hidden")),
+        is_pre_prompt_step: coerce_bool_truthy(data.get("is_pre_prompt_step")),
+        embedded_workflow_name: coerce_str(data.get("embedded_workflow_name")),
+        artifacts_dir: coerce_str(data.get("artifacts_dir")),
+        diff_path: coerce_str(data.get("diff_path")),
+        response_path: coerce_str(data.get("response_path")),
+        error: coerce_str(data.get("error")),
+        traceback: coerce_str(data.get("traceback")),
+        model: coerce_str(data.get("model")),
+        llm_provider: coerce_str(data.get("llm_provider")),
+        reasoning_effort: coerce_str(data.get("reasoning_effort")),
+        model_alias: coerce_str(data.get("model_alias")),
+        model_alias_trail: coerce_str_list(data.get("model_alias_trail")),
+        model_alias_origin: coerce_str(data.get("model_alias_origin")),
+        output: coerce_object(data.get("output")),
+        output_types: coerce_str_str_map(data.get("output_types")),
+    }
+}
+
+fn plan_path_from_object(data: &Map<String, Value>) -> PlanPathMarkerWire {
+    PlanPathMarkerWire {
+        plan_path: coerce_str(data.get("plan_path")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use serde_json::{json, Value};
+    use tempfile::tempdir;
+
+    use super::*;
+
+    fn write_json(path: &Path, payload: Value) {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, serde_json::to_string(&payload).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn scanner_round_trips_monitor_next_model() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260822120000");
+        write_json(
+            &artifact.join("agent_meta.json"),
+            json!({
+                "name": "acme--mon",
+                "agent_family": "acme",
+                "agent_family_role": "monitor",
+                "monitor_id": "m4kq",
+                "monitor_next_action": "Reply to the user.",
+                "monitor_next_model": "@small"
+            }),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert_eq!(snapshot.records.len(), 1);
+        let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
+        let shell = meta.family_shell.as_ref().unwrap();
+        assert_eq!(shell.kind, "monitor");
+        assert_eq!(shell.next_action.as_deref(), Some("Reply to the user."));
+        assert_eq!(shell.next_model.as_deref(), Some("@small"));
+    }
+
+    #[test]
+    fn scanner_defaults_absent_monitor_next_model() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260822120100");
+        write_json(
+            &artifact.join("agent_meta.json"),
+            json!({
+                "name": "legacy-monitor",
+                "agent_family_role": "monitor",
+                "monitor_id": "oldmon"
+            }),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert_eq!(snapshot.records.len(), 1);
+        let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
+        let shell = meta.family_shell.as_ref().unwrap();
+        assert_eq!(shell.id.as_deref(), Some("oldmon"));
+        assert_eq!(shell.next_model, None);
+    }
+
+    #[test]
+    fn scanner_round_trips_gate_shell_metadata() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260822120200");
+        write_json(
+            &artifact.join("agent_meta.json"),
+            json!({
+                "name": "acme--gate",
+                "agent_family": "acme",
+                "agent_family_role": "gate",
+                "gate_id": "gate-1",
+                "gate_kind": "approval",
+                "gate_state": "pending",
+                "gate_start_status": "WAITING",
+                "gate_stop_status": "ANSWERED",
+                "gate_accent": "#0BCDEC",
+                "gate_output_path": "gate.out",
+                "gate_output_truncated": true,
+                "gate_creator_agent": "acme--0",
+                "gate_followup_agent": "acme--1",
+                "gate_next_action": "Resume after gate.",
+                "gate_next_fork": "family",
+                "gate_next_output": "summary",
+                "gate_next_model": "@large",
+                "gate_followup_outcome": "launched",
+                "gate_followup_error": "claim moved late",
+                "gate_followup_degraded_reason": "workspace unavailable",
+                "gate_followup_prompt_path": "gate_followup.md",
+                "gate_elapsed_seconds": 2.5,
+                "gate_label": "approval/gate-1",
+                "gate_reason": "Need owner approval",
+                "gate_timeout_seconds": 600.0,
+                "gate_request_fingerprint": "sha256:cafe",
+                "gate_workspace_policy": "inherit",
+                "gate_bundle_path": "gate_bundle.json",
+                "gate_notification_id": "notif-1",
+                "gate_decision_path": "gate_decision.md",
+                "shell_kind": "gate",
+                "proc_id": "proc-gate"
+            }),
+        );
+        write_json(
+            &artifact.join("done.json"),
+            json!({
+                "outcome": "gated",
+                "gate_id": "gate-1",
+                "gate_kind": "approval",
+                "gate_state": "answered",
+                "gate_elapsed_seconds": 2.5,
+                "status_label": "ANSWERED",
+                "gate_output_path": "gate.out",
+                "gate_output_truncated": true,
+                "gate_bundle_path": "gate_bundle.json",
+                "gate_notification_id": "notif-1",
+                "gate_followup_outcome": "launched",
+                "gate_followup_error": "claim moved late",
+                "gate_followup_degraded_reason": "workspace unavailable",
+                "gate_followup_prompt_path": "gate_followup.md"
+            }),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert_eq!(snapshot.records.len(), 1);
+        let record = &snapshot.records[0];
+        let meta = record.agent_meta.as_ref().unwrap();
+        let meta_shell = meta.family_shell.as_ref().unwrap();
+        assert_eq!(meta_shell.kind, "gate");
+        assert_eq!(meta_shell.id.as_deref(), Some("gate-1"));
+        assert_eq!(meta_shell.state.as_deref(), Some("pending"));
+        assert_eq!(meta_shell.next_model.as_deref(), Some("@large"));
+        assert!(meta_shell.output_truncated);
+        let meta_gate = meta_shell.gate.as_ref().unwrap();
+        assert_eq!(
+            meta_gate.decision_path.as_deref(),
+            Some("gate_decision.md")
+        );
+        assert_eq!(meta.shell_kind.as_deref(), Some("gate"));
+        let done = record.done.as_ref().unwrap();
+        let done_shell = done.family_shell.as_ref().unwrap();
+        assert_eq!(done_shell.state.as_deref(), Some("answered"));
+        assert_eq!(done_shell.elapsed_seconds, Some(2.5));
+        assert!(done_shell.output_truncated);
+        assert_eq!(
+            done_shell.followup_prompt_path.as_deref(),
+            Some("gate_followup.md")
+        );
+    }
+
+    #[test]
+    fn scanner_round_trips_alias_trail_and_origin() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260816120000");
+        write_json(
+            &artifact.join("agent_meta.json"),
+            json!({
+                "name": "trail-agent",
+                "model_alias": "coder",
+                "model_alias_trail": ["coder", "large"],
+                "model_alias_origin": "directive"
+            }),
+        );
+        write_json(
+            &artifact.join("prompt_step_001_plan.json"),
+            json!({
+                "workflow_name": "wf",
+                "step_name": "plan",
+                "step_type": "agent",
+                "status": "completed",
+                "model_alias": "coder",
+                "model_alias_trail": ["coder", "large"],
+                "model_alias_origin": "directive"
+            }),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert_eq!(snapshot.records.len(), 1);
+        let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
+        assert_eq!(meta.model_alias.as_deref(), Some("coder"));
+        assert_eq!(
+            meta.model_alias_trail,
+            vec!["coder".to_string(), "large".to_string()]
+        );
+        assert_eq!(meta.model_alias_origin.as_deref(), Some("directive"));
+        let step = &snapshot.records[0].prompt_steps[0];
+        assert_eq!(
+            step.model_alias_trail,
+            vec!["coder".to_string(), "large".to_string()]
+        );
+        assert_eq!(step.model_alias_origin.as_deref(), Some("directive"));
+    }
+
+    #[test]
+    fn scanner_defaults_absent_alias_trail_and_origin() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260816120100");
+        write_json(
+            &artifact.join("agent_meta.json"),
+            json!({
+                "name": "legacy-agent",
+                "model_alias": "large"
+            }),
+        );
+        write_json(
+            &artifact.join("prompt_step_001_plan.json"),
+            json!({
+                "workflow_name": "wf",
+                "step_name": "plan",
+                "step_type": "agent",
+                "status": "completed",
+                "model_alias": "large"
+            }),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
+        assert_eq!(meta.model_alias.as_deref(), Some("large"));
+        assert!(meta.model_alias_trail.is_empty());
+        assert_eq!(meta.model_alias_origin, None);
+        let step = &snapshot.records[0].prompt_steps[0];
+        assert!(step.model_alias_trail.is_empty());
+        assert_eq!(step.model_alias_origin, None);
+    }
+}

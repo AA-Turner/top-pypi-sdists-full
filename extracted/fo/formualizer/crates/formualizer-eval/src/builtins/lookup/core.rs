@@ -1,0 +1,1538 @@
+//! Classic lookup & reference essentials: MATCH, VLOOKUP, HLOOKUP (Sprint 4 subset)
+//!
+//! Implementation notes:
+//! - MATCH supports match_type: 0 exact, 1 approximate (largest <= lookup), -1 approximate (smallest >= lookup)
+//! - Approximate modes assume data sorted ascending (1) or descending (-1).
+//! - Unsorted-data behavior differs by function and is deliberate: MATCH performs a lightweight
+//!   ascending-order check and returns #N/A when the data is not ordered, while VLOOKUP/HLOOKUP
+//!   bisect without a sortedness guard and can therefore return a row Excel would also return
+//!   incorrectly. Excel documents approximate results on unsorted data as "may not be correct"
+//!   rather than an error, so the unguarded path matches Excel; LibreOffice instead returns #N/A.
+//!   See issue #283 before changing either behavior.
+//! - Binary search used for approximate modes for efficiency; linear scan for exact or when data has fewer than 8 searchable elements to avoid overhead.
+//! - VLOOKUP/HLOOKUP wrap MATCH logic; VLOOKUP: vertical first column; HLOOKUP: horizontal first row.
+//! - Error propagation: if the lookup value or any entry in an approximate lookup vector is an error, that error propagates.
+//! - Type coercion: current simple: numbers vs numeric text coerced; text comparison case-insensitive? Excel is case-insensitive for MATCH (without wildcards). We implement case-insensitive for now.
+//!   TODO(excel-nuance): refine boolean/text/number coercion differences.
+
+use super::lookup_utils::{SearchedVector, cmp_for_lookup, find_exact_index};
+use crate::args::{ArgSchema, CoercionPolicy, ShapeKind};
+use crate::engine::{DateSystem, lookup_index_cache::LookupAxis};
+use crate::function::Function;
+use crate::traits::{ArgumentHandle, FunctionContext};
+use formualizer_common::ArgKind;
+use formualizer_common::{ExcelError, ExcelErrorKind, LiteralValue};
+use formualizer_macros::func_caps;
+
+/// Approximate search over a lookup vector, returning a position in the
+/// *original* vector.
+///
+/// Entries the search must ignore — blanks, and entries outside the needle's
+/// value class — are projected out first, so they neither occupy a matchable
+/// position nor disturb the binary search's ordering assumption. Errors are
+/// not ignored: any error in the lookup vector is returned before searching.
+fn binary_search_match(
+    slice: &[LiteralValue],
+    needle: &LiteralValue,
+    mode: i32,
+    date_system: DateSystem,
+) -> Result<Option<usize>, ExcelError> {
+    if mode == 0 || slice.is_empty() {
+        return Ok(None);
+    }
+    let searched = SearchedVector::new(slice, needle, date_system)?;
+    Ok(binary_search_searched(&searched, needle, mode, date_system)
+        .map(|i| searched.original_position(i)))
+}
+
+/// Same search, but over an already-projected vector and returning an index
+/// into that projection.
+fn binary_search_searched(
+    searched: &SearchedVector<'_>,
+    needle: &LiteralValue,
+    mode: i32,
+    date_system: DateSystem,
+) -> Option<usize> {
+    if mode == 0 || searched.is_empty() {
+        return None;
+    }
+    // Only ascending binary search currently (mode 1); descending path kept linear for now.
+    if mode == 1 {
+        // largest <= needle
+        let mut lo = 0usize;
+        let mut hi = searched.len();
+        while lo < hi {
+            let mid = (lo + hi) / 2;
+            match cmp_for_lookup(searched.get(mid), needle, date_system) {
+                Some(c) => {
+                    if c > 0 {
+                        hi = mid;
+                    } else {
+                        lo = mid + 1;
+                    }
+                }
+                None => unreachable!(
+                    "SearchedVector contains only entries comparable with the lookup value"
+                ),
+            }
+        }
+        if lo == 0 { None } else { Some(lo - 1) }
+    } else {
+        // -1 mode handled via linear fallback since semantics differ (smallest >=)
+        let mut best: Option<usize> = None;
+        for i in 0..searched.len() {
+            if let Some(c) = cmp_for_lookup(searched.get(i), needle, date_system) {
+                if c == 0 {
+                    return Some(i);
+                }
+                if c >= 0 && best.is_none_or(|b| i > b) {
+                    best = Some(i);
+                }
+            }
+        }
+        best
+    }
+}
+
+#[derive(Debug)]
+pub struct MatchFn;
+/// Returns the relative position of a lookup value in a one-dimensional array.
+///
+/// `MATCH` supports exact and approximate modes and returns a 1-based position.
+///
+/// # Remarks
+/// - `match_type` defaults to `1` (approximate, ascending).
+/// - `match_type=0` performs exact matching and supports `*`, `?`, and `~` wildcards for text.
+/// - `match_type=1` looks for the largest value less than or equal to the lookup value.
+/// - `match_type=-1` looks for the smallest value greater than or equal to the lookup value.
+/// - Approximate modes require sorted data. MATCH detects unsorted input and returns `#N/A`; see the module notes for how VLOOKUP/HLOOKUP differ.
+/// - If no match is found, returns `#N/A`.
+///
+/// # Examples
+/// ```yaml,sandbox
+/// title: "Exact text match"
+/// grid:
+///   A1: "A"
+///   A2: "B"
+///   A3: "C"
+/// formula: '=MATCH("B",A1:A3,0)'
+/// expected: 2
+/// ```
+///
+/// ```yaml,sandbox
+/// title: "Approximate numeric match"
+/// grid:
+///   A1: 10
+///   A2: 20
+///   A3: 30
+///   A4: 40
+/// formula: '=MATCH(27,A1:A4,1)'
+/// expected: 2
+/// ```
+///
+/// ```yaml,docs
+/// related:
+///   - XMATCH
+///   - XLOOKUP
+///   - VLOOKUP
+/// faq:
+///   - q: "Why does MATCH with match_type 1 or -1 return #N/A on unsorted data?"
+///     a: "Approximate modes assume ordered lookup data; this implementation treats detected unsorted inputs as no valid match and returns #N/A."
+///   - q: "When are wildcards interpreted in MATCH?"
+///     a: "Wildcard patterns (*, ?, ~ escapes) are only applied in exact mode (match_type=0) for text lookup values."
+/// ```
+/// [formualizer-docgen:schema:start]
+/// Name: MATCH
+/// Type: MatchFn
+/// Min args: 2
+/// Max args: 3
+/// Variadic: false
+/// Signature: MATCH(arg1: any@scalar, arg2: any@range, arg3?: number@scalar)
+/// Arg schema: arg1{kinds=any,required=true,shape=scalar,by_ref=false,coercion=None,max=None,repeating=None,default=false}; arg2{kinds=any,required=true,shape=range,by_ref=false,coercion=None,max=None,repeating=None,default=false}; arg3{kinds=number,required=false,shape=scalar,by_ref=false,coercion=NumberLenientText,max=None,repeating=None,default=true}
+/// Caps: PURE, LOOKUP
+/// [formualizer-docgen:schema:end]
+impl Function for MatchFn {
+    fn name(&self) -> &'static str {
+        "MATCH"
+    }
+    fn min_args(&self) -> usize {
+        2
+    }
+    func_caps!(PURE, LOOKUP);
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use once_cell::sync::Lazy;
+        static SCHEMA: Lazy<Vec<ArgSchema>> = Lazy::new(|| {
+            vec![
+                // lookup_value (any scalar)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Any],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // lookup_array (accepts both references and array literals)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Any],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // match_type (optional numeric, default 1)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Number(1.0)),
+                },
+            ]
+        });
+        &SCHEMA
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        if args.len() < 2 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Na),
+            )));
+        }
+        let cv = args[0].value()?;
+        let lookup_value = cv.into_literal();
+        if let LiteralValue::Error(e) = lookup_value {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+        }
+        let mut match_type = 1.0; // default
+        if args.len() >= 3 {
+            // Defensive: value() currently materializes omission as Number(0), so this is redundant.
+            if args[2].is_omitted() {
+                match_type = 0.0;
+            } else {
+                let mt_val = args[2].value()?.into_literal();
+                if let LiteralValue::Error(e) = mt_val {
+                    return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+                }
+                match mt_val {
+                    LiteralValue::Number(n) => match_type = n,
+                    LiteralValue::Int(i) => match_type = i as f64,
+                    LiteralValue::Text(s) => {
+                        if let Ok(n) = s.parse::<f64>() {
+                            match_type = n;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let mt = if match_type > 0.0 {
+            1
+        } else if match_type < 0.0 {
+            -1
+        } else {
+            0
+        };
+        let arr_ref = args[1].as_reference_or_eval().ok();
+        if let Some(r) = arr_ref {
+            let current_sheet = ctx.current_sheet();
+            match ctx.resolve_range_view(&r, current_sheet) {
+                Ok(rv) => {
+                    if mt == 0 {
+                        let wildcard_mode = matches!(lookup_value, LiteralValue::Text(ref s) if s.contains('*') || s.contains('?') || s.contains('~'));
+                        if !wildcard_mode {
+                            let axis = if rv.dims().1 == 1 {
+                                Some(LookupAxis::ColumnInView(0))
+                            } else if rv.dims().0 == 1 {
+                                Some(LookupAxis::RowInView(0))
+                            } else {
+                                None
+                            };
+                            if let Some(axis) = axis
+                                && let Some(index) = ctx.get_lookup_index(&rv, axis)
+                            {
+                                if let Some(idx) = index.find_first_exact(&lookup_value) {
+                                    return Ok(crate::traits::CalcValue::Scalar(
+                                        LiteralValue::Int((idx + 1) as i64),
+                                    ));
+                                }
+                                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                                    ExcelError::new(ExcelErrorKind::Na),
+                                )));
+                            }
+                        }
+                        if let Some(idx) = super::lookup_utils::find_exact_index_in_view(
+                            &rv,
+                            &lookup_value,
+                            wildcard_mode,
+                            ctx.date_system(),
+                        )? {
+                            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Int(
+                                (idx + 1) as i64,
+                            )));
+                        }
+                        return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                            ExcelError::new(ExcelErrorKind::Na),
+                        )));
+                    }
+
+                    // Fallback for approximate match modes (handled via materialization for now)
+                    let mut values: Vec<LiteralValue> = Vec::new();
+                    if let Err(e) = rv.for_each_cell(&mut |v| {
+                        values.push(v.clone());
+                        Ok(())
+                    }) {
+                        return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+                    }
+
+                    // Project out the entries an approximate search ignores
+                    // (blanks and entries outside the needle's value class)
+                    // before both the sortedness guard and the search itself.
+                    let searched =
+                        match SearchedVector::new(&values, &lookup_value, ctx.date_system()) {
+                            Ok(searched) => searched,
+                            Err(error) => {
+                                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                                    error,
+                                )));
+                            }
+                        };
+
+                    // Lightweight unsorted detection for approximate modes
+                    let is_sorted = if mt == 1 {
+                        searched.is_sorted_ascending()
+                    } else if mt == -1 {
+                        searched.is_sorted_descending()
+                    } else {
+                        true
+                    };
+                    if !is_sorted {
+                        return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                            ExcelError::new(ExcelErrorKind::Na),
+                        )));
+                    }
+                    let idx = if searched.len() < 8 {
+                        // linear small
+                        let mut best: Option<usize> = None;
+                        for i in 0..searched.len() {
+                            if let Some(c) =
+                                cmp_for_lookup(searched.get(i), &lookup_value, ctx.date_system())
+                            {
+                                // compare candidate to needle
+                                if mt == 1 {
+                                    // v <= needle
+                                    if (c == 0 || c == -1) && (best.is_none() || i > best.unwrap())
+                                    {
+                                        best = Some(i);
+                                    }
+                                } else {
+                                    // -1, v >= needle. Excel returns the *first*
+                                    // entry of an exact-match run on a descending
+                                    // range, but the *last* entry that still
+                                    // qualifies when the needle falls between two
+                                    // values. This mirrors the >= 8 path.
+                                    if c == 0 {
+                                        best = Some(i);
+                                        break;
+                                    }
+                                    if c == 1 && (best.is_none() || i > best.unwrap()) {
+                                        best = Some(i);
+                                    }
+                                }
+                            }
+                        }
+                        best
+                    } else {
+                        binary_search_searched(&searched, &lookup_value, mt, ctx.date_system())
+                    };
+                    let idx = idx.map(|i| searched.original_position(i));
+                    match idx {
+                        Some(i) => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Int(
+                            (i + 1) as i64,
+                        ))),
+                        None => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                            ExcelError::new(ExcelErrorKind::Na),
+                        ))),
+                    }
+                }
+                Err(e) => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+            }
+        } else {
+            // Handle array literals and other non-reference values
+            let v = args[1].value()?.into_literal();
+            let values: Vec<LiteralValue> = match v {
+                LiteralValue::Array(rows) => {
+                    // Flatten the array (MATCH works on 1D, so take first row or column)
+                    if rows.len() == 1 {
+                        // Single row - use as-is
+                        rows.into_iter().next().unwrap_or_default()
+                    } else if rows.iter().all(|r| r.len() == 1) {
+                        // Column vector - extract first element of each row
+                        rows.into_iter()
+                            .filter_map(|r| r.into_iter().next())
+                            .collect()
+                    } else {
+                        // 2D array - flatten row by row
+                        rows.into_iter().flatten().collect()
+                    }
+                }
+                other => vec![other],
+            };
+            let idx = if mt == 0 {
+                let wildcard_mode = matches!(lookup_value, LiteralValue::Text(ref s) if s.contains('*') || s.contains('?') || s.contains('~'));
+                find_exact_index(&values, &lookup_value, wildcard_mode, ctx.date_system())
+            } else {
+                binary_search_match(&values, &lookup_value, mt, ctx.date_system())?
+            };
+            match idx {
+                Some(i) => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Int(
+                    (i + 1) as i64,
+                ))),
+                None => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Na),
+                ))),
+            }
+        }
+    }
+}
+
+fn range_lookup_is_approximate<'a, 'b>(
+    args: &[ArgumentHandle<'a, 'b>],
+    absent_default: bool,
+) -> Result<bool, ExcelError> {
+    if args.len() < 4 {
+        return Ok(absent_default);
+    }
+    if args[3].is_omitted() {
+        return Ok(false);
+    }
+    crate::coercion::to_logical(&args[3].value()?.into_literal())
+}
+
+#[derive(Debug)]
+pub struct VLookupFn;
+/// Looks up a value in the first column of a table and returns a value from another column.
+///
+/// `VLOOKUP` searches vertically and returns the matching row's value from `col_index_num`.
+///
+/// # Remarks
+/// - `col_index_num` is 1-based and must be within the table width.
+/// - `range_lookup` defaults to `TRUE`, matching Excel and LibreOffice.
+/// - When `range_lookup=TRUE`, approximate match logic is used against the first column.
+/// - Approximate matching assumes the first column is sorted ascending; unsorted or descending data can return incorrect rows.
+/// - Numeric `range_lookup` values use logical coercion: zero is exact and nonzero is approximate.
+/// - If the lookup value is not found, returns `#N/A`.
+/// - If `col_index_num` is invalid, returns `#REF!` (or `#VALUE!` if non-numeric).
+/// - A matched empty target cell is materialized as numeric `0`.
+///
+/// # Examples
+/// ```yaml,sandbox
+/// title: "Exact match in a key/value table"
+/// grid:
+///   A1: "SKU-1"
+///   B1: 12.5
+///   A2: "SKU-2"
+///   B2: 18
+/// formula: '=VLOOKUP("SKU-2",A1:B2,2,FALSE)'
+/// expected: 18
+/// ```
+///
+/// ```yaml,sandbox
+/// title: "Approximate tier lookup"
+/// grid:
+///   A1: 0
+///   B1: "Bronze"
+///   A2: 1000
+///   B2: "Silver"
+///   A3: 5000
+///   B3: "Gold"
+/// formula: '=VLOOKUP(3200,A1:B3,2,TRUE)'
+/// expected: "Silver"
+/// ```
+///
+/// ```yaml,docs
+/// related:
+///   - HLOOKUP
+///   - XLOOKUP
+///   - MATCH
+/// faq:
+///   - q: "What is the default behavior when range_lookup is omitted?"
+///     a: "VLOOKUP defaults range_lookup to TRUE, so it performs approximate matching; pass FALSE or 0 for exact matching."
+///   - q: "What happens if col_index_num points outside the table?"
+///     a: "A numeric out-of-range column index returns #REF!, while a non-numeric col_index_num returns #VALUE!."
+/// ```
+/// [formualizer-docgen:schema:start]
+/// Name: VLOOKUP
+/// Type: VLookupFn
+/// Min args: 3
+/// Max args: 4
+/// Variadic: false
+/// Signature: VLOOKUP(arg1: any@scalar, arg2: any@range, arg3: number@scalar, arg4?: logical@scalar)
+/// Arg schema: arg1{kinds=any,required=true,shape=scalar,by_ref=false,coercion=None,max=None,repeating=None,default=false}; arg2{kinds=any,required=true,shape=range,by_ref=false,coercion=None,max=None,repeating=None,default=false}; arg3{kinds=number,required=true,shape=scalar,by_ref=false,coercion=NumberStrict,max=None,repeating=None,default=false}; arg4{kinds=logical,required=false,shape=scalar,by_ref=false,coercion=Logical,max=None,repeating=None,default=true}
+/// Caps: PURE, LOOKUP
+/// [formualizer-docgen:schema:end]
+impl Function for VLookupFn {
+    fn name(&self) -> &'static str {
+        "VLOOKUP"
+    }
+    fn min_args(&self) -> usize {
+        3
+    }
+    func_caps!(PURE, LOOKUP);
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use once_cell::sync::Lazy;
+        static SCHEMA: Lazy<Vec<ArgSchema>> = Lazy::new(|| {
+            vec![
+                // lookup_value
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Any],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // table_array (accepts both references and array literals)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Any],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // col_index_num (strict number)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberStrict,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // range_lookup (optional logical, default TRUE to match Excel)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Logical],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::Logical,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Boolean(true)),
+                },
+            ]
+        });
+        &SCHEMA
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        if args.len() < 3 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Na),
+            )));
+        }
+        let lookup_value = args[0].value()?.into_literal();
+
+        // Try to get table as reference, fall back to array literal
+        let table_ref_opt = args[1].as_reference_or_eval().ok();
+        let col_index = match args[2].value()?.into_literal() {
+            LiteralValue::Int(i) => i,
+            LiteralValue::Number(n) => n as i64,
+            _ => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Value),
+                )));
+            }
+        };
+        if col_index < 1 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+        let approximate = range_lookup_is_approximate(args, true)?;
+        // Handle both cell references and array literals
+        if let Some(table_ref) = table_ref_opt {
+            let current_sheet = ctx.current_sheet();
+            let rv = ctx.resolve_range_view(&table_ref, current_sheet)?;
+            let (rows, cols) = rv.dims();
+            if col_index as usize > cols {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Ref),
+                )));
+            }
+
+            let first_col_view = rv.sub_view(0, 0, rows, 1);
+            let row_idx_opt = if !approximate {
+                let wildcard_mode = matches!(lookup_value, LiteralValue::Text(ref s) if s.contains('*') || s.contains('?') || s.contains('~'));
+                if !wildcard_mode
+                    && let Some(index) = ctx.get_lookup_index(&rv, LookupAxis::ColumnInView(0))
+                {
+                    index.find_first_exact(&lookup_value)
+                } else {
+                    super::lookup_utils::find_exact_index_in_view(
+                        &first_col_view,
+                        &lookup_value,
+                        wildcard_mode,
+                        ctx.date_system(),
+                    )?
+                }
+            } else {
+                // Fallback for approximate mode (requires materializing first column for now)
+                let mut first_col: Vec<LiteralValue> = Vec::new();
+                first_col_view.for_each_row(&mut |row| {
+                    first_col.push(row[0].clone());
+                    Ok(())
+                })?;
+                if first_col.is_empty() {
+                    None
+                } else {
+                    binary_search_match(&first_col, &lookup_value, 1, ctx.date_system())?
+                }
+            };
+
+            match row_idx_opt {
+                Some(i) => {
+                    let target_col_idx = (col_index - 1) as usize;
+                    let v = rv.get_cell(i, target_col_idx);
+                    // Excel treats a direct reference to an empty cell as 0.
+                    // VLOOKUP/HLOOKUP return the referenced cell value, so match Excel by
+                    // materializing Empty as numeric 0. (Empty text "" remains Text(""))
+                    let v = match v {
+                        LiteralValue::Empty => LiteralValue::Number(0.0),
+                        other => other,
+                    };
+                    Ok(crate::traits::CalcValue::Scalar(v))
+                }
+                None => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Na),
+                ))),
+            }
+        } else {
+            // Handle array literal
+            let v = args[1].value()?.into_literal();
+            let table: Vec<Vec<LiteralValue>> = match v {
+                LiteralValue::Array(rows) => rows,
+                other => vec![vec![other]],
+            };
+            if table.is_empty() {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Na),
+                )));
+            }
+            let width = table.first().map(|r| r.len()).unwrap_or(0);
+            if col_index as usize > width {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Ref),
+                )));
+            }
+
+            // First column values for lookup
+            let first_col: Vec<LiteralValue> =
+                table.iter().filter_map(|r| r.first().cloned()).collect();
+            let row_idx_opt = if !approximate {
+                let wildcard_mode = matches!(lookup_value, LiteralValue::Text(ref s) if s.contains('*') || s.contains('?') || s.contains('~'));
+                find_exact_index(&first_col, &lookup_value, wildcard_mode, ctx.date_system())
+            } else {
+                binary_search_match(&first_col, &lookup_value, 1, ctx.date_system())?
+            };
+
+            match row_idx_opt {
+                Some(i) => {
+                    let target_col_idx = (col_index - 1) as usize;
+                    let val = table
+                        .get(i)
+                        .and_then(|r| r.get(target_col_idx))
+                        .cloned()
+                        .unwrap_or(LiteralValue::Empty);
+                    let val = match val {
+                        LiteralValue::Empty => LiteralValue::Number(0.0),
+                        other => other,
+                    };
+                    Ok(crate::traits::CalcValue::Scalar(val))
+                }
+                None => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Na),
+                ))),
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct HLookupFn;
+/// Looks up a value in the first row of a table and returns a value from another row.
+///
+/// `HLOOKUP` searches horizontally and returns the matching column's value from `row_index_num`.
+///
+/// # Remarks
+/// - `row_index_num` is 1-based and must be within the table height.
+/// - `range_lookup` defaults to `TRUE`, matching Excel and LibreOffice.
+/// - When `range_lookup=TRUE`, approximate match logic is used against the first row.
+/// - Approximate matching assumes the first row is sorted ascending; unsorted or descending data can return incorrect rows.
+/// - Numeric `range_lookup` values use logical coercion: zero is exact and nonzero is approximate.
+/// - If the lookup value is not found, returns `#N/A`.
+/// - If `row_index_num` is invalid, returns `#REF!` (or `#VALUE!` if non-numeric).
+/// - A matched empty target cell is materialized as numeric `0`.
+///
+/// # Examples
+/// ```yaml,sandbox
+/// title: "Exact match across header row"
+/// grid:
+///   A1: "Jan"
+///   B1: "Feb"
+///   A2: 120
+///   B2: 150
+/// formula: '=HLOOKUP("Feb",A1:B2,2,FALSE)'
+/// expected: 150
+/// ```
+///
+/// ```yaml,sandbox
+/// title: "Approximate threshold lookup"
+/// grid:
+///   A1: 0
+///   B1: 50
+///   C1: 80
+///   A2: "F"
+///   B2: "C"
+///   C2: "A"
+/// formula: '=HLOOKUP(72,A1:C2,2,TRUE)'
+/// expected: "C"
+/// ```
+///
+/// ```yaml,docs
+/// related:
+///   - VLOOKUP
+///   - XLOOKUP
+///   - MATCH
+/// faq:
+///   - q: "Does HLOOKUP default to exact or approximate matching?"
+///     a: "It defaults to approximate matching because range_lookup defaults to TRUE; pass FALSE or 0 for exact matching."
+///   - q: "How are invalid row_index_num values reported?"
+///     a: "If row_index_num is outside table height HLOOKUP returns #REF!; if it is non-numeric it returns #VALUE!."
+/// ```
+/// [formualizer-docgen:schema:start]
+/// Name: HLOOKUP
+/// Type: HLookupFn
+/// Min args: 3
+/// Max args: 4
+/// Variadic: false
+/// Signature: HLOOKUP(arg1: any@scalar, arg2: any@range, arg3: number@scalar, arg4?: logical@scalar)
+/// Arg schema: arg1{kinds=any,required=true,shape=scalar,by_ref=false,coercion=None,max=None,repeating=None,default=false}; arg2{kinds=any,required=true,shape=range,by_ref=false,coercion=None,max=None,repeating=None,default=false}; arg3{kinds=number,required=true,shape=scalar,by_ref=false,coercion=NumberStrict,max=None,repeating=None,default=false}; arg4{kinds=logical,required=false,shape=scalar,by_ref=false,coercion=Logical,max=None,repeating=None,default=true}
+/// Caps: PURE, LOOKUP
+/// [formualizer-docgen:schema:end]
+impl Function for HLookupFn {
+    fn name(&self) -> &'static str {
+        "HLOOKUP"
+    }
+    fn min_args(&self) -> usize {
+        3
+    }
+    func_caps!(PURE, LOOKUP);
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use once_cell::sync::Lazy;
+        static SCHEMA: Lazy<Vec<ArgSchema>> = Lazy::new(|| {
+            vec![
+                // lookup_value
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Any],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // table_array (accepts both references and array literals)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Any],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // row_index_num (strict number)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberStrict,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // range_lookup (optional logical, default TRUE to match Excel)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Logical],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::Logical,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Boolean(true)),
+                },
+            ]
+        });
+        &SCHEMA
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        if args.len() < 3 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Na),
+            )));
+        }
+        let lookup_value = args[0].value()?.into_literal();
+
+        // Try to get table as reference, fall back to array literal
+        let table_ref_opt = args[1].as_reference_or_eval().ok();
+        let row_index = match args[2].value()?.into_literal() {
+            LiteralValue::Int(i) => i,
+            LiteralValue::Number(n) => n as i64,
+            _ => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Value),
+                )));
+            }
+        };
+        if row_index < 1 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+        let approximate = range_lookup_is_approximate(args, true)?;
+        // Handle both cell references and array literals
+        if let Some(table_ref) = table_ref_opt {
+            let current_sheet = ctx.current_sheet();
+            let rv = ctx.resolve_range_view(&table_ref, current_sheet)?;
+            let (rows, cols) = rv.dims();
+            if row_index as usize > rows {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Ref),
+                )));
+            }
+            let first_row_view = rv.sub_view(0, 0, 1, cols);
+            let col_idx_opt = if approximate {
+                let mut first_row: Vec<LiteralValue> = Vec::with_capacity(cols);
+                first_row_view.for_each_row(&mut |row| {
+                    if first_row.is_empty() {
+                        first_row.extend_from_slice(row);
+                    }
+                    Ok(())
+                })?;
+                binary_search_match(&first_row, &lookup_value, 1, ctx.date_system())?
+            } else {
+                let wildcard_mode = matches!(lookup_value, LiteralValue::Text(ref s) if s.contains('*') || s.contains('?') || s.contains('~'));
+                if !wildcard_mode
+                    && let Some(index) = ctx.get_lookup_index(&rv, LookupAxis::RowInView(0))
+                {
+                    index.find_first_exact(&lookup_value)
+                } else {
+                    super::lookup_utils::find_exact_index_in_view(
+                        &first_row_view,
+                        &lookup_value,
+                        wildcard_mode,
+                        ctx.date_system(),
+                    )?
+                }
+            };
+
+            match col_idx_opt {
+                Some(i) => {
+                    let target_row_idx = (row_index - 1) as usize;
+                    let v = rv.get_cell(target_row_idx, i);
+                    let v = match v {
+                        LiteralValue::Empty => LiteralValue::Number(0.0),
+                        other => other,
+                    };
+                    Ok(crate::traits::CalcValue::Scalar(v))
+                }
+                None => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Na),
+                ))),
+            }
+        } else {
+            // Handle array literal
+            let v = args[1].value()?.into_literal();
+            let table: Vec<Vec<LiteralValue>> = match v {
+                LiteralValue::Array(rows) => rows,
+                other => vec![vec![other]],
+            };
+            if table.is_empty() {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Na),
+                )));
+            }
+            let height = table.len();
+            if row_index as usize > height {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Ref),
+                )));
+            }
+
+            // First row values for lookup
+            let first_row: Vec<LiteralValue> = table.first().cloned().unwrap_or_default();
+            let col_idx_opt = if approximate {
+                binary_search_match(&first_row, &lookup_value, 1, ctx.date_system())?
+            } else {
+                let wildcard_mode = matches!(lookup_value, LiteralValue::Text(ref s) if s.contains('*') || s.contains('?') || s.contains('~'));
+                find_exact_index(&first_row, &lookup_value, wildcard_mode, ctx.date_system())
+            };
+
+            match col_idx_opt {
+                Some(i) => {
+                    let target_row_idx = (row_index - 1) as usize;
+                    let val = table
+                        .get(target_row_idx)
+                        .and_then(|r| r.get(i))
+                        .cloned()
+                        .unwrap_or(LiteralValue::Empty);
+                    let val = match val {
+                        LiteralValue::Empty => LiteralValue::Number(0.0),
+                        other => other,
+                    };
+                    Ok(crate::traits::CalcValue::Scalar(val))
+                }
+                None => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Na),
+                ))),
+            }
+        }
+    }
+}
+
+pub fn register_builtins() {
+    use crate::function_registry::register_builtin;
+    use std::sync::Arc;
+    register_builtin(Arc::new(MatchFn));
+    register_builtin(Arc::new(VLookupFn));
+    register_builtin(Arc::new(HLookupFn));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_workbook::TestWorkbook;
+    use crate::traits::ArgumentHandle;
+    use formualizer_parse::parser::{ASTNode, ASTNodeType, ReferenceType};
+    use std::sync::Arc;
+    fn lit(v: LiteralValue) -> ASTNode {
+        ASTNode::new(ASTNodeType::Literal(v), None)
+    }
+
+    #[test]
+    fn match_wildcard_and_descending_and_unsorted() {
+        // Wildcard: A1:A4 = "foo", "fob", "bar", "baz"
+        let wb = TestWorkbook::new().with_function(Arc::new(MatchFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Text("foo".into()))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Text("fob".into()))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Text("bar".into()))
+            .with_cell_a1("Sheet1", "A4", LiteralValue::Text("baz".into()));
+        let ctx = wb.interpreter();
+        let range = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:A4".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(4), Some(1)),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "MATCH").unwrap();
+        // Wildcard *o* matches "foo" (1) and "fob" (2), should return first match (1)
+        let pat = lit(LiteralValue::Text("*o*".into()));
+        let zero = lit(LiteralValue::Int(0));
+        let args = vec![
+            ArgumentHandle::new(&pat, &ctx),
+            ArgumentHandle::new(&range, &ctx),
+            ArgumentHandle::new(&zero, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Int(1));
+        // Wildcard b?z matches "baz" (4)
+        let pat2 = lit(LiteralValue::Text("b?z".into()));
+        let args2 = vec![
+            ArgumentHandle::new(&pat2, &ctx),
+            ArgumentHandle::new(&range, &ctx),
+            ArgumentHandle::new(&zero, &ctx),
+        ];
+        let v2 = f
+            .dispatch(&args2, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v2, LiteralValue::Int(4));
+        // No match
+        let pat3 = lit(LiteralValue::Text("z*".into()));
+        let args3 = vec![
+            ArgumentHandle::new(&pat3, &ctx),
+            ArgumentHandle::new(&range, &ctx),
+            ArgumentHandle::new(&zero, &ctx),
+        ];
+        let v3 = f
+            .dispatch(&args3, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert!(matches!(v3, LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na));
+
+        // Descending approximate: 50,40,30,20,10; match_type = -1
+        let wb2 = TestWorkbook::new()
+            .with_function(Arc::new(MatchFn))
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(50))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(40))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(30))
+            .with_cell_a1("Sheet1", "A4", LiteralValue::Int(20))
+            .with_cell_a1("Sheet1", "A5", LiteralValue::Int(10));
+        let ctx2 = wb2.interpreter();
+        let range2 = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:A5".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(5), Some(1)),
+            },
+            None,
+        );
+        let minus1 = lit(LiteralValue::Int(-1));
+        let thirty = lit(LiteralValue::Int(30));
+        let args_desc = vec![
+            ArgumentHandle::new(&thirty, &ctx2),
+            ArgumentHandle::new(&range2, &ctx2),
+            ArgumentHandle::new(&minus1, &ctx2),
+        ];
+        let v_desc = f
+            .dispatch(&args_desc, &ctx2.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v_desc, LiteralValue::Int(3));
+        // Descending, not found (needle > max)
+        let sixty = lit(LiteralValue::Int(60));
+        let args_desc2 = vec![
+            ArgumentHandle::new(&sixty, &ctx2),
+            ArgumentHandle::new(&range2, &ctx2),
+            ArgumentHandle::new(&minus1, &ctx2),
+        ];
+        let v_desc2 = f
+            .dispatch(&args_desc2, &ctx2.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert!(matches!(v_desc2, LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na));
+
+        // Unsorted detection: 10, 30, 20, 40, 50 (not sorted ascending)
+        let wb3 = TestWorkbook::new()
+            .with_function(Arc::new(MatchFn))
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(10))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(30))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(20))
+            .with_cell_a1("Sheet1", "A4", LiteralValue::Int(40))
+            .with_cell_a1("Sheet1", "A5", LiteralValue::Int(50));
+        let ctx3 = wb3.interpreter();
+        let range3 = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:A5".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(5), Some(1)),
+            },
+            None,
+        );
+        let args_unsorted = vec![
+            ArgumentHandle::new(&thirty, &ctx3),
+            ArgumentHandle::new(&range3, &ctx3),
+        ];
+        let v_unsorted = f
+            .dispatch(&args_unsorted, &ctx3.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert!(matches!(v_unsorted, LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na));
+        // Unsorted detection descending: 50, 30, 40, 20, 10
+        let wb4 = TestWorkbook::new()
+            .with_function(Arc::new(MatchFn))
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(50))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(30))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(40))
+            .with_cell_a1("Sheet1", "A4", LiteralValue::Int(20))
+            .with_cell_a1("Sheet1", "A5", LiteralValue::Int(10));
+        let ctx4 = wb4.interpreter();
+        let range4 = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:A5".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(5), Some(1)),
+            },
+            None,
+        );
+        let args_unsorted_desc = vec![
+            ArgumentHandle::new(&thirty, &ctx4),
+            ArgumentHandle::new(&range4, &ctx4),
+            ArgumentHandle::new(&minus1, &ctx4),
+        ];
+        let v_unsorted_desc = f
+            .dispatch(&args_unsorted_desc, &ctx4.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert!(matches!(v_unsorted_desc, LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na));
+    }
+
+    #[test]
+    fn match_unicode_exact_and_wildcard_are_case_insensitive() {
+        let wb = TestWorkbook::new()
+            .with_function(Arc::new(MatchFn))
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Text("ИВАН".into()))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Text("Петр".into()))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Text("Иванов".into()));
+        let ctx = wb.interpreter();
+        let range = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:A3".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(3), Some(1)),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "MATCH").unwrap();
+        let zero = lit(LiteralValue::Int(0));
+
+        let exact = lit(LiteralValue::Text("иван".into()));
+        let exact_args = vec![
+            ArgumentHandle::new(&exact, &ctx),
+            ArgumentHandle::new(&range, &ctx),
+            ArgumentHandle::new(&zero, &ctx),
+        ];
+        let exact_v = f
+            .dispatch(&exact_args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(exact_v, LiteralValue::Int(1));
+
+        let pat = lit(LiteralValue::Text("ив?н*".into()));
+        let pat_args = vec![
+            ArgumentHandle::new(&pat, &ctx),
+            ArgumentHandle::new(&range, &ctx),
+            ArgumentHandle::new(&zero, &ctx),
+        ];
+        let pat_v = f
+            .dispatch(&pat_args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(pat_v, LiteralValue::Int(1));
+    }
+
+    #[test]
+    fn match_exact_and_approx() {
+        let wb = TestWorkbook::new().with_function(Arc::new(MatchFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(10))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(20))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(30))
+            .with_cell_a1("Sheet1", "A4", LiteralValue::Int(40))
+            .with_cell_a1("Sheet1", "A5", LiteralValue::Int(50));
+        let ctx = wb.interpreter();
+        let range = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:A5".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(5), Some(1)),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "MATCH").unwrap();
+        let thirty = lit(LiteralValue::Int(30));
+        let zero = lit(LiteralValue::Int(0));
+        let args = vec![
+            ArgumentHandle::new(&thirty, &ctx),
+            ArgumentHandle::new(&range, &ctx),
+            ArgumentHandle::new(&zero, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Int(3));
+        let thirty_seven = lit(LiteralValue::Int(37));
+        let args = vec![
+            ArgumentHandle::new(&thirty_seven, &ctx),
+            ArgumentHandle::new(&range, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Int(3));
+    }
+
+    #[test]
+    fn vlookup_basic() {
+        let wb = TestWorkbook::new()
+            .with_function(Arc::new(VLookupFn))
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Text("Key1".into()))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Text("Key2".into()))
+            .with_cell_a1("Sheet1", "B1", LiteralValue::Int(100))
+            .with_cell_a1("Sheet1", "B2", LiteralValue::Int(200));
+        let ctx = wb.interpreter();
+        let table = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:B2".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(2), Some(2)),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "VLOOKUP").unwrap();
+        let key2 = lit(LiteralValue::Text("Key2".into()));
+        let two = lit(LiteralValue::Int(2));
+        let false_lit = lit(LiteralValue::Boolean(false));
+        let args = vec![
+            ArgumentHandle::new(&key2, &ctx),
+            ArgumentHandle::new(&table, &ctx),
+            ArgumentHandle::new(&two, &ctx),
+            ArgumentHandle::new(&false_lit, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Number(200.0));
+    }
+
+    #[test]
+    fn vlookup_named_range_reference() {
+        let wb = TestWorkbook::new()
+            .with_function(Arc::new(VLookupFn))
+            .with_named_range(
+                "Split",
+                vec![
+                    vec![
+                        LiteralValue::Text("Professional".into()),
+                        LiteralValue::Int(123),
+                    ],
+                    vec![LiteralValue::Text("Support".into()), LiteralValue::Int(77)],
+                ],
+            );
+        let ctx = wb.interpreter();
+        let table = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "Split".into(),
+                reference: ReferenceType::NamedRange("Split".into()),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "VLOOKUP").unwrap();
+        let key = lit(LiteralValue::Text("Professional".into()));
+        let two = lit(LiteralValue::Int(2));
+        let false_lit = lit(LiteralValue::Boolean(false));
+        let args = vec![
+            ArgumentHandle::new(&key, &ctx),
+            ArgumentHandle::new(&table, &ctx),
+            ArgumentHandle::new(&two, &ctx),
+            ArgumentHandle::new(&false_lit, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Number(123.0));
+    }
+
+    #[test]
+    fn vlookup_blank_target_cell_returns_zero() {
+        // Excel treats a direct reference to an empty cell as 0.
+        // VLOOKUP should therefore return 0 (not Empty) when the found cell is empty.
+        let wb = TestWorkbook::new()
+            .with_function(Arc::new(VLookupFn))
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(1));
+
+        let ctx = wb.interpreter();
+        let table = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:B1".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(1), Some(2)),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "VLOOKUP").unwrap();
+        let key1 = lit(LiteralValue::Int(1));
+        let two = lit(LiteralValue::Int(2));
+        let false_lit = lit(LiteralValue::Boolean(false));
+        let args = vec![
+            ArgumentHandle::new(&key1, &ctx),
+            ArgumentHandle::new(&table, &ctx),
+            ArgumentHandle::new(&two, &ctx),
+            ArgumentHandle::new(&false_lit, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Number(0.0));
+    }
+
+    #[test]
+    fn lookup_range_lookup_oracle_lo_verified() {
+        // oracle: lo-verified; D1:E3 = {1,"a";2,"b";3,"c"}, lookup 2.5
+        let wb = TestWorkbook::new()
+            .with_function(Arc::new(VLookupFn))
+            .with_cell_a1("Sheet1", "D1", LiteralValue::Int(1))
+            .with_cell_a1("Sheet1", "E1", LiteralValue::Text("a".into()))
+            .with_cell_a1("Sheet1", "D2", LiteralValue::Int(2))
+            .with_cell_a1("Sheet1", "E2", LiteralValue::Text("b".into()))
+            .with_cell_a1("Sheet1", "D3", LiteralValue::Int(3))
+            .with_cell_a1("Sheet1", "E3", LiteralValue::Text("c".into()))
+            .with_cell_a1("Sheet1", "F1", LiteralValue::Empty)
+            .with_cell_a1("Sheet1", "F2", LiteralValue::Int(99));
+        let ctx = wb.interpreter();
+        let table = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "D1:E3".into(),
+                reference: ReferenceType::range(None, Some(1), Some(4), Some(3), Some(5)),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "VLOOKUP").unwrap();
+        let run = |range_lookup: Option<ASTNode>| {
+            let key = lit(LiteralValue::Number(2.5));
+            let col = lit(LiteralValue::Int(2));
+            let mut args = vec![
+                ArgumentHandle::new(&key, &ctx),
+                ArgumentHandle::new(&table, &ctx),
+                ArgumentHandle::new(&col, &ctx),
+            ];
+            if let Some(ref value) = range_lookup {
+                args.push(ArgumentHandle::new(value, &ctx));
+            }
+            f.dispatch(&args, &ctx.function_context(None))
+                .unwrap()
+                .into_literal()
+        };
+        // oracle: lo-verified - absent defaults to approximate.
+        assert_eq!(run(None), LiteralValue::Text("b".into()));
+        // oracle: lo-verified - explicit TRUE is approximate.
+        assert_eq!(
+            run(Some(lit(LiteralValue::Boolean(true)))),
+            LiteralValue::Text("b".into())
+        );
+        // oracle: lo-verified - explicit FALSE is exact.
+        assert!(matches!(
+            run(Some(lit(LiteralValue::Boolean(false)))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+        // oracle: lo-verified - numeric 1 is approximate.
+        assert_eq!(
+            run(Some(lit(LiteralValue::Int(1)))),
+            LiteralValue::Text("b".into())
+        );
+        // oracle: lo-verified - numeric 0 is exact.
+        assert!(matches!(
+            run(Some(lit(LiteralValue::Int(0)))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+        // oracle: lo-verified - explicitly omitted is exact.
+        assert!(matches!(
+            run(Some(ASTNode::new(ASTNodeType::Omitted, None))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+
+        // Logical coercion follows the engine convention: TRUE/FALSE text is
+        // accepted, other text is #VALUE!, and a blank reference is FALSE.
+        assert!(matches!(
+            run(Some(lit(LiteralValue::Text("FALSE".into())))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+        assert_eq!(
+            run(Some(lit(LiteralValue::Text("TRUE".into())))),
+            LiteralValue::Text("b".into())
+        );
+        assert!(matches!(
+            run(Some(lit(LiteralValue::Text("maybe".into())))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Value
+        ));
+        let blank_ref = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "F1".into(),
+                reference: ReferenceType::cell(None, 1, 6),
+            },
+            None,
+        );
+        assert!(matches!(
+            run(Some(blank_ref)),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+        let propagated_error = lit(LiteralValue::Error(ExcelError::new(ExcelErrorKind::Div)));
+        assert!(matches!(
+            run(Some(propagated_error)),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Div
+        ));
+
+        // oracle: lo-verified; H1:J2 is the transposed table.
+        let wb = TestWorkbook::new()
+            .with_function(Arc::new(HLookupFn))
+            .with_cell_a1("Sheet1", "H1", LiteralValue::Int(1))
+            .with_cell_a1("Sheet1", "I1", LiteralValue::Int(2))
+            .with_cell_a1("Sheet1", "J1", LiteralValue::Int(3))
+            .with_cell_a1("Sheet1", "H2", LiteralValue::Text("a".into()))
+            .with_cell_a1("Sheet1", "I2", LiteralValue::Text("b".into()))
+            .with_cell_a1("Sheet1", "J2", LiteralValue::Text("c".into()))
+            .with_cell_a1("Sheet1", "K1", LiteralValue::Empty)
+            .with_cell_a1("Sheet1", "K2", LiteralValue::Int(99));
+        let ctx = wb.interpreter();
+        let table = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "H1:J2".into(),
+                reference: ReferenceType::range(None, Some(1), Some(8), Some(2), Some(10)),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "HLOOKUP").unwrap();
+        let run = |range_lookup: Option<ASTNode>| {
+            let key = lit(LiteralValue::Number(2.5));
+            let row = lit(LiteralValue::Int(2));
+            let mut args = vec![
+                ArgumentHandle::new(&key, &ctx),
+                ArgumentHandle::new(&table, &ctx),
+                ArgumentHandle::new(&row, &ctx),
+            ];
+            if let Some(ref value) = range_lookup {
+                args.push(ArgumentHandle::new(value, &ctx));
+            }
+            f.dispatch(&args, &ctx.function_context(None))
+                .unwrap()
+                .into_literal()
+        };
+        // oracle: lo-verified - HLOOKUP has the same six distinctions.
+        assert_eq!(run(None), LiteralValue::Text("b".into()));
+        assert_eq!(
+            run(Some(lit(LiteralValue::Boolean(true)))),
+            LiteralValue::Text("b".into())
+        );
+        assert!(matches!(
+            run(Some(lit(LiteralValue::Boolean(false)))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+        assert_eq!(
+            run(Some(lit(LiteralValue::Int(1)))),
+            LiteralValue::Text("b".into())
+        );
+        assert!(matches!(
+            run(Some(lit(LiteralValue::Int(0)))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+        assert!(matches!(
+            run(Some(ASTNode::new(ASTNodeType::Omitted, None))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+        assert!(matches!(
+            run(Some(lit(LiteralValue::Text("FALSE".into())))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+        assert_eq!(
+            run(Some(lit(LiteralValue::Text("TRUE".into())))),
+            LiteralValue::Text("b".into())
+        );
+        assert!(matches!(
+            run(Some(lit(LiteralValue::Text("maybe".into())))),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Value
+        ));
+        let blank_ref = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "K1".into(),
+                reference: ReferenceType::cell(None, 1, 11),
+            },
+            None,
+        );
+        assert!(matches!(
+            run(Some(blank_ref)),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Na
+        ));
+        let propagated_error = lit(LiteralValue::Error(ExcelError::new(ExcelErrorKind::Div)));
+        assert!(matches!(
+            run(Some(propagated_error)),
+            LiteralValue::Error(e) if e.kind == ExcelErrorKind::Div
+        ));
+    }
+
+    #[test]
+    fn hlookup_basic() {
+        let wb = TestWorkbook::new()
+            .with_function(Arc::new(HLookupFn))
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Text("Key1".into()))
+            .with_cell_a1("Sheet1", "B1", LiteralValue::Text("Key2".into()))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(100))
+            .with_cell_a1("Sheet1", "B2", LiteralValue::Int(200));
+        let ctx = wb.interpreter();
+        let table = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:B2".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(2), Some(2)),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "HLOOKUP").unwrap();
+        let key1 = lit(LiteralValue::Text("Key1".into()));
+        let two = lit(LiteralValue::Int(2));
+        let false_lit = lit(LiteralValue::Boolean(false));
+        let args = vec![
+            ArgumentHandle::new(&key1, &ctx),
+            ArgumentHandle::new(&table, &ctx),
+            ArgumentHandle::new(&two, &ctx),
+            ArgumentHandle::new(&false_lit, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Number(100.0));
+    }
+
+    #[test]
+    fn hlookup_blank_target_cell_returns_zero() {
+        let wb = TestWorkbook::new()
+            .with_function(Arc::new(HLookupFn))
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(1));
+
+        let ctx = wb.interpreter();
+        let table = ASTNode::new(
+            ASTNodeType::Reference {
+                original: "A1:B2".into(),
+                reference: ReferenceType::range(None, Some(1), Some(1), Some(2), Some(2)),
+            },
+            None,
+        );
+        let f = ctx.context.get_function("", "HLOOKUP").unwrap();
+        let key1 = lit(LiteralValue::Int(1));
+        let two = lit(LiteralValue::Int(2));
+        let false_lit = lit(LiteralValue::Boolean(false));
+        let args = vec![
+            ArgumentHandle::new(&key1, &ctx),
+            ArgumentHandle::new(&table, &ctx),
+            ArgumentHandle::new(&two, &ctx),
+            ArgumentHandle::new(&false_lit, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Number(0.0));
+    }
+}

@@ -1,0 +1,419 @@
+"""
+Basic tests for the Cloudflare D1 SQLAlchemy dialect.
+"""
+
+import pytest
+from sqlalchemy_cloudflare_d1 import CloudflareD1Dialect
+
+
+def test_dialect_import():
+    """Test that the dialect can be imported."""
+    assert CloudflareD1Dialect is not None
+
+
+def test_dialect_instantiation():
+    """Test that the dialect can be instantiated."""
+    dialect = CloudflareD1Dialect()
+    assert dialect.name == "cloudflare_d1"
+    assert dialect.driver == "httpx"
+
+
+def test_engine_creation():
+    """Test that a dialect can parse connection URLs correctly."""
+    from sqlalchemy.engine.url import make_url
+
+    # Test URL parsing without requiring entry point registration
+    url = make_url("cloudflare_d1://test_account:test_token@test_database_id")
+    dialect = CloudflareD1Dialect()
+
+    args, kwargs = dialect.create_connect_args(url)
+    assert kwargs["account_id"] == "test_account"
+    assert kwargs["api_token"] == "test_token"
+    assert kwargs["database_id"] == "test_database_id"
+
+
+def test_connection_args_parsing():
+    """Test URL parsing for connection arguments."""
+    from sqlalchemy.engine.url import make_url
+
+    dialect = CloudflareD1Dialect()
+    url = make_url("cloudflare_d1://account123:token456@database789?timeout=30")
+
+    args, kwargs = dialect.create_connect_args(url)
+
+    assert kwargs["account_id"] == "account123"
+    assert kwargs["api_token"] == "token456"
+    assert kwargs["database_id"] == "database789"
+    assert kwargs.get("timeout") == "30"
+
+
+def test_reserved_words():
+    """Test that reserved words are defined."""
+    dialect = CloudflareD1Dialect()
+    assert len(dialect.reserved_words) > 0
+    assert "select" in dialect.reserved_words
+    assert "from" in dialect.reserved_words
+
+
+def test_compiler_classes():
+    """Test that compiler classes are properly assigned."""
+    from sqlalchemy_cloudflare_d1.compiler import (
+        CloudflareD1Compiler,
+        CloudflareD1DDLCompiler,
+        CloudflareD1TypeCompiler,
+    )
+
+    dialect = CloudflareD1Dialect()
+    assert dialect.statement_compiler == CloudflareD1Compiler
+    assert dialect.ddl_compiler == CloudflareD1DDLCompiler
+    # type_compiler gets instantiated automatically by SQLAlchemy
+    assert isinstance(dialect.type_compiler, CloudflareD1TypeCompiler)
+
+
+def test_on_conflict_do_update_compilation():
+    """Test that ON CONFLICT DO UPDATE (upsert) compiles correctly.
+
+    This verifies that the dialect inherits SQLite's upsert support.
+    """
+    from sqlalchemy import Column, Integer, MetaData, String, Table
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+    dialect = CloudflareD1Dialect()
+    metadata = MetaData()
+
+    # Define a simple table
+    test_table = Table(
+        "test_table",
+        metadata,
+        Column("id", String, primary_key=True),
+        Column("name", String),
+        Column("value", Integer),
+    )
+
+    # Create an upsert statement
+    stmt = sqlite_insert(test_table).values([{"id": "1", "name": "test", "value": 100}])
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["id"],
+        set_={"name": stmt.excluded.name, "value": stmt.excluded.value},
+    )
+
+    # Compile the statement - this should NOT raise an error
+    compiled = stmt.compile(dialect=dialect)
+    sql = str(compiled)
+
+    # Verify the SQL contains the ON CONFLICT clause
+    assert "INSERT" in sql.upper()
+    assert "ON CONFLICT" in sql.upper()
+    assert "DO UPDATE SET" in sql.upper()
+
+
+def test_sqlite_compiler_inheritance():
+    """Test that compilers inherit from SQLite base classes."""
+    from sqlalchemy.dialects.sqlite.base import (
+        SQLiteCompiler,
+        SQLiteDDLCompiler,
+        SQLiteTypeCompiler,
+    )
+    from sqlalchemy_cloudflare_d1.compiler import (
+        CloudflareD1Compiler,
+        CloudflareD1DDLCompiler,
+        CloudflareD1TypeCompiler,
+    )
+
+    assert issubclass(CloudflareD1Compiler, SQLiteCompiler)
+    assert issubclass(CloudflareD1DDLCompiler, SQLiteDDLCompiler)
+    assert issubclass(CloudflareD1TypeCompiler, SQLiteTypeCompiler)
+
+
+def test_create_table_no_duplicate_primary_key():
+    """Test that CREATE TABLE doesn't have duplicate PRIMARY KEY constraints."""
+    from sqlalchemy import Column, MetaData, String, Table
+    from sqlalchemy.schema import CreateTable
+
+    dialect = CloudflareD1Dialect()
+    metadata = MetaData()
+
+    # Define a table with TEXT primary key
+    test_table = Table(
+        "test_table",
+        metadata,
+        Column("id", String, primary_key=True),
+        Column("text", String),
+        Column("namespace", String),
+        Column("metadata", String),
+    )
+
+    # Compile the CREATE TABLE statement
+    create_stmt = CreateTable(test_table)
+    compiled = create_stmt.compile(dialect=dialect)
+    sql = str(compiled)
+
+    # Count occurrences of "PRIMARY KEY" - should be exactly 1
+    pk_count = sql.upper().count("PRIMARY KEY")
+    assert pk_count == 1, f"Expected 1 PRIMARY KEY, found {pk_count} in: {sql}"
+
+
+def test_create_table_no_autoincrement_on_text():
+    """Test that CREATE TABLE doesn't add AUTOINCREMENT on TEXT columns."""
+    from sqlalchemy import Column, MetaData, String, Table
+    from sqlalchemy.schema import CreateTable
+
+    dialect = CloudflareD1Dialect()
+    metadata = MetaData()
+
+    test_table = Table(
+        "test_table",
+        metadata,
+        Column("id", String, primary_key=True),
+        Column("name", String),
+    )
+
+    create_stmt = CreateTable(test_table)
+    compiled = create_stmt.compile(dialect=dialect)
+    sql = str(compiled)
+
+    # Should NOT contain AUTOINCREMENT
+    assert "AUTOINCREMENT" not in sql.upper(), f"Unexpected AUTOINCREMENT in: {sql}"
+
+
+def test_create_table_composite_primary_key():
+    """Test that a composite PRIMARY KEY emits exactly one constraint.
+
+    Regression: D1 rejects "more than one primary key" (SQLITE_ERROR). A
+    multi-column primary key must be rendered only as a table-level
+    PRIMARY KEY (...), never also inlined on the first column.
+    """
+    from sqlalchemy import Column, MetaData, String, Table
+    from sqlalchemy.schema import CreateTable
+
+    dialect = CloudflareD1Dialect()
+    metadata = MetaData()
+
+    test_table = Table(
+        "test_table",
+        metadata,
+        Column("tenant_id", String, primary_key=True),
+        Column("key", String, primary_key=True),
+        Column("value", String),
+    )
+
+    sql = str(CreateTable(test_table).compile(dialect=dialect))
+
+    pk_count = sql.upper().count("PRIMARY KEY")
+    assert pk_count == 1, f"Expected 1 PRIMARY KEY, found {pk_count} in: {sql}"
+    # The single constraint must be the table-level composite form.
+    assert "PRIMARY KEY (" in sql.upper(), f"composite PK not table-level in: {sql}"
+
+
+def test_get_foreign_keys_includes_referred_schema():
+    """Test that foreign key reflection includes SQLAlchemy's schema key."""
+    from sqlalchemy import create_engine, text
+
+    dialect = CloudflareD1Dialect()
+    engine = create_engine("sqlite://")
+
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE parent (id INTEGER PRIMARY KEY)"))
+        conn.execute(
+            text("""
+                CREATE TABLE child (
+                    id INTEGER PRIMARY KEY,
+                    parent_id INTEGER,
+                    FOREIGN KEY (parent_id) REFERENCES parent(id)
+                )
+            """)
+        )
+
+        foreign_keys = dialect.get_foreign_keys(conn, "child")
+
+    assert foreign_keys == [
+        {
+            "name": None,
+            "constrained_columns": ["parent_id"],
+            "referred_schema": None,
+            "referred_table": "parent",
+            "referred_columns": ["id"],
+            "options": {"onupdate": "NO ACTION", "ondelete": "NO ACTION"},
+        }
+    ]
+
+
+def test_get_unique_constraints_reflects_inline_and_named_constraints():
+    """Test that unique constraint reflection returns SQLAlchemy's shape."""
+    from sqlalchemy import create_engine, text
+
+    dialect = CloudflareD1Dialect()
+    engine = create_engine("sqlite://")
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                CREATE TABLE example (
+                    id INTEGER PRIMARY KEY,
+                    slug TEXT UNIQUE,
+                    tenant_id TEXT,
+                    record_key TEXT,
+                    CONSTRAINT uq_tenant_record UNIQUE (tenant_id, record_key)
+                )
+            """)
+        )
+
+        unique_constraints = dialect.get_unique_constraints(conn, "example")
+
+    assert unique_constraints == [
+        {"name": "uq_tenant_record", "column_names": ["tenant_id", "record_key"]},
+        {"name": None, "column_names": ["slug"]},
+    ]
+
+
+def test_get_unique_constraints_excludes_unique_indexes():
+    """Test that unique indexes stay in index reflection, not constraints."""
+    from sqlalchemy import create_engine, text
+
+    dialect = CloudflareD1Dialect()
+    engine = create_engine("sqlite://")
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                CREATE TABLE example (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT
+                )
+            """)
+        )
+        conn.execute(text("CREATE UNIQUE INDEX ix_example_name ON example (name)"))
+
+        unique_constraints = dialect.get_unique_constraints(conn, "example")
+        indexes = dialect.get_indexes(conn, "example")
+
+    assert unique_constraints == []
+    assert indexes == [
+        {
+            "name": "ix_example_name",
+            "column_names": ["name"],
+            "unique": True,
+        }
+    ]
+
+
+def test_async_dialect_import():
+    """Test that the async dialect can be imported."""
+    from sqlalchemy_cloudflare_d1 import CloudflareD1Dialect_async
+
+    assert CloudflareD1Dialect_async is not None
+
+
+def test_async_dialect_instantiation():
+    """Test that the async dialect can be instantiated."""
+    from sqlalchemy_cloudflare_d1 import CloudflareD1Dialect_async
+
+    dialect = CloudflareD1Dialect_async()
+    assert dialect.name == "cloudflare_d1"
+    assert dialect.driver == "async"
+    assert dialect.is_async is True
+
+
+def test_async_dialect_inherits_from_sync():
+    """Test that the async dialect inherits from the sync dialect."""
+    from sqlalchemy_cloudflare_d1 import CloudflareD1Dialect, CloudflareD1Dialect_async
+
+    assert issubclass(CloudflareD1Dialect_async, CloudflareD1Dialect)
+
+
+def test_async_connection_classes():
+    """Test that async connection classes can be imported."""
+    from sqlalchemy_cloudflare_d1 import AsyncConnection, AsyncCursor, connect_async
+
+    assert AsyncConnection is not None
+    assert AsyncCursor is not None
+    assert connect_async is not None
+
+
+def test_async_dialect_url_parsing():
+    """Test that the async dialect can parse connection URLs."""
+    from sqlalchemy.engine.url import make_url
+    from sqlalchemy_cloudflare_d1 import CloudflareD1Dialect_async
+
+    url = make_url("cloudflare_d1+async://test_account:test_token@test_database_id")
+    dialect = CloudflareD1Dialect_async()
+
+    args, kwargs = dialect.create_connect_args(url)
+    assert kwargs["account_id"] == "test_account"
+    assert kwargs["api_token"] == "test_token"
+    assert kwargs["database_id"] == "test_database_id"
+
+
+def test_async_dbapi_module():
+    """Test that the async DBAPI module has required attributes."""
+    from sqlalchemy_cloudflare_d1.dialect_async import AsyncAdapt_d1_dbapi
+
+    assert AsyncAdapt_d1_dbapi.apilevel == "2.0"
+    assert AsyncAdapt_d1_dbapi.threadsafety == 1
+    assert AsyncAdapt_d1_dbapi.paramstyle == "qmark"
+    assert hasattr(AsyncAdapt_d1_dbapi, "Error")
+    assert hasattr(AsyncAdapt_d1_dbapi, "connect")
+
+
+def test_connection_base_url_kwarg():
+    """Test that Connection accepts a custom base_url kwarg."""
+    from unittest.mock import patch
+
+    from sqlalchemy_cloudflare_d1.connection import Connection
+
+    with patch("sqlalchemy_cloudflare_d1.connection.httpx") as mock_httpx:
+        mock_httpx.Client.return_value = None
+        conn = Connection(
+            account_id="acct",
+            database_id="db",
+            api_token="token",
+            base_url="http://localhost:8787",
+        )
+        assert conn.base_url == "http://localhost:8787"
+
+
+def test_connection_base_url_env_var():
+    """Test that Connection reads CF_D1_BASE_URL from the environment."""
+    import os
+    from unittest.mock import patch
+
+    from sqlalchemy_cloudflare_d1.connection import Connection
+
+    with patch.dict(os.environ, {"CF_D1_BASE_URL": "http://localhost:9999"}):
+        with patch("sqlalchemy_cloudflare_d1.connection.httpx") as mock_httpx:
+            mock_httpx.Client.return_value = None
+            conn = Connection(account_id="acct", database_id="db", api_token="token")
+            assert conn.base_url == "http://localhost:9999"
+
+
+def test_connection_base_url_default():
+    """Test that Connection falls back to the Cloudflare URL when no override is set."""
+    import os
+    from unittest.mock import patch
+
+    from sqlalchemy_cloudflare_d1.connection import Connection
+
+    env = {k: v for k, v in os.environ.items() if k != "CF_D1_BASE_URL"}
+    with patch.dict(os.environ, env, clear=True):
+        with patch("sqlalchemy_cloudflare_d1.connection.httpx") as mock_httpx:
+            mock_httpx.Client.return_value = None
+            conn = Connection(account_id="acct", database_id="db", api_token="token")
+            assert conn.base_url == (
+                "https://api.cloudflare.com/client/v4/accounts/acct/d1/database/db"
+            )
+
+
+def test_base_url_passthrough_via_url_query():
+    """Test that base_url can be passed via the connection string query params."""
+    from sqlalchemy.engine.url import make_url
+
+    dialect = CloudflareD1Dialect()
+    url = make_url(
+        "cloudflare_d1://acct:token@db?base_url=http%3A%2F%2Flocalhost%3A8787"
+    )
+    _, kwargs = dialect.create_connect_args(url)
+    assert kwargs["base_url"] == "http://localhost:8787"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

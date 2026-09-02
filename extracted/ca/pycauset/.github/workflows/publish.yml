@@ -1,0 +1,125 @@
+name: Publish to PyPI.
+
+on:
+  push:
+    branches: ["main"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for setuptools_scm to find tags
+
+      # Setup ccache to speed up re-compilation
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ matrix.os }}-ccache
+          update-package-index: true
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21.3
+        env:
+          # Configure cibuildwheel to build for Python 3.8+
+          # Skip 32-bit builds (Linux i686 is skipped by pattern, Windows 32-bit by ARCHS config)
+          CIBW_SKIP: "cp36-* cp37-* pp* *i686* *-musllinux*"
+          
+          # Pass specific hints to CMake via environment variables to help FindPython
+          # scikit-build-core usually handles this, but explicit hints prevent "found 3.8 but wanted 3.11" errors
+          
+          # Windows: Build only 64-bit wheels (avoids OpenBLAS 32/64 bit mismatch and speeds up CI)
+          CIBW_ARCHS_WINDOWS: "auto64"
+          CIBW_ENVIRONMENT_WINDOWS: "CMAKE_ARGS='-DPython_FIND_STRATEGY=LOCATION'"
+
+          # Linux: Use manylinux_2_28 (AlmaLinux 8) and install GCC 12 via gcc-toolset.
+          # This ensures full C++20 support (including <bit>, char8_t, <filesystem>).
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+          
+          # Install GCC 12 on Linux before build
+          # We also install openblas-devel to avoid building it from source (which fails and is slow)
+          # and lapack-devel for the LAPACKE C-interface header (CpuSolver.cpp includes <lapacke.h>).
+          # The wheels will bundle the library via auditwheel
+          CIBW_BEFORE_ALL_LINUX: "yum install -y epel-release && yum install -y gcc-toolset-12-gcc gcc-toolset-12-gcc-c++ libatomic openblas-devel lapack-devel ccache"
+          
+          # Point the build to use GCC 12
+          CIBW_ENVIRONMENT_LINUX: "CMAKE_ARGS='-DPython_FIND_STRATEGY=LOCATION' CC='/opt/rh/gcc-toolset-12/root/usr/bin/gcc' CXX='/opt/rh/gcc-toolset-12/root/usr/bin/g++' PATH=\"/usr/lib64/ccache:$PATH\""
+          
+          # macOS: Install build dependencies.
+          # OpenBLAS and libomp are needed for the C++ extension.
+          CIBW_BEFORE_ALL_MACOS: "brew install libomp openblas ccache"
+          
+          # macOS: Env Setup
+          # 1. Point to Homebrew locations for headers/libs (Apple Silicon uses /opt/homebrew, Intel uses /usr/local)
+          # 2. Add ccache to PATH (checking both potential locations)
+          # 3. MACOSX_DEPLOYMENT_TARGET must match the Homebrew bottles on the runner.
+          #    We pin the runner to macos-15 so Homebrew builds against macOS 15 and the
+          #    wheel supports macOS 15+, instead of being dragged to the newest runner OS.
+          CIBW_ENVIRONMENT_MACOS: >
+            MACOSX_DEPLOYMENT_TARGET="15.0"
+            CMAKE_ARGS='-DPython_FIND_STRATEGY=LOCATION'
+            CC="clang"
+            CXX="clang++"
+            CFLAGS="-Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -I/usr/local/opt/libomp/include"
+            CXXFLAGS="-Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -I/usr/local/opt/libomp/include"
+            LDFLAGS="-L/opt/homebrew/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
+            PATH="/opt/homebrew/opt/ccache/libexec:/usr/local/opt/ccache/libexec:$PATH"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  publish_to_pypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pycauset
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Idempotent publishes: a partial publish (e.g. only some OS wheels made
+          # it to PyPI before a later run) must not fail on "File already exists".
+          # Skip files already on PyPI and upload the rest.
+          skip-existing: true

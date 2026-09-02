@@ -16,7 +16,9 @@ import typing as t
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from docutils import nodes
+# docutils.__version_info__ exists since docutils 0.14, released in August 2017.
+# Python 3.7 wasn't even out then. I think we can safely ignore versions before that.
+from docutils import __version_info__, nodes
 from docutils.core import Publisher, publish_parts
 from docutils.io import StringInput
 from docutils.parsers.rst import Directive
@@ -35,6 +37,8 @@ if t.TYPE_CHECKING:
 
 SupportedParser = t.Union[t.Literal["restructuredtext"], t.Literal["markdown"]]
 
+
+_PARSER_NAME_ARG = "parser" if __version_info__ >= (0, 22) else "parser_name"
 
 _DOCUTILS_PUBLISH_SETTINGS = {
     "input_encoding": "unicode",
@@ -80,12 +84,15 @@ def get_document_structure(
     Render the document as its internal docutils structure.
     """
     warnings_stream = io.StringIO()
+    opts: dict[str, t.Any] = {
+        _PARSER_NAME_ARG: parser_name,
+    }
     parts = publish_parts(
         source=source,
-        parser_name=parser_name,
         settings_overrides=get_docutils_publish_settings(
             warnings_stream=warnings_stream
         ),
+        **opts,
     )
     whole = parts["whole"]
     return RenderResult(

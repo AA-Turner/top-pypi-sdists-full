@@ -110,7 +110,7 @@ class DatetimeTrendPlotsAPIObject(APIObject):  # pylint: disable=missing-class-d
         ----------
         data : dict
             The directly translated dict of JSON from the server. No casing fixes have
-            taken place
+            taken place.
         """
         return cls.from_data(from_api(data, keep_null_keys=True))
 
@@ -148,13 +148,13 @@ class AccuracyOverTimePlotsMetadata(DatetimeTrendPlotsMetadataObject):
         A list of ``datarobot.enums.DATETIME_TREND_PLOTS_RESOLUTION``, which represents
         available time resolutions for which plots can be retrieved.
     backtest_metadata: list of dict
-        List of backtest metadata dicts.
+        A list of backtest metadata dicts.
         The list index of metadata dict is the backtest index.
         See backtest/holdout metadata info in `Notes` for more details.
     holdout_metadata: dict
         Holdout metadata dict. See backtest/holdout metadata info in `Notes` for more details.
     backtest_statuses: list of dict
-        List of backtest statuses dict. The list index of status dict is the backtest index.
+        A list of backtest statuses dict. The list index of status dict is the backtest index.
         See backtest/holdout status info in `Notes` for more details.
     holdout_statuses: dict
         Holdout status dict. See backtest/holdout status info in `Notes` for more details.
@@ -238,17 +238,17 @@ class AccuracyOverTimePlot(DatetimeTrendPlotsAPIObject):
         The model ID.
     resolution: string
         The resolution that is used for binning.
-        One of ``datarobot.enums.DATETIME_TREND_PLOTS_RESOLUTION``
+        One of ``datarobot.enums.DATETIME_TREND_PLOTS_RESOLUTION``.
     start_date: datetime.datetime
         The datetime of the start of the chart data (inclusive).
     end_date: datetime.datetime
         The datetime of the end of the chart data (exclusive).
     bins: list of dict
-        List of plot bins. See bin info in `Notes` for more details.
+        A list of plot bins. See bin info in `Notes` for more details.
     statistics: dict
         Statistics for plot. See statistics info in `Notes` for more details.
     calendar_events: list of dict
-        List of calendar events for the plot. See calendar events info in `Notes` for more details.
+        A list of calendar events for the plot. See calendar events info in `Notes` for more details.
 
     Notes
     -----
@@ -345,7 +345,7 @@ class AccuracyOverTimePlotPreview(DatetimeTrendPlotsAPIObject):
     end_date: datetime.datetime
         The datetime of the end of the chart data (exclusive).
     bins: list of dict
-        List of plot bins. See bin info in `Notes` for more details.
+        A list of plot bins. See bin info in `Notes` for more details.
 
     Notes
     -----
@@ -405,13 +405,13 @@ class ForecastVsActualPlotsMetadata(DatetimeTrendPlotsMetadataObject):
         A list of ``datarobot.enums.DATETIME_TREND_PLOTS_RESOLUTION``, which represents
         available time resolutions for which plots can be retrieved.
     backtest_metadata: list of dict
-        List of backtest metadata dicts.
+        A list of backtest metadata dicts.
         The list index of metadata dict is the backtest index.
         See backtest/holdout metadata info in `Notes` for more details.
     holdout_metadata: dict
         Holdout metadata dict. See backtest/holdout metadata info in `Notes` for more details.
     backtest_statuses: list of dict
-        List of backtest statuses dict. The list index of status dict is the backtest index.
+        A list of backtest statuses dict. The list index of status dict is the backtest index.
         See backtest/holdout status info in `Notes` for more details.
     holdout_statuses: dict
         Holdout status dict. See backtest/holdout status info in `Notes` for more details.
@@ -496,15 +496,15 @@ class ForecastVsActualPlot(DatetimeTrendPlotsAPIObject):
         A list of forecast distances that were retrieved.
     resolution: string
         The resolution that is used for binning.
-        One of ``datarobot.enums.DATETIME_TREND_PLOTS_RESOLUTION``
+        One of ``datarobot.enums.DATETIME_TREND_PLOTS_RESOLUTION``.
     start_date: datetime.datetime
         The datetime of the start of the chart data (inclusive).
     end_date: datetime.datetime
         The datetime of the end of the chart data (exclusive).
     bins: list of dict
-        List of plot bins. See bin info in `Notes` for more details.
+        A list of plot bins. See bin info in `Notes` for more details.
     calendar_events: list of dict
-        List of calendar events for the plot. See calendar events info in `Notes` for more details.
+        A list of calendar events for the plot. See calendar events info in `Notes` for more details.
 
     Notes
     -----
@@ -599,7 +599,7 @@ class ForecastVsActualPlotPreview(DatetimeTrendPlotsAPIObject):
     end_date: datetime.datetime
         The datetime of the end of the chart data (exclusive).
     bins: list of dict
-        List of plot bins. See bin info in `Notes` for more details.
+        A list of plot bins. See bin info in `Notes` for more details.
 
     Notes
     -----
@@ -659,13 +659,13 @@ class AnomalyOverTimePlotsMetadata(DatetimeTrendPlotsMetadataObject):
         A list of ``datarobot.enums.DATETIME_TREND_PLOTS_RESOLUTION``, which represents
         available time resolutions for which plots can be retrieved.
     backtest_metadata: list of dict
-        List of backtest metadata dicts.
+        A list of backtest metadata dicts.
         The list index of metadata dict is the backtest index.
         See backtest/holdout metadata info in `Notes` for more details.
     holdout_metadata: dict
         Holdout metadata dict. See backtest/holdout metadata info in `Notes` for more details.
     backtest_statuses: list of dict
-        List of backtest statuses dict. The list index of status dict is the backtest index.
+        A list of backtest statuses dict. The list index of status dict is the backtest index.
         See backtest/holdout status info in `Notes` for more details.
     holdout_statuses: dict
         Holdout status dict. See backtest/holdout status info in `Notes` for more details.
@@ -741,15 +741,15 @@ class AnomalyOverTimePlot(DatetimeTrendPlotsAPIObject):
         The model ID.
     resolution: string
         The resolution that is used for binning.
-        One of ``datarobot.enums.DATETIME_TREND_PLOTS_RESOLUTION``
+        One of ``datarobot.enums.DATETIME_TREND_PLOTS_RESOLUTION``.
     start_date: datetime.datetime
         The datetime of the start of the chart data (inclusive).
     end_date: datetime.datetime
         The datetime of the end of the chart data (exclusive).
     bins: list of dict
-        List of plot bins. See bin info in `Notes` for more details.
+        A list of plot bins. See bin info in `Notes` for more details.
     calendar_events: list of dict
-        List of calendar events for the plot. See calendar events info in `Notes` for more details.
+        A list of calendar events for the plot. See calendar events info in `Notes` for more details.
 
     Notes
     -----
@@ -834,7 +834,7 @@ class AnomalyOverTimePlotPreview(DatetimeTrendPlotsAPIObject):
     end_date: datetime.datetime
         The datetime of the end of the chart data (exclusive).
     bins: list of dict
-        List of plot bins. See bin info in `Notes` for more details.
+        A list of plot bins. See bin info in `Notes` for more details.
 
     Notes
     -----

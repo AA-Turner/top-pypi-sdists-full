@@ -45,15 +45,15 @@ class CustomTaskFileItem(CustomModelFileItem):
     Attributes
     ----------
     id: str
-        ID of the file item
+        ID of the file item.
     file_name: str
-        Name of the file item
+        Name of the file item.
     file_path: str
-        Path of the file item
+        Path of the file item.
     file_source: str
-        Source of the file item
+        Source of the file item.
     created_at: str
-        ISO-8601 formatted timestamp of when the version was created
+        ISO-8601 formatted timestamp of when the version was created.
     """
 
     _converter = t.Dict({
@@ -75,36 +75,37 @@ class CustomTaskVersion(APIObject):
     Attributes
     ----------
     id: str
-        ID of the custom task version
+        ID of the custom task version.
     custom_task_id: str
-        ID of the custom task
+        ID of the custom task.
     version_minor: int
-        A minor version number of custom task version
+        A minor version number of custom task version.
     version_major: int
-        A major version number of custom task version
+        A major version number of custom task version.
     label: str
-        Short human readable string to label the version
+        Short human readable string to label the version.
     created_at: str
-        ISO-8601 formatted timestamp of when the version was created
+        ISO-8601 formatted timestamp of when the version was created.
     is_frozen: bool
-        A flag if the custom task version is frozen
+        A flag if the custom task version is frozen.
     items: List[CustomTaskFileItem]
-        A list of file items attached to the custom task version
+        A list of file items attached to the custom task version.
     description: Optional[str]
-        Custom task version description
+        Custom task version description.
     base_environment_id: Optional[str]
-        ID of the environment to use with the task
+        ID of the environment to use with the task.
     base_environment_version_id: Optional[str]
-        ID of the environment version to use with the task
+        ID of the environment version to use with the task.
     dependencies: List[CustomDependency]
         The parsed dependencies of the custom task version if the
-        version has a valid requirements.txt file
+        version has a valid requirements.txt file.
     required_metadata_values: List[RequiredMetadataValue]
         Additional parameters required by the execution environment. The required keys are
-        defined by the fieldNames in the base environment's requiredMetadataKeys.
+        defined by the ``fieldNames`` in the base environment's ``requiredMetadataKeys``.
     arguments: List[UserBlueprintTaskArgument]
         A list of custom task version arguments.
     outbound_network_policy: CustomTaskOutboundNetworkPolicy
+        The outbound network policy for the custom task version.
     """
 
     _path = "customTasks/{}/versions/"
@@ -220,9 +221,9 @@ class CustomTaskVersion(APIObject):
         Parameters
         ----------
         custom_task_id: str
-            the ID of the custom task
+            The ID of the custom task.
         base_environment_id: str
-            the ID of the base environment to use with the custom task version
+            The ID of the base environment to use with the custom task version.
         maximum_memory: Optional[int]
             A number in bytes about how much memory custom tasks' inference containers can run with.
         is_major_update: bool
@@ -235,7 +236,7 @@ class CustomTaskVersion(APIObject):
             to a folder path.
         required_metadata_values: Optional[List[RequiredMetadataValue]]
             Additional parameters required by the execution environment. The required keys are
-            defined by the fieldNames in the base environment's requiredMetadataKeys.
+            defined by the ``fieldNames`` in the base environment's ``requiredMetadataKeys``.
         outbound_network_policy: Optional[CustomTaskOutboundNetworkPolicy]
             You must enable custom task network access permissions to pass any value other than `None`!
             Specifies if you custom task version is able to make network calls. `None` will set the value
@@ -244,14 +245,14 @@ class CustomTaskVersion(APIObject):
         Returns
         -------
         CustomTaskVersion
-            created custom task version
+            The created custom task version.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         return cls._create(
             "post",
@@ -283,9 +284,9 @@ class CustomTaskVersion(APIObject):
         Parameters
         ----------
         custom_task_id: str
-            The ID of the custom task
+            The ID of the custom task.
         base_environment_id: str
-            The ID of the base environment to use with the custom task version
+            The ID of the base environment to use with the custom task version.
         maximum_memory: Optional[int]
             A number in bytes about how much memory custom tasks' inference containers can run with.
         is_major_update: bool
@@ -297,11 +298,11 @@ class CustomTaskVersion(APIObject):
             Each file in the folder is uploaded under path relative
             to a folder path.
         files_to_delete: Optional[List[str]]
-            the list of a file items ids to be deleted
-            Example: ["5ea95f7a4024030aba48e4f9", "5ea6b5da402403181895cc51"]
+            The list of file item IDs to be deleted.
+            For example, ``["5ea95f7a4024030aba48e4f9", "5ea6b5da402403181895cc51"]``.
         required_metadata_values: Optional[List[RequiredMetadataValue]]
             Additional parameters required by the execution environment. The required keys are
-            defined by the fieldNames in the base environment's requiredMetadataKeys.
+            defined by the ``fieldNames`` in the base environment's ``requiredMetadataKeys``.
         outbound_network_policy: Optional[CustomTaskOutboundNetworkPolicy]
             You must enable custom task network access permissions to pass any value other than `None`!
             Specifies if you custom task version is able to make network calls. `None` will get the value
@@ -310,14 +311,14 @@ class CustomTaskVersion(APIObject):
         Returns
         -------
         CustomTaskVersion
-            created custom task version
+            The created custom task version.
 
         Raises
         ------
         datarobot.errors.ClientError
-            If the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            If the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         return cls._create(
             "patch",
@@ -389,26 +390,26 @@ class CustomTaskVersion(APIObject):
 
     @classmethod
     def list(cls, custom_task_id: str) -> List[CustomTaskVersion]:
-        """List custom task versions.
+        """List the custom task versions.
 
         .. versionadded:: v2.26
 
         Parameters
         ----------
         custom_task_id: str
-            The ID of the custom task
+            The ID of the custom task.
 
         Returns
         -------
         List[CustomTaskVersion]
-            A list of custom task versions
+            A list of custom task versions.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         url = cls._all_versions_path(custom_task_id)
         data = unpaginate(url, None, cls._client)
@@ -416,48 +417,48 @@ class CustomTaskVersion(APIObject):
 
     @classmethod
     def get(cls, custom_task_id: str, custom_task_version_id: str) -> CustomTaskVersion:
-        """Get custom task version by id.
+        """Get the custom task version by ID.
 
         .. versionadded:: v2.26
 
         Parameters
         ----------
         custom_task_id: str
-            The ID of the custom task
+            The ID of the custom task.
         custom_task_version_id: str
-            The ID of the custom task version to retrieve
+            The ID of the custom task version to retrieve.
 
         Returns
         -------
         CustomTaskVersion
-            Retrieved custom task version
+            The retrieved custom task version.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = cls._single_version_path(custom_task_id, custom_task_version_id)
         return cls.from_location(path)
 
     def download(self, file_path: str) -> None:
-        """Download custom task version.
+        """Download the custom task version.
 
         .. versionadded:: v2.26
 
         Parameters
         ----------
         file_path: str
-            Path to create a file with custom task version content
+            The path to create a file with custom task version content.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
 
         response = self._client.get(self._single_version_path(self.custom_task_id, self.id) + "download/")
@@ -467,24 +468,24 @@ class CustomTaskVersion(APIObject):
     def update(
         self, description: Optional[str] = None, required_metadata_values: Optional[List[RequiredMetadataValue]] = None
     ) -> None:
-        """Update custom task version properties.
+        """Update the custom task version properties.
 
         .. versionadded:: v2.26
 
         Parameters
         ----------
         description: str
-            new custom task version description
+            The new custom task version description.
         required_metadata_values: List[RequiredMetadataValue]
             Additional parameters required by the execution environment. The required keys are
-            defined by the fieldNames in the base environment's requiredMetadataKeys.
+            defined by the ``fieldNames`` in the base environment's ``requiredMetadataKeys``.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         payload: Dict[str, Any] = {}
         if description:
@@ -503,16 +504,16 @@ class CustomTaskVersion(APIObject):
         self._update_values(new_version)
 
     def refresh(self) -> None:
-        """Update custom task version with the latest data from server.
+        """Update the custom task version with the latest data from the server.
 
         .. versionadded:: v2.26
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         new_object = self.get(self.custom_task_id, self.id)
@@ -539,7 +540,7 @@ class CustomTaskVersion(APIObject):
         Parameters
         ----------
         max_wait: int
-            max time to wait for a build completion
+            The maximum time to wait for a build completion.
 
         Returns
         -------
@@ -549,11 +550,11 @@ class CustomTaskVersion(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         datarobot.errors.AsyncTimeoutError
-            Raised if the dependency build is not finished after max_wait.
+            Raised if the dependency build is not finished after ``max_wait``.
         """
         custom_task_id = self.custom_task_id
         custom_task_version_id = self.id
@@ -578,9 +579,9 @@ class CustomTaskVersion(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         url = self._dependency_build_path.format(self.custom_task_id, self.id)
@@ -602,20 +603,20 @@ class CustomTaskVersion(APIObject):
         return CustomTaskVersionDependencyBuild.from_server_data(server_data)
 
     def download_dependency_build_log(self, file_directory: str = ".") -> None:
-        """Get log of a custom task version dependency build.
+        """Get the log of a custom task version dependency build.
         .. versionadded:: v2.27
 
         Parameters
         ----------
         file_directory: str (optional, default is ".")
-            Directory path where downloaded file is to save.
+            The directory path where the downloaded file is saved.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         url = self._dependency_build_log_path.format(self.custom_task_id, self.id)

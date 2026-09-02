@@ -1838,6 +1838,25 @@ class ToProtoConverter:
         return pb.MaterializedFeatureView(**kwargs)
 
     @staticmethod
+    def convert_feature_set_source_reference(feature_set: type[Features]) -> pb.SourceFileReference | None:
+        filename = feature_set.__chalk_filename__
+        feature_class_ast = feature_set.__chalk_feature_class_ast__
+        if filename is None or feature_class_ast is None:
+            return None
+
+        start_line, start_character, end_line, end_character = feature_class_ast.class_definition_location
+        source_reference = pb.SourceFileReference(
+            file_name=filename,
+            range=Range(
+                start=Position(line=start_line, character=start_character),
+                end=Position(line=end_line, character=end_character),
+            ),
+        )
+        if feature_set.__chalk_source__ is not None:
+            source_reference.code = feature_set.__chalk_source__
+        return source_reference
+
+    @staticmethod
     def convert_graph(
         features_registry: dict[str, type[Features]],
         resolver_registry: Collection[Resolver],
@@ -1866,6 +1885,7 @@ class ToProtoConverter:
                     doc=feature_set.__chalk_description__ or feature_set.__doc__,
                     etl_offline_to_online=feature_set.__chalk_etl_offline_to_online__,
                     class_path=paths.get_classpath_or_name(feature_set),
+                    source_file_reference=ToProtoConverter.convert_feature_set_source_reference(feature_set),
                 )
             )
 

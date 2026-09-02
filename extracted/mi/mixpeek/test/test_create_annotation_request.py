@@ -42,6 +42,7 @@ class TestCreateAnnotationRequest(unittest.TestCase):
                 confidence = 0.0,
                 reasoning = '',
                 payload = { },
+                metadata = { },
                 retriever_id = '',
                 execution_id = '',
                 stage_name = ''

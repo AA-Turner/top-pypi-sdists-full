@@ -1,0 +1,111 @@
+interactions:
+  - request:
+      body:
+        '{"messages": [{"role": "user", "content": "What does 42 mean?"}], "model":
+        "gpt-4o-mini-2024-07-18", "max_tokens": 56, "n": 1, "temperature": 1.0}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "134"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.30.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.30.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/4xTwW7bMAy95ysIXXZJiiRNk2W3Ft26Aru02NABa2EoMm1rkSVBlJtkRf69lN3U
+          2dYBuxjWeyT1qEc+DQCEzsUHEKqSUdXejC6/X0zoQrnycX6zvr34NLuW67vbu9JvJ9dLMUwZbvUT
+          VTxknSjHeRi1sx2tAsqIqepksZgvlsuz5bQlapejSWmlj6OZG9Xa6tF0PJ2NxovR5P1LduW0QuKw
+          H3wEeGq/SafNccvweHhAaiSSJTJ2CGIwOJMQIYk0RWmjGPakcjaibaV/rRBsU68wwGwKlSRYIXeC
+          sNGscgdr6zYWGL4XkUPPLW04NDpIp28m6pqbhJsGKXUOroAvusBhR1v9iIH4JG0OH/l/Fytty+G9
+          SBW9842RQf/CHFY7uHRNaRg+z2VNoC1UmoCURqsQCq3a+oRBYxKTdH/WUVWVXmN4R3DVsOCDsCtp
+          5HZ3wvdc2xag6MKOdQA1HkOyqonch5U1X36J6I+fJ2DRkEwW2caYI0Ja66JMQlpjHl6Y/asVxpU+
+          uBX9kSoKtpiqjCeCeDz42Q3aMlai5ff8fWhNb37zUXCp2scsujW2F05Ou4KiH7WePJu/kJElmh6f
+          L4dvVMtyjFIbOhoaoaSqMO8z+wmTTa7dETE46vpvMW/V7jpn7/+nfE8ohZ53KPMB824C3goLmBbx
+          X2Gvb9wKFjxBj7xZWdQYkhM5FrIx3XoI2lHEOmO7Sgw+6G5HCp+p/IwXeHI6nYnBfvAMAAD//wMA
+          k3v5sDEEAAA=
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9efec7ec6b1099a0-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 19:26:33 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - <FILTERED>
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "1099"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "30000"
+        x-ratelimit-limit-tokens:
+          - "150000000"
+        x-ratelimit-remaining-requests:
+          - "29999"
+        x-ratelimit-remaining-tokens:
+          - "149999992"
+        x-ratelimit-reset-requests:
+          - 2ms
+        x-ratelimit-reset-tokens:
+          - 0s
+        x-request-id:
+          - req_5977ecbd4fd846eea4a946e7338d4ff7
+      status:
+        code: 200
+        message: OK
+version: 1

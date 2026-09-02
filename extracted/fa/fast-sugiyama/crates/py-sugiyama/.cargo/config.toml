@@ -1,0 +1,6 @@
+[unstable]
+build-std = ["panic_abort", "std"]
+panic-immediate-abort = true
+
+[profile.dev]
+panic = "abort"

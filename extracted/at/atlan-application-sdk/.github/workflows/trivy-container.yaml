@@ -1,0 +1,188 @@
+# DEPRECATED -- use build-and-scan.yaml instead. Removal: 3.0.
+#
+#   jobs:
+#     scan:
+#       uses: atlanhq/application-sdk/.github/workflows/build-and-scan.yaml@main
+#       secrets: inherit
+#
+# build-and-scan.yaml is the scan that actually gates PRs across the fleet. It
+# does the same job (build, Trivy, allowlist gate, PR comment) and additionally
+# reads the Dockerfile path from the caller's atlan.yaml rather than hardcoding
+# ./Dockerfile, so it works on the repos that keep theirs at install/Dockerfile
+# or deploy/Dockerfile. It emits `scan / Trivy Scan` and `scan / Security Gate`.
+#
+# Why this one is being retired (FND-447): across all 166 active atlan-*-app
+# repos it had 33 callers and not one working run. Two independent causes:
+#
+#   1. It demanded CHAINGUARD_USERNAME / CHAINGUARD_PASSWORD as required
+#      secrets. Those exist only as *repo-level* secrets on application-sdk, so
+#      no caller could ever supply them -- `secrets: inherit` forwards by name
+#      and the names are absent everywhere else. The org-level pair is named
+#      CHAINGUARD_DOCKER_* and is rejected by cgr.dev (FORBIDDEN).
+#   2. No connector app needs cgr.dev at all. They build from
+#      registry.atlan.com, docker.io and registry.access.redhat.com; only
+#      application-sdk's own Dockerfile is FROM cgr.dev. So the login this
+#      workflow insisted on was both unsatisfiable and pointless.
+#
+# The Chainguard secrets are gone from the contract below, and the composite's
+# login step is now conditional, so the SDK's own pull_request.yaml job keeps
+# using its repo-level credentials while callers here need nothing.
+#
+# The remaining secret is declared `required: false` on purpose and validated by
+# the "Verify secret contract" step instead. `required: true` turns a caller
+# that omits it into a workflow-parse error: the run ends as `startup_failure`
+# with zero jobs and therefore no check run at all, which no required check can
+# gate on and nobody can see. That is what hid cause 1 for months. See
+# .github/scripts/check_trivy_secret_contract.py for the full rationale.
+#
+# This workflow mints a fleet App token (falling back to the caller's
+# ORG_PAT_GITHUB) for the cross-repo allowlist checkout and the
+# private-dependency BuildKit secret.
+
+name: Atlan Application Trivy container scan
+
+on:
+  workflow_call:
+    secrets:
+      ORG_PAT_GITHUB:
+        required: false
+        description: "Fallback PAT, used if the fleet App token can't be minted. Enforced by the 'Verify secret contract' step, and only when the App token did not mint -- nothing reads it otherwise."
+      FLEET_APP_ID:
+        required: false
+        description: "atlan-app-fleet App ID (org secret). Not passed explicitly by any current caller — auto-available via 'secrets: inherit'. Declared here so the contract is self-documenting."
+      FLEET_APP_PRIVATE_KEY:
+        required: false
+        description: "atlan-app-fleet App private key (org secret). Same availability as FLEET_APP_ID above."
+
+    inputs:
+      skip-files:
+        description: "Comma-separated list of files or directories to be skipped"
+        required: false
+        type: string
+      fail-on-vulns:
+        description: "Whether to fail if new/expired HIGH/CRITICAL vulnerabilities are found"
+        required: false
+        type: string
+        default: 'true'
+      private_dep_repo:
+        description: >-
+          Optional bare repo name (under the atlanhq org) that the caller's
+          Dockerfile clones as a private git dependency during the scan build.
+          When set, the minted fleet App token is scoped to just that repo plus
+          application-sdk (needed for the allowlist checkout) for
+          least-privilege. When unset, the token stays org-wide (the default),
+          since a shared reusable can't know the caller's dependency repo.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+  security-events: write
+
+jobs:
+  build:
+    runs-on: "ubuntu-24.04"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Mint fleet App token
+        # This token feeds both the cross-repo application-sdk allowlist
+        # checkout below and the composite's PRIVATE_REPO_ACCESS_TOKEN BuildKit
+        # secret (used by Dockerfiles that clone a private git dependency
+        # during the scan build). A caller that knows its single dependency
+        # repo can advertise it via the private_dep_repo input; the token is
+        # then scoped to that repo plus application-sdk for least-privilege.
+        # When unset, repositories is empty and (with owner: atlanhq) the token
+        # stays org-wide -- the necessary default for a shared reusable whose
+        # dependency repo varies per caller, same as build-and-scan.yaml's
+        # git_token mint.
+        id: app-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          owner: atlanhq
+          repositories: ${{ inputs.private_dep_repo && format('application-sdk,{0}', inputs.private_dep_repo) || '' }}
+
+      - name: Checkout base allowlist from SDK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: atlanhq/application-sdk
+          ref: main
+          sparse-checkout: |
+            .security
+            .github/scripts
+          path: _sdk
+          token: ${{ steps.app-token.outputs.token || secrets.ORG_PAT_GITHUB }}
+
+      # Turns a missing secret into a normal red step with an actionable
+      # message. Runs after the _sdk checkout because that is where the script
+      # comes from; a missing ORG_PAT_GITHUB with no minted App token already
+      # reds that checkout loudly, which is the outcome this whole change is
+      # after -- a visible failure carrying a check run, not startup_failure.
+      - name: Verify secret contract
+        env:
+          ORG_PAT_GITHUB: ${{ secrets.ORG_PAT_GITHUB }}
+          APP_TOKEN_MINTED: ${{ steps.app-token.outputs.token }}
+        run: python3 _sdk/.github/scripts/check_trivy_secret_contract.py
+
+      # Composite handles build, Trivy JSON+SARIF scan, SARIF upload.
+      # fail-on-vulns is disabled here — the allowlist gate below takes over.
+      - id: trivy-scan
+        uses: "atlanhq/application-sdk/.github/actions/trivy-container@main"
+        with:
+          # No chainguard-* here on purpose: the login is skipped, since no
+          # caller of this workflow builds from cgr.dev and none could supply
+          # the credentials anyway. See the header.
+          github-token: ${{ steps.app-token.outputs.token || secrets.ORG_PAT_GITHUB }}
+          skip-files: ${{ inputs.skip-files }}
+          fail-on-vulns: 'false'
+
+      - name: Check against allowlist
+        id: gate
+        env:
+          FAIL_ON_FINDINGS: ${{ inputs.fail-on-vulns }}
+        run: >
+          python3 _sdk/.github/scripts/check_allowlist.py
+          --trivy-results trivy-container-results.json
+          --write-comment
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            let body;
+            try {
+              body = fs.readFileSync('/tmp/scan_comment.md', 'utf8');
+            } catch {
+              body = '### \u{1F6E1}\uFE0F Security Gate\n\nScan results unavailable.';
+            }
+            const marker = '### \u{1F6E1}\uFE0F Security Gate';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }

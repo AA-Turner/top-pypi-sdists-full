@@ -6,6 +6,7 @@ from urllib.parse import quote as _url_quote
 from uuid import UUID
 
 import httpx
+from loguru import logger
 
 from dreadnode.app.api.models import (
     AutoRefillConfig,
@@ -3308,6 +3309,59 @@ class ApiClient:
             params["search"] = search
         response = self.request("GET", f"/org/{org}/ws/{workspace}/sessions/facets", params=params)
         return t.cast("dict[str, t.Any]", response.json())
+
+    def resolve_session_scope(
+        self,
+        org: str,
+        session_id: str,
+    ) -> dict[str, t.Any] | None:
+        """Find a session's workspace and project by searching across all org workspaces.
+
+        Returns the full API response payload (normally containing a
+        ``session`` dict with ``workspace`` and ``project_name`` keys) from the
+        first workspace where the session is found, or ``None`` if not found in
+        any workspace. Used by ``--resume`` to locate sessions that belong to a
+        different workspace than the current profile default.
+
+        Raises :class:`AuthenticationError` on 401 so callers can surface
+        the auth failure rather than silently returning "not found".
+        """
+        workspaces = self.list_workspaces(org)
+        for ws in workspaces:
+            ws_key = getattr(ws, "key", None)
+            if not ws_key:
+                continue
+            try:
+                data = self.get_session(org, ws_key, session_id, limit=1)
+            except AuthenticationError:
+                raise
+            except NotFoundError:
+                continue
+            except _TRANSPORT_ERRORS as exc:
+                logger.debug(
+                    "Cross-workspace session lookup failed for {} in {}: {}",
+                    session_id[:8],
+                    ws_key,
+                    exc,
+                )
+                continue
+            except RuntimeError as exc:
+                logger.debug(
+                    "Cross-workspace session lookup returned an API error for {} in {}: {}",
+                    session_id[:8],
+                    ws_key,
+                    exc,
+                )
+                continue
+            else:
+                # Attach the workspace key so callers can switch context —
+                # the platform response doesn't include it (it's implicit
+                # in the request path).
+                session = data.get("session", data)
+                if isinstance(session, dict):
+                    session.setdefault("workspace", ws_key)
+                return data
+        return None
 
     def get_session(
         self,

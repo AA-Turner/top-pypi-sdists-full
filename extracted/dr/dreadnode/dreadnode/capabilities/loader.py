@@ -749,15 +749,23 @@ def _run_preflight_check(
             )
         else:
             stderr = result.stderr.decode("utf-8", errors="replace").strip()
+            error = stderr or f"exit code {result.returncode}"
+            # Warn (not debug) so the failure reaches operators in headless/--print
+            # runs that have no TUI health panel — the prompt-level nudge to the
+            # agent is not a substitute for a human-visible signal.
+            logger.warning("Capability check '{}' failed: {}", check.name, error)
             component_health.append(
                 {
                     "kind": "check",
                     "name": check.name,
                     "status": "error",
-                    "error": stderr or f"exit code {result.returncode}",
+                    "error": error,
                 }
             )
     except subprocess.TimeoutExpired:
+        logger.warning(
+            "Capability check '{}' timed out after {}s", check.name, _CHECK_TIMEOUT_SECONDS
+        )
         component_health.append(
             {
                 "kind": "check",
@@ -767,6 +775,7 @@ def _run_preflight_check(
             }
         )
     except Exception as exc:
+        logger.warning("Capability check '{}' errored: {}", check.name, exc)
         component_health.append(
             {
                 "kind": "check",

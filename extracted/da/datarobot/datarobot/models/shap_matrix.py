@@ -35,13 +35,13 @@ class ShapMatrix(APIObject):
     Attributes
     ----------
     project_id : str
-        id of the project the model belongs to
+        The ID of the project the model belongs to.
     shap_matrix_id : str
-        id of the generated SHAP matrix
+        The ID of the generated SHAP matrix.
     model_id : str
-        id of the model used to
+        The ID of the model used to compute SHAP values.
     dataset_id : str
-         id of the prediction dataset SHAP values were computed for
+        The ID of the prediction dataset SHAP values were computed for.
 
     Examples
     --------
@@ -108,26 +108,26 @@ class ShapMatrix(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         model_id : str
-            id of the model for which prediction explanations are requested
+            The ID of the model for which prediction explanations are requested.
         dataset_id : str
-            id of the prediction dataset for which prediction explanations are requested (as
-            uploaded from Project.upload_dataset)
+            The ID of the prediction dataset for which prediction explanations are requested (as
+            uploaded from Project.upload_dataset).
 
         Returns
         -------
         job : ShapMatrixJob
-            The job computing the SHAP based prediction explanations
+            The job computing the SHAP based prediction explanations.
 
         Raises
         ------
         ClientError
             If the server responded with 4xx status. Possible reasons are project, model or dataset
             don't exist, user is not allowed or model doesn't support SHAP based prediction
-            explanations
+            explanations.
         ServerError
-            If the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         data = {"model_id": model_id, "dataset_id": dataset_id}
         url = f"projects/{project_id}/shapMatrices/"
@@ -165,19 +165,19 @@ class ShapMatrix(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project
+            The ID of the project.
 
         Returns
         -------
         List of ShapMatrix
-            A list of :py:class:`ShapMatrix <datarobot.models.ShapMatrix>` objects
+            A list of :py:class:`ShapMatrix <datarobot.models.ShapMatrix>` objects.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         data = unpaginate(initial_url=cls._path.format(project_id), initial_params=None, client=cls._client)
         result = [cls.from_server_data(item) for item in data]
@@ -196,13 +196,14 @@ class ShapMatrix(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         id : str
-            id of the SHAP matrix
+            The ID of the SHAP matrix.
 
         Returns
         -------
-        :py:class:`ShapMatrix <datarobot.models.ShapMatrix>` object representing specified record
+        :py:class:`ShapMatrix <datarobot.models.ShapMatrix>`
+            Object representing the specified record.
         """
         return cls(project_id=project_id, id=id)  # type: ignore[no-any-return]
 
@@ -218,7 +219,7 @@ class ShapMatrix(APIObject):
         Returns
         -------
         dataframe : pandas.DataFrame
-            A dataframe with SHAP scores
+            A dataframe with SHAP scores.
         read_timeout : int (optional, default 60)
             .. versionadded:: 2.29
 
@@ -227,9 +228,9 @@ class ShapMatrix(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = self._path.format(self.project_id) + f"{self.id}/"
         resp = self._client.get(path, headers={"Accept": "text/csv"}, stream=True, timeout=read_timeout)

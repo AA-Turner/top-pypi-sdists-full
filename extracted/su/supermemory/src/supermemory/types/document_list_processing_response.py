@@ -7,7 +7,7 @@ from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
 
-__all__ = ["DocumentListProcessingResponse", "Document"]
+__all__ = ["DocumentListProcessingResponse", "Document", "Pagination"]
 
 
 class Document(BaseModel):
@@ -76,6 +76,27 @@ class Document(BaseModel):
     to use to group documents.
     """
 
+    error_code: Optional[str] = FieldInfo(alias="errorCode", default=None)
+    """Stable error code when processing failed, if available"""
+
+    error_message: Optional[str] = FieldInfo(alias="errorMessage", default=None)
+    """Human-readable processing error, if available"""
+
+    stuck: Optional[bool] = None
+    """True when the document is not done/failed and has not been updated for 4 hours"""
+
+
+class Pagination(BaseModel):
+    """Present when `view=all`"""
+
+    current_page: float = FieldInfo(alias="currentPage")
+
+    total_items: float = FieldInfo(alias="totalItems")
+
+    total_pages: float = FieldInfo(alias="totalPages")
+
+    limit: Optional[float] = None
+
 
 class DocumentListProcessingResponse(BaseModel):
     """List of documents currently being processed"""
@@ -84,3 +105,6 @@ class DocumentListProcessingResponse(BaseModel):
 
     total_count: float = FieldInfo(alias="totalCount")
     """Total number of processing documents"""
+
+    pagination: Optional[Pagination] = None
+    """Present when `view=all`"""

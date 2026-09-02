@@ -1,0 +1,594 @@
+# Example coordinator.yml — copy to coordinator.yml and edit for your setup.
+# Generate one interactively with: coord init
+
+repos:
+  - name: vimcode
+    github: JDonaghy/vimcode
+    depends_on: [quadraui]
+    default_branch: develop
+    build_command: "cargo build"
+    test_command: "cargo test --no-default-features"
+
+  - name: quadraui
+    github: JDonaghy/quadraui
+    depends_on: []
+    default_branch: main
+    build_command: "cargo build --features tui --features gtk"
+    test_command: "cargo test --features tui"
+    # #305: stash compiled binaries before the worktree is removed so
+    # `coord pull-artifact` can rsync them to the coordinator machine
+    # for manual smoke testing without a local rebuild.
+    artifact_paths:
+      - target/debug/examples/tui_*
+      - target/debug/examples/gtk_*
+      - target/debug/coord-tui
+
+  # #2104: the repo (and the PyPI distribution it publishes) is
+  # `code-coordinator`. `github:` still names the OLD path deliberately —
+  # GitHub redirects a renamed repo's old URL indefinitely, so this clones
+  # and `gh`-resolves correctly both before and after the repo rename,
+  # while the new path 404s until that rename lands.
+  #
+  # For the same reason the `repo_paths` VALUES below still say
+  # `~/src/claude-coordinator`: nothing renames the on-disk checkout, and
+  # `scripts/azure-workers/provision-worker.sh` still clones into that path.
+  # Only the `repo_paths` KEY tracks `name:` (the config loader rejects a key
+  # that names no configured repo). Renaming the value would break every
+  # operation that `cd`s into `Machine.repo_path()` — dispatch, smoke,
+  # conflict-fix — for anyone who copied this file.
+  - name: code-coordinator
+    github: JDonaghy/claude-coordinator
+    depends_on: []
+    default_branch: main
+    # #402: build a wheel into a throwaway dir — do NOT `pip install -e .`
+    # into ~/.coord-venv. `coord test` runs build_command in the canonical
+    # checkout, so an editable install pinned the AGENT's runtime venv to
+    # whatever branch was checked out, silently reverting its PyPI install.
+    # `pip wheel` exercises the full build backend without mutating any venv,
+    # and still uses ~/.coord-venv/bin/pip so PEP 668 ("externally-managed-
+    # environment" when pip resolves to /usr/bin/pip) doesn't bite.
+    build_command: "~/.coord-venv/bin/pip wheel --no-deps --wheel-dir /tmp/coord-test-build ."
+    # #1426: point the headless Test stage at the SAME script the (now
+    # observer-only) unattended driver used to run locally — `coord drive`
+    # since #1392, scripts/drive-issue.sh before that. The runner does the
+    # path routing (coord/**+tests/** -> pytest, docs-only -> skip), the
+    # populated-$HOME arm, baseline comparison, and flake-tolerant re-runs —
+    # none of which a bare `pytest` in this field would do.
+    # `dispatch_smoke` runs this in place on whichever machine it dispatches
+    # to.
+    #
+    # #2899: this used to be a TWO-toolchain route, because the repo held the
+    # `coord-tui` Rust crate under `tui/**` alongside the Python. That crate
+    # is its own repo now (see the `coord-tui` entry below), so this repo is
+    # pure Python and the runner's Rust arm is gone. The route itself is kept
+    # deliberately — see scripts/coord-test-runner.sh's header §1.
+    test_command: "scripts/coord-test-runner.sh . --base-ref origin/main --repo code-coordinator"
+    # #2091: `ci_command` is the command THIS REPO'S CI actually runs. The
+    # Test stage prefers it over `test_command` (and over
+    # `smoke_tests.default_command`), so a green Test verdict means the same
+    # thing a green CI run does.
+    #
+    # Set it whenever CI runs a WIDER suite than `test_command` — that gap is
+    # a silent false green: coord-portal #14 recorded `test_passed` in 1m51s
+    # on a commit whose CI `npm run test:e2e` failed deterministically after
+    # 44m57s (36 mobile Playwright tests, every click ~70px off target). The
+    # Test verdict gates review and merge, so a gate running a strict subset
+    # of CI means "some tests passed", not "the branch is good".
+    #
+    # Leave it unset when `test_command` IS what CI runs — as here, where
+    # .github/workflows points at the same coord-test-runner.sh arms.
+    # `dispatch_smoke` logs a warning for any repo with a `github:` slug and
+    # no `ci_command`, naming the verdict as narrower than CI.
+    # ci_command: "npm run test:e2e"
+    # artifact_paths: []  # no compiled binaries to stash for a Python package
+
+  # #2899 (Phase 4 of #2894): the `coord-tui` TUI, extracted from
+  # code-coordinator's `tui/` subdirectory WITH its git history. It is an
+  # ORDINARY repo entry — one language, one root `Cargo.toml`, one
+  # `test_command` — which is the whole point of the move: the two-codebase
+  # special case in `scripts/coord-test-runner.sh` existed only because this
+  # crate had nowhere else to live.
+  #
+  # Copy `coord-web`'s shape (#2009), not code-coordinator's: no
+  # `--repo`-selected path routing, no `ci_command` override (CI runs the
+  # same `cargo test`), and a `smoke_tests.capability_rules` entry below so
+  # a diff here lands on a machine that actually has a Rust toolchain.
+  - name: coord-tui
+    github: JDonaghy/coord-tui
+    depends_on: []
+    default_branch: main
+    build_command: "cargo build"
+    test_command: "cargo test"
+    # #305: the built binary, stashed before the worktree is removed so
+    # `coord pull-artifact` can rsync it for manual smoke testing without a
+    # local rebuild. Crate-root-relative, so no `tui/` prefix any more.
+    artifact_paths:
+      - target/debug/coord-tui
+
+# #2915: DO NOT hand-write a new entry here — use `coord machine add <name>
+# --host <h> --capabilities ... --repos ...`, then `coord machine doctor
+# <name> --ssh`. Onboarding a machine is a sequence assembled from four
+# documents that don't cross-reference each other (docs/AGENT_OPERATIONS.md,
+# docs/GRAPHIFY_SETUP.md, docs/MAC_MINI.md, docs/WSL_WINDOWS_WORKER.md) and
+# EVERY step of it fails silently. The two traps this block itself sets:
+#
+#   `host:` — must be the address that answers /health, and the only way to
+#   be sure of that is the MagicDNS FQDN (`<node>.<tailnet>.ts.net`). A bare
+#   hostname is resolved by the normal system resolver, so a LAN DHCP/DNS
+#   entry sharing the name (a WSL2 box named `dell64` whose Windows host also
+#   registers `dell64.lan`) shadows MagicDNS and every board read becomes
+#   [timeout] — while `tailscale ping` and the agent's own /health are both
+#   perfectly healthy. `coord machine add` refuses a --host that resolves
+#   off-tailnet; `coord doctor` reports it continuously (#2912).
+#
+#   `repo_paths:` — the KEY is the repo NAME from the `repos:` block above,
+#   the VALUE is the on-disk path. They differ on purpose here (see the #2104
+#   note above: the repo is `code-coordinator`, the checkout has always been
+#   `~/src/claude-coordinator`), so using the directory name as the key is an
+#   easy mistake with a TOTAL blast radius — `_parse_machines` raises, and
+#   the whole coordinator.yml then fails to load for EVERY machine, not just
+#   the new one. A repo listed under `repos:` with no `repo_paths` entry is
+#   the quieter version: the config loads and dispatch is refused for exactly
+#   that repo (#1801).
+#
+# Neither `coord machine add` nor anything else installs the agent, clones
+# the repos, installs graphify, or enables `loginctl enable-linger` — those
+# stay a human's job and are printed as explicit residue. `coord machine
+# doctor` verifies all of them from live state afterward.
+machines:
+  # Desktop A — Dell Precision, full GTK builds
+  - name: precision
+    host: john-precision-3571
+    capabilities: [gtk, rust, python]
+    repos: [vimcode, quadraui, code-coordinator, coord-tui]
+    repo_paths:
+      vimcode: ~/src/vimcode
+      quadraui: ~/src/quadraui
+      code-coordinator: ~/src/claude-coordinator
+      # #2899: unlike code-coordinator (whose checkout kept its pre-rename
+      # directory name), coord-tui is a NEW clone, so the key and the value
+      # agree.
+      coord-tui: ~/src/coord-tui
+
+  # Desktop B — HP EliteBook, full GTK builds
+  - name: elitebook
+    host: john-hp-elitebook-830-g7-notebook-pc
+    capabilities: [gtk, rust, python]
+    repos: [vimcode, quadraui, code-coordinator, coord-tui]
+    repo_paths:
+      vimcode: ~/src/vimcode
+      quadraui: ~/src/quadraui
+      code-coordinator: ~/src/claude-coordinator
+      # #2899: unlike code-coordinator (whose checkout kept its pre-rename
+      # directory name), coord-tui is a NEW clone, so the key and the value
+      # agree.
+      coord-tui: ~/src/coord-tui
+    # #1862: a laptop shouldn't need its operator to remember `coord pause`
+    # every night. `quiet_hours` is a RECURRING DAILY window — no new
+    # dispatch inside it, unchanged behaviour outside it. It does NOT
+    # cancel a task still running when the window opens (same as `coord
+    # pause` — see coord/machine_pause.py). `tz` is REQUIRED (never
+    # defaults to the daemon's own UTC clock) since `coord serve` typically
+    # runs on a different machine/timezone than this one.
+    # `coord unpause elitebook` during the window grants a one-night
+    # override instead of silently no-oping or re-pausing on the next poll.
+    quiet_hours:
+      start: "23:00"
+      end: "08:00"
+      tz: America/Chicago
+
+  # Server — Dell server, no display (no GTK builds)
+  - name: dellserver
+    host: dellserver
+    capabilities: [rust, python]
+    repos: [vimcode, quadraui, code-coordinator]
+    repo_paths:
+      vimcode: ~/src/vimcode
+      quadraui: ~/src/quadraui
+      code-coordinator: ~/src/claude-coordinator
+
+  # Azure VM — lightweight, small tasks only (needs Claude CLI setup)
+  - name: azure-vm
+    host: vm-acme-dev-platform
+    capabilities: [python]
+    repos: [code-coordinator]
+    repo_paths:
+      code-coordinator: ~/src/claude-coordinator
+
+acceptance:
+  # The oracle loop (docs/ORACLE_LOOP.md, #944) for this repo's own
+  # milestone-scoped acceptance suites (tests/acceptance/ms-NN/). #1125's
+  # in-repo path routing: `driver_for(repo, path)` resolves the FIRST route
+  # whose `match` glob matches `path` (fnmatch semantics) — first-match, not
+  # most-specific-match (coord.config.AcceptanceConfig.driver_for). So an
+  # added route whose glob is a strict SUBSET of one already listed has to go
+  # ABOVE it or it can never win (#1540).
+  #
+  # #2009 (epic #2002): a `coord/dashboard/webapp/** -> web-playwright` route
+  # used to sit first here for exactly that reason. The webapp moved to the
+  # `coord-web` repo, so it is gone from this repo's routes and reappears as
+  # a FLAT `acceptance.drivers["coord-web"]` entry — `kind: web-playwright`,
+  # `capability: browser`, no `routes:` — because that repo's root IS the
+  # webapp root and there is nothing for a path glob to disambiguate. See
+  # docs/ADR_COORD_WEB_ACCEPTANCE_SUITE.md.
+  drivers:
+    code-coordinator:
+      routes:
+        - match: coord/**
+          kind: cli-pytest
+          run: "pytest tests/acceptance/{ms}"
+          mock: "*.out"
+          capability: python
+    # #2899: the `tui/**` -> tui-tuidriver route that used to sit beside the
+    # `coord/**` route above is GONE from this repo's `routes:`, and reappears
+    # below as a FLAT `coord-tui` entry — exactly the shape #2007 gave
+    # `coord-web` when the webapp moved out. A `routes:` list disambiguates
+    # paths WITHIN one repo; coord-tui's repo root IS the crate root, so there
+    # is nothing left for a path glob to disambiguate.
+    coord-tui:
+      kind: tui-tuidriver
+      run: "cargo test --test acceptance -- --format json"
+      mock: "*.screen"
+      capability: rust
+      # #1552/#2896/#2899: `cargo test --test acceptance` can't see a slice at
+      # all until `tests/acceptance.rs` `include!`s it, so that file is the
+      # sealed set's entry point (AcceptanceConfig.sealed_paths) — and the
+      # sibling `tests/acceptance/` directory it wires in is derived from this
+      # path and sealed too. The `tui/` prefix both paths carried is gone with
+      # the move: they are crate-root-relative now.
+      entrypoint: tests/acceptance.rs
+
+smoke_tests:
+  # #1021/#1426: auto-dispatch a headless smoke (Test-stage) assignment when
+  # a work assignment completes, on both `coord resume` (reconcile()) and the
+  # unattended `coord-notify.timer` (`coord notify`).
+  #
+  # `capability_rules` below is EXTRA hardware a diff needs beyond "any
+  # machine that can build/test this repo" — a rule miss does not mean
+  # "skip" (#1426): as long as a `test_command` is configured (above), the
+  # Test stage still dispatches for a plain `type="work"` completion, just to
+  # any capable-for-repo machine rather than a specifically-capabled one.
+  # Add a rule here only when a diff genuinely needs hardware most machines
+  # lack — GTK, a browser for Playwright, etc. — the coord-tui rule below is
+  # the worked example: coord-tui's TuiDriver harness needs a Rust toolchain,
+  # and not every machine in this fleet has one (azure-vm doesn't).
+  #
+  # #2899, AND THE SHARP EDGE THIS RULE NOW SITS ON: `capability_rules` are
+  # keyed by PATH PREFIX, not by repo (`coord.smoke.match_rules`). While the
+  # crate lived at `tui/` inside this repo, `files: [tui/]` was unambiguous —
+  # no other repo had that prefix. Now that coord-tui is its own repo, its
+  # paths are root-relative (`src/`, `Cargo.toml`), and `src/` is a prefix
+  # MANY repos share. The rule below is therefore deliberately anchored on
+  # `Cargo.toml`/`Cargo.lock` — a marker only a Rust repo carries — plus
+  # `src/app/`, which is coord-tui's own layout rather than a bare `src/`.
+  # Over-matching is not fatal (a rule only ever ADDS a required capability,
+  # narrowing the candidate machines), but it silently narrows dispatch for
+  # an unrelated repo, so prefer the more specific prefix.
+  auto_queue: true
+  capability_rules:
+    - files: [Cargo.toml, Cargo.lock, src/app/]
+      requires: [rust]
+    # Worked example for a browser-driven suite in ANOTHER repo — the shape
+    # `coord-web` needs now that the webapp is its own repo (#2009). Note the
+    # same path-prefix caveat: `src/` here would also match coord-tui.
+    # - files: [src/, playwright.config.ts]
+    #   requires: [browser]
+
+pipeline:
+  # Lifecycle gate order. Test precedes Review so the smoke test runs before the
+  # PR/review (the natural order). This drives both the displayed stage order and
+  # the headless review gate (review is held until the work has a passed/skipped
+  # test verdict). Omit this block to accept the same default.
+  default_gates: [test, review, merge]
+
+  # #2048: cheap, independent, per-turn liveness auditor. After each worker
+  # turn a small model (default Haiku) sees ONLY the assignment's briefing
+  # and that one turn's output — never the transcript, never the worker's
+  # own STATUS:/STUCK: lines — and rules continue/done/blocked. `strikes`
+  # consecutive `blocked` verdicts raise a diagnostic GitHub comment +
+  # EVENT_LIVENESS_STALL; a single bad turn is normal and does nothing.
+  # Gates NOTHING: no board status, review_state, or test_state is ever
+  # touched by this — it's a tripwire between the review/test gates, not a
+  # gate itself. Off by default; ships dark until it earns trust the same
+  # way auto_dispatch_stalled/escalate_semantic_conflicts did. Runs
+  # daemon-side inside `coord notify` — a config change here needs a
+  # `coord-serve` restart, not just a merge.
+  # liveness_auditor:
+  #   enabled: false
+  #   strikes: 3                # consecutive `blocked` verdicts before raising
+  #   debounce_seconds: 60      # at most one audit per this many seconds/assignment
+  #   model: claude-haiku-4-5   # cheapest current model — fixed-size context keeps cost flat
+  #   timeout_seconds: 30
+  #   # claude_bin: claude      # override the `claude` binary path/name
+
+concurrency:
+  max_workers: 2          # max simultaneous claude -p sessions across all machines
+  stagger_seconds: 30     # delay between starting workers
+  backoff_base: 60        # seconds to wait on rate limit before retry
+  max_retries: 3          # retries per dispatch on transient failures
+  # #588: SSH-probe remote interactive sessions after this many hours idle.
+  # If the remote tmux session is gone, finalize and free the machine slot.
+  # Set to 0 to disable. Default: 12.
+  # interactive_session_timeout_hours: 12
+
+# #2131 — per-leg spend ceiling. A single runaway leg is the fleet's most
+# expensive failure mode (over 2026-08-08 → 08-11 the twelve legs above $10
+# were 3% of all legs and 19% of the whole bill). When a leg's live spend
+# crosses its ceiling the worker is SIGKILLed, recorded with a distinct
+# `spend ceiling — ...` failure_reason (never a generic failure), escalated to
+# `coord escalate list`, and refused by `coord retry` until you pass
+# --acknowledge-cost.
+#
+# ABSENT BLOCK == NO CEILING == today's behaviour. Nothing below is on by
+# default. HEADLESS LEGS ONLY: the check reads the worker's stream-json
+# transcript, and interactive (`claude-pty`) sessions are precisely the logs
+# that are not stream-json (#1710) — an interactive session is NOT capped.
+# The mid-flight number is a list-price ESTIMATE from per-turn token usage,
+# not the invoice; calibrate against `coord usage`, which prices the same way.
+#
+# Calibration from the same window's medians: sonnet work leg $3.61, opus work
+# leg $6.61, review $1.61, smoke $0.44. This is a safety net, not a scheduler —
+# if it fires often, the ceiling is too low or the briefings are bad.
+#
+# budget:
+#   per_leg_ceiling_usd: 8.0   # applies to any type with no override below;
+#                              # 0 (the default) disables the ceiling entirely
+#   type_ceilings:             # an $8 ceiling is very wrong for a $0.44 smoke
+#     work: 8.0
+#     review: 4.0
+#     smoke: 2.0
+#     plan: 3.0
+#     # chat: 0                # 0 disables the ceiling for that type alone
+
+hooks:
+  on_round_complete:
+    - summary_report
+  on_session_end:
+    - summary_report
+  # close_merged_issues: disabled until adversarial review (#15) + smoke test
+  # flow is in place. Issues should close on PR merge, not worker completion.
+
+models:
+  default: sonnet
+  escalation: [haiku, sonnet, opus]
+  labels:
+    documentation: haiku
+    bug: sonnet
+    enhancement: sonnet
+    infrastructure: opus
+  # Pin each alias to an exact model id so the coordinator passes the exact
+  # version to `claude -p --model <id>` instead of relying on the CLI's
+  # latest-by-default. Aliases not listed here fall back to claude -p's pick.
+  # versions:
+  #   haiku:  claude-haiku-4-5
+  #   sonnet: claude-sonnet-5
+  #   opus:   claude-opus-4-8
+
+# providers: worker-command backend registry (#322 / #323).
+#
+# When this block is absent, the coordinator behaves exactly as before:
+# `default: claude` and an implicit `claude` definition spawn the usual
+# `claude -p` worker.  Define additional providers here to route some
+# repos or some assignments through a different backend.
+#
+# Precedence chain (highest → lowest):
+#   AssignmentSpec.provider → providers.labels (issue label) → Repo.provider → providers.default
+#
+# providers:
+#   default: claude                 # name in `definitions` to use by default
+#   # labels (#1889): per-issue-label provider override — the issue-level
+#   # lever `--provider` can't give you on a headless dispatch path (coord
+#   # drive / the drive queue / the auto-loop never pass a flag). Mirrors
+#   # `models.labels` below: `gh issue edit N --add-label harness:opencode`
+#   # routes just THAT issue through opencode, no coordinator.yml edit, no
+#   # repo-wide `provider:` pin. Gated to type="work" dispatches only, same
+#   # as models.labels — plan/review/smoke stages never inherit it. Values
+#   # are validated against `definitions` below at config-load time (an
+#   # unknown provider name here is a config error, not a 2am dispatch-time
+#   # surprise). `coord assign --dry-run` / `coord approve` / `coord
+#   # milestone dispatch` all name the matched label in their "provider:"
+#   # line.
+#   labels:
+#     harness:opencode: opencode
+#     harness:claude: claude
+#   definitions:
+#     claude:                       # built-in; redefining is optional
+#       type: claude                # "claude", "claude-pty", or "opencode"
+#       binary: claude              # path/name of the worker binary
+#       # model / extra_args / env (#1706) are threaded straight into the
+#       # spawn path: model is the fallback --model value used when neither
+#       # an explicit per-call resolved_model nor spec.model is set.
+#       # For definitions whose `type` is NOT claude/claude-pty (e.g.
+#       # opencode), coord/dispatch.py skips applying models.default when
+#       # this field is pinned and no `--model` / label override was given
+#       # at dispatch time — so on a normal `coord assign`/`coord approve`
+#       # with no explicit --model, spec.model comes through as unset and
+#       # THIS value wins (the common case for pinning an opencode model
+#       # like "zhipuai/glm-4.6" once, here, instead of on every dispatch).
+#       # Definitions whose `type` IS claude/claude-pty (regardless of what
+#       # name they're registered under, e.g. `fast-claude` below) keep
+#       # falling back to models.default as before, since their --model
+#       # always needs models.resolve()'s alias->exact-id translation,
+#       # which this field does not go through.
+#       # extra_args is appended to the built argv; env is merged into the
+#       # worker subprocess's environment.
+#       model: sonnet               # optional: pin this provider to a model
+#       extra_args: []              # optional: extra args appended to argv
+#       env: {}                     # optional: extra env vars (${VAR} expanded)
+#
+#     # Example: a hypothetical alternative backend.  Pass per-repo with
+#     # `provider: fast-claude` in the repo entry, or per-assignment with
+#     # `--provider fast-claude` on `coord assign` (#1707).
+#     fast-claude:
+#       type: claude
+#       binary: /opt/claude-fast/bin/claude
+#       env:
+#         ANTHROPIC_API_KEY: "${FAST_CLAUDE_KEY}"
+#
+#     # Example: opencode (#325/#1711) — a genuinely different backend TYPE
+#     # (not just a differently-configured `claude`), so it needs a machine
+#     # to opt in before anything gets dispatched to it. See the
+#     # `provider:opencode` capability note just below.
+#     opencode:
+#       type: opencode
+#       model: zhipuai/glm-4.6        # optional: pin this provider to a model
+#
+# #1711: provider availability is a per-machine CAPABILITY, exactly like
+# `gtk`/`rust`/`browser` above — NOT a `Machine.provider` field, because
+# provider and machine are orthogonal (a repo/assignment picks the provider
+# via the precedence chain above; a machine only says what it CAN run).
+# `claude`/`claude-pty` are the implicit baseline — every machine is assumed
+# to already have the `claude` CLI, so neither needs a capability declared.
+# Any OTHER provider TYPE (keyed by `providers.definitions.<name>.type`, not
+# the definition's name — `fast-claude` above is `type: claude` and needs
+# nothing extra) needs `"provider:<type>"` added to a machine's
+# `capabilities:` list before `coord assign`/`coord approve`/`coord plan`
+# will route anything there — e.g. a machine with `opencode` installed:
+#
+#   capabilities: [rust, python, "provider:opencode"]
+#
+# `coord doctor` then probes that the `opencode` binary is actually on that
+# machine's PATH (declared vs. probed-and-met, same as every other
+# capability); a dispatch naming a machine that hasn't declared the
+# capability is refused up front (`coord.providers.
+# guard_provider_machine_capability`) rather than failing at spawn time.
+
+
+
+# ── notifications (#1632) — phone push when NOBODY IS COMING ────────────────
+#
+# You kick off an epic in the morning, hoping it is demo-ready tomorrow. You go
+# out. You have your phone and no terminal. The epic dies a quarter of the way
+# through and you find out at 6pm. This is the away-from-terminal channel for
+# exactly that — every other surface (`coord status`, the TUI, `coord diagnose`)
+# requires you to already be sitting at a terminal, which is precisely where you
+# are not.
+#
+# THE PREDICATE: "notify when the pipeline has stopped, or is stalled, and will
+# not advance without a human." Explicitly NOT "something bad happened" — a
+# failed test, a request-changes review, a mechanical merge conflict are all
+# handled by the auto-loop, and pushing them is the noise that trains you to
+# mute the channel. It does not ping progress either. In normal operation this
+# fires approximately never.
+#
+# Fires on: a drive halting; a gate parked HUMAN_REQUIRED; a worker emitting
+# `STUCK:`; a stall that survived `drive`'s nudge (#1593); a leg running far
+# longer than comparable work (learned, see `percentile` below); a fleet CRIT
+# that invalidates in-flight work.
+#
+# ADVISORY AND ISOLATED: an unreachable ntfy server can never affect dispatch,
+# routing, the board or any verdict (same rule and same reason as #1485). The
+# whole subsystem is off by default — omit this block entirely and nothing
+# changes.
+#
+# Inspect it with `coord notifier status` / `coord notifier baselines`, and
+# prove the transport with `coord notifier test`.
+#
+# notifications:
+#   enabled: true
+#
+#   # Self-hosted ntfy on the daemon host, reachable over Tailscale. Nothing
+#   # leaves the tailnet — event text carries repo names, issue titles and
+#   # failure detail. The Android client holds an instant-delivery connection
+#   # straight to this server; no relay, no third party. `transport: none` runs
+#   # the predicate and updates the ledger while delivering nothing, which is
+#   # the right setting for a week of shaking out false positives.
+#   transport: ntfy
+#   ntfy_url: http://dellserver:7440
+#   ntfy_topic: coord-fleet
+#   # ntfy_token: tk_...      # only needed if the server has auth enabled
+#   timeout_secs: 5
+#
+#   # `coord web` origin. Notifications must be actionable from a phone, so
+#   # every event that can name an issue links straight to its pipeline view
+#   # rather than expecting you to go find it.
+#   web_base_url: http://dellserver:7434
+#
+#   # QUIET HOURS ARE A DEFERRAL WINDOW, NOT A FILTER. Events raised inside it
+#   # are held, coalesced, and delivered as ONE digest when it closes. Nothing
+#   # is discarded — you are not disturbed, you are still told.
+#   #
+#   # NO SEVERITY LEVEL PIERCES THIS. Severity is assigned by the sender, and a
+#   # receiver who gets woken by things that did not warrant it mutes the
+#   # channel within a month — at which point the whole feature is dead. This is
+#   # a hard design rule, not a default. The ONE exception is a DEADLINE rather
+#   # than a severity: `coord drive --urgent` opts THAT drive out for its
+#   # duration (opt-in, scoped, self-expiring).
+#   #
+#   # `tz` is REQUIRED (IANA zone). `coord serve` runs on UTC, so a naive
+#   # "22:00" would defer at the wrong local hour — and a window that opens
+#   # early silently swallows daytime events.
+#   quiet_hours:
+#     start: "22:00"
+#     end: "08:00"
+#     tz: America/Chicago
+#   urgent_ttl_hours: 12       # how long a `--urgent` opt-out lasts
+#
+#   # "FAR TOO LONG" IS LEARNED, NEVER A FIXED TIMEOUT. A constant is wrong the
+#   # day it is written and rots silently as models, repos and hardware change.
+#   # The baseline is computed per (repo, assignment type, tier) over durations
+#   # milestone #37 already records — an unstratified fleet-wide mean would fire
+#   # constantly on the slow tail and never on the fast one.
+#   #
+#   # Under `min_samples` completed legs a stratum has NO baseline: it falls
+#   # back to a generous absolute ceiling and the notification says so. Never
+#   # fire off a population of one.
+#   min_samples: 5
+#   # p90 of the stratified population. `coord notifier baselines` prints the
+#   # 2x-median alternative alongside it so the two can be compared against real
+#   # fleet data before either is committed to permanently.
+#   percentile: 90
+#   # The output-silence threshold — the probe that catches failures whose only
+#   # symptom is duration — as a fraction of the stratum's median leg, clamped
+#   # to [10m, 45m]. A repo whose test suite takes 20 minutes legitimately goes
+#   # quiet; a fixed value would either spam that repo or never fire on a fast
+#   # one.
+#   silence_fraction: 0.5
+#   # How long a stall must survive `drive`'s nudge before this believes it.
+#   # `drive` owns the definition of "stalled" (#1593); this only says how long
+#   # to give the nudge to work.
+#   stall_grace_mins: 20
+#   # Cold-start ceilings (MINUTES) per assignment type, merged over the
+#   # built-in defaults. Deliberately loose — a cold ceiling exists to catch a
+#   # catastrophically wedged leg, not to be accurate.
+#   # cold_ceiling_mins:
+#   #   work: 240
+#   #   review: 90
+
+# ── portal (#2179, #1982) — coord-portal sync bridge ─────────────────────────
+#
+# The outbound client to coord-portal's `/api/bridge/*` routes (push, pull,
+# heartbeat) — see coord/portal_bridge.py and docs/CUSTOMER_PORTAL.md. Off by
+# default: omit this block entirely and coord never talks to the portal.
+#
+# `enabled: true` also arms the daemon-side SYNC LOOP (#1982,
+# coord/portal_sync.py): one pass per COORD_PORTAL_SYNC_INTERVAL (default 60 s,
+# 0 disables) on `coord serve`'s tick — pull customer events, drain the
+# coord-owned outbox, heartbeat. OUTBOUND ONLY, and it stays that way: if the
+# latency bothers you, shorten the interval. An inbound webhook would hand the
+# public internet a path into the tailnet, which is the one property this whole
+# design exists to protect (docs/EPHEMERAL_WORKERS.md).
+#
+# WHICH coord-side work a portal submission_id maps to is still an open
+# question — the loop moves rows, it does not yet turn a submission into an
+# epic. Feed it by hand with `coord portal enqueue-status` /
+# `enqueue-design-round` / `enqueue-question`, and watch it with
+# `coord portal outbox`.
+#
+# The two secrets are a Cloudflare Access SERVICE TOKEN pair the portal
+# validates before a request even reaches its Worker (coord-portal's
+# `isBridgeAuthorized`, which requires a matched, non-empty pair and fails
+# closed). Never commit real values — use `${VAR}` expansion (same mechanism
+# as `providers.definitions[*].env`) so the actual secret lives only in the
+# environment.
+#
+# Inspect it with `coord portal status`, prove it with `coord portal heartbeat`,
+# and run one loop pass on demand with `coord portal sync`.
+#
+# portal:
+#   enabled: true
+#   base_url: https://intake.heurontech.com
+#   bridge_client_id: "${BRIDGE_CLIENT_ID}"
+#   bridge_client_secret: "${BRIDGE_CLIENT_SECRET}"
+#   timeout_secs: 10
+#   max_retries: 2       # transient/5xx only — a 401 never retries

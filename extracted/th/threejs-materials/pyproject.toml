@@ -1,0 +1,76 @@
+[project]
+name = "threejs-materials"
+version = "1.2.3"
+# version also managed by [tool.bumpversion] below
+description = "Download PBR materials on demand and convert to Three.js MeshPhysicalMaterial JSON"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+readme = "README.md"
+dependencies = [
+    "pillow >= 12.2.0, < 12.3.0",
+    "pygltflib >= 1.16, < 2.0",
+    "requests >= 2.31.0, < 3.0",
+    "platformdirs >= 4.9.6, < 5.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/bernhard-42/threejs-materials"
+Repository = "https://github.com/bernhard-42/threejs-materials"
+Issues = "https://github.com/bernhard-42/threejs-materials/issues"
+Changelog = "https://github.com/bernhard-42/threejs-materials/blob/main/Changes.md"
+
+[project.optional-dependencies]
+# Required only to CONVERT materials from a source (from_gpuopen/from_ambientcg/
+# from_polyhaven/from_mtlx and the bundle generator). Bundled materials and all
+# load/serialize paths work without it.
+materialx = ["materialx == 1.39.5"]
+dev = ["bump-my-version", "twine", "build", "pytest", "mypy", "types-requests"]
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Bundled material textures shipped in the wheel (loaded lazily at use time).
+"threejs_materials.pbr_properties" = ["_assets/**/*.png"]
+
+# bump-my-version settings
+
+[tool.bumpversion]
+current_version = "1.2.3"
+commit = false
+tag = false
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+allow_dirty = true
+message = "Bump version: {current_version} → {new_version}"
+search = "{current_version}"
+replace = "{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[tool.mypy]
+ignore_missing_imports = false
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["MaterialX.*", "pygltflib.*", "OpenEXR", "Imath"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ty.environment]
+# typings/ holds minimal stubs for the untyped C-extension deps
+# (MaterialX, OpenEXR, Imath) — mirrors the [tool.mypy.overrides] above.
+extra-paths = ["typings"]
+
+[tool.ty.src]
+# examples/ is demo code, not part of the shipped package (see packages.find)
+exclude = ["examples"]

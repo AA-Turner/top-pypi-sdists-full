@@ -1,0 +1,93 @@
+[project]
+name = "verda"
+version = "1.24.1"
+description = "Official Python SDK for Verda (formerly DataCrunch) Public API"
+readme = "README.md"
+requires-python = ">=3.10"
+
+authors = [{ name = "Verda Cloud Oy", email = "info@verda.com" }]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+dependencies = ["requests>=2.25.1,<3", "dataclasses_json>=0.6.7"]
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=2.10.1,<3",
+    "pytest-responses>=0.5.1",
+    "pytest>=8.1,<9",
+    "python-dotenv>=1.1.1",
+    "responses>=0.25.8",
+    "ruff>=0.14.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/verda-cloud"
+Documentation = "https://datacrunch-python.readthedocs.io/"
+Repository = "https://github.com/verda-cloud/sdk-python"
+Changelog = "https://github.com/verda-cloud/sdk-python/blob/master/CHANGELOG.md"
+
+[build-system]
+requires = ["uv_build>=0.9.5,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "verda"
+module-root = ""
+
+[tool.uv.workspace]
+members = ["datacrunch_compat"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# https://docs.astral.sh/ruff/rules/
+select = [
+    # default rules, via https://docs.astral.sh/ruff/settings/#lint_extend-select
+    "E4", "E7", "E9", "F",
+    # comprehensions
+    "C4",
+    # sort imports
+    "I",
+    # pytest
+    "PT",
+    # bugbear
+    "B",
+    # upgrade to new python syntax
+    "UP",
+    # pydocstyle
+    "D",
+    # builtins
+    "A",
+    # unused args
+    "ARG",
+    # Ruff
+    "RUF",
+]
+flake8-builtins.ignorelist = ["id", "type"]
+pydocstyle.convention = "google"
+
+# TODO(shamrin) stop ignoring these errors
+ignore = ["F401", "B006", "D100", "D105", "D107"]
+
+[tool.ruff.lint.per-file-ignores]
+"{tests,examples,datacrunch_compat/tests}/*" = ["D"]
+"__init__.py" = ["D104"]
+"datacrunch_compat/datacrunch/*.py" = ["F403"]
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true

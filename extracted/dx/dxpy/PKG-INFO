@@ -1,0 +1,142 @@
+Metadata-Version: 2.1
+Name: dxpy
+Version: 0.413.0
+Summary: DNAnexus Platform API bindings for Python
+Home-page: https://github.com/dnanexus/dx-toolkit
+Author: Aleksandra Zalcman, Andrey Kislyuk, Anurag Biyani, Geet Duggal, Katherine Lai, Kurt Jensen, Marek Hrvol, Ohad Rodeh, Phil Sung
+Author-email: support@dnanexus.com
+License: Apache Software License
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Unix Shell
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: argcomplete>=3.5.2; python_version >= "3.12"
+Requires-Dist: argcomplete>=2.0.0; python_version >= "3.10"
+Requires-Dist: argcomplete<2.0.0,>=1.9.4; python_version < "3.10"
+Requires-Dist: websocket-client<=1.9.0,>=1.6.0
+Requires-Dist: python-dateutil>=2.5
+Requires-Dist: psutil>=5.9.3
+Requires-Dist: certifi>=2024.7.4
+Requires-Dist: urllib3<2.8.0,>=1.25
+Requires-Dist: pyreadline3==3.5.6; sys_platform == "win32"
+Requires-Dist: colorama<=0.4.6,>=0.4.4; sys_platform == "win32"
+Requires-Dist: crc32c>=2.7.1
+Requires-Dist: awscrt>=0.23.4
+Provides-Extra: pandas
+Requires-Dist: pandas==2.0.3; python_version == "3.8" and extra == "pandas"
+Requires-Dist: pandas==2.2.3; python_version >= "3.9" and extra == "pandas"
+Requires-Dist: numpy<2.0.0; extra == "pandas"
+Provides-Extra: xattr
+Requires-Dist: xattr==1.1.4; (sys_platform == "linux2" or sys_platform == "linux") and extra == "xattr"
+
+dxpy: DNAnexus Python API
+=========================
+[DNAnexus Documentation](https://documentation.dnanexus.com/)
+
+[dxpy API Documentation](http://autodoc.dnanexus.com/bindings/python/current/)
+
+Building
+--------
+
+From the dx-toolkit root directory:
+
+```
+python3 -m pip install -e src/python
+```
+
+Debugging
+---------
+
+Set the `_DX_DEBUG` environment variable to a positive integer before
+running a dxpy-based program (such as `dx`) to display the input and
+output of each API call. Supported values are 1, 2, and 3 with
+increasing numbers producing successively more verbose output.
+
+Example:
+
+```
+$ _DX_DEBUG=1 dx ls
+```
+
+### Debugging inside the IDE (PyCharm)
+To be able to debug dx-toolkit (dx commands) directly in the IDE, 'Run/Debug Configurations' needs to be changed.
+1. Go to Run &#8594; Edit Configurations...
+2. Add New Configuration (Python)
+3. Change script to module (dxpy.scripts.dx)
+4. To Script parameters field write dx command you want to run (eg 'ls' runs 'dx ls')
+5. Apply and OK (now it is possible to start debugging via main() function in dx.py)
+
+Python coding style
+-------------------
+
+* Conform to [PEP-8](http://legacy.python.org/dev/peps/pep-0008/).
+    * Relax the line length requirement to 120 characters per line, where you judge readability not to be compromised.
+    * Relax other PEP-8 requirements at your discretion if it simplifies code or is needed to follow conventions
+      established elsewhere at DNAnexus.
+* Document your code in a format usable by [Sphinx Autodoc](http://sphinx-doc.org/ext/autodoc.html).
+* Run `pylint -E` on your code before checking it in.
+* Do not introduce module import-time side effects.
+    * Do not add module-level attributes into the API unless you are absolutely certain they will remain constants. For
+      example, do not declare an attribute `dxpy.foo` (`dxpy._foo` is OK), or any other non-private variable in the
+      global scope of any module. This is because unless the value is a constant, it may need to be updated by an
+      initialization method, which may need to run lazily to avoid side effects at module load time. Instead, use
+      accessor methods that can perform the updates at call time:
+
+      ```python
+      _foo = None
+
+      def get_foo():
+          initialize()
+          return _foo
+      ```
+
+Other useful resources:
+
+* [Google Python style guide](http://google.github.io/styleguide/pyguide.html)
+
+Python version compatibility
+----------------------------
+dxpy is supported on Python 3 (3.8+)
+
+Convention for Python scripts that are also modules
+---------------------------------------------------
+
+Some scripts, such as format converters, are useful both as standalone executables and as importable modules.
+
+We have the following convention for these scripts:
+* Install the script into ```src/python/dxpy/scripts``` with a name like ```dx_useful_script.py```. This will allow
+  importing with ```import dxpy.scripts.dx_useful_script```.
+* Include in the script a top-level function called ```main()```, which should be the entry point processor, and
+  conclude the script with the following stanza:
+
+  ```python
+  if __name__ == '__main__':
+      main()
+  ```
+
+* The dxpy installation process (invoked through ```setup.py``` or with ```make -C src python``` at the top level)
+  will find the script and install a launcher for it into the executable path automatically. This is done using the
+  ```entry_points``` facility of setuptools/distribute.
+
+    * Note: the install script will replace underscores in the name of your module with dashes in the name of the launcher
+      script.
+
+* Typically, when called on the command line, *main()* will first parse the command line arguments (sys.argv). However,
+  when imported as a module, the arguments need to instead be passed as inputs to a function. The following is a
+  suggestion for how to accommodate both styles simultaneously with just one entry point (```main```):
+
+  ```python
+  def main(**kwargs):
+      if len(kwargs) == 0:
+          kwargs = vars(arg_parser.parse_args(sys.argv[1:]))
+      ...
+
+  if __name__ == '__main__':
+      main()
+  ```

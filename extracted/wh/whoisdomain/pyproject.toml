@@ -1,0 +1,203 @@
+[build-system]
+    requires = ["hatchling"]
+    build-backend = "hatchling.build"
+
+[project]
+    name = "whoisdomain"
+    dynamic = ['version']
+
+    authors = [
+      { name="mboot-github"},
+    ]
+
+    maintainers = [
+      { name="Maarten Boot", email="130295084+mboot-github@users.noreply.github.com" },
+    ]
+
+    description = "Python package for retrieving WHOIS information of domains."
+    readme = "README.md"
+    requires-python = ">=3.10"
+
+    dependencies = [
+        "whodap>=0.1.16",
+        "tld>=0.13.2",
+    ]
+
+    license = "MIT"
+
+    classifiers = [
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Intended Audience :: Developers",
+        "Environment :: Console",
+        "Programming Language :: Python :: 3",
+        "Topic :: Internet",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+    ]
+
+    keywords = [
+        "Python",
+        "whois",
+        "tld",
+        "domain",
+        "expiration",
+        "registrar",
+    ]
+
+[project.scripts]
+    whoisdomain = 'whoisdomain.main:main'
+
+[project.urls]
+    "Bug Tracker" = "https://github.com/mboot-github/WhoisDomain/issues"
+    "Home Page" = "https://github.com/mboot-github/WhoisDomain/"
+    "Repository" = "https://github.com/mboot-github/WhoisDomain/"
+
+[tool.hatch.version]
+    path = "whoisdomain/version.py"
+
+[tool.hatch.build]
+    only-packages = true
+
+    include = [
+        "whoisdomain/",
+    ]
+
+    exclude = [
+        "/Old/*",
+        "/lib/*",
+        "/etc/*",
+        "/bin/*",
+        "/testdata/*",
+        "Makefile",
+        ".gitignore",
+        "/.gitignore",
+    ]
+
+[tool.ruff]
+    target-version = "py310"
+    line-length = 160
+    exclude = [
+        ".bzr",
+        ".direnv",
+        ".eggs",
+        ".git",
+        ".git-rewrite",
+        ".hg",
+        ".mypy_cache",
+        ".nox",
+        ".pants.d",
+        ".pytype",
+        ".ruff_cache",
+        ".svn",
+        ".tox",
+        ".venv",
+        "__pypackages__",
+        "_build",
+        "buck-out",
+        "build",
+        "dist",
+        "node_modules",
+        "venv",
+    ]
+
+[tool.ruff.lint]
+    select = [
+        "A",
+        "AIR",
+        "ARG",
+        "ASYNC",
+        "B",
+        "C",
+        "COM",
+        "D",
+        "DJ",
+        "DOC",
+        "DTZ",
+        "E",
+        "EM",
+        "EXE",
+        "F",
+        "FA",
+        "FAST",
+        "FBT",
+        "FIX",
+        "FLY",
+        "FURB",
+        "G",
+        "I",
+        "ICN",
+        "INP",
+        "INT",
+        "ISC",
+        "LOG",
+        "N",
+        "NPY",
+        "PD",
+        "PERF",
+        "PGH",
+        "PIE",
+        "PLC",
+        "PLE",
+        "PLR",
+        # "PLW",
+        "PT",
+        "PTH",
+        "PYI",
+        "Q",
+        "RET",
+        "RSE",
+        "RUF",
+        "S",
+        "SIM",
+        "SLOT",
+        "T",
+        "TC",
+        "TD",
+        "TID",
+        "TRY",
+        "UP",
+        "W",
+        "YTT",
+    ]
+
+    ignore = [
+        "D100", # Missing docstring in public module
+        "D101", # Missing docstring in public module
+        "D102", # Missing docstring in public method
+        "D103", # Missing docstring in public function
+        "D104", # Missing docstring in public package
+        "D105", # Missing docstring in magic method
+        "D107", # Missing docstring in magic method
+        "D203", "D211", # `incorrect-blank-line-before-class` (D203) and `no-blank-line-before-class` (D211) are incompatible. Ignoring `incorrect-blank-line-before-class`.
+
+        "N802", # Function name `getThisTld` should be lowercase
+        "N803", # Argument name `xx` should be lowercase
+        "N806", # Variable `xx` in function should be lowercase
+        "N999", # Invalid module name
+
+        "PLW0602", # Using global for `xxx` but no assignment is done
+        "PLW0603", # Using the global statement to update `xxx` is discouraged
+        # "PLW0717", # too many statements in try block: Unknown rule selector: `PLW0717` perhaps ubu latest has a newer ruff
+        "PLR0911", # Too many return statements
+        "PLR0912", # Too many branches
+        "PLR0914", # Too many local variables
+        "PLR0913", # Too many arguments in function definition
+
+        "RUF001", # String contains ambiguous utf8 char
+        "RUF067", # `__init__` module should only contain docstrings and re-exports
+
+        "S101", # Use of `assert` detected
+        "S404", # Use of
+        "S602", # Use of
+        #
+        "COM812", # The following rule may cause conflicts when used with the formatter: `COM812`
+        "T201",   # print statements are ok, used in verbose mode
+        "D212",   # `multi-line-summary-first-line` (D212) and `multi-line-summary-second-line` (D213) are incompatible.
+        "D415",   #
+        "PT028",  # experimental rule, incomplete
+    ]
+
+    # Allow autofix for all enabled rules (when `--fix`) is provided.
+    fixable = ["ALL"]
+    unfixable = []
+    preview = true

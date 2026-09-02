@@ -1,0 +1,58 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "renkin"
+version = "1.0.0"
+description = "Local retrosynthesis route auditor and planning engine for AiZynthFinder, Syntheseus and RENKIN"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+keywords = [
+    "retrosynthesis",
+    "route-audit",
+    "route-validation",
+    "aizynthfinder",
+    "syntheseus",
+    "casp",
+    "cheminformatics",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+]
+
+[project.optional-dependencies]
+# Declared dependency interval: >=0.7.2,<=0.8.0 (this admits any
+# intermediate release too, e.g. a hypothetical future 0.7.3 -- it is
+# not restricted to exactly these two version strings). Individually
+# verified against real PyPI artifacts: only 0.7.2 and 0.8.0 (see
+# docs/design/syntheseus-0.8-compatibility-spike.md). The upper bound is
+# deliberately capped at 0.8.0, not an open-ended <0.9 or unpinned: an
+# unverified future release above the verified range (0.8.1, 0.9.0, ...)
+# must not be silently accepted just because it would likely still work
+# -- verified and supported are not the same claim. An intermediate
+# release within the interval (0.7.3..0.7.9, if any are ever published)
+# is accepted by this spec but is not individually verified unless added
+# to the exact-version CI matrix.
+syntheseus = ["syntheseus>=0.7.2,<=0.8.0"]
+
+[project.urls]
+Homepage   = "https://github.com/kent-tokyo/renkin"
+Repository = "https://github.com/kent-tokyo/renkin"
+Issues     = "https://github.com/kent-tokyo/renkin/issues"
+
+[tool.maturin]
+features      = ["python"]
+module-name   = "renkin"
+python-source = "python"

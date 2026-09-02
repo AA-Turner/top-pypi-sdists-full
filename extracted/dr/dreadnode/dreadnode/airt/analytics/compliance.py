@@ -20,7 +20,7 @@ from dreadnode.airt.analytics.types import (
 from dreadnode.airt.compliance.atlas import ATLASTechnique
 from dreadnode.airt.compliance.nist import NISTAIRMFFunction
 from dreadnode.airt.compliance.owasp import OWASPCategory
-from dreadnode.airt.compliance.owasp_agentic import OWASPAgenticCategory
+from dreadnode.airt.compliance.owasp_agentic import CANONICAL_AGENTIC_CATEGORIES
 from dreadnode.airt.compliance.saif import SAIFCategory
 
 if t.TYPE_CHECKING:
@@ -117,8 +117,9 @@ def build_compliance_matrix(
         matched = _match_tag(attack_results, "owasp_categories", str(cat))
         matrix.owasp_llm[str(cat)] = _build_entry(matched, threshold)
 
-    # OWASP Agentic Top 10
-    for cat in OWASPAgenticCategory:
+    # OWASP Agentic Top 10 — canonical ASI01..ASI10 only; the retained 2025 back-compat
+    # aliases are excluded so the matrix has 10 rows (not 12) and matches the suite.
+    for cat in CANONICAL_AGENTIC_CATEGORIES:
         matched = _match_tag(attack_results, "owasp_agentic_categories", str(cat))
         matrix.owasp_agentic[str(cat)] = _build_entry(matched, threshold)
 

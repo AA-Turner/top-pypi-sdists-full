@@ -25,52 +25,52 @@ from datarobot.utils.waiters import wait_for_async_resolution
 
 
 class CustomModelTest(APIObject):
-    """An custom model test.
+    """A custom model test.
 
     .. versionadded:: v2.21
 
     Attributes
     ----------
     id: str
-        test id
+        The test ID.
     custom_model_image_id: str
-        id of a custom model image
+        The ID of a custom model image.
     image_type: str
-        the type of the image, either CUSTOM_MODEL_IMAGE_TYPE.CUSTOM_MODEL_IMAGE if the testing
+        The image type, either CUSTOM_MODEL_IMAGE_TYPE.CUSTOM_MODEL_IMAGE if the testing
         attempt is using a CustomModelImage as its model or
         CUSTOM_MODEL_IMAGE_TYPE.CUSTOM_MODEL_VERSION if the testing attempt is
-        using a CustomModelVersion with dependency management
+        using a CustomModelVersion with dependency management.
     overall_status: str
-        a string representing testing status.
+        A string representing testing status.
         Status can be
-        - 'not_tested': the check not run
-        - 'failed': the check failed
-        - 'succeeded': the check succeeded
-        - 'warning': the check resulted in a warning, or in non-critical failure
-        - 'in_progress': the check is in progress
+        - `not_tested`: the check did not run.
+        - `failed`: the check failed.
+        - `succeeded`: the check succeeded.
+        - `warning`: the check resulted in a warning, or in non-critical failure.
+        - `in_progress`: the check is in progress.
     detailed_status: dict
-        detailed testing status - maps the testing types to their status and message.
-        The keys of the dict are one of 'errorCheck', 'nullValueImputation',
-        'longRunningService', 'sideEffects'.
-        The values are dict with 'message' and 'status' keys.
+        Detailed testing status that maps the testing types to their status and message.
+        The keys of the dict are one of `errorCheck`, `nullValueImputation`,
+        `longRunningService`, `sideEffects`.
+        The values are dicts with `message` and `status` keys.
     created_by: str
-        a user who created a test
+        The user who created the test.
     dataset_id: Optional[str]
-        id of a dataset used for testing
+        The ID of a dataset used for testing.
     dataset_version_id: Optional[str]
-        id of a dataset version used for testing
+        The ID of a dataset version used for testing.
     completed_at: Optional[str]
-        ISO-8601 formatted timestamp of when the test has completed
+        ISO-8601 formatted timestamp of when the test has completed.
     created_at: Optional[str]
-        ISO-8601 formatted timestamp of when the version was created
+        ISO-8601 formatted timestamp of when the version was created.
     network_egress_policy: datarobot.NETWORK_EGRESS_POLICY, optional
         Determines whether the given custom model is isolated, or can access the public network.
         Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`, `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
     maximum_memory: Optional[int]
         The maximum memory that might be allocated by the custom-model.
-        If exceeded, the custom-model will be killed by k8s
+        If exceeded, the custom-model will be killed by k8s.
     replicas: Optional[int]
-        A fixed number of replicas that will be deployed in the cluster
+        A fixed number of replicas that will be deployed in the cluster.
     """
 
     _path = "customModelTests/"
@@ -148,42 +148,42 @@ class CustomModelTest(APIObject):
         maximum_memory: Optional[int] = None,
         replicas: Optional[int] = None,
     ) -> CustomModelTest:
-        """Create and start a custom model test.
+        """Creates a custom model test and starts it.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         custom_model_id: str
-            the ID of the custom model
+            The ID of the custom model.
         custom_model_version_id: str
-            the ID of the custom model version
+            The ID of the custom model version.
         dataset_id: Optional[str]
-            The id of the testing dataset for non-unstructured custom models.
+            The ID of the testing dataset for non-unstructured custom models.
             Ignored and not required for unstructured models.
         max_wait: Optional[int]
-            max time to wait for a test completion.
+            The maximum time to wait for a test completion.
             If set to None - method will return without waiting.
         network_egress_policy: datarobot.NETWORK_EGRESS_POLICY, optional
             Determines whether the given custom model is isolated, or can access the public network.
             Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`, `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
         maximum_memory: Optional[int]
             The maximum memory that might be allocated by the custom-model.
-            If exceeded, the custom-model will be killed by k8s
+            If exceeded, the custom-model will be killed by k8s.
         replicas: Optional[int]
-            A fixed number of replicas that will be deployed in the cluster
+            A fixed number of replicas that will be deployed in the cluster.
 
         Returns
         -------
         CustomModelTest
-            created custom model test
+            The created custom model test.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         payload: Dict[str, Union[str, int]] = {
             "custom_model_id": custom_model_id,
@@ -233,26 +233,26 @@ class CustomModelTest(APIObject):
 
     @classmethod
     def list(cls, custom_model_id: str) -> List[CustomModelTest]:
-        """List custom model tests.
+        """Returns a list of custom model tests.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         custom_model_id: str
-            the ID of the custom model
+            The ID of the custom model.
 
         Returns
         -------
         List[CustomModelTest]
-            a list of custom model tests
+            A list of custom model tests.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         payload = {"custom_model_id": custom_model_id}
         data = unpaginate(cls._path, payload, cls._client)
@@ -260,86 +260,86 @@ class CustomModelTest(APIObject):
 
     @classmethod
     def get(cls, custom_model_test_id: str) -> CustomModelTest:
-        """Get custom model test by id.
+        """Returns the custom model test by ID.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         custom_model_test_id: str
-            the ID of the custom model test
+            The ID of the custom model test.
 
         Returns
         -------
         CustomModelTest
-            retrieved custom model test
+            The retrieved custom model test.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = f"{cls._path}{custom_model_test_id}/"
         return cls.from_location(path)
 
     def get_log(self) -> str:
-        """Get log of a custom model test.
+        """Returns the log of a custom model test.
 
         .. versionadded:: v2.21
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         path = f"{self._path}{self.id}/log/"
         return cast(str, self._client.get(path).text)
 
     def get_log_tail(self) -> str:
-        """Get log tail of a custom model test.
+        """Returns the log tail of a custom model test.
 
         .. versionadded:: v2.21
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         path = f"{self._path}{self.id}/tail/"
         return cast(str, self._client.get(path).text)
 
     def cancel(self) -> None:
-        """Cancel custom model test that is in progress.
+        """Cancels a custom model test that is in progress.
 
         .. versionadded:: v2.21
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         path = f"{self._path}{self.id}/"
         self._client.delete(path)
 
     def refresh(self) -> None:
-        """Update custom model test with the latest data from server.
+        """Updates the custom model test with the latest data from the server.
 
         .. versionadded:: v2.21
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         path = f"{self._path}{self.id}/"
 

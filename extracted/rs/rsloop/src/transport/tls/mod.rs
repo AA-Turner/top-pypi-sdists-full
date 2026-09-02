@@ -1,0 +1,341 @@
+//! Rustls configuration derived from Python SSL contexts.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
+use pyo3::ffi::c_str;
+use pyo3::prelude::*;
+use pyo3::types::{PyCapsule, PyCapsuleMethods, PyDict};
+use rustls::client::ClientConfig;
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use rustls::server::ServerConfig;
+use rustls::{DigitallySignedStruct, Error as TlsError, SignatureScheme, SupportedProtocolVersion};
+
+mod material;
+use material::{
+    load_cert_chain_metadata, root_store_from_context, ssl_verify_constant, to_py_tls_err,
+    verify_mode_value,
+};
+
+const DEFAULT_HANDSHAKE_TIMEOUT_SECS: f64 = 60.0;
+const DEFAULT_SHUTDOWN_TIMEOUT_SECS: f64 = 30.0;
+const CLIENT_CONFIG_CACHE_KEY: &str = "_rsloop_client_config_cache";
+
+struct CachedClientConfig {
+    generation: u64,
+    verify_mode: i32,
+    config: Arc<ClientConfig>,
+}
+
+/// Rust TLS client state plus the original Python context exposed in extras.
+pub struct ClientTlsSettings {
+    pub config: Arc<ClientConfig>,
+    pub server_name: ServerName<'static>,
+    pub handshake_timeout: Duration,
+    pub shutdown_timeout: Duration,
+    pub ssl_context: Py<PyAny>,
+}
+
+/// Rust TLS server state plus the original Python context exposed in extras.
+pub struct ServerTlsSettings {
+    pub config: Arc<ServerConfig>,
+    pub handshake_timeout: Duration,
+    pub shutdown_timeout: Duration,
+    pub ssl_context: Py<PyAny>,
+}
+
+pub fn client_tls_settings(
+    py: Python<'_>,
+    ssl: &Bound<'_, PyAny>,
+    server_hostname: Option<&Bound<'_, PyAny>>,
+    ssl_handshake_timeout: Option<f64>,
+    ssl_shutdown_timeout: Option<f64>,
+) -> PyResult<ClientTlsSettings> {
+    let ssl_context = normalize_client_ssl_context(py, ssl)?;
+    let hostname = resolve_server_hostname(py, &ssl_context, server_hostname)?;
+    let config = cached_client_config(py, &ssl_context)?;
+    let handshake_timeout = handshake_timeout(ssl_handshake_timeout)?;
+    let shutdown_timeout = shutdown_timeout(ssl_shutdown_timeout)?;
+
+    Ok(ClientTlsSettings {
+        config,
+        server_name: ServerName::try_from(hostname.clone())
+            .map_err(|_| PyValueError::new_err(format!("invalid server_hostname: {hostname}")))?,
+        handshake_timeout,
+        shutdown_timeout,
+        ssl_context,
+    })
+}
+
+fn cached_client_config(py: Python<'_>, ssl_context: &Py<PyAny>) -> PyResult<Arc<ClientConfig>> {
+    crate::profile_scope!("tls.cached_client_config");
+    // The Python `SSLContext` owns the capsule, so repeated connections can
+    // reuse an `Arc<ClientConfig>` until compatibility metadata changes.
+    let context_dict = ssl_context.bind(py).getattr("__dict__")?;
+    let context_dict = context_dict.cast::<PyDict>()?;
+    let generation = context_dict
+        .get_item("_rsloop_tls_generation")?
+        .and_then(|value| value.extract::<u64>().ok())
+        .unwrap_or(0);
+    let verify_mode = verify_mode_value(py, ssl_context)?;
+
+    if let Some(value) = context_dict.get_item(CLIENT_CONFIG_CACHE_KEY)?
+        && let Ok(capsule) = value.cast::<PyCapsule>()
+        && let Ok(pointer) =
+            capsule.pointer_checked(Some(c_str!("rsloop._loop.client_config_cache")))
+    {
+        // SAFETY: capsules stored under CLIENT_CONFIG_CACHE_KEY are created below
+        // with a boxed CachedClientConfig and remain owned by the SSLContext for
+        // the duration of this borrow under the GIL.
+        // SAFETY: the validated named capsule owns a live `CachedClientConfig` value.
+        let cached = unsafe { pointer.cast::<CachedClientConfig>().as_ref() };
+        if cached.generation == generation && cached.verify_mode == verify_mode {
+            return Ok(Arc::clone(&cached.config));
+        }
+    }
+
+    let config = Arc::new(build_client_config(py, ssl_context)?);
+    let cache = PyCapsule::new_with_value(
+        py,
+        CachedClientConfig {
+            generation,
+            verify_mode,
+            config: Arc::clone(&config),
+        },
+        c_str!("rsloop._loop.client_config_cache"),
+    )?;
+    context_dict.set_item(CLIENT_CONFIG_CACHE_KEY, cache)?;
+    Ok(config)
+}
+
+pub fn server_tls_settings(
+    py: Python<'_>,
+    ssl: &Bound<'_, PyAny>,
+    ssl_handshake_timeout: Option<f64>,
+    ssl_shutdown_timeout: Option<f64>,
+) -> PyResult<ServerTlsSettings> {
+    crate::profile_scope!("tls.server_settings");
+    let ssl_context = normalize_server_ssl_context(py, ssl)?;
+    let config = build_server_config(py, &ssl_context)?;
+    let handshake_timeout = handshake_timeout(ssl_handshake_timeout)?;
+    let shutdown_timeout = shutdown_timeout(ssl_shutdown_timeout)?;
+
+    Ok(ServerTlsSettings {
+        config: Arc::new(config),
+        handshake_timeout,
+        shutdown_timeout,
+        ssl_context,
+    })
+}
+
+fn handshake_timeout(value: Option<f64>) -> PyResult<Duration> {
+    let secs = value.unwrap_or(DEFAULT_HANDSHAKE_TIMEOUT_SECS);
+    if !secs.is_finite() || secs <= 0.0 {
+        return Err(PyValueError::new_err(
+            "ssl_handshake_timeout must be a positive finite number",
+        ));
+    }
+    Ok(Duration::from_secs_f64(secs))
+}
+
+fn shutdown_timeout(value: Option<f64>) -> PyResult<Duration> {
+    let secs = value.unwrap_or(DEFAULT_SHUTDOWN_TIMEOUT_SECS);
+    if !secs.is_finite() || secs <= 0.0 {
+        return Err(PyValueError::new_err(
+            "ssl_shutdown_timeout must be a positive finite number",
+        ));
+    }
+    Ok(Duration::from_secs_f64(secs))
+}
+
+pub fn tls_extra(
+    py: Python<'_>,
+    ssl_context: &Py<PyAny>,
+) -> std::collections::HashMap<String, Py<PyAny>> {
+    let mut extra = std::collections::HashMap::with_capacity(2);
+    extra.insert(
+        "sslcontext".to_owned(),
+        ssl_context.clone_ref(py).into_any(),
+    );
+    extra.insert("ssl_object".to_owned(), py.None());
+    extra
+}
+
+fn normalize_client_ssl_context(py: Python<'_>, ssl: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    if ssl.is_none() {
+        return Err(PyTypeError::new_err("ssl must not be None"));
+    }
+    if let Ok(enabled) = ssl.extract::<bool>() {
+        if !enabled {
+            return Err(PyTypeError::new_err("ssl=False does not enable TLS"));
+        }
+        let ssl_mod = py.import("ssl")?;
+        let ctx = ssl_mod.getattr("create_default_context")?.call0()?;
+        return Ok(ctx.unbind());
+    }
+    ensure_ssl_context(py, ssl)?;
+    Ok(ssl.clone().unbind())
+}
+
+fn normalize_server_ssl_context(py: Python<'_>, ssl: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    if ssl.is_none() {
+        return Err(PyTypeError::new_err("ssl must not be None"));
+    }
+    if ssl.extract::<bool>().unwrap_or(false) {
+        return Err(PyTypeError::new_err(
+            "server TLS requires an ssl.SSLContext instance",
+        ));
+    }
+    ensure_ssl_context(py, ssl)?;
+    Ok(ssl.clone().unbind())
+}
+
+fn ensure_ssl_context(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<()> {
+    let ssl_mod = py.import("ssl")?;
+    let cls = ssl_mod.getattr("SSLContext")?;
+    if value.is_instance(&cls)? {
+        return Ok(());
+    }
+    Err(PyTypeError::new_err(
+        "ssl must be True or an ssl.SSLContext instance",
+    ))
+}
+
+fn resolve_server_hostname(
+    py: Python<'_>,
+    ssl_context: &Py<PyAny>,
+    server_hostname: Option<&Bound<'_, PyAny>>,
+) -> PyResult<String> {
+    if let Some(server_hostname) = server_hostname {
+        if server_hostname.is_none() {
+            return Err(PyValueError::new_err(
+                "server_hostname cannot be None when TLS is enabled",
+            ));
+        }
+        return server_hostname.extract::<String>();
+    }
+
+    let check_hostname = ssl_context
+        .getattr(py, "check_hostname")?
+        .extract::<bool>(py)?;
+    if check_hostname {
+        return Err(PyValueError::new_err(
+            "server_hostname is required when TLS hostname checks are enabled",
+        ));
+    }
+
+    Ok("localhost".to_owned())
+}
+
+fn build_client_config(py: Python<'_>, ssl_context: &Py<PyAny>) -> PyResult<ClientConfig> {
+    let roots = root_store_from_context(py, ssl_context)?;
+    let maybe_identity = load_cert_chain_metadata(py, ssl_context)?;
+    let verify_mode = verify_mode_value(py, ssl_context)?;
+    let cert_none = ssl_verify_constant(py, "CERT_NONE")?;
+
+    let builder = ClientConfig::builder_with_protocol_versions(default_protocol_versions());
+    let mut config = match (verify_mode == cert_none, maybe_identity) {
+        (true, Some((certs, key))) => builder
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(NoServerCertVerifier))
+            .with_client_auth_cert(certs, key)
+            .map_err(to_py_tls_err)?,
+        (true, None) => builder
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(NoServerCertVerifier))
+            .with_no_client_auth(),
+        (false, Some((certs, key))) => builder
+            .with_root_certificates(roots)
+            .with_client_auth_cert(certs, key)
+            .map_err(to_py_tls_err)?,
+        (false, None) => builder.with_root_certificates(roots).with_no_client_auth(),
+    };
+    config.enable_sni = true;
+    Ok(config)
+}
+
+#[derive(Debug)]
+struct NoServerCertVerifier;
+
+impl ServerCertVerifier for NoServerCertVerifier {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, TlsError> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, TlsError> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, TlsError> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        vec![
+            SignatureScheme::RSA_PKCS1_SHA1,
+            SignatureScheme::RSA_PKCS1_SHA256,
+            SignatureScheme::RSA_PKCS1_SHA384,
+            SignatureScheme::RSA_PKCS1_SHA512,
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            SignatureScheme::ECDSA_NISTP384_SHA384,
+            SignatureScheme::ECDSA_NISTP521_SHA512,
+            SignatureScheme::RSA_PSS_SHA256,
+            SignatureScheme::RSA_PSS_SHA384,
+            SignatureScheme::RSA_PSS_SHA512,
+            SignatureScheme::ED25519,
+            SignatureScheme::ED448,
+        ]
+    }
+}
+
+fn build_server_config(py: Python<'_>, ssl_context: &Py<PyAny>) -> PyResult<ServerConfig> {
+    let (certs, key) = load_cert_chain_metadata(py, ssl_context)?.ok_or_else(|| {
+        PyRuntimeError::new_err(
+            "server SSLContext is missing tracked certificate metadata; call SSLContext.load_cert_chain() after importing rsloop",
+        )
+    })?;
+    let verify_mode = verify_mode_value(py, ssl_context)?;
+    let cert_required = ssl_verify_constant(py, "CERT_REQUIRED")?;
+
+    let builder = ServerConfig::builder_with_protocol_versions(default_protocol_versions());
+    let mut config = if verify_mode == cert_required {
+        let roots = root_store_from_context(py, ssl_context)?;
+        let verifier = rustls::server::WebPkiClientVerifier::builder(Arc::new(roots))
+            .build()
+            .map_err(to_py_tls_err)?;
+        builder
+            .with_client_cert_verifier(verifier)
+            .with_single_cert(certs, key)
+            .map_err(to_py_tls_err)?
+    } else {
+        builder
+            .with_no_client_auth()
+            .with_single_cert(certs, key)
+            .map_err(to_py_tls_err)?
+    };
+    config.alpn_protocols = vec![];
+    Ok(config)
+}
+
+fn default_protocol_versions() -> &'static [&'static SupportedProtocolVersion] {
+    rustls::DEFAULT_VERSIONS
+}

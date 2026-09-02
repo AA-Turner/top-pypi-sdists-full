@@ -116,20 +116,21 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
         entity_id: Optional[str] = None,
         statuses: Optional[List[str]] = None,
     ) -> List[ChangeRequest]:
-        """List accessible change requests with the given filters.
+        """Returns a list of accessible change requests with the given filters.
 
         Parameters
         ----------
         entity_type : str
-            type of the entity to search change requests for.
+            Type of the entity to search change requests for.
         entity_id : Optional[str]
-            ID if the entity to filter change requests by.
+            ID of the entity to filter change requests by.
         statuses : list[str], optional
-            list of change request statuses to filter change requests by.
+            A list of change request statuses to filter change requests by.
 
         Returns
         -------
         list[ChangeRequest]
+            A list of change requests.
         """
         param: Dict[str, Union[str, List[str]]] = {"entity_type": entity_type}
         if entity_id:
@@ -166,27 +167,27 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
         auto_apply: Optional[bool] = None,
         comment: Optional[str] = None,
     ) -> ChangeRequest:
-        """Create new change request.
+        """Creates a new change request.
 
         Parameters
         ----------
         entity_type : str
-            type of the entity to request changes for.
+            Type of the entity to request changes for.
         entity_id : str
             ID of the entity to request changes for.
         action : str
-            action the request is intended to perform on the entity.
+            Action the request is intended to perform on the entity.
         change : dict
-            change that the user wants to apply to the entity.
+            Change that the user wants to apply to the entity.
         auto_apply : Optional[bool]
-            whether the change request should be automatically applied after being approved.
+            Whether the change request should be automatically applied after being approved.
         comment : Optional[str]
-            free form text description on the request.
+            Free form text description on the request.
 
         Returns
         -------
         ChangeRequest
-            created change request.
+            The created change request.
         """
         payload: Dict[str, Union[str, bool, Dict[str, str]]] = {
             "entity_type": entity_type,
@@ -215,17 +216,17 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         change : dict, optional
-            new change to set for the request.
+            New change to set for the request.
             Setting a new change updates the change version.
         auto_apply : Optional[bool]
-            whether the change request should be automatically applied after being approved.
+            Whether the change request should be automatically applied after being approved.
         comment : Optional[str]
-            comment to replace the existing change request comment with.
+            Comment to replace the existing change request comment with.
 
         Returns
         -------
         ChangeRequest
-            an instance of updated change request.
+            The updated change request.
         """
         payload = {
             "change": change,
@@ -247,7 +248,7 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
         Returns
         -------
         ChangeRequest
-            change request after the status change.
+            The change request after the status change.
         """
         path = f"{self._path}{self.id}/status/"
         response = self._client.patch(path, data={"status": status})
@@ -260,7 +261,7 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
         Returns
         -------
         ChangeRequest
-            cancelled change request.
+            The cancelled change request.
         """
         return self._set_status("cancelled")
 
@@ -273,7 +274,7 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
         Returns
         -------
         ChangeRequest
-            resolved change request.
+            The resolved change request.
         """
         return self._set_status("resolving")
 
@@ -285,7 +286,7 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         comment : Optional[str]
-            free form comment to explain the approval.
+            Free form comment to explain the approval.
 
         Returns
         -------
@@ -301,7 +302,7 @@ class ChangeRequest(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         comment : Optional[str]
-            free form comment to explain why the updates are requested.
+            Free form comment to explain why the updates are requested.
 
         Returns
         -------
@@ -353,7 +354,7 @@ class ChangeRequestReview(APIObject):  # pylint: disable=missing-class-docstring
 
     @classmethod
     def list(cls, change_request_id: str) -> List[ChangeRequestReview]:
-        """List change request reviews.
+        """Returns a list of change request reviews.
 
         Parameters
         ----------
@@ -384,11 +385,11 @@ class ChangeRequestReview(APIObject):  # pylint: disable=missing-class-docstring
         change_request_id : str
             ID of the change request to add review for.
         status : str
-            review status to create.
+            Review status to create.
         change_version_id : str
             ID of the changes version the review is associated with.
         comment : Optional[str]
-            free form text description on the review.
+            Free form text description on the review.
 
         Returns
         -------

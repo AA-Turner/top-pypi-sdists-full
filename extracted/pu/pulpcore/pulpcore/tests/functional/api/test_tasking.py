@@ -1,0 +1,784 @@
+"""Tests related to the tasking system."""
+
+import json
+import time
+from contextlib import contextmanager
+from datetime import datetime
+from urllib.parse import urljoin
+from uuid import uuid4
+
+import pytest
+from aiohttp import BasicAuth
+from django.conf import settings
+
+from pulpcore.client.pulpcore import ApiException
+from pulpcore.constants import IMMEDIATE_TIMEOUT
+from pulpcore.tests.functional.utils import PulpTaskError, download_file
+
+
+@pytest.fixture(scope="module")
+def task(dispatch_task, monitor_task):
+    """Fixture containing a finished Task."""
+    task_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,))
+    return monitor_task(task_href)
+
+
+@pytest.mark.parallel
+def test_retrieving_task_profile_artifacts(gen_user, pulpcore_bindings, task):
+    with gen_user(model_roles=["core.task_viewer"]), pytest.raises(ApiException) as ctx:
+        pulpcore_bindings.TasksApi.profile_artifacts(task.pulp_href)
+    assert ctx.value.status == 403
+
+    with gen_user(model_roles=["core.task_owner"]):
+        assert pulpcore_bindings.TasksApi.profile_artifacts(task.pulp_href).urls is not None
+
+
+@pytest.mark.parallel
+def test_profiling_task_using_header(gen_user, pulpcore_bindings, monitor_task, pulp_settings):
+    # Check that no profile artifacts are created by default
+    task_href = pulpcore_bindings.OrphansCleanupApi.cleanup({"orphan_protection_time": 10000}).task
+    task = monitor_task(task_href)
+    assert pulpcore_bindings.TasksApi.profile_artifacts(task.pulp_href).urls == {}
+
+    # Check that profile artifacts are created when X-TASK-DIAGNOSTICS headers is passed
+    task_href = pulpcore_bindings.OrphansCleanupApi.cleanup(
+        {"orphan_protection_time": 10000}, x_task_diagnostics=["memory"]
+    ).task
+    task = monitor_task(task_href)
+    profile_artifacts_urls = pulpcore_bindings.TasksApi.profile_artifacts(task.pulp_href).urls
+    if "memory" in pulp_settings.TASK_DIAGNOSTICS:
+        assert "memory_profile" in profile_artifacts_urls
+    else:
+        assert "memory_profile" not in profile_artifacts_urls
+
+
+@pytest.mark.parallel
+def test_multi_resource_locking(dispatch_task, monitor_task):
+    task_href1 = dispatch_task(
+        "pulpcore.app.tasks.test.sleep",
+        args=(1,),
+        exclusive_resources=["AAAA"],
+        shared_resources=["BBBB"],
+    )
+    task_href2 = dispatch_task(
+        "pulpcore.app.tasks.test.sleep", args=(1,), shared_resources=["AAAA"]
+    )
+    task_href3 = dispatch_task(
+        "pulpcore.app.tasks.test.sleep", args=(1,), shared_resources=["AAAA"]
+    )
+    task_href4 = dispatch_task(
+        "pulpcore.app.tasks.test.sleep", args=(1,), exclusive_resources=["AAAA"]
+    )
+    task_href5 = dispatch_task(
+        "pulpcore.app.tasks.test.sleep", args=(1,), exclusive_resources=["BBBB"]
+    )
+
+    task1 = monitor_task(task_href1)
+    task2 = monitor_task(task_href2)
+    task3 = monitor_task(task_href3)
+    task4 = monitor_task(task_href4)
+    task5 = monitor_task(task_href5)
+
+    assert task1.finished_at < task2.started_at
+    assert task1.finished_at < task3.started_at
+    assert task2.finished_at < task4.started_at
+    assert task3.finished_at < task4.started_at
+    assert task1.finished_at < task5.started_at
+
+
+@pytest.mark.long_running
+@pytest.mark.parallel
+def test_worker_cleanup_on_missing_worker(dispatch_task, monitor_task, pulpcore_bindings):
+    """
+    Test that when a worker dies unexpectedly while executing a task,
+    the worker cleanup process marks the task as failed and releases its locks,
+    allowing subsequent tasks requiring the same resource to execute.
+    """
+    # Use a unique resource identifier to avoid conflicts with other tests
+    resource = str(uuid4())
+
+    # Dispatch the missing_worker task that will kill its worker process
+    task_href1 = dispatch_task(
+        "pulpcore.app.tasks.test.missing_worker", exclusive_resources=[resource]
+    )
+
+    # Wait for the task to start running and the worker to die
+    time.sleep(2)
+
+    # Dispatch a second task that requires the same resource
+    task_href2 = dispatch_task(
+        "pulpcore.app.tasks.test.sleep", args=(1,), exclusive_resources=[resource]
+    )
+
+    # Wait for worker cleanup to run (happens every ~100 heartbeats)
+    # In tests, this should happen relatively quickly
+    # Monitor both tasks - the first should be marked as failed,
+    # and the second should complete successfully
+    max_wait = 600  # Wait up to 600 seconds for cleanup
+    start_time = time.time()
+
+    task1 = None
+    task2 = None
+
+    while time.time() - start_time < max_wait:
+        task1 = pulpcore_bindings.TasksApi.read(task_href1)
+        task2 = pulpcore_bindings.TasksApi.read(task_href2)
+
+        # Check if task1 is failed and task2 is completed
+        if task1.state == "failed" and task2.state == "completed":
+            break
+
+        time.sleep(1)
+
+    # Verify task1 was marked as failed
+    assert task1.state == "failed", f"Task 1 should be failed but is {task1.state}"
+    assert (
+        "worker" in task1.error["reason"].lower() and "missing" in task1.error["reason"].lower()
+    ), f"Task 1 error should mention missing worker: {task1.error['reason']}"
+
+    # Verify task2 completed successfully after locks were released
+    assert task2.state == "completed", f"Task 2 should be completed but is {task2.state}"
+
+
+@pytest.mark.parallel
+def test_delete_cancel_waiting_task(dispatch_task, pulpcore_bindings):
+    # Queue one task after a long running one
+    resource = str(uuid4())
+    blocking_task_href = dispatch_task(
+        "pulpcore.app.tasks.test.sleep", args=(600,), exclusive_resources=[resource]
+    )
+    task_href = dispatch_task(
+        "pulpcore.app.tasks.test.sleep", args=(0,), exclusive_resources=[resource]
+    )
+
+    task = pulpcore_bindings.TasksApi.read(task_href)
+    assert task.state == "waiting"
+
+    # Try to delete first
+    with pytest.raises(ApiException) as ctx:
+        pulpcore_bindings.TasksApi.delete(task_href)
+    assert ctx.value.status == 409
+
+    # Now cancel the task
+    task = pulpcore_bindings.TasksApi.tasks_cancel(task_href, {"state": "canceled"})
+    # cancel the blocking task
+    pulpcore_bindings.TasksApi.tasks_cancel(blocking_task_href, {"state": "canceled"})
+
+    if task.state == "canceling":
+        assert task.started_at is None
+        assert task.finished_at is None
+
+        for i in range(10):
+            if task.state != "canceling":
+                break
+            time.sleep(1)
+            task = pulpcore_bindings.TasksApi.read(task_href)
+
+    assert task.state == "canceled"
+    assert task.started_at is None
+    assert task.finished_at is not None
+
+
+@pytest.mark.parallel
+def test_delete_cancel_running_task(dispatch_task, pulpcore_bindings):
+    task_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(600,))
+
+    for i in range(10):
+        task = pulpcore_bindings.TasksApi.read(task_href)
+        if task.state == "running":
+            break
+        time.sleep(1)
+
+    assert task.state == "running"
+
+    # Try to delete first
+    with pytest.raises(ApiException) as ctx:
+        pulpcore_bindings.TasksApi.delete(task_href)
+    assert ctx.value.status == 409
+
+    # Now cancel the task
+    task = pulpcore_bindings.TasksApi.tasks_cancel(task_href, {"state": "canceled"})
+
+    if task.state == "canceling":
+        assert task.started_at is not None
+        assert task.finished_at is None
+
+        for i in range(10):
+            if task.state != "canceling":
+                break
+            time.sleep(1)
+            task = pulpcore_bindings.TasksApi.read(task_href)
+
+    assert task.state == "canceled"
+    assert task.started_at is not None
+    assert task.finished_at is not None
+
+
+@pytest.mark.parallel
+def test_cancel_delete_finished_task(pulpcore_bindings, dispatch_task, monitor_task):
+    task_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,))
+    monitor_task(task_href)
+
+    # Try to cancel first
+    with pytest.raises(ApiException) as ctx:
+        pulpcore_bindings.TasksApi.tasks_cancel(task_href, {"state": "canceled"})
+    assert ctx.value.status == 409
+
+    # Now delete the task
+    pulpcore_bindings.TasksApi.delete(task_href)
+
+
+@pytest.mark.parallel
+def test_cancel_nonexistent_task(pulp_api_v3_path, pulpcore_bindings):
+    task_href = f"{pulp_api_v3_path}tasks/{uuid4()}/"
+    with pytest.raises(ApiException) as ctx:
+        pulpcore_bindings.TasksApi.tasks_cancel(task_href, {"state": "canceled"})
+    assert ctx.value.status == 404
+
+
+@pytest.mark.parallel
+def test_retrieve_task_with_limited_fields(task, bindings_cfg):
+    """Verify for specific fields retrieve in the payload."""
+    expected_fields = set(("pulp_href", "state", "worker"))
+
+    auth = BasicAuth(login=bindings_cfg.username, password=bindings_cfg.password)
+    full_href = urljoin(bindings_cfg.host, task.pulp_href)
+
+    response = download_file(f"{full_href}?fields={','.join(expected_fields)}", auth=auth)
+    parsed_response = json.loads(response.body)
+
+    returned_fields = set(parsed_response.keys())
+
+    assert expected_fields == returned_fields
+
+
+@pytest.mark.parallel
+def test_retrieve_task_without_specific_fields(task, bindings_cfg):
+    """Verify if some fields are excluded from the response."""
+    unexpected_fields = set(("state", "worker"))
+
+    auth = BasicAuth(login=bindings_cfg.username, password=bindings_cfg.password)
+    full_href = urljoin(bindings_cfg.host, task.pulp_href)
+
+    response = download_file(f"{full_href}?exclude_fields={','.join(unexpected_fields)}", auth=auth)
+    parsed_response = json.loads(response.body)
+
+    returned_fields = set(parsed_response.keys())
+
+    assert unexpected_fields.isdisjoint(returned_fields)
+
+
+@pytest.mark.parallel
+def test_retrieve_task_with_minimal_fields(task, bindings_cfg):
+    """Verify if some fields doesn't show when retrieving the minimal payload."""
+    unexpected_fields = set(("progress_reports", "parent_task", "error"))
+
+    auth = BasicAuth(login=bindings_cfg.username, password=bindings_cfg.password)
+    full_href = urljoin(bindings_cfg.host, task.pulp_href)
+
+    response = download_file(f"{full_href}?minimal=true", auth=auth)
+    parsed_response = json.loads(response.body)
+
+    returned_fields = set(parsed_response.keys())
+
+    assert unexpected_fields.isdisjoint(returned_fields)
+
+
+@pytest.mark.parallel
+def test_retrieve_task_using_valid_date(task, pulpcore_bindings):
+    """Expects to retrieve a task using a valid date."""
+
+    response = pulpcore_bindings.TasksApi.list(started_at=task.started_at)
+
+    assert response.results and response.count
+
+
+@pytest.mark.parallel
+def test_search_task_by_name(task, pulpcore_bindings):
+    task_name = task.name
+    search_results = pulpcore_bindings.TasksApi.list(name=task.name).results
+
+    assert search_results
+    assert all([task.name == task_name for task in search_results])
+
+
+@pytest.mark.parallel
+def test_search_task_using_an_invalid_name(pulpcore_bindings):
+    """Expect to return an empty results array when searching using an invalid
+    task name.
+    """
+
+    search_results = pulpcore_bindings.TasksApi.list(name=str(uuid4()))
+
+    assert not search_results.results and not search_results.count
+
+
+@pytest.mark.parallel
+def test_filter_tasks_using_pulp_created_filter(pulpcore_bindings, dispatch_task):
+
+    task1_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,))
+
+    time.sleep(2)
+    start_time = datetime.now()
+    task2_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,))
+    task3_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,))
+
+    search_results_gte = pulpcore_bindings.TasksApi.list(pulp_created__gte=start_time)
+
+    tasks_hrefs_gte = [task.pulp_href for task in search_results_gte.results]
+
+    assert task1_href not in tasks_hrefs_gte
+    assert task2_href in tasks_hrefs_gte
+    assert task3_href in tasks_hrefs_gte
+
+    search_results_lte = pulpcore_bindings.TasksApi.list(pulp_created__lte=start_time)
+
+    tasks_hrefs_lte = [task.pulp_href for task in search_results_lte.results]
+
+    assert task1_href in tasks_hrefs_lte
+    assert task2_href not in tasks_hrefs_lte
+    assert task3_href not in tasks_hrefs_lte
+
+
+def test_cancel_gooey_task(pulpcore_bindings, dispatch_task, monitor_task):
+    task_href = dispatch_task("pulpcore.app.tasks.test.gooey_task", args=(60,))
+    for i in range(10):
+        task = pulpcore_bindings.TasksApi.read(task_href)
+        if task.state == "running":
+            break
+        time.sleep(1)
+
+    task = pulpcore_bindings.TasksApi.tasks_cancel(task_href, {"state": "canceled"})
+
+    if task.state == "canceling":
+        for i in range(30):
+            if task.state != "canceling":
+                break
+            time.sleep(1)
+            task = pulpcore_bindings.TasksApi.read(task_href)
+
+    assert task.state == "canceled"
+
+
+@pytest.mark.parallel
+def test_task_created_by(dispatch_task, monitor_task, gen_user, anonymous_user):
+    # Test admin dispatch, user_id == 1 / admin is always first user
+    task = monitor_task(dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,)))
+    assert task.created_by.endswith("/1/")
+
+    # Test w/ new user, user_id != 1
+    user = gen_user()
+    with user:
+        task_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,))
+    user_task = monitor_task(task_href)
+    assert task.created_by != user_task.created_by
+    assert user_task.created_by == user.user.pulp_href
+
+    # Test w/ anon (Pulp itself, i.e. analytics)
+    with anonymous_user:
+        task_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,))
+    anon_task = monitor_task(task_href)
+    assert anon_task.created_by is None
+
+
+@pytest.mark.parallel
+def test_task_version_prevent_pickup(dispatch_task, pulpcore_bindings):
+    task1 = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,), versions={"core": "4.0.0"})
+    task2 = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,), versions={"catdog": "0.0.0"})
+
+    time.sleep(5)
+    for task_href in [task1, task2]:
+        task = pulpcore_bindings.TasksApi.read(task_href)
+        assert task.state == "waiting"
+        pulpcore_bindings.TasksApi.tasks_cancel(task_href, {"state": "canceled"})
+
+
+@pytest.mark.parallel
+def test_correct_task_ownership(
+    dispatch_task, pulpcore_bindings, gen_user, file_repository_factory
+):
+    """Test that tasks get the correct ownership when dispatched."""
+    alice = gen_user(model_roles=["core.task_viewer"])
+    bob = gen_user(model_roles=["file.filerepository_creator"])
+
+    with alice:
+        atask_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,))
+    aroles = pulpcore_bindings.UsersRolesApi.list(alice.user.pulp_href)
+    assert aroles.count == 3
+    roles = {r.role: r.content_object for r in aroles.results}
+    correct_roles = {
+        "core.task_owner": atask_href,
+        "core.task_user_dispatcher": atask_href,
+        "core.task_viewer": None,
+    }
+    assert roles == correct_roles
+
+    with bob:
+        btask_href = dispatch_task("pulpcore.app.tasks.test.sleep", args=(0,))
+        repo = file_repository_factory()
+    aroles = pulpcore_bindings.UsersRolesApi.list(alice.user.pulp_href)
+    assert aroles.count == 3
+    broles = pulpcore_bindings.UsersRolesApi.list(bob.user.pulp_href)
+    assert broles.count == 4
+    roles = {r.role: r.content_object for r in broles.results}
+    correct_roles = {
+        "core.task_owner": btask_href,
+        "core.task_user_dispatcher": btask_href,
+        "file.filerepository_owner": repo.pulp_href,
+        "file.filerepository_creator": None,
+    }
+    assert roles == correct_roles
+
+
+@pytest.fixture
+def task_group(dispatch_task_group, monitor_task_group):
+    """Fixture containing a finished Task Group."""
+    kwargs = {"inbetween": 0, "intervals": [0]}
+    tgroup_href = dispatch_task_group("pulpcore.app.tasks.test.dummy_group_task", kwargs=kwargs)
+    return monitor_task_group(tgroup_href)
+
+
+@pytest.mark.parallel
+def test_scope_task_groups(pulpcore_bindings, task_group, gen_user):
+    """Test that task groups can be queryset scoped by permission on Tasks."""
+    for task in task_group.tasks:
+        if task.name == "pulpcore.app.tasks.test.dummy_group_task":
+            break
+
+    response = pulpcore_bindings.TaskGroupsApi.list()
+    assert response.count > 0
+
+    with gen_user():
+        response = pulpcore_bindings.TaskGroupsApi.list()
+        assert response.count == 0
+
+    with gen_user(model_roles=["core.task_viewer"]):
+        response = pulpcore_bindings.TaskGroupsApi.list()
+        assert response.count > 0
+
+    with gen_user(object_roles=[("core.task_owner", task.pulp_href)]):
+        response = pulpcore_bindings.TaskGroupsApi.list()
+        assert response.count == 1
+
+
+@pytest.mark.parallel
+def test_finalizer_task_runs_after_all_siblings(dispatch_task_group, monitor_task_group):
+    """
+    A finalizer task that holds an exclusive resource lock should not start before all
+    sibling tasks holding shared locks on that resource have completed.
+    """
+    resource = str(uuid4())
+    group_task = "pulpcore.app.tasks.test.group_task_with_finalizer"
+    tgroup_href = dispatch_task_group(group_task, args=(resource,))
+    monitor_task_group(tgroup_href)
+
+
+@pytest.mark.parallel
+def test_cancel_task_group(pulpcore_bindings, dispatch_task_group, gen_user):
+    """Test that task groups can be canceled."""
+    kwargs = {"inbetween": 1, "intervals": [10, 10, 10, 10, 10]}
+    tgroup_href = dispatch_task_group("pulpcore.app.tasks.test.dummy_group_task", kwargs=kwargs)
+
+    tgroup = pulpcore_bindings.TaskGroupsApi.task_groups_cancel(tgroup_href, {"state": "canceled"})
+    for task in tgroup.tasks:
+        assert task.state in ["canceled", "canceling"]
+
+    with (
+        gen_user(model_roles=["core.task_viewer"]),
+        pytest.raises(pulpcore_bindings.ApiException) as e,
+    ):
+        pulpcore_bindings.TaskGroupsApi.task_groups_cancel(tgroup_href, {"state": "canceled"})
+        assert "You do not have permission" in e.value.message
+
+    if len(tgroup.tasks) > 1:
+        one_role = [("core.task_owner", task.pulp_href)]
+        with gen_user(object_roles=one_role), pytest.raises(pulpcore_bindings.ApiException) as e:
+            pulpcore_bindings.TaskGroupsApi.task_groups_cancel(tgroup_href, {"state": "canceled"})
+            assert "You do not have permission" in e.value.message
+
+    with gen_user(model_roles=["core.task_owner"]):
+        pulpcore_bindings.TaskGroupsApi.task_groups_cancel(tgroup_href, {"state": "canceled"})
+
+
+LT_TIMEOUT = IMMEDIATE_TIMEOUT / 2
+GT_TIMEOUT = IMMEDIATE_TIMEOUT * 2
+
+
+class TestImmediateTaskWithNoResource:
+    @pytest.mark.parallel
+    def test_succeeds_on_api_worker(self, pulpcore_bindings, dispatch_task):
+        """
+        GIVEN a task with no resource requirements
+        AND the task IS an async function
+        WHEN dispatching a task as immediate
+        THEN the task completes with no associated worker
+        """
+        task_href = dispatch_task(
+            "pulpcore.app.tasks.test.asleep", args=(LT_TIMEOUT,), immediate=True
+        )
+        task = pulpcore_bindings.TasksApi.read(task_href)
+        assert task.state == "completed"
+
+    @pytest.mark.parallel
+    def test_executes_on_api_worker_when_no_async(
+        self, pulpcore_bindings, dispatch_task, monitor_task
+    ):
+        """
+        GIVEN a task with no resource requirements
+        AND the task IS NOT an async function
+        WHEN dispatching a task as immediate
+        THEN the dispatch should throw an error
+        """
+        with pytest.raises(PulpTaskError) as ctx:
+            task_href = dispatch_task(
+                "pulpcore.app.tasks.test.sleep", args=(LT_TIMEOUT,), immediate=True
+            )
+            monitor_task(task_href)
+        assert "Immediate tasks must be async functions" in ctx.value.task.error["description"]
+
+    @pytest.mark.parallel
+    def test_timeouts_on_api_worker(self, pulpcore_bindings, dispatch_task):
+        """
+        GIVEN a task with no resource requirements
+        AND the task is an async function
+        WHEN dispatching a task as immediate
+        AND it takes longer than timeout
+        THEN the task fails with a timeout error message
+        """
+        task_href = dispatch_task(
+            "pulpcore.app.tasks.test.asleep", args=(GT_TIMEOUT,), immediate=True
+        )
+        task = pulpcore_bindings.TasksApi.read(task_href)
+        assert task.state == "failed"
+        assert "timed out after" in task.error["description"]
+
+
+@pytest.mark.parallel
+def test_failing_immediate_task_error_handling(dispatch_task, monitor_task):
+    """
+    GIVEN a task that raises a RuntimeError
+    AND the task is an async function
+    WHEN dispatching the task as immediate and deferred
+    THEN the task fails with the correct error message
+    AND the error field contains the exception details
+    """
+    custom_error_message = "This is a custom error message"
+    with pytest.raises(PulpTaskError) as ctx:
+        task_href = dispatch_task(
+            "pulpcore.app.tasks.test.afailing_task",
+            kwargs={"error_message": custom_error_message},
+            immediate=True,
+            deferred=True,
+        )
+        monitor_task(task_href)
+
+    task = ctx.value.task
+    assert task.state == "failed"
+    assert task.error is not None
+    assert "description" in task.error
+    assert custom_error_message in task.error["description"]
+
+
+@pytest.mark.parallel
+def test_failing_worker_task_error_handling(dispatch_task, monitor_task):
+    """
+    GIVEN a task that raises a RuntimeError
+    AND the task is a sync function
+    WHEN dispatching the task as deferred (executes on worker)
+    THEN the task fails with the correct error message
+    AND the error field contains the exception details
+    """
+    custom_error_message = "Worker task failed with custom error"
+    with pytest.raises(PulpTaskError) as ctx:
+        task_href = dispatch_task(
+            "pulpcore.app.tasks.test.failing_task",
+            kwargs={"error_message": custom_error_message},
+        )
+        monitor_task(task_href)
+
+    task = ctx.value.task
+    assert task.state == "failed"
+    assert task.error is not None
+    assert "description" in task.error
+    assert custom_error_message in task.error["description"]
+
+
+@pytest.fixture
+def resource_blocker(pulpcore_bindings, dispatch_task):
+
+    @contextmanager
+    def _resource_blocker(exclusive_resources: list[str], duration=20):
+        task_href = dispatch_task(
+            "pulpcore.app.tasks.test.sleep",
+            args=(duration,),
+            exclusive_resources=exclusive_resources,
+        )
+        yield
+        # Trying to cancel a finished task will return a 409 code.
+        # We can ignore if that's the case, because all we want here is to cut time down.
+        # Otherwise it might be a real error.
+        try:
+            pulpcore_bindings.TasksApi.tasks_cancel(task_href, {"state": "canceled"})
+        except ApiException as e:
+            if e.status != 409:
+                raise
+
+    return _resource_blocker
+
+
+@pytest.mark.parallel
+def test_immediate_task_with_available_resources(dispatch_task, pulpcore_bindings):
+    """
+    Test that immediate tasks with resources can execute when resources are available.
+
+    This test verifies that the are_resources_available() function correctly acquires
+    locks via acquire_locks() when resources are not blocked. This is important for
+    Redis worker implementation where immediate tasks need to acquire distributed locks.
+
+    GIVEN an immediate async task with exclusive and shared resource requirements
+    WHEN the resources are available (not blocked by other tasks)
+    THEN the task executes immediately and completes successfully
+    AND verifies that acquire_locks() is properly imported and callable
+    """
+    # Use unique resources to ensure they're not blocked
+    unique_exclusive = f"exclusive-{uuid4()}"
+    unique_shared = f"shared-{uuid4()}"
+
+    task_href = dispatch_task(
+        "pulpcore.app.tasks.test.asleep",
+        args=(0.1,),  # Quick execution
+        immediate=True,
+        deferred=False,
+        exclusive_resources=[unique_exclusive],
+        shared_resources=[unique_shared],
+    )
+
+    # Task should complete immediately since resources are available
+    task = pulpcore_bindings.TasksApi.read(task_href)
+    assert task.state == "completed", (
+        f"Task should have completed immediately with available resources, "
+        f"but is in state: {task.state}"
+    )
+
+    # Verify task executed successfully
+    assert task.finished_at is not None
+    assert task.error is None
+
+
+class TestImmediateTaskWithBlockedResource:
+    @pytest.mark.parallel
+    def test_executes_in_task_worker(
+        self, resource_blocker, dispatch_task, monitor_task, pulpcore_bindings
+    ):
+        """
+        GIVEN an async task requiring busy resources
+        WHEN dispatching a task as immediate
+        THEN the task returns as waiting first
+        """
+        COMMON_RESOURCE = str(uuid4())
+        with resource_blocker(exclusive_resources=[COMMON_RESOURCE]):
+            task_href = dispatch_task(
+                "pulpcore.app.tasks.test.asleep",
+                args=(LT_TIMEOUT,),
+                immediate=True,
+                exclusive_resources=[COMMON_RESOURCE],
+            )
+            task = pulpcore_bindings.TasksApi.read(task_href)
+            assert task.state == "waiting"
+        task = monitor_task(task_href)
+        assert task.state == "completed"
+
+    @pytest.mark.parallel
+    def test_throws_when_non_deferrable(
+        self, resource_blocker, pulpcore_bindings, dispatch_task, monitor_task
+    ):
+        """
+        GIVEN an async task requiring busy resources
+        WHEN dispatching as immediate and not deferrable
+        THEN an error is raised
+        """
+        COMMON_RESOURCE = str(uuid4())
+        with resource_blocker(exclusive_resources=[COMMON_RESOURCE]):
+            task_href = dispatch_task(
+                "pulpcore.app.tasks.test.asleep",
+                args=(0,),
+                immediate=True,
+                deferred=False,
+                exclusive_resources=[COMMON_RESOURCE],
+            )
+            task = pulpcore_bindings.TasksApi.read(task_href)
+            assert task.state == "canceled"
+            assert "Resources temporarily unavailable." in task.error["reason"]
+
+    @pytest.mark.parallel
+    def test_times_out_on_task_worker(
+        self, resource_blocker, pulpcore_bindings, dispatch_task, monitor_task
+    ):
+        """
+        GIVEN an async task requiring busy resources
+        WHEN dispatching a task as immediate
+        AND it takes longer than timeout
+        THEN an error is raised
+        """
+        COMMON_RESOURCE = str(uuid4())
+        with pytest.raises(PulpTaskError) as ctx:
+            with resource_blocker(exclusive_resources=[COMMON_RESOURCE]):
+                task_href = dispatch_task(
+                    "pulpcore.app.tasks.test.asleep",
+                    args=(GT_TIMEOUT,),
+                    immediate=True,
+                    exclusive_resources=[COMMON_RESOURCE],
+                )
+            monitor_task(task_href)
+        assert "timed out after" in ctx.value.task.error["description"]
+
+
+@pytest.mark.parallel
+@pytest.mark.skipif(
+    settings.WORKER_TYPE != "redis",
+    reason="Only runs with WORKER_TYPE=redis",
+)
+def test_fetch_task_beyond_initial_batch(dispatch_task, monitor_task, pulpcore_bindings):
+    """Test that tasks beyond the initial fetch batch are still processed.
+
+    When more than FETCH_TASK_LIMIT tasks are blocked on the same exclusive resource,
+    the RedisWorker should double the fetch limit and find runnable tasks further
+    down the queue.
+    """
+    blocker_resource = str(uuid4())
+    other_resource = str(uuid4())
+
+    # Dispatch a long-running task that holds the blocker resource
+    blocker_href = dispatch_task(
+        "pulpcore.app.tasks.test.sleep",
+        args=(60,),
+        exclusive_resources=[blocker_resource],
+    )
+    time.sleep(2)
+
+    # Dispatch 25 tasks that all need the same blocked resource
+    blocked_hrefs = []
+    for _ in range(25):
+        href = dispatch_task(
+            "pulpcore.app.tasks.test.sleep",
+            args=(0,),
+            exclusive_resources=[blocker_resource],
+        )
+        blocked_hrefs.append(href)
+
+    # Dispatch a task that uses a completely different resource (position 27 in the queue)
+    unblocked_href = dispatch_task(
+        "pulpcore.app.tasks.test.sleep",
+        args=(0,),
+        exclusive_resources=[other_resource],
+    )
+
+    # The unblocked task should complete even though 25 tasks ahead of it are blocked
+    unblocked_task = monitor_task(unblocked_href)
+    assert unblocked_task.state == "completed"
+
+    # Cancel the blocker so blocked tasks can drain
+    try:
+        pulpcore_bindings.TasksApi.tasks_cancel(blocker_href, {"state": "canceled"})
+    except ApiException:
+        pass

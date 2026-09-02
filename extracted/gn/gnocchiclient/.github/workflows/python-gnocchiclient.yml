@@ -1,0 +1,27 @@
+name: python-gnocchiclient
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        env:
+          - docs-gnocchi-web
+          - build
+          - pep8
+          - py39
+          - py311
+          - py312
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: ./tools/install_deps.sh
+      - name: Run tox
+        run: /tmp/gnocchi-tox-env/bin/tox -e ${{ matrix.env }}

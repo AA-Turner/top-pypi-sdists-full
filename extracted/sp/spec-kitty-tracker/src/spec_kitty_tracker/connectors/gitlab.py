@@ -143,10 +143,15 @@ class GitLabConnector(HTTPConnectorBase):
             payload["assignee_ids"] = self._assignee_ids(list(patch["assignees"]))
         if "status" in patch:
             status = CanonicalStatus(str(patch["status"]))
-            payload["state_event"] = "close" if status in {
-                CanonicalStatus.DONE,
-                CanonicalStatus.CANCELED,
-            } else "reopen"
+            payload["state_event"] = (
+                "close"
+                if status
+                in {
+                    CanonicalStatus.DONE,
+                    CanonicalStatus.CANCELED,
+                }
+                else "reopen"
+            )
 
         if payload:
             updated = await self._request(
@@ -196,7 +201,11 @@ class GitLabConnector(HTTPConnectorBase):
 
     def _to_canonical(self, payload: Mapping[str, Any]) -> CanonicalIssue:
         labels = [str(label) for label in payload.get("labels", [])]
-        issue_type = CanonicalIssueType.BUG if any(label.lower() == "bug" for label in labels) else CanonicalIssueType.TASK
+        issue_type = (
+            CanonicalIssueType.BUG
+            if any(label.lower() == "bug" for label in labels)
+            else CanonicalIssueType.TASK
+        )
         assignees = [
             str(assignee.get("username"))
             for assignee in payload.get("assignees", [])
@@ -247,4 +256,3 @@ class GitLabConnector(HTTPConnectorBase):
         if link_type is LinkType.BLOCKED_BY:
             return "is_blocked_by"
         return "relates_to"
-

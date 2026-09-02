@@ -20,15 +20,16 @@ from datarobot.models.api_object import APIObject
 from datarobot.models.notebooks.enums import ImageLanguage
 
 image_trafaret = t.Dict({
-    t.Key("id"): t.String,
+    t.Key("environment_id"): t.String,
     t.Key("name"): t.String,
     t.Key("default"): t.Bool,
     t.Key("description"): t.String,
-    t.Key("environment_id"): t.String,
     t.Key("gpu_optimized"): t.Bool,
-    t.Key("language"): t.Enum(*list(ImageLanguage)),
-    t.Key("language_version"): t.String,
-    t.Key("libraries"): t.List(t.String),
+    # Also includes lowercase
+    t.Key("language"): t.Enum(*list(ImageLanguage), *[il.lower() for il in ImageLanguage]),
+    t.Key("id", optional=True): t.String,
+    t.Key("language_version", optional=True): t.String,
+    t.Key("libraries", optional=True): t.List(t.String),
 }).ignore_extra("*")
 
 machine_trafaret = t.Dict({
@@ -58,6 +59,7 @@ class ExecutionEnvironmentAssignPayload(TypedDict, total=False):
     environment_id: Optional[str]
     environment_slug: Optional[str]
     version_id: Optional[str]
+    pin_version: Optional[bool]
     machine_id: Optional[str]
     machine_slug: Optional[str]
     time_to_live: int
@@ -72,23 +74,23 @@ class Image(APIObject):
     Attributes
     ----------
 
-    id : str
-        The ID of the image.
+    environment_id : str
+        The ID of the environment.
     name : str
         The name of the image.
     default : bool
         Whether the image is the default image.
     description : str
         The description of the image.
-    environment_id : str
-        The ID of the environment.
     gpu_optimized : bool
         Whether the image is GPU optimized.
     language : ImageLanguage
-        The runtime language of the image. For example "Python" or "R"
-    language_version : str
-        The version of the language. For example "3.11" or "4.3"
-    libraries : list[str]
+        The runtime language of the image. For example "Python" or "R".
+    id : Optional[str]
+        The version ID of the image.
+    language_version : Optional[str]
+        The version of the language. For example "3.11" or "4.3".
+    libraries : Optional[list[str]]
         A list of pre-installed libraries on the image.
     """
 
@@ -96,23 +98,23 @@ class Image(APIObject):
 
     def __init__(
         self,
-        id: str,
+        environment_id: str,
         name: str,
         default: bool,
         description: str,
-        environment_id: str,
         gpu_optimized: bool,
         language: ImageLanguage,
-        language_version: str,
-        libraries: List[str],
+        id: Optional[str] = None,
+        language_version: Optional[str] = None,
+        libraries: Optional[List[str]] = None,
     ):
-        self.id = id
+        self.environment_id = environment_id
         self.name = name
         self.default = default
         self.description = description
-        self.environment_id = environment_id
         self.gpu_optimized = gpu_optimized
         self.language = language
+        self.id = id
         self.language_version = language_version
         self.libraries = libraries
 

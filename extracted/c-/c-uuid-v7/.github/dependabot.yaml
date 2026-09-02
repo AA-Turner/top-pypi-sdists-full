@@ -1,7 +1,0 @@
-version: 2
-updates:
-  - package-ecosystem: "github-actions" # zizmor: ignore[dependabot-cooldown]
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    target-branch: main

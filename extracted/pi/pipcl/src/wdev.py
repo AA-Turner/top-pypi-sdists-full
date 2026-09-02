@@ -1,0 +1,624 @@
+'''
+Finds locations of Windows command-line development tools.
+'''
+
+import json
+import os
+import platform
+import glob
+import re
+import subprocess
+import sys
+import sysconfig
+import textwrap
+
+import pipcl
+
+
+class WindowsVS:
+    r'''
+    Windows only. Finds locations of Visual Studio command-line tools. Assumes
+    VS2019-style paths.
+
+    Members and example values::
+
+        .year:      2019
+        .grade:     Community
+        .version:   14.28.29910
+        .directory: C:\Program Files (x86)\Microsoft Visual Studio\2019\Community
+        .vcvars:    C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat
+        .cl:        C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.28.29910\bin\Hostx64\x64\cl.exe
+        .link:      C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.28.29910\bin\Hostx64\x64\link.exe
+        .csc:       C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\Roslyn\csc.exe
+        .msbuild:   C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe
+        .devenv:    C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\IDE\devenv.com
+        .tools:     C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\IDE\devenv.com
+        .toolvs:    [142, 143]
+        
+        .vsversion: 17.14.37111.16
+        .product_line_version:  2017, 2019, 2022, 18 etc.
+        .vswhere:   Raw information from vswhere.exe.
+
+    `.csc` is C# compiler; will be None if not found.
+    '''
+    def __init__(self, *args, **kwargs):
+        '''
+        Internal use only. Use windows_vs() or windows_vs_multiple() to create instance(s).
+        '''
+        if args:
+            assert len(args) == 2 and not kwargs, f'{args=} {kwargs=}'
+            vswhere, cpu = args
+        else:
+            # Backwards compatibility only - callers should use windows_vs().
+            year = kwargs.pop('year', None)
+            grade = kwargs.pop('grade', None)
+            version = kwargs.pop('version', None)
+            cpu = kwargs.pop('cpu', None)
+            directory = kwargs.pop('directory', None)
+            assert not kwargs, f'Unrecognised args: {kwargs=}'
+            
+            vs = windows_vs(year=year, grade=grade, version=version, directory=directory, cpu=cpu)
+            # Want to set self = vs, but that's not going to work, so instead
+            # we just construct from vs.vswhere and cpu.
+            vswhere = vs.vswhere
+        
+        if not cpu:
+            cpu = WindowsCpu()
+        
+        #pipcl.log(f'vswhere:\n{json.dumps(vswhere, indent="    ")}')
+        product_line_version = vswhere['catalog']['productLineVersion'] # E.g. '2022'.
+        vsversion = vswhere['catalog']['buildVersion']  # E.g. '17.14.37111.16'.
+        grade = vswhere['productId'].split('.')[-1] # E.g. 'Professional'.
+        directory = vswhere['installationPath'] # E.g. C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional
+        version = None  # Compiler/linker version is not specified in vswhere.
+        year = None
+        
+        try:
+            # Find `devenv`.
+            #
+            devenv = f'{directory}\\Common7\\IDE\\devenv.com'
+            assert os.path.isfile( devenv), f'Does not exist: {devenv}'
+
+            # Find vcvars.bat.
+            #
+            if cpu.name == 'x32':
+                leaf = 'vcvars32.bat'
+            elif cpu.name == 'x64':
+                leaf = 'vcvars64.bat'
+            elif cpu.name == 'arm32':
+                leaf = 'vcvarsarm.bat'
+            elif cpu.name == 'arm64':
+                leaf = 'vcvarsarm64.bat'
+            else:
+                assert 0, f'Cannot specify vcvars*.bat because unrecognised {cpu.name=}.'
+            vcvars = f'{directory}\\VC\\Auxiliary\\Build\\{leaf}'
+            assert os.path.isfile( vcvars), f'No match for: {vcvars}'
+
+            if 0:
+                # List contents of <directory>.
+                _root = f'{directory}\\VC\\Tools\\MSVC'
+                pipcl.log(f'*.exe files in {_root=}:')
+                for dirpath, _dirnames, filenames in os.walk(_root):
+                    for filename in filenames:
+                        if filename.endswith('.exe'):
+                            path = f'{dirpath}\\{filename}'
+                            pipcl.log(f'    {path}')
+            
+            # Find cl.exe.
+            #
+            cl_pattern = f'{directory}\\VC\\Tools\\MSVC\\{version or "*"}\\bin\\Host{cpu.windows_name}\\{cpu.windows_name}\\cl.exe'
+            cl_s = glob.glob( cl_pattern)
+            assert cl_s, f'No match for: {cl_pattern}'
+            cl_s.sort()
+            cl = cl_s[-1]
+
+            # Extract `version` from cl.exe's path.
+            #
+            m = re.search( rf'\\VC\\Tools\\MSVC\\([^\\]+)\\bin\\Host{cpu.windows_name}\\{cpu.windows_name}\\cl.exe$', cl)
+            assert m
+            version2 = m.group(1)
+            #pipcl.log(f'Overriding {version=} to {version2=}.')
+            version = version2
+            assert version
+
+            # Find link.exe.
+            #
+            link_pattern = f'{directory}\\VC\\Tools\\MSVC\\{version or "*"}\\bin\\Host{cpu.windows_name}\\{cpu.windows_name}\\link.exe'
+            link_s = glob.glob( link_pattern)
+            assert link_s, f'No match for: {link_pattern}'
+            link_s.sort()
+            link = link_s[-1]
+
+            # Find csc.exe.
+            #
+            csc = None
+            for dirpath, _dirnames, filenames in os.walk(directory):
+                for filename in filenames:
+                    if filename == 'csc.exe':
+                        csc = os.path.join(dirpath, filename)
+                        #_log(f'{csc=}')
+                        #break
+
+            # Find MSBuild.exe.
+            #
+            msbuild = None
+            for dirpath, _dirnames, filenames in os.walk(directory):
+                for filename in filenames:
+                    if filename == 'MSBuild.exe':
+                        msbuild = os.path.join(dirpath, filename)
+                        #_log(f'{csc=}')
+                        #break
+
+            # Find available build tool versions.
+            #
+            tools = list()
+            toolvs = list()
+            for p in glob.glob(f'{directory}\\VC/Auxiliary\\Build\\Microsoft.VCToolsVersion.v*.default.txt'):
+                tools.append(p)
+                leaf = os.path.basename(p)
+                #pipcl.log(f'{p=}')
+                #pipcl.log(f'{leaf=}')
+                m = re.match('^Microsoft.VCToolsVersion.v([0-9]+).default.txt$', leaf)
+                toolv = int(m.group(1))
+                toolvs.append(toolv)
+            
+            self.cl = cl
+            self.devenv = devenv
+            self.directory = directory
+            self.grade = grade
+            self.link = link
+            self.csc = csc
+            self.msbuild = msbuild
+            self.vcvars = vcvars
+            self.version = version
+            self.year = year or vsversion_to_year(vsversion)
+            self.cpu = cpu
+            self.tools = tools
+            self.toolvs = toolvs
+            self.vsversion = vsversion
+            self.product_line_version = product_line_version
+            self.vswhere = vswhere
+        
+        except Exception as e:
+            raise Exception( f'Unable to find Visual Studio {year=} {grade=} {version=} {cpu=} {directory=}') from e
+
+    def description_ml( self, indent=''):
+        '''
+        Return multiline description of `self`.
+        '''
+        ret = textwrap.dedent(f'''
+                year:         {self.year}
+                vsversion:    {self.vsversion}
+                grade:        {self.grade}
+                version:      {self.version}
+                directory:    {self.directory}
+                vcvars:       {self.vcvars}
+                cl:           {self.cl}
+                link:         {self.link}
+                csc:          {self.csc}
+                msbuild:      {self.msbuild}
+                devenv:       {self.devenv}
+                cpu:          {self.cpu}
+                ''').strip() + '\n'
+        ret += 'tools:\n'
+        for p in self.tools:
+            ret += f'    {p}\n'
+        ret += 'toolvs:\n'
+        for v in self.toolvs:
+            ret += f'    {v}\n'
+            
+        return textwrap.indent( ret, indent)
+
+    def __repr__( self):
+        items = list()
+        for name in (
+                'year',
+                'vsversion',
+                'grade',
+                'version',
+                'directory',
+                'vcvars',
+                'cl',
+                'link',
+                'csc',
+                'msbuild',
+                'devenv',
+                'cpu',
+                ):
+            items.append(f'{name}={getattr(self, name)!r}')
+        return ' '.join(items)
+
+
+_vsversion_year = [
+        (2017, 15),
+        (2019, 16),
+        (2022, 17),
+        (2026, 18),
+        ]
+
+def vsversion_to_year(vsversion, check=0):
+    if isinstance(vsversion, str):
+        vsversion = pipcl.version_to_tuple(vsversion)
+    for y, v in _vsversion_year:
+        if vsversion[0] == v:
+            return y
+    if check:
+        t = ', '.join([v for (y, v) in _vsversion_year])
+        assert 0, f'In {vsversion=}, unrecognised {vsversion[0]=}, must be one of {t}.'
+
+def year_to_vsversion(year, check=0):
+    if isinstance(year, str):
+        year = int(year)
+    for y, v in _vsversion_year:
+        if year == y:
+            return v,
+    if check:
+        t = ', '.join([str(y) for (y, v) in _vsversion_year])
+        assert 0, f'Unrecognised {year=} must be one of {t}.'
+
+
+def version_startswith(v, prefix):
+    if isinstance(v, str):
+        v = pipcl.version_to_tuple(v)
+    if isinstance(prefix, str):
+        prefix = pipcl.version_to_tuple(prefix)
+    return v[:len(prefix)] == prefix
+    
+
+def windows_vs_multiple(*, year=None, vsversion=None, grade=None, version=None, directory=None, cpu=None, verbose=0):
+    '''
+    Returns list of matching WindowsVS instances, using vswhere.exe
+    
+    Args:
+        year:
+            None or one of:
+                2017
+                2019
+                2022
+                2026
+            These map to visual studio versions 15, 16, 17 and 18.
+            Must not be specified with <vsversion>.
+        vsversion:
+            None or Visual Studio build version, e.g. '17.14.37111.16'.
+            Must not be specified with <year>.
+        grade:
+            None or one of:
+
+            * `Community`
+            * `Professional`
+            * `Enterprise`
+
+            If None we use environment variable WDEV_VS_GRADE if set.
+        version:
+            None or, for example, `14.28.29910`. If None we use environment
+            variable WDEV_VS_VERSION if set.
+
+            This is not matched against output from vswhere.exe, instead
+            identifies subdirectory in the cl.exe and link.exe paths.
+
+            If None, we use the highest available version.
+        directory:
+            None or the installation directory.
+        cpu:
+            None or a `WindowsCpu` instance.
+      
+      Example vswhere.exe information about a vs install:
+      
+          {
+            "instanceId": "c5be8a09",
+            "installDate": "2025-11-27T16:58:25Z",
+            "installationName": "VisualStudio/17.14.29+37111.16.-march.2026-",
+            "installationPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional",
+            "installationVersion": "17.14.37111.16",
+            "productId": "Microsoft.VisualStudio.Product.Professional",
+            "productPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\Common7\\IDE\\devenv.exe",
+            "state": 4294967295,
+            "isComplete": true,
+            "isLaunchable": true,
+            "isPrerelease": false,
+            "isRebootRequired": false,
+            "displayName": "Visual Studio Professional 2022",
+            "description": "Professional IDE best suited to small teams",
+            "channelId": "VisualStudio.17.Release",
+            "channelUri": "https://aka.ms/vs/17/release/channel",
+            "enginePath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\resources\\app\\ServiceHub\\Services\\Microsoft.VisualStudio.Setup.Service",
+            "installedChannelId": "VisualStudio.17.Release",
+            "installedChannelUri": "https://aka.ms/vs/17/release/channel",
+            "releaseNotes": "https://docs.microsoft.com/en-us/visualstudio/releases/2022/release-notes-v17.14#17.14.29",
+            "resolvedInstallationPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional",
+            "thirdPartyNotices": "https://go.microsoft.com/fwlink/?LinkId=661288",
+            "updateDate": "2026-04-03T10:46:24.9483366Z",
+            "catalog": {
+              "buildBranch": "d17.14",
+              "buildVersion": "17.14.37111.16",
+              "id": "VisualStudio/17.14.29+37111.16.-march.2026-",
+              "localBuild": "build-lab",
+              "manifestName": "VisualStudio",
+              "manifestType": "installer",
+              "productDisplayVersion": "17.14.29 (March 2026)",
+              "productLine": "Dev17",
+              "productLineVersion": "2022",
+              "productMilestone": "RTW",
+              "productMilestoneIsPreRelease": "False",
+              "productName": "Visual Studio",
+              "productPatchVersion": "29",
+              "productPreReleaseMilestoneSuffix": "1.0",
+              "productReleaseNameSuffix": "(March 2026)",
+              "productSemanticVersion": "17.14.29+37111.16.-march.2026-",
+              "requiredEngineVersion": "3.14.2086.54749"
+            },
+            "properties": {
+              "appLocalWPF": "false",
+              "campaignId": "",
+              "channelManifestId": "VisualStudio.17.Release/17.14.29+37111.16.-march.2026-",
+              "includeRecommended": "1",
+              "nickname": "",
+              "setupEngineFilePath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\setup.exe"
+            }
+          }
+    
+    '''
+    year = year or os.environ.get('WDEV_VS_YEAR')
+    grade = grade or os.environ.get('WDEV_VS_GRADE')
+    version = version or os.environ.get('WDEV_VS_VERSION')
+    
+    if year:
+        # We always convert year to vsversion.
+        assert not vsversion
+        vsversion = year_to_vsversion(year, check=1)
+    elif vsversion:
+        assert not year
+        vsversion = pipcl.version_to_tuple(vsversion)
+        year = vsversion_to_year(vsversion, check=1)
+    
+    vss_json = pipcl.run(rf'"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -format json', capture=1)
+    vss = json.loads(vss_json)
+    #pipcl.log(f'vss:\n{json.dumps(vss, indent="    ")}')
+    
+    def select(wvs):
+        if vsversion and not version_startswith(wvs.vsversion, vsversion):
+            #pipcl.log(f'Returning false because {vsversion=} {wvs.vsversion=}')
+            return False
+        if grade and wvs.grade != grade:
+            #pipcl.log(f'Returning false because {grade=} {wvs.grade=}')
+            return False
+        if directory and wvs.directory != directory:
+            #pipcl.log(f'Returning false because {directory=} {wvs.directory=}')
+            return False
+        #pipcl.log(f'Returning true.')
+        return True
+    ret = list()
+    for vs in vss:
+        wvs = WindowsVS(vs, cpu)
+        #pipcl.log(f'wvs:\n{wvs.description_ml("    ")}')
+        if select(wvs):
+            ret.append(wvs)
+    return ret
+
+
+def windows_vs(*, year=None, grade=None, version=None, directory=None, cpu=None, verbose=0, check=1):
+    '''
+    Returns best matching WindowsVS.
+    Args are same as windows_vs_multiple().
+    check:
+        If true (the default) we raise exception if not found, otherwise we return None.
+    '''
+    wvss = windows_vs_multiple(year=year, grade=grade, version=version, directory=directory, cpu=cpu, verbose=verbose)
+    if not wvss:
+        if check:
+            wvss = windows_vs_multiple()
+            text = f'No Visual Studio found matching {year=} {grade=} {version=} {directory=}.\n'
+            text += f'Available installations are ({len(wvss)}):\n'
+            for wvs in wvss:
+                text += f'\n'
+                text += wvs.description_ml('    ')
+            raise Exception(text)
+        else:
+            return None
+    def key(wvs):
+        grades = ['Community', 'Professional', 'Enterprise']
+        return (
+                pipcl.version_to_tuple(wvs.version),
+                grades.index(wvs.grade),
+                )
+    wvss.sort(key=key)
+    return wvss[-1]
+    
+
+class WindowsCpu:
+    '''
+    For Windows only. Paths and names that depend on cpu.
+
+    Members:
+        .bits
+            32 or 64.
+        .name
+            One of: arm32 arm64 x32 x64.
+        .windows_subdir
+            Empty string, `x64/`, `arm64` etc.
+        .windows_name
+            `x86`,`x64`, `arm64` etc.
+        .windows_config
+            `x64`, `Win32`, `arm64` etc, e.g. for use in `/Build Release|x64`.
+        .windows_suffix
+            `64` or empty string.
+    ARM members are not fixed yet.
+    '''
+    def __init__(self, name=None):
+        if not name:
+            name = _cpu_name()
+        self.name = name
+        if name == 'x32':
+            self.bits = 32
+            self.windows_subdir = ''
+            self.windows_name = 'x86'
+            self.windows_config = 'Win32'
+            self.windows_suffix = ''
+        elif name == 'x64':
+            self.bits = 64
+            self.windows_subdir = 'x64/'
+            self.windows_name = 'x64'
+            self.windows_config = 'x64'
+            self.windows_suffix = '64'
+        elif name == 'arm32':
+            # These are a guess.
+            self.bits = 32
+            self.windows_subdir = 'arm/'
+            self.windows_name = 'arm'
+            self.windows_config = 'arm'
+            self.windows_suffix = ''
+        elif name == 'arm64':
+            # These are a guess.
+            self.bits = 64
+            self.windows_subdir = 'arm64/'
+            self.windows_name = 'arm64'
+            self.windows_config = 'arm64'
+            self.windows_suffix = '64'
+        else:
+            assert 0, f'Unrecognised cpu name: {name}'
+
+    def __repr__(self):
+        return self.name
+
+
+class WindowsPython:
+    '''
+    Windows only. Information about installed Python with specific word size
+    and version. Defaults to the currently-running Python.
+
+    Members:
+
+        .path:
+            Path of python binary.
+        .version:
+            `{major}.{minor}`, e.g. `3.9` or `3.11`. Same as `version` passed
+            to `__init__()` if not None, otherwise the inferred version.
+        .include:
+            Python include path.
+        .cpu:
+            A `WindowsCpu` instance, same as `cpu` passed to `__init__()` if
+            not None, otherwise the inferred cpu.
+
+    We parse the output from `py -0p` to find all available python
+    installations.
+    '''
+
+    def __init__( self, cpu=None, version=None, verbose=True):
+        '''
+        Args:
+
+            cpu:
+                A WindowsCpu instance. If None, we use whatever we are running
+                on.
+            version:
+                Two-digit Python version as a string such as `3.8`. If None we
+                use current Python's version.
+            verbose:
+                If true we show diagnostics.
+        '''
+        if cpu is None:
+            cpu = WindowsCpu(_cpu_name())
+        if version is None:
+            version = '.'.join(platform.python_version().split('.')[:2])
+        _log(f'Looking for Python {version=} {cpu.bits=}.')
+
+        if '.'.join(platform.python_version().split('.')[:2]) == version:
+            # Current python matches, so use it directly. This avoids problems
+            # on Github where experimental python-3.13 was not available via
+            # `py`, and is kept here in case a similar problems happens with
+            # future Python versions.
+            _log(f'{cpu=} {version=}: using {sys.executable=}.')
+            self.path = sys.executable
+            self.version = version
+            self.cpu = cpu
+            self.include = sysconfig.get_path('include')
+
+        else:
+            command = 'py -0p'
+            if verbose:
+                _log(f'{cpu=} {version=}: Running: {command}')
+            text = subprocess.check_output( command, shell=True, text=True)
+            for line in text.split('\n'):
+                #_log( f'    {line}')
+                if m := re.match( '^ *-V:([0-9.]+)(-32)? ([*])? +(.+)$', line):
+                    version2 = m.group(1)
+                    bits = 32 if m.group(2) else 64
+                    path = m.group(4).strip()
+                elif m := re.match( '^ *-([0-9.]+)-((32)|(64)) +(.+)$', line):
+                    version2 = m.group(1)
+                    bits = int(m.group(2))
+                    path = m.group(5).strip()
+                else:
+                    if verbose:
+                        _log( f'No match for {line=}')
+                    continue
+                if verbose:
+                    _log( f'{version2=} {bits=} {path=} from {line=}.')
+                if bits != cpu.bits or version2 != version:
+                    continue
+                if not os.path.exists(path):
+                    # Sometimes it seems that the specified .../python.exe does not exist,
+                    # and we have to change it to .../python<version>.exe.
+                    #
+                    assert path.endswith('.exe'), f'path={path!r}'
+                    path2 = f'{path[:-4]}{version}.exe'
+                    _log( f'Python {path!r} does not exist; changed to: {path2!r}')
+                    assert os.path.exists( path2)
+                    path = path2
+
+                self.path = path
+                self.version = version
+                self.cpu = cpu
+                command = f'{self.path} -c "import sysconfig; print(sysconfig.get_path(\'include\'))"'
+                _log(f'Finding Python include path by running {command=}.')
+                self.include = subprocess.check_output(command, shell=True, text=True).strip()
+                _log(f'Python include path is {self.include=}.')
+                #_log( f'pipcl.py:WindowsPython():\n{self.description_ml("    ")}')
+                break
+            else:
+                _log(f'Failed to find python matching cpu={cpu}.')
+                _log(f'Output from {command!r} was:\n{text}')
+                raise Exception( f'Failed to find python matching cpu={cpu} {version=}.')
+
+        # Oddly there doesn't seem to be a
+        # `sysconfig.get_path('libs')`, but it seems to be next
+        # to `includes`:
+        self.libs = os.path.abspath(f'{self.include}/../libs')
+
+        _log( f'WindowsPython:\n{self.description_ml("    ")}')
+
+    def description_ml(self, indent=''):
+        ret = textwrap.dedent(f'''
+                path:       {self.path}
+                version:    {self.version}
+                cpu:        {self.cpu}
+                include:    {self.include}
+                libs:       {self.libs}
+                ''')
+        return textwrap.indent( ret, indent)
+
+    def __repr__(self):
+        return f'path={self.path!r} version={self.version!r} cpu={self.cpu!r} include={self.include!r} libs={self.libs!r}'
+
+
+# Internal helpers.
+#
+
+def _cpu_name():
+    '''
+    Returns `arm32`, `arm64`, `x32` or `x64` depending on Python build.
+    '''
+    #log(f'sys.maxsize={hex(sys.maxsize)}')
+    #
+    bits = int.bit_length(sys.maxsize+1)
+    if platform.machine().startswith('ARM'):
+        return f'arm{bits}'
+    else:
+        return f'x{bits}'
+
+
+def _log(text='', caller=1):
+    '''
+    Logs lines with prefix.
+    '''
+    pipcl.log1(text, caller+1)

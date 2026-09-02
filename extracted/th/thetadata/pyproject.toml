@@ -1,0 +1,59 @@
+[project]
+name = "thetadata"
+version = "1.0.10"
+description = "Python client library for ThetaData market data APIs"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "ThetaData", email = "support@thetadata.net" }
+]
+requires-python = ">=3.12"
+keywords = ["thetadata", "market-data", "options", "stocks", "grpc", "pandas", "polars"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "grpcio>=1.75.0",
+    "httpx>=0.28.1",
+    "pandas>=2.3.2",
+    "polars>=1.33.1",
+    "protobuf>=6.32.1",
+    "zstandard>=0.25.0",
+]
+
+[project.urls]
+Homepage = "https://www.thetadata.net"
+Repository = "https://github.com/AXIOMXLLC/python_library"
+Issues = "https://github.com/AXIOMXLLC/python_library/issues"
+
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.75.0",
+    "pandas-stubs==2.3.2.250827",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+ignore-vcs = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/thetadata"]
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "src",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]

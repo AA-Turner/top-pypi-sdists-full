@@ -16,6 +16,8 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Any
 
+from typing_extensions import assert_never
+
 from ._descriptors import (
     DescEnum,
     DescField,
@@ -30,7 +32,6 @@ from ._descriptors import (
     SupportedFieldPresence,
 )
 from ._oneof import Oneof
-from ._typing import assert_never
 
 if TYPE_CHECKING:
     from ._message import Message
@@ -112,7 +113,7 @@ def _validate_oneof(desc: DescOneof, value: object) -> None:
             f"{desc.parent.type_name}.{desc.name}: unknown oneof field '{value.field}'"
         )
         raise ValueError(msg)
-    field = desc._fields_by_name[value.field]  # ty: ignore[invalid-argument-type] # fails to narrow this to str.
+    field = desc._fields_by_name[value.field]
     value = value.value
     match field.value:
         case DescFieldValueScalar(scalar=scalar):

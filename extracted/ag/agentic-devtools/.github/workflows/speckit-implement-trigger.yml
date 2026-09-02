@@ -1,0 +1,1017 @@
+name: SpecKit Implementation Trigger
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to trigger implementation for'
+        required: true
+        type: number
+      model:
+        description: 'Model override for the Copilot coding agent (leave empty to use repository default)'
+        required: false
+        default: ''
+        type: string
+      spec_dir:
+        description: 'Override spec directory path (e.g. specs/<spec-folder>). When provided, skips grep-based discovery and uses this path directly. Requirements depend on hierarchy level resolved from hierarchy.yml (authoritative issue metadata is used as fallback; unknown resolves to a skipped trigger with no speckit:failed label): feature requires spec.md + tasks.md; task requires only tasks.md (spec.md is resolved from the parent directory); epic skips the trigger entirely.'
+        required: false
+        default: ''
+        type: string
+
+# Prevent concurrent runs on the same issue
+concurrency:
+  group: speckit-implement-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+env:
+  SPEC_BASE_PATH: specs
+  # Model for Copilot coding agent
+  # Priority: workflow_dispatch input > repository variable > default 'claude-opus-4.6'
+  COPILOT_MODEL: ${{ inputs.model || vars.SPECKIT_COPILOT_MODEL || 'claude-opus-4.6' }}
+
+jobs:
+  trigger-implementation:
+    name: Trigger Copilot Implementation Agent
+    runs-on: ubuntu-latest
+    # Only run if the speckit:needs-implementation label was added, or manual dispatch
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'speckit:needs-implementation'
+
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+
+    timeout-minutes: 5
+
+    steps:
+      - name: Debug Event
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "Label: ${{ github.event.label.name || 'manual' }}"
+          echo "Issue Number: ${{ github.event.issue.number || inputs.issue_number }}"
+          echo "Model: ${{ env.COPILOT_MODEL }}"
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Get Issue Details
+        id: issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue?.number || ${{ inputs.issue_number || 0 }};
+
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            core.setOutput('number', issue.number);
+            core.setOutput('title', issue.title);
+            core.setOutput('url', issue.html_url);
+            const values = [
+              ...(issue.labels || []).map(label => label.name),
+              issue.type?.name
+            ].filter(value => typeof value === 'string').map(value => value.trim().toLowerCase());
+            core.setOutput(
+              'authoritative_level',
+              (() => {
+                if (values.includes('epic')) return 'epic';
+                const nonEpicLevels = ['task', 'feature'].filter(l => values.includes(l));
+                if (nonEpicLevels.length > 1) {
+                  core.warning(`Issue #${issue.number} has conflicting authoritative levels: ${nonEpicLevels.join(', ')}; treating as unknown`);
+                  return '';
+                }
+                return nonEpicLevels[0] ?? '';
+              })()
+            );
+
+      - name: Discover Spec Directory
+        id: discover
+        env:
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+          AUTHORITATIVE_LEVEL: ${{ steps.issue.outputs.authoritative_level }}
+          SPECS_DIR: ${{ env.SPEC_BASE_PATH }}
+          SPEC_DIR_OVERRIDE: ${{ inputs.spec_dir }}
+        run: |
+          set -euo pipefail
+
+          # Read the normalized hierarchy level (epic|feature|task) from a spec
+          # directory's hierarchy.yml. Prints an empty string when the file is
+          # missing, has no level: field, or the field's value is not one of
+          # the recognized levels. The final hierarchy gate treats an empty
+          # result as unknown unless trusted issue metadata establishes a level.
+          read_hierarchy_level() {
+            local dir="$1"
+            local yml="$dir/hierarchy.yml"
+            if [[ ! -f "$yml" ]]; then
+              printf ''
+              return 0
+            fi
+            local level
+            level="$(python3 - "$yml" <<'PY'
+          import re
+          import sys
+          
+          pattern = re.compile(r"^level:[ \t]*(?:\"([^\"]*)\"|'([^']*)'|([^#\n]*?))(?:[ \t]+#.*)?[ \t]*$")
+          
+          matched_level = None
+          with open(sys.argv[1], encoding='utf-8') as handle:
+              for line in handle:
+                  match = pattern.match(line.rstrip('\n'))
+                  if match is None:
+                      continue
+                  if matched_level is not None:
+                      # Duplicate top-level level keys are invalid; fail closed.
+                      matched_level = None
+                      break
+                  raw_level = next((group for group in match.groups() if group is not None), '')
+                  normalized = raw_level.strip().lower()
+                  matched_level = normalized
+           
+          if matched_level in {'epic', 'feature', 'task'}:
+              print(matched_level, end='')
+          PY
+            )"
+            case "$level" in
+              epic|feature|task)
+                printf '%s' "$level"
+                ;;
+              *)
+                printf ''
+                ;;
+            esac
+          }
+
+          write_single_line_output() {
+            local key="$1"
+            local value="$2"
+            if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+              echo "Error: computed ${key} contains newline characters"
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+          }
+
+          # --- Manual override path ---
+          if [[ -n "$SPEC_DIR_OVERRIDE" ]]; then
+            # Authoritative Epic classification always wins — skip before override validation
+            # so malformed/manual paths cannot fall through to the generic failure cleanup.
+            if [[ "$AUTHORITATIVE_LEVEL" == "epic" ]]; then
+              echo "Issue is authoritative Epic-level; skipping implementation trigger (override path)."
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              echo "skip_reason=epic" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "Validating provided spec_dir override"
+
+            # Reject newline characters (could corrupt $GITHUB_OUTPUT)
+            if [[ "$SPEC_DIR_OVERRIDE" == *$'\n'* || "$SPEC_DIR_OVERRIDE" == *$'\r'* ]]; then
+              echo "Error: spec_dir override contains newline characters"
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # Reject quote characters (keep paths simple and portable)
+            if [[ "$SPEC_DIR_OVERRIDE" == *'"'* || "$SPEC_DIR_OVERRIDE" == *"'"* ]]; then
+              echo "Error: spec_dir override contains unsupported quote characters"
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # Normalize and enforce path is under the specs/ base directory
+            if ! NORMALIZED_SPEC_DIR="$(python3 - <<'PY'
+          import os
+          import pathlib
+          import sys
+
+          base = os.environ["SPECS_DIR"]
+          candidate = os.environ["SPEC_DIR_OVERRIDE"]
+
+          repo_root = pathlib.Path.cwd().resolve()
+          base_path = pathlib.Path(base).resolve()
+          candidate_path = pathlib.Path(candidate).resolve()
+
+          try:
+              candidate_path.relative_to(base_path)
+              normalized_relative_path = candidate_path.relative_to(repo_root)
+          except ValueError:
+              sys.exit(1)
+
+          print(normalized_relative_path.as_posix())
+          PY
+            )"; then
+              echo "Error: spec_dir override must resolve under '$SPECS_DIR'"
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            OVERRIDE_LEVEL="$(read_hierarchy_level "$NORMALIZED_SPEC_DIR")"
+
+            # Resolve final level: prefer local hierarchy.yml; fall back to authoritative issue level
+            if [[ -z "$OVERRIDE_LEVEL" && -n "$AUTHORITATIVE_LEVEL" ]]; then
+              OVERRIDE_LEVEL="$AUTHORITATIVE_LEVEL"
+            fi
+
+            # Conflict between canonical directory level and authoritative issue level fails closed
+            if [[ -n "$OVERRIDE_LEVEL" && -n "$AUTHORITATIVE_LEVEL" && "$OVERRIDE_LEVEL" != "$AUTHORITATIVE_LEVEL" ]]; then
+              echo "Error: spec_dir override '$NORMALIZED_SPEC_DIR' hierarchy level '$OVERRIDE_LEVEL' conflicts with authoritative issue level '$AUTHORITATIVE_LEVEL'; failing closed."
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              echo "skip_reason=unknown" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # Canonical Epic classification wins only when it does not conflict with the
+            # authoritative issue level.
+            if [[ "$OVERRIDE_LEVEL" == "epic" ]]; then
+              echo "Spec directory override '$NORMALIZED_SPEC_DIR' is epic-level. Epics decompose into child issues and have no monolithic tasks.md — skipping implementation trigger."
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              echo "skip_reason=epic" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # If hierarchy is still unknown after fallback, fail closed rather than assuming feature
+            if [[ -z "$OVERRIDE_LEVEL" ]]; then
+              echo "Spec directory override '$NORMALIZED_SPEC_DIR' has no valid hierarchy metadata and no trusted issue classification; failing closed as unknown."
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              echo "skip_reason=unknown" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # Task level: only a local tasks.md is required; spec.md is inherited
+            # from the parent feature directory.
+            if [[ "$OVERRIDE_LEVEL" == "task" ]]; then
+              if [[ ! -f "$NORMALIZED_SPEC_DIR/tasks.md" ]]; then
+                echo "Error: spec_dir override '$NORMALIZED_SPEC_DIR' is task-level but does not contain tasks.md"
+                echo "found=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              PARENT_DIR="$(dirname "$NORMALIZED_SPEC_DIR")"
+              if [[ ! -f "$PARENT_DIR/spec.md" ]]; then
+                echo "Error: task-level spec_dir override '$NORMALIZED_SPEC_DIR' requires a parent spec.md at '$PARENT_DIR/spec.md' but none was found — implementation agent cannot proceed without inherited requirements"
+                echo "found=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              echo "Resolved parent spec.md for task-level override: $PARENT_DIR/spec.md"
+              write_single_line_output "spec_context" "$PARENT_DIR/spec.md"
+              echo "Found spec directory (override, task-level): $NORMALIZED_SPEC_DIR"
+              write_single_line_output "spec_dir" "$NORMALIZED_SPEC_DIR"
+              echo "found=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # Feature level requires colocated spec.md and tasks.md. Legacy
+            # directories without hierarchy metadata are gated as unknown below.
+            if [[ ! -f "$NORMALIZED_SPEC_DIR/spec.md" ]]; then
+              echo "Error: spec_dir override '$NORMALIZED_SPEC_DIR' does not contain spec.md"
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [[ ! -f "$NORMALIZED_SPEC_DIR/tasks.md" ]]; then
+              echo "Error: spec_dir override '$NORMALIZED_SPEC_DIR' does not contain tasks.md"
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Found spec directory (override): $NORMALIZED_SPEC_DIR"
+            write_single_line_output "spec_dir" "$NORMALIZED_SPEC_DIR"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ ! -d "$SPECS_DIR" ]]; then
+            echo "No specs directory found"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=unknown" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # An authoritative Epic classification is sufficient to stop the
+          # implementation path; an Epic does not require a monolithic spec.
+          if [[ "$AUTHORITATIVE_LEVEL" == "epic" ]]; then
+            echo "Issue #$ISSUE_NUMBER is authoritative Epic-level; skipping implementation trigger."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=epic" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mapfile -t HIERARCHY_CANDIDATES < <(
+            find "$SPECS_DIR" -type f -name hierarchy.yml -print |
+              while IFS= read -r hierarchy_file; do
+                hierarchy_dir="$(basename "$(dirname "$hierarchy_file")")"
+                if [[ "$hierarchy_dir" == "$ISSUE_NUMBER" || "$hierarchy_dir" == "$ISSUE_NUMBER-"* ]]; then
+                  printf '%s\n' "$hierarchy_file"
+                fi
+              done | sort -u
+          )
+          if [[ ${#HIERARCHY_CANDIDATES[@]} -gt 1 ]]; then
+            echo "Error: Multiple hierarchy.yml candidates found for issue #$ISSUE_NUMBER; implementation is blocked."
+            printf ' - %s\n' "${HIERARCHY_CANDIDATES[@]}"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=unknown" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Broader pattern than check-idempotency.sh (which only greps spec.md
+          # for "Source Issue"). Scan ALL planning-artifact files (spec.md, plan.md,
+          # tasks.md) so an issue reference in any supported format is sufficient
+          # to locate the directory (for example: "Source Issue: #123",
+          # "**Source Issue**: #123", or "**Issue**: #123"). The artifacts required
+          # of the matched directory depend on its hierarchy level (#3931):
+          # feature needs colocated spec.md + tasks.md, task needs local tasks.md
+          # only (spec.md is inherited from the parent), and epic is skipped
+          # cleanly since it has no monolithic tasks.md by design.
+          SEARCH_PATTERN="(\\*\\*Source Issue\\*\\*|Source Issue|\\*\\*Issue\\*\\*|Issue)[[:space:]]*:?[[:space:]]*#${ISSUE_NUMBER}([^0-9]|$)"
+          SPEC_DIR=""
+          SPEC_LEVEL=""
+          ANY_MATCH_FOUND=false
+          VALID_SPEC_CANDIDATES=()
+
+          add_valid_spec_candidate() {
+            local dir="$1"
+            local resolved_level="$2"
+            local candidate="${dir}|${resolved_level}"
+            local existing
+            for existing in "${VALID_SPEC_CANDIDATES[@]}"; do
+              if [[ "$existing" == "$candidate" ]]; then
+                return 0
+              fi
+            done
+            VALID_SPEC_CANDIDATES+=("$candidate")
+          }
+
+          resolve_valid_spec_candidates() {
+            if [[ ${#VALID_SPEC_CANDIDATES[@]} -gt 1 ]]; then
+              echo "Error: Multiple implementation spec directories match issue #$ISSUE_NUMBER. Use workflow_dispatch with spec_dir to disambiguate."
+              printf ' - %s\n' "${VALID_SPEC_CANDIDATES[@]}"
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              echo "skip_reason=unknown" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [[ ${#VALID_SPEC_CANDIDATES[@]} -eq 1 ]]; then
+              SPEC_DIR="${VALID_SPEC_CANDIDATES[0]%|*}"
+              SPEC_LEVEL="${VALID_SPEC_CANDIDATES[0]##*|}"
+            fi
+          }
+
+          find_spec_dir_from_pattern() {
+            local pattern="$1"
+            local match
+            local dir
+            local level
+            local resolved_level
+            while IFS= read -r match; do
+              [[ -z "$match" ]] && continue
+              ANY_MATCH_FOUND=true
+              dir=$(dirname "$match")
+              level="$(read_hierarchy_level "$dir")"
+              resolved_level=""
+              if [[ "$level" == "epic" && -n "$AUTHORITATIVE_LEVEL" && "$AUTHORITATIVE_LEVEL" != "epic" ]]; then
+                resolved_level="unknown"
+              elif [[ "$level" == "epic" ]]; then
+                resolved_level="epic"
+              elif [[ "$level" == "task" && -f "$dir/tasks.md" ]]; then
+                resolved_level="task"
+              elif [[ -z "$level" && "$AUTHORITATIVE_LEVEL" == "task" && -f "$dir/tasks.md" ]]; then
+                resolved_level="task"
+              elif [[ -z "$level" && "$AUTHORITATIVE_LEVEL" == "feature" && -f "$dir/spec.md" && -f "$dir/tasks.md" ]]; then
+                resolved_level="feature"
+              elif [[ -f "$dir/spec.md" && -f "$dir/tasks.md" ]]; then
+                resolved_level="${level:-unknown}"
+              fi
+              if [[ -n "$resolved_level" ]]; then
+                add_valid_spec_candidate "$dir" "$resolved_level"
+              fi
+            done < <(grep -Erl --include='spec.md' --include='plan.md' --include='tasks.md' "$pattern" "$SPECS_DIR" 2>/dev/null || true)
+            return 1
+          }
+
+          find_spec_dir_from_pattern "$SEARCH_PATTERN" || true
+
+          # If no suitable spec directory found yet, also check for issue URL pattern
+          if [[ -z "$SPEC_DIR" && -n "${GITHUB_REPOSITORY:-}" ]]; then
+            URL_PATTERN="github.com/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}([^0-9]|$)"
+            find_spec_dir_from_pattern "$URL_PATTERN" || true
+          fi
+
+          resolve_valid_spec_candidates
+
+          # Fallback for canonical nested task specs where issue linkage may not be
+          # materialized inside spec.md/plan.md/tasks.md text yet. Resolve by
+          # directory name and enforce uniqueness to avoid assigning the wrong spec.
+          if [[ -z "$SPEC_DIR" ]]; then
+            mapfile -t ISSUE_DIR_CANDIDATES < <(
+              {
+                find "$SPECS_DIR" -type d -name "${ISSUE_NUMBER}-*"
+                find "$SPECS_DIR" -type d -name "${ISSUE_NUMBER}"
+              } | sort -u
+            )
+
+            if [[ ${#ISSUE_DIR_CANDIDATES[@]} -gt 0 ]]; then
+              VALID_TASK_DIRS=()
+              for candidate in "${ISSUE_DIR_CANDIDATES[@]}"; do
+                level="$(read_hierarchy_level "$candidate")"
+                if [[ "$level" == "task" && -f "$candidate/tasks.md" ]]; then
+                  VALID_TASK_DIRS+=("$candidate")
+                elif [[ -z "$level" && "$AUTHORITATIVE_LEVEL" == "task" && -f "$candidate/tasks.md" ]]; then
+                  VALID_TASK_DIRS+=("$candidate")
+                fi
+              done
+
+              if [[ ${#VALID_TASK_DIRS[@]} -gt 1 ]]; then
+                echo "Error: Multiple task-level spec directories match issue #$ISSUE_NUMBER. Use workflow_dispatch with spec_dir to disambiguate."
+                printf ' - %s\n' "${VALID_TASK_DIRS[@]}"
+                echo "found=false" >> "$GITHUB_OUTPUT"
+                echo "skip_reason=unknown" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              if [[ ${#VALID_TASK_DIRS[@]} -eq 1 ]]; then
+                SPEC_DIR="${VALID_TASK_DIRS[0]}"
+                SPEC_LEVEL="task"
+                echo "Resolved task-level spec directory for issue #$ISSUE_NUMBER via directory fallback: $SPEC_DIR"
+              fi
+            fi
+          fi
+
+          # Epic level: skip cleanly instead of failing — epics have no monolithic
+          # tasks.md by design and decompose into child issues (#3931).
+          if [[ -n "$SPEC_DIR" && "$SPEC_LEVEL" == "epic" ]]; then
+            echo "Spec directory '$SPEC_DIR' for issue #$ISSUE_NUMBER is epic-level. Epics decompose into child issues and have no monolithic tasks.md — skipping implementation trigger."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=epic" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -n "$SPEC_DIR" && "$SPEC_LEVEL" == "task" ]]; then
+            PARENT_DIR="$(dirname "$SPEC_DIR")"
+            if [[ ! -f "$PARENT_DIR/spec.md" ]]; then
+              echo "Error: task-level spec directory '$SPEC_DIR' for issue #$ISSUE_NUMBER requires a parent spec.md at '$PARENT_DIR/spec.md' but none was found — implementation agent cannot proceed without inherited requirements"
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Resolved parent spec.md for task-level issue #$ISSUE_NUMBER: $PARENT_DIR/spec.md"
+            write_single_line_output "spec_context" "$PARENT_DIR/spec.md"
+          fi
+
+          if [[ -n "$SPEC_DIR" ]]; then
+            echo "Found spec directory: $SPEC_DIR"
+            write_single_line_output "spec_dir" "$SPEC_DIR"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            if [[ "$ANY_MATCH_FOUND" == true ]]; then
+              echo "Error: Found planning artifact files for issue #$ISSUE_NUMBER in $SPECS_DIR/, but none contain a complete artifact set for their hierarchy level — required for implementation agent"
+            else
+              echo "Error: No planning artifacts found for issue #$ISSUE_NUMBER in $SPECS_DIR/"
+            fi
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=unknown" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for Existing Implementation PR
+        id: check-pr
+        if: steps.discover.outputs.found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.issue.outputs.number }};
+
+            // Paginate to cover all open PRs — a single page could miss existing
+            // implementation PRs on busy repos, breaking idempotency.
+            const prs = await github.paginate(
+              github.rest.pulls.list,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+              },
+            );
+
+            // Idempotency: two-layer check for existing implementation PRs.
+            // 1. Label check: speckit:implementation — forward-compatible for when the
+            //    agent or future workflows label implementation PRs explicitly.
+            // 2. Bot-author fallback: copilot-swe-agent[bot] — primary defense since
+            //    agent_assignment PRs are authored by this bot account.
+            // Note: we do NOT broaden to "any PR referencing the issue" because
+            // planning PRs also reference the same issue number, causing false positives.
+            // Boundary-aware regex prevents #12 from matching #123.
+            const issueRefPattern = new RegExp(`#${issueNumber}(?!\\d)`);
+            const implPr = prs.find(pr =>
+              pr.labels?.some(l => l.name === 'speckit:implementation') &&
+              (issueRefPattern.test(pr.title) || issueRefPattern.test(pr.body ?? ''))
+            );
+
+            if (implPr) {
+              core.setOutput('exists', 'true');
+              core.setOutput('pr_url', implPr.html_url);
+              console.log(`Found existing implementation PR: ${implPr.html_url}`);
+              return;
+            }
+
+            // Fallback: check for PRs authored by copilot-swe-agent[bot] that reference the issue
+            const copilotPr = prs.find(pr =>
+              pr.user?.login === 'copilot-swe-agent[bot]' &&
+              (issueRefPattern.test(pr.title) || issueRefPattern.test(pr.body ?? ''))
+            );
+
+            if (copilotPr) {
+              core.setOutput('exists', 'true');
+              core.setOutput('pr_url', copilotPr.html_url);
+              console.log(`Found existing Copilot implementation PR: ${copilotPr.html_url}`);
+              return;
+            }
+
+            core.setOutput('exists', 'false');
+            console.log('No existing implementation PR found');
+
+      - name: Post Already Implementing Comment
+        if: steps.check-pr.outputs.exists == 'true' && vars.SPECKIT_COMMENT_ON_ISSUE != 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.issue.outputs.number }};
+            const prUrl = ${{ toJSON(steps.check-pr.outputs.pr_url) }};
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                '## ℹ️ SpecKit: Implementation Already In Progress',
+                '',
+                `An implementation PR already exists for this issue: ${prUrl}`,
+                '',
+                'Skipping implementation trigger.',
+                '',
+                '---',
+                `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+              ].join('\n')
+            });
+
+      - name: Cleanup Labels (Already Implementing)
+        if: steps.check-pr.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.issue.outputs.number }};
+
+            // Remove the trigger label since it's already being handled — decoupled from comment toggle
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:needs-implementation'
+              });
+            } catch (e) {
+              if (e.status !== 404) {
+                throw e;
+              }
+            }
+
+            // Remove speckit:failed if present (from a previous failed attempt)
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:failed'
+              });
+            } catch (e) {
+              // Expected when label is not present — ignore
+            }
+
+            // Ensure speckit:implementing is present so the issue reflects
+            // that an implementation PR exists — prevents label gap where
+            // neither needs-implementation nor implementing is set.
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ['speckit:implementing']
+              });
+            } catch (e) {
+              console.log('Could not add speckit:implementing label:', e.message);
+            }
+
+      - name: Post Spec Not Found Comment
+        if: steps.discover.outputs.found != 'true' && steps.discover.outputs.skip_reason != 'epic' && steps.discover.outputs.skip_reason != 'unknown' && vars.SPECKIT_COMMENT_ON_ISSUE != 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.issue.outputs.number }};
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                '## ❌ SpecKit: Planning Artifacts Not Found',
+                '',
+                `Could not find a complete implementation artifact set for issue #${issueNumber} in \`specs/\`. The \`speckit:needs-implementation\` label has been removed (if present).`,
+                'Required artifact sets by hierarchy level:',
+                '- **feature**: local `spec.md` and local `tasks.md`',
+                '- **task**: local `tasks.md` and inherited parent `spec.md`',
+                '- **epic**: not applicable (implementation trigger is skipped for epics)',
+                '',
+                '---',
+                `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+              ].join('\n')
+            });
+
+      - name: Cleanup Labels (Spec Not Found)
+        if: steps.discover.outputs.found != 'true' && steps.discover.outputs.skip_reason != 'epic' && steps.discover.outputs.skip_reason != 'unknown'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.issue.outputs.number }};
+
+            // Remove the needs-implementation label and add failed — decoupled from comment toggle
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:needs-implementation'
+              });
+            } catch (e) {
+              if (e.status !== 404) {
+                throw e;
+              }
+            }
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ['speckit:failed']
+              });
+            } catch (e) {
+              console.log('Could not add speckit:failed label:', e.message);
+            }
+
+      # Epic-level issues decompose into child issues rather than a monolithic
+      # tasks.md, so a triggered run is skipped cleanly instead of being treated
+      # as a failure (#3931): remove the needs-implementation label to prevent
+      # re-trigger loops, but do NOT post a failure comment or apply
+      # speckit:failed.
+      - name: Cleanup Labels (Epic or Unknown Skipped)
+        if: steps.discover.outputs.skip_reason == 'epic' || steps.discover.outputs.skip_reason == 'unknown'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.issue.outputs.number }};
+
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:needs-implementation'
+              });
+            } catch (e) {
+              if (e.status !== 404) {
+                core.warning(`Could not remove speckit:needs-implementation label (non-404): ${e.message}`);
+              }
+            }
+
+            core.info(`Issue #${issueNumber} hierarchy is '${{ steps.final-gate.outputs.skip_reason || steps.discover.outputs.skip_reason }}': implementation trigger skipped and speckit:needs-implementation removed without marking the issue failed.`);
+
+      - name: Final Hierarchy Gate
+        id: final-gate
+        if: steps.discover.outputs.found == 'true' && steps.check-pr.outputs.exists != 'true'
+        env:
+          SPEC_DIR: ${{ steps.discover.outputs.spec_dir }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const levelPattern = /^level:[ \t]*(?:"([^"]*)"|'([^']*)'|([^#"'\n]*?))(?:[ \t]+#.*)?[ \t]*$/gm;
+            const rawLevelDeclPattern = /^level:/gm;
+            const issueNumber = ${{ steps.issue.outputs.number }};
+            let authoritativeLevel = '';
+            let canonicalLevel = '';
+            let canonicalMetadataFailed = false;
+            let canonicalMetadataMissing = false;
+            let issueReadSucceeded = false;
+            try {
+              const { data: issue } = await github.rest.issues.get({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber
+              });
+              const values = [
+                ...(issue.labels || []).map(label => label.name),
+                issue.type?.name
+              ].filter(value => typeof value === 'string').map(value => value.trim().toLowerCase());
+              const nonEpicLevels = ['task', 'feature'].filter(level => values.includes(level));
+              if (values.includes('epic')) {
+                authoritativeLevel = 'epic';
+                issueReadSucceeded = true;
+              } else if (nonEpicLevels.length > 1) {
+                core.warning(`Issue #${issueNumber} has conflicting authoritative levels: ${nonEpicLevels.join(', ')}; treating as unknown`);
+              } else {
+                issueReadSucceeded = true;
+                authoritativeLevel = nonEpicLevels[0] || '';
+              }
+            } catch (error) {
+              core.warning(`Could not re-read issue #${issueNumber} classification; hierarchy gate will fail closed: ${error.message}`);
+            }
+
+            const workspace = path.resolve(process.env.GITHUB_WORKSPACE || process.cwd());
+            const specDir = path.resolve(workspace, process.env.SPEC_DIR);
+            const specsRoot = path.resolve(workspace, 'specs');
+            if (specDir !== specsRoot && !specDir.startsWith(`${specsRoot}${path.sep}`)) {
+              core.warning(`Discovered spec directory is outside specs/: ${process.env.SPEC_DIR}`);
+            } else {
+              const hierarchyPath = path.join(specDir, 'hierarchy.yml');
+              try {
+                const content = fs.readFileSync(hierarchyPath, 'utf8');
+                const matches = [...content.matchAll(levelPattern)];
+                const rawLevelCount = content.match(rawLevelDeclPattern)?.length || 0;
+                if (rawLevelCount === 1 && matches.length === 1) {
+                  const parsed = matches[0].slice(1).find(group => group !== undefined).trim().toLowerCase();
+                  if (['epic', 'feature', 'task'].includes(parsed)) {
+                    canonicalLevel = parsed;
+                  } else {
+                    canonicalMetadataFailed = true;
+                    core.warning(`Malformed canonical hierarchy metadata for issue #${issueNumber}; failing closed.`);
+                  }
+                } else if (rawLevelCount > 1 || matches.length > 1) {
+                  canonicalMetadataFailed = true;
+                  core.warning(`Malformed or duplicated canonical hierarchy metadata for issue #${issueNumber}; failing closed.`);
+                } else if (rawLevelCount === 1) {
+                  canonicalMetadataFailed = true;
+                  core.warning(`Malformed canonical hierarchy metadata for issue #${issueNumber}; failing closed.`);
+                } else {
+                  canonicalMetadataFailed = true;
+                  core.warning(`Missing canonical hierarchy metadata for issue #${issueNumber}; failing closed.`);
+                }
+              } catch (error) {
+                if (error && error.code === 'ENOENT') {
+                  canonicalMetadataMissing = true;
+                  core.warning(`hierarchy.yml absent for issue #${issueNumber}; will fall back to authoritative metadata if available.`);
+                } else {
+                  canonicalMetadataFailed = true;
+                  core.warning(`Unreadable canonical hierarchy metadata for issue #${issueNumber}; failing closed: ${error?.message || String(error)}`);
+                }
+              }
+            }
+
+            let level = 'unknown';
+            if (authoritativeLevel === 'epic') {
+              level = 'epic';
+            } else if (!issueReadSucceeded || canonicalMetadataFailed) {
+              if (canonicalMetadataFailed) {
+                core.warning(`Issue #${issueNumber}: canonical hierarchy metadata is malformed or duplicated; failing closed as unknown.`);
+              }
+            } else if (canonicalMetadataMissing && authoritativeLevel) {
+              // hierarchy.yml is absent but authoritative issue metadata supplies a trusted level
+              level = authoritativeLevel;
+              core.info(`Issue #${issueNumber}: hierarchy.yml absent; using authoritative level '${level}' from issue metadata.`);
+            } else if (canonicalLevel && authoritativeLevel && canonicalLevel !== authoritativeLevel) {
+              core.warning(`Issue #${issueNumber} hierarchy metadata conflicts with issue metadata; failing closed as unknown.`);
+            } else {
+              level = canonicalLevel || authoritativeLevel || 'unknown';
+            }
+            core.setOutput('hierarchy_level', level);
+            if (level === 'epic' || level === 'unknown') {
+              core.setOutput('allowed', 'false');
+              core.setOutput('skip_reason', level);
+              core.info(`Issue #${issueNumber}: final hierarchy gate is ${level}; assignment will not run.`);
+            } else {
+              core.setOutput('allowed', 'true');
+              core.info(`Issue #${issueNumber}: final hierarchy gate confirmed ${level}.`);
+            }
+
+      - name: Cleanup Labels (Hierarchy Gate)
+        if: steps.final-gate.outputs.skip_reason == 'epic' || steps.final-gate.outputs.skip_reason == 'unknown'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.issue.outputs.number }};
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:needs-implementation'
+              });
+            } catch (e) {
+              if (e.status !== 404) {
+                core.warning(`Could not remove speckit:needs-implementation label (non-404): ${e.message}`);
+              }
+            }
+            core.info(`Issue #${issueNumber} hierarchy gate is '${{ steps.final-gate.outputs.skip_reason }}'; removed speckit:needs-implementation without adding speckit:failed.`);
+
+      - name: Validate Agent Assignment Token
+        id: validate-token
+        if: steps.discover.outputs.found == 'true' && steps.check-pr.outputs.exists != 'true' && steps.final-gate.outputs.allowed == 'true'
+        env:
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: |
+          if [[ -n "$SPECKIT_PR_TOKEN" ]]; then
+            echo "Agent assignment token identity: SPECKIT_PR_TOKEN (primary)"
+            echo "token_identity=SPECKIT_PR_TOKEN (primary)" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$COPILOT_GITHUB_TOKEN" ]]; then
+            echo "Agent assignment token identity: COPILOT_GITHUB_TOKEN (fallback)"
+            echo "token_identity=COPILOT_GITHUB_TOKEN (fallback)" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Neither SPECKIT_PR_TOKEN nor COPILOT_GITHUB_TOKEN is configured. At least one of these secrets must be set for Copilot agent assignment."
+            exit 1
+          fi
+
+      - name: Set Up Python
+        if: steps.discover.outputs.found == 'true' && steps.check-pr.outputs.exists != 'true' && steps.validate-token.outcome == 'success' && steps.final-gate.outputs.allowed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install agentic-devtools
+        if: steps.discover.outputs.found == 'true' && steps.check-pr.outputs.exists != 'true' && steps.validate-token.outcome == 'success' && steps.final-gate.outputs.allowed == 'true'
+        run: pip install -e .
+
+      - name: Assign Copilot Coding Agent
+        id: assign-agent
+        if: steps.discover.outputs.found == 'true' && steps.check-pr.outputs.exists != 'true' && steps.validate-token.outcome == 'success' && steps.final-gate.outputs.allowed == 'true'
+        env:
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SPEC_DIR: ${{ steps.discover.outputs.spec_dir }}
+          SPEC_CONTEXT: ${{ steps.discover.outputs.spec_context }}
+        run: |
+          set +e
+          ASSIGN_CMD=(
+            agdt-assign-implementation-agent
+            --issue-number "${{ steps.issue.outputs.number }}"
+            --spec-dir "$SPEC_DIR"
+            --repo "${{ github.repository }}"
+            --model "${{ env.COPILOT_MODEL }}"
+          )
+          if [[ -n "$SPEC_CONTEXT" ]]; then
+            ASSIGN_CMD+=(--spec-context "$SPEC_CONTEXT")
+          fi
+          ASSIGN_OUTPUT=$("${ASSIGN_CMD[@]}" 2>&1)
+          EXIT_CODE=$?
+          set -e
+
+          echo "$ASSIGN_OUTPUT"
+
+          if [[ $EXIT_CODE -eq 0 ]]; then
+            echo "assigned=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "assigned=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Failed to assign implementation coding agent."
+            exit 1
+          fi
+
+      - name: Update Labels
+        if: steps.assign-agent.outputs.assigned == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          script: |
+            const issueNumber = ${{ steps.issue.outputs.number }};
+
+            // Remove needs-implementation label
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:needs-implementation'
+              });
+            } catch (e) {
+              if (e.status !== 404) {
+                throw e;
+              }
+            }
+
+            // Remove speckit:failed if present (from a previous failed attempt)
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:failed'
+              });
+            } catch (e) {
+              // Expected when label is not present — ignore
+            }
+
+            // Add implementing label
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ['speckit:implementing']
+              });
+            } catch (e) {
+              console.log('Could not add speckit:implementing label:', e.message);
+            }
+
+      - name: Post Implementation Triggered Comment
+        if: steps.assign-agent.outputs.assigned == 'true' && vars.SPECKIT_COMMENT_ON_ISSUE != 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          script: |
+            const issueNumber = ${{ steps.issue.outputs.number }};
+            const specDir = ${{ toJSON(steps.discover.outputs.spec_dir) }};
+            const model = ${{ toJSON(env.COPILOT_MODEL) }};
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                '## 🤖 SpecKit: Implementation Agent Assigned',
+                '',
+                'The Copilot coding agent has been assigned to implement this issue using the planning artifacts.',
+                '',
+                `**Spec Directory**: \`${specDir}\``,
+                `**Model**: \`${model}\``,
+                '**Custom Agent**: `speckit.implement`',
+                '',
+                'The agent will read the planning artifacts and open an implementation PR. You can track progress in the agent\'s activity.',
+                '',
+                '---',
+                `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+              ].join('\n')
+            });
+
+      - name: Post Failed Comment
+        if: failure() && steps.assign-agent.outputs.assigned != 'true' && vars.SPECKIT_COMMENT_ON_ISSUE != 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue?.number || ${{ inputs.issue_number || 0 }};
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                '## ❌ SpecKit: Implementation Trigger Failed',
+                '',
+                'An error occurred while trying to assign the Copilot coding agent for implementation.',
+                '',
+                `**Workflow Run**: [View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                '',
+                '### Troubleshooting',
+                '',
+                '1. Verify Copilot coding agent is enabled for this repository',
+                '2. Verify the issue has planning artifacts in `specs/`',
+                '3. Review the workflow logs for detailed error messages',
+                '',
+                '---',
+                `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`
+              ].join('\n')
+            });
+
+      - name: Cleanup Labels (Failed)
+        if: failure() && steps.assign-agent.outputs.assigned != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue?.number || ${{ inputs.issue_number || 0 }};
+
+            // Update labels: remove needs-implementation, add failed — decoupled from comment toggle
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:needs-implementation'
+              });
+            } catch (e) {
+              if (e.status !== 404) {
+                throw e;
+              }
+            }
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ['speckit:failed']
+              });
+            } catch (e) {
+              console.log('Could not add speckit:failed label:', e.message);
+            }

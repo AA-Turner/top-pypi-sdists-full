@@ -1,0 +1,17 @@
+[package]
+name = "oa_py"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "PyO3 bindings exposing oa_core indicator kernels as openalgo._oaindicators"
+license = "MIT"
+publish = false
+
+[lib]
+name = "_oaindicators"
+crate-type = ["cdylib"]
+
+[dependencies]
+oa_core = { path = "../oa_core" }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py39"] }
+numpy = "0.22"

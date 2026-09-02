@@ -223,10 +223,22 @@ class OrionPyClient:
         Falls back to the feature name when a row exposes no __fields__, or when
         a feature is missing from it, so lookup behaviour (and the resulting
         error) is unchanged in those cases.
+
+        First occurrence wins, via setdefault. This is not a preference -- it is
+        what Row.__getitem__ does, since __fields__.index(name) returns the first
+        match. A plain dict comprehension would keep the LAST occurrence, so on a
+        schema with a duplicated column name this method would resolve to a
+        different column than name-based lookup did, silently returning the wrong
+        feature value (or writing features against the wrong entity key). No
+        error, no log line. Duplicate names are unreachable through
+        get_features_from_all_sources today, but this is a published SDK and the
+        guard costs nothing.
         """
         fields = getattr(row, "__fields__", None)
         if fields:
-            pos = {name: i for i, name in enumerate(fields)}
+            pos = {}
+            for i, name in enumerate(fields):
+                pos.setdefault(name, i)
             resolve = lambda name: pos.get(name, name)
         else:
             resolve = lambda name: name

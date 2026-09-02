@@ -293,6 +293,50 @@ def find_duplicate_resource_policies(
                 print(f"\t {key}: {t.metadata.id}")
 
 
+def find_orgs_with_legacy_policies(
+    ctx,
+    org_id=None,
+    start_org=None,
+    dump_dir=None,
+    dry_run=False,
+    delay=None,
+    replace=False,
+):
+    org_objs = []
+    if start_org is not None:
+        org_objs = orgs.query(
+            ctx, page_at_id=start_org, org_id="", enabled=True, page_size=150
+        )
+    else:
+        org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
+        org_objs = [orgs.get_raw(ctx, org_id)]
+
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+
+    orgs_with_legacy = {}
+
+    for org in org_objs:
+        resources = _find_resources_with_legacy_policy(
+            ctx,
+            org.id,
+            apiclient=apiclient,
+        )
+
+        if not resources:
+            continue
+
+        org_resources = orgs_with_legacy.setdefault(org.id, (org, []))
+        org_resources[1].extend(resources)
+
+    for org_id, org_resources in orgs_with_legacy.items():
+        org, resources = org_resources
+        resource_ids = ",".join(
+            f"{resource.metadata.id} ({resource.spec.name})" for resource in resources
+        )
+        print(f"{org.id} ({org.organisation}): {resource_ids}")
+
+
 def update_resource_policy(
     ctx,
     instance_id,
@@ -339,6 +383,24 @@ def _dump_policy_template(ctx, policy, dump_dir):
     out_json.output_json_to_file(
         ctx, policy.to_dict(), os.path.join(dump_dir, file_name)
     )
+
+
+def _find_resources_with_legacy_policy(ctx, org_id, apiclient, **kwargs):
+    results = []
+    for res in query_resources(
+        ctx, resource_type="application", org_id=org_id, **kwargs
+    ):
+        cfg = res.spec.config
+        rules_config = None
+        if cfg:
+            rules_config = cfg.rules_config
+        rules = []
+        if rules_config:
+            rules = rules_config.rules or []
+        if not res.spec.bundle_id or rules:
+            results.append(res)
+
+    return results
 
 
 def _find_policy_templates_with_dupes(

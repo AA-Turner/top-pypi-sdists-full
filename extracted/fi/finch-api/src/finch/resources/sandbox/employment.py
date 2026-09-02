@@ -1,0 +1,378 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Iterable, Optional
+from typing_extensions import Literal
+
+import httpx
+
+from ... import _legacy_response
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
+from ..._compat import cached_property
+from ..._resource import SyncAPIResource, AsyncAPIResource
+from ..._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
+from ..._base_client import make_request_options
+from ...types.sandbox import employment_update_params
+from ...types.income_param import IncomeParam
+from ...types.location_param import LocationParam
+from ...types.sandbox.employment_update_response import EmploymentUpdateResponse
+
+__all__ = ["Employment", "AsyncEmployment"]
+
+
+class Employment(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> EmploymentWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#accessing-raw-response-data-eg-headers
+        """
+        return EmploymentWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> EmploymentWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#with_streaming_response
+        """
+        return EmploymentWithStreamingResponse(self)
+
+    def update(
+        self,
+        individual_id: str,
+        *,
+        class_code: Optional[str] | Omit = omit,
+        custom_fields: Optional[Iterable[employment_update_params.CustomField]] | Omit = omit,
+        department: Optional[employment_update_params.Department] | Omit = omit,
+        employment: Optional[employment_update_params.Employment] | Omit = omit,
+        employment_status: Optional[
+            Literal["active", "deceased", "leave", "onboarding", "prehire", "retired", "terminated"]
+        ]
+        | Omit = omit,
+        end_date: Optional[str] | Omit = omit,
+        first_name: Optional[str] | Omit = omit,
+        flsa_status: Optional[Literal["exempt", "non_exempt", "unknown"]] | Omit = omit,
+        highly_compensated_employee: Optional[bool] | Omit = omit,
+        income: Optional[IncomeParam] | Omit = omit,
+        income_history: Optional[Iterable[Optional[IncomeParam]]] | Omit = omit,
+        is_active: Optional[bool] | Omit = omit,
+        key_employee: Optional[bool] | Omit = omit,
+        last_name: Optional[str] | Omit = omit,
+        latest_rehire_date: Optional[str] | Omit = omit,
+        location: Optional[LocationParam] | Omit = omit,
+        manager: Optional[employment_update_params.Manager] | Omit = omit,
+        middle_name: Optional[str] | Omit = omit,
+        source_id: Optional[str] | Omit = omit,
+        start_date: Optional[str] | Omit = omit,
+        title: Optional[str] | Omit = omit,
+        union_code: Optional[str] | Omit = omit,
+        union_local: Optional[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> EmploymentUpdateResponse:
+        """
+        Update sandbox employment
+
+        Args:
+          class_code: Worker's compensation classification code for this employee
+
+          custom_fields: Custom fields for the individual. These are fields which are defined by the
+              employer in the system. Custom fields are not currently supported for assisted
+              connections.
+
+          department: The department object.
+
+          employment: The employment object.
+
+          employment_status: The detailed employment status of the individual.
+
+          first_name: The legal first name of the individual.
+
+          flsa_status: The FLSA status of the individual. Available options: `exempt`, `non_exempt`,
+              `unknown`.
+
+          highly_compensated_employee: IRS flag indicating whether the employee is classified as a Highly Compensated
+              Employee for nondiscrimination testing purposes (ADP/ACP tests). US-only.
+
+          income: The employee's income as reported by the provider. This may not always be
+              annualized income, but may be in units of bi-weekly, semi-monthly, daily, etc,
+              depending on what information the provider returns.
+
+          income_history: The array of income history.
+
+          is_active: `true` if the individual an an active employee or contractor at the company.
+
+          key_employee: IRS flag indicating whether the employee is classified as a Key Employee for
+              top-heavy testing purposes. US-only.
+
+          last_name: The legal last name of the individual.
+
+          location
+
+          manager: The manager object representing the manager of the individual within the org.
+
+          middle_name: The legal middle name of the individual.
+
+          source_id: The source system's unique employment identifier for this individual
+
+          title: The current title of the individual.
+
+          union_code: The code identifying the union the employee is a member of, as configured in the
+              payroll system.
+
+          union_local: The local chapter or local number within the employee's union.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not individual_id:
+            raise ValueError(f"Expected a non-empty value for `individual_id` but received {individual_id!r}")
+        return self._put(
+            path_template("/sandbox/employment/{individual_id}", individual_id=individual_id),
+            body=maybe_transform(
+                {
+                    "class_code": class_code,
+                    "custom_fields": custom_fields,
+                    "department": department,
+                    "employment": employment,
+                    "employment_status": employment_status,
+                    "end_date": end_date,
+                    "first_name": first_name,
+                    "flsa_status": flsa_status,
+                    "highly_compensated_employee": highly_compensated_employee,
+                    "income": income,
+                    "income_history": income_history,
+                    "is_active": is_active,
+                    "key_employee": key_employee,
+                    "last_name": last_name,
+                    "latest_rehire_date": latest_rehire_date,
+                    "location": location,
+                    "manager": manager,
+                    "middle_name": middle_name,
+                    "source_id": source_id,
+                    "start_date": start_date,
+                    "title": title,
+                    "union_code": union_code,
+                    "union_local": union_local,
+                },
+                employment_update_params.EmploymentUpdateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                security={"bearer_auth": True},
+            ),
+            cast_to=EmploymentUpdateResponse,
+        )
+
+
+class AsyncEmployment(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncEmploymentWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncEmploymentWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncEmploymentWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#with_streaming_response
+        """
+        return AsyncEmploymentWithStreamingResponse(self)
+
+    async def update(
+        self,
+        individual_id: str,
+        *,
+        class_code: Optional[str] | Omit = omit,
+        custom_fields: Optional[Iterable[employment_update_params.CustomField]] | Omit = omit,
+        department: Optional[employment_update_params.Department] | Omit = omit,
+        employment: Optional[employment_update_params.Employment] | Omit = omit,
+        employment_status: Optional[
+            Literal["active", "deceased", "leave", "onboarding", "prehire", "retired", "terminated"]
+        ]
+        | Omit = omit,
+        end_date: Optional[str] | Omit = omit,
+        first_name: Optional[str] | Omit = omit,
+        flsa_status: Optional[Literal["exempt", "non_exempt", "unknown"]] | Omit = omit,
+        highly_compensated_employee: Optional[bool] | Omit = omit,
+        income: Optional[IncomeParam] | Omit = omit,
+        income_history: Optional[Iterable[Optional[IncomeParam]]] | Omit = omit,
+        is_active: Optional[bool] | Omit = omit,
+        key_employee: Optional[bool] | Omit = omit,
+        last_name: Optional[str] | Omit = omit,
+        latest_rehire_date: Optional[str] | Omit = omit,
+        location: Optional[LocationParam] | Omit = omit,
+        manager: Optional[employment_update_params.Manager] | Omit = omit,
+        middle_name: Optional[str] | Omit = omit,
+        source_id: Optional[str] | Omit = omit,
+        start_date: Optional[str] | Omit = omit,
+        title: Optional[str] | Omit = omit,
+        union_code: Optional[str] | Omit = omit,
+        union_local: Optional[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> EmploymentUpdateResponse:
+        """
+        Update sandbox employment
+
+        Args:
+          class_code: Worker's compensation classification code for this employee
+
+          custom_fields: Custom fields for the individual. These are fields which are defined by the
+              employer in the system. Custom fields are not currently supported for assisted
+              connections.
+
+          department: The department object.
+
+          employment: The employment object.
+
+          employment_status: The detailed employment status of the individual.
+
+          first_name: The legal first name of the individual.
+
+          flsa_status: The FLSA status of the individual. Available options: `exempt`, `non_exempt`,
+              `unknown`.
+
+          highly_compensated_employee: IRS flag indicating whether the employee is classified as a Highly Compensated
+              Employee for nondiscrimination testing purposes (ADP/ACP tests). US-only.
+
+          income: The employee's income as reported by the provider. This may not always be
+              annualized income, but may be in units of bi-weekly, semi-monthly, daily, etc,
+              depending on what information the provider returns.
+
+          income_history: The array of income history.
+
+          is_active: `true` if the individual an an active employee or contractor at the company.
+
+          key_employee: IRS flag indicating whether the employee is classified as a Key Employee for
+              top-heavy testing purposes. US-only.
+
+          last_name: The legal last name of the individual.
+
+          location
+
+          manager: The manager object representing the manager of the individual within the org.
+
+          middle_name: The legal middle name of the individual.
+
+          source_id: The source system's unique employment identifier for this individual
+
+          title: The current title of the individual.
+
+          union_code: The code identifying the union the employee is a member of, as configured in the
+              payroll system.
+
+          union_local: The local chapter or local number within the employee's union.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not individual_id:
+            raise ValueError(f"Expected a non-empty value for `individual_id` but received {individual_id!r}")
+        return await self._put(
+            path_template("/sandbox/employment/{individual_id}", individual_id=individual_id),
+            body=await async_maybe_transform(
+                {
+                    "class_code": class_code,
+                    "custom_fields": custom_fields,
+                    "department": department,
+                    "employment": employment,
+                    "employment_status": employment_status,
+                    "end_date": end_date,
+                    "first_name": first_name,
+                    "flsa_status": flsa_status,
+                    "highly_compensated_employee": highly_compensated_employee,
+                    "income": income,
+                    "income_history": income_history,
+                    "is_active": is_active,
+                    "key_employee": key_employee,
+                    "last_name": last_name,
+                    "latest_rehire_date": latest_rehire_date,
+                    "location": location,
+                    "manager": manager,
+                    "middle_name": middle_name,
+                    "source_id": source_id,
+                    "start_date": start_date,
+                    "title": title,
+                    "union_code": union_code,
+                    "union_local": union_local,
+                },
+                employment_update_params.EmploymentUpdateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                security={"bearer_auth": True},
+            ),
+            cast_to=EmploymentUpdateResponse,
+        )
+
+
+class EmploymentWithRawResponse:
+    def __init__(self, employment: Employment) -> None:
+        self._employment = employment
+
+        self.update = _legacy_response.to_raw_response_wrapper(
+            employment.update,
+        )
+
+
+class AsyncEmploymentWithRawResponse:
+    def __init__(self, employment: AsyncEmployment) -> None:
+        self._employment = employment
+
+        self.update = _legacy_response.async_to_raw_response_wrapper(
+            employment.update,
+        )
+
+
+class EmploymentWithStreamingResponse:
+    def __init__(self, employment: Employment) -> None:
+        self._employment = employment
+
+        self.update = to_streamed_response_wrapper(
+            employment.update,
+        )
+
+
+class AsyncEmploymentWithStreamingResponse:
+    def __init__(self, employment: AsyncEmployment) -> None:
+        self._employment = employment
+
+        self.update = async_to_streamed_response_wrapper(
+            employment.update,
+        )

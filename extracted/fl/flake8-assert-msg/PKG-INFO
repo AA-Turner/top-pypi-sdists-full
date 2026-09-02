@@ -1,0 +1,53 @@
+Metadata-Version: 2.1
+Name: flake8_assert_msg
+Version: 1.1.1
+Summary: flake8 plugin which forbids assert statements without messages
+Home-page: https://github.com/rkm/flake8-assert-msg
+Author: Ruairidh MacLeod
+Author-email: ruairidh@rkm.dev
+License: MIT
+Description: # flake8-assert-msg
+        
+        flake8 plugin which forbids assert statements without messages.
+        
+        ## Installation
+        
+        `pip install flake8-assert-msg`
+        
+        ## flake8 codes
+        
+        | Code   | Description             |
+        |--------|-------------------------|
+        | ASS001 | do not use bare asserts |
+        
+        ## Rationale
+        
+        This ensures that assertions have clear messages for failures. Adding a message to an assertion also acts as documentation for why the assertion is present.
+        
+        ## As a pre-commit hook
+        
+        See [pre-commit](https://github.com/pre-commit/pre-commit) for instructions
+        
+        Sample `.pre-commit-config.yaml`:
+        
+        ```yaml
+        -   repo: https://gitlab.com/pycqa/flake8
+            rev: 3.8.1
+            hooks:
+            -   id: flake8
+                additional_dependencies: [flake8-assert-msg==1.1.1]
+        ```
+        
+        ## Acknowledgements
+        
+        -   https://github.com/asottile/flake8-walrus used as a template
+        
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown

@@ -1,0 +1,196 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions: {}
+
+jobs:
+  # ── Python wheels (5 targets) ─────────────────────────────────────────────
+  build-wheels:
+    name: Wheel · ${{ matrix.target }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64
+            manylinux: auto
+          - os: ubuntu-latest
+            target: aarch64
+            manylinux: auto
+          - os: macos-latest      # Apple Silicon
+            target: aarch64
+          - os: windows-latest
+            target: x86_64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --features python --out dist --find-interpreter
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}
+          path: dist/
+
+  # ── Source distribution ───────────────────────────────────────────────────
+  build-sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-sdist
+          path: dist/
+
+  # ── Publish to PyPI ───────────────────────────────────────────────────────
+  publish-pypi:
+    name: Publish → PyPI
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist/
+      - run: ls -lh dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          password: ${{ secrets.PYPI_TOKEN }}
+          skip-existing: true
+
+  # ── Publish to npm (WASM) ─────────────────────────────────────────────────
+  publish-npm:
+    name: Publish → npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - run: wasm-pack build --target web --no-default-features
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Publish (skip if already published)
+        working-directory: pkg
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "renkin@${VERSION}" version 2>/dev/null; then
+            echo "renkin@${VERSION} already published, skipping"
+          else
+            npm publish --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── Publish to crates.io ──────────────────────────────────────────────────
+  publish-crates:
+    name: Publish → crates.io
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Publish (skip if already published)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          if curl -sf -H "User-Agent: renkin-release (github.com/kent-tokyo/renkin)" \
+              "https://crates.io/api/v1/crates/renkin/${VERSION}" >/dev/null; then
+            echo "renkin@${VERSION} already published, skipping"
+          else
+            cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          fi
+
+  # ── Smoke test PyPI ───────────────────────────────────────────────────────
+  smoke-pypi:
+    name: Smoke test → PyPI
+    needs: [publish-pypi]
+    runs-on: ubuntu-latest
+    permissions: {}
+    env:
+      PKG_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Install and verify
+        run: |
+          VERSION="${PKG_TAG#v}"
+          for i in 1 2 3 4 5; do
+            sleep 60
+            pip install "renkin==${VERSION}" --no-cache-dir 2>/dev/null && break
+            echo "Attempt $i/5 failed, retrying..."
+            [ "$i" -eq 5 ] && exit 1
+          done
+          python -c "import renkin; v=renkin.__version__; print(v); assert v=='${VERSION}', f'expected {VERSION!r}, got {v!r}'"
+
+  # ── GitHub Release ────────────────────────────────────────────────────────
+  github-release:
+    name: GitHub Release
+    needs: [publish-pypi, publish-npm, publish-crates, smoke-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Create release (skip if already exists)
+        run: |
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "release ${TAG} already exists, skipping"
+          else
+            gh release create "${TAG}" \
+              --title "RENKIN ${TAG}" \
+              --notes "See [CHANGELOG.md](https://github.com/kent-tokyo/renkin/blob/master/CHANGELOG.md) for details." \
+              --latest
+          fi
+      - name: Upload coverage-template asset (if this tag owns it)
+        run: |
+          MANIFEST="data/phase_a5_template_scaling/templates/coverage_templates_release_asset_manifest.json"
+          ASSET="data/phase_a5_template_scaling/templates/templates_2000.smi"
+          PINNED_TAG=$(python3 -c "import json; print(json.load(open('${MANIFEST}'))['release_tag'])")
+          if [ "${PINNED_TAG}" != "${TAG}" ]; then
+            echo "coverage_templates_release_asset_manifest.json is pinned to ${PINNED_TAG}, not this tag (${TAG}) -- skipping upload"
+            exit 0
+          fi
+          EXPECTED_SHA=$(python3 -c "import json; print(json.load(open('${MANIFEST}'))['assets']['templates_2000.smi']['sha256'].removeprefix('sha256:'))")
+          ACTUAL_SHA=$(sha256sum "${ASSET}" | cut -d' ' -f1)
+          if [ "${ACTUAL_SHA}" != "${EXPECTED_SHA}" ]; then
+            echo "::error::${ASSET} content hash (${ACTUAL_SHA}) does not match ${MANIFEST} (${EXPECTED_SHA}) -- refusing to upload"
+            exit 1
+          fi
+          if gh release view "${TAG}" --json assets --jq '.assets[].name' | grep -qx "templates_2000.smi"; then
+            echo "templates_2000.smi already attached to ${TAG}, skipping"
+          else
+            gh release upload "${TAG}" "${ASSET}"
+          fi

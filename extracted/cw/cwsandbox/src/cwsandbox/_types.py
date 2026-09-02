@@ -152,6 +152,26 @@ class PlacementSpillover(StrEnum):
     SERVERLESS_THEN_CKS = "serverless_then_cks"
 
 
+class DataPlaneMode(StrEnum):
+    """Transport policy for sandbox data operations.
+
+    Lifecycle and management operations always use the CoreWeave Sandbox API.
+    This policy applies only to exec, logs, and file operations after a sandbox
+    is running.
+
+    Attributes:
+        AUTO: Prefer a sandbox-scoped direct mTLS connection and transparently
+            use the API gateway when direct access is unavailable.
+        GATEWAY: Always route data operations through the API gateway.
+        DIRECT: Require the direct mTLS connection and surface an error when it
+            cannot be established.
+    """
+
+    AUTO = "auto"
+    GATEWAY = "gateway"
+    DIRECT = "direct"
+
+
 class ServiceVisibility(StrEnum):
     """Reachability intent for a typed sandbox service port."""
 
@@ -190,19 +210,64 @@ class Endpoint:
     A URL in ``Sandbox.service_urls`` means the hostname was assigned, not
     that the app is listening yet.
 
+    ``request_timeout_seconds`` is the server-side HTTPS request clock on
+    this product endpoint (504 while the sandbox stays alive). It is not
+    ``Sandbox.run(request_timeout_seconds=...)``, which is the client RPC
+    deadline. This client only requires an ``int`` (or ``None``).
+
     Attributes:
         kind: ``HTTPS``.
         auth: ``OPEN`` (no platform token required).
+        request_timeout_seconds: Seconds before the platform closes an
+            in-flight HTTPS request. ``None`` or ``0`` selects the
+            platform default (15s on serverless). The server accepts
+            ``0`` or ``[15, 900]``. On create-from-template, ``0`` is
+            replace-on-presence and does not clear a template timeout
+            back to the platform default.
     """
 
     kind: EndpointKind | str
     auth: EndpointAuth | str
+    request_timeout_seconds: int | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.kind, str):
             object.__setattr__(self, "kind", EndpointKind(self.kind.lower()))
         if isinstance(self.auth, str):
             object.__setattr__(self, "auth", EndpointAuth(self.auth.lower()))
+        timeout = self.request_timeout_seconds
+        if timeout is None:
+            return
+        if isinstance(timeout, bool) or not isinstance(timeout, int):
+            raise TypeError(
+                "Endpoint.request_timeout_seconds must be an int or None, "
+                f"got {type(timeout).__name__}"
+            )
+
+
+@dataclass(frozen=True, kw_only=True)
+class HttpsEndpointStatus:
+    """Applied HTTPS product endpoint echoed on ``Sandbox.service_endpoints``.
+
+    ``request_timeout_seconds`` is the effective server-side clock (15 when
+    create omitted or sent ``0``). ``url`` is empty when the API suppresses
+    it (terminal sandboxes). This is not ``Sandbox.run(request_timeout_seconds=...)``.
+
+    Attributes:
+        port: Container port for this service.
+        name: Service name from status (may be empty).
+        kind: ``HTTPS``.
+        auth: ``OPEN``.
+        url: Assigned HTTPS URL, or empty when suppressed.
+        request_timeout_seconds: Applied HTTPS request timeout in seconds.
+    """
+
+    port: int
+    name: str
+    kind: EndpointKind
+    auth: EndpointAuth
+    url: str
+    request_timeout_seconds: int
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -221,8 +286,8 @@ class Service:
             stays empty unless the API reports a URL. The service still
             appears in ``exposed_ports``. Must be PUBLIC when ``endpoint``
             is set.
-        endpoint: Optional HTTPS URL (HTTPS/OPEN). Omit for a plain TCP/UDP
-            port.
+        endpoint: Optional HTTPS URL (HTTPS/OPEN, optional
+            ``request_timeout_seconds``). Omit for a plain TCP/UDP port.
     """
 
     port: int
@@ -253,46 +318,257 @@ class Service:
 
 # DNS-1123 subdomain, matching k8s IsDNS1123Subdomain used by the gateway.
 _DNS1123_LABEL = r"[a-z0-9](?:[-a-z0-9]*[a-z0-9])?"
+_DNS1123_LABEL_RE = re.compile(rf"^{_DNS1123_LABEL}$")
+_DNS1123_LABEL_MAX = 63
 _DNS1123_SUBDOMAIN_RE = re.compile(rf"^{_DNS1123_LABEL}(?:\.{_DNS1123_LABEL})*$")
 _DNS1123_SUBDOMAIN_MAX = 253
+
+# Closed reserved kubelet names (and restore- prefix) from the v1 multi-container contract.
+_RESERVED_CONTAINER_NAMES = frozenset(
+    {
+        "cw-object-store-agent",
+        "cw-object-store-agent-restore",
+        "dns-egress",
+        "dns-egress-probe",
+    }
+)
+_RESERVED_CONTAINER_NAME_PREFIX = "cw-object-store-agent-restore-"
 
 
 def _is_dns1123_subdomain(name: str) -> bool:
     return len(name) <= _DNS1123_SUBDOMAIN_MAX and _DNS1123_SUBDOMAIN_RE.fullmatch(name) is not None
 
 
+def _is_dns1123_label(name: str) -> bool:
+    return len(name) <= _DNS1123_LABEL_MAX and _DNS1123_LABEL_RE.fullmatch(name) is not None
+
+
+def _validate_absolute_mount_path(path: str, *, field: str) -> None:
+    if not path:
+        raise ValueError(f"{field} cannot be empty")
+    if not path.startswith("/"):
+        raise ValueError(f"{field} must be an absolute path, got: {path!r}")
+    if path == "/":
+        raise ValueError(f"{field} cannot be '/'")
+
+
+def _validate_container_name(name: str) -> None:
+    if not _is_dns1123_label(name):
+        raise ValueError(
+            "Container.name must be a DNS-1123 label (lowercase alphanumeric and "
+            f"hyphens, at most {_DNS1123_LABEL_MAX} characters), got: {name!r}"
+        )
+    if name in _RESERVED_CONTAINER_NAMES or name.startswith(_RESERVED_CONTAINER_NAME_PREFIX):
+        raise ValueError(f"Container.name {name!r} is reserved by the platform")
+
+
+class TenantScope(StrEnum):
+    """Relational selector for other sandboxes."""
+
+    UNSPECIFIED = "unspecified"
+    SAME_USER = "same_user"
+    SAME_ORG = "same_org"
+    SANDBOX_NETWORK = "sandbox_network"
+
+
+class StorageMedium(StrEnum):
+    """Backing store for a scratch volume."""
+
+    UNSPECIFIED = "unspecified"
+    DISK = "disk"
+    MEMORY = "memory"
+
+
+class ObjectStoragePermission(StrEnum):
+    """Permission for minted object-storage credentials."""
+
+    UNSPECIFIED = "unspecified"
+    READ = "read"
+    READ_WRITE = "read_write"
+
+
+@dataclass(frozen=True, kw_only=True)
+class CidrBlock:
+    """An IP range with optional carved-out sub-ranges."""
+
+    cidr: str
+    except_cidrs: Sequence[str] = ()
+
+    def __post_init__(self) -> None:
+        if not self.cidr:
+            raise ValueError("CidrBlock.cidr cannot be empty")
+        object.__setattr__(self, "except_cidrs", tuple(self.except_cidrs))
+
+
+@dataclass(frozen=True, kw_only=True)
+class SelectorBlock:
+    """Label selector for cluster workloads (matchLabels only)."""
+
+    pod_labels: Mapping[str, str]
+    namespace_labels: Mapping[str, str] | None = None
+
+    def __post_init__(self) -> None:
+        if not self.pod_labels:
+            raise ValueError("SelectorBlock.pod_labels must contain at least one label")
+        object.__setattr__(self, "pod_labels", dict(self.pod_labels))
+        if self.namespace_labels is not None:
+            object.__setattr__(self, "namespace_labels", dict(self.namespace_labels))
+
+
+@dataclass(frozen=True, kw_only=True)
+class PortRange:
+    """A single port or inclusive port range."""
+
+    port: int
+    end_port: int | None = None
+    protocol: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.port <= 0 or self.port > 65535:
+            raise ValueError(f"PortRange.port must be 1-65535, got {self.port}")
+        if self.end_port is not None and (self.end_port < self.port or self.end_port > 65535):
+            raise ValueError(f"PortRange.end_port must be {self.port}-65535, got {self.end_port}")
+
+
+def _normalize_dns_name(name: str, *, field: str, allow_star: bool = False) -> str:
+    name = name.strip().lower()
+    if not name:
+        raise ValueError(f"{field} cannot be empty")
+    if name == "*":
+        if allow_star:
+            return name
+        raise ValueError(f'{field} cannot be "*"; that is a policy ceiling, not a sandbox grant')
+    if name.startswith("*."):
+        valid = len(name) <= _DNS1123_SUBDOMAIN_MAX and _is_dns1123_subdomain(name[2:])
+    else:
+        valid = _is_dns1123_subdomain(name)
+    if not valid:
+        raise ValueError(
+            f"{field} must be a DNS-1123 subdomain or a single leftmost wildcard (*.example.com)"
+        )
+    return name
+
+
+def _coerce_cidr(value: CidrBlock | Mapping[str, Any] | str) -> CidrBlock:
+    if isinstance(value, CidrBlock):
+        return value
+    if isinstance(value, str):
+        return CidrBlock(cidr=value)
+    if isinstance(value, Mapping):
+        except_cidrs = value.get("except_cidrs", value.get("except", ()))
+        return CidrBlock(cidr=value["cidr"], except_cidrs=except_cidrs)
+    raise TypeError(f"cidr must be CidrBlock, dict, or str, got {type(value).__name__}")
+
+
+def _coerce_port_range(value: PortRange | Mapping[str, Any] | int) -> PortRange:
+    if isinstance(value, PortRange):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return PortRange(port=value)
+    if isinstance(value, Mapping):
+        return PortRange(**value)
+    raise TypeError(f"ports entries must be PortRange, dict, or int, got {type(value).__name__}")
+
+
 @dataclass(frozen=True, kw_only=True)
 class EgressRule:
     """One create-time egress destination.
 
-    DNS-name HTTPS grants are the supported destination on this type. Exact
+    Exactly one destination must be set: ``dns_name``, ``cidr``, ``tenant``,
+    ``any``, or ``selector``. DNS names are HTTPS (TCP 443) grants. Exact
     names (``pypi.org``) or a single leftmost wildcard (``*.pypi.org``).
     ``"*"`` is a policy ceiling, not a sandbox grant.
 
     Attributes:
         dns_name: Hostname to grant for HTTPS (TCP 443).
+        cidr: IP range (``CidrBlock``, dict, or CIDR string).
+        tenant: Other sandboxes selected relationally.
+        any: All destinations except platform-internal ranges.
+        selector: Cluster workloads selected by pod/namespace labels.
+        ports: Optional destination port filter. Empty = all ports
+            on non-DNS rules. DNS-name grants omit ports or set
+            exactly TCP 443.
+        dns_name_except: Policy-only carve-outs. Rejected on this
+            create-time type.
     """
 
-    dns_name: str
+    dns_name: str | None = None
+    cidr: CidrBlock | Mapping[str, Any] | str | None = None
+    tenant: TenantScope | str | None = None
+    any: bool = False
+    selector: SelectorBlock | Mapping[str, Any] | None = None
+    ports: Sequence[PortRange | Mapping[str, Any] | int] | None = None
+    dns_name_except: Sequence[str] | None = None
 
     def __post_init__(self) -> None:
-        name = self.dns_name.strip().lower()
-        if not name:
-            raise ValueError("EgressRule.dns_name cannot be empty")
-        if name == "*":
-            raise ValueError(
-                'EgressRule.dns_name cannot be "*"; that is a policy ceiling, not a sandbox grant'
+        if self.dns_name is not None:
+            object.__setattr__(
+                self,
+                "dns_name",
+                _normalize_dns_name(self.dns_name, field="EgressRule.dns_name"),
             )
-        if name.startswith("*."):
-            valid = len(name) <= _DNS1123_SUBDOMAIN_MAX and _is_dns1123_subdomain(name[2:])
-        else:
-            valid = _is_dns1123_subdomain(name)
-        if not valid:
+        if self.cidr is not None:
+            object.__setattr__(self, "cidr", _coerce_cidr(self.cidr))
+        if self.tenant is not None:
+            tenant = self.tenant
+            if isinstance(tenant, str):
+                tenant = TenantScope(tenant.lower())
+            object.__setattr__(self, "tenant", tenant)
+        if self.selector is not None and not isinstance(self.selector, SelectorBlock):
+            if not isinstance(self.selector, Mapping):
+                raise TypeError(
+                    "EgressRule.selector must be SelectorBlock or dict, "
+                    f"got {type(self.selector).__name__}"
+                )
+            object.__setattr__(self, "selector", SelectorBlock(**self.selector))
+        ports: tuple[PortRange, ...] | None = None
+        if self.ports is not None:
+            if isinstance(self.ports, (str, bytes)):
+                raise TypeError("ports must be a sequence of PortRange, dict, or int")
+            ports = tuple(_coerce_port_range(p) for p in self.ports)
+            object.__setattr__(self, "ports", ports)
+        if self.dns_name_except is not None:
             raise ValueError(
-                "EgressRule.dns_name must be a DNS-1123 subdomain or a single "
-                "leftmost wildcard (*.example.com)"
+                "EgressRule.dns_name_except is policy-only and is not valid "
+                "on a sandbox create grant"
             )
-        object.__setattr__(self, "dns_name", name)
+        destinations = sum(
+            (
+                self.dns_name is not None,
+                self.cidr is not None,
+                self.tenant is not None,
+                self.any is True,
+                self.selector is not None,
+            )
+        )
+        if destinations != 1:
+            raise ValueError(
+                "EgressRule requires exactly one destination: "
+                "dns_name, cidr, tenant, any, or selector"
+            )
+        if self.dns_name is not None:
+            _validate_sandbox_dns_ports(ports)
+
+
+def _is_https_443_port(port: PortRange) -> bool:
+    """Return True if ``port`` is a single TCP 443 grant."""
+    if port.port != 443:
+        return False
+    if port.end_port is not None and port.end_port != 443:
+        return False
+    if port.protocol and port.protocol.upper() != "TCP":
+        return False
+    return True
+
+
+def _validate_sandbox_dns_ports(ports: Sequence[PortRange] | None) -> None:
+    if not ports:
+        return
+    if len(ports) == 1 and _is_https_443_port(ports[0]):
+        return
+    raise ValueError(
+        "EgressRule.dns_name grants only HTTPS (TCP 443); omit ports or set ports to 443"
+    )
 
 
 def _coerce_egress_rule(value: EgressRule | Mapping[str, Any]) -> EgressRule:
@@ -304,18 +580,62 @@ def _coerce_egress_rule(value: EgressRule | Mapping[str, Any]) -> EgressRule:
 
 
 @dataclass(frozen=True, kw_only=True)
-class NetworkOptions:
-    """Network deny flags and create-time hostname egress grants.
+class IngressRule:
+    """One create-time CUSTOM-port ingress source.
 
-    Port exposure uses typed ``services=``. ``egress`` lists hostnames the
-    sandbox may reach over HTTPS (TCP 443); the list is frozen at create.
+    Exactly one source must be set: ``cidr``, ``tenant``, or ``any``.
+
+    Attributes:
+        cidr: Source IP range.
+        tenant: Other sandboxes selected relationally.
+        any: Any source, including the public internet.
+        ports: Optional port filter. Empty = all CUSTOM-visibility ports.
+    """
+
+    cidr: CidrBlock | Mapping[str, Any] | str | None = None
+    tenant: TenantScope | str | None = None
+    any: bool = False
+    ports: Sequence[PortRange | Mapping[str, Any] | int] | None = None
+
+    def __post_init__(self) -> None:
+        if self.cidr is not None:
+            object.__setattr__(self, "cidr", _coerce_cidr(self.cidr))
+        if self.tenant is not None:
+            tenant = self.tenant
+            if isinstance(tenant, str):
+                tenant = TenantScope(tenant.lower())
+            object.__setattr__(self, "tenant", tenant)
+        if self.ports is not None:
+            if isinstance(self.ports, (str, bytes)):
+                raise TypeError("ports must be a sequence of PortRange, dict, or int")
+            object.__setattr__(self, "ports", tuple(_coerce_port_range(p) for p in self.ports))
+        sources = sum((self.cidr is not None, self.tenant is not None, self.any is True))
+        if sources != 1:
+            raise ValueError("IngressRule requires exactly one source: cidr, tenant, or any")
+
+
+def _coerce_ingress_rule(value: IngressRule | Mapping[str, Any]) -> IngressRule:
+    if isinstance(value, IngressRule):
+        return value
+    if isinstance(value, Mapping):
+        return IngressRule(**value)
+    raise TypeError(f"ingress entries must be IngressRule or dict, got {type(value).__name__}")
+
+
+@dataclass(frozen=True, kw_only=True)
+class NetworkOptions:
+    """Network deny flags and create-time ingress/egress grants.
+
+    Port exposure uses typed ``services=``. ``egress`` and ``ingress`` are
+    allow-only rule sets over default-deny; empty/None leaves the runner
+    policy default in effect.
 
     Attributes:
         deny_egress: When True, deny all declared egress (policy default unused).
             Mutually exclusive with a non-empty ``egress`` list.
         deny_ingress: When True, deny CUSTOM ingress (policy default unused).
-        egress: Hostname grants (``EgressRule`` or dict). Empty/None leaves
-            the runner policy default in effect.
+        egress: Egress grants (``EgressRule`` or dict).
+        ingress: CUSTOM-port ingress sources (``IngressRule`` or dict).
 
     Examples:
         Grant PyPI over HTTPS::
@@ -331,49 +651,211 @@ class NetworkOptions:
     deny_egress: bool | None = None
     deny_ingress: bool | None = None
     egress: Sequence[EgressRule | Mapping[str, Any]] | None = None
+    ingress: Sequence[IngressRule | Mapping[str, Any]] | None = None
 
     def __post_init__(self) -> None:
-        if self.egress is None:
-            return
-        if isinstance(self.egress, (str, bytes)):
-            raise TypeError("egress must be a sequence of EgressRule or dict, not a string")
-        rules = tuple(_coerce_egress_rule(rule) for rule in self.egress)
-        object.__setattr__(self, "egress", rules)
-        if self.deny_egress is True and rules:
-            raise ValueError("NetworkOptions.deny_egress cannot be combined with egress rules")
+        if self.egress is not None:
+            if isinstance(self.egress, (str, bytes)):
+                raise TypeError("egress must be a sequence of EgressRule or dict, not a string")
+            rules = tuple(_coerce_egress_rule(rule) for rule in self.egress)
+            object.__setattr__(self, "egress", rules)
+            if self.deny_egress is True and rules:
+                raise ValueError("NetworkOptions.deny_egress cannot be combined with egress rules")
+        if self.ingress is not None:
+            if isinstance(self.ingress, (str, bytes)):
+                raise TypeError("ingress must be a sequence of IngressRule or dict, not a string")
+            object.__setattr__(
+                self, "ingress", tuple(_coerce_ingress_rule(rule) for rule in self.ingress)
+            )
+
+
+def _validate_sub_path(value: str | None, *, field: str) -> str | None:
+    """Validate a VolumeMount.sub_path: relative and canonical, or None."""
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"{field} must be a string or None, got {type(value).__name__}")
+    parts = value.split("/")
+    if value.startswith("/") or any(part in ("", ".", "..") for part in parts):
+        raise ValueError(f"{field} must be relative and canonical (no '.' / '..'), got {value!r}")
+    return value
+
+
+def _validate_optional_uid(value: int | None, *, field: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{field} must be an int or None, got {type(value).__name__}")
+    if value < 0 or value > 0xFFFFFFFF:
+        raise ValueError(f"{field} must be an unsigned 32-bit integer, got {value}")
+    return value
+
+
+def _validate_optional_bool(value: bool | None, *, field: str) -> bool | None:
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise TypeError(f"{field} must be a bool or None, got {type(value).__name__}")
+    return value
+
+
+def _coerce_string_sequence(value: Sequence[str] | None, *, field: str) -> tuple[str, ...] | None:
+    if value is None:
+        return None
+    if isinstance(value, (str, bytes)):
+        raise TypeError(f"{field} must be a sequence of strings, not a string")
+    items = tuple(value)
+    for item in items:
+        if not isinstance(item, str):
+            raise TypeError(f"{field} must contain only strings")
+    return items
 
 
 @dataclass(frozen=True, kw_only=True)
 class ScratchVolumeOptions:
     """Named scratch volume for snapshot/restore workflows.
 
+    Volumes are sandbox-level. ``mount_path`` is a convenience that mounts
+    this volume on the primary container. For multi-container sandboxes,
+    omit ``mount_path`` and declare mounts on ``Container.volume_mounts``.
+
     Attributes:
         name: Volume name within the sandbox (referenced by mounts/snapshots).
-        mount_path: Absolute path to mount into the primary container.
+        mount_path: Absolute path to mount into the primary container. None
+            declares the volume without mounting it.
         size: Volume size (e.g. ``"10Gi"``). None uses the platform default.
         restore_from_snapshot_id: When set, restore this snapshot at create.
+        medium: Backing store. Unset uses disk. ``MEMORY`` is tmpfs and
+            counts against container memory.
+        sub_path: Relative path inside the volume to mount instead of its root.
+        read_only: Mount the volume read-only.
     """
 
     name: str
-    mount_path: str
+    mount_path: str | None = None
     size: str | None = None
     restore_from_snapshot_id: str | None = None
+    medium: StorageMedium | str | None = None
+    sub_path: str | None = None
+    read_only: bool = False
 
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("ScratchVolumeOptions.name cannot be empty")
-        if not self.mount_path:
-            raise ValueError("ScratchVolumeOptions.mount_path cannot be empty")
-        if not self.mount_path.startswith("/"):
-            raise ValueError(
-                f"ScratchVolumeOptions.mount_path must be absolute, got: {self.mount_path!r}"
-            )
-        if self.mount_path == "/":
-            raise ValueError("ScratchVolumeOptions.mount_path cannot be '/'")
+        if self.mount_path is not None:
+            _validate_absolute_mount_path(self.mount_path, field="ScratchVolumeOptions.mount_path")
         if self.size is not None and not self.size:
             object.__setattr__(self, "size", None)
         if self.restore_from_snapshot_id is not None and not self.restore_from_snapshot_id:
             object.__setattr__(self, "restore_from_snapshot_id", None)
+        if self.medium is not None:
+            medium = self.medium
+            if isinstance(medium, str):
+                medium = StorageMedium(medium.lower())
+            object.__setattr__(self, "medium", medium)
+        object.__setattr__(
+            self,
+            "sub_path",
+            _validate_sub_path(self.sub_path, field="ScratchVolumeOptions.sub_path"),
+        )
+        if not isinstance(self.read_only, bool):
+            raise TypeError(
+                "ScratchVolumeOptions.read_only must be a bool, "
+                f"got {type(self.read_only).__name__}"
+            )
+
+
+@dataclass(frozen=True, kw_only=True)
+class RegisteredVolumeOptions:
+    """Mount a registered Volume into the sandbox.
+
+    Attributes:
+        name: Volume name within the sandbox (referenced by the mount).
+        volume_id: Registered Volume ID.
+        mount_path: Absolute path to mount into the primary container.
+        sub_path: Relative path inside the volume to mount instead of its root.
+            Combined with any volume-level prefix set at registration.
+        read_only: Mount the volume read-only.
+    """
+
+    name: str
+    volume_id: str
+    mount_path: str
+    sub_path: str | None = None
+    read_only: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("RegisteredVolumeOptions.name cannot be empty")
+        if not self.volume_id:
+            raise ValueError("RegisteredVolumeOptions.volume_id cannot be empty")
+        if not self.mount_path:
+            raise ValueError("RegisteredVolumeOptions.mount_path cannot be empty")
+        if not self.mount_path.startswith("/"):
+            raise ValueError(
+                f"RegisteredVolumeOptions.mount_path must be absolute, got: {self.mount_path!r}"
+            )
+        if self.mount_path == "/":
+            raise ValueError("RegisteredVolumeOptions.mount_path cannot be '/'")
+        object.__setattr__(
+            self,
+            "sub_path",
+            _validate_sub_path(self.sub_path, field="RegisteredVolumeOptions.sub_path"),
+        )
+        if not isinstance(self.read_only, bool):
+            raise TypeError(
+                "RegisteredVolumeOptions.read_only must be a bool, "
+                f"got {type(self.read_only).__name__}"
+            )
+
+
+def _coerce_volume_options(
+    vol: ScratchVolumeOptions | RegisteredVolumeOptions | Mapping[str, Any],
+) -> ScratchVolumeOptions | RegisteredVolumeOptions:
+    if isinstance(vol, (ScratchVolumeOptions, RegisteredVolumeOptions)):
+        return vol
+    if isinstance(vol, Mapping):
+        if "volume_id" in vol:
+            return RegisteredVolumeOptions(**vol)
+        return ScratchVolumeOptions(**vol)
+    raise TypeError(
+        "volumes entries must be ScratchVolumeOptions, RegisteredVolumeOptions, "
+        f"or dict, got {type(vol).__name__}"
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class VolumeMount:
+    """Mount of a sandbox-level volume into one container.
+
+    Attributes:
+        volume: Name of a ``ScratchVolumeOptions`` / ``SandboxSpec`` volume.
+        mount_path: Absolute path inside the container.
+        read_only: When True, mount the volume read-only.
+        sub_path: Optional path within the volume to mount.
+    """
+
+    volume: str
+    mount_path: str
+    read_only: bool = False
+    sub_path: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.volume:
+            raise ValueError("VolumeMount.volume cannot be empty")
+        _validate_absolute_mount_path(self.mount_path, field="VolumeMount.mount_path")
+        if self.sub_path is not None and not self.sub_path:
+            object.__setattr__(self, "sub_path", None)
+
+
+def _coerce_volume_mount(value: VolumeMount | Mapping[str, Any]) -> VolumeMount:
+    if isinstance(value, VolumeMount):
+        return value
+    if isinstance(value, Mapping):
+        return VolumeMount(**value)
+    raise TypeError(
+        f"volume_mounts entries must be VolumeMount or dict, got {type(value).__name__}"
+    )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -399,6 +881,156 @@ class ImagePullCredentials:
             raise ValueError("ImagePullCredentials.store cannot be empty")
         if not self.name:
             raise ValueError("ImagePullCredentials.name cannot be empty")
+
+
+@dataclass(frozen=True, kw_only=True)
+class ObjectStorageAccess:
+    """Temporary object-storage credentials injected into every user container.
+
+    Attributes:
+        buckets: Bucket names the minted credential may access.
+        permission: ``READ`` or ``READ_WRITE``. Unset uses the platform default.
+        object_prefix: Optional key prefix that scopes the credential.
+    """
+
+    buckets: Sequence[str] = ()
+    permission: ObjectStoragePermission | str | None = None
+    object_prefix: str | None = None
+
+    def __post_init__(self) -> None:
+        if isinstance(self.buckets, (str, bytes)):
+            raise TypeError(
+                "ObjectStorageAccess.buckets must be a sequence of non-empty "
+                "strings, not a bare string"
+            )
+        buckets = tuple(self.buckets)
+        if not buckets:
+            raise ValueError("ObjectStorageAccess.buckets cannot be empty")
+        for bucket in buckets:
+            if not isinstance(bucket, str):
+                raise TypeError(
+                    "ObjectStorageAccess.buckets entries must be strings, "
+                    f"got {type(bucket).__name__}"
+                )
+            if not bucket:
+                raise ValueError("ObjectStorageAccess.buckets entries cannot be empty")
+        object.__setattr__(self, "buckets", buckets)
+        if self.permission is not None:
+            permission = self.permission
+            if isinstance(permission, str):
+                permission = ObjectStoragePermission(permission.lower())
+            object.__setattr__(self, "permission", permission)
+        if self.object_prefix is not None and not self.object_prefix:
+            object.__setattr__(self, "object_prefix", None)
+
+
+def _coerce_object_storage_access(
+    value: ObjectStorageAccess | Mapping[str, Any] | None,
+) -> ObjectStorageAccess | None:
+    if value is None:
+        return None
+    if isinstance(value, ObjectStorageAccess):
+        return value
+    if isinstance(value, Mapping):
+        return ObjectStorageAccess(**value)
+    raise TypeError(
+        "object_storage_access must be ObjectStorageAccess, dict, or None, "
+        f"got {type(value).__name__}"
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class SecurityContext:
+    """In-guest container privilege, clamped by the runner policy.
+
+    Host-reaching settings (host network, host PID, hostPath) are not
+    expressible here. ``privileged``, capabilities, run-as, and seccomp
+    apply inside the sandbox isolation boundary.
+
+    Attributes:
+        run_as_user: UID for the entrypoint. Unset uses the image user.
+        run_as_group: GID for the entrypoint. Unset uses the image group.
+        privileged: Run privileged inside the isolation boundary.
+        allow_privilege_escalation: Allow a process to gain more privileges
+            than its parent.
+        read_only_root_filesystem: Mount the container root filesystem read-only.
+        capabilities_add: Linux capabilities to add (e.g. ``"SYS_PTRACE"``).
+        capabilities_drop: Linux capabilities to drop.
+        seccomp_profile: ``"RuntimeDefault"`` or ``"Unconfined"``.
+    """
+
+    run_as_user: int | None = None
+    run_as_group: int | None = None
+    privileged: bool | None = None
+    allow_privilege_escalation: bool | None = None
+    read_only_root_filesystem: bool | None = None
+    capabilities_add: Sequence[str] | None = None
+    capabilities_drop: Sequence[str] | None = None
+    seccomp_profile: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "run_as_user",
+            _validate_optional_uid(self.run_as_user, field="SecurityContext.run_as_user"),
+        )
+        object.__setattr__(
+            self,
+            "run_as_group",
+            _validate_optional_uid(self.run_as_group, field="SecurityContext.run_as_group"),
+        )
+        object.__setattr__(
+            self,
+            "privileged",
+            _validate_optional_bool(self.privileged, field="SecurityContext.privileged"),
+        )
+        object.__setattr__(
+            self,
+            "allow_privilege_escalation",
+            _validate_optional_bool(
+                self.allow_privilege_escalation,
+                field="SecurityContext.allow_privilege_escalation",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "read_only_root_filesystem",
+            _validate_optional_bool(
+                self.read_only_root_filesystem,
+                field="SecurityContext.read_only_root_filesystem",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "capabilities_add",
+            _coerce_string_sequence(
+                self.capabilities_add, field="SecurityContext.capabilities_add"
+            ),
+        )
+        object.__setattr__(
+            self,
+            "capabilities_drop",
+            _coerce_string_sequence(
+                self.capabilities_drop, field="SecurityContext.capabilities_drop"
+            ),
+        )
+        profile = self.seccomp_profile
+        if profile is not None and not profile:
+            object.__setattr__(self, "seccomp_profile", None)
+
+
+def _coerce_security_context(
+    value: SecurityContext | Mapping[str, Any] | None,
+) -> SecurityContext | None:
+    if value is None:
+        return None
+    if isinstance(value, SecurityContext):
+        return value
+    if isinstance(value, Mapping):
+        return SecurityContext(**value)
+    raise TypeError(
+        f"security_context must be SecurityContext, dict, or None, got {type(value).__name__}"
+    )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -447,6 +1079,24 @@ class Secret:
             raise ValueError("Secret.env_var cannot be empty")
 
 
+def _unique_secrets_by_env_var(secrets: Sequence[Secret]) -> tuple[Secret, ...]:
+    """Keep one secret per env_var; raise if two distinct sources conflict."""
+    seen: dict[str, Secret] = {}
+    for secret in secrets:
+        env_var = secret.env_var
+        assert env_var is not None  # guaranteed by Secret.__post_init__
+        if env_var in seen and secret != seen[env_var]:
+            raise ValueError(
+                f"Conflicting secrets for env_var {env_var!r}: "
+                f"Secret(store={seen[env_var].store!r}, name={seen[env_var].name!r}, "
+                f"field={seen[env_var].field!r}) vs "
+                f"Secret(store={secret.store!r}, name={secret.name!r}, "
+                f"field={secret.field!r})"
+            )
+        seen[env_var] = secret
+    return tuple(seen.values())
+
+
 @dataclass(frozen=True, kw_only=True)
 class ResourceOptions:
     """Resource configuration for sandbox CPU, memory, and GPU.
@@ -475,6 +1125,147 @@ class ResourceOptions:
             object.__setattr__(self, "limits", None)
         if isinstance(self.gpu, dict) and len(self.gpu) == 0:
             object.__setattr__(self, "gpu", None)
+
+
+@dataclass(frozen=True, kw_only=True)
+class Container:
+    """One user container in a sandbox.
+
+    Pass a list to ``Sandbox.run(containers=[...])``. That form is mutually
+    exclusive with the single-container kwargs (``container_image``,
+    ``command``/``args``, ``resources``, ``mounted_files``, ``secrets``,
+    ``image_pull_credentials``, ``environment_variables``,
+    ``security_context``, ``working_dir``) and does not inherit those
+    same fields from ``SandboxDefaults``.
+
+    One container: ``primary`` may be omitted or False (that row is primary).
+    More than one: exactly one row must set ``primary=True``, and every row
+    needs a name and resources. GPU is allowed only on the primary.
+
+    Attributes:
+        image: OCI image to run.
+        name: DNS-1123 label. Optional for a single container; required when
+            more than one container is specified.
+        command: Entrypoint. Empty/None uses the image entrypoint. Args may
+            be set without command.
+        args: Arguments to the command or image entrypoint.
+        environment_variables: Env vars injected into this container only.
+        resources: CPU/memory/GPU for this container. Required when more
+            than one container is specified.
+        mounted_files: Files written into this container at startup.
+        volume_mounts: Sandbox-level volumes to mount into this container.
+        secrets: Secret-store inject for this container only.
+        working_dir: Working directory for the command. Must be absolute
+            when set.
+        image_pull_credentials: Private-registry pull credentials.
+        primary: When True, this container owns sandbox lifecycle and is
+            the default exec/logs/files target.
+    """
+
+    image: str
+    name: str | None = None
+    command: str | None = None
+    args: Sequence[str] | None = None
+    environment_variables: Mapping[str, str] | None = None
+    resources: ResourceOptions | dict[str, Any] | None = None
+    mounted_files: Sequence[Mapping[str, Any]] | None = None
+    volume_mounts: Sequence[VolumeMount | Mapping[str, Any]] | None = None
+    secrets: Sequence[Secret | Mapping[str, Any]] | None = None
+    working_dir: str | None = None
+    image_pull_credentials: ImagePullCredentials | Mapping[str, Any] | None = None
+    primary: bool = False
+    # Status echo only. Create-time name/cwd/image checks do not apply to
+    # server-authored rows (reserved platform sidecars, working_dir="/").
+    _observed: bool = field(default=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if not self.image and not self._observed:
+            raise ValueError("Container.image cannot be empty")
+        if self.name is not None:
+            if not self.name:
+                object.__setattr__(self, "name", None)
+            elif not self._observed:
+                _validate_container_name(self.name)
+        if self.command is not None and not self.command:
+            object.__setattr__(self, "command", None)
+        if self.args is not None:
+            if isinstance(self.args, (str, bytes)):
+                raise TypeError("Container.args must be a sequence of strings, not a string")
+            coerced_args = tuple(self.args)
+            for i, arg in enumerate(coerced_args):
+                if not isinstance(arg, str):
+                    raise TypeError(f"Container.args[{i}] must be str, got {type(arg).__name__}")
+            object.__setattr__(self, "args", coerced_args)
+        if self.environment_variables is not None:
+            object.__setattr__(self, "environment_variables", dict(self.environment_variables))
+        if self.working_dir is not None:
+            if not self.working_dir:
+                object.__setattr__(self, "working_dir", None)
+            elif not self._observed:
+                _validate_absolute_mount_path(self.working_dir, field="Container.working_dir")
+        if self.volume_mounts is not None:
+            object.__setattr__(
+                self,
+                "volume_mounts",
+                tuple(_coerce_volume_mount(m) for m in self.volume_mounts),
+            )
+        if self.secrets is not None:
+            object.__setattr__(
+                self,
+                "secrets",
+                _unique_secrets_by_env_var(
+                    tuple(s if isinstance(s, Secret) else Secret(**s) for s in self.secrets)
+                ),
+            )
+        if self.image_pull_credentials is not None and not isinstance(
+            self.image_pull_credentials, ImagePullCredentials
+        ):
+            object.__setattr__(
+                self,
+                "image_pull_credentials",
+                ImagePullCredentials(**self.image_pull_credentials),
+            )
+        if self.mounted_files is not None:
+            object.__setattr__(self, "mounted_files", tuple(self.mounted_files))
+
+    @classmethod
+    def _from_observed(cls, **kwargs: Any) -> Container:
+        """Build a Container from a Get/list spec echo.
+
+        Skips reserved-name, DNS-1123, working_dir, and empty-image checks.
+        ``replace()`` keeps ``_observed`` so inferred ``primary`` stays valid.
+        """
+        return cls(_observed=True, **kwargs)
+
+
+def _coerce_container(value: Container | Mapping[str, Any]) -> Container:
+    if isinstance(value, Container):
+        return value
+    if isinstance(value, Mapping):
+        return Container(**value)
+    raise TypeError(f"containers entries must be Container or dict, got {type(value).__name__}")
+
+
+def _validate_containers(containers: Sequence[Container]) -> tuple[Container, ...]:
+    """Validate a create-time container list (names, primary flag)."""
+    if not containers:
+        raise ValueError("containers cannot be empty")
+    rows = tuple(containers)
+    if len(rows) > 1:
+        primary_count = sum(1 for row in rows if row.primary)
+        if primary_count != 1:
+            raise ValueError("containers with more than one entry require exactly one primary=True")
+        missing = [i for i, row in enumerate(rows) if not row.name]
+        if missing:
+            raise ValueError("every container must have a name when more than one is specified")
+    seen: set[str] = set()
+    for row in rows:
+        if not row.name:
+            continue
+        if row.name in seen:
+            raise ValueError(f"duplicate container name: {row.name!r}")
+        seen.add(row.name)
+    return rows
 
 
 class FileSystemSnapshotStatus(StrEnum):
@@ -531,31 +1322,28 @@ class FileSystemSnapshotOptions:
     """Convenience single-mount wrapper over a named scratch volume.
 
     Prefer ``ScratchVolumeOptions`` / ``volumes=`` for multi-volume sandboxes.
-    This helper maps to a scratch volume named ``workspace`` (or ``name``)
-    mounted at ``mount_path``.
+    This helper maps to a scratch volume named ``workspace`` (or ``name``).
+    ``mount_path`` is optional: omit it to declare the volume without
+    mounting, and attach it via ``Container.volume_mounts``.
 
     Attributes:
-        mount_path: Absolute directory to mount (e.g. "/workspace").
+        mount_path: Absolute directory to mount (e.g. "/workspace"). None
+            declares the volume without a convenience mount.
         size: Mount size as a Kubernetes resource quantity (e.g. "10Gi").
         file_system_snapshot_id: When set, restore this snapshot at start.
         name: Scratch volume name (default ``"workspace"``).
     """
 
-    mount_path: str
+    mount_path: str | None = None
     size: str | None = None
     file_system_snapshot_id: str | None = None
     name: str = "workspace"
 
     def __post_init__(self) -> None:
-        if not self.mount_path:
-            raise ValueError("FileSystemSnapshotOptions.mount_path cannot be empty")
-        if not self.mount_path.startswith("/"):
-            raise ValueError(
-                f"FileSystemSnapshotOptions.mount_path must be an absolute path, "
-                f"got: {self.mount_path!r}"
+        if self.mount_path is not None:
+            _validate_absolute_mount_path(
+                self.mount_path, field="FileSystemSnapshotOptions.mount_path"
             )
-        if self.mount_path == "/":
-            raise ValueError("FileSystemSnapshotOptions.mount_path cannot be '/'")
         if not self.name:
             raise ValueError("FileSystemSnapshotOptions.name cannot be empty")
         if self.size is not None and not self.size:

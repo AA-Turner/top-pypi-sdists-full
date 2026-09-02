@@ -47,6 +47,7 @@ class TaskType(str, Enum):
     API_EVALUATIONS_RUN = 'api_evaluations_run'
     API_EVALUATIONS_DATASET_CREATE = 'api_evaluations_dataset_create'
     API_RETRIEVERS_PUBLISH = 'api_retrievers_publish'
+    API_RETRIEVERS_EXECUTE = 'api_retrievers_execute'
     API_COLLECTIONS_EXPORT = 'api_collections_export'
     API_COLLECTIONS_TRIGGER = 'api_collections_trigger'
     ENGINE_FEATURE_EXTRACTOR_RUN = 'engine_feature_extractor_run'

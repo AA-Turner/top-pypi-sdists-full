@@ -1,0 +1,90 @@
+# Example LLM provider configuration
+# Copy to .agdt/config/llm-providers.yml and customize
+#
+# Required environment variables (set api_key_env to the name of the variable
+# that holds your API key; the endpoint must also be provided in the YAML):
+#   AZURE_OPENAI_API_KEY - API key for Azure OpenAI (example value for api_key_env)
+#   OPENAI_API_KEY       - API key for direct OpenAI (example value for api_key_env)
+# Copilot uses the existing Copilot CLI login; it never accepts or stores an API key.
+
+providers:
+  azure_gpt4o:
+    type: azure_openai
+    model: gpt-4o
+    endpoint: "https://<your-resource-name>.openai.azure.com"
+    api_key_env: AZURE_OPENAI_API_KEY
+    temperature: 0.1
+    max_tokens: 4096
+
+  azure_gpt4o_mini:
+    type: azure_openai
+    model: gpt-4o-mini
+    endpoint: "https://<your-resource-name>.openai.azure.com"
+    api_key_env: AZURE_OPENAI_API_KEY
+    temperature: 0.0
+    max_tokens: 2048
+
+  openai_gpt4o:
+    type: openai_direct
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.1
+    max_tokens: 4096
+
+  local_ollama:
+    type: local_model
+    model: llama3
+    endpoint: "http://localhost:11434/v1"
+    temperature: 0.1
+    max_tokens: 2048
+
+  copilot_pr_review:
+    type: copilot
+    model: gemini-3.7-flash
+    timeout_seconds: 120
+
+workflows:
+  pr_review:
+    default_provider: copilot_pr_review
+    nodes:
+      review_files:
+        provider: copilot_pr_review
+
+# Copilot model ids are checked against the authenticated runtime inventory
+# before a LangGraph review starts.  Missing login, stale/empty inventories,
+# unsupported models, and interrupted streams fail without selecting OpenAI as
+# a substitute. Structured calls request JSON and validate it locally with the
+# configured schema; streaming emits ordered deltas and raises on interruption.
+# Copilot does not accept temperature/max_tokens overrides via this SDK path.
+# This provider is for the LangChain PR-review workflow. It is separate from
+# the Agent Tasks provider, which dispatches GitHub tasks rather than completions.
+# Optional authenticated check (never used by CI):
+#   python -c "import asyncio; from agentic_devtools.orchestration.llm.providers.copilot import CopilotProvider; asyncio.run(CopilotProvider(model='gemini-3.7-flash').preflight())"
+
+  work_on_issue:
+    default_provider: azure_gpt4o
+    nodes:
+      planning:
+        provider: azure_gpt4o
+        temperature: 0.2
+        max_tokens: 8192
+      implementation:
+        provider: azure_gpt4o
+        temperature: 0.1
+        max_tokens: 16384
+      verification:
+        provider: azure_gpt4o_mini
+        temperature: 0.0
+
+# Retry configuration (reserved — not yet implemented; these values are ignored by load_config())
+# retry:
+#   max_retries: 3
+#   base_delay_seconds: 1.0
+#   max_delay_seconds: 60.0
+#   exponential_base: 2.0
+
+# Test mode configuration (reserved — not yet implemented; these values are ignored by load_config())
+# test_mode:
+#   enabled: false
+#   fixtures_dir: ".agdt/test-fixtures/llm"
+#   record: false

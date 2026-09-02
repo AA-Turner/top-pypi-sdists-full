@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.8, 3.9, "3.10", 3.11, 3.12, 3.13]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: KeisukeYamashita/memcached-actions@v1
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Mypy
+        run: uv run mypy . --exclude .venv
+      - name: Lint with flake8
+        run: |
+          uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
+          uv run flake8 . --count --exit-zero --max-complexity=10 --statistics --exclude=.venv
+      - name: Test with pytest
+        run: uv run pytest -v

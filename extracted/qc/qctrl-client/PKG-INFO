@@ -1,0 +1,50 @@
+Metadata-Version: 2.4
+Name: qctrl-client
+Version: 17.1.0
+Summary: Q-CTRL Client
+License-File: LICENSE
+Keywords: black opal,boulder opal,fire opal,ironstone opal,nisq,open controls,q control,q ctrl,q-control,q-ctrl,qcontrol,qctrl,quantum,quantum algorithms,quantum circuits,quantum coding,quantum coding software,quantum computing,quantum control,quantum control software,quantum control theory,quantum engineering,quantum error correction,quantum firmware,quantum fundamentals,quantum navigation,quantum sensing,qubit,qudit
+Author: Q-CTRL
+Author-email: support@q-ctrl.com>
+Maintainer: Q-CTRL
+Maintainer-email: support@q-ctrl.com>
+Requires-Python: >=3.10, <3.15
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: Topic :: Software Development :: Embedded Systems
+Classifier: Topic :: System :: Distributed Computing
+Requires-Dist: PyJWT (>=2.0.0,<3.0.0)
+Requires-Dist: authlib (>=1.6.5,<2.0.0)
+Requires-Dist: gql[httpx] (>=4.0.0,<5.0.0)
+Requires-Dist: graphql-core (>=3.0.0,<4.0.0)
+Requires-Dist: httpx (>=0.28.1,<0.29.0)
+Requires-Dist: oauthlib (>=3.0.0,<4.0.0)
+Requires-Dist: tenacity (>=9.0.0,<10.0.0)
+Project-URL: Documentation, https://docs.q-ctrl.com
+Project-URL: Facebook, https://www.facebook.com/qctrl
+Project-URL: GitHub, https://github.com/qctrl
+Project-URL: Homepage, https://q-ctrl.com
+Project-URL: LinkedIn, https://www.linkedin.com/company/q-ctrl/
+Project-URL: Source, https://github.com/qctrl/python-client
+Project-URL: X, https://x.com/qctrlHQ
+Project-URL: YouTube, https://www.youtube.com/qctrl
+Description-Content-Type: text/markdown
+
+# Q-CTRL Python Client
+
+The Q-CTRL Python Client package provides a Python client to access Q-CTRL's GraphQL API. It is used as a base for Q-CTRL's client-side product packages and for inter-service communication.
+

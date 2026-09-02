@@ -1,0 +1,110 @@
+[project]
+name = "django-termsandconditions"
+version = "2.1.1"
+description = "Django app that enables users to accept terms and conditions of a site."
+authors = [{ name = "Tim White", email = "tim@cyface.com" }]
+requires-python = ">=3.12,<4.0"
+readme = "README.md"
+license = { text = "BSD License" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Django",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = ["Django>=5.2"]
+
+[project.urls]
+Homepage = "https://github.com/cyface/django-termsandconditions"
+
+[tool.black]
+line-length = 88
+target-version = ['py312', 'py313']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1,<27.0",
+    "coverage[toml]~=7.6",
+    "ruff>=0.9.0,<0.16",
+    "uv>=0.5"
+]
+
+[tool.coverage.run]
+branch = true
+omit = [
+    "*/__init__.py",
+    "*/apps.py",
+    "*/devscripts*",
+    "*/docs/*",
+    "*/local_settings_template.py",
+    "*/manage.py",
+    "*/migrations/*",
+    "*/settings*",
+    "*/setup.py",
+    "*/tests*",
+    "*/wsgi.py"
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["termsandconditions"]
+
+[tool.hatch.build.targets.wheel]
+include = ["termsandconditions"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+extend-exclude = ["migrations"]
+lint.ignore = [
+    "B904",
+    "DJ001",
+    "DJ008",
+    "DJ012",
+    "E501",
+    "E722",
+    "F403",
+    "F405",
+    "N806",
+    "N815",
+]
+lint.select = [
+    "B",
+    "B9",
+    "C",
+    "DJ",
+    "DTZ",
+    "E",
+    "F",
+    "N",
+    "UP",
+    "W",
+]
+line-length = 88
+
+[tool.ruff.lint.isort]
+forced-separate = ["django"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25

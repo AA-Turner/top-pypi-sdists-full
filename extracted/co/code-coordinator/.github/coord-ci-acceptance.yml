@@ -1,0 +1,83 @@
+# #2180: a minimal coordinator.yml so `.github/workflows/*.yml` can invoke
+# `coord acceptance run --all --ci` (#2164's CI wrapper, PR #2173). The Test
+# stage's engine (scripts/coord-test-runner.sh, run_python_acceptance_ci)
+# points its own `--all --ci` invocation at this same file — the fleet's
+# real config routes are `--issue`-scoped (`{ms}`-templated) and cannot
+# serve `--all`; see that function's header comment.
+#
+# This is deliberately NOT the fleet's real coordinator.yml. That file lives
+# outside this repo (~/.coord/coordinator.yml on the coordinator host,
+# "updated out-of-band" per scripts/coord-test-runner.sh's own header) and is
+# unreachable from a GitHub Actions runner. `coord acceptance run` needs
+# SOME coordinator.yml to resolve `acceptance.drivers.claude-coordinator`
+# (and, being the same parser as the fleet config, a non-empty `repos:` /
+# `machines:` list even though nothing here is a real machine) — this file
+# is that, scoped to exactly what CI needs and nothing else.
+#
+# The two routes below mirror the fleet's real
+# `acceptance.drivers.claude-coordinator.routes` (#1125 in-repo path
+# routing: coord/** -> cli-pytest, tui/** -> tui-tuidriver) with ONE
+# deliberate difference: none of these `run:` commands reference the `{ms}`
+# template.
+#
+# #2009 (epic #2002): there used to be a THIRD route here,
+# `coord/dashboard/webapp/** -> web-playwright`, listed first because
+# `driver_for()` is first-match and that glob is a strict subset of
+# `coord/**` (#1540). It is gone because the webapp is gone — the source
+# moved to the `coord-web` repo and the sealed suite it ran (ms-51) went
+# with it (docs/ADR_COORD_WEB_ACCEPTANCE_SUITE.md, #2007), so the route now
+# lives in `coord-web`'s own config as a FLAT driver entry with no `routes:`
+# at all: that repo's root IS the webapp root, so there is nothing left for
+# a path glob to disambiguate. Nothing under `coord/dashboard/webapp/` can
+# appear in a diff against this repo any more, so re-adding the glob here
+# could only ever shadow `coord/**` for a path that cannot exist.
+#
+# `{ms}` only gets substituted when `coord acceptance run` is scoped to one
+# issue (`--issue N`, resolved via the issue's manifest-mapped ms-NN dir,
+# coord/commands/acceptance.py). `--all` (Gate C, what `--ci` requires)
+# always passes `ms=None` — coord.acceptance_drivers.render_run_command
+# documents that it leaves `{ms}` UNSUBSTITUTED (literal) in that case,
+# by design, for a driver whose `run:` never references it at all (like
+# tui-tuidriver's below). A route written for `--issue` scoping, like the
+# fleet's real `pytest tests/acceptance/{ms}`, would try to literally
+# collect a path named `tests/acceptance/{ms}` under `--all` and crash
+# outright — confirmed locally 2026-08-14 authoring this file:
+#   $ pytest 'tests/acceptance/{ms}' -q
+#   ERROR: file or directory not found: tests/acceptance/{ms}
+# So the two use cases need different `run:` commands over the SAME
+# underlying suite: the fleet config's per-issue routes stay as they are
+# (a worker's own `--issue N` self-check, unaffected by this file), and
+# this file's routes are written to always cover every ms-NN under that
+# route in one pass — exactly what the accumulated Gate C suite needs.
+repos:
+  - name: claude-coordinator
+    github: JDonaghy/claude-coordinator
+    default_branch: main
+
+# Not a real fleet machine — just enough for coord.config.load() to parse.
+# `coord.acceptance.acceptance_capability_gap` gives an unrecognized host
+# (any GitHub Actions runner, which will never match `host:` below) the
+# benefit of the doubt and proceeds rather than refusing, so this entry is
+# never actually matched against anything at run time.
+machines:
+  - name: ci-runner
+    host: ci-runner
+
+acceptance:
+  drivers:
+    claude-coordinator:
+      routes:
+        - match: coord/**
+          kind: cli-pytest
+          # Whole tree, not one ms-NN dir -- see the file header.
+          run: "pytest tests/acceptance"
+          mock: "*.out"
+          capability: python
+        # #2899: the `tui/**` -> tui-tuidriver route is GONE from this file.
+        # The crate moved to the standalone `coord-tui` repo, taking its
+        # sealed entrypoint (`tui/tests/acceptance.rs` -> `tests/acceptance.rs`)
+        # and the `tui/tests/acceptance/ms-NN/` slices with it. coord-tui
+        # carries its own copy of this CI stand-in, keyed on its own repo
+        # name, so the route did not disappear -- it changed repos. This
+        # file is now single-route, and this repo's sealed set is exactly
+        # `tests/acceptance/**` again.

@@ -1,0 +1,76 @@
+[project]
+name = "django-secured-fields"
+description = "Django encrypted fields with search enabled."
+authors = [
+    { name = "CODIUM", email = "support@codium.co" },
+]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+keywords = ["django", "encrypted", "fields", "drf", "django-rest", "restframework", "search", "encryption", "hash"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "django>=4.2",
+    "cryptography>=42",
+]
+dynamic = []
+version = "0.5.0"
+
+[project.urls]
+Homepage = "https://github.com/C0D1UM/django-secured-fields"
+Repository = "https://github.com/C0D1UM/django-secured-fields"
+Issues = "https://github.com/C0D1UM/django-secured-fields/issues"
+
+[tool.poetry]
+requires-poetry = ">=2.0"
+packages = [
+    { include = "secured_fields" },
+]
+
+[tool.poetry.group.dev.dependencies]
+pylint = "^4.0"
+yapf = "^0.43"
+toml = "^0.10"
+ipdb = "^0.13"
+psycopg = { version = "^3.2", extras = ["binary"] }
+mysqlclient = "^2.2"
+freezegun = "^1.5"
+django-environ = "^0.14"
+Pillow = "^12.0"
+django-extensions = "^4.1"
+coverage = "^7.10"
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+style = "semver"
+
+[tool.yapf]
+based_on_style = 'google'
+column_limit = 120
+coalesce_brackets = true
+dedent_closing_brackets = true
+split_arguments_when_comma_terminated = true
+
+[build-system]
+requires = ["poetry-core>=2.0.0", "poetry-dynamic-versioning>=1.5.0"]
+build-backend = "poetry_dynamic_versioning.backend"

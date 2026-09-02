@@ -16,12 +16,18 @@ from typing import Any
 
 import httpx
 
-logger = logging.getLogger(__name__)
-
 from spec_kitty_tracker.capabilities import TrackerCapabilities
 from spec_kitty_tracker.connectors.base_http import HTTPConnectorBase
-from spec_kitty_tracker.errors import CapabilityNotSupportedError, ConnectorConfigError, ConnectorRequestError
-from spec_kitty_tracker.mapping import canonical_to_linear_priority, linear_priority_to_canonical, parse_datetime
+from spec_kitty_tracker.errors import (
+    CapabilityNotSupportedError,
+    ConnectorConfigError,
+    ConnectorRequestError,
+)
+from spec_kitty_tracker.mapping import (
+    canonical_to_linear_priority,
+    linear_priority_to_canonical,
+    parse_datetime,
+)
 from spec_kitty_tracker.models import (
     CanonicalIssue,
     CanonicalIssueType,
@@ -33,6 +39,8 @@ from spec_kitty_tracker.models import (
     SyncCheckpoint,
     TrackerEvent,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,8 +263,7 @@ class LinearConnector(HTTPConnectorBase):
 
         if "custom_fields" in patch:
             logger.warning(
-                "Linear does not support custom field persistence; "
-                "skipping spec_kitty_mission blob"
+                "Linear does not support custom field persistence; skipping spec_kitty_mission blob"
             )
 
         if input_payload:
@@ -332,7 +339,9 @@ class LinearConnector(HTTPConnectorBase):
         status = self._status_from_linear_state(state)
         labels = [str(node["name"]) for node in payload.get("labels", {}).get("nodes", [])]
         assignee = payload.get("assignee")
-        assignees = [str(assignee["id"])] if isinstance(assignee, Mapping) and assignee.get("id") else []
+        assignees = (
+            [str(assignee["id"])] if isinstance(assignee, Mapping) and assignee.get("id") else []
+        )
 
         parent_payload = payload.get("parent")
         parent = None

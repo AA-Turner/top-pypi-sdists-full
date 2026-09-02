@@ -45,6 +45,7 @@ from .literals import (
     ExportSourceTypeType,
     FeatureStatusType,
     HttpsPolicyType,
+    IdentityCertificateStatusType,
     IdentityTypeType,
     ImportDestinationTypeType,
     JobStatusType,
@@ -84,6 +85,7 @@ else:
 __all__ = (
     "AccountDetailsTypeDef",
     "ArchivingOptionsTypeDef",
+    "AssociateEmailIdentityCertificateRequestTypeDef",
     "AttachmentTypeDef",
     "BatchGetMetricDataQueryTypeDef",
     "BatchGetMetricDataRequestTypeDef",
@@ -151,6 +153,7 @@ __all__ = (
     "DeliveryOptionsTypeDef",
     "DestinationTypeDef",
     "DetailsTypeDef",
+    "DisassociateEmailIdentityCertificateRequestTypeDef",
     "DkimAttributesTypeDef",
     "DkimSigningAttributesTypeDef",
     "DomainDeliverabilityCampaignTypeDef",
@@ -226,6 +229,7 @@ __all__ = (
     "GetTenantResponseTypeDef",
     "GuardianAttributesTypeDef",
     "GuardianOptionsTypeDef",
+    "IdentityCertificateTypeDef",
     "IdentityInfoTypeDef",
     "ImportDataSourceTypeDef",
     "ImportDestinationTypeDef",
@@ -253,6 +257,9 @@ __all__ = (
     "ListDomainDeliverabilityCampaignsResponseTypeDef",
     "ListEmailIdentitiesRequestTypeDef",
     "ListEmailIdentitiesResponseTypeDef",
+    "ListEmailIdentityCertificatesRequestPaginateTypeDef",
+    "ListEmailIdentityCertificatesRequestTypeDef",
+    "ListEmailIdentityCertificatesResponseTypeDef",
     "ListEmailTemplatesRequestTypeDef",
     "ListEmailTemplatesResponseTypeDef",
     "ListExportJobsRequestTypeDef",
@@ -288,6 +295,9 @@ __all__ = (
     "MessageInsightsDataSourceTypeDef",
     "MessageInsightsFiltersOutputTypeDef",
     "MessageInsightsFiltersTypeDef",
+    "MessageSecurityOptionsOutputTypeDef",
+    "MessageSecurityOptionsTypeDef",
+    "MessageSecurityOptionsUnionTypeDef",
     "MessageTagTypeDef",
     "MessageTypeDef",
     "MetricDataErrorTypeDef",
@@ -347,6 +357,9 @@ __all__ = (
     "SendEmailResponseTypeDef",
     "SendQuotaTypeDef",
     "SendingOptionsTypeDef",
+    "SigningSchemeOutputTypeDef",
+    "SigningSchemeTypeDef",
+    "SmimeSigningSchemeTypeDef",
     "SnsDestinationTypeDef",
     "StatusRecordTypeDef",
     "SuppressedDestinationAttributesTypeDef",
@@ -380,6 +393,7 @@ __all__ = (
     "TrackingOptionsTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateConfigurationSetEventDestinationRequestTypeDef",
+    "UpdateConfigurationSetRequestTypeDef",
     "UpdateContactListRequestTypeDef",
     "UpdateContactRequestTypeDef",
     "UpdateCustomVerificationEmailTemplateRequestTypeDef",
@@ -399,6 +413,11 @@ class ReviewDetailsTypeDef(TypedDict):
 
 class ArchivingOptionsTypeDef(TypedDict):
     ArchiveArn: NotRequired[str]
+
+class AssociateEmailIdentityCertificateRequestTypeDef(TypedDict):
+    EmailIdentity: str
+    CertificateArn: str
+    FromAddress: NotRequired[str]
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 TimestampTypeDef = Union[datetime, str]
@@ -639,6 +658,10 @@ class DeliverabilityTestReportTypeDef(TypedDict):
 class RouteDetailsTypeDef(TypedDict):
     Region: str
 
+class DisassociateEmailIdentityCertificateRequestTypeDef(TypedDict):
+    EmailIdentity: str
+    FromAddress: NotRequired[str]
+
 class DomainDeliverabilityCampaignTypeDef(TypedDict):
     CampaignId: NotRequired[str]
     ImageUrl: NotRequired[str]
@@ -803,6 +826,12 @@ class GuardianAttributesTypeDef(TypedDict):
 class GuardianOptionsTypeDef(TypedDict):
     OptimizedSharedDelivery: NotRequired[FeatureStatusType]
 
+class IdentityCertificateTypeDef(TypedDict):
+    FromAddress: NotRequired[str]
+    Status: NotRequired[IdentityCertificateStatusType]
+    CertificateArn: NotRequired[str]
+    CertificateExpiryTime: NotRequired[datetime]
+
 class IdentityInfoTypeDef(TypedDict):
     IdentityType: NotRequired[IdentityTypeType]
     IdentityName: NotRequired[str]
@@ -844,6 +873,16 @@ class ListEmailIdentitiesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     PageSize: NotRequired[int]
 
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+class ListEmailIdentityCertificatesRequestTypeDef(TypedDict):
+    EmailIdentity: str
+    NextToken: NotRequired[str]
+    PageSize: NotRequired[int]
+
 class ListEmailTemplatesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     PageSize: NotRequired[int]
@@ -862,11 +901,6 @@ class ListImportJobsRequestTypeDef(TypedDict):
 class ListManagementOptionsTypeDef(TypedDict):
     ContactListName: str
     TopicName: NotRequired[str]
-
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
 
 class ListMultiRegionEndpointsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -1054,6 +1088,9 @@ class SendCustomVerificationEmailRequestTypeDef(TypedDict):
     EmailAddress: str
     TemplateName: str
     ConfigurationSetName: NotRequired[str]
+
+class SmimeSigningSchemeTypeDef(TypedDict):
+    SignatureFormat: NotRequired[Literal["DETACHED"]]
 
 class SuppressedDestinationAttributesTypeDef(TypedDict):
     MessageId: NotRequired[str]
@@ -1481,6 +1518,11 @@ class VdmOptionsTypeDef(TypedDict):
     DashboardOptions: NotRequired[DashboardOptionsTypeDef]
     GuardianOptions: NotRequired[GuardianOptionsTypeDef]
 
+class ListEmailIdentityCertificatesResponseTypeDef(TypedDict):
+    Certificates: list[IdentityCertificateTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListEmailIdentitiesResponseTypeDef(TypedDict):
     EmailIdentities: list[IdentityInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1497,6 +1539,10 @@ InboxPlacementTrackingOptionUnionTypeDef = Union[
 class ListContactsFilterTypeDef(TypedDict):
     FilteredStatus: NotRequired[SubscriptionStatusType]
     TopicFilter: NotRequired[TopicFilterTypeDef]
+
+class ListEmailIdentityCertificatesRequestPaginateTypeDef(TypedDict):
+    EmailIdentity: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMultiRegionEndpointsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1578,6 +1624,14 @@ class VerificationInfoTypeDef(TypedDict):
     LastSuccessTimestamp: NotRequired[datetime]
     ErrorType: NotRequired[VerificationErrorType]
     SOARecord: NotRequired[SOARecordTypeDef]
+
+class SigningSchemeOutputTypeDef(TypedDict):
+    DefaultScheme: NotRequired[dict[str, Any]]
+    SmimeScheme: NotRequired[SmimeSigningSchemeTypeDef]
+
+class SigningSchemeTypeDef(TypedDict):
+    DefaultScheme: NotRequired[Mapping[str, Any]]
+    SmimeScheme: NotRequired[SmimeSigningSchemeTypeDef]
 
 class SuppressedDestinationTypeDef(TypedDict):
     EmailAddress: str
@@ -1752,6 +1806,12 @@ class GetEmailIdentityResponseTypeDef(TypedDict):
     VerificationInfo: VerificationInfoTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class MessageSecurityOptionsOutputTypeDef(TypedDict):
+    SigningScheme: NotRequired[SigningSchemeOutputTypeDef]
+
+class MessageSecurityOptionsTypeDef(TypedDict):
+    SigningScheme: NotRequired[SigningSchemeTypeDef]
+
 class GetSuppressedDestinationResponseTypeDef(TypedDict):
     SuppressedDestination: SuppressedDestinationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1819,6 +1879,9 @@ class GetExportJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 ExportDataSourceUnionTypeDef = Union[ExportDataSourceTypeDef, ExportDataSourceOutputTypeDef]
+MessageSecurityOptionsUnionTypeDef = Union[
+    MessageSecurityOptionsTypeDef, MessageSecurityOptionsOutputTypeDef
+]
 
 class PutAccountSuppressionAttributesRequestTypeDef(TypedDict):
     SuppressedReasons: NotRequired[Sequence[SuppressionListReasonType]]
@@ -1905,6 +1968,10 @@ class CreateExportJobRequestTypeDef(TypedDict):
     ExportDataSource: ExportDataSourceUnionTypeDef
     ExportDestination: ExportDestinationTypeDef
 
+class UpdateConfigurationSetRequestTypeDef(TypedDict):
+    ConfigurationSetName: str
+    MessageSecurityOptions: NotRequired[MessageSecurityOptionsUnionTypeDef]
+
 class GetAccountResponseTypeDef(TypedDict):
     DedicatedIpAutoWarmupEnabled: bool
     EnforcementStatus: str
@@ -1927,6 +1994,7 @@ class GetConfigurationSetResponseTypeDef(TypedDict):
     SuppressionOptions: SuppressionOptionsOutputTypeDef
     VdmOptions: VdmOptionsTypeDef
     ArchivingOptions: ArchivingOptionsTypeDef
+    MessageSecurityOptions: MessageSecurityOptionsOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 SuppressionOptionsUnionTypeDef = Union[SuppressionOptionsTypeDef, SuppressionOptionsOutputTypeDef]
@@ -1941,3 +2009,4 @@ class CreateConfigurationSetRequestTypeDef(TypedDict):
     SuppressionOptions: NotRequired[SuppressionOptionsUnionTypeDef]
     VdmOptions: NotRequired[VdmOptionsTypeDef]
     ArchivingOptions: NotRequired[ArchivingOptionsTypeDef]
+    MessageSecurityOptions: NotRequired[MessageSecurityOptionsUnionTypeDef]

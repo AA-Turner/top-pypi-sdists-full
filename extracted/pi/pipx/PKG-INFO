@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pipx
-Version: 1.17.1
+Version: 1.17.2
 Summary: Install and Run Python Applications in Isolated Environments
 Project-URL: Issue Tracker, https://github.com/pypa/pipx/issues
 Project-URL: Release Notes, https://pipx.pypa.io/latest/changelog.html

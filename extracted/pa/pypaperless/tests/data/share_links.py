@@ -1,0 +1,73 @@
+"""Share links snapshot."""
+
+DATA_SHARE_LINKS = {
+    "count": 8,
+    "next": None,
+    "previous": None,
+    "results": [
+        {
+            "id": 1,
+            "created": "2023-12-11T14:06:49.096456Z",
+            "expiration": "2023-12-18T14:06:49.064000Z",
+            "slug": "GMIFR9WVPe7a0FAltmrAdmVsrrTzH6Z9yFi2jufhi5yCTAMWfF",
+            "document": 1,
+            "file_version": "original",
+        },
+        {
+            "id": 2,
+            "created": "2023-12-11T14:06:53.583496Z",
+            "expiration": "2024-01-10T14:06:53.558000Z",
+            "slug": "Px2h3mrkIvExyTE8M8usrTLv3jtTb4MnLJ4eTAxcjy2FUmuDLq",
+            "document": 2,
+            "file_version": "original",
+        },
+        {
+            "id": 3,
+            "created": "2023-12-11T14:06:55.984583Z",
+            "expiration": None,
+            "slug": "bDnxeQ4UmlFVUYCDrb1KBLbE4HVSW8jw3CLElcwPyAncV5eiI+00:00",
+            "document": 1,
+            "file_version": "original",
+        },
+        {
+            "id": 4,
+            "created": "2023-12-11T14:07:01.448813Z",
+            "expiration": "2023-12-12T14:07:01.423000Z",
+            "slug": "HfzHhDzA03ZQg4t4TAlOuup59qgQA18Zjbb9eOE06PZ8KTjgOb",
+            "document": 2,
+            "file_version": "archive",
+        },
+        {
+            "id": 5,
+            "created": "2023-12-11T14:11:50.710369Z",
+            "expiration": None,
+            "slug": "7PIGEZbeFv5yIrnpSVwj1QeXiJu0IZCiEWGIV4aUHQrfUQtXne",
+            "document": 1,
+            "file_version": "archive",
+        },
+        {
+            "id": 6,
+            "created": "2023-12-11T14:11:50.710369Z",
+            "expiration": None,
+            "slug": "7PIGEZbeFv5yIrnpSVwj1QeXiJu0IZCiEWGIV4aUHQrfUQtXne",
+            "document": 1,
+            "file_version": "archive",
+        },
+        {
+            "id": 7,
+            "created": "2023-12-11T14:11:50.710369Z",
+            "expiration": None,
+            "slug": "7PIGEZbeFv5yIrnpSVwj1QeXiJu0IZCiEWGIV4aUHQrfUQtXne",
+            "document": 1,
+            "file_version": "archive",
+        },
+        {
+            "id": 8,
+            "created": "2023-12-11T14:11:50.710369Z",
+            "expiration": None,
+            "slug": "7PIGEZbeFv5yIrnpSVwj1QeXiJu0IZCiEWGIV4aUHQrfUQtXne",
+            "document": 1,
+            "file_version": "archive",
+        },
+    ],
+}

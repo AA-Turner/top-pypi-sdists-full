@@ -1,0 +1,16 @@
+"""Tests for agentic_devtools.cli.state.clear_cmd."""
+
+import sys
+from unittest.mock import patch
+
+from agentic_devtools import state
+from agentic_devtools.cli import state as cli_state
+
+
+def test_clear_removes_all_state(temp_state_dir, clear_state_before):
+    """Test that clear removes all state."""
+    state.set_value("key1", "value1")
+    state.set_value("key2", "value2")
+    with patch.object(sys, "argv", ["agdt-clear"]):
+        cli_state.clear_cmd()
+    assert state.load_state() == {}

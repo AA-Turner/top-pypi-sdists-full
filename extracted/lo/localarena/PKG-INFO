@@ -1,0 +1,419 @@
+Metadata-Version: 2.4
+Name: localarena
+Version: 0.4.0
+Summary: Live multi-provider model evaluation with portable evidence and uncertainty
+Project-URL: Homepage, https://github.com/maziyarpanahi/localarena
+Project-URL: Repository, https://github.com/maziyarpanahi/localarena
+Project-URL: Issues, https://github.com/maziyarpanahi/localarena/issues
+Author: Maziyar Panahi
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: arena,evaluation,leaderboard,local-models,task-packs
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# LocalArena
+
+Live multi-provider model evaluation, deterministic scoring, standalone HTML
+reports, and uncertainty-aware arena rankings.
+
+```bash
+pip install localarena
+```
+
+LocalArena calls the endpoints you explicitly configure. It does not bundle
+recorded answers, copy public leaderboard results, download models, or fall
+back to another provider.
+
+## First live score
+
+Once a provider is running and a model is available, run a live scored request
+without creating a configuration file:
+
+```bash
+localarena quickstart ollama qwen3:0.6b
+```
+
+This writes privacy-safe `localarena-results.json` and a standalone
+`localarena-report.html`. Model downloads and cold loads can take longer than
+one minute; LocalArena does not manage them.
+
+The one-minute clock starts after the endpoint is reachable, the selected local
+model is downloaded and warm, or the hosted account, key, and model access are
+ready. The command itself makes a real Chat Completions request, scores the
+live response, and writes both outputs. It never substitutes a cached response.
+
+Verify the installed profiles:
+
+```bash
+localarena providers
+```
+
+If the console command is not on `PATH`, use `python -m localarena` on
+macOS/Linux or `py -m localarena` on Windows.
+
+## Provider-by-provider first score
+
+### llama.cpp
+
+Start a chat-capable GGUF with a stable model alias:
+
+```bash
+llama-server -m /absolute/path/to/model.gguf --alias local-model --host 127.0.0.1 --port 8080
+```
+
+Windows PowerShell can use a Windows model path:
+
+```powershell
+llama-server -m "C:\models\model.gguf" --alias local-model --host 127.0.0.1 --port 8080
+```
+
+Then run:
+
+```bash
+localarena models llamacpp --timeout 120
+localarena quickstart llamacpp local-model
+```
+
+For another trusted host or an authenticated server, add the complete
+`--base-url URL/v1` and `--api-key-env VARIABLE` options. The server must use a
+compatible chat template.
+
+### Ollama
+
+Start Ollama first if its application or service is not already running. Pull
+and warm this small example before starting the one-minute timer:
+
+```bash
+ollama pull qwen3:0.6b
+ollama run qwen3:0.6b "Reply with only READY."
+ollama ps
+```
+
+After `ollama ps` shows the model:
+
+```bash
+localarena models ollama
+localarena quickstart ollama qwen3:0.6b
+```
+
+Ollama's loopback API does not require a credential by default.
+
+### LM Studio
+
+Download and load a model with a stable API identifier, then start the server
+on LocalArena's default port:
+
+```bash
+lms get ibm/granite-4-micro
+lms ls
+lms load MODEL_KEY --identifier local-model
+lms server start --port 1234
+```
+
+Then run:
+
+```bash
+localarena models lmstudio
+localarena quickstart lmstudio local-model
+```
+
+Authentication is disabled by default. If it is enabled, add
+`--api-key-env LM_API_TOKEN` after securely loading that variable.
+
+### OpenRouter
+
+Hosted calls send the prompt to OpenRouter and the selected upstream provider.
+Pricing and account limits apply. Load the key into the current shell without
+placing it in shell history.
+
+macOS or Linux:
+
+```bash
+printf 'OpenRouter API key: '
+read -r -s OPENROUTER_API_KEY
+printf '\n'
+export OPENROUTER_API_KEY
+```
+
+Windows PowerShell:
+
+```powershell
+$secret = Read-Host "OpenRouter API key" -AsSecureString
+$credential = [System.Net.NetworkCredential]::new("", $secret)
+$env:OPENROUTER_API_KEY = $credential.Password
+Remove-Variable secret, credential
+```
+
+Run the official free router for a connectivity smoke test:
+
+```bash
+localarena models openrouter --timeout 120
+localarena quickstart openrouter openrouter/free --timeout 120
+```
+
+For reproducible comparisons, replace `openrouter/free` with a concrete model
+slug returned by discovery. Anthropic models are supported through concrete
+Anthropic slugs served by OpenRouter; the direct Anthropic Messages protocol is
+not a native profile.
+
+### OpenAI
+
+Hosted calls send the prompt to OpenAI and may incur usage charges. Load a
+project key into the current shell without placing it in shell history.
+
+macOS or Linux:
+
+```bash
+printf 'OpenAI API key: '
+read -r -s OPENAI_API_KEY
+printf '\n'
+export OPENAI_API_KEY
+```
+
+Windows PowerShell:
+
+```powershell
+$secret = Read-Host "OpenAI API key" -AsSecureString
+$credential = [System.Net.NetworkCredential]::new("", $secret)
+$env:OPENAI_API_KEY = $credential.Password
+Remove-Variable secret, credential
+```
+
+Discover the models available to the project, then use an accessible Chat
+Completions model:
+
+```bash
+localarena models openai --timeout 120
+localarena quickstart openai gpt-4.1-mini-2025-04-14 --timeout 120
+```
+
+If that snapshot is not returned, substitute an accessible Chat Completions
+model ID from discovery.
+
+### Custom compatible endpoint
+
+The `custom` profile requires an explicit API base URL. A compatible
+`POST /chat/completions` endpoint is required; `GET /models` is optional.
+Make sure a lazy-loaded model is warm before starting the timer.
+
+Unauthenticated loopback:
+
+```bash
+localarena models custom --base-url http://127.0.0.1:9000/v1
+localarena quickstart custom model-id --base-url http://127.0.0.1:9000/v1
+```
+
+Skip the first command when the endpoint does not implement model discovery.
+
+For a Bearer-authenticated HTTPS endpoint, load the key without placing it in
+shell history.
+
+macOS or Linux:
+
+```bash
+printf 'Custom endpoint API key: '
+read -r -s LOCALARENA_CUSTOM_API_KEY
+printf '\n'
+export LOCALARENA_CUSTOM_API_KEY
+localarena quickstart custom model-id --base-url https://inference.example.com/v1 --api-key-env LOCALARENA_CUSTOM_API_KEY
+```
+
+Windows PowerShell:
+
+```powershell
+$secret = Read-Host "Custom endpoint API key" -AsSecureString
+$credential = [System.Net.NetworkCredential]::new("", $secret)
+$env:LOCALARENA_CUSTOM_API_KEY = $credential.Password
+Remove-Variable secret, credential
+localarena quickstart custom model-id --base-url https://inference.example.com/v1 --api-key-env LOCALARENA_CUSTOM_API_KEY
+```
+
+Use HTTPS whenever a credential crosses the machine boundary. Reusable
+configurations can read non-Bearer sensitive headers through `headers_env`.
+
+### Expected result
+
+A passing quickstart prints:
+
+```text
+[1/1] MODEL_ID × arithmetic-smoke-test: ok
+
+ 1. MODEL_ID: score=1.000 decision=1.000 arena=1000.0 95%CI=1000.0–1000.0 inconclusive errors=0
+Results: localarena-results.json
+Report: localarena-report.html
+```
+
+`score=0.000 errors=0` means the live request completed but missed the fixed
+scorer. `errors=1` is a provider or scoring failure and returns exit status 2.
+The JSON and report omit prompts, answers, evaluator details, and detailed
+errors by default. Add `--include-content` only when that content is safe to
+store.
+
+## Reusable command-line evaluations
+
+Create a JSON configuration with one or more model targets and prompt tasks,
+then run the complete Cartesian product:
+
+<!-- localarena-config -->
+```json
+{
+  "name": "Local arithmetic",
+  "models": [
+    {
+      "name": "qwen-small",
+      "provider": "ollama",
+      "model": "qwen3:0.6b",
+      "parameters": {
+        "max_tokens": 128
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "arithmetic",
+      "prompt": "Reply with exactly 42.",
+      "evaluator": {
+        "type": "contains",
+        "expected": "42"
+      }
+    }
+  ]
+}
+```
+
+```bash
+localarena run evaluation.json \
+  --output results.json \
+  --report report.html
+```
+
+Built-in profiles:
+
+- `llamacpp` — `http://127.0.0.1:8080/v1`
+- `ollama` — `http://127.0.0.1:11434/v1`
+- `lmstudio` — `http://127.0.0.1:1234/v1`
+- `openrouter` — `OPENROUTER_API_KEY`
+- `openai` — `OPENAI_API_KEY`
+- `custom` — an explicit compatible base URL
+
+```bash
+localarena providers
+localarena models ollama
+localarena quickstart ollama qwen3:0.6b
+localarena report results.json --output report.html
+```
+
+Config files use `api_key_env` and `headers_env`; literal API keys and
+sensitive literal headers are rejected. Prompt and answer content is excluded
+from results by default. Use `--include-content` only when it is safe to retain
+that content.
+
+Local and hosted model entries can share one evaluation. Each keeps its own
+provider, model ID, base URL, runtime credential, request policy, and generation
+parameters. Exact, containment, regular-expression, JSON, numeric, and live
+model-judge evaluators are built in, along with multi-reference matching,
+choice labels, answer extraction, and token-F1 partial credit.
+
+Reusable tasks can live in a versioned task pack instead of the provider
+configuration:
+
+```json
+{
+  "schema_version": 1,
+  "name": "Release gate",
+  "version": "1.0.0",
+  "license": "internal",
+  "tasks": [
+    {
+      "id": "final-answer",
+      "prompt": "Show brief work, then end with #### 42.",
+      "evaluator": {
+        "type": "extract",
+        "expected": ["42"],
+        "pattern": "####\\s*([0-9]+)",
+        "group": 1
+      }
+    }
+  ]
+}
+```
+
+Reference it with `"task_files": ["release-gate.localarena"]`. Paths resolve
+relative to the evaluation config. Native packs are strictly validated and
+assigned the same content SHA-256 identity in Python and JavaScript. Native
+JSONL and simple `input`/`ideal` JSONL rows are supported without executing
+downloaded code.
+
+## Python API
+
+```python
+from localarena import (
+    EvaluationRunner,
+    NumericMatch,
+    ModelTarget,
+    PromptTask,
+    create_provider,
+    write_html_report,
+)
+
+target = ModelTarget(
+    name="local-model",
+    provider=create_provider("ollama"),
+    model="qwen3:0.6b",
+    max_tokens=64,
+    temperature=0,
+)
+task = PromptTask.from_text(
+    "arithmetic",
+    "Return only the result of 6 multiplied by 7.",
+    evaluator=NumericMatch(42),
+)
+
+run = EvaluationRunner(
+    [target],
+    [task],
+    max_concurrency=2,
+).run(name="Live evaluation")
+
+print(run.to_json())
+write_html_report(run, "report.html")
+```
+
+Deterministic evaluators include exact, multi-reference, choice, extraction,
+token-F1, containment, regular-expression, JSON, and numeric scoring.
+`ModelJudge` supports live rubric scoring with another configured target.
+Generation failures and scoring failures remain individual result rows instead
+of aborting the run. The default decision score counts a failed scored row as
+zero, while the raw surviving-score mean remains available for diagnosis.
+
+## Pairwise arena
+
+The lower-level portable arena provides sequential Elo for a changing history
+and order-independent Bradley–Terry ratings with seeded confidence intervals
+for a completed comparison:
+
+```python
+from localarena import Arena, Result
+
+arena = Arena(["model-a", "model-b"])
+arena.record("model-a", "model-b", Result.LEFT)
+
+for row in arena.standings():
+    print(row.rank, row.name, row.rating)
+
+for row in arena.bradley_terry(bootstrap_samples=1000, seed=7):
+    print(row)
+```
+
+Arena and evaluation snapshots are JSON-safe. The npm package implements the
+same arena and evaluation run contracts.

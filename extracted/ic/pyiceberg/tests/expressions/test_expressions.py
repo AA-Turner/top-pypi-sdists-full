@@ -16,6 +16,7 @@
 # under the License.
 # pylint:disable=redefined-outer-name,eval-used
 
+import copy
 import pickle
 import uuid
 from decimal import Decimal
@@ -66,6 +67,7 @@ from pyiceberg.expressions.visitors import _from_byte_buffer
 from pyiceberg.schema import Accessor, Schema
 from pyiceberg.typedef import Record
 from pyiceberg.types import (
+    DateType,
     DecimalType,
     DoubleType,
     FloatType,
@@ -1150,6 +1152,26 @@ def test_above_int_bounds_greater_than_or_equal(
 
 
 @pytest.fixture
+def date_schema() -> Schema:
+    return Schema(NestedField(field_id=1, name="a", field_type=DateType(), required=False))
+
+
+def test_above_date_bounds_equal_to(date_schema: Schema, above_int_max: Literal[int], below_int_min: Literal[int]) -> None:
+    assert EqualTo("a", above_int_max).bind(date_schema) is AlwaysFalse()
+    assert EqualTo("a", below_int_min).bind(date_schema) is AlwaysFalse()
+
+
+def test_above_date_bounds_less_than(date_schema: Schema, above_int_max: Literal[int], below_int_min: Literal[int]) -> None:
+    assert LessThan("a", above_int_max).bind(date_schema) is AlwaysTrue()
+    assert LessThan("a", below_int_min).bind(date_schema) is AlwaysFalse()
+
+
+def test_above_date_bounds_greater_than(date_schema: Schema, above_int_max: Literal[int], below_int_min: Literal[int]) -> None:
+    assert GreaterThan("a", above_int_max).bind(date_schema) is AlwaysFalse()
+    assert GreaterThan("a", below_int_min).bind(date_schema) is AlwaysTrue()
+
+
+@pytest.fixture
 def float_schema() -> Schema:
     return Schema(NestedField(field_id=1, name="a", field_type=FloatType(), required=False))
 
@@ -1290,6 +1312,75 @@ def test_bind_ambiguous_name() -> None:
             schema_id=1,
         )
     assert "Invalid schema, multiple fields for name foo.bar: 2 and 3" in str(exc_info)
+
+
+def test_deepcopy_and() -> None:
+    expr = And(EqualTo("x", 1), EqualTo("y", 2))
+    copied = copy.deepcopy(expr)
+    assert copied == expr
+    assert copied is not expr
+
+
+def test_deepcopy_or() -> None:
+    expr = Or(EqualTo("x", 1), EqualTo("y", 2))
+    copied = copy.deepcopy(expr)
+    assert copied == expr
+    assert copied is not expr
+
+
+def test_deepcopy_not() -> None:
+    expr = Not(EqualTo("x", 1))
+    copied = copy.deepcopy(expr)
+    assert copied == expr
+    assert copied is not expr
+
+
+def test_deepcopy_equal_to() -> None:
+    expr = EqualTo("x", 1)
+    copied = copy.deepcopy(expr)
+    assert copied == expr
+    assert copied is not expr
+
+
+def test_deepcopy_always_true() -> None:
+    copied = copy.deepcopy(AlwaysTrue())
+    assert copied is AlwaysTrue()
+
+
+def test_deepcopy_always_false() -> None:
+    copied = copy.deepcopy(AlwaysFalse())
+    assert copied is AlwaysFalse()
+
+
+def test_deepcopy_always_true_then_pickle() -> None:
+    copied = copy.deepcopy(AlwaysTrue())
+    restored = pickle.loads(pickle.dumps(copied))
+    assert restored is AlwaysTrue()
+
+
+def test_deepcopy_balanced_and() -> None:
+    expr = And(EqualTo("a", 1), EqualTo("b", 2), EqualTo("c", 3), EqualTo("d", 4))
+    copied = copy.deepcopy(expr)
+    assert copied == expr
+
+
+def test_deepcopy_balanced_or() -> None:
+    expr = Or(EqualTo("a", 1), EqualTo("b", 2), EqualTo("c", 3), EqualTo("d", 4))
+    copied = copy.deepcopy(expr)
+    assert copied == expr
+
+
+def test_deepcopy_nested_expression() -> None:
+    expr = And(Or(EqualTo("a", 1), EqualTo("b", 2)), Not(EqualTo("c", 3)))
+    copied = copy.deepcopy(expr)
+    assert copied == expr
+
+
+def test_deepcopy_then_pickle() -> None:
+    expr = And(EqualTo("x", 1), EqualTo("y", 2))
+    copied = copy.deepcopy(expr)
+    restored = pickle.loads(pickle.dumps(copied))
+    assert restored == expr
 
 
 #   __  __      ___

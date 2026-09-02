@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot-nginx
-Version: 5.7.0
+Version: 5.8.0
 Summary: Nginx plugin for Certbot
 Author: Certbot Project
 License-Expression: Apache-2.0
@@ -25,7 +25,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: certbot[nginx]>=5.7.0
+Requires-Dist: certbot[nginx]>=5.8.0
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Dynamic: license-file

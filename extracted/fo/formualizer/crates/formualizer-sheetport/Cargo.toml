@@ -1,0 +1,48 @@
+[package]
+name = "formualizer-sheetport"
+version = "0.8.4"
+edition = "2024"
+description = "SheetPort runtime: bind manifests to workbooks, validate IO, and run sessions deterministically"
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+readme = "README.md"
+keywords = ["spreadsheet", "excel", "api", "schema", "validation"]
+categories = ["data-structures"]
+
+[features]
+# system-clock: forwards to formualizer-eval/system-clock (ambient Local/Utc time).
+# Enabled by default for native and wasm-js consumers. Disable for portable wasm guests.
+default = ["system-clock"]
+system-clock = ["formualizer-eval/system-clock", "formualizer-workbook/system-clock"]
+# js-runtime: forwards to formualizer-eval/js-runtime and formualizer-workbook/js-runtime.
+# (web-time + JS getrandom). NOT enabled by default.
+js-runtime = ["formualizer-eval/js-runtime", "formualizer-workbook/js-runtime"]
+# umya: opt-in umya-spreadsheet I/O adapters in the workbook layer.
+umya = ["formualizer-workbook/umya_integration"]
+# Internal telemetry access for repository benchmarks; not a supported public API.
+benchmark_internal = []
+
+[dependencies]
+sheetport-spec = { path = "../sheetport-spec", version = "0.3.1" }
+formualizer-workbook = { path = "../formualizer-workbook", version = "0.8.4", default-features = false }
+formualizer-common = { path = "../formualizer-common", version = "3.0.0" }
+formualizer-parse = { path = "../formualizer-parse", version = "3.0.0" }
+formualizer-eval = { path = "../formualizer-eval", version = "0.8.4", default-features = false }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+regex = { workspace = true }
+chrono = { workspace = true }
+
+# JS entropy shims are now fully handled by formualizer-eval's `js-runtime` feature.
+# Activate sheetport's `js-runtime` feature (which forwards to eval) for browser builds.
+# No unconditional wasm target deps here — portable raw wasm must stay free of JS imports.
+
+[dev-dependencies]
+chrono = { workspace = true }
+formualizer-testkit = { path = "../formualizer-testkit" }
+tempfile = { workspace = true }
+formualizer-workbook = { path = "../formualizer-workbook", version = "0.8.4", features = ["umya_integration"] }
+umya-spreadsheet = "=2.3.2"

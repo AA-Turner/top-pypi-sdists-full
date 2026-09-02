@@ -1,0 +1,42 @@
+[project]
+name = "pycrc32"
+description = "Python module for SIMD-accelerated CRC32 checksum computation"
+readme = "README.md"
+authors = [
+{ name = "Robin Bürgi", email = "robin.buergi@gmail.com" },
+]
+license = { file = "LICENSE.txt" }
+requires-python = ">=3.8"
+dynamic = ["version"]
+
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+keywords = [
+    "crc",
+    "crc32",
+    "simd",
+    "checksum",
+]
+
+[project.urls]
+Homepage = "https://github.com/code-inflation/pycrc32"
+Repository = "https://github.com/code-inflation/pycrc32"
+
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

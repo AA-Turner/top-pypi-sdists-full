@@ -21,22 +21,39 @@ import time
 import uuid
 import warnings
 from binascii import b2a_hex
+from contextlib import aclosing
 from datetime import datetime, timezone
 from functools import lru_cache
 from hmac import compare_digest
 from operator import itemgetter
-from urllib.parse import quote
+from urllib.parse import (
+    quote,
+    unquote,
+)
 
-if sys.version_info >= (3, 10):
-    from contextlib import aclosing
-else:
-    from async_generator import aclosing
-
+import aiohttp
 import idna
 from sqlalchemy.exc import SQLAlchemyError
-from tornado import gen, ioloop, web
-from tornado.httpclient import AsyncHTTPClient, HTTPError
+from tornado import ioloop, web
 from tornado.log import app_log
+
+from .httpclient import fetch
+
+
+def unix_socket_in_use(socket_path: str) -> bool:
+    """Checks whether a UNIX socket path on disk is in use by attempting to connect to it."""
+    if not os.path.exists(socket_path):
+        return False
+
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(socket_path)
+    except OSError:
+        return False
+    else:
+        return True
+    finally:
+        sock.close()
 
 
 def _bool_env(key, default=False):
@@ -103,7 +120,18 @@ def isoformat(dt):
     return dt.isoformat() + 'Z'
 
 
-def can_connect(ip, port):
+def can_connect(address, port=None, unix_socket=False):
+    """Check if we can connect to an address (ip or socket path) and optional port.
+
+    Return True if we can connect, False otherwise.
+    """
+    if unix_socket:
+        return unix_socket_in_use(unquote(address))
+    else:
+        return can_connect_ip(address, port)
+
+
+def can_connect_ip(ip, port):
     """Check if we can connect to an ip:port.
 
     Return True if we can connect, False otherwise.
@@ -141,6 +169,7 @@ def make_ssl_context(
     Client sockets are created with `purpose=ssl.Purpose.SERVER_AUTH` (default),
     Server sockets are created with `purpose=ssl.Purpose.CLIENT_AUTH`.
     """
+
     if not keyfile or not certfile:
         return None
     if verify is not None:
@@ -175,8 +204,13 @@ def make_ssl_context(
     return ssl_context
 
 
-# AnyTimeoutError catches TimeoutErrors coming from asyncio, tornado, stdlib
-AnyTimeoutError = (gen.TimeoutError, asyncio.TimeoutError, TimeoutError)
+# AnyTimeoutError catches TimeoutErrors coming from asyncio, aiohttp, tornado, stdlib
+# with recent versions, these are all aliases for the stdlib TimeoutError
+# starting with Python 3.11, asyncio.TimeoutError is a deprecated alias for base TimeoutError
+if sys.version_info >= (3, 11):
+    AnyTimeoutError = (TimeoutError,)
+else:
+    AnyTimeoutError = (asyncio.TimeoutError, TimeoutError)
 
 
 async def exponential_backoff(
@@ -268,22 +302,22 @@ async def exponential_backoff(
     raise asyncio.TimeoutError(fail_message)
 
 
-async def wait_for_server(ip, port, timeout=10):
-    """Wait for any server to show up at ip:port."""
-    if ip in {'', '0.0.0.0'}:
-        ip = '127.0.0.1'
-    elif ip == "::":
-        ip = "::1"
-    display_ip = fmt_ip_url(ip)
-    app_log.debug("Waiting %ss for server at %s:%s", timeout, display_ip, port)
+async def wait_for_server(address, port, timeout=10, unix_socket=False):
+    """Wait for any server to show up at address:port."""
+    if unix_socket:
+        display_address = address
+    else:
+        display_address = f"{fmt_ip_url(address)}:{port}"
+
+    app_log.debug("Waiting %ss for server at %s", timeout, display_address)
     tic = time.perf_counter()
     await exponential_backoff(
-        lambda: can_connect(ip, port),
-        f"Server at {display_ip}:{port} didn't respond in {timeout} seconds",
+        lambda: can_connect(address, port, unix_socket),
+        f"Server at {display_address} didn't respond in {timeout} seconds",
         timeout=timeout,
     )
     toc = time.perf_counter()
-    app_log.debug("Server at %s:%s responded in %.2fs", display_ip, port, toc - tic)
+    app_log.debug("Server at %s responded in %.2fs", display_address, toc - tic)
 
 
 async def wait_for_http_server(url, timeout=10, ssl_context=None):
@@ -291,38 +325,35 @@ async def wait_for_http_server(url, timeout=10, ssl_context=None):
 
     Any non-5XX response code will do, even 404.
     """
-    client = AsyncHTTPClient()
+    request_args = {'allow_redirects': False}
     if ssl_context:
-        client.ssl_options = ssl_context
+        request_args['ssl'] = ssl_context
 
     app_log.debug("Waiting %ss for server at %s", timeout, url)
     tic = time.perf_counter()
 
     async def is_reachable():
         try:
-            r = await client.fetch(url, follow_redirects=False)
-            return r
-        except HTTPError as e:
-            if e.code >= 500:
-                # failed to respond properly, wait and try again
-                if e.code != 599:
-                    # we expect 599 for no connection,
-                    # but 502 or other proxy error is conceivable
-                    app_log.warning(
-                        "Server at %s responded with error: %s", url, e.code
-                    )
-            else:
-                app_log.debug("Server at %s responded with %s", url, e.code)
-                return e.response
-        except OSError as e:
-            if e.errno not in {
+            r = await fetch(url, raise_for_status=False, **request_args)
+        except aiohttp.ClientOSError as e:
+            # suppress expected "not there yet" errors
+            if e.os_error.errno not in {
                 errno.ECONNABORTED,
                 errno.ECONNREFUSED,
                 errno.ECONNRESET,
             }:
                 app_log.warning("Failed to connect to %s (%s)", url, e)
+        except aiohttp.ClientConnectionError as e:
+            app_log.warning("Failed to connect to %s (%s)", url, e)
         except Exception as e:
             app_log.warning("Error while waiting for server %s (%s)", url, e)
+        else:
+            if r.status >= 500:
+                # failed to respond properly, wait and try again
+                app_log.warning("Server at %s responded with error: %s", url, r.status)
+            else:
+                app_log.debug("Server at %s responded with %s", url, r.status)
+                return r
         return False
 
     re = await exponential_backoff(
@@ -714,7 +745,7 @@ def _parse_accept_header(accept):
 
         q = 1.0
         for part in parts:
-            (key, _, value) = part.partition("=")
+            key, _, value = part.partition("=")
             key = key.strip()
             if key == "q":
                 try:
@@ -994,3 +1025,40 @@ def format_exception(exc, *, only_jupyterhub=False):
     return getattr(exc, "jupyterhub_message", default_message), getattr(
         exc, "jupyterhub_html_message", None
     )
+
+
+def safe_log(s, max_length=1024):
+    """
+    Ensure an untrusted string is safe for logging by calling repr(),
+    and truncating if too long
+    """
+    r = repr(s)
+    if len(r) > max_length:
+        r = r[: (max_length - 2)] + " …"
+    return r
+
+
+async def wait_for_shielded(f, timeout):
+    """Wait for a future, up to timeout.
+
+    Raises TimeoutError if timeout is reached and future is not done.
+
+    This should eventually be replaced by:
+
+    asyncio.wait_for(asyncio.shield(f), timeout).
+
+    Like asyncio.wait_for(f, timeout), but:
+
+    1. doesn't cancel awaited task
+    2. avoids use of asyncio.shield, which has a logging bug in 3.14+
+       https://github.com/python/cpython/issues/156321
+    3. avoids _different_ logging problems also in tornado's gen.with_timeout
+    4. asssumes future will be handled separately if it is not done when timeout is reached
+       (this appears to be what leads to the logging problems in both asyncio.shield and gen.with_timeout)
+    """
+    f = asyncio.ensure_future(f)
+    done, pending = await asyncio.wait([f], timeout=timeout)
+    if f.done():
+        return await f
+    else:
+        raise TimeoutError(f"{f} not done after {timeout}s")

@@ -1,0 +1,99 @@
+name: Discover e2e suites
+description: |
+  Glob the caller's e2e test files (test_*.py under `test-dir`, default
+  tests/e2e/) and emit a GitHub Actions `strategy.matrix` so the full-DAG e2e
+  job fans out one leg per suite. Runs against the caller's checked-out tree,
+  so the SDK never hard-codes a connector's suites. The driver is co-located
+  with this action (checked out with it in consumer repos).
+
+  Set `clouds` to cross every suite with a cloud provider (FND-6), so each
+  suite runs once per CSP tenant. Leaving it empty keeps the single-tenant
+  shape, which is what a caller without the tenant-matrix secret wants.
+
+inputs:
+  test-dir:
+    description: Directory to glob for test_*.py e2e suites.
+    required: false
+    default: tests/e2e
+  clouds:
+    description: |
+      Comma-separated cloud providers to cross each discovered suite with
+      (e.g. "aws,azure,gcp"). Each leg's `cloud` selects which tenant the e2e
+      job resolves its credentials for.
+
+      Empty means the driver's default list, NOT "no clouds" — an untouched
+      GitHub input arrives as "", and that must not silently opt a repo out of
+      the matrix. Pass "none" to disable the cloud dimension.
+
+      Defaulted to "none" here so a caller that says nothing at all gets the
+      pre-FND-6 behaviour: an action input is easy to forget, and tripling a
+      caller's matrix by default is the wrong direction to fail in.
+    required: false
+    default: "none"
+  available-clouds:
+    description: |
+      Comma-separated cloud keys that E2E_TENANT_MATRIX_JSON actually carries.
+      The KEY LIST, never the payload — the credentials belong to the per-leg
+      tenant resolver, which is the only thing that needs them.
+
+      Narrows the DEFAULTED `clouds` list to the intersection, warning about
+      each cloud it drops, so taking a cloud out of the secret narrows the
+      fan-out fleet-wide instead of reding one leg in every e2e-running repo
+      (FND-354). A cloud named explicitly in `clouds` is never narrowed away:
+      it reaches the resolver and still fails there, because somebody asserted
+      it should run.
+
+      Empty (the default) means "not known here" and narrows nothing, which is
+      the pre-FND-354 behaviour a caller without the secret already gets.
+    required: false
+    default: ""
+  clouds-only:
+    description: |
+      "true" emits only the cloud dimension, with no file dimension, for
+      callers that pass a whole directory to pytest rather than fanning out
+      per suite (e2e-full-reusable.yaml). `test-dir` is unused in that mode.
+    required: false
+    default: "false"
+
+outputs:
+  matrix:
+    description: JSON include-list for strategy.matrix; each entry has file and name (plus suite and cloud when `clouds` is set).
+    value: ${{ steps.discover.outputs.matrix }}
+  count:
+    description: Number of discovered suites (0 means the e2e job should skip). Independent of the cloud fan-out.
+    value: ${{ steps.discover.outputs.count }}
+  leg-count:
+    description: Number of matrix legs emitted (suites × clouds).
+    value: ${{ steps.discover.outputs.leg-count }}
+  clouds:
+    description: |
+      The resolved cloud list, comma-separated; "" means no cloud dimension
+      (the legacy single-tenant fallback). Emitted from the same `parse_clouds`
+      call that decided the fan-out, so a consumer recording cross-CSP coverage
+      cannot disagree with the coverage that actually ran (FND-34).
+    value: ${{ steps.discover.outputs.clouds }}
+
+runs:
+  using: composite
+  steps:
+    - name: Discover suites
+      id: discover
+      shell: bash
+      # Route the caller-supplied inputs through env (quoted below) rather than
+      # interpolating ${{ }} into the command string. github.action_path is a
+      # trusted GitHub context, so it stays inline. The --clouds-only flag is
+      # selected by a step-level expression rather than an `if` in the shell,
+      # per docs/standards/ci.md; it is deliberately unquoted below so the
+      # empty case expands to no argument at all.
+      env:
+        TEST_DIR: ${{ inputs.test-dir }}
+        CLOUDS: ${{ inputs.clouds }}
+        AVAILABLE_CLOUDS: ${{ inputs.available-clouds }}
+        CLOUDS_ONLY_FLAG: ${{ inputs.clouds-only == 'true' && '--clouds-only' || '' }}
+      run: |
+        set -euo pipefail
+        python3 "${{ github.action_path }}/discover_e2e_suites.py" \
+          --test-dir "$TEST_DIR" \
+          --clouds "$CLOUDS" \
+          --available-clouds "$AVAILABLE_CLOUDS" \
+          ${CLOUDS_ONLY_FLAG} >> "$GITHUB_OUTPUT"

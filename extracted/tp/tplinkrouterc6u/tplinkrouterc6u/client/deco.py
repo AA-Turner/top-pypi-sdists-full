@@ -1,0 +1,244 @@
+from base64 import b64decode
+from json import dumps
+from requests.exceptions import ConnectTimeout
+from collections.abc import Callable
+from logging import Logger
+from tplinkrouterc6u.common.helper import get_ip, get_mac, get_value
+from tplinkrouterc6u.common.package_enum import Connection
+from tplinkrouterc6u.common.dataclass import Firmware, Status, Device, IPv4Status, LTEStatus
+from tplinkrouterc6u.client_abstract import AbstractRouter
+from tplinkrouterc6u.client.c6u import TplinkEncryption
+
+
+class TPLinkDecoClient(TplinkEncryption, AbstractRouter):
+    def __init__(self, host: str, password: str, username: str = 'admin', logger: Logger = None,
+                 verify_ssl: bool = True, timeout: int = 30) -> None:
+        super().__init__(host, password, username, logger, verify_ssl, timeout)
+
+        self._headers_request = {'Content-Type': 'application/json'}
+        self._headers_login = {'Content-Type': 'application/json'}
+        self._data_block = 'result'
+        self.devices = []
+
+    def logout(self) -> None:
+        self.request('admin/system?form=logout', dumps({'operation': 'logout'}), True)
+        self._stok = ''
+        self._sysauth = ''
+        self._logged = False
+
+    def set_wifi(self, wifi: Connection, enable: bool) -> None:
+        en = {'enable': enable}
+        if Connection.HOST_2G == wifi:
+            params = {'band2_4': {'host': en}}
+        elif Connection.HOST_5G == wifi:
+            params = {'band5_1': {'host': en}}
+        elif Connection.GUEST_5G == wifi:
+            params = {'band5_1': {'guest': en}}
+        elif Connection.HOST_6G == wifi:
+            params = {'band6': {'host': en}}
+        elif Connection.GUEST_6G == wifi:
+            params = {'band6': {'guest': en}}
+        else:
+            params = {'band2_4': {'guest': en}}
+
+        self.request('admin/wireless?form=wlan', dumps({'operation': 'write', 'params': params}))
+
+    def reboot(self) -> None:
+        if not self.devices:
+            self.get_firmware()
+        self.request('admin/device?form=system', dumps({
+            'operation': 'reboot',
+            'params': {'mac_list': [{"mac": item['mac']} for item in self.devices]}}))
+
+    def get_firmware(self) -> Firmware:
+        self.devices = self.request('admin/device?form=device_list', dumps({"operation": "read"})).get(
+            'device_list', [])
+
+        for item in self.devices:
+            if item.get('role') != 'master' and len(self.devices) != 1:
+                continue
+            firmware = Firmware(item.get('hardware_ver', ''),
+                                item.get('device_model', ''),
+                                item.get('software_ver', ''))
+
+        return firmware
+
+    def get_status(self) -> Status:
+        data = self.request('admin/network?form=wan_ipv4', dumps({'operation': 'read'}))
+
+        status = Status()
+        wan_info = get_value(data, ['wan', 'ip_info']) or get_value(data, ['wan', 'mobile_cpe']) or {}
+        element = wan_info.get('mac')
+        status._wan_macaddr = get_mac(element) if element else None
+        status._lan_macaddr = get_mac(get_value(data, ['lan', 'ip_info', 'mac']))
+        element = wan_info.get('ip')
+        status._wan_ipv4_addr = get_ip(element) if element else None
+        element = get_value(data, ['lan', 'ip_info', 'ip'])
+        status._lan_ipv4_addr = get_ip(element) if element else None
+        element = wan_info.get('gateway')
+        status._wan_ipv4_gateway = get_ip(element) if element else None
+        status.conn_type = get_value(data, ['wan', 'dial_type'])
+
+        data = self.request('admin/network?form=performance', dumps({"operation": "read"}))
+        status.mem_usage = data.get('mem_usage')
+        status.cpu_usage = data.get('cpu_usage')
+
+        data = self.request('admin/wireless?form=wlan', dumps({'operation': 'read'}))
+        status.wifi_2g_enable = get_value(data, ['band2_4', 'host', 'enable'])
+        status.guest_2g_enable = get_value(data, ['band2_4', 'guest', 'enable'])
+        status.wifi_5g_enable = get_value(data, ['band5_1', 'host', 'enable'])
+        status.guest_5g_enable = get_value(data, ['band5_1', 'guest', 'enable'])
+        status.wifi_6g_enable = get_value(data, ['band6', 'host', 'enable'])
+        status.guest_6g_enable = get_value(data, ['band6', 'guest', 'enable'])
+
+        devices = []
+        data = self.request('admin/client?form=client_list', dumps(
+            {"operation": "read", "params": {"device_mac": "default"}})).get('client_list', [])
+
+        for item in data:
+            if not item.get('online'):
+                continue
+            conn = self._map_wire_type(item)
+            if conn == Connection.WIRED:
+                status.wired_total += 1
+            elif conn.is_host_wifi():
+                status.wifi_clients_total += 1
+            elif conn.is_guest_wifi():
+                status.guest_clients_total += 1
+            elif conn.is_iot():
+                if status.iot_clients_total is None:
+                    status.iot_clients_total = 0
+                status.iot_clients_total += 1
+
+            device = Device(conn,
+                            get_mac(item.get('mac', '00:00:00:00:00:00')),
+                            get_ip(item.get('ip', '0.0.0.0')),
+                            self._decode_name(item['name']))
+            device.down_speed = item.get('down_speed')
+            device.up_speed = item.get('up_speed')
+            devices.append(device)
+
+        status.clients_total = (status.wired_total + status.wifi_clients_total + status.guest_clients_total
+                                + (0 if status.iot_clients_total is None else status.iot_clients_total))
+        status.devices = devices
+
+        return status
+
+    def get_ipv4_status(self) -> IPv4Status:
+        ipv4_status = IPv4Status()
+        data = self.request('admin/network?form=wan_ipv4', dumps({'operation': 'read'}))
+        wan_info = get_value(data, ['wan', 'ip_info']) or get_value(data, ['wan', 'mobile_cpe']) or {}
+        element = wan_info.get('mac')
+        ipv4_status._wan_macaddr = get_mac(element if element else '00:00:00:00:00:00')
+        element = wan_info.get('ip')
+        ipv4_status._wan_ipv4_ipaddr = get_ip(element) if element else None
+        element = wan_info.get('gateway')
+        ipv4_status._wan_ipv4_gateway = get_ip(element) if element else None
+        element = get_value(data, ['wan', 'dial_type'])
+        ipv4_status._wan_ipv4_conntype = element if element else ''
+        element = wan_info.get('mask')
+        ipv4_status._wan_ipv4_netmask = get_ip(element) if element else None
+        element = wan_info.get('dns1')
+        ipv4_status._wan_ipv4_pridns = get_ip(element if element else '0.0.0.0')
+        element = wan_info.get('dns2')
+        ipv4_status._wan_ipv4_snddns = get_ip(element if element else '0.0.0.0')
+        element = get_value(data, ['lan', 'ip_info', 'mac'])
+        ipv4_status._lan_macaddr = get_mac(element if element else '00:00:00:00:00:00')
+        element = get_value(data, ['lan', 'ip_info', 'ip'])
+        ipv4_status._lan_ipv4_ipaddr = get_ip(element if element else '0.0.0.0')
+        ipv4_status.lan_ipv4_dhcp_enable = False
+        element = get_value(data, ['lan', 'ip_info', 'mask'])
+        ipv4_status._lan_ipv4_netmask = get_ip(element if element else '0.0.0.0')
+
+        return ipv4_status
+
+    def get_lte_status(self) -> LTEStatus:
+        data = self.request('admin/network?form=internet', dumps({"operation": "read"}))
+        status = LTEStatus()
+        cpe = data.get('mobile_cpe', {})
+
+        status.enable = 1 if cpe.get('dial_status') == 'connected' else 0
+        status.connect_status = 1 if cpe.get('dial_status') == 'connected' else 0
+
+        network_type_map = {
+            'lte': 3,
+            'lte_plus': 7,
+            '5g_nr': 8,
+            '5g_nsa': 8,
+            '5g_sa': 8,
+            'wcdma': 2,
+            'gsm': 1,
+        }
+        status.network_type = network_type_map.get(cpe.get('network_type', ''), 0)
+
+        sim_status_map = {
+            'ready': 3,
+            'locked': 4,
+            'absent': 1,
+            'error': 2,
+        }
+        status.sim_status = sim_status_map.get(cpe.get('sim_status', ''), 0)
+
+        status.total_statistics = cpe.get('data_usage')
+        status.cur_rx_speed = cpe.get('downlink_rate')
+        status.cur_tx_speed = cpe.get('uplink_rate')
+
+        sig = cpe.get('signal_strength')
+        status.sig_level = round(sig / 25) if sig is not None else None
+
+        status.rsrp = cpe.get('rsrp')
+        status.rsrq = cpe.get('rsrq')
+
+        snr = cpe.get('snr')
+        status.snr = round(snr * 10) if snr is not None else None
+
+        profile = cpe.get('profile_name')
+        if profile:
+            status.isp_name = self._decode_name(profile)
+
+        return status
+
+    def authorize(self) -> None:
+        self._retry_request(super().authorize)
+
+    def request(self, path: str, data: str, ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+        return self._retry_request(super().request, path, data, ignore_response, ignore_errors)
+
+    def _retry_request(self, callback: Callable, *args):
+        retries = 0
+        while True:
+            try:
+                return callback(*args)
+            except ConnectTimeout as err:
+                if retries > 2:
+                    raise err
+                retries += 1
+
+    def _map_wire_type(self, data: dict) -> Connection:
+        if data.get('wire_type') == 'wired':
+            return Connection.WIRED
+        mapping = {'band2_4': {'main': Connection.HOST_2G, 'guest': Connection.GUEST_2G, 'iot': Connection.IOT_2G},
+                   'band5': {'main': Connection.HOST_5G, 'guest': Connection.GUEST_5G, 'iot': Connection.IOT_5G},
+                   'band6': {'main': Connection.HOST_6G, 'guest': Connection.GUEST_6G, 'iot': Connection.IOT_6G}
+                   }
+        result = get_value(mapping, [data.get('connection_type'), data.get('interface')])
+
+        return result if result else Connection.UNKNOWN
+
+    @staticmethod
+    def _get_login_data(crypted_pwd: str) -> str:
+        data = {
+            "params": {"password": crypted_pwd},
+            "operation": "login",
+        }
+
+        return dumps(data)
+
+    def _is_valid_response(self, data: dict) -> bool:
+        return 'error_code' in data and data['error_code'] == 0
+
+    def _decode_name(self, data: str) -> str:
+        try:
+            return b64decode(data).decode()
+        except Exception:
+            return data

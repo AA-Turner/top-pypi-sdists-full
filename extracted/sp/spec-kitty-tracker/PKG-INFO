@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spec-kitty-tracker
-Version: 0.4.3
+Version: 0.5.2
 Summary: Universal tracker interface, connector SDK, and sync engine for Spec Kitty
 Author: Spec Kitty Contributors
 License: MIT License
@@ -25,6 +25,8 @@ License: MIT License
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE.
         
+Project-URL: Homepage, https://github.com/Priivacy-ai/spec-kitty-tracker
+Project-URL: Changelog, https://github.com/Priivacy-ai/spec-kitty-tracker/blob/main/CHANGELOG.md
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.11
@@ -36,6 +38,8 @@ Requires-Dist: pytest>=8.0.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
 Requires-Dist: mypy>=1.10.0; extra == "dev"
 Requires-Dist: ruff>=0.6.0; extra == "dev"
+Requires-Dist: build>=1.2.0; extra == "dev"
+Requires-Dist: twine>=5.0.0; extra == "dev"
 Dynamic: license-file
 
 # spec-kitty-tracker

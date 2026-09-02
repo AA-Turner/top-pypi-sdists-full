@@ -30,11 +30,11 @@ if TYPE_CHECKING:
 
 
 class NoParametersFoundException(Exception):
-    """No parameters were found that matched the specified filter"""
+    """No parameters matched the specified filter"""
 
 
 class NonUniqueParametersException(Exception):
-    """Multiple parameters were found that matched the specified filter"""
+    """Multiple parameters matched the specified filter"""
 
     def __init__(self, keys: Dict[str, Any], matching_params: List[TuningParametersType]) -> None:
         """Construct a NonUniqueParametersException
@@ -73,11 +73,11 @@ class GridSearchArguments(APIObject):
     Attributes
     ----------
     search_type : GridSearchSearchType
-        The type of grid search to be performed. If not specified, DataRobot performs Smart Search.
+        The type of grid search to perform. If you omit this value, DataRobot performs Smart Search.
     algorithm : GridSearchAlgorithm (optional)
         The algorithm to apply when running the grid search.
-        This is only applicable if the search type is specified and the search determines which algorithm to use.
-        The following are the valid combinations of search type and algorithm:
+        Apply this only when you specify the search type and the search determines which algorithm to use.
+        The following table lists the valid combinations of search type and algorithm.
         ------------------------------------------------------------
         | GridSearchSearchType.SMART | GridSearchAlgorithm.PATTERN_SEARCH (default) |
         | GridSearchSearchType.SMART | GridSearchAlgorithm.ACCELERATED_SEARCH |
@@ -86,6 +86,7 @@ class GridSearchArguments(APIObject):
         | GridSearchSearchType.BRUTE_FORCE | GridSearchAlgorithm.EXHAUSTIVE_SEARCH (default) |
         | GridSearchSearchType.BRUTE_FORCE | GridSearchAlgorithm.GREEDY_EXHAUSTIVE_SEARCH |
         ------------------------------------------------------------
+        See the table above for valid search type and algorithm pairs.
     batch_size : int (optional)
         The number of iterations to perform in each batch.
     max_iterations : int (optional)
@@ -192,9 +193,9 @@ class AdvancedTuningSession:
         Raises
         ------
         NoParametersFoundException
-            if no matching parameters are found.
+            If no matching parameters are found.
         NonUniqueParametersException
-            if multiple parameters matched the specified filtering criteria
+            If multiple parameters matched the specified filtering criteria.
         """
         filtered_params = (x for x in self._available_params)
         if parameter_id:
@@ -254,10 +255,10 @@ class AdvancedTuningSession:
         parameter_name: Optional[str] = None,
         parameter_id: Optional[str] = None,
     ) -> None:
-        """Set the value of a parameter to be used
+        """Set the value of a parameter for use in the model.
 
         The caller must supply enough of the optional arguments to this function
-        to uniquely identify the parameter that is being set.
+        to uniquely identify the parameter you are setting.
         For example, a less-common parameter name such as
         'building_block__complementary_error_function' might only be used once (if at all)
         by a single task in a model.  In which case it may be sufficient to simply specify
@@ -270,20 +271,20 @@ class AdvancedTuningSession:
         Parameters
         ----------
         task_name : str
-            Name of the task whose parameter needs to be set
+            Name of the task whose parameter you want to set.
         parameter_name : str
-            Name of the parameter to set
+            Name of the parameter to set.
         parameter_id : str
-            ID of the parameter to set
+            ID of the parameter to set.
         value : int, float, list, or str
-            New value for the parameter, with legal values determined by the parameter being set
+            New value for the parameter, with legal values determined by the parameter being set.
 
         Raises
         ------
         NoParametersFoundException
-            if no matching parameters are found.
+            If no matching parameters are found.
         NonUniqueParametersException
-            if multiple parameters matched the specified filtering criteria
+            If multiple parameters matched the specified filtering criteria.
         """
         parameter_id = self._get_parameter_id(
             task_name=task_name, parameter_name=parameter_name, parameter_id=parameter_id

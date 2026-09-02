@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
 from typing import Any
 
 import httpx
@@ -14,18 +13,14 @@ from spec_kitty_tracker.discovery.providers.jira import (
     JiraWorkspaceDiscovery,
 )
 from spec_kitty_tracker.discovery.registry import (
-    _resource_discoverers,
-    _workspace_discoverers,
     get_resource_discoverer,
     get_workspace_discoverer,
 )
 from spec_kitty_tracker.discovery.types import (
-    DiscoveredResource,
     DiscoveredWorkspace,
     DiscoveryResult,
 )
 from spec_kitty_tracker.nango import NangoConnectionContext
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -188,9 +183,7 @@ class TestJiraWorkspaceDiscovery:
 
     @pytest.mark.anyio
     async def test_discover_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        mock_transport = RoutingMockTransport(
-            {"/oauth/token/accessible-resources": (200, [])}
-        )
+        mock_transport = RoutingMockTransport({"/oauth/token/accessible-resources": (200, [])})
         monkeypatch.setattr(
             "spec_kitty_tracker.discovery.providers.jira.NangoProxyTransport",
             lambda ctx: mock_transport,
@@ -229,9 +222,7 @@ class TestJiraWorkspaceDiscovery:
 
 class TestJiraResourceDiscovery:
     @pytest.mark.anyio
-    async def test_stable_ref_is_project_id_not_key(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_stable_ref_is_project_id_not_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """P1 CRITICAL: stable_ref MUST be str(project['id']), NOT project['key']."""
         canned_response = {
             "values": [
@@ -370,9 +361,7 @@ class TestJiraResourceDiscovery:
         assert result.truncated is False
 
     @pytest.mark.anyio
-    async def test_pagination_collects_all_pages(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_pagination_collects_all_pages(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Multi-page response should collect projects from all pages."""
         pages = [
             {
@@ -422,9 +411,7 @@ class TestJiraResourceDiscovery:
             lambda ctx: mock_transport,
         )
         # Also patch the max pages constant to confirm truncation
-        monkeypatch.setattr(
-            "spec_kitty_tracker.discovery.providers.jira._MAX_PAGES", 20
-        )
+        monkeypatch.setattr("spec_kitty_tracker.discovery.providers.jira._MAX_PAGES", 20)
 
         discoverer = JiraResourceDiscovery(_make_context())
         result = await discoverer.discover(_make_workspace())
@@ -433,9 +420,7 @@ class TestJiraResourceDiscovery:
         assert result.truncated is True
 
     @pytest.mark.anyio
-    async def test_cloud_id_from_workspace_context(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_cloud_id_from_workspace_context(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """cloud_id in connector_params comes from workspace.provider_context."""
         canned_response = {
             "values": [{"id": "10001", "key": "X", "name": "X Project"}],

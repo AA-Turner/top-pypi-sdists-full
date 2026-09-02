@@ -11,8 +11,8 @@ in a backward-incompatible way without a separate migration mission.
 
 import warnings
 
-from spec_kitty_tracker.discovery.types import DiscoveredWorkspace, DiscoveryResult
 from spec_kitty_tracker.discovery import discover_workspaces
+from spec_kitty_tracker.discovery.types import DiscoveredWorkspace, DiscoveryResult
 
 warnings.warn(
     "spec_kitty_tracker.workspace_discovery is deprecated. "

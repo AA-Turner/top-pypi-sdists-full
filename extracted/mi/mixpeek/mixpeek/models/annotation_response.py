@@ -38,6 +38,7 @@ class AnnotationResponse(BaseModel):
     confidence: Optional[Union[Annotated[float, Field(le=1.0, strict=True, ge=0.0)], Annotated[int, Field(le=1, strict=True, ge=0)]]] = Field(default=None, description="Human confidence in this decision (0.0–1.0).")
     reasoning: Optional[Annotated[str, Field(strict=True, max_length=5000)]] = Field(default=None, description="Why this decision was made. Stored for audit trail.")
     payload: Optional[Dict[str, Any]] = Field(default=None, description="Use-case-specific structured data. E.g. {'codes_approved': ['E11.40'], 'raf_impact': 0.302}")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Custom metadata attached by the caller. Stored and returned as-is, kept separate from the structured payload.")
     retriever_id: Optional[StrictStr] = Field(default=None, description="Retriever that produced the document being annotated.")
     execution_id: Optional[StrictStr] = Field(default=None, description="Retriever execution ID.")
     stage_name: Optional[StrictStr] = Field(default=None, description="Stage that produced the result (e.g. 'llm_enrich').")
@@ -47,7 +48,7 @@ class AnnotationResponse(BaseModel):
     updated_at: Optional[datetime] = None
     version: Optional[StrictInt] = Field(default=1, description="Current version; starts at 1, bumps per edit.")
     revisions: Optional[List[AnnotationRevision]] = Field(default=None, description="Backward deltas preserving every superseded version.")
-    __properties: ClassVar[List[str]] = ["annotation_id", "document_id", "collection_id", "namespace_id", "label", "confidence", "reasoning", "payload", "retriever_id", "execution_id", "stage_name", "actor_id", "actor_type", "created_at", "updated_at", "version", "revisions"]
+    __properties: ClassVar[List[str]] = ["annotation_id", "document_id", "collection_id", "namespace_id", "label", "confidence", "reasoning", "payload", "metadata", "retriever_id", "execution_id", "stage_name", "actor_id", "actor_type", "created_at", "updated_at", "version", "revisions"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -115,6 +116,7 @@ class AnnotationResponse(BaseModel):
             "confidence": obj.get("confidence"),
             "reasoning": obj.get("reasoning"),
             "payload": obj.get("payload"),
+            "metadata": obj.get("metadata"),
             "retriever_id": obj.get("retriever_id"),
             "execution_id": obj.get("execution_id"),
             "stage_name": obj.get("stage_name"),

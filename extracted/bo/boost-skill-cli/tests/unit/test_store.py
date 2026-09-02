@@ -275,6 +275,34 @@ class TestSourceDirFor:
         assert calls == []
 
 
+class TestHasContent:
+    """store.has_content() — is there a skill dir on disk, lock file aside.
+
+    A store dir outlives a missing/corrupt lock file, so this is how
+    `boost verify`/`drift`/`doctor` tell a genuinely fresh install apart from
+    one whose record vanished out from under real skills.
+    """
+
+    def test_empty_or_missing_store_dir(self, sandbox):
+        assert not store.has_content()
+
+    def test_true_once_a_skill_is_installed(self, brainstorming):
+        assert store.has_content()
+
+    def test_true_for_an_orphaned_dir_even_with_no_lock_entry(self, brainstorming):
+        # The exact scenario this exists for: the lock record is gone (or
+        # never existed) but the store dir it should have described is still
+        # on disk.
+        paths.lockfile_path().unlink()
+        assert store.has_content()
+
+    def test_ignores_dotdirs(self, sandbox):
+        paths.ensure_dirs()
+        paths.store_dir().mkdir(parents=True, exist_ok=True)
+        (paths.store_dir() / ".tmp-scratch").mkdir()
+        assert not store.has_content()
+
+
 class TestUnlinkAgents:
     def test_removes_only_symlinks(self, brainstorming):
         cursor_link = _link("cursor")
@@ -1146,6 +1174,32 @@ class TestRuleInstall:
         with pytest.raises(BoostError, match="vanished from tap"):
             store.install(entry)
 
+    # ── capability policy: a rule is merged into a context file the agent
+    # reads every session, so it is at least as invasive as a skill — yet
+    # `_install_rule` never called the same gate `install()` does for a
+    # skill, so `denied_capabilities` silently did not apply to rules.
+
+    def test_denied_capability_refuses(self, tap):
+        entry = _rule_entry(tap)
+        (tap.path / entry["skill_md"]).write_text(
+            "---\nname: Team Conventions\ncapabilities: [shell]\n---\n\n"
+            "Always write tests first.\n", encoding="utf-8")
+        policy.save({"denied_capabilities": ["shell"]})
+        with pytest.raises(BoostError, match="shell"):
+            store.install(entry)
+        # nothing materialized and nothing recorded
+        assert lockfile.get_rule("team-conventions") is None
+        assert not self._claude_md().exists()
+
+    def test_non_denied_capability_installs(self, tap):
+        entry = _rule_entry(tap)
+        (tap.path / entry["skill_md"]).write_text(
+            "---\nname: Team Conventions\ncapabilities: [filesystem]\n---\n\n"
+            "Always write tests first.\n", encoding="utf-8")
+        policy.save({"denied_capabilities": ["shell"]})
+        store.install(entry)          # allowed: filesystem is not denied
+        assert lockfile.get_rule("team-conventions") is not None
+
 
 def _workflow_entry(tap, name="ship-it", rel="commands/ship.md",
                     body="---\nname: ship-it\ndescription: release helper\n"
@@ -1296,6 +1350,29 @@ class TestWorkflowInstall:
         with pytest.raises(BoostError, match="vanished from tap"):
             store.install(entry)
 
+    # ── capability policy: a workflow becomes a slash command or subagent run
+    # verbatim, so `_install_workflow` needs the same gate `install()` runs
+    # for a skill — it never called it, so `denied_capabilities` silently did
+    # not apply to workflows.
+
+    def test_denied_capability_refuses(self, tap):
+        entry = _workflow_entry(
+            tap, body="---\nname: ship-it\ndescription: release helper\n"
+                      "capabilities: [shell]\n---\n\nRun the release.\n")
+        policy.save({"denied_capabilities": ["shell"]})
+        with pytest.raises(BoostError, match="shell"):
+            store.install(entry)
+        assert lockfile.get_workflow("ship-it") is None
+        assert not (paths.home() / ".claude" / "commands" / "ship-it.md").exists()
+
+    def test_non_denied_capability_installs(self, tap):
+        entry = _workflow_entry(
+            tap, body="---\nname: ship-it\ndescription: release helper\n"
+                      "capabilities: [filesystem]\n---\n\nRun the release.\n")
+        policy.save({"denied_capabilities": ["shell"]})
+        store.install(entry)          # allowed: filesystem is not denied
+        assert lockfile.get_workflow("ship-it") is not None
+
 
 class TestSyncMaterializations:
     def _install_rule(self, tap, name="team-conventions"):
@@ -1352,6 +1429,55 @@ class TestSyncMaterializations:
         res = store.install(_workflow_entry(tap))
         assert res.scan_text is not None
         assert "Run the release." in res.scan_text
+
+
+class TestRestorePreserveNewerLockSections:
+    """store.restore_preserve_newer_lock_sections: the snapshot-restore fix.
+
+    A snapshot archives the skill store, the lock file included, but never
+    the materialized files a rule/workflow install writes elsewhere (a
+    CLAUDE.md block, a rendered command). Wholesale-replacing the lock on
+    restore therefore drops any entry installed after the snapshot while its
+    materialization survives on disk -- orphaned, untraceable, unremovable.
+    The fix fills those names back in without disturbing what the archive
+    itself restored.
+    """
+
+    def test_fills_in_a_rule_missing_from_the_restored_lock(self, tap):
+        pre_rules = {"newer-rule": {"tap": tap.name, "version": "1.0.0"}}
+        assert lockfile.installed_rules() == {}   # nothing on disk yet
+        kept = store.restore_preserve_newer_lock_sections(pre_rules, {})
+        assert kept == {"rules": ["newer-rule"], "workflows": []}
+        assert lockfile.installed_rules() == pre_rules
+
+    def test_fills_in_a_workflow_missing_from_the_restored_lock(self, tap):
+        pre_workflows = {"newer-flow": {"tap": tap.name, "version": "1.0.0"}}
+        kept = store.restore_preserve_newer_lock_sections({}, pre_workflows)
+        assert kept == {"rules": [], "workflows": ["newer-flow"]}
+        assert lockfile.installed_workflows() == pre_workflows
+
+    def test_does_not_touch_an_entry_the_restored_lock_already_has(self, tap):
+        self._install_rule(tap)
+        pre_rules = dict(lockfile.installed_rules())
+        assert pre_rules  # sanity: the fixture actually installed something
+        kept = store.restore_preserve_newer_lock_sections(pre_rules, {})
+        # already present after "restore" (nothing was wiped in this test) ->
+        # nothing to fill in, and no spurious write.
+        assert kept == {"rules": [], "workflows": []}
+
+    def test_no_write_when_nothing_needs_keeping(self, tap):
+        # No install has happened in this test, so the lock file was never
+        # created -- a spurious write would bring one into existence.
+        assert not paths.lockfile_path().exists()
+        kept = store.restore_preserve_newer_lock_sections({}, {})
+        assert kept == {"rules": [], "workflows": []}
+        assert not paths.lockfile_path().exists()
+
+    def _install_rule(self, tap, name="team-conventions"):
+        entry = _rule_entry(tap, name=name)
+        catalog.rebuild_tap(tap)
+        store.install(entry)
+        return entry
 
 
 class TestInstallScope:

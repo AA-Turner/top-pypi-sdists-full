@@ -1,0 +1,123 @@
+[project]
+
+name = "textual-fastdatatable"
+version = "0.19.1"
+requires-python = ">=3.10"
+description = "A performance-focused reimplementation of Textual's DataTable widget, with a pluggable data storage backend."
+authors = [
+    { name = "Ted Conbeer", email = "tconbeer@users.noreply.github.com" }
+]
+license = "MIT"
+readme = "README.md"
+dependencies = [
+    "textual>=7.3.0",
+    "typing-extensions>=4.4.0", # typing.Self is 3.11+
+    "tzdata>=2023; sys_platform == 'win32'", # arrow timestamptz support on windows
+
+    # wheel pin: pyarrow adds wheels for a new Python in the release that adds
+    # support for it, so each supported Python needs a floor that has a wheel.
+    # tests/unit_tests/test_wheels.py checks these floors against the index.
+    "pyarrow>=18.1.0; python_version < '3.14'",
+    "pyarrow>=22.0.0; python_version >= '3.14'",
+]
+
+
+[project.optional-dependencies]
+
+polars = ["polars>=1,<2"]
+
+
+[dependency-groups]
+dev = [
+    "pre-commit>=3.3,<4",
+    "textual-dev==1.7.0",
+    "pyinstrument>=5,<6",
+    # scripts/benchmark.py loads the same data with pandas and polars, to compare
+    # this widget against Textual's built-in DataTable
+    "pandas>=2,<3",
+    "polars>=1,<2",
+]
+static = [
+    "ruff>=0.14,<0.15",
+    "mypy>=1.18.0,<2",
+]
+test = [
+    "textual==7.5.0",
+    "pytest>=7.3.1,<9.0.0",
+    "pytest-asyncio==1.2.0",
+    "pytest-textual-snapshot==1.1.0",
+    "polars==1.34.0",
+    "pandas>=2,<3", # to test that pandas DataFrames are accepted
+]
+
+
+[project.urls]
+
+Repository = "https://github.com/tconbeer/textual-fastdatatable"
+
+
+[build-system]
+
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.hatch.build.targets.wheel]
+
+packages = [
+    "src/textual_fastdatatable",
+]
+
+[tool.hatch.build.targets.sdist]
+
+only-include = [
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "pyproject.toml"
+]
+
+
+[tool.ruff]
+
+target-version = "py310"
+
+
+[tool.ruff.lint]
+
+select = ["A", "B", "E", "F", "I"]
+
+
+[tool.mypy]
+
+python_version = "3.10"
+files = [
+    "src/**/*.py",
+    "tests/unit_tests/**/*.py"
+]
+mypy_path = "stubs,src"
+
+show_column_numbers = true
+
+# show error messages from unrelated files
+follow_imports = "normal"
+
+# be strict
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+strict_optional = true
+
+warn_return_any = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unused_configs = true
+
+no_implicit_reexport = true
+strict_equality = true
+

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "junitparser"
-version = "5.0.2"
+version = "5.0.3"
 description = "Manipulates JUnit/xUnit Result XML files"
 readme = "README.rst"
 requires-python = ">=3.10"

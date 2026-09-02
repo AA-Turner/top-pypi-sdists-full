@@ -81,13 +81,13 @@ MISSING = MissingType()
 
 class BatchPredictionJob(AbstractBatchJob):
     """
-    A Batch Prediction Job is used to score large data sets on
+    A Batch Prediction Job scores large data sets on
     prediction servers using the Batch Prediction API.
 
     Attributes
     ----------
     id : str
-        the ID of the job
+        The ID of the job.
     """
 
     _job_spec = t.Dict({
@@ -390,13 +390,13 @@ class BatchPredictionJob(AbstractBatchJob):
         explanations_mode: Optional[PredictionExplanationsMode] = None,
     ) -> BatchPredictionJob:
         """
-        Create new batch prediction job, upload the scoring dataset and
+        Create a new batch prediction job, upload the scoring dataset and
         return a batch prediction job.
 
         The default intake and output options are both `localFile` which
         requires the caller to pass the `file` parameter and either
         download the results using the `download()` method afterwards or
-        pass a path to a file where the scored data will be downloaded to
+        pass a path to a file for the scored data download
         afterwards.
 
         Attributes
@@ -436,7 +436,7 @@ class BatchPredictionJob(AbstractBatchJob):
             Columns from the scoring dataset to include in the output.
 
         passthrough_columns_set : Optional[str]
-            Set to ``all`` to pass through every scoring column.
+            When set to ``all``, pass through every scoring column.
 
         max_explanations : Optional[int]
             Number of features for which to compute prediction explanations.
@@ -473,7 +473,7 @@ class BatchPredictionJob(AbstractBatchJob):
             Output column rename map.
 
         include_probabilities : Optional[bool]
-            Return probability columns in the output.
+            Whether to return probability columns in the output.
 
         include_probabilities_classes : list (optional)
             Subset of class probability columns to return.
@@ -551,9 +551,9 @@ class BatchPredictionJob(AbstractBatchJob):
         Prepare the dataset with time series data prep, create new batch prediction job,
         upload the scoring dataset, and return a batch prediction job.
 
-        The supported intake_settings are of type `localFile` or `dataset`.
+        The supported ``intake_settings`` are of type ``localFile`` or ``dataset``.
 
-        For timeseries_settings of type `forecast` the `forecast_point` must be specified.
+        For ``timeseries_settings`` of type ``forecast``, specify the ``forecast_point``.
 
         Refer to the :meth:`datarobot.models.BatchPredictionJob.score` method for details on the other
         `kwargs` parameters.
@@ -566,9 +566,9 @@ class BatchPredictionJob(AbstractBatchJob):
             Deployment which will be used for scoring.
 
         intake_settings : dict
-            A dict configuring where data is coming from. Supported options:
+            A dict configuring where data is coming from. See supported options below.
 
-                - type : str, either `localFile`, `dataset`
+            Supported ``type`` values are ``localFile`` or ``dataset``.
 
             Note that to pass a dataset, you not only need to specify the `type` parameter
             as `dataset`, but you must also set the `dataset` parameter as a
@@ -577,8 +577,8 @@ class BatchPredictionJob(AbstractBatchJob):
             To score from a local file, add this parameter to the
             settings:
 
-                - file : file-like object, string path to file or a
-                  pandas.DataFrame of scoring data.
+                - file : file-like object
+                    A file-like object, string path to a file, or a ``pandas.DataFrame`` of scoring data.
 
         timeseries_settings : dict
             Time series scoring configuration.
@@ -637,10 +637,10 @@ class BatchPredictionJob(AbstractBatchJob):
         **kwargs: Any,
     ) -> BatchPredictionJob:
         """
-        Create new batch prediction job, upload the scoring dataset and
+        Create a new batch prediction job, upload the scoring dataset and
         download the scored CSV file concurrently.
 
-        Will block until the entire file is scored.
+        Blocks until scoring finishes for the entire file.
 
         Refer to the :meth:`datarobot.models.BatchPredictionJob.score` method for details on the other
         `kwargs` parameters.
@@ -651,10 +651,10 @@ class BatchPredictionJob(AbstractBatchJob):
             Deployment which will be used for scoring.
 
         intake_path : file-like object/string path to file/pandas.DataFrame
-              Scoring data
+              Scoring data.
 
         output_path : str
-            Filename to save the result under
+            Filename to save the result under.
 
         Returns
         -------
@@ -689,7 +689,7 @@ class BatchPredictionJob(AbstractBatchJob):
 
         The function call will return when the entire file is scored.
 
-        For timeseries_settings of type `forecast` the `forecast_point` must be specified.
+        For ``timeseries_settings`` of type ``forecast``, specify the ``forecast_point``.
 
         Refer to the :meth:`datarobot.models.BatchPredictionJob.score` method for details on the other
         `kwargs` parameters.
@@ -744,10 +744,10 @@ class BatchPredictionJob(AbstractBatchJob):
         **kwargs: Any,
     ) -> BatchPredictionJob:
         """
-        Create new batch prediction job, with a scoring dataset from S3
+        Create a new batch prediction job, with a scoring dataset from S3
         and writing the result back to S3.
 
-        This returns immediately after the job has been created. You
+        This returns immediately after creating the job. You
         must poll for job completion using `get_status()` or
         `wait_for_completion()` (see `datarobot.models.Job`)
 
@@ -760,16 +760,16 @@ class BatchPredictionJob(AbstractBatchJob):
             Deployment which will be used for scoring.
 
         source_url : str
-            The URL for the prediction dataset (e.g.: `s3://bucket/key`)
+            The URL for the prediction dataset (e.g.: `s3://bucket/key`).
 
         destination_url : str
-            The URL for the scored dataset (e.g.: `s3://bucket/key`)
+            The URL for the scored dataset (e.g.: `s3://bucket/key`).
 
         credential : str or Credential (optional)
-            The AWS Credential object or credential id
+            The AWS Credential object or credential ID.
 
         endpoint_url : Optional[str]
-            Any non-default endpoint URL for S3 access (omit to use the default)
+            Any non-default endpoint URL for S3 access (omit to use the default).
 
         Returns
         -------
@@ -808,10 +808,10 @@ class BatchPredictionJob(AbstractBatchJob):
         **kwargs: Any,
     ) -> BatchPredictionJob:
         """
-        Create new batch prediction job, with a scoring dataset from Azure blob
+        Create a new batch prediction job, with a scoring dataset from Azure blob
         storage and writing the result back to Azure blob storage.
 
-        This returns immediately after the job has been created. You
+        This returns immediately after creating the job. You
         must poll for job completion using `get_status()` or
         `wait_for_completion()` (see `datarobot.models.Job`).
 
@@ -825,14 +825,14 @@ class BatchPredictionJob(AbstractBatchJob):
 
         source_url : str
             The URL for the prediction dataset
-            (e.g.: `https://storage_account.blob.endpoint/container/blob_name`)
+            (e.g.: `https://storage_account.blob.endpoint/container/blob_name`).
 
         destination_url : str
             The URL for the scored dataset
-            (e.g.: `https://storage_account.blob.endpoint/container/blob_name`)
+            (e.g.: `https://storage_account.blob.endpoint/container/blob_name`).
 
         credential : str or Credential (optional)
-            The Azure Credential object or credential id
+            The Azure Credential object or credential ID.
 
         Returns
         -------
@@ -868,10 +868,10 @@ class BatchPredictionJob(AbstractBatchJob):
         **kwargs: Any,
     ) -> BatchPredictionJob:
         """
-        Create new batch prediction job, with a scoring dataset from Google Cloud Storage
+        Create a new batch prediction job, with a scoring dataset from Google Cloud Storage
         and writing the result back to one.
 
-        This returns immediately after the job has been created. You
+        This returns immediately after creating the job. You
         must poll for job completion using `get_status()` or
         `wait_for_completion()` (see `datarobot.models.Job`).
 
@@ -885,14 +885,14 @@ class BatchPredictionJob(AbstractBatchJob):
 
         source_url : str
             The URL for the prediction dataset
-            (e.g.: `http(s)://storage.googleapis.com/[bucket]/[object]`)
+            (e.g.: `http(s)://storage.googleapis.com/[bucket]/[object]`).
 
         destination_url : str
             The URL for the scored dataset
-            (e.g.: `http(s)://storage.googleapis.com/[bucket]/[object]`)
+            (e.g.: `http(s)://storage.googleapis.com/[bucket]/[object]`).
 
         credential : str or Credential (optional)
-            The GCP Credential object or credential id
+            The GCP Credential object or credential ID.
 
         Returns
         -------
@@ -925,7 +925,7 @@ class BatchPredictionJob(AbstractBatchJob):
         Attributes
         ----------
         batch_prediction_job_id: str
-            ID of the previous batch prediction job
+            ID of the previous batch prediction job.
 
         Returns
         -------
@@ -952,8 +952,8 @@ class BatchPredictionJob(AbstractBatchJob):
     ) -> Tuple[BatchPredictionJob, pd.DataFrame]:
         """
         Run a batch prediction job, with a scoring dataset from a
-        pandas dataframe. The output from the prediction will be joined
-        to the passed DataFrame and returned.
+        pandas dataframe. The prediction output joins
+        the passed DataFrame and returns the result.
 
         Use `columnNamesRemapping` to drop or rename columns in the
         output
@@ -970,7 +970,7 @@ class BatchPredictionJob(AbstractBatchJob):
             Deployment which will be used for scoring.
 
         df : pandas.DataFrame
-            The dataframe to score
+            The dataframe to score.
 
         read_timeout : int, default 660
             Maximum time in seconds to wait for the batch job to expose a download link
@@ -1143,7 +1143,7 @@ class BatchPredictionJob(AbstractBatchJob):
             Columns from the scoring dataset to include in the output.
 
         passthrough_columns_set : Optional[str]
-            Set to ``all`` to pass through every scoring column.
+            When set to ``all``, pass through every scoring column.
 
         max_explanations : Optional[int]
             Number of features for which to compute prediction explanations.
@@ -1173,7 +1173,7 @@ class BatchPredictionJob(AbstractBatchJob):
             Output column rename map.
 
         include_probabilities : Optional[bool]
-            Return probability columns in the output.
+            Whether to return probability columns in the output.
 
         include_probabilities_classes : list (optional)
             Subset of class probability columns to return.
@@ -1254,12 +1254,12 @@ class BatchPredictionJob(AbstractBatchJob):
         cls,
         batch_prediction_job_id: str,
     ) -> BatchPredictionJob:
-        """Get batch prediction job
+        """Get a batch prediction job
 
         Attributes
         ----------
         batch_prediction_job_id: str
-            ID of batch prediction job
+            ID of batch prediction job.
 
         Returns
         -------
@@ -1276,9 +1276,10 @@ class BatchPredictionJob(AbstractBatchJob):
 
         Attributes
         ----------
-        fileobj: A file-like object where the CSV prediction results will be
-            written to. Examples include an in-memory buffer
-            (e.g., io.BytesIO) or a file on disk (opened for binary writing).
+        fileobj : file-like object
+            A file-like object where the CSV prediction results will be written to.
+            Examples include an in-memory buffer (e.g., io.BytesIO) or a file on disk
+            (opened for binary writing).
 
         timeout : int (optional, default 120)
             .. versionadded:: 2.22
@@ -1301,7 +1302,7 @@ class BatchPredictionJob(AbstractBatchJob):
         self._delete(ignore_404_errors)
 
     def get_status(self) -> Dict[str, Any]:
-        """Get status of batch prediction job
+        """Get the status of the batch prediction job
 
         Returns
         -------
@@ -1312,7 +1313,7 @@ class BatchPredictionJob(AbstractBatchJob):
 
     @classmethod
     def list_by_status(cls, statuses: Optional[List[str]] = None) -> List[BatchPredictionJob]:
-        """Get jobs collection for specific set of statuses
+        """Get the jobs collection for a specific set of statuses
 
         Attributes
         ----------
@@ -1429,12 +1430,12 @@ class BatchPredictionJobDefinition(APIObject):  # pylint: disable=missing-class-
 
     @classmethod
     def get(cls, batch_prediction_job_definition_id: str) -> BatchPredictionJobDefinition:
-        """Get batch prediction job definition
+        """Get a batch prediction job definition
 
         Attributes
         ----------
         batch_prediction_job_definition_id: str
-            ID of batch prediction job definition
+            ID of batch prediction job definition.
 
         Returns
         -------
@@ -1462,7 +1463,7 @@ class BatchPredictionJobDefinition(APIObject):  # pylint: disable=missing-class-
         offset: int = 0,
     ) -> List[BatchPredictionJobDefinition]:
         """
-        Get job all definitions
+        Returns a list of all job definitions.
 
         Parameters
         ----------
@@ -1473,7 +1474,7 @@ class BatchPredictionJobDefinition(APIObject):  # pylint: disable=missing-class-
         deployment_id: str
             The ID of the deployment record belongs to.
         limit: Optional[int]
-            0 by default. At most this many results are returned.
+            Defaults to 0. At most this many results are returned.
         offset: Optional[int]
             This many results will be skipped.
 

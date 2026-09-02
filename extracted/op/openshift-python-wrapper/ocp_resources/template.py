@@ -1,0 +1,78 @@
+import json
+
+from ocp_resources.resource import NamespacedResource, Resource
+
+
+class Template(NamespacedResource):
+    api_group = NamespacedResource.ApiGroup.TEMPLATE_OPENSHIFT_IO
+    singular_name = "template"
+
+    class Labels:
+        BASE = f"{NamespacedResource.ApiGroup.TEMPLATE_KUBEVIRT_IO}/type=base"
+        FLAVOR = "flavor.template.kubevirt.io"
+        OS = "os.template.kubevirt.io"
+        WORKLOAD = "workload.template.kubevirt.io"
+        ARCHITECTURE = f"{NamespacedResource.ApiGroup.TEMPLATE_KUBEVIRT_IO}/architecture"
+
+    class Architecture:
+        AMD64 = "amd64"
+        ARM64 = "arm64"
+        S390X = "s390x"
+
+    class Workload:
+        DESKTOP = "desktop"
+        HIGHPERFORMANCE = "highperformance"
+        SERVER = "server"
+        SAPHANA = "saphana"
+
+    class Flavor:
+        LARGE = "large"
+        MEDIUM = "medium"
+        SMALL = "small"
+        TINY = "tiny"
+
+    class Annotations:
+        DEPRECATED = f"{NamespacedResource.ApiGroup.TEMPLATE_KUBEVIRT_IO}/deprecated"
+        PROVIDER = f"{NamespacedResource.ApiGroup.TEMPLATE_KUBEVIRT_IO}/provider"
+        PROVIDER_SUPPORT_LEVEL = f"{NamespacedResource.ApiGroup.TEMPLATE_KUBEVIRT_IO}/provider-support-level"
+        PROVIDER_URL = f"{NamespacedResource.ApiGroup.TEMPLATE_KUBEVIRT_IO}/provider-url"
+
+    class VMAnnotations:
+        OS = f"{Resource.ApiGroup.VM_KUBEVIRT_IO}/os"
+        FLAVOR = f"{Resource.ApiGroup.VM_KUBEVIRT_IO}/flavor"
+        WORKLOAD = f"{Resource.ApiGroup.VM_KUBEVIRT_IO}/workload"
+
+    def process(self, client=None, **kwargs):
+        client = client or self.client
+        instance_dict = self.instance.to_dict()
+        params = instance_dict["parameters"]
+        # filling the template parameters with given kwargs
+        for param in params:
+            try:
+                param["value"] = kwargs[param["name"]]
+            except KeyError:
+                continue
+        instance_dict["parameters"] = params
+        # namespace label - If not defined, the template is expected to belong to the same namespace as the VM.
+        instance_namespace = instance_dict["metadata"]["namespace"]
+        instance_dict["objects"][0]["metadata"]["labels"]["vm.kubevirt.io/template.namespace"] = instance_namespace
+
+        instance_json = json.dumps(instance_dict)
+        body = json.loads(instance_json)
+        response = client.request(
+            method="Post",
+            path=f"/apis/{self.api_version}/namespaces/{instance_namespace}/processedtemplates",
+            body=body,
+        )
+        return response.to_dict()["objects"]
+
+    @staticmethod
+    def generate_template_labels(os, workload, flavor, architecture=None):
+        labels = [
+            f"{Template.Labels.OS}/{os}=true",
+            f"{Template.Labels.WORKLOAD}/{getattr(Template.Workload, workload.upper())}=true",
+            f"{Template.Labels.FLAVOR}/{getattr(Template.Flavor, flavor.upper())}=true",
+        ]
+        if architecture:
+            labels.append(f"{Template.Labels.ARCHITECTURE}={getattr(Template.Architecture, architecture.upper())}")
+        return labels

@@ -219,18 +219,44 @@ class Block(_message.Message):
             """Default: with border and background"""
             COMPACT: Block.Expandable._Type.ValueType  # 1
             """Minimal inline toggle without border"""
+            STEP: Block.Expandable._Type.ValueType  # 2
+            """Timeline step with icon column and connector line"""
 
         class Type(_Type, metaclass=_TypeEnumTypeWrapper): ...
         DEFAULT: Block.Expandable.Type.ValueType  # 0
         """Default: with border and background"""
         COMPACT: Block.Expandable.Type.ValueType  # 1
         """Minimal inline toggle without border"""
+        STEP: Block.Expandable.Type.ValueType  # 2
+        """Timeline step with icon column and connector line"""
+
+        class _State:
+            ValueType = _typing.NewType("ValueType", _builtins.int)
+            V: _TypeAlias = ValueType  # noqa: Y015
+
+        class _StateEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[Block.Expandable._State.ValueType], _builtins.type):
+            DESCRIPTOR: _descriptor.EnumDescriptor
+            STATE_UNDEFINED: Block.Expandable._State.ValueType  # 0
+            RUNNING: Block.Expandable._State.ValueType  # 1
+            COMPLETE: Block.Expandable._State.ValueType  # 2
+            ERROR: Block.Expandable._State.ValueType  # 3
+
+        class State(_State, metaclass=_StateEnumTypeWrapper):
+            """Progress state of a status container. Left at STATE_UNDEFINED for
+            st.expander, which has no notion of progress.
+            """
+
+        STATE_UNDEFINED: Block.Expandable.State.ValueType  # 0
+        RUNNING: Block.Expandable.State.ValueType  # 1
+        COMPLETE: Block.Expandable.State.ValueType  # 2
+        ERROR: Block.Expandable.State.ValueType  # 3
 
         LABEL_FIELD_NUMBER: _builtins.int
         EXPANDED_FIELD_NUMBER: _builtins.int
         ICON_FIELD_NUMBER: _builtins.int
         ID_FIELD_NUMBER: _builtins.int
         TYPE_FIELD_NUMBER: _builtins.int
+        STATE_FIELD_NUMBER: _builtins.int
         label: _builtins.str
         expanded: _builtins.bool
         icon: _builtins.str
@@ -240,6 +266,10 @@ class Block(_message.Message):
         """
         type: Global___Block.Expandable.Type.ValueType
         """Visual style of the expandable container."""
+        state: Global___Block.Expandable.State.ValueType
+        """Progress state, only set by st.status. The frontend uses it to pick the
+        step icon and to announce the state to screen readers.
+        """
         def __init__(
             self,
             *,
@@ -248,10 +278,11 @@ class Block(_message.Message):
             icon: _builtins.str = ...,
             id: _builtins.str | None = ...,
             type: Global___Block.Expandable.Type.ValueType = ...,
+            state: Global___Block.Expandable.State.ValueType = ...,
         ) -> None: ...
         _HasFieldArgType: _TypeAlias = _typing.Literal["_expanded", b"_expanded", "_id", b"_id", "expanded", b"expanded", "id", b"id"]  # noqa: Y015
         def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["_expanded", b"_expanded", "_id", b"_id", "expanded", b"expanded", "icon", b"icon", "id", b"id", "label", b"label", "type", b"type"]  # noqa: Y015
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_expanded", b"_expanded", "_id", b"_id", "expanded", b"expanded", "icon", b"icon", "id", b"id", "label", b"label", "state", b"state", "type", b"type"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         _WhichOneofReturnType__expanded: _TypeAlias = _typing.Literal["expanded"]  # noqa: Y015
         _WhichOneofArgType__expanded: _TypeAlias = _typing.Literal["_expanded", b"_expanded"]  # noqa: Y015

@@ -33,13 +33,19 @@ class GetAllContractsForOrganizationResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CONTRACTS_FIELD_NUMBER: builtins.int
+    CONTRACT_IDS_FIELD_NUMBER: builtins.int
     @property
     def contracts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.contract_pb2.Contract]: ...
+    @property
+    def contract_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+        """DEPRECATED: use contracts instead"""
+
     def __init__(
         self,
         *,
         contracts: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.contract_pb2.Contract] | None = ...,
+        contract_ids: collections.abc.Iterable[builtins.int] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["contracts", b"contracts"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["contract_ids", b"contract_ids", "contracts", b"contracts"]) -> None: ...
 
 global___GetAllContractsForOrganizationResponse = GetAllContractsForOrganizationResponse

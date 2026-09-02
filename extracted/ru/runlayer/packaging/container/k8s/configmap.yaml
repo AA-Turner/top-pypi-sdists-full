@@ -1,0 +1,21 @@
+# Non-secret scanner config shared by the DaemonSet and the CronJob.
+# RUNLAYER_API_KEY is deliberately NOT here — it lives in the Secret.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: runlayer-aiwatch
+  namespace: runlayer
+  labels:
+    app.kubernetes.io/name: runlayer-aiwatch
+    app.kubernetes.io/part-of: runlayer
+data:
+  # Runlayer API endpoint the scanner submits to.
+  RUNLAYER_HOST: "https://api.runlayer.com"
+  # Host artifacts are bind-mounted under /host (see the Deployments' volumes).
+  # passwd homes are host-absolute (/home/alice, /root); HOME_PREFIX=/host makes
+  # them resolve to the mounted copies (/host/home/alice, /host/root).
+  RUNLAYER_HOST_PASSWD: "/host/etc/passwd"
+  RUNLAYER_HOST_HOME_PREFIX: "/host"
+  # Bind-mounted host machine-id ⇒ device id matches the host, without mounting
+  # over the container's own /etc/machine-id.
+  RUNLAYER_MACHINE_ID_PATH: "/host/etc/machine-id"

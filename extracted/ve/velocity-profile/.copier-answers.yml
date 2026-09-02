@@ -1,0 +1,16 @@
+# Changes here will be overwritten by Copier
+_commit: 2.1.0
+_src_path: gh:DiamondLightSource/python-copier-template
+author_email: adam.howell@diamond.ac.uk
+author_name: Adam Howell
+component_owner: group:default/sscc
+description: Module for calculating velocity profile
+distribution_name: velocity-profile
+docker: false
+docs_type: README
+git_platform: github.com
+github_org: DiamondLightSource
+package_name: velocity_profile
+pypi: true
+repo_name: velocity-profile
+type_checker: mypy

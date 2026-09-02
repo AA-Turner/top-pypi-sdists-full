@@ -51,22 +51,23 @@ class DataSlicesOperators(str, enum.Enum):
 
 class DataSliceSizeInfo(APIObject):
     """
-    Definition of a data slice applied to a source
+    Definition of a data slice applied to a source.
 
     Attributes
     ----------
     data_slice_id : str
-        ID of the data slice
+        ID of the data slice.
     project_id : str
-        ID of the project
+        ID of the project.
     source : str
-        Data source used to calculate the number of rows (slice size) after applying the data slice's filters
+        Data source used to calculate the number of rows in the slice after applying the data
+        slice's filters.
     model_id : Optional[str]
-        ID of the model, required when source (subset) is 'training'
+        ID of the model. Required when the source subset equals ``'training'``.
     slice_size : int
-        Number of rows in the data slice for a given source
+        Number of rows in the data slice for a given source.
     messages : list[DataSliceSizeMessageType]
-        List of user-relevant messages related to a data slice
+        A list of user-relevant messages related to a data slice.
     """
 
     _converter = t.Dict({
@@ -242,7 +243,7 @@ class DataSlice(APIObject):
         name : str
             Name of the data slice definition.
         filters : list[DataSliceFiltersType]
-            List of filters (dict) with params:
+            A list of filters (dict) with the following parameters.
                 - operand (`str`)
                     Name of the feature to use in filter.
                 - operator (`str`)
@@ -255,7 +256,7 @@ class DataSlice(APIObject):
         Returns
         -------
         data_slice : DataSlice
-            The data slice object created
+            The data slice object created.
 
         Examples
         --------
@@ -353,12 +354,12 @@ class DataSlice(APIObject):
 
     def get_size_info(self, source: INSIGHTS_SOURCES, model: Optional[Union[str, Model]] = None) -> DataSliceSizeInfo:
         """
-        Get information about the data slice applied to a source
+        Returns the information about the data slice applied to a source.
 
         Parameters
         ----------
         source : INSIGHTS_SOURCES
-            Source (partition or subset) to which the data slice was applied
+            Source (partition or subset) to which the data slice was applied.
         model : Optional[Union[str, Model]]
             ID for the model whose training data was sliced with this data slice.
             Required when the source is "training", and not used for other sources.
@@ -366,7 +367,7 @@ class DataSlice(APIObject):
         Returns
         -------
         slice_size_info : DataSliceSizeInfo
-            Information of the data slice applied to a source
+            Information of the data slice applied to a source.
 
         Examples
         --------

@@ -1,0 +1,98 @@
+# NOTE: the schedule is HOURLY (cron below). The filename "daily-security-scan.yml"
+# is retained deliberately — it is referenced by exact name in
+# reconcile_allowlist.py (`gh run list --workflow daily-security-scan.yml`) and in
+# .mothership/vuln-triage/tools.md; renaming would break those lookups and the
+# prior-run history they page through. The display name reflects the real cadence.
+name: Hourly Security Scan — app-runtime-base + SDK Python Deps
+
+on:
+  schedule:
+    - cron: '17 * * * *' # Hourly at minute 17 (off-peak slot for GitHub runners)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write # dispatch the vuln-triage rover for newly-created tickets
+
+jobs:
+  scan-and-ticket:
+    name: Scan SDK for vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Scan recipe (pull image → trivy image → uv sync → trivy fs) lives in the
+      # shared composite so the hourly scan and the release reconcile
+      # (vuln-reconcile-on-release.yml) can never drift. Leaves
+      # trivy-image-results.json + trivy-fs-results.json in the working dir.
+      # The target image is the composite's default (single source of truth);
+      # the parse step reads it back via the step's `target-image` output.
+      - name: Scan SDK with Trivy
+        id: scan
+        uses: ./.github/actions/sdk-trivy-scan
+
+      # ── Parse results ─────────────────────────────────────────────────────
+
+      - name: Upload raw scan results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-scan-raw-results
+          path: |
+            trivy-image-results.json
+            trivy-fs-results.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Counting + summary logic lives in parse_scan_results.py (tested) rather
+      # than inlined here — see docs/standards/ci.md. It emits total_actionable
+      # for the Linear step's gate and writes the workflow summary directly.
+      - name: Parse scan results + publish summary
+        id: parse
+        if: always()
+        env:
+          TARGET_IMAGE: ${{ steps.scan.outputs.target-image }}
+        run: python3 .github/scripts/parse_scan_results.py
+
+      # ── Create Linear issues (one per severity, deduped against open
+      #    issues carrying the "vulnerabilities" label so we don't refile
+      #    the same vulns every day). New issues land in the team's
+      #    "Backlog" state.
+      - name: Create Linear issue (deduped)
+        id: linear
+        if: steps.parse.outputs.total_actionable != '0'
+        env:
+          LINEAR_API_KEY:      ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID:      ${{ vars.LINEAR_SECURITY_SCAN_TEAM_ID }}
+          LINEAR_PROJECT_ID:   ${{ vars.LINEAR_SECURITY_SCAN_PROJECT_ID }}
+          LINEAR_MILESTONE_ID: ${{ vars.LINEAR_SECURITY_SCAN_MILESTONE_ID }}
+          LINEAR_ASSIGNEE_ID:  ${{ vars.LINEAR_SECURITY_SCAN_ASSIGNEE_ID }}
+          RUN_URL:             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          export SCAN_DATE=$(date -u +%Y-%m-%d)
+          python3 .github/scripts/security_scan_create_linear.py
+
+      # ── Dispatch the vuln-triage rover once per newly-created ticket (one
+      #    per severity). Only fires when a *new* (non-deduped) issue was filed
+      #    this run, so the heavy VPN/mothership job runs only when there's
+      #    something to triage. The loop lives in dispatch_vuln_triage.py
+      #    (tested) rather than inlined here — see docs/standards/ci.md.
+      - name: Dispatch vuln-triage rover (one per new ticket)
+        if: steps.linear.outputs.new_issues != '' && steps.linear.outputs.new_issues != '[]'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_ISSUES: ${{ steps.linear.outputs.new_issues }}
+          GH_REF: ${{ github.ref_name }}
+        run: python3 .github/scripts/dispatch_vuln_triage.py
+
+  # NOTE: reconciliation (allowlist-entry removal + Linear ticket close/update)
+  # is intentionally NOT a job here. It runs on `release: released` (not
+  # `published` — that fires for `-rc` prereleases too) in
+  # vuln-reconcile-on-release.yml — an allowlist entry must persist until the
+  # fix is *released*, because downstream connector build gates check out
+  # .security/base-allowlist.json from SDK `main` while their images still carry
+  # the CVE from the last released SDK. Removing an entry the moment this hourly
+  # scan of `main` goes clean (fix merged, not yet released) would strip their
+  # coverage and break check_allowlist.py. See vuln-reconcile-on-release.yml.

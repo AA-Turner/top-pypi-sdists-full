@@ -24,6 +24,7 @@ Development services startup script
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 from pathlib import Path
 import platform
@@ -34,13 +35,18 @@ import subprocess
 import sys
 import threading
 import time
-import traceback
 from typing import Any, Dict, Iterator, List
 
 import psutil
 import yaml
 
 IS_WINDOWS = platform.system() == "Windows"
+# Set on every service drdev starts and inherited by everything they spawn. The value names the
+# service and its directory, so a later run reclaims its own leftovers, not another project's.
+DRDEV_MANAGED_ENV = "DRDEV_MANAGED"
+
+DEFAULT_STARTUP_TIMEOUT = 120
+STARTUP_TIMEOUT_ENV_VAR = "DRDEV_STARTUP_TIMEOUT"
 
 
 parser = argparse.ArgumentParser(
@@ -52,6 +58,8 @@ Examples:
     %(prog)s mcp_server agent         # Start specific services from config
     %(prog)s --manual service1:8080   # Manual mode with explicit ports
     %(prog)s --config custom.yaml     # Use custom config file
+    %(prog)s --timeout 300            # Wait longer for a slow service
+    %(prog)s --force                  # Also stop processes this drdev run does not manage
     """,
 )
 parser.add_argument(
@@ -72,15 +80,34 @@ parser.add_argument(
     action="store_true",
     help="Manual mode: provide services as name:port pairs",
 )
+parser.add_argument(
+    "--force",
+    "-f",
+    action="store_true",
+    help="Also stop processes occupying a service port that this drdev run does not manage",
+)
+parser.add_argument(
+    "--timeout",
+    "-t",
+    metavar="SECONDS",
+    help=f"Seconds to wait for a service to start (default: {DEFAULT_STARTUP_TIMEOUT} or ${STARTUP_TIMEOUT_ENV_VAR})",
+)
+
+
+def _describe_process(proc: psutil.Process) -> str:
+    cmdline = ' '.join(proc.info.get('cmdline') or [])
+    return f"{proc.info.get('name') or 'unknown process'} [{proc.pid}]" + (f" ({cmdline})" if cmdline else "")
 
 
 class DevService:
-    def __init__(self, name: str, port: int, print_url: bool = False) -> None:
+    def __init__(self, name: str, port: int, print_url: bool = False, force: bool = False) -> None:
         self.name = name
         self.port = port
         self.print_url = print_url
+        self.force = force
         self.process: subprocess.Popen[str] | None = None
         self.output_thread: threading.Thread | None = None
+        self._marker = f"{name}@{Path.cwd().resolve()}"
 
     def start(self) -> None:
         """
@@ -104,6 +131,7 @@ class DevService:
         # Prepare environment with adjusted COLUMNS
         env = os.environ.copy()
         env['COLUMNS'] = str(adjusted_columns)
+        env[DRDEV_MANAGED_ENV] = self._marker
 
         # Prepare subprocess arguments
         if IS_WINDOWS:
@@ -116,6 +144,8 @@ class DevService:
                 text=True,
                 bufsize=0,  # Unbuffered on Windows
                 env=env,
+                # Own process group, so stop() can reach the whole child tree with CTRL_BREAK_EVENT
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
             )
         else:
             # Unix-like systems (Linux, macOS)
@@ -188,13 +218,13 @@ class DevService:
             except subprocess.TimeoutExpired:
                 print(f"⚠️  Force killing {self.name}...")
                 self.process.kill()
-                self.process.wait()  # Ensure it's dead
+                self.process.wait(timeout=5)
         except Exception as e:
             print(f"⚠️  Error stopping {self.name}: {e}")
 
         self.process = None
         if self.output_thread:
-            self.output_thread.join()
+            self.output_thread.join(timeout=5)
             self.output_thread = None
 
     def get_url(self) -> str:
@@ -214,68 +244,100 @@ class DevService:
         else:
             return f"http://localhost:{self.port}/"
 
-    def wait_for_start(self, timeout: int = 120) -> None:
+    def wait_for_start(self, timeout: int = DEFAULT_STARTUP_TIMEOUT) -> None:
+        """Wait for the service to start."""
         if self.process is None:
             raise Exception(f"Service {self.name} is not started")
 
-        """Wait for the service to start."""
-        print(f"⏳ Waiting for {self.name} on port {self.port}...")
+        print(f"⏳ Waiting for {self.name} on port {self.port} (up to {timeout}s)...")
 
-        for _ in range(timeout):
+        # Sleep before every probe but the first, so the deadline second is probed too.
+        for probe in range(timeout + 1):
+            if probe > 0:
+                time.sleep(1)
+
             self.process.poll()
-            if self.process.returncode is not None:
-                raise Exception(f"❌ {self.name} exited with code {self.process.returncode}")
 
             if self._is_port_listening():
                 print(f"✅ {self.name} is ready on port {self.port}")
                 return
-            time.sleep(1)
 
-        raise Exception(f"❌ Timeout waiting for {self.name} on port {self.port}")
+            if self.process.returncode is not None:
+                # A service can legitimately exit once it detects the port is already
+                # served (e.g. by another task starting the same shared process) and
+                # defer to that existing instance. Only a nonzero exit before the port
+                # ever came up is a real failure.
+                if self.process.returncode != 0:
+                    raise Exception(f"{self.name} exited with code {self.process.returncode}")
+                raise Exception(f"{self.name} exited with code 0 without starting on port {self.port}")
+
+        raise Exception(
+            f"Timeout waiting for {self.name} on port {self.port} after {timeout}s. "
+            f"Raise it with --timeout or ${STARTUP_TIMEOUT_ENV_VAR}",
+        )
 
     def wait(self) -> None:
         """Wait for the service to exit."""
-        if self.process is None:
-            return
-        self.process.wait()
+        # Poll on both platforms: a blocking wait cannot be interrupted by Ctrl+C on Windows
+        while self.process is not None and self.process.poll() is None:
+            time.sleep(1)
+
+    def drain_output(self) -> None:
+        """Let the output thread print what the service logged on its way out."""
+        if self.output_thread:
+            self.output_thread.join(1)
 
     def _stop_processes_on_port(self) -> None:
-        procs = set()
-        try:
-            for proc in self._get_processes_on_port():
-                cmdline = proc.info.get('cmdline', [])
-                cmdline_str = ''
-                if cmdline:
-                    cmdline_str = ' '.join(cmdline)
-                print(
-                    f"⚠️  Found process on port {self.port}: "
-                    f"{proc.info.get('name')} [{proc.pid}] ({cmdline_str}). Stopping it...",
+        managed: List[psutil.Process] = []
+        foreign: List[psutil.Process] = []
+        for proc in self._get_processes_on_port():
+            try:
+                is_managed = proc.environ().get(DRDEV_MANAGED_ENV) == self._marker
+            except psutil.NoSuchProcess:
+                continue
+            except (psutil.Error, OSError):
+                # Cannot read its environment, so we never claim it.
+                is_managed = False
+            (managed if is_managed else foreign).append(proc)
+
+        if foreign:
+            if not self.force:
+                details = ', '.join(_describe_process(proc) for proc in foreign)
+                them = "them" if len(foreign) > 1 else "it"
+                raise Exception(
+                    f"Port {self.port} is in use by {details}, which this drdev run does not manage. "
+                    f"Stop {them} yourself, run {self.name} on another port, "
+                    f'or re-run with "drdev --force".',
                 )
+            print("⚠️  --force given, also stopping processes this drdev run does not manage.")
+            managed.extend(foreign)
+
+        for proc in managed:
+            print(f"⚠️  Found process on port {self.port}: {_describe_process(proc)}. Stopping it...")
+            with contextlib.suppress(psutil.Error):
                 proc.terminate()
-                procs.add(proc)
 
-            _, alive = psutil.wait_procs(procs, timeout=10)
-            for proc in alive:
+        _, alive = psutil.wait_procs(managed, timeout=10)
+        for proc in alive:
+            with contextlib.suppress(psutil.Error):
                 proc.kill()
-        except psutil.NoSuchProcess as e:
-            print(f"✅ Process {e.pid} on port {self.port} no longer exists.")
+        # Let the kill land before deciding the port is still held.
+        psutil.wait_procs(alive, timeout=5)
 
-        except Exception as e:
-            traceback.print_exc()
-            raise Exception(f"❌ Error stopping processes on port {self.port}: {e.__repr__()}") from e
+        # Whoever holds the port now is what matters: a process we stopped may have been replaced.
+        holders = list(self._get_processes_on_port()) if managed else []
+        if holders:
+            details = ', '.join(_describe_process(proc) for proc in holders)
+            raise Exception(f"Port {self.port} is still in use by {details} after cleanup.")
 
     def _get_processes_on_port(self) -> Iterator[psutil.Process]:
-        seen_pids = set()
         for proc in psutil.process_iter(attrs=['name', 'cmdline']):
             try:
                 connections = proc.net_connections()
             except (psutil.AccessDenied, psutil.NoSuchProcess):
                 continue
-            for conn in connections:
-                if conn.laddr.port == self.port:
-                    if proc.pid not in seen_pids:
-                        seen_pids.add(proc.pid)
-                        yield proc
+            if any(conn.status == psutil.CONN_LISTEN and conn.laddr.port == self.port for conn in connections):
+                yield proc
 
     def _is_port_listening(self) -> bool:
         """Check if a port is listening using socket connection attempt."""
@@ -309,7 +371,36 @@ def load_config_file(config_path: Path) -> Dict[str, Any]:
         sys.exit(1)
 
 
-def get_services_from_config(config: Dict[str, Any]) -> List[DevService]:
+def _resolve_startup_timeout(cli_value: str | None) -> int:
+    """Resolve the startup timeout: CLI flag, then environment, then default."""
+    if cli_value is not None:
+        source, value = "--timeout", cli_value
+    else:
+        # An unset variable and a blank one both mean "not configured".
+        source, value = STARTUP_TIMEOUT_ENV_VAR, os.environ.get(STARTUP_TIMEOUT_ENV_VAR, "").strip()
+        if not value:
+            return DEFAULT_STARTUP_TIMEOUT
+
+    try:
+        timeout = int(value)
+    except ValueError:
+        timeout = 0
+
+    if timeout <= 0:
+        print(f"❌ Invalid {source} value: {value!r}. Must be a positive whole number of seconds.")
+        sys.exit(1)
+    return timeout
+
+
+def _parse_port(value: Any) -> int:
+    """Parse a port value, raising ValueError or TypeError if int() cannot make a usable TCP port."""
+    port = int(value)
+    if not 1 <= port <= 65535:
+        raise ValueError(f"port out of range: {port}")
+    return port
+
+
+def get_services_from_config(config: Dict[str, Any], force: bool = False) -> List[DevService]:
     """Extract services from configuration in the specified order."""
     services: List[DevService] = []
     ports_config = config.get('ports', [])
@@ -326,11 +417,11 @@ def get_services_from_config(config: Dict[str, Any]) -> List[DevService]:
         port = service_config.get('port')
         print_url = service_config.get('print_url', False)
 
-        if name and port:
+        if name and port is not None:
             try:
-                services.append(DevService(name, int(port), print_url=print_url))
-            except ValueError:
-                print(f"❌ Invalid port value for service {name}: {port}")
+                services.append(DevService(name, _parse_port(port), print_url=print_url, force=force))
+            except (TypeError, ValueError):
+                print(f"❌ Invalid port value for service {name}: {port}. Expected a port in 1-65535")
                 sys.exit(1)
 
     if not services:
@@ -340,17 +431,17 @@ def get_services_from_config(config: Dict[str, Any]) -> List[DevService]:
     return services
 
 
-def parse_service_args(args: List[str]) -> List[DevService]:
+def parse_service_args(args: List[str], force: bool = False) -> List[DevService]:
     """Parse service:port arguments into tuples."""
     services: List[DevService] = []
     for arg in args:
         try:
             service, port_str = arg.split(':')
-            port = int(port_str)
+            port = _parse_port(port_str)
             # Print URLs for all services
-            services.append(DevService(service, port, print_url=True))
+            services.append(DevService(service, port, print_url=True, force=force))
         except ValueError:
-            print(f"❌ Invalid argument format: {arg}. Expected format: `service:port`")
+            print(f"❌ Invalid argument: {arg}. Expected `service:port` with a port in 1-65535")
             sys.exit(1)
     return services
 
@@ -367,6 +458,8 @@ def main(args: argparse.Namespace) -> None:
 
     services: List[DevService]
 
+    startup_timeout = _resolve_startup_timeout(args.timeout)
+
     # Determine services to start
     if args.manual:
         # Manual mode: parse service:port pairs
@@ -374,11 +467,11 @@ def main(args: argparse.Namespace) -> None:
             print("❌ No services specified in manual mode")
             parser.print_help()
             sys.exit(1)
-        services = parse_service_args(args.services)
+        services = parse_service_args(args.services, args.force)
     else:
         # Config mode: read from YAML file
         config = load_config_file(args.config)
-        all_services = get_services_from_config(config)
+        all_services = get_services_from_config(config, args.force)
 
         if args.services:
             # Filter to requested services only, maintaining order from config
@@ -420,7 +513,7 @@ def main(args: argparse.Namespace) -> None:
 
         # Second pass: wait for all services to be ready
         for service in services:
-            service.wait_for_start()
+            service.wait_for_start(startup_timeout)
 
         print()
         print("✅ All services started successfully!")
@@ -439,10 +532,18 @@ def main(args: argparse.Namespace) -> None:
             service.wait()
 
     except KeyboardInterrupt:
-        # We don't need to stop services explicitly, the signal is propagated to the child processes
+        signal.signal(signal.SIGINT, signal.SIG_IGN)  # a second Ctrl+C must not abort shutdown
+        if IS_WINDOWS:
+            # Windows children have Ctrl+C disabled by their process group, so stop them explicitly
+            stop_services(services)
+        else:
+            # The terminal signalled the children too, so just let their last output through
+            for service in services:
+                service.drain_output()
         sys.exit(0)
 
     except Exception as e:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)  # aborting cleanup would leak the service tree
         print(f"❌ Error: {e}")
         # Clean up processes on error
         stop_services(services)

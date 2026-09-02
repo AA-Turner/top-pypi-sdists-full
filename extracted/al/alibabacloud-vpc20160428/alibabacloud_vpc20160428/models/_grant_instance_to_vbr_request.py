@@ -16,18 +16,18 @@ class GrantInstanceToVbrRequest(DaraModel):
         vbr_owner_uid: int = None,
         vbr_region_no: str = None,
     ):
-        # The scope of VBR instances to receive the authorization. Valid values:
+        # The scope of the VBR instances to be authorized. Valid values:
         # 
-        # - **All**: grants the VPC-connected instance authorization to all VBR instances in the specified region under the specified Alibaba Cloud account. In this case, the **VbrInstanceIds** parameter can be left empty.
-        # - **Specify**: grants the VPC-connected instance authorization to the specified VBR instances. In this case, the **VbrInstanceIds** parameter is required.
+        # - **All**: Grants authorization of the VPC-connected instance to all VBR instances in the specified region under the specified Alibaba Cloud account. In this case, the **VbrInstanceIds** parameter can be left empty.
+        # - **Specify**: Grants authorization of the VPC-connected instance to the specified VBR instances. In this case, the **VbrInstanceIds** parameter is required.
         # 
         # This parameter is required.
         self.grant_type = grant_type
-        # The instance ID of the VPC-connected instance to grant authorization for.
+        # The ID of the VPC-connected instance for which authorization is to be granted.
         # 
         # This parameter is required.
         self.instance_id = instance_id
-        # The region ID of the VPC-connected instance to grant authorization for.
+        # The region ID of the VPC-connected instance for which authorization is to be granted.
         # 
         # You can invoke the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
@@ -35,7 +35,7 @@ class GrantInstanceToVbrRequest(DaraModel):
         self.region_id = region_id
         # The list of VBR instances to be authorized.
         self.vbr_instance_ids = vbr_instance_ids
-        # The ID of the Alibaba Cloud account that owns the VBR instance to be authorized. This account must be different from the caller\\"s account. Do not specify the caller\\"s own account ID. This operation is used for cross-account authorization.
+        # The ID of the Alibaba Cloud account that owns the VBR instance to be authorized. This account must be different from the caller\\"s account. You cannot specify the caller\\"s own account ID. This operation is used for cross-account authorization.
         # 
         # This parameter is required.
         self.vbr_owner_uid = vbr_owner_uid

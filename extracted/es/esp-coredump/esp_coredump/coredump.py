@@ -6,47 +6,53 @@
 #
 # ESP-IDF Core Dump Utility
 #
+from __future__ import annotations
+
 import os
 import subprocess
 import sys
 import textwrap
 from contextlib import contextmanager
 from shutil import copyfile, which
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple  # noqa: F401
 
 import serial
-
-from .tools import load_json_from_file
 
 try:
     # esptool>=4.0
     from esptool.cmds import detect_chip
-    from esptool.loader import ESPLoader
 except (AttributeError, ModuleNotFoundError):
     # esptool<4.0
     from esptool import ESPLoader
+
     detect_chip = ESPLoader.detect_chip
 
-from construct import Container, GreedyRange, Int32ul, ListContainer, Struct
+from construct import Container, GreedyRange, Int32ul, ListContainer, Struct  # noqa: F401
+from esp_pylib.constants import ESP_ROM_BAUD
+from esp_pylib.rom import get_idf_path, get_rom_elf_dir
+from esp_pylib.rom import get_rom_elf_path as _pylib_get_rom_elf_path
+
+from esp_coredump.log import log
 
 from .corefile import RISCV_TARGETS, SUPPORTED_TARGETS, XTENSA_TARGETS, xtensa
-from .corefile.elf import (TASK_STATUS_CORRECT, ElfFile, ElfSegment,
-                           ESPCoreDumpElfFile, EspTaskStatus)
+from .corefile.elf import (
+    TASK_STATUS_CORRECT,
+    ElfFile,
+    ElfSegment,
+    ESPCoreDumpElfFile,
+    EspTaskStatus,
+)
 from .corefile.gdb import DEFAULT_GDB_TIMEOUT_SEC, EspGDB
-from .corefile.loader import (ESPCoreDumpFileLoader, ESPCoreDumpFlashLoader,
-                              ESPCoreDumpLoaderError, EspCoreDumpVersion,
-                              get_core_file_format)
-
-IDF_PATH = os.getenv('IDF_PATH', '')
-ESP_ROM_ELF_DIR = os.getenv('ESP_ROM_ELF_DIR')
-# 'tools/idf_py_actions/roms.json' is used for compatibility with ESP-IDF before v5.5, when the file was moved
-ROMS_JSON = [os.path.join(IDF_PATH, 'components', 'esp_rom', 'roms.json'), os.path.join(IDF_PATH, 'tools', 'idf_py_actions', 'roms.json')]
+from .corefile.loader import (
+    ESPCoreDumpFileLoader,
+    ESPCoreDumpFlashLoader,
+    ESPCoreDumpLoaderError,
+    EspCoreDumpVersion,
+    get_core_file_format,
+)
 
 MORE_INFO_MSG = 'Read more: https://github.com/espressif/esp-coredump/blob/master/README.md#installation'
-GDB_NOT_FOUND_ERROR = (
-    f'GDB executable not found. Please install GDB or set up ESP-IDF to complete the action. '
-    f'{MORE_INFO_MSG}'
-)
+GDB_NOT_FOUND_ERROR = f'GDB executable not found. Please install GDB or set up ESP-IDF to complete the action. {MORE_INFO_MSG}'
 IDF_SETUP_ERROR = f'Please set up ESP-IDF to complete the action. {MORE_INFO_MSG}'
 
 RETRY_ATTEMPTS = 3
@@ -61,25 +67,26 @@ else:
 
 
 class CoreDump:
-    def __init__(self,
-                 baud: Optional[int] = int(os.environ.get('ESPTOOL_BAUD', ESPLoader.ESP_ROM_BAUD)),
-                 chip: str = os.environ.get('ESPTOOL_CHIP', 'auto'),
-                 core_format: str = 'auto',
-                 port: Optional[str] = os.environ.get('ESPTOOL_PORT'),
-                 gdb_timeout_sec: int = DEFAULT_GDB_TIMEOUT_SEC,
-                 core: Optional[str] = None,
-                 chip_rev: Optional[int] = None,
-                 gdb: Optional[str] = None,
-                 extra_gdbinit_file: Optional[str] = None,
-                 off: Optional[int] = None,
-                 parttable_off: Optional[int] = None,
-                 prog: Optional[str] = None,
-                 print_mem: Optional[str] = None,
-                 rom_elf: Optional[str] = None,
-                 save_core: Optional[str] = None,
-                 ):
+    def __init__(
+        self,
+        baud: int | None = int(os.environ.get('ESPTOOL_BAUD', ESP_ROM_BAUD)),
+        chip: str = os.environ.get('ESPTOOL_CHIP', 'auto'),
+        core_format: str = 'auto',
+        port: str | None = os.environ.get('ESPTOOL_PORT'),
+        gdb_timeout_sec: int = DEFAULT_GDB_TIMEOUT_SEC,
+        core: str | None = None,
+        chip_rev: int | None = None,
+        gdb: str | None = None,
+        extra_gdbinit_file: str | None = None,
+        off: int | None = None,
+        parttable_off: int | None = None,
+        prog: str | None = None,
+        print_mem: str | None = None,
+        rom_elf: str | None = None,
+        save_core: str | None = None,
+    ):
         if prog is None:
-            raise ValueError("Path to program\'s ELF binary is not provided")
+            raise ValueError("Path to program's ELF binary is not provided")
 
         self.baud = baud
         self.chip = chip
@@ -137,12 +144,17 @@ class CoreDump:
 
         if not self.core:
             # Core file not specified, try to read core dump from flash.
-            if not IDF_PATH:
-                print(IDF_SETUP_ERROR)
-                sys.exit(1)
-            loader = ESPCoreDumpFlashLoader(self.coredump_off, port=self.port, baud=self.baud, part_table_offset=self.parttable_off)
+            if not get_idf_path():
+                log.die(IDF_SETUP_ERROR)
+            loader = ESPCoreDumpFlashLoader(
+                self.coredump_off,
+                port=self.port,
+                baud=self.baud,
+                part_table_offset=self.parttable_off,
+            )
         elif self.core_format != 'elf':
-            # Core file specified, but not yet in ELF format. Convert it from raw or base64 into ELF.
+            # Core file specified, but not yet in ELF format. Convert it from raw or
+            # base64 into ELF.
             loader = ESPCoreDumpFileLoader(self.core, self.core_format == 'b64')
         else:
             # Core file is already in the ELF format
@@ -150,9 +162,7 @@ class CoreDump:
             chip_rev = self.extract_chip_rev_from_elf()
 
             if self.chip_rev is not None and chip_rev != self.chip_rev:
-                print('Provided chip revision does not match the one extracted from the provided coredump elf file.',
-                      file=sys.stderr)
-                exit(1)
+                log.die('Provided chip revision does not match the one extracted from the provided coredump elf file.')
 
             core_dump_info_map['chip_rev'] = chip_rev
 
@@ -178,7 +188,6 @@ class CoreDump:
         return None
 
     def get_target(self):  # type: () -> str
-
         if self.chip != 'auto':
             return self.chip  # type: ignore
 
@@ -227,11 +236,12 @@ class CoreDump:
         try:
             inst = detect_chip(self.port, self.baud)
         except serial.serialutil.SerialException:
-            print('Unable to identify the chip type. '
-                  'Please use the --chip option to specify the chip type or '
-                  'connect the board and provide the --port option to have the chip type determined automatically.',
-                  file=sys.stderr)
-            exit(1)
+            log.die(
+                'Unable to identify the chip type. '
+                'Please use the --chip option to specify the chip type or '
+                'connect the board and provide the --port option to have '
+                'the chip type determined automatically.'
+            )
         else:
             target = inst.CHIP_NAME.lower().replace('-', '')
 
@@ -257,8 +267,7 @@ class CoreDump:
     def get_gdb_args(self, target, core_elf_path, chip_rev, is_dbg_mode=False):
         gdb_tool = self.get_gdb_path(target)
         if not gdb_tool:
-            print(GDB_NOT_FOUND_ERROR)
-            sys.exit(1)
+            log.die(GDB_NOT_FOUND_ERROR)
 
         rom_elf_path = self.get_rom_elf_path(target=target, chip_rev=chip_rev)
         rom_sym_cmd = self.load_aux_elf(rom_elf_path)
@@ -291,38 +300,16 @@ class CoreDump:
         if chip_rev is None:
             return ''
 
-        rom_file_path = ''
+        if not get_idf_path() or not get_rom_elf_dir():
+            log.print("The ROM ELF file won't be loaded automatically since you are running the utility out of IDF.")
+            return ''
 
-        if not IDF_PATH or not ESP_ROM_ELF_DIR:
-            print("The ROM ELF file won't be loaded automatically since you are running the utility out of IDF.")
-            return rom_file_path
+        rom_file_path = _pylib_get_rom_elf_path(target, chip_rev)
+        if not rom_file_path:
+            log.print("The ROM ELF file won't load automatically since it was not found for the provided chip type.")
+            return ''
 
-        target_roms = None
-        for rom_json_path in ROMS_JSON:
-            try:
-                roms_json = load_json_from_file(rom_json_path)
-                target_roms = roms_json.get(target, [])
-                break
-            except FileNotFoundError:
-                continue
-
-        if not target_roms:
-            print("The ROM ELF file won't load automatically since it was not found for the provided chip type.")
-            return rom_file_path
-
-        index = len(target_roms)
-        for idx in range(len(target_roms)):
-            if target_roms[idx].get('rev') == chip_rev:
-                index = idx
-                break
-        if index < len(target_roms):
-            chip_rev_from_json = target_roms[index]['rev']
-            rom_elf_file_name = f'{target}_rev{chip_rev_from_json}_rom.elf'
-            rom_file_path = os.path.join(ESP_ROM_ELF_DIR, rom_elf_file_name)
-        else:
-            print("The ROM ELF file won't load automatically since it was not found for the provided chip type.")
-
-        return rom_file_path
+        return str(rom_file_path)
 
     def get_task_info_extra_note_tuple(self):  # type: () -> Tuple[Optional[list[str]], Optional[Container]]
         extra_note = None
@@ -348,8 +335,7 @@ class CoreDump:
             print('\nCrashed task has been skipped.')
         else:
             task_name = self.gdb_esp.get_freertos_task_name(marker)
-            print("\nCrashed task handle: 0x%x, name: '%s', GDB name: 'process %d'"
-                  % (marker, task_name, marker))  # type: ignore
+            print(f"\nCrashed task handle: 0x{marker:x}, name: '{task_name}', GDB name: 'process {marker}'")
 
     def print_threads_info(self, task_info):  # type: (Optional[list[Container]]) -> None
         print(self.gdb_esp.run_cmd('info threads'))
@@ -362,9 +348,13 @@ class CoreDump:
             print('Retrying reading threads information...')
 
         if not threads:
-            print('\nThe threads information for the current task could not be retrieved. '
-                  'Please try running this command again with --gdb-timeout-sec option to increase '
-                  f'the default value of internal delay for gdb responses (Default: {DEFAULT_GDB_TIMEOUT_SEC})')
+            print(
+                '\nThe threads information for the current task could not be '
+                'retrieved. Please try running this command again with '
+                '--gdb-timeout-sec option to increase '
+                'the default value of internal delay for gdb responses '
+                f'(Default: {DEFAULT_GDB_TIMEOUT_SEC})'
+            )
             return
 
         print('\n')
@@ -399,16 +389,17 @@ class CoreDump:
             task_index = thr_id - 1
             task_name = value['task_name']
             self.gdb_esp.switch_thread(thr_id)
-            print('\n==================== THREAD {} (TCB: 0x{:x}, name: \'{}\') ====================='
-                  .format(thr_id, tcb_addr, task_name))
+            print(f"\n==================== THREAD {thr_id} (TCB: 0x{tcb_addr:x}, name: '{task_name}') =====================")
 
             print(self.gdb_esp.run_cmd('bt'))
             if task_info and task_info[task_index].task_flags != TASK_STATUS_CORRECT:
-                print("The task '%s' is corrupted." % thr_id)
-                print('Task #%d info: flags, tcb, stack (%x, %x, %x).' % (task_info[task_index].task_index,
-                                                                          task_info[task_index].task_flags,
-                                                                          task_info[task_index].task_tcb_addr,
-                                                                          task_info[task_index].task_stack_start))
+                print(
+                    f"The task '{thr_id}' is corrupted."
+                    f'Task #{task_info[task_index].task_index} info: flags, tcb, stack '
+                    f'({task_info[task_index].task_flags:x}, '
+                    f'{task_info[task_index].task_tcb_addr:x}, '
+                    f'{task_info[task_index].task_stack_start:x}).'
+                )
 
     def print_current_thread_registers(self, extra_note, extra_info):
         # type: (Optional[Container], Optional[ListContainer]) -> None
@@ -424,7 +415,7 @@ class CoreDump:
             isr_ctx_idx = XTENSA_ISR_CTX_IDX
         else:
             isr_ctx_idx = RISCV_ISR_CTX_IDX
-        if (len(extra_info) < isr_ctx_idx + 1):
+        if len(extra_info) < isr_ctx_idx + 1:
             # no information
             return
         if extra_info[isr_ctx_idx]:
@@ -436,10 +427,11 @@ class CoreDump:
         print(self.gdb_esp.run_cmd('bt'))
         if task_info and task_info[0].task_flags != TASK_STATUS_CORRECT:
             print('The current crashed task is corrupted.')
-            print('Task #%d info: flags, tcb, stack (%x, %x, %x).' % (task_info[0].task_index,
-                                                                      task_info[0].task_flags,
-                                                                      task_info[0].task_tcb_addr,
-                                                                      task_info[0].task_stack_start))
+            print(
+                f'Task #{task_info[0].task_index} info: flags, tcb, stack '
+                f'({task_info[0].task_flags:x}, {task_info[0].task_tcb_addr:x}, '
+                f'{task_info[0].task_stack_start:x}).'
+            )
 
     def print_all_memory_regions(self):  # type: () -> None
         print('Name   Address   Size   Attrs')
@@ -487,25 +479,27 @@ class CoreDump:
                 merged_segs.append((sec.name, sec.addr, len(sec.data), sec.attr_str(), False))
 
         for ms in merged_segs:
-            print('%s 0x%x 0x%x %s' % (ms[0], ms[1], ms[2], ms[3]))
+            print(f'{ms[0]} 0x{ms[1]:x} 0x{ms[2]:x} {ms[3]}')
 
         for cs in core_segs:
-            # core dump exec segments are from ROM, other are belong to tasks (TCB or stack)
+            # core dump exec segments are from ROM,
+            # other are belong to tasks
             if cs.flags & ElfSegment.PF_X:
                 seg_name = 'rom.text'
             else:
                 seg_name = 'tasks.data'
-            print('.coredump.%s 0x%x 0x%x %s' % (seg_name, cs.addr, len(cs.data), cs.attr_str()))
+            print(f'.coredump.{seg_name} 0x{cs.addr:x} 0x{len(cs.data):x} {cs.attr_str()}')
 
     def print_core_dump_memory_contents(self):  # type: () -> None
         for cs in self.core_elf.load_segments:
-            # core dump exec segments are from ROM, other are belong to tasks (TCB or stack)
+            # core dump exec segments are from ROM,
+            # other are belong to tasks (TCB or stack)
             if cs.flags & ElfSegment.PF_X:
                 seg_name = 'rom.text'
             else:
                 seg_name = 'tasks.data'
-            print('.coredump.%s 0x%x 0x%x %s' % (seg_name, cs.addr, len(cs.data), cs.attr_str()))
-            print(self.gdb_esp.run_cmd('x/%dx 0x%x' % (len(cs.data) // 4, cs.addr)))
+            print(f'.coredump.{seg_name} 0x{cs.addr:x} 0x{len(cs.data):x} {cs.attr_str()}')
+            print(self.gdb_esp.run_cmd(f'x/{len(cs.data) // 4:d}x 0x{cs.addr:x}'))
 
     def verify_target(self, core_header_info_dict):
         target = core_header_info_dict.get('target')
@@ -519,14 +513,19 @@ class CoreDump:
         try:
             yield
         except ESPCoreDumpLoaderError as e:
-            print(f'Failed to load core dump: {e}', file=sys.stderr)
+            log.err(f'Failed to load core dump: {e}')
             if e.extra_output:
-                print('', file=sys.stderr)
-                print('┌────── Additional information about the error: ', file=sys.stderr)
-                print('│   ', file=sys.stderr)
-                print(textwrap.indent(e.extra_output, '│   '), file=sys.stderr)
-                print('│   ', file=sys.stderr)
-                print('└────── end of additional information about the error.', file=sys.stderr)
+                log.print('', file=sys.stderr)
+                log.print('┌────── Additional information about the error: ', file=sys.stderr)
+                log.print('│   ', file=sys.stderr)
+                log.print(
+                    textwrap.indent(e.extra_output.rstrip('\n'), '│   ', lambda line: True),
+                    file=sys.stderr,
+                    markup=False,
+                    highlight=False,
+                )
+                log.print('│   ', file=sys.stderr)
+                log.print('└────── end of additional information about the error.', file=sys.stderr)
             raise SystemExit(1)
 
     def dbg_corefile(self):  # type: () -> Optional[list[str]]
@@ -543,17 +542,22 @@ class CoreDump:
 
         gdb_args = self.get_gdb_args(is_dbg_mode=True, **core_header_info_dict)
 
-        p = subprocess.Popen(bufsize=0,
-                             args=gdb_args,
-                             stdin=None, stdout=None, stderr=None,
-                             close_fds=CLOSE_FDS)
+        p = subprocess.Popen(
+            bufsize=0,
+            args=gdb_args,
+            stdin=None,
+            stdout=None,
+            stderr=None,
+            close_fds=CLOSE_FDS,
+        )
         p.wait()
         print('Done!')
         return temp_files  # type: ignore
 
     def info_corefile(self):  # type: () -> Optional[list[str]]
         """
-        Command to load core dump from file or flash and print it's data in user friendly form
+        Command to load core dump from file or
+        flash and print it's data in user friendly form
         """
         with self._handle_coredump_loader_error():
             self.exe_elf = ESPCoreDumpElfFile(self.prog)

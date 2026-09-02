@@ -45,7 +45,7 @@ DEFAULT_BATCH_SIZE = 100
 
 class HumanReadable:
     """
-    A simple mixin to provide human readable class representation.
+    A simple ``mixin`` to provide human readable class representation.
     """
 
     def __repr__(self) -> str:
@@ -89,9 +89,9 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
     blender: bool
         Whether the blueprint is a blender.
     blueprint_id: string
-        The deterministic id of the blueprint, based on its content.
+        The deterministic ID of the blueprint, based on its content.
     custom_task_version_metadata: list[list[string]], Optional
-        An association of custom entity ids and task ids.
+        An association of custom entity IDs and task IDs.
     diagram: string
         The diagram used by the UI to display the blueprint.
     features: list[string]
@@ -109,7 +109,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
     model_type: string
         The generated or provided title of the blueprint.
     project_id: string, Optional
-        The id of the project the blueprint was originally created with, if applicable.
+        The ID of the project the blueprint was originally created with, if applicable.
     reference_model: bool (Default=False)
         Whether the blueprint is a reference model.
     shap_support: bool (Default=False)
@@ -120,9 +120,9 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
     supports_gpu: bool (Default=False)
         Whether the blueprint supports execution on the GPU.
     user_blueprint_id: string
-        The unique id associated with the user blueprint.
+        The unique ID associated with the user blueprint.
     user_id: string
-        The id of the user who owns the blueprint.
+        The ID of the user who owns the blueprint.
     blueprint: list[dict] or list[UserBlueprintTask], Optional
         The representation of a directed acyclic graph defining a pipeline of data through tasks
         and a final estimator.
@@ -130,7 +130,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         Info about, warnings about, and errors with a specific vertex in the blueprint.
     blueprint_context: VertexContextItemMessages
         Warnings and errors which may describe or summarize warnings or errors in the blueprint's
-        vertices
+        vertices.
     """
 
     _path = "userBlueprints/{userBlueprintId}/"
@@ -188,7 +188,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
     @classmethod
     def list(cls, limit: int = 100, offset: int = 0, project_id: Optional[str] = None) -> List[UserBlueprint]:
         """
-        Fetch a list of the user blueprints the current user created
+        Returns a list of all user blueprints the current user created.
 
         Parameters
         ----------
@@ -197,14 +197,14 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         offset: int (Default=0)
             The number of results to skip (for pagination).
         project_id: string, Optional
-            The id of the project, used to filter for original project_id.
+            The ID of the project, used to filter for original ``project_id``.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -225,7 +225,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
     @classmethod
     def get(cls, user_blueprint_id: str, project_id: Optional[str] = None) -> UserBlueprint:
         """
-        Retrieve a user blueprint
+        Retrieve a user blueprint.
 
         Parameters
         ----------
@@ -238,9 +238,9 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -261,7 +261,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         save_to_catalog: bool = True,
     ) -> UserBlueprint:
         """
-        Create a user blueprint
+        Create a user blueprint.
 
         Parameters
         ----------
@@ -278,9 +278,9 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -308,14 +308,14 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         description: Optional[str] = None,
     ) -> UserBlueprint:
         """
-        Create a user blueprint with a single custom task version
+        Create a user blueprint with a single custom task version.
 
         Parameters
         ----------
         custom_task_version_id: string
-            Id of custom task version from which the user blueprint is created
+            ID of the custom task version from which the user blueprint is created.
         save_to_catalog: bool, (Default=True)
-            Whether the blueprint being created should be saved to the catalog
+            Whether the blueprint being created should be saved to the catalog.
         description: string (Default=None)
             The description for the user blueprint that will be created from the
             custom task version.
@@ -323,9 +323,9 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -357,20 +357,20 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         Parameters
         ----------
         blueprint_id: string
-            The id associated with the blueprint to create the user blueprint from.
+            The ID associated with the blueprint to create the user blueprint from.
         model_type: string, Optional
             The title to give to the blueprint.
         project_id: string
-            The id of the project which the blueprint to copy comes from.
+            The ID of the project which the blueprint to copy comes from.
         save_to_catalog: bool, (Default=True)
             Whether the blueprint being created should be saved to the catalog.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -408,16 +408,16 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
             String representation of ObjectId for a given project. Used to validate selected
             columns in the user blueprint.
         user_blueprint_id: string
-            The id of the existing user blueprint to copy.
+            The ID of the existing user blueprint to copy.
         save_to_catalog: bool, (Default=True)
             Whether the blueprint being created should be saved to the catalog.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -447,7 +447,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         include_project_id_if_none: bool = False,
     ) -> UserBlueprint:
         """
-        Update a user blueprint
+        Update a user blueprint.
 
         Parameters
         ----------
@@ -460,20 +460,20 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
             The project associated with the blueprint. Necessary in the event of project specific
             tasks, such as column selection tasks.
             If None, will not be passed. To explicitly pass None, pass True to
-            `include_project_id_if_none` (useful if unlinking a blueprint from a project)
+            ``include_project_id_if_none`` (useful if unlinking a blueprint from a project).
         user_blueprint_id: string
             Used to identify a specific user-owned blueprint.
         include_project_id_if_none: bool (Default=False)
-            Allows project_id to be passed as None, instead of ignored.
-            If set to False, will not pass `project_id` in the API request if it is set to None.
-            If True, the project id will be passed even if it is set to None.
+            Allows ``project_id`` to be passed as None, instead of ignored.
+            If set to False, will not pass ``project_id`` in the API request if it is set to None.
+            If True, the project ID will be passed even if it is set to None.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -496,7 +496,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
     @classmethod
     def delete(cls, user_blueprint_id: str) -> Response:
         """
-        Delete a user blueprint, specified by the `userBlueprintId`.
+        Delete a user blueprint, specified by the ``userBlueprintId``.
 
         Parameters
         ----------
@@ -506,9 +506,9 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -524,9 +524,9 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -541,22 +541,22 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         user_blueprint_ids: Union[str, List[str]],
     ) -> UserBlueprintAddToProjectMenu:
         """
-        Add a list of user blueprints, by id, to a specified (by id) project's repository.
+        Add a list of user blueprints, by ID, to a specified (by ID) project's repository.
 
         Parameters
         ----------
         project_id: string
-            The projectId of the project for the repository to add the specified user blueprints
+            The ``projectId`` of the project for the repository to add the specified user blueprints
             to.
         user_blueprint_ids: list(string) or string
-            The ids of the user blueprints to add to the specified project's repository.
+            The IDs of the user blueprints to add to the specified project's repository.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -582,14 +582,16 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         Parameters
         ----------
         project_id: string, Optional
+            The ID of the project associated with the blueprint.
         user_blueprint_id: string, Optional
+            The ID of the user blueprint being modified.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -620,14 +622,14 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         task_parameters: list(UserBlueprintTaskParameterValidationRequestParamItem)
             A list of task parameters and proposed values to be validated.
         project_id: string (optional, default is None)
-            The projectId representing the project where this user blueprint is edited.
+            The ``projectId`` representing the project where this user blueprint is edited.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -651,17 +653,17 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         share_recipient_type: Optional[str] = None,
     ) -> List[UserBlueprintSharedRolesResponseValidator]:
         """
-        Get a list of users, groups and organizations that have an access to this user blueprint
+        Get a list of users, groups, and organizations that have access to this user blueprint.
 
         Parameters
         ----------
         id: Optional[str]
-            Only return the access control information for a organization, group or user with this
+            Only return the access control information for an organization, group, or user with this
             ID.
         limit: int (Default=100)
             At most this many results are returned.
         name: string, Optional
-            Only return the access control information for a organization, group or user with this
+            Only return the access control information for an organization, group, or user with this
             name.
         offset: int (Default=0)
             This many results will be skipped.
@@ -673,9 +675,9 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -701,14 +703,14 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
             The representation of a directed acyclic graph defining a pipeline of data through tasks
             and a final estimator.
         project_id: string (optional, default is None)
-            The projectId representing the project where this user blueprint is edited.
+            The ``projectId`` representing the project where this user blueprint is edited.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -723,21 +725,21 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         roles: List[Union[GrantAccessControlWithUsernameValidator, GrantAccessControlWithIdValidator]],
     ) -> Response:
         """
-        Share a user blueprint with a user, group, or organization
+        Share a user blueprint with a user, group, or organization.
 
         Parameters
         ----------
         user_blueprint_id: str
             Used to identify a specific user-owned blueprint.
         roles: list(or(GrantAccessControlWithUsernameValidator, GrantAccessControlWithIdValidator))
-            Array of GrantAccessControl objects., up to maximum 100 objects.
+            Array of GrantAccessControl objects, up to a maximum of 100 objects.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -759,13 +761,13 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         order_by: str = "-created",
     ) -> UserBlueprintCatalogSearch:
         """
-        Fetch a list of the user blueprint catalog entries the current user has access to
+        Returns a list of all user blueprint catalog entries the current user has access to
         based on an optional search term, tags, owner user info, or sort order.
 
         Parameters
         ----------
         search: string, Optional.
-            A value to search for in the dataset's name, description, tags, column names,
+            A value to search for in the dataset name, description, tags, column names,
             categories, and latest error. The search is case insensitive. If no value is provided
             for this parameter, or if the empty string is used, or if the string contains only
             whitespace, no filtering will be done. Partial matching is performed on dataset name
@@ -775,10 +777,12 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
         tag: string, Optional.
             If provided, the results will be filtered to include only items with the specified tag.
 
-        limit: int, Optional. (default: 0), at most this many results are returned. To specify no
-            limit, use 0. The default may change and a maximum limit may be imposed without notice.
+        limit: int, Optional (default: 0)
+            At most this many results are returned. To specify no limit, use 0. The default may
+            change and a maximum limit may be imposed without notice.
 
-        offset: int, Optional. (default: 0), this many results will be skipped.
+        offset: int, Optional (default: 0)
+            This many results will be skipped.
 
         owner_user_id: string, Optional.
             Filter results to those owned by one or more owner identified by UID.
@@ -787,10 +791,10 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
             Filter results to those owned by one or more owner identified by username.
 
         order_by: string, Optional. Defaults to '-created'.
-            Sort order which will be applied to catalog list, valid options are "catalogName",
-            "originalName", "description", "created", and "relevance". For all options other
+            Sort order which will be applied to catalog list. Valid options are ``catalogName``,
+            ``originalName``, ``description``, ``created``, and ``relevance``. For all options other
             than relevance, you may prefix the attribute name with a dash to sort
-            in descending order. e.g., orderBy='-catalogName'.
+            in descending order. For example, ``orderBy='-catalogName'``.
         """
         return UserBlueprintCatalogSearch.search_catalog(
             search=search,
@@ -805,7 +809,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
 
 class UserBlueprintCatalogSearch(APIObject, HumanReadable, CompareWithJSON):
     """
-    An APIObject representing a user blueprint catalog entry the current
+    An ``APIObject`` representing a user blueprint catalog entry the current
     user has access to based on an optional search term and/or tags.
 
     Parameters
@@ -861,13 +865,13 @@ class UserBlueprintCatalogSearch(APIObject, HumanReadable, CompareWithJSON):
         order_by: str = "-created",
     ) -> List[UserBlueprintCatalogSearch]:
         """
-        Fetch a list of the user blueprint catalog entries the current user has access to
+        Returns a list of all user blueprint catalog entries the current user has access to
         based on an optional search term, tags, owner user info, or sort order.
 
         Parameters
         ----------
         search: string, Optional.
-            A value to search for in the dataset's name, description, tags, column names,
+            A value to search for in the dataset name, description, tags, column names,
             categories, and latest error. The search is case insensitive. If no value is provided
             for this parameter, or if the empty string is used, or if the string contains only
             whitespace, no filtering will be done. Partial matching is performed on dataset name
@@ -877,10 +881,12 @@ class UserBlueprintCatalogSearch(APIObject, HumanReadable, CompareWithJSON):
         tag: string, Optional.
             If provided, the results will be filtered to include only items with the specified tag.
 
-        limit: int, Optional. (default: 0), at most this many results are returned. To specify no
-            limit, use 0. The default may change and a maximum limit may be imposed without notice.
+        limit: int, Optional (default: 0)
+            At most this many results are returned. To specify no limit, use 0. The default may
+            change and a maximum limit may be imposed without notice.
 
-        offset: int, Optional. (default: 0), this many results will be skipped.
+        offset: int, Optional (default: 0)
+            This many results will be skipped.
 
         owner_user_id: string, Optional.
             Filter results to those owned by one or more owner identified by UID.
@@ -889,10 +895,10 @@ class UserBlueprintCatalogSearch(APIObject, HumanReadable, CompareWithJSON):
             Filter results to those owned by one or more owner identified by username.
 
         order_by: string, Optional. Defaults to '-created'.
-            Sort order which will be applied to catalog list, valid options are "catalogName",
-            "originalName", "description", "created", and "relevance". For all options other
+            Sort order which will be applied to catalog list. Valid options are ``catalogName``,
+            ``originalName``, ``description``, ``created``, and ``relevance``. For all options other
             than relevance, you may prefix the attribute name with a dash to sort
-            in descending order. e.g., orderBy='-catalogName'.
+            in descending order. For example, ``orderBy='-catalogName'``.
         """
         params = dict(
             search_for=search,
@@ -936,9 +942,9 @@ class UserBlueprintAvailableInput(APIObject, HumanReadable, CompareWithJSON):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -950,15 +956,15 @@ class UserBlueprintAvailableInput(APIObject, HumanReadable, CompareWithJSON):
 
 class UserBlueprintAddToProjectMenu(APIObject, HumanReadable, CompareWithJSON):
     """
-    Add a list of user blueprints, by id, to a specified (by id) project's repository.
+    Add a list of user blueprints, by ID, to a specified (by ID) project's repository.
 
     Parameters
     ----------
     added_to_menu: list(UserBlueprintAddedToMenuItem)
-        The list of userBlueprintId and blueprintId pairs representing blueprints successfully
+        A list of ``userBlueprintId`` and ``blueprintId`` pairs representing blueprints successfully
         added to the project repository.
     not_added_to_menu: list(UserBlueprintNotAddedToMenuItem)
-        The list of userBlueprintId and error message representing blueprints which failed to be
+        A list of ``userBlueprintId`` and error message pairs representing blueprints which failed to be
         added to the project repository.
     message: string
         A success message or a list of reasons why the list of blueprints could not be added
@@ -982,22 +988,22 @@ class UserBlueprintAddToProjectMenu(APIObject, HumanReadable, CompareWithJSON):
     @classmethod
     def add_to_project(cls, project_id: str, user_blueprint_ids: List[str]) -> UserBlueprintAddToProjectMenu:
         """
-        Add a list of user blueprints, by id, to a specified (by id) project's repository.
+        Add a list of user blueprints, by ID, to a specified (by ID) project's repository.
 
         Parameters
         ----------
         project_id: string
-            The projectId of the project for the repository to add the specified user blueprints
+            The ``projectId`` of the project for the repository to add the specified user blueprints
             to.
         user_blueprint_ids: list(string)
-            The ids of the user blueprints to add to the specified project's repository.
+            The IDs of the user blueprints to add to the specified project's repository.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -1047,18 +1053,19 @@ class UserBlueprintValidateTaskParameters(APIObject, HumanReadable, CompareWithJ
         task_parameters: list(UserBlueprintTaskParameterValidationRequestParamItem)
             A list of task parameters and proposed values to be validated.
         project_id: string (optional, default is None)
-            The projectId representing the project where this user blueprint is edited.
+            The project ID representing the project where this user blueprint is edited.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
         UserBlueprintValidateTaskParameters
+            The validated task parameters response.
         """
         response = cls._client.post(
             cls._path,
@@ -1083,7 +1090,7 @@ class UserBlueprintValidate(APIObject, HumanReadable, CompareWithJSON):
         Information about blueprint vertices, including warning and error messages.
     blueprint_context: VertexContextItemMessages
         Warnings and errors which may describe or summarize warnings or errors in the blueprint's
-        vertices
+        vertices.
     """
 
     _path = "userBlueprintsValidations/"
@@ -1104,8 +1111,10 @@ class UserBlueprintValidate(APIObject, HumanReadable, CompareWithJSON):
         blueprint,
         project_id: Optional[str] = None,
     ) -> UserBlueprintValidate:
-        """Validate the structure of the blueprint and that blueprint inputs/outputs are valid.
+        """
+        Validate the structure of the blueprint and that blueprint inputs/outputs are valid.
         Also return information about task data inputs and outputs.
+
         Parameters
         ----------
         blueprint: list(dict) or list(UserBlueprintTask)
@@ -1114,15 +1123,18 @@ class UserBlueprintValidate(APIObject, HumanReadable, CompareWithJSON):
         project_id: string, Optional (Default=None)
             The project associated with the blueprint. Necessary in the event of project specific
             tasks, such as column selection tasks.
+
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
+
         Returns
         -------
         UserBlueprintValidate
+            The validation response.
         """
         response = cls._client.post(
             cls._path,
@@ -1170,14 +1182,16 @@ class UserBlueprintAvailableTasks(APIObject, HumanReadable, CompareWithJSON):
         Parameters
         ----------
         project_id: string, Optional
+            The ID of the project associated with the blueprint.
         user_blueprint_id: string, Optional
+            The ID of the user blueprint being modified.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -1195,7 +1209,7 @@ class UserBlueprintAvailableTasks(APIObject, HumanReadable, CompareWithJSON):
 
 class UserBlueprintValidationRequest(HumanReadable, CompareWithJSON):
     """
-    Blueprint and optional project id for validation.
+    Blueprint and optional project ID for validation.
 
     Attributes
     ----------
@@ -1225,7 +1239,7 @@ class UserBlueprintValidationResponse(HumanReadable, CompareWithJSON):
          Info, warnings, and errors about each vertex in the blueprint.
     blueprint_context: VertexContextItemMessages
         Warnings and errors which may describe or summarize warnings or errors in the blueprint's
-        vertices
+        vertices.
     """
 
     def __init__(
@@ -1239,7 +1253,7 @@ class UserBlueprintValidationResponse(HumanReadable, CompareWithJSON):
 
 class UserBlueprintSharingListController(APIObject, HumanReadable, CompareWithJSON):
     """
-    Get a list of users, groups and organizations that have an access to this user blueprint
+    Get a list of users, groups, and organizations that have access to this user blueprint.
 
     Parameters
     ----------
@@ -1276,17 +1290,17 @@ class UserBlueprintSharingListController(APIObject, HumanReadable, CompareWithJS
         share_recipient_type: Optional[str] = None,
     ) -> List[UserBlueprintSharedRolesResponseValidator]:
         """
-        Get a list of users, groups and organizations that have an access to this user blueprint
+        Get a list of users, groups, and organizations that have access to this user blueprint.
 
         Parameters
         ----------
         id: Optional[str]
-            Only return the access control information for a organization, group or user with this
+            Only return the access control information for an organization, group, or user with this
             ID.
         limit: int (Default=100)
             At most this many results are returned.
         name: string, Optional
-            Only return the access control information for a organization, group or user with this
+            Only return the access control information for an organization, group, or user with this
             name.
         offset: int (Default=0)
             This many results will be skipped.
@@ -1298,9 +1312,9 @@ class UserBlueprintSharingListController(APIObject, HumanReadable, CompareWithJS
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -1331,21 +1345,21 @@ class UserBlueprintSharingUpdateController(APIObject, HumanReadable, CompareWith
         roles: List[Union[GrantAccessControlWithUsernameValidator, GrantAccessControlWithIdValidator]],
     ) -> Response:
         """
-        Share a user blueprint with a user, group, or organization
+        Share a user blueprint with a user, group, or organization.
 
         Parameters
         ----------
         user_blueprint_id: str
             Used to identify a specific user-owned blueprint.
         roles: list(or(GrantAccessControlWithUsernameValidator, GrantAccessControlWithIdValidator))
-            Array of GrantAccessControl objects., up to maximum 100 objects.
+            Array of GrantAccessControl objects, up to a maximum of 100 objects.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Returns
         -------
@@ -1383,9 +1397,9 @@ class UserBlueprintSharedRolesResponseValidator(HumanReadable, CompareWithJSON):
         The role of the org/group/user on this dataset or "NO_ROLE" for removing access when used
         with route to modify access.
     id: str
-        The ID of the recipient organization, group or user.
+        The ID of the recipient organization, group, or user.
     name: string
-        The name of the recipient organization, group or user.
+        The name of the recipient organization, group, or user.
     """
 
     def __init__(self, id: str, name: str, role, share_recipient_type: str, **kwargs: Any) -> None:
@@ -1456,7 +1470,7 @@ class UserBlueprintHexColumnNameLookupEntry(HumanReadable, CompareWithJSON):
     hex: string
         A safe hex representation of the column name.
     project_id: string, Optional
-        The id of the project from which the column name originates.
+        The ID of the project from which the column name originates.
     """
 
     def __init__(self, colname: str, hex: str, project_id: Optional[str] = None, **kwargs: Any) -> None:
@@ -1531,9 +1545,11 @@ class VertexContextItem(HumanReadable, CompareWithJSON):
     Parameters
     ----------
     task_id: string
-        The id associated with a specific vertex in the blueprint.
+        The ID associated with a specific vertex in the blueprint.
     information: VertexContextItemInfo
+        Information about the vertex inputs and outputs.
     messages: VertexContextItemMessages
+        Warning and error messages for the vertex.
     """
 
     def __init__(
@@ -1547,9 +1563,11 @@ class VertexContextItem(HumanReadable, CompareWithJSON):
         Parameters
         ----------
         task_id: string
-            The id associated with a specific vertex in the blueprint.
+            The ID associated with a specific vertex in the blueprint.
         information: dict
+            Information about the vertex inputs and outputs.
         messages: dict
+            Warning and error messages for the vertex.
         """
         self.task_id = task_id
         self.information = _init_class_or_dict(information, VertexContextItemInfo)
@@ -1634,15 +1652,15 @@ class UserBlueprintsInputType(HumanReadable, CompareWithJSON):
 
 class UserBlueprintAddedToMenuItem(HumanReadable, CompareWithJSON):
     """
-    A userBlueprintId and blueprintId pair representing blueprints successfully added to
+    A ``userBlueprintId`` and ``blueprintId`` pair representing blueprints successfully added to
     the project repository.
 
     Parameters
     ----------
     blueprint_id: string
-        The blueprintId representing the blueprint which was added to the project repository.
+        The ``blueprintId`` representing the blueprint which was added to the project repository.
     user_blueprint_id: string
-        The userBlueprintId associated with the blueprintId added to the project repository.
+        The ``userBlueprintId`` associated with the ``blueprintId`` added to the project repository.
     """
 
     def __init__(self, blueprint_id: str, user_blueprint_id: str, **kwargs: Any) -> None:
@@ -1725,7 +1743,7 @@ class UserBlueprintTaskLookupEntry(HumanReadable, CompareWithJSON):
     Parameters
     ----------
     task_code: string
-        The unique code which represents the task to be constructed and executed
+        The unique code which represents the task to be constructed and executed.
     task_definition: UserBlueprintTaskDefinition
         A definition of a task in terms of label, arguments, description, and other metadata.
     """
@@ -1742,7 +1760,7 @@ class UserBlueprintTaskDefinition(HumanReadable, CompareWithJSON):
     Parameters
     ----------
     task_code: string
-        The unique code which represents the task to be constructed and executed
+        The unique code which represents the task to be constructed and executed.
     label: string
         The generic / default title or label for the task.
     description: string
@@ -1763,10 +1781,11 @@ class UserBlueprintTaskDefinition(HumanReadable, CompareWithJSON):
     url: dict or string or TaskDocumentationUrl
         The URL of the documentation of the task.
     valid_inputs: list(string)
+        The valid input types for the task.
     is_custom_task: Optional[bool]
         Whether the task is custom code written by the user.
     custom_task_id: string or null, Optional
-        The id of the custom task, if it is a custom task.
+        The ID of the custom task, if it is a custom task.
     custom_task_versions: list(UserBlueprintTaskCustomTaskMetadata), Optional
         Metadata for all of the custom task's versions.
     supports_scoring_code: bool
@@ -1818,7 +1837,7 @@ class UserBlueprintTaskCustomTaskMetadata(HumanReadable, CompareWithJSON):
     Parameters
     ----------
     id: string
-        Id of the custom task version. The ID can be latest_<task_id> which implies to use the
+        ID of the custom task version. The ID can be latest_<task_id> which implies to use the
         latest version of that custom task.
     version_major: int
         Major version of the custom task.
@@ -1837,7 +1856,7 @@ class UserBlueprintTaskCustomTaskMetadata(HumanReadable, CompareWithJSON):
 
 class TaskDocumentationUrl(HumanReadable, CompareWithJSON):
     """
-    The url of the documentation, if one exists.
+    The URL of the documentation, if one exists.
 
     Parameters
     ----------
@@ -1879,7 +1898,7 @@ class UserBlueprintTaskArgument(HumanReadable, CompareWithJSON):
     Parameters
     ----------
     key: string
-        The unique key of the argument
+        The unique key of the argument.
     argument: UserBlueprintTaskArgumentDefinition
         The definition of a task argument, used to specify a certain aspect of the task.
     """
@@ -1898,7 +1917,7 @@ class UserBlueprintTaskArgumentDefinition(HumanReadable, CompareWithJSON):
     name: string
         The name of the argument.
     type: string
-        The type of the argument (e.g., "int", "float", "select", "intgrid", "multi", etc.)
+        The type of the argument (e.g., "int", "float", "select", ``intgrid``, "multi", etc.).
     default: any or list(any), Optional
         The default value of the argument.
     values: any or list(any) or dict

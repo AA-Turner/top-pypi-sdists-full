@@ -1,0 +1,368 @@
+"""FRP-based proxy tunnel for exposing local SOCKS5 proxy.
+
+This module provides functionality to:
+1. Download and install the FRP client binary (frpc)
+2. Start a SOCKS5 proxy tunnel to a remote FRP server
+3. Manage proxy lifecycle per session
+
+The proxy connects to a remote FRP server and exposes a local SOCKS5 proxy
+that can be used by the browser session.
+"""
+
+import collections
+import contextlib
+import fcntl
+import logging
+import os
+import platform
+import shutil
+import subprocess
+import tarfile
+import tempfile
+import threading
+import time
+import urllib.error
+import urllib.request
+import zipfile
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+_frpc_logger = logging.getLogger("smooth.frpc")
+
+# FRP version to use
+FRP_VERSION = "0.66.0"
+
+# Directory to store FRP binaries and configs
+FRP_DIR = Path.home() / ".smooth" / "frp"
+
+@contextlib.contextmanager
+def _file_lock(lock_path: Path):
+    """Cross-process file lock using fcntl (Unix) or msvcrt (Windows)."""
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = open(lock_path, "w")
+    try:
+        if platform.system().lower() == "windows":
+            import msvcrt
+            msvcrt.locking(fd.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fd.close()
+
+
+@dataclass
+class ProxyConfig:
+  """Configuration for the FRP proxy tunnel."""
+
+  server_url: str
+  token: str
+  remote_port: int = 1080
+  session_id: str = "default"
+
+
+@dataclass
+class _ProxyState:
+  """Internal state for a proxy instance."""
+
+  process: subprocess.Popen[str] | None = None
+  config_file: Path | None = None
+  lock: threading.Lock = field(default_factory=threading.Lock)
+  log_tail: collections.deque[str] = field(default_factory=lambda: collections.deque(maxlen=200))
+  drain_thread: threading.Thread | None = None
+
+
+class FRPProxy:
+  """FRP-based proxy tunnel manager."""
+
+  def __init__(self, config: ProxyConfig):
+    """Initialize the FRP proxy.
+
+    Args:
+        config: Proxy configuration with server details and token.
+    """
+    self.config = config
+    self._state = _ProxyState()
+    self._bin_path: Path | None = None
+
+  @staticmethod
+  def _get_platform_info() -> tuple[str, str, str]:
+    """Get platform-specific information for FRP download.
+
+    Returns:
+        Tuple of (os_name, arch, extension).
+
+    Raises:
+        RuntimeError: If the platform is not supported.
+    """
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+
+    # Map OS
+    if system == "darwin":
+      os_name = "darwin"
+    elif system == "windows":
+      os_name = "windows"
+    else:
+      os_name = "linux"
+
+    # Map architecture
+    if machine in ["x86_64", "amd64"]:
+      arch = "amd64"
+    elif machine in ["aarch64", "arm64"]:
+      arch = "arm64"
+    else:
+      raise RuntimeError(f"Unsupported architecture: {machine}")
+
+    ext = "zip" if system == "windows" else "tar.gz"
+
+    return os_name, arch, ext
+
+  def _install_frp(self) -> Path:
+    """Download and install FRP binary if not already present.
+
+    Returns:
+        Path to the frpc binary.
+
+    Raises:
+        RuntimeError: If installation fails.
+    """
+    FRP_DIR.mkdir(parents=True, exist_ok=True)
+
+    os_name, arch, ext = self._get_platform_info()
+    bin_name = "frpc.exe" if os_name == "windows" else "frpc"
+    bin_path = FRP_DIR / bin_name
+
+    # Fast path: binary already installed
+    if bin_path.exists():
+      return bin_path
+
+    # Cross-process lock: only one process downloads at a time
+    with _file_lock(FRP_DIR / ".install.lock"):
+      # Re-check after acquiring lock (another process may have installed it)
+      if bin_path.exists():
+        return bin_path
+
+      folder_name = f"frp_{FRP_VERSION}_{os_name}_{arch}"
+      filename = f"{folder_name}.{ext}"
+      url = f"https://github.com/fatedier/frp/releases/download/v{FRP_VERSION}/{filename}"
+
+      try:
+        # Download to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+          tmp_path = Path(tmp.name)
+
+        max_retries = 3
+        for attempt in range(max_retries):
+          try:
+            resp = urllib.request.urlopen(url)
+            if resp.status != 200:
+              raise urllib.error.URLError(f"HTTP {resp.status} downloading FRP")
+            content_type = resp.headers.get("Content-Type", "")
+            if "text/html" in content_type:
+              raise urllib.error.URLError(f"Unexpected Content-Type: {content_type}")
+            with open(tmp_path, "wb") as f:
+              shutil.copyfileobj(resp, f)
+            break
+          except (urllib.error.URLError, OSError) as e:
+            if attempt == max_retries - 1:
+              raise
+            backoff = 2 ** attempt
+            logging.getLogger("smooth").warning(
+              "FRP download failed (attempt %d/%d), retrying in %ds: %s",
+              attempt + 1, max_retries, backoff, e,
+            )
+            time.sleep(backoff)
+
+        # Extract to a unique temp dir (PID-based to avoid cross-process collisions)
+        extract_dir = FRP_DIR / f"extract_tmp_{os.getpid()}"
+        extract_dir.mkdir(exist_ok=True)
+
+        if ext == "zip":
+          with zipfile.ZipFile(tmp_path, "r") as z:
+            z.extractall(extract_dir)
+        else:
+          with tarfile.open(tmp_path, "r:gz") as t:
+            t.extractall(extract_dir)
+
+        # Move binary: write to temp name, chmod, then atomic rename
+        src = extract_dir / folder_name / bin_name
+        tmp_bin = FRP_DIR / f".{bin_name}.tmp.{os.getpid()}"
+        shutil.move(str(src), str(tmp_bin))
+
+        if os_name != "windows":
+          tmp_bin.chmod(0o755)
+
+        os.rename(str(tmp_bin), str(bin_path))
+
+        # Cleanup
+        tmp_path.unlink(missing_ok=True)
+        shutil.rmtree(extract_dir, ignore_errors=True)
+
+        return bin_path
+
+      except Exception as e:
+        # Clean up partial artifacts on failure
+        tmp_bin = FRP_DIR / f".{bin_name}.tmp.{os.getpid()}"
+        tmp_bin.unlink(missing_ok=True)
+        raise RuntimeError(f"Failed to install FRP: {e}") from e
+
+  def _create_config(self) -> Path:
+    """Create FRP client configuration file.
+
+    Returns:
+        Path to the configuration file.
+    """
+    FRP_DIR.mkdir(parents=True, exist_ok=True)
+
+    config_path = FRP_DIR / f"frpc_{self.config.session_id}.yml"
+    # port should be changed when we use load balancing
+    yaml_content = f"""
+serverAddr: {self.config.server_url}
+serverPort: 443
+loginFailExit: false
+auth:
+  method: token
+  token: "{self.config.token}"
+
+log:
+  to: "console"
+  level: "info"
+
+transport:
+  protocol: "wss"
+
+proxies:
+  - name: "socks5_tunnel_{self.config.session_id}"
+    type: "tcp"
+    remotePort: {self.config.remote_port}
+    plugin:
+      type: "socks5"
+"""
+    config_path.write_text(yaml_content)
+    return config_path
+
+  def start(self) -> None:
+    """Start the FRP proxy tunnel.
+
+    Raises:
+        RuntimeError: If the proxy fails to start or is already running.
+    """
+    with self._state.lock:
+      if self._state.process is not None:
+        raise RuntimeError("Proxy is already running")
+
+      try:
+        # Install FRP if needed
+        self._bin_path = self._install_frp()
+
+        # Create config
+        self._state.config_file = self._create_config()
+
+        # Build command
+        cmd = [str(self._bin_path), "-c", str(self._state.config_file)]
+
+        # Pipe stdout/stderr so we can forward frpc's own logs through Python's
+        # logging system (captured by pytest/log handlers) and keep a bounded
+        # tail for error reporting.
+        self._state.process = subprocess.Popen(
+          cmd,
+          stdout=subprocess.PIPE,
+          stderr=subprocess.STDOUT,
+          bufsize=1,
+          text=True,
+        )
+
+        session_id = self.config.session_id
+        proc = self._state.process
+        tail = self._state.log_tail
+
+        def _drain() -> None:
+          assert proc.stdout is not None
+          try:
+            for line in proc.stdout:
+              line = line.rstrip()
+              if not line:
+                continue
+              tail.append(line)
+              _frpc_logger.info("[%s] %s", session_id, line)
+          except Exception:
+            pass
+
+        self._state.drain_thread = threading.Thread(
+          target=_drain, name=f"frpc-drain-{session_id}", daemon=True,
+        )
+        self._state.drain_thread.start()
+
+        # Give it a moment to start and check if it failed immediately.
+        try:
+          self._state.process.wait(timeout=1.0)
+          rc = self._state.process.returncode
+          # Let the drain thread flush what it has.
+          self._state.drain_thread.join(timeout=0.5)
+          tail_str = "\n".join(tail)
+          self._cleanup()
+          raise RuntimeError(
+            f"FRP process exited immediately (rc={rc}). frpc output:\n{tail_str}"
+          )
+        except subprocess.TimeoutExpired:
+          # Process is still running after 1 second — expected happy path.
+          pass
+
+      except Exception as e:
+        self._cleanup()
+        if isinstance(e, RuntimeError):
+          raise
+        raise RuntimeError(f"Failed to start proxy: {e}") from e
+
+  def stop(self) -> None:
+    """Stop the FRP proxy tunnel."""
+    with self._state.lock:
+      self._cleanup()
+
+  def _cleanup(self) -> None:
+    """Internal cleanup method."""
+    if self._state.process is not None:
+      try:
+        self._state.process.terminate()
+        try:
+          self._state.process.wait(timeout=5.0)
+        except subprocess.TimeoutExpired:
+          self._state.process.kill()
+          self._state.process.wait()
+      except Exception:
+        pass
+      self._state.process = None
+
+    if self._state.drain_thread is not None:
+      try:
+        self._state.drain_thread.join(timeout=1.0)
+      except Exception:
+        pass
+      self._state.drain_thread = None
+
+    if self._state.config_file is not None:
+      try:
+        if self._state.config_file.exists():
+          self._state.config_file.unlink()
+      except Exception:
+        pass
+      self._state.config_file = None
+
+  @property
+  def is_running(self) -> bool:
+    """Check if the proxy is currently running."""
+    with self._state.lock:
+      if self._state.process is None:
+        return False
+      return self._state.process.poll() is None
+
+  def __enter__(self) -> "FRPProxy":
+    """Context manager entry."""
+    self.start()
+    return self
+
+  def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    """Context manager exit."""
+    self.stop()

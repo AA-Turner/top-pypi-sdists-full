@@ -1,0 +1,64 @@
+# Scheduled takeover of Copilot review-feedback evaluation PRs.
+#
+# The evaluation output is produced by the Copilot cloud coding agent on a
+# `copilot/**` branch. GitHub gates workflows on Copilot/automation-origin events
+# (they sit at "Action required"), so `audit-review-feedback-apply` never fires on
+# its own. This job reclaims such eval PRs under the human CI identity — preferring
+# a squash (clean single commit, same mechanism as the AI PR loop) and falling
+# back to a takeover amend. Either re-authors HEAD under a human identity and
+# force-pushes, emitting a human `synchronize` that un-gates the apply workflow.
+#
+# Runs every 4 hours and reclaims at most one PR per run to avoid bursts. The
+# HEAD-author idempotency gate means an already-reclaimed (human-authored) PR is
+# skipped, and a successful apply closes the eval PR, so re-processing is a no-op.
+name: Audit Takeover Eval PRs
+
+on:
+  schedule:
+    - cron: "23 */4 * * *"
+  workflow_dispatch:
+    inputs:
+      max_prs:
+        description: "Maximum eval PRs to reclaim in this run"
+        required: false
+        default: "1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-takeover-eval-prs
+  cancel-in-progress: false
+
+jobs:
+  takeover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Full history + the SPECKIT PAT so squash/rebase and the force-push (under a
+      # human identity) work; the PAT is what authenticates the un-gating push.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SPECKIT_PR_TOKEN }}
+      - name: Configure git identity
+        run: |
+          git config user.name "AMARSNIK_swica"
+          git config user.email "amarsnik_swica@users.noreply.github.com"
+      - run: pip install -e .
+      - name: Validate SPECKIT Token
+        env:
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+        run: |
+          if [[ -z "$SPECKIT_PR_TOKEN" ]]; then
+            echo "::error::SPECKIT_PR_TOKEN secret is not configured or empty. This PAT is required to reclaim evaluation PRs."
+            exit 1
+          fi
+      - name: Reclaim Copilot evaluation PRs under a human identity
+        run: |
+          agdt-audit-takeover-eval-prs \
+            --repo "${{ github.repository }}" \
+            --max-prs "${{ github.event.inputs.max_prs || '1' }}"
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}

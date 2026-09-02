@@ -1,0 +1,129 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pypaperless"
+version = "6.0.1"
+license = {text = "MIT"}
+description = "Little api client for paperless(-ngx)."
+readme = "README.md"
+authors = [
+  {name = "Tobias Schulz", email = "public.dev@tbsch.de"}
+]
+keywords = ["library", "async", "api-client", "python3", "paperless-ngx"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.15.0",
+]
+
+[dependency-groups]
+dev = [
+    "codespell>=2.4.3",
+    "covdefaults>=2.3.0",
+    "coverage>=7.15.4",
+    "mypy>=2.3.1",
+    "prek>=0.4.14",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "pytest-httpx>=0.36.2",
+    "ruff>=0.16.3",
+    "yamllint>=1.38.0",
+]
+docs = [
+    "zensical>=0.0.55",
+]
+
+[project.urls]
+"Homepage" = "https://pypaperless.docs.tbsch.de"
+"Source Code" = "https://github.com/tb1337/pypaperless"
+"Bug Reports" = "https://github.com/tb1337/pypaperless/issues"
+"Coverage" = "https://codecov.io/gh/tb1337/pypaperless"
+
+[tool.codespell]
+skip = "./site,./uv.lock"
+
+[tool.coverage.run]
+plugins = ["covdefaults"]
+source = ["pypaperless"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+
+[tool.mypy]
+platform = "linux"
+python_version = "3.13"
+files = ["pypaperless"]
+
+follow_imports = "normal"
+ignore_missing_imports = true
+
+check_untyped_defs = true
+disallow_any_generics = false
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+warn_incomplete_stub = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+addopts = "--cov --cov-report=term --cov-report=xml"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+ignore = [
+  "ANN401", # Opinioated warning on disallowing dynamically typed expressions
+  "CPY001", # Eh what? Disable that annoying one.
+  "D203", # Conflicts with other rules
+  "D213", # Conflicts with other rules
+  "D417", # False positives in some occasions
+  "PLR2004", # Just annoying, not really useful
+  "PLR0913", # Too many arguments: not actionable without breaking public API
+  "RUF012", # Just annoying
+
+  # Conflicts with the Ruff formatter
+  "COM812",
+  "ISC001",
+]
+select = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+# S105: false positive – StrEnum members named TOKEN/REMOVE_PASSWORD hold URL paths, not passwords
+"pypaperless/const.py" = ["S105"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.isort]
+known-first-party = ["pypaperless"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25

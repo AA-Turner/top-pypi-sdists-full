@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "slack-types"
+version = "1.2.6"
+description = "Slack API Types in Python"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+authors = [{ name = "Warren Seine", email = "warren.seine@gmail.com" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2",
+]
+
+[dependency-groups]
+dev = [
+    "datamodel-code-generator[ruff]>=0.32",
+    "genson>=1.3.0",
+    "pytest>=8",
+]
+
+[project.urls]
+Homepage = "https://github.com/warrenseine/slack-types"
+"Bug Tracker" = "https://github.com/warrenseine/slack-types/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["python/slack_types"]
+
+[tool.hatch.build.targets.sdist]
+include = ["python/slack_types", "README.md", "LICENSE.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

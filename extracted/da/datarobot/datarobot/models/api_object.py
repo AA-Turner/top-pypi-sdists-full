@@ -48,7 +48,7 @@ class APIObject:  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         data : dict
-            Correctly snake_cased keys and their values.
+            Correctly ``snake_cased`` keys and their values.
         """
         checked = cls._converter.check(data)
         safe_data = cls._filter_data(checked)
@@ -77,11 +77,10 @@ class APIObject:  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         data : dict
-            The directly translated dict of JSON from the server. No casing fixes have
-            taken place
+            The directly translated dict of JSON from the server. DataRobot has not applied casing fixes yet.
         keep_attrs : iterable
-            List, set or tuple of the dotted namespace notations for attributes to keep within the
-            object structure even if their values are None
+            A list, set, or tuple of the dotted namespace notations for attributes to keep within the
+            object structure even if their values are None.
         """
         case_converted = from_api(data, keep_attrs=keep_attrs)
         return cls.from_data(case_converted)

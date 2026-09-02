@@ -37,6 +37,13 @@ jobs:
             force-python: ""
             codecov: true
             packages: ""
+            docutils_version: "0.22.4"
+
+          - session: test
+            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
+            force-python: ""
+            codecov: true
+            packages: ""
             docutils_version: "0.21.2"
 
           - session: test
@@ -69,7 +76,7 @@ jobs:
     name: "Run nox ${{ matrix.session }} session (docutils ${{ matrix.docutils_version || 'latest'}})"
     steps:
       - name: Check out antsibull-docutils
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           path: antsibull-docutils
           persist-credentials: false
@@ -83,7 +90,7 @@ jobs:
           sed -i -e 's/"docutils"/"docutils == ${{ matrix.docutils_version }}"/g' pyproject.toml
         working-directory: antsibull-docutils
       - name: Setup nox
-        uses: wntrblm/nox@2025.11.12
+        uses: wntrblm/nox@a976d7ee04ab7a13634adc1016d4755a1348225f  # 2026.08.17
         with:
           python-versions: "${{ matrix.python-versions }}"
       - name: Run nox

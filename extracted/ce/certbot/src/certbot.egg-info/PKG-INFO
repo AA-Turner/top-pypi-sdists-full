@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot
-Version: 5.7.0
+Version: 5.8.0
 Summary: ACME client
 Author: Certbot Project
 License-Expression: Apache-2.0
@@ -25,10 +25,10 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: acme>=5.7.0
+Requires-Dist: acme>=5.8.0
 Requires-Dist: ConfigArgParse>=1.5.3
 Requires-Dist: configobj>=5.0.6
-Requires-Dist: cryptography>=43.0.0
+Requires-Dist: cryptography>=47.0.0
 Requires-Dist: distro>=1.7.0
 Requires-Dist: importlib_metadata>=8.6.1; python_version < "3.10"
 Requires-Dist: josepy>=2.0.0
@@ -65,10 +65,10 @@ Requires-Dist: types-setuptools; extra == "test"
 Requires-Dist: uv; extra == "test"
 Requires-Dist: wheel; extra == "test"
 Provides-Extra: apache
-Requires-Dist: certbot-apache>=5.7.0; extra == "apache"
+Requires-Dist: certbot-apache>=5.8.0; extra == "apache"
 Requires-Dist: python-augeas; extra == "apache"
 Provides-Extra: nginx
-Requires-Dist: certbot-nginx>=5.7.0; extra == "nginx"
+Requires-Dist: certbot-nginx>=5.8.0; extra == "nginx"
 Requires-Dist: PyOpenSSL>=25.0.0; extra == "nginx"
 Requires-Dist: pyparsing>=3.0.0; extra == "nginx"
 Provides-Extra: all

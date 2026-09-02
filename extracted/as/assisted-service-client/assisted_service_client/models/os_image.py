@@ -34,29 +34,39 @@ class OsImage(object):
         'openshift_version': 'str',
         'cpu_architecture': 'str',
         'url': 'str',
-        'version': 'str'
+        'version': 'str',
+        'os_stream': 'str',
+        'default_os_stream': 'bool'
     }
 
     attribute_map = {
         'openshift_version': 'openshift_version',
         'cpu_architecture': 'cpu_architecture',
         'url': 'url',
-        'version': 'version'
+        'version': 'version',
+        'os_stream': 'os_stream',
+        'default_os_stream': 'default_os_stream'
     }
 
-    def __init__(self, openshift_version=None, cpu_architecture='x86_64', url=None, version=None):  # noqa: E501
+    def __init__(self, openshift_version=None, cpu_architecture='x86_64', url=None, version=None, os_stream=None, default_os_stream=None):  # noqa: E501
         """OsImage - a model defined in Swagger"""  # noqa: E501
 
         self._openshift_version = None
         self._cpu_architecture = None
         self._url = None
         self._version = None
+        self._os_stream = None
+        self._default_os_stream = None
         self.discriminator = None
 
         self.openshift_version = openshift_version
         self.cpu_architecture = cpu_architecture
         self.url = url
         self.version = version
+        if os_stream is not None:
+            self.os_stream = os_stream
+        if default_os_stream is not None:
+            self.default_os_stream = default_os_stream
 
     @property
     def openshift_version(self):
@@ -163,6 +173,52 @@ class OsImage(object):
             raise ValueError("Invalid value for `version`, must not be `None`")  # noqa: E501
 
         self._version = version
+
+    @property
+    def os_stream(self):
+        """Gets the os_stream of this OsImage.  # noqa: E501
+
+        The OS stream of this image (e.g. rhel-9, rhel-10).  # noqa: E501
+
+        :return: The os_stream of this OsImage.  # noqa: E501
+        :rtype: str
+        """
+        return self._os_stream
+
+    @os_stream.setter
+    def os_stream(self, os_stream):
+        """Sets the os_stream of this OsImage.
+
+        The OS stream of this image (e.g. rhel-9, rhel-10).  # noqa: E501
+
+        :param os_stream: The os_stream of this OsImage.  # noqa: E501
+        :type: str
+        """
+
+        self._os_stream = os_stream
+
+    @property
+    def default_os_stream(self):
+        """Gets the default_os_stream of this OsImage.  # noqa: E501
+
+        Whether this OS image is the default stream for its OpenShift version and CPU architecture.  # noqa: E501
+
+        :return: The default_os_stream of this OsImage.  # noqa: E501
+        :rtype: bool
+        """
+        return self._default_os_stream
+
+    @default_os_stream.setter
+    def default_os_stream(self, default_os_stream):
+        """Sets the default_os_stream of this OsImage.
+
+        Whether this OS image is the default stream for its OpenShift version and CPU architecture.  # noqa: E501
+
+        :param default_os_stream: The default_os_stream of this OsImage.  # noqa: E501
+        :type: bool
+        """
+
+        self._default_os_stream = default_os_stream
 
     def to_dict(self):
         """Returns the model properties as a dict"""

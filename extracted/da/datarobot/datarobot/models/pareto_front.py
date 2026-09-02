@@ -31,20 +31,20 @@ class Solution:
     Attributes
     ----------
     eureqa_solution_id: str
-        ID of this Solution
+        ID of this solution.
     complexity: int
         Complexity score for this solution. Complexity score is a function
         of the mathematical operators used in the current solution.
-        The Complexity calculation can be tuned via model hyperparameters.
+        The complexity calculation can be tuned via model hyperparameters.
     error: float or None
         Error for the current solution, as computed by Eureqa using the
-        'error_metric' error metric. It will be None if model refitted existing solution.
+        ``error_metric`` error metric. It will be None if model refitted existing solution.
     expression: str
         Eureqa model equation string.
     expression_annotated: str
         Eureqa model equation string with variable names tagged for easy identification.
     best_model: bool
-        True, if the model is determined to be the best
+        True, if the model is determined to be the best.
     """
 
     _client = staticproperty(get_client)  # type: ignore[arg-type]
@@ -84,17 +84,17 @@ class ParetoFront(APIObject):
     Attributes
     ----------
     project_id : str
-        the ID of the project the model belongs to
+        The ID of the project the model belongs to.
     error_metric : str
         Eureqa error-metric identifier used to compute error metrics for this search. Note that
         Eureqa error metrics do NOT correspond 1:1 with DataRobot error metrics -- the available
         metrics are not the same, and are computed from a subset of the training data rather than
         from the validation data.
     hyperparameters : dict
-        Hyperparameters used by this run of the Eureqa blueprint
+        Hyperparameters used by this run of the Eureqa blueprint.
     target_type : str
-       Indicating what kind of modeling is being done in this project, either 'Regression',
-       'Binary' (Binary classification), or 'Multiclass' (Multiclass classification).
+        Indicates what kind of modeling is being done in this project, either 'Regression',
+        'Binary' (Binary classification), or 'Multiclass' (Multiclass classification).
     solutions : list(Solution)
         Solutions that Eureqa has found to model this data.
         Some solutions will have greater accuracy.  Others will have slightly
@@ -147,10 +147,10 @@ class ParetoFront(APIObject):
         ----------
         data : dict
             The directly translated dict of JSON from the server. No casing fixes have
-            taken place
+            taken place.
         keep_attrs : list
-            List of the dotted namespace notations for attributes to keep within the
-            object structure even if their values are None
+            A list of the dotted namespace notations for attributes to keep within the
+            object structure even if their values are None.
         """
         case_converted = from_api(data, keep_attrs=keep_attrs, keep_null_keys=True)
         return cls.from_data(case_converted)

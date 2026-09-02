@@ -1,0 +1,118 @@
+[tool.pytest.ini_options]
+# The single source of pytest config. There used to be a pytest.ini as well,
+# which silently won (pytest takes the FIRST config file it finds, it does not
+# merge) -- so this block was dead and its marker list had drifted to two
+# entries. Do not reintroduce pytest.ini/setup.cfg/tox.ini config.
+#
+# Deliberately NOT set here: log_cli_level / log_level. Either one forces the
+# ROOT logger to that level for every test, so trilogy's own INFO rendering
+# ("[RENDERING] Compiled query: <full SQL>") lands in the report of every
+# failing test. Left unset, loggers sit at WARNING and a failure report carries
+# only what the failure needs.
+#
+# A deadlocked test used to be invisible: the job sat at the last flushed
+# progress line until the CI ceiling killed it, with no stack to look at. This
+# dumps every thread's stack once a single test passes the threshold and then
+# lets it keep running -- diagnosis only, it never fails or kills a test.
+faulthandler_timeout = 600
+markers = [
+    "adventureworks_execution: marks test as requiring adventureworks db and running queries",
+    "adventureworks: marks tests as requirin adventureworks",
+    "clickhouse_server: marks tests as requiring a real ClickHouse server (env vars TRILOGY_CLICKHOUSE_*)",
+    "bigquery_execution: marks tests as requiring a real BigQuery project + GCS staging (env vars TRILOGY_BIGQUERY_*)",
+    "v4_parity: discovery planner correctness cases (local_scripts/v4_evals)",
+    "cloud_live: marks tests as hitting a real trilogy-cloud API and triggering real job runs (env vars TRILOGY_CLOUD_TOKEN + TRILOGY_CLOUD_API)",
+]
+
+[tool.ruff]
+# Allow lines to be as long as 200 characters.
+line-length = 200
+lint.extend-select = ["I"]
+# BLE001: broad excepts are deliberate at CLI/eval/optimizer-fallback boundaries.
+# DTZ: naive local datetimes are the project convention; tz-aware would change behavior.
+lint.ignore = ["BLE001", "DTZ001", "DTZ005", "DTZ006", "DTZ011", "DTZ901"]
+
+[tool.ruff.lint.per-file-ignores]
+# E402: Module level import not at top of file - needed for warning filter before imports
+"trilogy/__init__.py" = ["E402"]
+# N999: dot-prefixed dir is required by the custom build backend (backend-path)
+".scripts/__init__.py" = ["N999"]
+# RUF009: `_memo()` returns a `dataclasses.field(default_factory=dict, ...)`
+# sentinel, so every SourceNetwork gets its OWN memo table -- the shared-mutable
+# default the rule guards against cannot happen. Ruff special-cases a literal
+# `field(...)` default but cannot see through the helper, and the helper exists
+# so the spec of ten memo tables cannot drift.
+"trilogy/core/processing/v4_helper/network_model.py" = ["RUF009"]
+
+[project]
+name = "pytrilogy"
+description = "Declarative, typed query language that compiles to SQL."
+dynamic = ["dependencies", "version"]
+readme = {file = "README.md", content-type = "text/markdown"}
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+[project.scripts]
+trilogy = "trilogy.scripts.trilogy:cli"
+
+[project.optional-dependencies]
+odbc = ["pyodbc"]
+postgres = ["psycopg2-binary"]
+mysql = ["pymysql"]
+bigquery = ["sqlalchemy-bigquery"]
+snowflake = ["snowflake-sqlalchemy"]
+ai = ["httpx"]
+cli = ["rich", "plotext<6"]
+serve = ["fastapi", "uvicorn"]
+analysis = ["altair", "pandas", "vl-convert-python"]
+report = ["markdown", "altair", "pandas", "vl-convert-python", "playwright"]
+
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools]
+packages = {find = {exclude = ["dist", "build", "*.tests", "*.tests.*", "tests.*", "tests", "docs", ".github", "examples"]}}
+
+[tool.setuptools.package-data]
+"*" = ["*.tf", "*.jinja", "py.typed", "*.lark", "*.preql"]
+
+[build-system]
+requires = ["maturin>=1.13.2,<2.0"]
+build-backend = "build_backend"
+backend-path = [".scripts"]
+
+[tool.maturin]
+module-name = "_preql_import_resolver"
+manifest-path = "trilogy/scripts/dependency/Cargo.toml"
+features = ["python", "pyo3/extension-module"]
+python-packages = ["trilogy"]
+include = [
+  "trilogy/**/*.preql",
+  "trilogy/**/*.lark",
+  "trilogy/**/*.jinja",
+  "trilogy/**/*.tf",
+  "trilogy/py.typed",
+  "_preql_import_resolver/__init__.py",
+  "LICENSE.md",
+  "README.md",
+  { path = ".scripts/build_backend.py", format = "sdist" },
+  { path = ".scripts/sync_version.py", format = "sdist" },
+  { path = ".scripts/__init__.py", format = "sdist" },
+]
+# The cargo build directory sits *inside* the python package named above, and
+# maturin's default output is `<manifest-dir>/target/wheels/` -- so a build with
+# no explicit `--out` packs its own wheel back into itself until the archive
+# passes the 4GiB zip32 ceiling and the zip writer gives up ("Large file option
+# has not been set"). The release flow always passes `--out dist` and never saw
+# it; a PEP 517 source build -- `pip install pytrilogy` where no wheel matches
+# the interpreter -- hit it every time.
+exclude = ["trilogy/scripts/dependency/target/**/*"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: timesfm
-Version: 3.0.0
+Version: 3.0.1
 Summary: A time series foundation model.
 Author-email: Rajat Sen <senrajat@google.com>, Yichen Zhou <yichenzhou@google.com>, Abhimanyu Das <abhidas@google.com>, Petros Mol <pmol@google.com>, Ayush Jain <ayuj@google.com>, Michael Chertushkin <chertushkinmichael@gmail.com>
 License: Apache-2.0

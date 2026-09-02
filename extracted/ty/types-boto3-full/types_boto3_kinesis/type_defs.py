@@ -362,6 +362,7 @@ class GetRecordsInputTypeDef(TypedDict):
     Limit: NotRequired[int]
     StreamARN: NotRequired[str]
     StreamId: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 
 class RecordTypeDef(TypedDict):
@@ -582,6 +583,7 @@ class PutRecordInputTypeDef(TypedDict):
     SequenceNumberForOrdering: NotRequired[str]
     StreamARN: NotRequired[str]
     StreamId: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 
 class PutRecordsRequestEntryTypeDef(TypedDict):
@@ -766,6 +768,7 @@ class GetShardIteratorInputTypeDef(TypedDict):
     Timestamp: NotRequired[TimestampTypeDef]
     StreamARN: NotRequired[str]
     StreamId: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 
 class ListStreamConsumersInputPaginateTypeDef(TypedDict):
@@ -886,6 +889,7 @@ class PutRecordsInputTypeDef(TypedDict):
     StreamName: NotRequired[str]
     StreamARN: NotRequired[str]
     StreamId: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 
 class UpdateChannelInputTypeDef(TypedDict):
@@ -950,6 +954,7 @@ class SubscribeToShardInputTypeDef(TypedDict):
     ShardId: str
     StartingPosition: StartingPositionTypeDef
     StreamId: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 
 class ListChannelsInputPaginateTypeDef(TypedDict):

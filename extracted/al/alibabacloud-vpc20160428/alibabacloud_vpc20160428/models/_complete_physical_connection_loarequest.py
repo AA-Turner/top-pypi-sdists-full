@@ -22,29 +22,29 @@ class CompletePhysicalConnectionLOARequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # The client generates the value of this parameter. Ensure that the value is unique among different requests.
+        # The client generates the value. Ensure that the value is unique among different requests.
         # 
-        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may differ for each API request.
+        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request may be different.
         self.client_token = client_token
-        # Specifies whether the construction acceptance is completed. Valid values:
-        # * **true**: The construction is completed and reported.
+        # Specifies whether the construction is completed. Valid values:
+        # * **true**: Construction is completed.
         # * **false**: Line O&M.
         self.finish_work = finish_work
         # The instance ID of the Express Connect circuit.
         # 
         # This parameter is required.
         self.instance_id = instance_id
-        # The line code of the telecommunications service provider.
+        # The line code of the carrier.
         self.line_code = line_code
         # The cable label in the data center building.
         self.line_label = line_label
-        # The O&M contact information of the line.
+        # The O&M contact information of the line carrier.
         self.line_spcontact_info = line_spcontact_info
-        # The telecommunications service provider. Valid values:
-        # - **中国电信**
-        # - **中国联通**
-        # - **中国移动**
-        # - **中国其他**
+        # The carrier. Valid values:
+        # - **中国电信**.
+        # - **中国联通**.
+        # - **中国移动**.
+        # - **中国其他**.
         self.line_service_provider = line_service_provider
         self.owner_account = owner_account
         self.owner_id = owner_id

@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version"]
+name = "pygeomag"
+authors = [
+  { name="Justin Myers" },
+]
+description = "A python port of the World Magnetic Model (WMM)"
+readme = "README.rst"
+requires-python = ">=3.7"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/boxpet/pygeomag"
+"Bug Tracker" = "https://github.com/boxpet/pygeomag/issues"
+
+[tool.coverage.run]
+omit = [
+    "*/test/*",
+    ]
+
+[tool.ruff]
+target-version = "py38"
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = ["D", "I", "PL", "UP"]
+ignore = ["D100", "D104", "D107"]
+
+[tool.ruff.lint.per-file-ignores]
+"test/**.py" = ["D"]
+
+[tool.setuptools]
+packages = [
+    "pygeomag",
+    "pygeomag.wmm",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "pygeomag.__version__"}

@@ -7,7 +7,10 @@ and before ``Capability.discover`` registers components — so any preflight
 Pipeline (per-boot):
 
 1. ``packages`` — apt-get per capability. Skipped when the install marker
-   is already present in the capability's cache directory.
+   is already present in the capability's cache directory, and skipped again
+   when dpkg already reports every declared package as installed — ``apt-get
+   update`` reaches the archives unconditionally, so a pre-baked image must
+   not enter this step at all.
 2. ``python`` — combined ``uv pip install`` (or ``python -m pip install``)
    across every capability's pins, targeting the active virtualenv when there
    is one and the system interpreter (via sudo) when there is not. Runs every
@@ -26,10 +29,13 @@ See specs/capabilities/runtime.md (CAP-INST-*) and
 packages/docs/src/content/docs/capabilities/dependencies-and-checks.mdx.
 """
 
+import contextlib
 import os
 import shutil
 import subprocess
 import sys
+import time
+import typing as t
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -40,6 +46,130 @@ from dreadnode.capabilities.types import DependencySpec
 # Per-step subprocess timeout. Heavy installs (Caido, Burp, large pip
 # resolutions) need a generous budget; ``checks:`` is the 5s fast surface.
 _INSTALL_TIMEOUT_SECONDS = 600
+
+# `dpkg-query` reads the local status database and never touches the network,
+# so it needs a fraction of the install budget.
+_DPKG_QUERY_TIMEOUT_SECONDS = 30
+
+# Sealed installs get a much smaller budget than the 600s connected one.
+# Nothing legitimately downloads in sealed mode, so a step that takes minutes
+# is waiting on a network that will not answer. A deny-all policy that DROPs
+# rather than REJECTs turns every such wait into the full timeout, which is
+# how one unreachable host becomes ten minutes of boot; capping it keeps the
+# outcome the same whether the network drops, refuses, or blackholes DNS.
+_SEALED_TIMEOUT_SECONDS = 180
+
+# Aggregate ceiling for one install pass. The per-step timeouts above bound a
+# single command; nothing bounded the pass, so a capability set with several
+# slow steps could run for tens of minutes while the platform's readiness budget
+# expired and reclaimed the sandbox underneath it. Capping the pass instead
+# means installs get cut short and report unmet prerequisites through
+# ``checks:`` — a runtime that comes up degraded, rather than one that never
+# comes up at all.
+#
+# Sized from the platform's own readiness budget when it tells us, so the two
+# cannot drift: an operator who raises `readyTimeoutSeconds` for slow internal
+# mirrors gets a proportionally longer install pass without a second knob.
+_READY_BUDGET_ENV = "DREADNODE_RUNTIME_READY_BUDGET_SEC"
+
+# Held back from the install pass for the rest of startup — scope validation
+# with its retry backoff, capability sync, discovery, and the platform's own
+# polling interval.
+_STARTUP_RESERVE_SECONDS = 90
+
+# Used off-platform (a laptop, CI, a customer's own process), where no readiness
+# budget exists and nothing is going to reclaim anything.
+_DEFAULT_TOTAL_BUDGET_SECONDS = 420
+
+_pass_deadline: float | None = None
+
+# Set by the platform when the deployment has no public egress. This is a
+# directive about one behaviour, not a description of the deployment: the SDK
+# runs in a sandbox, on a laptop, in CI and inside a customer's own process,
+# and only the first of those is ever told this.
+_INSTALL_MODE_ENV = "DREADNODE_CAPABILITY_INSTALL"
+
+# Substrings that mark a failure as an outbound attempt rather than a local
+# one. Advisory: the failure is recorded either way, and this only decides how
+# it is labelled. Worth labelling, because "the capability could not install"
+# and "the capability tried to reach the internet" are different findings to an
+# operator running a disconnected deployment — the second one is a defect even
+# when it is handled.
+_EGRESS_FAILURE_MARKERS = (
+    "could not resolve host",
+    "temporary failure in name resolution",
+    "name or service not known",
+    "network is unreachable",
+    "no route to host",
+    "connection refused",
+    "connection timed out",
+    "operation timed out",
+    "failed to fetch",
+    "could not connect",
+    "proxy connect",
+    "tls handshake timeout",
+)
+
+
+def _sealed() -> bool:
+    """Whether this runtime must complete installs without reaching a network."""
+    return os.environ.get(_INSTALL_MODE_ENV, "").strip().lower() == "sealed"
+
+
+def _total_budget() -> float:
+    """Seconds the whole install pass may take."""
+    raw = os.environ.get(_READY_BUDGET_ENV, "").strip()
+    if raw:
+        try:
+            ready_budget = float(raw)
+        except ValueError:
+            logger.warning("Ignoring non-numeric {}={!r}", _READY_BUDGET_ENV, raw)
+        else:
+            return max(60.0, ready_budget - _STARTUP_RESERVE_SECONDS)
+    return float(_DEFAULT_TOTAL_BUDGET_SECONDS)
+
+
+@contextlib.contextmanager
+def _install_budget() -> t.Iterator[None]:
+    """Bound one install pass. Reentrant calls keep the outermost deadline."""
+    global _pass_deadline  # noqa: PLW0603
+    if _pass_deadline is not None:
+        yield
+        return
+    _pass_deadline = time.monotonic() + _total_budget()
+    try:
+        yield
+    finally:
+        _pass_deadline = None
+
+
+def _remaining_budget() -> float | None:
+    """Seconds left in the pass, or None when no pass is in progress."""
+    if _pass_deadline is None:
+        return None
+    return _pass_deadline - time.monotonic()
+
+
+def _step_timeout() -> int:
+    """Per-step budget, never exceeding what is left of the whole pass."""
+    step = _SEALED_TIMEOUT_SECONDS if _sealed() else _INSTALL_TIMEOUT_SECONDS
+    remaining = _remaining_budget()
+    if remaining is None:
+        return step
+    return max(1, min(step, int(remaining)))
+
+
+def _label_failure(err: str) -> str:
+    """Prefix a failure that looks like an outbound attempt.
+
+    Matching on message text is imprecise by nature, so this only ever adds a
+    label — it never suppresses or rewrites the underlying error.
+    """
+    lowered = err.lower()
+    if any(marker in lowered for marker in _EGRESS_FAILURE_MARKERS):
+        return f"outbound attempt failed (no egress available): {err}"
+    return err
+
 
 # Marker written into each capability's cache directory after a successful
 # packages+scripts pass. Wiped automatically when the sync replaces the
@@ -80,9 +210,10 @@ def install_dependencies(
         else:
             to_install.append((name, path, dep))
 
-    _install_packages(to_install, report)
-    _install_python_combined(specs, report)
-    _install_scripts(to_install, report)
+    with _install_budget():
+        _install_packages(to_install, report)
+        _install_python_combined(specs, report)
+        _install_scripts(to_install, report)
 
     for name, path, _dep in to_install:
         if name in report.failed:
@@ -100,6 +231,38 @@ def install_dependencies(
     return report
 
 
+def _installed_apt_packages(pkgs: list[str]) -> set[str]:
+    """Return the subset of *pkgs* dpkg already reports as fully installed.
+
+    Queried per package because ``dpkg-query`` exits non-zero as soon as one
+    name is unknown, which would otherwise discard the status of every name
+    that *was* known.
+
+    When ``dpkg-query`` is missing the answer is "none of them": that is the
+    conservative direction, since claiming a package is present when it is not
+    turns a loud install failure into a capability that loads and then cannot
+    run.
+    """
+    dpkg_query = shutil.which("dpkg-query")
+    if dpkg_query is None:
+        return set()
+
+    installed: set[str] = set()
+    for pkg in pkgs:
+        try:
+            result = subprocess.run(  # noqa: S603
+                [dpkg_query, "-W", "-f=${db:Status-Status}", pkg],
+                capture_output=True,
+                timeout=_DPKG_QUERY_TIMEOUT_SECONDS,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            continue
+        if result.returncode == 0 and result.stdout.decode(errors="replace").strip() == "installed":
+            installed.add(pkg)
+    return installed
+
+
 def _install_packages(
     specs: list[tuple[str, Path, DependencySpec]],
     report: InstallReport,
@@ -111,6 +274,40 @@ def _install_packages(
         pkgs = [pkg for pkg in dep.packages if isinstance(pkg, str)]
         if not pkgs:
             continue
+
+        # Skip the whole step when the image already carries every package.
+        # `apt-get update` refreshes the archives unconditionally, so without
+        # this a pre-baked runtime still reaches the network on every boot
+        # whose marker the sync invalidated (CAP-INST-012). uv and pip already
+        # short-circuit satisfied requirements this way; apt has no equivalent,
+        # so the check has to be ours.
+        installed = _installed_apt_packages(pkgs)
+        missing = [pkg for pkg in pkgs if pkg not in installed]
+        if not missing:
+            logger.debug(
+                "apt packages for '{}' are already installed; skipping apt entirely: {}",
+                name,
+                pkgs,
+            )
+            continue
+
+        # A sealed runtime does not enter apt at all when something is
+        # missing. `apt-get update` contacts the configured archives before it
+        # installs anything, and here we already know the answer: the package
+        # is absent and there is no route to fetch it. Making the request
+        # regardless would be an outbound attempt with no chance of success,
+        # which is the thing this mode exists to avoid — so report the gap
+        # instead of reaching for it.
+        if _sealed():
+            report.failed[name] = (
+                "packages: "
+                + ", ".join(missing)
+                + " not present in the runtime image, and this deployment installs "
+                "without network access. Pre-bake the package into the runtime "
+                "image, or install this capability on a connected deployment."
+            )
+            continue
+
         if apt is None:
             logger.warning(
                 "Capability '{}' declares packages but apt-get is unavailable; skipping",
@@ -123,14 +320,14 @@ def _install_packages(
                 "packages: apt-get requires root privileges but sudo is unavailable"
             )
             continue
-        logger.info("Installing apt packages for '{}': {}", name, pkgs)
+        logger.info("Installing apt packages for '{}': {}", name, missing)
         err = _run([*command_prefix, apt, "update"])
         if err:
-            report.failed[name] = f"packages: {err}"
+            report.failed[name] = f"packages: {_label_failure(err)}"
             continue
-        err = _run([*command_prefix, apt, "install", "-y", *pkgs])
+        err = _run([*command_prefix, apt, "install", "-y", *missing])
         if err:
-            report.failed[name] = f"packages: {err}"
+            report.failed[name] = f"packages: {_label_failure(err)}"
 
 
 def _privileged_command_prefix(sudo: str | None) -> list[str] | None:
@@ -176,7 +373,7 @@ def _install_python_combined(
     for name, _path, dep in specs:
         if not dep.python:
             continue
-        report.failed[name] = f"python: {err}"
+        report.failed[name] = f"python: {_label_failure(err)}"
         if name in report.cached:
             report.cached.remove(name)
 
@@ -194,7 +391,7 @@ def _install_scripts(
             logger.info("Running install script for '{}': {}", name, script)
             err = _run(["bash", str(script_path)], cwd=path)
             if err:
-                report.failed[name] = f"scripts/{script}: {err}"
+                report.failed[name] = f"scripts/{script}: {_label_failure(err)}"
                 break
 
 
@@ -216,10 +413,20 @@ def _python_install_cmd(packages: list[str]) -> list[str] | None:
     """
     uv = shutil.which("uv")
 
+    # A sealed runtime resolves from what is already here and never opens a
+    # socket. uv's `--offline` still uses its local cache, and pip's
+    # `--no-index` still satisfies requirements already installed, so a
+    # pre-baked environment succeeds exactly as it does connected — it simply
+    # cannot reach out to do it. An unsatisfied pin fails locally and
+    # immediately, with the same message every time, rather than depending on
+    # how the network happens to refuse.
+    uv_offline = ["--offline"] if _sealed() else []
+    pip_offline = ["--no-index"] if _sealed() else []
+
     if _in_virtualenv():
         if uv:
-            return [uv, "pip", "install", "--python", sys.executable, *packages]
-        return [sys.executable, "-m", "pip", "install", *packages]
+            return [uv, "pip", "install", *uv_offline, "--python", sys.executable, *packages]
+        return [sys.executable, "-m", "pip", "install", *pip_offline, *packages]
 
     command_prefix = _privileged_command_prefix(shutil.which("sudo"))
     if command_prefix is None:
@@ -233,6 +440,7 @@ def _python_install_cmd(packages: list[str]) -> list[str] | None:
             uv,
             "pip",
             "install",
+            *uv_offline,
             "--python",
             sys.executable,
             "--system",
@@ -245,6 +453,7 @@ def _python_install_cmd(packages: list[str]) -> list[str] | None:
         "-m",
         "pip",
         "install",
+        *pip_offline,
         "--break-system-packages",
         *packages,
     ]
@@ -267,16 +476,23 @@ def _run(cmd: list[str], cwd: Path | None = None) -> str | None:
     "exit code N" / "timed out" message) — enough to land in logs without
     flooding them.
     """
+    remaining = _remaining_budget()
+    if remaining is not None and remaining <= 0:
+        return (
+            f"skipped: install budget of {_total_budget():.0f}s exhausted before this step started"
+        )
+
+    budget = _step_timeout()
     try:
         result = subprocess.run(  # noqa: S603
             cmd,
             cwd=cwd,
             capture_output=True,
-            timeout=_INSTALL_TIMEOUT_SECONDS,
+            timeout=budget,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return f"timed out after {_INSTALL_TIMEOUT_SECONDS}s"
+        return f"timed out after {budget}s"
     except FileNotFoundError as exc:
         return f"command not found: {exc.filename or cmd[0]}"
     except Exception as exc:

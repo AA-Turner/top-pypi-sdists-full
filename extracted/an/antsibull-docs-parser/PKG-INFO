@@ -1,9 +1,10 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: antsibull-docs-parser
-Version: 1.2.2
+Version: 1.2.3
 Summary: Python library for processing Ansible documentation markup
+Project-URL: Documentation, https://docs.ansible.com/projects/antsibull-docs-parser/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docs-parser/
-Project-URL: Code of Conduct, https://docs.ansible.com/ansible/latest/community/code_of_conduct.html
+Project-URL: Code of Conduct, https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html
 Project-URL: Bug tracker, https://github.com/ansible-community/antsibull-docs-parser/issues
 Project-URL: Changelog, https://github.com/ansible-community/antsibull-docs-parser/tree/main/CHANGELOG.md
 Author-email: Felix Fontein <felix@fontein.de>
@@ -20,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Provides-Extra: codeqa
@@ -67,6 +69,7 @@ SPDX-FileCopyrightText: 2023, Ansible Project
 -->
 
 # antsibull-docs-parser - Python library for processing Ansible documentation markup
+[![Documentation](https://img.shields.io/badge/docs-brightgreen.svg)](https://docs.ansible.com/projects/antsibull-docs-parser/)
 [![Discuss on Matrix at #antsibull:ansible.com](https://img.shields.io/matrix/antsibull:ansible.com.svg?server_fqdn=ansible-accounts.ems.host&label=Discuss%20on%20Matrix%20at%20%23antsibull:ansible.com&logo=matrix)](https://matrix.to/#/#antsibull:ansible.com)
 [![Nox badge](https://github.com/ansible-community/antsibull-docs-parser/actions/workflows/nox.yml/badge.svg)](https://github.com/ansible-community/antsibull-docs-parser/actions/workflows/nox.yml)
 [![Codecov badge](https://img.shields.io/codecov/c/github/ansible-community/antsibull-docs-parser)](https://codecov.io/gh/ansible-community/antsibull-docs-parser)

@@ -1,0 +1,192 @@
+# Runlayer AI Watch scanner — per-node DaemonSet (RECOMMENDED per-node shape).
+#
+# One long-running scanner pod per node. The entrypoint loops on
+# RUNLAYER_SCAN_INTERVAL (do NOT pass --once here). Scans the node's host user
+# homes via read-only hostPath mounts and attributes results to the node via
+# the downward-API node name.
+#
+# ┌─ RUN EITHER THE DAEMONSET OR THE CRONJOB, NOT BOTH ─────────────────────────┐
+# │ Both scan the same node-local homes and report to the same device id (the   │
+# │ host machine-id), so running both double-reports every node. Pick one.      │
+# └─────────────────────────────────────────────────────────────────────────────┘
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: runlayer-aiwatch
+  namespace: runlayer
+  labels:
+    app.kubernetes.io/name: runlayer-aiwatch
+    app.kubernetes.io/part-of: runlayer
+    app.kubernetes.io/component: scanner
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: runlayer-aiwatch
+      app.kubernetes.io/component: scanner
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: runlayer-aiwatch
+        app.kubernetes.io/part-of: runlayer
+        app.kubernetes.io/component: scanner
+    spec:
+      # Detect-only: the scanner reads mounted files, never the K8s API server,
+      # so it needs NO RBAC. `automountServiceAccountToken: false` keeps the
+      # default SA's token out of the pod entirely.
+      automountServiceAccountToken: false
+      # Private CustomerDistribution ECR image. If your nodes don't already have
+      # ECR pull access (e.g. an EKS node role with AmazonEC2ContainerRegistryReadOnly),
+      # create a docker-registry pull secret and reference it here — see the deploy
+      # guide. Nodes with instance-role ECR access need neither.
+      # imagePullSecrets:
+      #   - name: runlayer-aiwatch-ecr
+      # No hostNetwork, no hostPID — minimal blast radius.
+      # The image is linux/amd64-only and mounts Linux host paths: pin scheduling
+      # so pods never land on Windows or non-amd64 nodes (where they would fail
+      # to pull/start). Extend with your own labels to scope further; add
+      # tolerations to also cover control-plane/tainted nodes.
+      nodeSelector:
+        kubernetes.io/os: linux
+        kubernetes.io/arch: amd64
+      # tolerations:
+      #   - operator: Exists
+      containers:
+        - name: scanner
+          # PLACEHOLDER — substitute the real image pushed by the ECR-publish
+          # chunk. Use kustomize `images:` override (see kustomization.yaml) or
+          # edit this ref directly. Do NOT commit a real registry here.
+          image: <ECR_REGISTRY>/runlayer/ai-watch-linux:<tag>
+          imagePullPolicy: IfNotPresent
+          env:
+            # Required org API key from the Secret (never inline).
+            - name: RUNLAYER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: runlayer-aiwatch
+                  key: RUNLAYER_API_KEY
+            # Node attribution: report scans under the node's name, not the pod's.
+            - name: RUNLAYER_HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            # Steady-state loop interval (seconds). Default in-script is 900.
+            - name: RUNLAYER_SCAN_INTERVAL
+              value: "900"
+          # Non-secret config (endpoint + host mount paths) from the ConfigMap.
+          envFrom:
+            - configMapRef:
+                name: runlayer-aiwatch
+          # Liveness: the entrypoint refreshes the heartbeat at loop start, before
+          # each user, and after each pass. The staleness budget is DERIVED from
+          # the configured interval — 2x RUNLAYER_SCAN_INTERVAL + 300s slack — so
+          # raising the interval (or a slow multi-user pass) can't get a healthy
+          # pod killed. Only a genuinely wedged loop (heartbeat frozen past that
+          # window) fails the probe and gets restarted.
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - 'budget=$(( 2 * ${RUNLAYER_SCAN_INTERVAL:-900} + 300 )); test $(( $(date +%s) - $(stat -c %Y /run/runlayer-aiwatch-heartbeat) )) -lt "$budget"'
+            initialDelaySeconds: 60
+            periodSeconds: 300
+            failureThreshold: 2
+          securityContext:
+            # Run as container root (uid 0). The entrypoint drops to each host
+            # user's NUMERIC uid via setpriv per scan child; root is only needed
+            # to setpriv and to read across homes.
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: true # setpriv/privilege handling needs this
+            privileged: false
+            readOnlyRootFilesystem: true # /run + /tmp are writable emptyDirs below
+            capabilities:
+              drop:
+                - ALL
+              # setpriv --reuid/--regid needs SETUID/SETGID to change credentials.
+              add:
+                - SETUID
+                - SETGID
+            # SELinux (RHEL/OpenShift): reading host user_home_t from a container
+            # is blocked by default. Do ONE of (cluster-specific — do not hardcode
+            # blindly): grant an SCC that allows the host mounts + an seLinuxOptions
+            # type that can read user_home_t, or label the node dirs. Example
+            # (uncomment + set to a type valid on YOUR cluster):
+            # seLinuxOptions:
+            #   type: spc_t
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            # Granular read-only host mounts — NOT a whole-root mount. Mounting
+            # the node's entire filesystem into a uid-0 container would expose
+            # node credentials the scanner never needs (/etc/shadow, kubelet
+            # certs, /var/lib/kubelet pod secrets), which the K8s hostPath docs
+            # warn against. We mount only what the scanner reads. Coverage is
+            # "users whose homes are under a mounted prefix": /home/* and /root
+            # by default. Homes elsewhere (service accounts under /var/lib,
+            # custom /srv homes) are NOT silently missed — the entrypoint LOGS
+            # each skipped user and a scanned/skipped summary; add a mount +
+            # matching hostPath volume below for any prefix you need covered.
+            - name: host-home
+              mountPath: /host/home
+              readOnly: true
+              # Uncomment on K8s 1.30+ with the RecursiveReadOnlyMounts feature
+              # gate: a writable NFS/EBS submount under /home would otherwise stay
+              # writable through the mount. Pre-1.30 API servers REJECT this
+              # field, so it's opt-in rather than default.
+              # recursiveReadOnly: IfPossible
+            - name: host-root
+              mountPath: /host/root
+              readOnly: true
+              # Uncomment on K8s 1.30+ with the RecursiveReadOnlyMounts feature
+              # gate: a writable NFS/EBS submount under /root would otherwise stay
+              # writable through the mount. Pre-1.30 API servers REJECT this
+              # field, so it's opt-in rather than default.
+              # recursiveReadOnly: IfPossible
+            - name: host-passwd
+              mountPath: /host/etc/passwd
+              readOnly: true
+            - name: host-group
+              mountPath: /host/etc/group
+              readOnly: true
+            - name: host-machine-id
+              mountPath: /host/etc/machine-id
+              readOnly: true
+            # Writable scratch so readOnlyRootFilesystem holds: the overlap-guard
+            # lock + heartbeat live in /run, mktemp for the passwd snapshot in /tmp.
+            - name: run
+              mountPath: /run
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # Only the paths the scanner reads (see volumeMounts). To cover homes
+        # outside /home + /root, add another hostPath here + a matching mount.
+        - name: host-home
+          hostPath:
+            path: /home
+            type: Directory
+        - name: host-root
+          hostPath:
+            path: /root
+            type: Directory
+        - name: host-passwd
+          hostPath:
+            path: /etc/passwd
+            type: File
+        - name: host-group
+          hostPath:
+            path: /etc/group
+            type: File
+        - name: host-machine-id
+          hostPath:
+            path: /etc/machine-id
+            type: File
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

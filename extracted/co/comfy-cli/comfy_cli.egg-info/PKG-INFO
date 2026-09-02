@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfy-cli
-Version: 1.19.0
+Version: 1.20.0
 Summary: A CLI tool for installing and using ComfyUI.
 Maintainer-email: Yoland Yan <yoland@drip.art>, James Kwon <hongilkwon316@gmail.com>, Robin Huang <robin@drip.art>, "Dr.Lt.Data" <dr.lt.data@gmail.com>
 License: GPL-3.0-only
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: certifi>=2024.7.4
 Requires-Dist: charset-normalizer>=3
 Requires-Dist: cookiecutter
 Requires-Dist: gitpython>=3.1.50
@@ -38,6 +39,7 @@ Requires-Dist: typing-extensions>=4.7
 Requires-Dist: uv>=0.11.15
 Requires-Dist: websocket-client
 Requires-Dist: imageio-ffmpeg
+Requires-Dist: blake3>=1.0.9
 Provides-Extra: dev
 Requires-Dist: jsonschema; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"

@@ -1,0 +1,439 @@
+from __future__ import annotations
+
+import re
+from bisect import bisect_right
+
+from trilogy.core.exceptions import InvalidSyntaxException
+from trilogy.parsing.v2.errors import (
+    create_generic_syntax_error,
+    create_syntax_error,
+    detect_align_missing_and,
+    detect_by_on_non_aggregate,
+    detect_by_on_wrapped_aggregate,
+    detect_clause_after_join,
+    detect_definition_after_clause,
+    detect_derivation_as_connector,
+    detect_group_by,
+    detect_import_file_path,
+    detect_join_missing_key,
+    detect_missing_signature_semicolon,
+    detect_named_function_missing_at,
+    detect_paren_select_after_from,
+    detect_select_distinct,
+    detect_star_argument,
+    detect_subselect,
+    misplaced_join_candidate,
+)
+from trilogy.parsing.v2.syntax import (
+    LARK_NODE_KIND,
+    LARK_TOKEN_KIND,
+    SyntaxDocument,
+    SyntaxElement,
+    SyntaxNode,
+    SyntaxToken,
+    SyntaxTokenKind,
+)
+
+# Lark only captures comments via PARSE_COMMENT at three positions:
+#   start: ( block | show_statement | PARSE_COMMENT )*
+#   block: ... PARSE_COMMENT*
+#   inline_property_list: inline_property ("," PARSE_COMMENT? inline_property)* ...
+# Anywhere else, COMMENT is `%ignore`d and silently dropped. Pest also drops
+# comments at the grammar level, so the fused walker replicates lark's
+# gobbler behavior by re-scanning source gaps and injecting synthetic COMMENT
+# tokens into the nearest gobbler child or current gobbler node.
+_COMMENT_GOBBLERS: frozenset[str] = frozenset(
+    {"start", "block", "inline_property_list"}
+)
+
+
+def _scan_comments(text: str, start: int, end: int) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    pos = start
+    while pos < end:
+        c = text[pos]
+        if c.isspace():
+            pos += 1
+            continue
+        if c == "#" or (c == "/" and pos + 1 < end and text[pos + 1] == "/"):
+            cmt_start = pos
+            nl = text.find("\n", pos, end)
+            cmt_end = end if nl == -1 else nl + 1
+            spans.append((cmt_start, cmt_end))
+            pos = cmt_end
+        elif c == "/" and pos + 1 < end and text[pos + 1] == "*":
+            cmt_start = pos
+            close = text.find("*/", pos + 2, end)
+            cmt_end = end if close == -1 else close + 2
+            spans.append((cmt_start, cmt_end))
+            pos = cmt_end
+        else:
+            pos += 1
+    return spans
+
+
+def _compute_line_starts(text: str) -> list[int]:
+    starts = [0]
+    for i, ch in enumerate(text):
+        if ch == "\n":
+            starts.append(i + 1)
+    return starts
+
+
+def _append_comment_tokens(
+    dest: list[SyntaxElement],
+    spans: list[tuple[int, int]],
+    text: str,
+    line_starts: list[int],
+) -> None:
+    for s, e in spans:
+        line_idx = bisect_right(line_starts, s) - 1
+        end_line_idx = bisect_right(line_starts, e) - 1
+        dest.append(
+            SyntaxToken(
+                "PARSE_COMMENT",
+                text[s:e],
+                line_idx + 1,
+                s - line_starts[line_idx] + 1,
+                end_line_idx + 1,
+                e - line_starts[end_line_idx] + 1,
+                s,
+                e,
+                SyntaxTokenKind.COMMENT,
+            )
+        )
+
+
+def _tuple_to_syntax(
+    element: tuple,
+    text: str,
+    line_starts: list[int],
+    _node_cls: type = SyntaxNode,
+    _token_cls: type = SyntaxToken,
+    _node_kind: dict = LARK_NODE_KIND,
+    _token_kind: dict = LARK_TOKEN_KIND,
+    _gobblers: frozenset = _COMMENT_GOBBLERS,
+) -> SyntaxElement:
+    """Single-pass walk over rust tuple output: builds `SyntaxNode`/`SyntaxToken`
+    and injects comment tokens at gobbler boundaries.
+
+    Tuple layout from `parse_trilogy_syntax_tuple`:
+      node:  (name, children_tuple, line, col, end_line, end_col, start_pos, end_pos)
+      token: (name, value_str,      line, col, end_line, end_col, start_pos, end_pos)
+    Position fields are stored directly on SyntaxNode/SyntaxToken — there is
+    no SyntaxMeta allocation. Default-arg bindings hoist class and dict
+    lookups into fast locals.
+    """
+    name = element[0]
+    second = element[1]
+    if type(second) is str:
+        return _token_cls(
+            name,
+            second,
+            element[2],
+            element[3],
+            element[4],
+            element[5],
+            element[6],
+            element[7],
+            _token_kind.get(name),
+        )
+
+    children: list[SyntaxElement] = []
+    node_start = element[6]
+    node_end = element[7]
+    is_gobbler = name in _gobblers
+    cursor = node_start
+    prev_gobbler_children: list[SyntaxElement] | None = None
+
+    for child in second:
+        cs = child[6]
+        if cs > cursor:
+            spans = _scan_comments(text, cursor, cs)
+            if spans:
+                if prev_gobbler_children is not None:
+                    _append_comment_tokens(
+                        prev_gobbler_children, spans, text, line_starts
+                    )
+                elif is_gobbler:
+                    _append_comment_tokens(children, spans, text, line_starts)
+        sub = _tuple_to_syntax(child, text, line_starts)
+        children.append(sub)
+        cursor = child[7]
+        if type(child[1]) is tuple and child[0] in _gobblers:
+            prev_gobbler_children = sub.children  # type: ignore[union-attr]
+        else:
+            prev_gobbler_children = None
+
+    if cursor < node_end:
+        trailing = _scan_comments(text, cursor, node_end)
+        if trailing:
+            if prev_gobbler_children is not None:
+                _append_comment_tokens(
+                    prev_gobbler_children, trailing, text, line_starts
+                )
+            elif is_gobbler:
+                _append_comment_tokens(children, trailing, text, line_starts)
+
+    return _node_cls(
+        name,
+        children,
+        element[2],
+        element[3],
+        element[4],
+        element[5],
+        node_start,
+        node_end,
+        _node_kind.get(name),
+    )
+
+
+_PEST_ERROR_POS_RE = re.compile(r"-->\s*(\d+):(\d+)")
+
+
+def _pest_error_char_pos(raw_error: str, text: str) -> int:
+    m = _PEST_ERROR_POS_RE.search(raw_error)
+    if not m:
+        return 0
+    line = int(m.group(1))
+    col = int(m.group(2))
+    pos = 0
+    for _ in range(line - 1):
+        nl = text.find("\n", pos)
+        if nl < 0:
+            return len(text)
+        pos = nl + 1
+    return min(pos + col - 1, len(text))
+
+
+def _pest_parses(text: str) -> bool:
+    from _preql_import_resolver import parse_trilogy_syntax_tuple
+
+    try:
+        parse_trilogy_syntax_tuple(text)
+        return True
+    except ValueError:
+        return False
+
+
+_BY_KEYWORD_RE = re.compile(r"\bby\b", re.IGNORECASE)
+
+
+def _detect_unparenthesized_by_expr(text: str, pos: int) -> int | None:
+    """Return the position of the preceding `by` keyword if wrapping the
+    BY expression in parens would make the source parse — i.e. the user
+    wrote `by f(x)` and the parser choked because the bare expression form
+    isn't accepted in BY.
+
+    Probes by inserting `(`...`)` around plausible end positions (the error
+    site and the next clause boundary). One backward scan, ≤2 reparses.
+    """
+    head = text[:pos]
+    last_by = None
+    for m in _BY_KEYWORD_RE.finditer(head):
+        last_by = m
+    if last_by is None:
+        return None
+    by_end = last_by.end()
+    if not text[by_end:pos].strip():
+        return None
+    # Candidate end positions: the error site, and the next select-list / clause
+    # boundary keyword after the error (so `by f(x) as alias` and
+    # `by f(x) select ...` are both diagnosable).
+    candidates = [pos]
+    tail = text[pos:]
+    boundary = re.search(
+        r"\b(as|select|where|having|order|group|limit)\b|;",
+        tail,
+        re.IGNORECASE,
+    )
+    if boundary is not None:
+        end = pos + boundary.start()
+        if end > pos:
+            candidates.append(end)
+    for end in candidates:
+        probe = text[:by_end] + " (" + text[by_end:end].rstrip() + ")" + text[end:]
+        if _pest_parses(probe):
+            return last_by.start()
+    return None
+
+
+def _diagnose_pest_error(text: str, raw_error: str) -> InvalidSyntaxException:
+    # Replicates lark's rich error codes via source-level fixup probes.
+    # Pest has no interactive-parser recovery, so instead of feeding synthetic
+    # tokens we mutate the source text and reparse — same outcome, at the
+    # cost of 1–3 extra pest parses on the error path (still sub-ms).
+    pos = _pest_error_char_pos(raw_error, text)
+
+    # 101: user typed `FROM` where trilogy doesn't accept it.
+    if text[pos : pos + 4].upper() == "FROM":
+        trailing = text[pos + 4 : pos + 5]
+        if not trailing or not (trailing.isalnum() or trailing == "_"):
+            return create_syntax_error(101, pos, text)
+
+    # 229: an import written as a file path (`import raw/store_sales as ss;`).
+    # First among the shared detectors — it is the most specific, and pest
+    # reports it as a bare `expected IMPORT_DOT` on the path's first segment.
+    import_path_pos = detect_import_file_path(text, pos)
+    if import_path_pos is not None:
+        return create_syntax_error(229, import_path_pos, text)
+
+    # 211: BY clause with an unparenthesized expression (e.g. `by substring(x,1,2)`).
+    # Detect by probing with parens around the run after `by`.
+    by_pos = _detect_unparenthesized_by_expr(text, pos)
+    if by_pos is not None:
+        return create_syntax_error(211, by_pos, text)
+
+    # 212: `by <grain>` attached to an expression that WRAPS an aggregate
+    # (e.g. `coalesce(sum(x), 0) by store.id`) — grain must sit next to the agg.
+    wrapped_by_pos = detect_by_on_wrapped_aggregate(text, pos)
+    if wrapped_by_pos is not None:
+        return create_syntax_error(212, wrapped_by_pos, text)
+
+    # 213: `by <grain>` attached to an expression with NO aggregate at all
+    # (e.g. `item.current_price by item.id`) — wrap it in `group(...)`.
+    non_agg_by_pos = detect_by_on_non_aggregate(text, pos)
+    if non_agg_by_pos is not None:
+        return create_syntax_error(213, non_agg_by_pos, text)
+
+    # 223: `*` passed as a function argument (the SQL `count(*)` idiom).
+    star_pos = detect_star_argument(text, pos)
+    if star_pos is not None:
+        return create_syntax_error(223, star_pos, text)
+
+    # 227: a user-defined (`def`) function called without its `@` prefix
+    # (`identity(x)` where an earlier `def identity(...)` exists).
+    named_fn_pos = detect_named_function_missing_at(text, pos)
+    if named_fn_pos is not None:
+        return create_syntax_error(227, named_fn_pos, text)
+
+    # 224: SQL-style `SELECT DISTINCT` (Trilogy is implicitly distinct by grain).
+    distinct_pos = detect_select_distinct(text, pos)
+    if distinct_pos is not None:
+        return create_syntax_error(224, distinct_pos, text)
+
+    # 228: a parenthesized select handed to a chart/copy `from` (wants a bare
+    # select statement).
+    paren_pos = detect_paren_select_after_from(text, pos)
+    if paren_pos is not None:
+        return create_syntax_error(228, paren_pos, text)
+
+    # 102: SQL-style subquery `(select ...)` / `(with ...)` open at pos.
+    sub_pos = detect_subselect(text, pos)
+    if sub_pos is not None:
+        return create_syntax_error(102, sub_pos, text)
+
+    # 103: SQL-style `GROUP BY` clause (trilogy groups automatically).
+    gb_pos = detect_group_by(text, pos)
+    if gb_pos is not None:
+        return create_syntax_error(103, gb_pos, text)
+
+    # 104: a top-level definition/statement (`auto NAME`, `import ...`) placed
+    # inside an already-opened query (after `where`/`select`).
+    def_pos = detect_definition_after_clause(text, pos)
+    if def_pos is not None:
+        return create_syntax_error(104, def_pos, text)
+
+    # 105: a `<-` derivation (`rowset`/`auto`/`metric`/`property`) written with
+    # the SQL `as` connector — e.g. `rowset base as select ...`.
+    as_pos = detect_derivation_as_connector(text, pos)
+    if as_pos is not None:
+        return create_syntax_error(105, as_pos, text)
+
+    # 220: a filter/WHERE continuation placed after a query-scoped join clause
+    # (a join may only be followed by another join or `select`).
+    join_pos = detect_clause_after_join(text, pos)
+    if join_pos is not None:
+        return create_syntax_error(220, join_pos, text)
+
+    # 226: a WELL-FORMED query-scoped join in the wrong place (standalone, or
+    # before the `where`). Confirm the key is fine by probing the clause alone;
+    # a malformed key falls through to 225.
+    misplaced = misplaced_join_candidate(text, pos)
+    if misplaced is not None and _pest_parses(
+        f"select 1 as trilogy_join_probe {misplaced[1]};"
+    ):
+        return create_syntax_error(226, misplaced[0], text)
+
+    # 225: a query-scoped join with a missing/malformed key expression
+    # (`union join ...`, `subset join a.id =`) — pest reports `expected
+    # sum_operator` since a join key is an expression.
+    join_key_pos = detect_join_missing_key(text, pos)
+    if join_key_pos is not None:
+        return create_syntax_error(225, join_key_pos, text)
+
+    # 221: a multi-select `align` group separated by a comma instead of `and`.
+    align_pos = detect_align_missing_and(text, pos)
+    if align_pos is not None:
+        return create_syntax_error(221, align_pos, text)
+
+    # 222: a named `union(...) -> (...)` definition not terminated with `;`
+    # before the consuming statement. Confirm by terminating the PREFIX only
+    # (`text[:sig_pos] + ";"`), not by reparsing the whole file — a SECOND,
+    # downstream error (e.g. a bad consuming `select`) would defeat a whole-file
+    # reparse and suppress this diagnostic, leaving the raw pest error (a caret
+    # inside the `-> (...)` tuple reading as "add a data_type"). The missing `;`
+    # is the first error to report; a valid terminated prefix confirms it.
+    sig_pos = detect_missing_signature_semicolon(text, pos)
+    if sig_pos is not None and _pest_parses(text[:sig_pos] + ";"):
+        return create_syntax_error(222, sig_pos, text)
+
+    # 202: trailing-terminator missing. Check only when the error position
+    # is at or past the last non-whitespace character — otherwise we'd mask
+    # real mid-stream failures by prematurely terminating the statement.
+    if text[pos:].strip() == "" and _pest_parses(text + ";"):
+        return create_syntax_error(202, pos, text)
+
+    # 201: missing `as` before an alias identifier. Truncate the tail and
+    # commit a probe alias so we only verify that *this* position could accept
+    # AS + IDENTIFIER — mirrors lark's feed_token(AS) / feed_token(IDENTIFIER)
+    # check. Inserting rather than truncating over-rejects chained aliases
+    # like `SELECT a b c` where more than one alias is missing.
+    if _pest_parses(text[:pos] + "as trilogy_alias_probe;"):
+        return create_syntax_error(201, pos, text)
+
+    # 203: derivation keyword + name but no `<- expression`. Pest reports
+    # the EOF/next-token position; probe with `<- 1;` inserted to confirm.
+    if _derivation_missing_arrow(text, pos):
+        return create_syntax_error(203, pos, text)
+
+    return create_generic_syntax_error(raw_error, pos, text)
+
+
+_DERIVATION_HEAD_RE = re.compile(
+    r"\b(auto|metric|property|rowset)\s+[A-Za-z_][\w.]*\s*$",
+    re.IGNORECASE,
+)
+
+
+def _derivation_missing_arrow(text: str, pos: int) -> bool:
+    """Pest reports the error column slightly before the missing arrow's
+    position (often at the identifier or its trailing space), so scan the
+    line up to and PAST pos to find a `<keyword> <name>` head, then probe."""
+    line_end = text.find("\n", pos)
+    if line_end == -1:
+        line_end = len(text)
+    match = _DERIVATION_HEAD_RE.search(text[:line_end])
+    if not match:
+        return False
+    # rowset/with take a select; the others take an expression.
+    rhs = " <- select 1 as one;\n" if match.group(1).lower() == "rowset" else " <- 1;\n"
+    return _pest_parses(text[:line_end] + rhs + text[line_end:])
+
+
+def parse_pest(text: str) -> SyntaxDocument:
+    # ImportError from the lazy import bubbles up to parse_syntax so the dispatcher
+    # can fall back to lark when the rust wheel isn't installed. Pest parse
+    # failures arrive as pyo3 ValueError; we normalize them here and run the
+    # rich-error probe so users see the same 101/201/202 codes as under lark.
+    from _preql_import_resolver import parse_trilogy_syntax_tuple
+
+    try:
+        tree = parse_trilogy_syntax_tuple(text)
+    except ValueError as e:
+        raise _diagnose_pest_error(text, str(e)) from e
+    line_starts = _compute_line_starts(text)
+    syntax = _tuple_to_syntax(tree, text, line_starts)
+    if not isinstance(syntax, SyntaxNode):
+        raise InvalidSyntaxException("pest root element is not a SyntaxNode")
+    return SyntaxDocument(text=text, tree=syntax)

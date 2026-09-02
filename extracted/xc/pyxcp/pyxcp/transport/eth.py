@@ -1,0 +1,458 @@
+#!/usr/bin/env python
+import selectors
+import socket
+import struct
+import threading
+from collections import deque
+
+from pyxcp import types
+from pyxcp.cpp_ext.cpp_ext import enable_ptp_timestamping, init_networking, receive_with_timestamp, check_timestamping_support
+from pyxcp.transport.transport_ext import EthReceiver
+
+from pyxcp.transport.base import (
+    BaseTransport,
+    ChecksumType,
+    XcpFramingConfig,
+    XcpTransportLayerType,
+)
+
+DEFAULT_XCP_PORT = 5555
+DEFAULT_XCP_MULTICAST_PORT = 5557  # XCP 1.3: GET_DAQ_CLOCK_MULTICAST
+DEFAULT_XCP_DISCOVERY_PORT = 5556  # XCP Ethernet discovery (GET_SLAVE_ID*)
+DEFAULT_XCP_DISCOVERY_ADDRESS = "239.255.0.0"
+
+DEFAULT_XCP_DISCOVERY_RESPONSE_ADDRESS = "239.255.2.1"
+DEFAULT_XCP_DISCOVERY_RESPONSE_PORT = 5556
+
+RECV_SIZE = 8196
+
+
+def socket_to_str(sock: socket.socket) -> str:
+    peer = sock.getpeername()
+    local = sock.getsockname()
+    AF = {
+        socket.AF_INET: "AF_INET",
+        socket.AF_INET6: "AF_INET6",
+    }
+    TYPE = {
+        socket.SOCK_DGRAM: "SOCK_DGRAM",
+        socket.SOCK_STREAM: "SOCK_STREAM",
+    }
+    family = AF.get(sock.family, "OTHER")
+    typ = TYPE.get(sock.type, "UNKNOWN")
+    res = f"XCPonEth - Connected to: {peer[0]}:{peer[1]}  local address: {local[0]}:{local[1]} [{family}][{typ}]"
+    return res
+
+
+class Eth(BaseTransport):
+    """"""
+
+    MAX_DATAGRAM_SIZE = 512
+    HEADER = struct.Struct("<HH")
+
+    def __init__(self, config=None, policy=None, transport_layer_interface: socket.socket | None = None) -> None:
+        self.load_config(config)
+        framing_config = XcpFramingConfig(
+            transport_layer_type=XcpTransportLayerType.ETH,
+            header_len=2,
+            header_ctr=2,
+            header_fill=0,
+            tail_fill=False,
+            tail_cs=ChecksumType.NO_CHECKSUM,
+        )
+        super().__init__(config, framing_config, policy, transport_layer_interface)
+        self.host: str = self.config.host
+        self.port: int = self.config.port
+        self.protocol: str = self.config.protocol.upper()
+        self.ipv6: bool = self.config.ipv6
+        self.use_tcp_no_delay: bool = self.config.tcp_nodelay
+        address_to_bind: str = self.config.bind_to_address
+        bind_to_port: int = self.config.bind_to_port
+        self._local_address = (address_to_bind, bind_to_port) if address_to_bind else None
+        if self.ipv6 and not socket.has_ipv6:
+            msg = "XCPonEth - IPv6 not supported by your platform."
+            self.logger.critical(msg)
+            raise RuntimeError(msg)
+        else:
+            address_family = socket.AF_INET6 if self.ipv6 else socket.AF_INET
+        proto = socket.SOCK_STREAM if self.protocol == "TCP" else socket.SOCK_DGRAM
+        if self.host.lower() == "localhost":
+            self.host = "::1" if self.ipv6 else "localhost"
+
+        try:
+            addrinfo = socket.getaddrinfo(self.host, self.port, address_family, proto)
+            (
+                self.address_family,
+                self.socktype,
+                self.proto,
+                self.canonname,
+                self.sockaddr,
+            ) = addrinfo[0]
+        except BaseException as ex:  # noqa: B036
+            msg = f"XCPonEth - Failed to resolve address {self.host}:{self.port} ({self.protocol}, ipv6={self.ipv6}): {ex.__class__.__name__}: {ex}"
+            self.logger.critical(msg, extra={"transport": "eth", "host": self.host, "port": self.port, "protocol": self.protocol})
+            raise Exception(msg) from ex
+        self.status: int = 0
+        self.sock = socket.socket(self.address_family, self.socktype, self.proto)
+        self.selector = selectors.DefaultSelector()
+        self.selector.register(self.sock, selectors.EVENT_READ)
+        self.use_tcp = self.protocol == "TCP"
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        init_networking()
+        self.ptp_enabled = False
+        if self.config.ptp_timestamping:
+            if self.use_tcp:
+                self.logger.warning("PTP hardware timestamping is typically not supported for TCP. Only UDP will be attempted.")
+            else:
+                self._setup_ptp()
+
+        if self.use_tcp and self.use_tcp_no_delay:
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        if hasattr(socket, "SO_REUSEPORT"):
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        self.sock.settimeout(0.5)
+        if self._local_address:
+            try:
+                self.sock.bind(self._local_address)
+            except BaseException as ex:  # noqa: B036
+                msg = f"XCPonEth - Failed to bind socket to given address {self._local_address}: {ex.__class__.__name__}: {ex}"
+                self.logger.critical(
+                    msg, extra={"transport": "eth", "host": self.host, "port": self.port, "protocol": self.protocol}
+                )
+                raise Exception(msg) from ex
+        self._packet_listener = threading.Thread(
+            target=self._packet_listen,
+            args=(),
+            kwargs={},
+            daemon=True,
+        )
+        self._packets = deque()
+        self._packets_condition = threading.Condition()
+        self._eth_receiver = EthReceiver(self.process_response)
+
+        # XCP 1.5: Multicast socket for GET_DAQ_CLOCK_MULTICAST
+        self._multicast_sock: socket.socket | None = None
+        self._multicast_enabled = False
+
+    def connect(self) -> None:
+        if self.status == 0:
+            self.sock.connect(self.sockaddr)
+            self.logger.info(socket_to_str(self.sock))
+            self.start_listener()
+            self.status = 1  # connected
+
+    def start_listener(self) -> None:
+        super().start_listener()
+        if self._packet_listener.is_alive():
+            self._packet_listener.join(timeout=2.0)
+        self._packet_listener = threading.Thread(target=self._packet_listen, daemon=True)
+        self._packet_listener.start()
+
+    def close(self) -> None:
+        """Close the transport-layer connection and event-loop."""
+        self.finish_listener()
+        try:
+            if self.listener.is_alive():
+                self.listener.join(timeout=2.0)
+        except (RuntimeError, AttributeError):
+            # RuntimeError: thread not started yet or already stopped
+            # AttributeError: listener object not initialized
+            pass
+        try:
+            if self._packet_listener.is_alive():
+                self._packet_listener.join(timeout=2.0)
+        except (RuntimeError, AttributeError):
+            # RuntimeError: thread not started yet or already stopped
+            # AttributeError: _packet_listener object not initialized
+            pass
+        self.close_connection()
+
+    def _packet_listen(self) -> None:
+        use_tcp: bool = self.use_tcp
+        EVENT_READ = selectors.EVENT_READ
+        close_event_set = self.closeEvent.is_set
+        socket_fileno = self.sock.fileno
+        select = self.selector.select
+        _packets = self._packets
+        _packets_condition = self._packets_condition
+        ptp_enabled = self.ptp_enabled
+
+        if use_tcp:
+            sock_recv = self.sock.recv
+        else:
+            if ptp_enabled:
+                if hasattr(socket, "SO_TIMESTAMPING"):  # Linux
+                    sock_recvmsg = self.sock.recvmsg
+                else:
+                    # Windows uses C++ helper
+                    def win_recv_with_ts(size):
+                        return receive_with_timestamp(socket_fileno(), size)
+            else:
+                sock_recv = self.sock.recvfrom
+
+        while True:
+            try:
+                if close_event_set() or socket_fileno() == -1:
+                    return
+                sel = select(0.02)
+                for _, events in sel:
+                    if events & EVENT_READ:
+                        if use_tcp:
+                            recv_timestamp = self.timestamp.value
+                            response = sock_recv(RECV_SIZE)
+                            if not response:
+                                self.sock.close()
+                                self.status = 0
+                                break
+                            else:
+                                with _packets_condition:
+                                    _packets.append((bytes(response), recv_timestamp))
+                                    _packets_condition.notify()
+                        else:
+                            if ptp_enabled:
+                                if hasattr(socket, "SO_TIMESTAMPING"):  # Linux
+                                    # 32 is a guess for ancdata size, might need adjustment
+                                    response, ancdata, flags, address = sock_recvmsg(Eth.MAX_DATAGRAM_SIZE, 1024)
+                                    recv_timestamp = self._extract_linux_timestamp(ancdata) or self.timestamp.value
+                                else:  # Windows
+                                    res = win_recv_with_ts(Eth.MAX_DATAGRAM_SIZE)
+                                    if res:
+                                        response, recv_timestamp = res
+                                    else:
+                                        # Fallback if helper fails
+                                        response, _ = self.sock.recvfrom(Eth.MAX_DATAGRAM_SIZE)
+                                        recv_timestamp = self.timestamp.value
+
+                                if not response:
+                                    self.sock.close()
+                                    self.status = 0
+                                    break
+                                else:
+                                    with _packets_condition:
+                                        _packets.append((bytes(response), recv_timestamp))
+                                        _packets_condition.notify()
+                            else:
+                                recv_timestamp = self.timestamp.value
+                                response, _ = self.sock.recvfrom(Eth.MAX_DATAGRAM_SIZE)
+                                if not response:
+                                    self.sock.close()
+                                    self.status = 0
+                                    break
+                                else:
+                                    with _packets_condition:
+                                        _packets.append((bytes(response), recv_timestamp))
+                                        _packets_condition.notify()
+            except (OSError, ValueError) as ex:
+                self.status = 0  # disconnected
+                if close_event_set() or socket_fileno() == -1:
+                    self.logger.debug("Ethernet packet listener stopped during socket shutdown: %s", ex)
+                    break
+                else:
+                    self.logger.exception("Ethernet packet listener socket failure")
+                    continue
+            except Exception:
+                self.status = 0  # disconnected
+                self.logger.exception("Unexpected Ethernet packet listener failure")
+                break
+
+    def _extract_linux_timestamp(self, ancdata) -> int | None:
+        # SO_TIMESTAMPING returns a struct scm_timestamping
+        # which contains 3 timespecs: software, transformed, hardware.
+        # We want the hardware one (index 2) if available, otherwise software (index 0).
+        for cmsg_level, cmsg_type, cmsg_data in ancdata:
+            if cmsg_level == socket.SOL_SOCKET and cmsg_type == socket.SO_TIMESTAMPING:
+                # struct timespec { long tv_sec; long tv_nsec; } x 3
+                # On 64-bit Linux, long is 8 bytes.
+                # Format: 3 * (qq)
+                if len(cmsg_data) >= 48:
+                    ts = struct.unpack("qqqqqq", cmsg_data)
+                    # Try hardware first (ts[4], ts[5])
+                    if ts[4] != 0:
+                        return ts[4] * 1_000_000_000 + ts[5]
+                    # Fallback to software (ts[0], ts[1])
+                    return ts[0] * 1_000_000_000 + ts[1]
+        return None
+
+    def listen(self) -> None:
+        popleft = self._packets.popleft
+        close_event_set = self.closeEvent.is_set
+        socket_fileno = self.sock.fileno
+        _packets = self._packets
+        _packets_condition = self._packets_condition
+        feed_frame = self._eth_receiver.feed_frame
+
+        while True:
+            if close_event_set() or socket_fileno() == -1:
+                return
+
+            with _packets_condition:
+                # Wait for packets to be available
+                while not _packets:
+                    if close_event_set() or socket_fileno() == -1:
+                        return
+                    # Wait with timeout to periodically check close event
+                    _packets_condition.wait(timeout=0.1)
+
+                # Process all available packets
+                count = len(_packets)
+                for _ in range(count):
+                    bts, timestamp = popleft()
+                    feed_frame(bts, timestamp)
+
+    def send(self, frame) -> None:
+        self.pre_send_timestamp = self.timestamp.value
+        self.sock.send(frame)
+        self.post_send_timestamp = self.timestamp.value
+
+    def close_connection(self) -> None:
+        if not self.invalidSocket:
+            # Seems to be problematic /w IPv6
+            # if self.status == 1:
+            #     self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.close()
+        # XCP 1.5: Close multicast socket if enabled
+        if self._multicast_enabled:
+            self.disable_multicast()
+
+    @property
+    def invalidSocket(self) -> bool:
+        return not hasattr(self, "sock") or self.sock.fileno() == -1
+
+    def _setup_ptp(self) -> None:
+        ts_info = check_timestamping_support(self.host)
+        if ts_info.timestamping_supported:
+            self.logger.info(f"Hardware timestamping is supported on interface {ts_info.interface_name!r}")
+            if enable_ptp_timestamping(self.sock.fileno()):
+                self.ptp_enabled = True
+                self.logger.info("PTP hardware timestamping enabled")
+            else:
+                self.logger.error("Failed to enable PTP hardware timestamping")
+        else:
+            self.logger.info(f"Hardware timestamping NOT supported on interface {ts_info.interface_name!r}")
+
+    # =========================================================================
+    # XCP 1.5: GET_DAQ_CLOCK_MULTICAST Support
+    # =========================================================================
+
+    @staticmethod
+    def cluster_id_to_multicast_address(cluster_id: int) -> str:
+        """
+        Convert CLUSTER_AFFILIATION to IPv4 multicast address.
+
+        XCP 1.5 Spec: IPv4-Multicast-Addr = 239.255.HIGH_BYTE.LOW_BYTE
+
+        Args:
+            cluster_id: 16-bit cluster identifier (Intel byte order)
+
+        Returns:
+            IPv4 multicast address (e.g., "239.255.0.1" for cluster_id=0x0001)
+        """
+        high_byte = (cluster_id >> 8) & 0xFF
+        low_byte = cluster_id & 0xFF
+        return f"239.255.{high_byte}.{low_byte}"
+
+    def enable_multicast(self, cluster_id: int = 0x0001) -> None:
+        """
+        Enable UDP multicast for GET_DAQ_CLOCK_MULTICAST.
+
+        Creates a separate UDP socket for sending multicast commands.
+        Responses (EV_TIME_SYNC events) come back on the regular connection.
+
+        Args:
+            cluster_id: CLUSTER_AFFILIATION parameter (default: 0x0001 → 239.255.0.1)
+        """
+        if self._multicast_enabled:
+            self.logger.warning("Multicast already enabled")
+            return
+
+        if self.protocol != "UDP":
+            self.logger.warning("GET_DAQ_CLOCK_MULTICAST requires UDP protocol (current: TCP)")
+            # Still create the socket - it might work for mixed mode slaves
+
+        try:
+            # Create UDP socket for multicast transmission
+            address_family = socket.AF_INET6 if self.ipv6 else socket.AF_INET
+            self._multicast_sock = socket.socket(address_family, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+
+            # Set TTL for multicast (site-local scope)
+            if self.ipv6:
+                # IPv6: Set multicast hop limit
+                self._multicast_sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, 2)
+            else:
+                # IPv4: Set TTL
+                self._multicast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+
+            # Allow address reuse (multiple XCP masters on same host)
+            self._multicast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if hasattr(socket, "SO_REUSEPORT"):
+                self._multicast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+            # Store multicast address
+            self._multicast_address = self.cluster_id_to_multicast_address(cluster_id)
+            self._multicast_port = DEFAULT_XCP_MULTICAST_PORT
+            self._cluster_id = cluster_id
+
+            self._multicast_enabled = True
+            self.logger.info(f"Multicast enabled: cluster_id={cluster_id:#06x} → {self._multicast_address}:{self._multicast_port}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to enable multicast: {e}", exc_info=True)
+            if self._multicast_sock:
+                self._multicast_sock.close()
+                self._multicast_sock = None
+
+    def disable_multicast(self) -> None:
+        """Disable multicast and close the multicast socket."""
+        if self._multicast_sock:
+            try:
+                self._multicast_sock.close()
+            except Exception as e:  # nosec B110
+                # Ignore errors during cleanup - socket may already be closed
+                self.logger.debug(f"Error closing multicast socket (ignored): {e}")
+            self._multicast_sock = None
+        self._multicast_enabled = False
+        self.logger.info("Multicast disabled")
+
+    def send_multicast(self, cluster_id: int, counter: int) -> None:
+        """
+        Send GET_DAQ_CLOCK_MULTICAST command via UDP multicast.
+
+        XCP 1.5 Spec:
+        - Frame (ETH framing): [LEN:WORD][CTR:WORD][0xF2][0xFA][CLUSTER_ID:WORD][COUNTER:BYTE]
+        - Port: 5557
+        - Address: 239.255.HIGH_BYTE.LOW_BYTE (derived from cluster_id)
+        - Response: Asynchronous EV_TIME_SYNC event on regular connection
+
+        Args:
+            cluster_id: 16-bit cluster identifier (Intel byte order)
+            counter: 8-bit counter for consistency checks
+        """
+        if not self._multicast_enabled:
+            # Auto-enable if not already enabled
+            self.enable_multicast(cluster_id)
+
+        if not self._multicast_sock:
+            raise RuntimeError("Multicast socket not available")
+
+        # Build GET_DAQ_CLOCK_MULTICAST packet with proper XCP framing
+        # Transport Layer Command (0xF2) + Subcommand 0xFA + CLUSTER_ID (LE) + Counter (BYTE)
+        cluster_id_le = cluster_id & 0xFFFF
+        packet = self.framing.prepare_request(
+            types.Command.TRANSPORT_LAYER_CMD,
+            0xFA,
+            cluster_id_le & 0xFF,
+            (cluster_id_le >> 8) & 0xFF,
+            counter & 0xFF,
+        )
+
+        # Send to multicast address
+        multicast_addr = self.cluster_id_to_multicast_address(cluster_id)
+        try:
+            self._multicast_sock.sendto(packet, (multicast_addr, DEFAULT_XCP_MULTICAST_PORT))
+            self.logger.debug(
+                f"GET_DAQ_CLOCK_MULTICAST sent: cluster={cluster_id:#06x}, counter={counter} → "
+                f"{multicast_addr}:{DEFAULT_XCP_MULTICAST_PORT}"
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to send multicast: {e}", exc_info=True)
+            raise

@@ -1,0 +1,4 @@
+evaluation:
+  tasks:
+    - name: adlr_global_mmlu_lite_5_shot
+    - name: adlr_mgsm_native_cot_8_shot

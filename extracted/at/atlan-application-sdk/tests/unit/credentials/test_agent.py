@@ -1,0 +1,1870 @@
+"""Tests for :mod:`application_sdk.credentials.agent` and
+:class:`application_sdk.credentials.spec.AgentCredentialSpec`.
+
+Covers the agent-shape credential resolution path: substitution of
+ref-keys against an external secret bundle, dotted-key expansion into
+nested dicts, v2-compatible behaviour for nested ``extra`` payloads,
+the :class:`AgentCredentialSpec` typed model, and the error contract
+for malformed input.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from typing import Any
+from unittest.mock import AsyncMock
+from urllib.parse import quote
+
+import httpx
+import pytest
+
+from application_sdk.common.transforms import expand_dotted_keys
+from application_sdk.credentials.agent import (
+    _fetch_per_key_bundle,
+    _substitute,
+    check_secret_store_access,
+    resolve_agent_credential,
+    resolve_agent_json,
+)
+from application_sdk.credentials.errors import (
+    CredentialError,
+    CredentialNotFoundError,
+    CredentialParseError,
+    CredentialRoutingError,
+)
+from application_sdk.credentials.spec import AgentCredentialSpec
+from application_sdk.errors.leaves import ColdStartRaceError
+from application_sdk.infrastructure.secrets import (
+    SecretNotFoundError,
+    SecretStoreError,
+    SecretStoreUnavailableError,
+    SecretStoreUnreachableError,
+)
+from application_sdk.testing.mocks import MockSecretStore
+
+
+@pytest.fixture(autouse=True)
+def _no_bundle_fetch_retry(monkeypatch):
+    """Disable the cold-sidecar retry window by default so store-failure
+    tests fail fast. The dedicated retry tests re-enable it.
+
+    The process-level cold-start gate itself (shared across every
+    ``retry_past_dapr_cold_start`` caller, in ``infrastructure._dapr.http``)
+    is reset by the session-wide ``tests/unit/conftest.py`` fixture, not
+    here."""
+    monkeypatch.setattr(
+        "application_sdk.infrastructure._dapr.http.DAPR_COLD_START_MAX_WAIT_SECONDS",
+        0.0,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fixtures — based on the real cloudsql-postgres agent payload from dbbi-331
+# ---------------------------------------------------------------------------
+
+#: The literal agent_json string carried on the v3 workflow payload for
+#: a cloudsql-postgres agent-extraction run. Mirrors the real shape
+#: emitted by the Argo marketplace template as of dbbi-331.
+CLOUDSQL_POSTGRES_AGENT_JSON = json.dumps(
+    {
+        "connectBy": "host",
+        "agent-name": "cloudsql-postgres-agent",
+        "secret-manager": "awssecretmanager",
+        "secret-path": "atlan/dev/cloudsql",
+        "aws-region": "ap-south-1",
+        "aws-auth-method": "access-key",
+        "azure-auth-method": "managed_identity",
+        "extra.compiled_url": "postgresql+asyncpg://34.122.182.89:5432/database",
+        "host": "34.122.182.89",
+        "port": 5432,
+        "auth-type": "basic",
+        "basic.username": "username",
+        "basic.password": "password",
+        "extra.database": "database",
+    }
+)
+
+
+def _bundle(**values: str) -> str:
+    """Helper: serialize a dict as the JSON string a SecretStore returns."""
+    return json.dumps(values)
+
+
+def _store_with(**bundles: str) -> MockSecretStore:
+    """Helper: build a MockSecretStore preloaded with ``{path: json}``."""
+    store = MockSecretStore()
+    for path, raw in bundles.items():
+        store.set(path, raw)
+    return store
+
+
+# ---------------------------------------------------------------------------
+# AgentCredentialSpec — typed model tests
+# ---------------------------------------------------------------------------
+
+
+class TestAgentCredentialSpec:
+    def test_parse_from_json_string(self) -> None:
+        spec = AgentCredentialSpec.model_validate(CLOUDSQL_POSTGRES_AGENT_JSON)
+        assert spec.agent_name == "cloudsql-postgres-agent"
+        assert spec.secret_manager == "awssecretmanager"
+        assert spec.secret_path == "atlan/dev/cloudsql"
+        assert spec.auth_type == "basic"
+        assert spec.host == "34.122.182.89"
+        assert spec.port == 5432
+        assert spec.aws_region == "ap-south-1"
+        assert spec.connect_by == "host"
+
+    def test_parse_from_dict(self) -> None:
+        d = json.loads(CLOUDSQL_POSTGRES_AGENT_JSON)
+        spec = AgentCredentialSpec.model_validate(d)
+        assert spec.agent_name == "cloudsql-postgres-agent"
+        assert spec.secret_path == "atlan/dev/cloudsql"
+
+    def test_parse_from_spec_instance(self) -> None:
+        spec = AgentCredentialSpec.model_validate(CLOUDSQL_POSTGRES_AGENT_JSON)
+        spec2 = AgentCredentialSpec.model_validate(spec)
+        assert spec2.agent_name == spec.agent_name
+
+    def test_dotted_keys_in_model_extra(self) -> None:
+        spec = AgentCredentialSpec.model_validate(CLOUDSQL_POSTGRES_AGENT_JSON)
+        assert spec.model_extra is not None
+        assert "basic.username" in spec.model_extra
+        assert "basic.password" in spec.model_extra
+        assert "extra.database" in spec.model_extra
+
+    def test_to_raw_dict_round_trips(self) -> None:
+        spec = AgentCredentialSpec.model_validate(CLOUDSQL_POSTGRES_AGENT_JSON)
+        raw = spec.to_raw_dict()
+        # Typed fields use alias names
+        assert raw["agent-name"] == "cloudsql-postgres-agent"
+        assert raw["secret-path"] == "atlan/dev/cloudsql"
+        assert raw["auth-type"] == "basic"
+        # Dotted keys preserved
+        assert raw["basic.username"] == "username"
+        assert raw["extra.database"] == "database"
+
+    def test_is_populated(self) -> None:
+        spec = AgentCredentialSpec.model_validate(CLOUDSQL_POSTGRES_AGENT_JSON)
+        assert spec.is_populated()
+
+    def test_empty_string_not_populated(self) -> None:
+        spec = AgentCredentialSpec.model_validate("")
+        assert not spec.is_populated()
+
+    def test_empty_dict_not_populated(self) -> None:
+        spec = AgentCredentialSpec.model_validate({})
+        assert not spec.is_populated()
+
+    def test_ae_placeholder_agent_name_not_populated(self) -> None:
+        spec = AgentCredentialSpec.model_validate(
+            {
+                "agent-name": "agent-name",
+                "secret-manager": "",
+                "secret-path": "",
+                "auth-type": "",
+                "host": "",
+                "port": 0,
+            }
+        )
+        assert not spec.is_populated()
+
+    def test_agent_name_without_secret_ref_not_populated(self) -> None:
+        spec = AgentCredentialSpec.model_validate({"agent-name": "acme-prod-agent"})
+        assert not spec.is_populated()
+
+    def test_agent_spec_with_secret_ref_is_populated(self) -> None:
+        spec = AgentCredentialSpec.model_validate(
+            {"agent-name": "acme-prod-agent", "secret-path": "atlan/prod/acme"}
+        )
+        assert spec.is_populated()
+
+    def test_single_key_spec_without_secret_path_is_populated(self) -> None:
+        # single-key fetches per ref-key, so no secret_path is needed.
+        spec = AgentCredentialSpec.model_validate(
+            {
+                "agent-name": "acme-prod-agent",
+                "key-type": "single-key",
+                "basic.username": "SDR_MYSQL_USERNAME",
+            }
+        )
+        assert spec.is_populated()
+
+    def test_secret_manager_only_not_populated(self) -> None:
+        # secret_manager is not a fetch anchor.
+        spec = AgentCredentialSpec.model_validate(
+            {"agent-name": "acme-prod-agent", "secret-manager": "awssecretmanager"}
+        )
+        assert not spec.is_populated()
+
+    def test_multi_key_spec_without_secret_path_not_populated(self) -> None:
+        # Only single-key is a fetch anchor on its own; multi-key still
+        # needs secret_path to fetch the bundle from.
+        spec = AgentCredentialSpec.model_validate(
+            {"agent-name": "acme-prod-agent", "key-type": "multi-key"}
+        )
+        assert not spec.is_populated()
+
+    def test_invalid_json_raises_parse_error(self) -> None:
+        import pytest
+
+        with pytest.raises(CredentialParseError, match="not valid JSON"):
+            AgentCredentialSpec.model_validate("{not-json")
+
+    def test_non_dict_json_raises_parse_error(self) -> None:
+        import pytest
+
+        with pytest.raises(CredentialParseError, match="must be a JSON object"):
+            AgentCredentialSpec.model_validate(json.dumps(["a", "b"]))
+
+    def test_secret_path_strips_whitespace_from_dict(self) -> None:
+        spec = AgentCredentialSpec.model_validate({"secret-path": "  atlan/dev/foo  "})
+        assert spec.secret_path == "atlan/dev/foo"
+
+    def test_secret_path_whitespace_only_normalizes_to_empty(self) -> None:
+        spec = AgentCredentialSpec.model_validate({"secret-path": "   "})
+        assert spec.secret_path == ""
+
+    def test_secret_path_strips_whitespace_from_json_string(self) -> None:
+        spec = AgentCredentialSpec.model_validate('{"secret-path": " padded "}')
+        assert spec.secret_path == "padded"
+
+
+# ---------------------------------------------------------------------------
+# resolve_agent_json — happy path
+# ---------------------------------------------------------------------------
+
+
+class TestResolveAgentJsonHappyPath:
+    async def test_resolves_cloudsql_postgres_payload_to_nested_extra(self) -> None:
+        """The exact dbbi-331 payload resolves to a dict that drops
+        straight into the v3 SQL client's ``load(credentials)``.
+        """
+        store = _store_with(
+            **{
+                "atlan/dev/cloudsql": _bundle(
+                    username="real_pg_user",
+                    password="real_pg_password",
+                    database="real_pg_db",
+                )
+            }
+        )
+
+        resolved = await resolve_agent_json(CLOUDSQL_POSTGRES_AGENT_JSON, store)
+
+        # Literal fields are preserved as-is.
+        assert resolved["host"] == "34.122.182.89"
+        assert resolved["port"] == 5432
+        assert resolved["authType"] == "basic"
+        assert resolved["aws-region"] == "ap-south-1"
+
+        # Auth-prefixed fields promoted to root level.
+        assert resolved["username"] == "real_pg_user"
+        assert resolved["password"] == "real_pg_password"
+        assert "basic" not in resolved
+
+        assert resolved["extra"] == {
+            "database": "real_pg_db",
+            # compiled_url was a literal value (not in bundle), copied through.
+            "compiled_url": "postgresql+asyncpg://34.122.182.89:5432/database",
+        }
+
+        # credentialSource added
+        assert resolved["credentialSource"] == "agent"
+
+        # No dotted keys remain after expansion.
+        assert not any("." in k for k in resolved)
+
+    async def test_flatten_auth_section_deep_merges_extra(self) -> None:
+        """Root-level ``extra.*`` and auth-section ``extra`` must
+        deep-merge into a single ``extra`` dict (GCP-WIF pattern).
+        """
+        agent_json = json.dumps(
+            {
+                "agent-name": "bq-agent",
+                "secret-path": "p",
+                "auth-type": "gcp-wif",
+                "extra.connect_type": "public",
+                "gcp-wif.extra.project_id": "my-project",
+                "gcp-wif.extra.service_account_email": "sa@gcp.iam",
+            }
+        )
+        store = _store_with(p=_bundle())
+        r = await resolve_agent_json(agent_json, store)
+
+        assert isinstance(r["extra"], dict)
+        assert r["extra"]["connect_type"] == "public"
+        assert r["extra"]["project_id"] == "my-project"
+        assert r["extra"]["service_account_email"] == "sa@gcp.iam"
+
+    async def test_literal_keys_never_substituted_even_if_they_match_bundle(
+        self,
+    ) -> None:
+        """``host``/``port``/``aws-region`` are literals. If a bundle
+        happens to carry a key of the same string, the literal wins.
+        """
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "auth-type": "basic",
+                "secret-path": "bundle",
+                "host": "literal.example.com",
+                "port": 5432,
+                "aws-region": "ap-south-1",
+                "basic.username": "username",
+            }
+        )
+        # Bundle contains a key `literal.example.com` — but ``host`` is
+        # in _LITERAL_KEYS so it should never be treated as a ref.
+        store = _store_with(
+            bundle=_bundle(
+                **{
+                    "literal.example.com": "SHOULD_NOT_WIN",
+                    "ap-south-1": "SHOULD_NOT_WIN",
+                    "username": "real_user",
+                }
+            )
+        )
+
+        resolved = await resolve_agent_json(agent_json, store)
+
+        assert resolved["host"] == "literal.example.com"
+        assert resolved["aws-region"] == "ap-south-1"
+        assert resolved["username"] == "real_user"
+
+    async def test_missing_ref_key_stays_as_ref(self) -> None:
+        """v2 parity: if the bundle doesn't have a ref-key, leave the
+        placeholder in place rather than raising. Downstream SQL connect
+        will surface a meaningful error.
+        """
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "auth-type": "basic",
+                "secret-path": "bundle",
+                "host": "h",
+                "basic.username": "username",  # present in bundle
+                "basic.password": "password",  # MISSING from bundle
+            }
+        )
+        store = _store_with(bundle=_bundle(username="real_user"))
+
+        resolved = await resolve_agent_json(agent_json, store)
+
+        assert resolved["username"] == "real_user"
+        # Ref-key preserved verbatim when no bundle entry matches.
+        assert resolved["password"] == "password"
+
+    async def test_v2_style_nested_extra_also_resolved(self) -> None:
+        """Backward compat: if the upstream emits v2-style nested
+        ``extra: {k: ref}``, those refs are also substituted.
+        """
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "secret-path": "bundle",
+                "host": "h",
+                "auth-type": "basic",
+                "username": "user_ref",
+                "password": "pass_ref",
+                "extra": {
+                    "database": "db_ref",
+                    "compiled_url": "postgresql+asyncpg://...",
+                },
+            }
+        )
+        store = _store_with(
+            bundle=_bundle(user_ref="real_user", pass_ref="real_pw", db_ref="real_db")
+        )
+
+        resolved = await resolve_agent_json(agent_json, store)
+
+        assert resolved["username"] == "real_user"
+        assert resolved["password"] == "real_pw"
+        assert resolved["extra"]["database"] == "real_db"
+        # Literal inside nested extra is preserved.
+        assert resolved["extra"]["compiled_url"] == "postgresql+asyncpg://..."
+
+    async def test_bundle_returned_as_dict_directly(self) -> None:
+        """Some SecretStore backends may return a pre-parsed dict rather
+        than a JSON string. Accept both.
+        """
+
+        class DictReturningStore:
+            async def get(self, name: str) -> Any:
+                return {"user_ref": "real_user"}
+
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "auth-type": "basic",
+                "secret-path": "bundle",
+                "basic.username": "user_ref",
+            }
+        )
+        resolved = await resolve_agent_json(agent_json, DictReturningStore())  # type: ignore[arg-type]
+        assert resolved["username"] == "real_user"
+
+
+# ---------------------------------------------------------------------------
+# resolve_agent_json — error paths
+# ---------------------------------------------------------------------------
+
+
+class TestResolveAgentJsonErrorPaths:
+    async def test_invalid_agent_json_raises_parse_error(self) -> None:
+        import pytest
+
+        store = _store_with()
+        with pytest.raises(CredentialParseError, match="not valid JSON"):
+            await resolve_agent_json("{not-json", store)
+
+    async def test_agent_json_not_a_dict_raises_parse_error(self) -> None:
+        import pytest
+
+        store = _store_with()
+        with pytest.raises(CredentialParseError, match="must be a JSON object"):
+            await resolve_agent_json(json.dumps(["a", "b"]), store)
+
+    async def test_missing_secret_path_skips_bundle_fetch(self) -> None:
+        store = _store_with()
+        agent_json = json.dumps(
+            {"agent-name": "test", "host": "h", "basic.username": "u"}
+        )
+        result = await resolve_agent_json(agent_json, store)
+        assert result["host"] == "h"
+
+    async def test_empty_secret_path_skips_bundle_fetch(self) -> None:
+        store = _store_with()
+        agent_json = json.dumps(
+            {
+                "agent-name": "test",
+                "auth-type": "basic",
+                "secret-path": "",
+                "basic.username": "u",
+            }
+        )
+        result = await resolve_agent_json(agent_json, store)
+        assert result["username"] == "u"
+
+    async def test_secret_not_found_raises_credential_not_found(self) -> None:
+        import pytest
+
+        store = _store_with()  # empty — no bundle at the path
+        agent_json = json.dumps(
+            {"agent-name": "test", "secret-path": "missing/path", "basic.username": "u"}
+        )
+        with pytest.raises(CredentialNotFoundError):
+            await resolve_agent_json(agent_json, store)
+
+    async def test_generic_store_failure_wrapped_in_credential_error(self) -> None:
+        """A SecretStore backend that raises a plain SecretStoreError directly
+        (not via classify_secret_fetch_error's not-found/cold-start typing)
+        is a genuine, undifferentiated failure and must escalate — this
+        module stays backend-opaque and never re-interprets SecretStoreError
+        itself; only SecretNotFoundError means "absent". Dapr's own
+        genuinely-missing-key case is classified as SecretNotFoundError at
+        the source (see test_classify_secret_fetch_error_missing_key_is_not_found
+        in tests/unit/infrastructure/test_dapr_wrappers.py), not here.
+        """
+        import pytest
+
+        class FlakyStore:
+            async def get(self, name: str) -> str:
+                raise SecretStoreError("upstream dapr outage")
+
+        agent_json = json.dumps(
+            {"agent-name": "test", "secret-path": "p", "basic.username": "u"}
+        )
+        # The clean, customer-facing message is raised; the raw backend detail
+        # ("dapr outage") is logged (scrubbed), not embedded in the message.
+        with pytest.raises(CredentialError, match="Secret store is not reachable"):
+            await resolve_agent_json(agent_json, FlakyStore())  # type: ignore[arg-type]
+
+    async def test_bundle_not_valid_json_raises_parse_error(self) -> None:
+        import pytest
+
+        store = _store_with(bundle="not-json-at-all")
+        agent_json = json.dumps(
+            {"agent-name": "test", "secret-path": "bundle", "basic.username": "u"}
+        )
+        with pytest.raises(CredentialParseError, match="not valid JSON"):
+            await resolve_agent_json(agent_json, store)
+
+    async def test_bundle_not_a_dict_raises_parse_error(self) -> None:
+        import pytest
+
+        store = _store_with(bundle=json.dumps(["a", "b"]))
+        agent_json = json.dumps(
+            {"agent-name": "test", "secret-path": "bundle", "basic.username": "u"}
+        )
+        with pytest.raises(CredentialParseError, match="must be a JSON object"):
+            await resolve_agent_json(agent_json, store)
+
+
+# ---------------------------------------------------------------------------
+# resolve_agent_credential — single-key (per-field secret lookup) mode
+# ---------------------------------------------------------------------------
+
+
+class TestBundleFetchReadinessRetry:
+    """The agent bundle fetch rides out a cold Dapr sidecar (transient fetch
+    failures) but never retries a genuine missing secret."""
+
+    _AGENT_JSON = json.dumps(
+        {
+            "agent-name": "t",
+            "auth-type": "basic",
+            "secret-path": "p",
+            "basic.username": "u",
+        }
+    )
+
+    async def test_retries_transient_failure_then_succeeds(
+        self, fast_dapr_cold_start_retry
+    ) -> None:
+        calls = {"n": 0}
+
+        class ColdThenReady:
+            async def get(self, name: str) -> str:
+                calls["n"] += 1
+                if calls["n"] < 3:  # sidecar still cold on the first two tries
+                    raise SecretStoreUnavailableError("p")
+                return _bundle(user="real")
+
+        result = await resolve_agent_json(self._AGENT_JSON, ColdThenReady())  # type: ignore[arg-type]
+        assert calls["n"] == 3  # rode out the two cold failures
+        assert result["agent-name"] == "t"
+
+    async def test_missing_secret_is_not_retried(self, monkeypatch) -> None:
+        # A generous window would let a retry loop run — but a genuine missing
+        # secret must fail fast, on the first attempt.
+        monkeypatch.setattr(
+            "application_sdk.infrastructure._dapr.http.DAPR_COLD_START_MAX_WAIT_SECONDS",
+            30.0,
+        )
+        calls = {"n": 0}
+
+        class AlwaysMissing:
+            async def get(self, name: str) -> str:
+                calls["n"] += 1
+                raise SecretNotFoundError("p")
+
+        with pytest.raises(CredentialNotFoundError):
+            await resolve_agent_json(self._AGENT_JSON, AlwaysMissing())  # type: ignore[arg-type]
+        assert calls["n"] == 1  # not retried
+
+    async def test_persistent_transient_failure_gives_up(
+        self, deterministic_dapr_cold_start_deadline
+    ) -> None:
+        calls = {"n": 0}
+
+        class AlwaysDown:
+            async def get(self, name: str) -> str:
+                calls["n"] += 1
+                raise SecretStoreUnavailableError("p")
+
+        with pytest.raises(CredentialError):
+            await resolve_agent_json(self._AGENT_JSON, AlwaysDown())  # type: ignore[arg-type]
+        assert calls["n"] == 2  # retried once, then gave up at the deadline
+
+    async def test_non_transient_error_fails_fast(self, monkeypatch) -> None:
+        # A genuine, non-connection store error (bad auth / binding / path) must
+        # NOT be retried — it fails on the first attempt even with a generous
+        # window, so a real misconfiguration doesn't block for the whole budget.
+        monkeypatch.setattr(
+            "application_sdk.infrastructure._dapr.http.DAPR_COLD_START_MAX_WAIT_SECONDS",
+            30.0,
+        )
+        calls = {"n": 0}
+
+        class BadBinding:
+            async def get(self, name: str) -> str:
+                calls["n"] += 1
+                raise SecretStoreError("Failed to get secret: access denied")
+
+        with pytest.raises(CredentialError):
+            await resolve_agent_json(self._AGENT_JSON, BadBinding())  # type: ignore[arg-type]
+        assert calls["n"] == 1  # not retried — not a transient/connection error
+
+    async def test_genuine_store_error_fails_fast_regardless_of_message(
+        self, monkeypatch
+    ) -> None:
+        # Classification is by TYPE now, not text: a plain SecretStoreError is
+        # never retried even if its message looks connection-y — only
+        # SecretStoreUnavailableError (raised by the infra layer for a real
+        # transport failure) is transient.
+        monkeypatch.setattr(
+            "application_sdk.infrastructure._dapr.http.DAPR_COLD_START_MAX_WAIT_SECONDS",
+            30.0,
+        )
+        calls = {"n": 0}
+
+        class ConnectionyMessage:
+            async def get(self, name: str) -> str:
+                calls["n"] += 1
+                raise SecretStoreError("All connection attempts failed")
+
+        with pytest.raises(CredentialError):
+            await resolve_agent_json(self._AGENT_JSON, ConnectionyMessage())  # type: ignore[arg-type]
+        assert (
+            calls["n"] == 1
+        )  # not retried — type is SecretStoreError, not Unavailable
+
+    async def test_cold_start_wait_not_rearmed_after_first_success(
+        self, monkeypatch
+    ) -> None:
+        # Chris finding #2: once the store has answered this process, the long
+        # cold-start wait is NOT re-armed — a later outage fails fast (single
+        # attempt) rather than being masked for the whole 120s budget.
+        monkeypatch.setattr(
+            "application_sdk.infrastructure._dapr.http.DAPR_COLD_START_MAX_WAIT_SECONDS",
+            30.0,
+        )
+        calls = {"n": 0}
+
+        class ReadyThenDown:
+            async def get(self, name: str) -> str:
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    return _bundle(user="real")  # first call confirms readiness
+                raise SecretStoreUnavailableError("p")  # later steady-state outage
+
+        # First resolution succeeds and flips the process-level cold-start gate.
+        await resolve_agent_json(self._AGENT_JSON, ReadyThenDown())  # type: ignore[arg-type]
+        assert calls["n"] == 1
+
+        # A second resolution that hits an outage must NOT re-enter the retry
+        # loop — exactly one attempt, not a 30s retry window.
+        with pytest.raises(CredentialError):
+            await resolve_agent_json(self._AGENT_JSON, ReadyThenDown())  # type: ignore[arg-type]
+        assert calls["n"] == 2
+
+    async def test_cold_start_wait_not_rearmed_after_not_found(
+        self, monkeypatch
+    ) -> None:
+        # A definitive "not found" is proof the sidecar is up, just like a
+        # success — it must arm the gate too, so a later outage in the same
+        # worker process fails fast instead of re-entering the retry window.
+        monkeypatch.setattr(
+            "application_sdk.infrastructure._dapr.http.DAPR_COLD_START_MAX_WAIT_SECONDS",
+            30.0,
+        )
+        calls = {"n": 0}
+
+        class ReadyButMissingThenDown:
+            async def get(self, name: str) -> str:
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    raise SecretNotFoundError("p")  # confirms readiness
+                raise SecretStoreUnavailableError("p")  # later steady-state outage
+
+        with pytest.raises(CredentialNotFoundError):
+            await resolve_agent_json(
+                self._AGENT_JSON,
+                ReadyButMissingThenDown(),  # type: ignore[arg-type]
+            )
+        assert calls["n"] == 1
+
+        with pytest.raises(CredentialError):
+            await resolve_agent_json(
+                self._AGENT_JSON,
+                ReadyButMissingThenDown(),  # type: ignore[arg-type]
+            )
+        assert calls["n"] == 2  # not retried — the gate was already armed
+
+
+class TestSingleKeyMode:
+    """``key-type: single-key`` — per-field lookups against the secret store.
+
+    Each non-literal string field value is treated as its own secret store
+    entry, so apps backed by ``secretstores.local.env`` can use one env
+    var per credential field instead of bundling everything into a single
+    JSON-encoded env var.
+    """
+
+    async def test_resolves_each_ref_key_independently(self) -> None:
+        """Each ref-key is fetched as its own secret store entry."""
+        store = _store_with(
+            ATLAN_USER="real_user",
+            ATLAN_PASS="real_pw",
+        )
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "host": "h.example.com",
+                "port": 5432,
+                "basic.username": "ATLAN_USER",
+                "basic.password": "ATLAN_PASS",
+            }
+        )
+
+        resolved = await resolve_agent_json(agent_json, store)
+
+        assert resolved["username"] == "real_user"
+        assert resolved["password"] == "real_pw"
+        # Literal fields untouched.
+        assert resolved["host"] == "h.example.com"
+        assert resolved["port"] == 5432
+        assert resolved["authType"] == "basic"
+        assert resolved["credentialSource"] == "agent"
+
+    async def test_takes_precedence_over_secret_path_when_both_set(self) -> None:
+        """If both ``key-type: single-key`` and ``secret-path`` are set,
+        single-key wins — no bundle fetch happens, even if the path would
+        have resolved.
+        """
+        store = _store_with(
+            ATLAN_USER="real_user",
+            # Bundle that would have won under multi-key — but single-key
+            # mode skips bundle fetch entirely.
+            **{"some/bundle": _bundle(ATLAN_USER="bundle_overridden_user")},
+        )
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "secret-path": "some/bundle",
+                "auth-type": "basic",
+                "basic.username": "ATLAN_USER",
+            }
+        )
+
+        resolved = await resolve_agent_json(agent_json, store)
+
+        # Per-key resolution used the env-var-style entry, not the bundle.
+        assert resolved["username"] == "real_user"
+
+    async def test_missing_secret_falls_back_to_ref_key(self) -> None:
+        """v2 parity: a ref-key not present in the store is left as-is.
+        Downstream client connect surfaces a meaningful error.
+        """
+        store = _store_with(ATLAN_USER="real_user")  # ATLAN_PASS missing
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "basic.username": "ATLAN_USER",
+                "basic.password": "ATLAN_PASS",
+            }
+        )
+
+        resolved = await resolve_agent_json(agent_json, store)
+
+        assert resolved["username"] == "real_user"
+        assert resolved["password"] == "ATLAN_PASS"  # ref-key preserved
+
+    async def test_silently_skips_lookup_errors_on_non_secret_fields(self) -> None:
+        """Non-secret string fields (e.g. ``host``-like values inadvertently
+        included via custom subclass) raise on lookup — that must not fail
+        resolution.
+        """
+
+        class ProbeStore:
+            calls: list[str] = []
+
+            async def get_optional(self, name: str) -> str | None:
+                self.calls.append(name)
+                if name == "BOOM":
+                    raise RuntimeError("transient store glitch")
+                if name == "ATLAN_USER":
+                    return "real_user"
+                return None
+
+        store = ProbeStore()
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "basic.username": "ATLAN_USER",
+                "basic.password": "BOOM",
+            }
+        )
+
+        resolved = await resolve_agent_json(agent_json, store)  # type: ignore[arg-type]
+        assert resolved["username"] == "real_user"
+        # Lookup error on BOOM was swallowed; placeholder retained.
+        assert resolved["password"] == "BOOM"
+
+    async def test_transient_probe_failure_is_retried_not_misclassified(
+        self, fast_dapr_cold_start_retry
+    ) -> None:
+        """A cold-start SecretStoreUnavailableError during a single-key probe
+        must be retried, not silently treated as "key not in store" — that
+        would misclassify a transient infra outage as a definitive absence.
+        """
+        calls = {"n": 0}
+
+        class ColdThenReady:
+            async def get_optional(self, name: str) -> str | None:
+                calls["n"] += 1
+                if calls["n"] < 3:
+                    raise SecretStoreUnavailableError(name)
+                return "real_user" if name == "ATLAN_USER" else None
+
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "basic.username": "ATLAN_USER",
+            }
+        )
+
+        resolved = await resolve_agent_json(agent_json, ColdThenReady())  # type: ignore[arg-type]
+
+        assert resolved["username"] == "real_user"
+        assert calls["n"] == 3  # rode out the two cold failures, not skipped
+
+    async def test_persistent_transient_failure_raises_not_silently_swallowed(
+        self, deterministic_dapr_cold_start_deadline
+    ) -> None:
+        """Single-key probing must not silently proceed with an incomplete
+        credential when the secret store genuinely never answers — same
+        swallow already fixed for the vault sibling (see
+        test_agent_single_key_mode_outage_raises_not_silently_swallowed in
+        test_credential_vault.py). An exhausted cold-start outage must
+        raise, not fall back to the literal ref-key placeholder.
+
+        Because the outage persists past the whole budget, it surfaces as the
+        TERMINAL ``SecretStoreUnreachableError``, not the transient
+        ``SecretStoreUnavailableError`` — waited the whole budget, done waiting.
+        """
+        calls = {"n": 0}
+
+        class AlwaysDown:
+            async def get_optional(self, name: str) -> str | None:
+                calls["n"] += 1
+                raise SecretStoreUnavailableError(name)
+
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "basic.username": "ATLAN_USER",
+            }
+        )
+
+        with pytest.raises(SecretStoreUnreachableError) as exc_info:
+            await resolve_agent_json(agent_json, AlwaysDown())  # type: ignore[arg-type]
+
+        # Retried once, then gave up at the deadline — same budget as every
+        # other call site.
+        assert calls["n"] == 2
+
+        # Terminal type, but still a ColdStartRaceError so the probe aggregator
+        # routes it and NOT the transient type.
+        assert isinstance(exc_info.value, ColdStartRaceError)
+        assert not isinstance(exc_info.value, SecretStoreUnavailableError)
+
+        # The raised exception must not carry the raw ref-key — it's
+        # rebuilt with a hashed label before propagating, not the original
+        # the store raised, and no cause is attached.
+        assert "ATLAN_USER" not in str(exc_info.value)
+        assert exc_info.value.secret_name != "ATLAN_USER"
+        assert exc_info.value.cause is None
+
+    async def test_store_outage_does_not_leak_ref_key_in_logs(self) -> None:
+        """On a store outage during a single-key probe, the WARNING must not
+        leak the raw ref-key. The store error renders the ref-key both as
+        ``secret=<key>`` and echoed inside the message (mirroring real Dapr
+        backends), so a naive ``exc_info=True`` would undo the sha256 hashing.
+        """
+        from unittest.mock import patch
+
+        ref_key = "SNOWFLAKE_PROD_PASSWORD"
+        expected_hash = hashlib.sha256(ref_key.encode()).hexdigest()[:8]
+
+        class OutageStore:
+            async def get_optional(self, name: str) -> str | None:
+                # Mirror DaprSecretStore.get(): message embeds the backend
+                # cause (which echoes the key name) and secret_name=<key>.
+                raise SecretStoreError(
+                    f"Failed to get secret: access denied for key {name}",
+                    secret_name=name,
+                    cause=PermissionError(f"vault rejected {name}"),
+                )
+
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "basic.password": ref_key,
+            }
+        )
+
+        with patch("application_sdk.credentials.agent.logger") as mock_logger:
+            resolved = await resolve_agent_json(agent_json, OutageStore())  # type: ignore[arg-type]
+
+        # Outage swallowed; placeholder retained (ref-key falls through).
+        assert resolved["password"] == ref_key
+
+        mock_logger.warning.assert_called_once()
+        logged = " ".join(str(arg) for arg in mock_logger.warning.call_args.args)
+        # (1) raw ref-key never appears anywhere in the log record ...
+        assert ref_key not in logged
+        # (2) ... the hash prefix is what identifies it instead ...
+        assert f"sha256:{expected_hash}" in logged
+        # (3) ... and the store-failure diagnosis still survives.
+        assert "Traceback" in logged
+        assert "PermissionError" in logged
+
+    async def test_url_encoded_ref_key_does_not_leak_in_logs(self) -> None:
+        """A ref-key with a URL-unsafe character (``/``, common in
+        Vault/AWS-Secrets-Manager-style path keys) must also be scrubbed in
+        its percent-encoded form. ``response.raise_for_status()`` — the real
+        production call site, see ``AsyncDaprClient.get_secret`` — builds its
+        message as ``"... for url '<request.url>'"``, and the request URL
+        was built via ``quote(key, safe="")`` (mirroring
+        ``AsyncDaprClient.get_secret``'s own encoding), so the raw-value
+        regex alone would miss the encoded form embedded there.
+        """
+        from unittest.mock import patch
+
+        ref_key = "snowflake/prod/password"
+        encoded_key = quote(ref_key, safe="")
+        expected_hash = hashlib.sha256(ref_key.encode()).hexdigest()[:8]
+
+        class OutageStore:
+            async def get_optional(self, name: str) -> str | None:
+                req = httpx.Request(
+                    "GET",
+                    f"http://localhost:3500/v1.0/secrets/secretstore/{quote(name, safe='')}",
+                )
+                resp = httpx.Response(403, request=req)
+                try:
+                    resp.raise_for_status()
+                except httpx.HTTPStatusError as http_exc:
+                    raise SecretStoreError(
+                        f"Failed to get secret: {http_exc}",
+                        secret_name=name,
+                        cause=http_exc,
+                    ) from http_exc
+                raise AssertionError("unreachable")
+
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "basic.password": ref_key,
+            }
+        )
+
+        with patch("application_sdk.credentials.agent.logger") as mock_logger:
+            resolved = await resolve_agent_json(agent_json, OutageStore())  # type: ignore[arg-type]
+
+        assert resolved["password"] == ref_key
+        mock_logger.warning.assert_called_once()
+        logged = " ".join(str(arg) for arg in mock_logger.warning.call_args.args)
+        assert ref_key not in logged
+        assert encoded_key not in logged
+        assert f"sha256:{expected_hash}" in logged
+
+    async def test_short_ref_key_does_not_corrupt_unrelated_tokens(self) -> None:
+        """The ref-key scrub is token-bounded: a short key like ``DB`` must
+        hash its own standalone occurrences without mangling a larger
+        identifier (``DB_CONNECTION``) that merely contains it as a prefix.
+        """
+        from unittest.mock import patch
+
+        ref_key = "DB"
+
+        class OutageStore:
+            async def get_optional(self, name: str) -> str | None:
+                # Cause text mentions both the bare ref-key and an unrelated
+                # token that starts with it.
+                raise SecretStoreError(
+                    f"Failed to get secret: {name}",
+                    secret_name=name,
+                    cause=RuntimeError(
+                        f"timeout on {name} while reading DB_CONNECTION"
+                    ),
+                )
+
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "basic.username": ref_key,
+            }
+        )
+
+        with patch("application_sdk.credentials.agent.logger") as mock_logger:
+            await resolve_agent_json(agent_json, OutageStore())  # type: ignore[arg-type]
+
+        logged = " ".join(str(arg) for arg in mock_logger.warning.call_args.args)
+        # Unrelated identifier survives intact (not "sha256:..._CONNECTION").
+        assert "DB_CONNECTION" in logged
+
+    async def test_walks_nested_extra_dict_one_level(self) -> None:
+        """v2-style nested ``extra: {k: ref}`` is also probed."""
+        store = _store_with(DB_NAME="real_db")
+        spec = AgentCredentialSpec.model_validate(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "extra": {"database": "DB_NAME", "compiled_url": "literal-url"},
+            }
+        )
+
+        resolved = await resolve_agent_credential(spec, store)
+
+        assert resolved["extra"]["database"] == "real_db"
+        assert resolved["extra"]["compiled_url"] == "literal-url"
+
+    async def test_literal_keys_never_probed(self) -> None:
+        """``host``, ``port``, ``aws-region``, etc. must never be sent to
+        the secret store — they are literal config, not refs.
+        """
+
+        class TrackingStore:
+            calls: list[str] = []
+
+            async def get_optional(self, name: str) -> str | None:
+                self.calls.append(name)
+                return None
+
+        store = TrackingStore()
+        spec = AgentCredentialSpec.model_validate(
+            {
+                "agent-name": "test-agent",
+                "key-type": "single-key",
+                "auth-type": "basic",
+                "host": "h.example.com",
+                "port": 5432,
+                "aws-region": "ap-south-1",
+                "basic.username": "ATLAN_USER",
+            }
+        )
+
+        await resolve_agent_credential(spec, store)  # type: ignore[arg-type]
+
+        # Only the non-literal ref was probed.
+        assert store.calls == ["ATLAN_USER"]
+
+    async def test_missing_key_type_uses_legacy_paths_unchanged(self) -> None:
+        """Backward-compat sanity: without ``key-type: single-key``, the
+        existing bundle path runs as before.
+        """
+        store = _store_with(p=_bundle(username="real_user"))
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "secret-path": "p",
+                "auth-type": "basic",
+                "basic.username": "username",
+            }
+        )
+
+        resolved = await resolve_agent_json(agent_json, store)
+
+        # Resolved via bundle, not per-key — `username` is the bundle key.
+        assert resolved["username"] == "real_user"
+
+    async def test_empty_spec_no_lookups(self) -> None:
+        """Empty agent spec with single-key set issues no store lookups
+        and degrades to literal fallthrough cleanly.
+        """
+
+        class TrackingStore:
+            calls: list[str] = []
+
+            async def get_optional(self, name: str) -> str | None:
+                self.calls.append(name)
+                return None
+
+        store = TrackingStore()
+        spec = AgentCredentialSpec.model_validate(
+            {"agent-name": "t", "key-type": "single-key"}
+        )
+
+        await resolve_agent_credential(spec, store)  # type: ignore[arg-type]
+        assert store.calls == []
+
+
+class TestFetchPerKeyBundle:
+    """Direct unit tests for ``_fetch_per_key_bundle`` in isolation."""
+
+    async def test_dedupes_repeated_ref_keys(self) -> None:
+        """If the same ref-key is referenced by multiple fields, only one
+        store lookup is issued.
+        """
+
+        class CountingStore:
+            calls: list[str] = []
+
+            async def get_optional(self, name: str) -> str | None:
+                self.calls.append(name)
+                return "value-of-" + name
+
+        store = CountingStore()
+        raw = {
+            "username": "SHARED_KEY",
+            "password": "SHARED_KEY",
+            "auth-type": "basic",
+        }
+
+        bundle = await _fetch_per_key_bundle(store, raw)  # type: ignore[arg-type]
+
+        assert store.calls == ["SHARED_KEY"]
+        assert bundle == {"SHARED_KEY": "value-of-SHARED_KEY"}
+
+    async def test_skips_empty_string_values(self) -> None:
+        store = _store_with()
+        raw: dict[str, Any] = {"username": "", "password": "PWD"}
+        bundle = await _fetch_per_key_bundle(store, raw)
+        # Empty value never probed, missing PWD silently skipped.
+        assert bundle == {}
+
+    async def test_returns_only_resolved_keys(self) -> None:
+        store = _store_with(USER="u", PASS="p")
+        raw = {"username": "USER", "password": "PASS", "missing": "ABSENT"}
+        bundle = await _fetch_per_key_bundle(store, raw)
+        assert bundle == {"USER": "u", "PASS": "p"}
+
+
+# ---------------------------------------------------------------------------
+# _substitute — unit tests for the substitution step in isolation
+# ---------------------------------------------------------------------------
+
+
+class TestSubstitute:
+    def test_root_level_ref_keys_are_replaced(self) -> None:
+        agent = {"username": "user_ref", "password": "pass_ref"}
+        bundle = {"user_ref": "real_user", "pass_ref": "real_pw"}
+        assert _substitute(agent, bundle)[0] == {
+            "username": "real_user",
+            "password": "real_pw",
+        }
+
+    def test_literal_keys_are_skipped(self) -> None:
+        agent = {"host": "h.example.com", "port": 5432, "username": "user_ref"}
+        bundle = {"h.example.com": "SHOULD_NOT_WIN", "user_ref": "real_user"}
+        assert _substitute(agent, bundle)[0] == {
+            "host": "h.example.com",
+            "port": 5432,
+            "username": "real_user",
+        }
+
+    def test_non_string_values_pass_through(self) -> None:
+        agent = {"port": 5432, "enabled": True, "username": "user_ref"}
+        bundle = {"user_ref": "real_user"}
+        assert _substitute(agent, bundle)[0] == {
+            "port": 5432,
+            "enabled": True,
+            "username": "real_user",
+        }
+
+    def test_nested_extra_dict_is_walked_one_level(self) -> None:
+        agent = {"extra": {"database": "db_ref", "pool_size": 10}}
+        bundle = {"db_ref": "real_db"}
+        assert _substitute(agent, bundle)[0] == {
+            "extra": {"database": "real_db", "pool_size": 10}
+        }
+
+    def test_unreferenced_values_remain(self) -> None:
+        agent = {"username": "user_ref"}
+        bundle = {"other_ref": "other"}
+        assert _substitute(agent, bundle)[0] == {"username": "user_ref"}
+
+
+# ---------------------------------------------------------------------------
+# expand_dotted_keys — unit tests for dotted-key collapse
+# ---------------------------------------------------------------------------
+
+
+class TestExpandDotted:
+    def test_empty_dict(self) -> None:
+        assert expand_dotted_keys({}) == {}
+
+    def test_no_dotted_keys_passthrough(self) -> None:
+        flat = {"host": "h", "port": 5432}
+        assert expand_dotted_keys(flat) == {"host": "h", "port": 5432}
+
+    def test_single_dot_collapses_to_one_nested_dict(self) -> None:
+        flat = {"basic.username": "u", "basic.password": "p"}
+        assert expand_dotted_keys(flat) == {"basic": {"username": "u", "password": "p"}}
+
+    def test_multiple_roots(self) -> None:
+        flat = {
+            "basic.username": "u",
+            "extra.database": "d",
+            "extra.compiled_url": "url",
+            "host": "h",
+        }
+        assert expand_dotted_keys(flat) == {
+            "basic": {"username": "u"},
+            "extra": {"database": "d", "compiled_url": "url"},
+            "host": "h",
+        }
+
+    def test_deeply_nested(self) -> None:
+        flat = {"a.b.c": 1, "a.b.d": 2, "a.e": 3}
+        assert expand_dotted_keys(flat) == {"a": {"b": {"c": 1, "d": 2}, "e": 3}}
+
+    def test_mixed_dotted_and_nested_root_merges(self) -> None:
+        """If a non-dotted ``extra: {}`` and a dotted ``extra.foo: bar``
+        both appear, they merge into one dict (non-dotted copied first).
+        """
+        flat = {"extra": {"database": "d"}, "extra.compiled_url": "url"}
+        assert expand_dotted_keys(flat) == {
+            "extra": {"database": "d", "compiled_url": "url"}
+        }
+
+    def test_dotted_key_conflicting_with_non_dict_root_is_dropped(self) -> None:
+        """Pathological: ``extra: "string"`` then ``extra.foo: "bar"``.
+        Non-dict root wins; dotted key is silently dropped.
+        """
+        flat = {"extra": "just-a-string", "extra.foo": "bar"}
+        assert expand_dotted_keys(flat) == {"extra": "just-a-string"}
+
+
+# ---------------------------------------------------------------------------
+# CredentialRef.from_workflow_args routing
+# ---------------------------------------------------------------------------
+
+
+class TestCredentialRefFromWorkflowArgs:
+    """Unit tests for the ``CredentialRef.from_workflow_args`` factory."""
+
+    def test_agent_method_and_populated_agent_json_makes_agent_ref(self) -> None:
+        from application_sdk.credentials.ref import CredentialRef
+
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "secret-path": "atlan/dev/cloudsql",
+                "basic.username": "u",
+            }
+        )
+        ref = CredentialRef.from_workflow_args(
+            {
+                "extraction_method": "agent",
+                "agent_json": agent_json,
+                "credential_guid": "",
+            }
+        )
+        assert ref.agent_spec is not None
+        assert ref.agent_spec.agent_name == "test-agent"
+        assert ref.agent_spec.secret_path == "atlan/dev/cloudsql"
+        assert ref.credential_guid == ""
+
+    def test_agent_method_accepts_dict_agent_json(self) -> None:
+        """The generated Pydantic ``Input`` contracts declare
+        ``agent_json: AgentCredentialSpec | None`` but legacy callers
+        may pass a dict. The factory handles both shapes.
+        """
+        from application_sdk.credentials.ref import CredentialRef
+
+        spec_dict = {
+            "agent-name": "test-agent",
+            "secret-path": "p",
+            "basic.username": "u",
+        }
+        ref = CredentialRef.from_workflow_args(
+            {"extraction_method": "agent", "agent_json": spec_dict}
+        )
+        assert ref.agent_spec is not None
+        assert ref.agent_spec.agent_name == "test-agent"
+
+    def test_agent_method_accepts_spec_instance(self) -> None:
+        from application_sdk.credentials.ref import CredentialRef
+
+        spec = AgentCredentialSpec.model_validate(CLOUDSQL_POSTGRES_AGENT_JSON)
+        ref = CredentialRef.from_workflow_args(
+            {"extraction_method": "agent", "agent_json": spec}
+        )
+        assert ref.agent_spec is not None
+        assert ref.agent_spec.agent_name == "cloudsql-postgres-agent"
+
+    def test_agent_method_case_insensitive_and_trimmed(self) -> None:
+        from application_sdk.credentials.ref import CredentialRef
+
+        agent_json = json.dumps({"agent-name": "test", "secret-path": "p"})
+        for method in ("AGENT", "Agent", " agent ", "agent"):
+            ref = CredentialRef.from_workflow_args(
+                {"extraction_method": method, "agent_json": agent_json}
+            )
+            assert ref.agent_spec is not None, f"failed for method={method!r}"
+
+    def test_populated_agent_json_without_method_falls_through_to_guid(self) -> None:
+        """Strict gate: an upstream bug that populates ``agent_json``
+        under a non-agent method doesn't silently take the agent path.
+        """
+        from application_sdk.credentials.ref import CredentialRef
+
+        ref = CredentialRef.from_workflow_args(
+            {
+                # No extraction_method.
+                "agent_json": json.dumps({"agent-name": "test", "secret-path": "p"}),
+                "credential_guid": "my-guid-123",
+            }
+        )
+        assert ref.agent_spec is None
+        assert ref.credential_guid == "my-guid-123"
+
+    def test_agent_method_with_empty_agent_json_falls_through_to_guid(self) -> None:
+        from application_sdk.credentials.ref import CredentialRef
+
+        for placeholder in ("", "{}", "   "):
+            ref = CredentialRef.from_workflow_args(
+                {
+                    "extraction_method": "agent",
+                    "agent_json": placeholder,
+                    "credential_guid": "my-guid-123",
+                }
+            )
+            assert ref.agent_spec is None, f"failed for placeholder={placeholder!r}"
+            assert ref.credential_guid == "my-guid-123"
+
+    def test_agent_method_with_empty_dict_falls_through_to_guid(self) -> None:
+        """Empty dict ``{}`` counts as no agent_json even when typed."""
+        from application_sdk.credentials.ref import CredentialRef
+
+        ref = CredentialRef.from_workflow_args(
+            {
+                "extraction_method": "agent",
+                "agent_json": {},
+                "credential_guid": "my-guid-123",
+            }
+        )
+        assert ref.agent_spec is None
+        assert ref.credential_guid == "my-guid-123"
+
+    def test_direct_method_with_guid_uses_guid_path(self) -> None:
+        from application_sdk.credentials.ref import CredentialRef
+
+        ref = CredentialRef.from_workflow_args(
+            {
+                "extraction_method": "direct",
+                "agent_json": "{}",
+                "credential_guid": "my-guid-123",
+            }
+        )
+        assert ref.credential_guid == "my-guid-123"
+        assert ref.agent_spec is None
+        assert ref.name == "my-guid-123"  # legacy ref sets name = guid
+
+    def test_guid_only_no_method(self) -> None:
+        from application_sdk.credentials.ref import CredentialRef
+
+        ref = CredentialRef.from_workflow_args({"credential_guid": "g"})
+        assert ref.credential_guid == "g"
+
+    def test_no_routable_source_raises(self) -> None:
+        import pytest
+
+        from application_sdk.credentials.ref import CredentialRef
+
+        with pytest.raises(
+            CredentialRoutingError, match="No routable credential source"
+        ):
+            CredentialRef.from_workflow_args({})
+
+        with pytest.raises(
+            CredentialRoutingError, match="No routable credential source"
+        ):
+            CredentialRef.from_workflow_args(
+                {"extraction_method": "direct", "agent_json": "", "credential_guid": ""}
+            )
+
+    def test_agent_method_but_no_json_and_no_guid_raises(self) -> None:
+        import pytest
+
+        from application_sdk.credentials.ref import CredentialRef
+
+        with pytest.raises(
+            CredentialRoutingError, match="No routable credential source"
+        ):
+            CredentialRef.from_workflow_args(
+                {"extraction_method": "agent", "agent_json": "{}"}
+            )
+
+
+class TestCredentialResolverAgentBranch:
+    """Exercises the agent branch of CredentialResolver."""
+
+    async def test_resolve_raw_agent_ref_returns_flat_dict_with_nested_extra(
+        self,
+    ) -> None:
+        from application_sdk.credentials.ref import CredentialRef
+        from application_sdk.credentials.resolver import CredentialResolver
+
+        store = _store_with(
+            **{
+                "atlan/dev/cloudsql": _bundle(
+                    username="real_pg_user",
+                    password="real_pg_password",
+                    database="real_pg_db",
+                )
+            }
+        )
+        ref = CredentialRef.from_workflow_args(
+            {
+                "extraction_method": "agent",
+                "agent_json": CLOUDSQL_POSTGRES_AGENT_JSON,
+            }
+        )
+        resolver = CredentialResolver(store)
+
+        resolved = await resolver.resolve_raw(ref)
+
+        assert resolved["host"] == "34.122.182.89"
+        assert resolved["port"] == 5432
+        assert resolved["username"] == "real_pg_user"
+        assert resolved["password"] == "real_pg_password"
+        assert resolved["authType"] == "basic"
+        assert resolved["credentialSource"] == "agent"
+        assert resolved["extra"]["database"] == "real_pg_db"
+
+    async def test_resolve_raw_legacy_guid_ref_still_works(self) -> None:
+        """Legacy GUID refs resolve via DaprCredentialVault — agent branch
+        is additive, not a replacement.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from application_sdk.credentials.ref import CredentialRef
+        from application_sdk.credentials.resolver import CredentialResolver
+
+        store = _store_with()  # empty — vault handles GUID resolution
+        ref = CredentialRef.from_workflow_args(
+            {"extraction_method": "direct", "credential_guid": "my-guid-123"}
+        )
+        resolver = CredentialResolver(store)
+
+        mock_vault = MagicMock()
+        mock_vault.get_credentials = AsyncMock(
+            return_value={"username": "real_user", "host": "h"}
+        )
+        mock_dapr = MagicMock()
+        mock_dapr.close = AsyncMock()
+
+        with (
+            patch(
+                "application_sdk.infrastructure.DaprCredentialVault",
+                MagicMock(return_value=mock_vault),
+            ),
+            patch(
+                "application_sdk.infrastructure._dapr.http.AsyncDaprClient",
+                MagicMock(return_value=mock_dapr),
+            ),
+        ):
+            resolved = await resolver.resolve_raw(ref)
+
+        assert resolved == {"username": "real_user", "host": "h"}
+        mock_vault.get_credentials.assert_called_once_with("my-guid-123")
+
+    async def test_resolve_typed_agent_ref_uses_auth_type_for_parser(self) -> None:
+        """When ``credential_type`` is empty on an agent ref (which is
+        what ``from_workflow_args`` produces), the resolver reads
+        ``auth_type`` from the spec to pick the registry parser.
+        """
+        from application_sdk.credentials.ref import CredentialRef
+        from application_sdk.credentials.resolver import CredentialResolver
+        from application_sdk.credentials.types import BasicCredential
+
+        store = _store_with(p=_bundle(username="real_user", password="real_pw"))
+        agent_json = json.dumps(
+            {
+                "agent-name": "test-agent",
+                "secret-path": "p",
+                "auth-type": "basic",
+                "basic.username": "username",
+                "basic.password": "password",
+            }
+        )
+        ref = CredentialRef.from_workflow_args(
+            {"extraction_method": "agent", "agent_json": agent_json}
+        )
+        resolver = CredentialResolver(store)
+
+        cred = await resolver.resolve(ref)
+        assert isinstance(cred, BasicCredential)
+        assert cred.username == "real_user"
+        assert cred.password == "real_pw"
+
+
+class TestSubstituteCountAndLog:
+    """`_substitute` now reports how many fields resolved and logs literal fallbacks."""
+
+    def test_counts_substituted_fields(self) -> None:
+        out, n = _substitute(
+            {"basic.username": "USER_REF", "host": "db.example"},
+            {"USER_REF": "realuser"},
+        )
+        assert out["basic.username"] == "realuser"
+        assert out["host"] == "db.example"  # not a ref-key, unchanged
+        assert n == 1
+
+    def test_zero_when_nothing_resolved(self) -> None:
+        import unittest.mock as m
+
+        with m.patch("application_sdk.credentials.agent.logger") as lg:
+            out, n = _substitute({"basic.username": "MISSING_REF"}, {})
+        assert out["basic.username"] == "MISSING_REF"  # literal kept
+        assert n == 0
+        # Info log fired for the not-found field, naming the field (not the value).
+        joined = " ".join(str(c) for c in lg.info.call_args_list)
+        assert "not found in secret store" in joined
+        assert "basic.username" in joined
+
+
+class TestCheckSecretStoreAccess:
+    """SDR secret-store preflight probe: pass, unreachable, unresolvable-config,
+    and nothing-resolved."""
+
+    @staticmethod
+    def _spec(**over: Any) -> AgentCredentialSpec:
+        base = {"agent-name": "t", "secret-path": "p", "basic.username": "USER_REF"}
+        base.update(over)
+        return AgentCredentialSpec.model_validate(json.dumps(base))
+
+    async def test_passes_when_a_secret_resolves(self) -> None:
+        class Store:
+            async def get(self, name: str) -> str:
+                return json.dumps({"USER_REF": "realuser"})
+
+        r = await check_secret_store_access(self._spec(), Store())  # type: ignore[arg-type]
+        assert r.passed is True
+        assert r.store_down is False
+        assert r.fatal is False
+        assert r.substituted >= 1
+        # The bundle was fetched + substituted here; the caller reuses this
+        # instead of re-fetching from the store.
+        assert r.resolved is not None
+
+    async def test_fails_when_store_is_unreachable(self) -> None:
+        class DownStore:
+            async def get(self, name: str) -> str:
+                raise SecretStoreError("upstream dapr outage")
+
+        r = await check_secret_store_access(self._spec(), DownStore())  # type: ignore[arg-type]
+        assert r.passed is False
+        # The store itself is the failure: a fatal DEPENDENCY_UNAVAILABLE outage.
+        assert r.store_down is True
+        assert r.fatal is True
+        assert "not accessible" in r.message
+        assert r.suggested_action == (
+            "Check that the secret store is running and reachable from the SDR worker."
+        )
+
+    async def test_fails_when_nothing_resolves(self) -> None:
+        class EmptyStore:
+            async def get(self, name: str) -> str:
+                return json.dumps({})  # reachable, but no matching keys
+
+        r = await check_secret_store_access(self._spec(), EmptyStore())  # type: ignore[arg-type]
+        assert r.passed is False
+        # Store is fine, nothing resolved: NOT fatal (fields fall back to
+        # literals) and NOT a store outage.
+        assert r.store_down is False
+        assert r.fatal is False
+        assert r.substituted == 0
+        assert r.resolved is not None
+        assert r.suggested_action == (
+            "Check that the configured secret keys and secret-path exist in "
+            "the store."
+        )
+
+    async def test_fails_when_no_store_configured(self) -> None:
+        # No secret store configured is a permanent config gap, not a transient
+        # outage: store_down is False so the row is a (non-retryable)
+        # PreconditionError, not a retryable SourceUnavailableError.
+        r = await check_secret_store_access(self._spec(), None)
+        assert r.passed is False
+        assert r.store_down is False
+        assert r.fatal is True
+        assert r.suggested_action == "Configure a secret store on the SDR deployment."
+
+    async def test_fails_when_multi_key_has_no_secret_path(self) -> None:
+        # Multi-key (non single-key) with no secret-path: the ref-keys have
+        # nowhere to resolve from, so the credentials can't be used.
+        class Store:
+            async def get(self, name: str) -> str:
+                return json.dumps({})
+
+        spec = self._spec(**{"secret-path": ""})
+        assert spec.secret_path == "" and spec.key_type != "single-key"
+        r = await check_secret_store_access(spec, Store())  # type: ignore[arg-type]
+        assert r.passed is False
+        # Fatal (credentials can't resolve), but the store is never contacted —
+        # this is a config gap (PRECONDITION), NOT a store outage.
+        assert r.store_down is False
+        assert r.fatal is True
+        assert "secret-path" in r.message
+        assert r.suggested_action == "Set secret-path on the connection's credentials."
+
+
+class TestSingleKeyProbeConcurrency:
+    """Single-key probes must overlap, stay bounded, and fail loudly on a
+    store-wide fault (BLDX-1594).
+
+    A missing-key probe costs a full Dapr retry ladder, because Dapr answers
+    "no such key" with a 500 that the transport retries blind. Serial probing
+    therefore made credential resolution cost *ladder x number of
+    literal-valued fields*, which exhausted the fixed ``prime_sql_auth``
+    activity budget before the source was ever contacted.
+    """
+
+    @staticmethod
+    def _spec(**fields: Any) -> AgentCredentialSpec:
+        return AgentCredentialSpec.model_validate(
+            {"agent-name": "t", "key-type": "single-key", **fields}
+        )
+
+    async def test_probes_run_concurrently_not_serially(self) -> None:
+        """The whole point of the fix: N slow probes cost ~one probe, not N.
+
+        Asserted via observed overlap rather than wall-clock, so the test
+        can't flake on a loaded runner.
+        """
+        import asyncio
+
+        state = {"in_flight": 0, "max_in_flight": 0}
+        gate = asyncio.Event()
+
+        class SlowStore:
+            async def get_optional(self, name: str) -> str | None:
+                state["in_flight"] += 1
+                state["max_in_flight"] = max(state["max_in_flight"], state["in_flight"])
+                # Hold every probe open until the last one has arrived, which
+                # is only reachable if they genuinely overlap.
+                if state["in_flight"] >= 3:
+                    gate.set()
+                await gate.wait()
+                state["in_flight"] -= 1
+                return None
+
+        spec = self._spec(
+            **{"basic.username": "u-lit", "basic.password": "p-lit", "database": "db"}
+        )
+        raw = spec.to_raw_dict()
+
+        await asyncio.wait_for(_fetch_per_key_bundle(SlowStore(), raw), timeout=5)
+
+        assert state["max_in_flight"] == 3, (
+            "probes did not overlap — they are running serially, which is the "
+            "regression this test exists to catch"
+        )
+
+    async def test_concurrency_saturates_but_never_exceeds_the_cap(self) -> None:
+        """Fan-out is capped so a pathological payload can't burst a cloud
+        vault into throttling (which Dapr reports indistinguishably from 'key
+        absent'), but it must actually *reach* the cap.
+
+        Saturating exactly is what makes the cost ``ceil(candidates / cap)``
+        ladders: a probe holds its slot for its whole ladder, so a payload
+        larger than the cap runs in successive waves. Under-saturating would
+        silently add waves.
+        """
+        import asyncio
+
+        from application_sdk.credentials.agent import (
+            _MAX_CONCURRENT_SINGLE_KEY_PROBES as CAP,
+        )
+
+        state = {"in_flight": 0, "peak": 0, "total": 0}
+        wave_full = asyncio.Event()
+
+        class CountingStore:
+            async def get_optional(self, name: str) -> str | None:
+                state["in_flight"] += 1
+                state["total"] += 1
+                state["peak"] = max(state["peak"], state["in_flight"])
+                # Hold every probe until the cap is reached, so the peak
+                # reflects the real limit rather than scheduling luck.
+                if state["in_flight"] >= CAP:
+                    wave_full.set()
+                await wave_full.wait()
+                state["in_flight"] -= 1
+                return None
+
+        # Twice the cap, so both under- and over-saturation are observable.
+        fields = {f"extra.f{i}": f"lit-{i}" for i in range(CAP * 2)}
+        raw = self._spec(**fields).to_raw_dict()
+
+        await asyncio.wait_for(_fetch_per_key_bundle(CountingStore(), raw), timeout=5)
+
+        assert state["peak"] == CAP, (
+            f"expected the sweep to saturate the cap exactly, saw "
+            f"{state['peak']} concurrent probes against a cap of {CAP}"
+        )
+        assert state["total"] == CAP * 2, "every candidate must still be probed"
+
+    async def test_each_unique_ref_key_probed_exactly_once(self) -> None:
+        """De-duplication must survive the concurrent rewrite — the ``seen``
+        set used to be mutated inside the probe and relied on serial
+        execution, which would race."""
+        calls: list[str] = []
+
+        class TrackingStore:
+            async def get_optional(self, name: str) -> str | None:
+                calls.append(name)
+                return None
+
+        # Same ref-key referenced by three different fields.
+        raw = self._spec(
+            **{
+                "basic.username": "shared-key",
+                "basic.password": "shared-key",
+                "database": "shared-key",
+                "extra.role": "other-key",
+            }
+        ).to_raw_dict()
+
+        await _fetch_per_key_bundle(TrackingStore(), raw)
+
+        assert sorted(calls) == ["other-key", "shared-key"]
+
+    async def test_literal_credentials_inline_still_resolve_to_themselves(
+        self,
+    ) -> None:
+        """Zero fields resolving must NOT be an error.
+
+        Some deployments put literal usernames/passwords directly in the
+        workflow config instead of ref-keys, so nothing is ever expected back
+        from the store and every probed value is legitimately used as-is.
+        Those workflows work today and must keep working.
+        """
+
+        class EmptyStore:
+            async def get_optional(self, name: str) -> str | None:
+                return None
+
+        raw = self._spec(
+            **{
+                "basic.username": "svc_reader",
+                "basic.password": "hunter2-literal",
+                "database": "analytics",
+            }
+        ).to_raw_dict()
+
+        bundle = await _fetch_per_key_bundle(EmptyStore(), raw)
+
+        assert bundle == {}
+        # The literals survive substitution unchanged.
+        resolved, _ = _substitute(raw, bundle)
+        assert resolved["basic.password"] == "hunter2-literal"
+
+    async def test_every_probe_erroring_still_falls_through(self) -> None:
+        """Nothing resolving is not an error even when *every* probe errored.
+
+        A scope-restricted store answers a non-allowlisted key with 403
+        (``ERR_PERMISSION_DENIED``) rather than a plain "absent" 500, so a
+        config carrying literal credentials against such a store produces a
+        store error on every probe while still being a working configuration.
+        Raising here would break it.
+        """
+
+        class ScopedStore:
+            async def get_optional(self, name: str) -> str | None:
+                raise SecretStoreError("access denied by policy", secret_name=name)
+
+        raw = self._spec(
+            **{"basic.username": "u", "basic.password": "p", "database": "db"}
+        ).to_raw_dict()
+
+        assert await _fetch_per_key_bundle(ScopedStore(), raw) == {}
+
+    async def test_single_candidate_erroring_still_falls_through(self) -> None:
+        """The documented swallow-and-fall-through behaviour, single-probe."""
+
+        class BrokenStore:
+            async def get_optional(self, name: str) -> str | None:
+                raise SecretStoreError("vault denied", secret_name=name)
+
+        raw = self._spec(**{"basic.password": "only-field"}).to_raw_dict()
+
+        assert await _fetch_per_key_bundle(BrokenStore(), raw) == {}
+
+    async def test_partial_resolution_does_not_raise(self) -> None:
+        """One field erroring while another resolves is not a store fault."""
+
+        class FlakyStore:
+            async def get_optional(self, name: str) -> str | None:
+                if name == "real-key":
+                    return "real-value"
+                raise SecretStoreError("vault denied", secret_name=name)
+
+        raw = self._spec(
+            **{"basic.password": "real-key", "database": "db-literal"}
+        ).to_raw_dict()
+
+        assert await _fetch_per_key_bundle(FlakyStore(), raw) == {
+            "real-key": "real-value"
+        }
+
+    async def test_zero_resolved_is_recorded_at_info_not_warning(self) -> None:
+        """Zero resolutions is recorded, but at INFO — for a config carrying
+        literal credentials inline it is the expected steady state and would
+        otherwise warn on every run. It is also indistinguishable from a
+        throttled vault (Dapr reports both as 500/ERR_SECRET_GET), so the line
+        states the fact without asserting which case it is."""
+        from unittest.mock import patch
+
+        class EmptyStore:
+            async def get_optional(self, name: str) -> str | None:
+                return None
+
+        raw = self._spec(**{"basic.password": "p", "database": "db"}).to_raw_dict()
+
+        with patch("application_sdk.credentials.agent.logger") as mock_logger:
+            assert await _fetch_per_key_bundle(EmptyStore(), raw) == {}
+
+        mock_logger.warning.assert_not_called()
+        mock_logger.info.assert_called_once()
+        assert "resolved 0 of" in mock_logger.info.call_args.args[0]
+
+    async def test_successful_resolution_is_logged_at_info(self) -> None:
+        """Positive-resolution logging: resolution provenance was previously
+        only inferable from the absence of DEBUG lines."""
+        from unittest.mock import patch
+
+        class Store:
+            async def get_optional(self, name: str) -> str | None:
+                return "value" if name == "real-key" else None
+
+        raw = self._spec(
+            **{"basic.password": "real-key", "database": "db-literal"}
+        ).to_raw_dict()
+
+        with patch("application_sdk.credentials.agent.logger") as mock_logger:
+            await _fetch_per_key_bundle(Store(), raw)
+
+        mock_logger.info.assert_called_once()
+        assert mock_logger.info.call_args.args[1:] == (1, 2)
+
+    async def test_cold_start_outage_propagates_even_when_others_resolve(
+        self,
+    ) -> None:
+        """A probe that never got an answer must surface as an outage rather
+        than being masked by its siblings' success — and must carry a hashed
+        label, not the raw ref-key. With no retry budget the first-contact
+        failure exhausts immediately, so it surfaces as the terminal
+        ``SecretStoreUnreachableError``."""
+
+        class HalfDownStore:
+            async def get_optional(self, name: str) -> str | None:
+                if name == "unreachable-key":
+                    raise SecretStoreUnavailableError(name)
+                return "value"
+
+        raw = self._spec(
+            **{"basic.password": "unreachable-key", "database": "fine-key"}
+        ).to_raw_dict()
+
+        with pytest.raises(SecretStoreUnreachableError) as exc_info:
+            await _fetch_per_key_bundle(HalfDownStore(), raw)
+
+        assert "unreachable-key" not in str(exc_info.value)
+        assert "sha256:" in str(exc_info.value)

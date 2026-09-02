@@ -1,0 +1,9 @@
+Desert:
+  01_tmean: 5.791
+  02_tmean: 7.645
+Forest:
+  01_tmean: 2.7925
+  02_tmean: 3.6091
+Grassland:
+  01_tmean: -3.7566
+  02_tmean: -1.9902

@@ -1,0 +1,36 @@
+[project]
+name = "deno-sandbox"
+version = "0.16.0"
+description = "Deno Sandbox Python SDK"
+readme = "README.md"
+authors = [{ name = "The Deno Team", email = "support@deno.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.28.1",
+    "typing-extensions>=4.15.0",
+    "websockets>=15.0.1",
+]
+
+[project.urls]
+Repository = "https://github.com/denoland/sandbox-py"
+Homepage = "https://deno.com/deploy/sandbox"
+
+[build-system]
+requires = ["uv_build>=0.9.13,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.35.0",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-timeout>=2.4.0",
+    "ruff>=0.14.8",
+    "ty>=0.0.12",
+]
+
+[tool.pytest.ini_options]
+# asyncio_debug = true
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+timeout = 20

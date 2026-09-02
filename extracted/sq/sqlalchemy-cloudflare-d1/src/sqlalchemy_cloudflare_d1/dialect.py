@@ -1,0 +1,766 @@
+"""
+SQLAlchemy dialect for Cloudflare D1.
+"""
+
+import base64
+import enum as enum_module
+import re
+import uuid as uuid_module
+from datetime import date, datetime, time
+from typing import Any, Callable, Dict, List, Optional
+
+from sqlalchemy.engine import default
+from sqlalchemy.engine.interfaces import Dialect
+from sqlalchemy.sql.sqltypes import (
+    Boolean,
+    DateTime,
+    Enum,
+    INTEGER,
+    LargeBinary,
+    NUMERIC,
+    REAL,
+    TEXT,
+    Date,
+    Time,
+    Uuid,
+)
+from sqlalchemy import text
+
+from .connection import CloudflareD1DBAPI
+from .compiler import (
+    CloudflareD1Compiler,
+    CloudflareD1DDLCompiler,
+    CloudflareD1TypeCompiler,
+)
+
+
+# MARK: - Custom Type Processors
+
+
+class D1Boolean(Boolean):
+    """Custom Boolean type for Cloudflare D1.
+
+    D1's API converts Python bools to strings. We use bind_processor to
+    send integers (1/0) instead, so comparisons like `WHERE col = 1` work.
+    The result_processor handles both string and integer responses.
+    """
+
+    def bind_processor(
+        self, dialect: Dialect
+    ) -> Callable[[Optional[bool]], Optional[int]]:
+        """Convert Python bool to integer for D1."""
+
+        def process(value: Optional[bool]) -> Optional[int]:
+            if value is None:
+                return None
+            return 1 if value else 0
+
+        return process
+
+    def result_processor(
+        self, dialect: Dialect, coltype: Any
+    ) -> Callable[[Any], Optional[bool]]:
+        """Convert D1 boolean values to Python bool."""
+
+        def process(value: Any) -> Optional[bool]:
+            if value is None:
+                return None
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, int):
+                return bool(value)
+            if isinstance(value, str):
+                return value.lower() == "true"
+            return bool(value)
+
+        return process
+
+
+class D1LargeBinary(LargeBinary):
+    """Custom LargeBinary type for Cloudflare D1.
+
+    D1 stores BLOB data, but the REST API requires base64-encoded strings for
+    binary data transfer. This type processor handles:
+    - bind_processor: Encodes bytes to base64 strings before sending to D1
+    - result_processor: Decodes base64 strings back to bytes when reading from D1
+    """
+
+    def bind_processor(self, dialect: Dialect) -> Callable[[Any], Optional[str]]:
+        """Convert bytes to base64 strings before sending to D1."""
+
+        def process(value: Any) -> Optional[str]:
+            if value is None:
+                return None
+            if isinstance(value, bytes):
+                return base64.b64encode(value).decode("ascii")
+            return value  # type: ignore[no-any-return]
+
+        return process
+
+    def result_processor(
+        self, dialect: Dialect, coltype: Any
+    ) -> Callable[[Any], Optional[bytes]]:
+        """Convert base64 strings back to bytes when reading from D1."""
+
+        def process(value: Any) -> Optional[bytes]:
+            if value is None:
+                return None
+            if isinstance(value, bytes):
+                return value
+            if isinstance(value, str):
+                # D1 returns binary data as base64-encoded strings
+                try:
+                    return base64.b64decode(value)
+                except Exception:
+                    # If not valid base64, return as encoded bytes
+                    return value.encode("utf-8")
+            return value  # type: ignore[no-any-return]
+
+        return process
+
+
+# MARK: - Date Type Processor
+
+
+class D1Date(Date):
+    """Custom Date type for Cloudflare D1.
+
+    D1 does not accept Python date objects as bind parameters - they arrive
+    as JS `object` type and raise D1_TYPE_ERROR. This type processor converts
+    date objects to ISO 8601 strings on bind and parses them back on result.
+    """
+
+    def bind_processor(self, dialect: Dialect) -> Callable[[Any], Optional[str]]:
+        """Convert Python date to ISO 8601 string for D1."""
+
+        # MARK: - bind_processor
+        def process(value: Any) -> Optional[str]:
+            if value is None:
+                return None
+            if isinstance(value, date):
+                return value.isoformat()
+            if isinstance(value, str):
+                return value
+            return str(value)
+
+        return process
+
+    def result_processor(
+        self, dialect: Dialect, coltype: Any
+    ) -> Callable[[Any], Optional[date]]:
+        """Convert ISO 8601 string from D1 back to Python date."""
+
+        # MARK: - result_processor
+        def process(value: Any) -> Optional[date]:
+            if value is None:
+                return None
+            if isinstance(value, date):
+                return value
+            if isinstance(value, str):
+                try:
+                    return date.fromisoformat(value)
+                except ValueError:
+                    return value  # type: ignore[return-value]
+            return value  # type: ignore[no-any-return]
+
+        return process
+
+
+# MARK: - Time Type Processor
+
+
+class D1Time(Time):
+    """Custom Time type for Cloudflare D1.
+
+    D1 does not accept Python time objects as bind parameters - they arrive
+    as JS `object` type and raise D1_TYPE_ERROR. This type processor converts
+    time objects to ISO 8601 strings on bind and parses them back on result.
+    """
+
+    def bind_processor(self, dialect: Dialect) -> Callable[[Any], Optional[str]]:
+        """Convert Python time to ISO 8601 string for D1."""
+
+        # MARK: - bind_processor
+        def process(value: Any) -> Optional[str]:
+            if value is None:
+                return None
+            if isinstance(value, time):
+                return value.isoformat()
+            if isinstance(value, str):
+                return value
+            return str(value)
+
+        return process
+
+    def result_processor(
+        self, dialect: Dialect, coltype: Any
+    ) -> Callable[[Any], Optional[time]]:
+        """Convert ISO 8601 string from D1 back to Python time."""
+
+        # MARK: - result_processor
+        def process(value: Any) -> Optional[time]:
+            if value is None:
+                return None
+            if isinstance(value, time):
+                return value
+            if isinstance(value, str):
+                try:
+                    return time.fromisoformat(value)
+                except ValueError:
+                    return value  # type: ignore[return-value]
+            return value  # type: ignore[no-any-return]
+
+        return process
+
+
+# MARK: - DateTime Type Processor
+
+
+class D1DateTime(DateTime):
+    """Custom DateTime type for Cloudflare D1.
+
+    D1 does not accept Python datetime objects as bind parameters - they arrive
+    as JS 'object' type and raise D1_TYPE_ERROR. This type processor converts
+    datetime objects to ISO 8601 strings on bind and parses them back on result.
+    """
+
+    def bind_processor(self, dialect: Dialect) -> Callable[[Any], Optional[str]]:
+        """Convert Python datetime to ISO 8601 string for D1."""
+
+        # MARK: - bind_processor
+        def process(value: Any) -> Optional[str]:
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value.isoformat()
+            if isinstance(value, str):
+                return value
+            return str(value)
+
+        return process
+
+    def result_processor(
+        self, dialect: Dialect, coltype: Any
+    ) -> Callable[[Any], Optional[datetime]]:
+        """Convert ISO 8601 string from D1 back to Python datetime."""
+
+        # MARK: - result_processor
+        def process(value: Any) -> Optional[datetime]:
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                try:
+                    return datetime.fromisoformat(value)
+                except ValueError:
+                    return value  # type: ignore[return-value]
+            return value  # type: ignore[no-any-return]
+
+        return process
+
+
+# MARK: - UUID Type Processor
+
+
+class D1UUID(Uuid):
+    """Custom UUID type for Cloudflare D1.
+
+    D1 stores UUIDs as TEXT. This processor converts uuid.UUID objects to
+    hyphenated string format on bind and parses them back to uuid.UUID on result.
+    """
+
+    def bind_processor(self, dialect: Dialect) -> Callable[[Any], Optional[str]]:
+        """Convert uuid.UUID to hyphenated string for D1."""
+
+        def process(value: Any) -> Optional[str]:
+            if value is None:
+                return None
+            if isinstance(value, uuid_module.UUID):
+                return str(value)
+            return str(value)
+
+        return process
+
+    def result_processor(self, dialect: Dialect, coltype: Any) -> Callable[[Any], Any]:
+        """Convert string from D1 back to uuid.UUID (or str if as_uuid=False)."""
+        as_uuid = self.as_uuid
+
+        def process(value: Any) -> Any:
+            if value is None:
+                return None
+            if isinstance(value, uuid_module.UUID):
+                return value if as_uuid else str(value)
+            if isinstance(value, str):
+                try:
+                    parsed = uuid_module.UUID(value)
+                    return parsed if as_uuid else value
+                except ValueError:
+                    return value
+            return value
+
+        return process
+
+
+# MARK: - Enum Type Processor
+
+
+class D1Enum(Enum):
+    """Custom Enum type for Cloudflare D1.
+
+    D1 stores enum values as TEXT. This processor ensures Python enum.Enum
+    objects are converted to their string values on bind. Result processing
+    delegates to the parent Enum type for enum reconstruction.
+    """
+
+    def bind_processor(self, dialect: Dialect) -> Callable[[Any], Optional[str]]:
+        """Convert Python enum (or any value) to string for D1."""
+
+        def process(value: Any) -> Optional[str]:
+            if value is None:
+                return None
+            if isinstance(value, enum_module.Enum):
+                return str(value.value)
+            return str(value)
+
+        return process
+
+    def result_processor(
+        self, dialect: Dialect, coltype: Any
+    ) -> Optional[Callable[[Any], Any]]:
+        """Delegate enum reconstruction to parent Enum type."""
+        parent = super().result_processor(dialect, coltype)
+        return parent  # type: ignore[no-any-return]
+
+
+# MARK: - Dialect
+
+
+class CloudflareD1Dialect(default.DefaultDialect):
+    """SQLAlchemy dialect for Cloudflare D1 database."""
+
+    name = "cloudflare_d1"
+    driver = "httpx"
+    supports_alter = False
+    supports_pk_autoincrement = True
+    supports_default_values = True
+    supports_empty_insert = False
+    supports_unicode_statements = True
+    supports_unicode_binds = True
+    supports_native_decimal = False
+    supports_native_boolean = True
+    supports_native_enum = False
+    supports_sane_rowcount = True
+    supports_sane_multi_rowcount = False
+    supports_statement_cache = True
+
+    # SQLite/D1 specific capabilities
+    supports_cast = True
+    supports_multivalues_insert = True
+
+    default_paramstyle = "qmark"
+
+    # Compiler classes
+    statement_compiler = CloudflareD1Compiler
+    ddl_compiler = CloudflareD1DDLCompiler
+    type_compiler = CloudflareD1TypeCompiler
+
+    # Type mapping from SQLAlchemy to D1/SQLite
+    colspecs = {
+        Boolean: D1Boolean,
+        Date: D1Date,
+        DateTime: D1DateTime,
+        Enum: D1Enum,
+        LargeBinary: D1LargeBinary,
+        Time: D1Time,
+        Uuid: D1UUID,
+    }
+
+    # Reserved words (SQLite keywords)
+    reserved_words = {
+        "abort",
+        "action",
+        "add",
+        "after",
+        "all",
+        "alter",
+        "analyze",
+        "and",
+        "as",
+        "asc",
+        "attach",
+        "autoincrement",
+        "before",
+        "begin",
+        "between",
+        "by",
+        "cascade",
+        "case",
+        "cast",
+        "check",
+        "collate",
+        "column",
+        "commit",
+        "conflict",
+        "constraint",
+        "create",
+        "cross",
+        "current_date",
+        "current_time",
+        "current_timestamp",
+        "database",
+        "default",
+        "deferrable",
+        "deferred",
+        "delete",
+        "desc",
+        "detach",
+        "distinct",
+        "drop",
+        "each",
+        "else",
+        "end",
+        "escape",
+        "except",
+        "exclusive",
+        "exists",
+        "explain",
+        "fail",
+        "for",
+        "foreign",
+        "from",
+        "full",
+        "glob",
+        "group",
+        "having",
+        "if",
+        "ignore",
+        "immediate",
+        "in",
+        "index",
+        "indexed",
+        "initially",
+        "inner",
+        "insert",
+        "instead",
+        "intersect",
+        "into",
+        "is",
+        "isnull",
+        "join",
+        "key",
+        "left",
+        "like",
+        "limit",
+        "match",
+        "natural",
+        "no",
+        "not",
+        "notnull",
+        "null",
+        "of",
+        "offset",
+        "on",
+        "or",
+        "order",
+        "outer",
+        "plan",
+        "pragma",
+        "primary",
+        "query",
+        "raise",
+        "recursive",
+        "references",
+        "regexp",
+        "reindex",
+        "release",
+        "rename",
+        "replace",
+        "restrict",
+        "right",
+        "rollback",
+        "row",
+        "savepoint",
+        "select",
+        "set",
+        "table",
+        "temp",
+        "temporary",
+        "then",
+        "to",
+        "transaction",
+        "trigger",
+        "union",
+        "unique",
+        "update",
+        "using",
+        "vacuum",
+        "values",
+        "view",
+        "virtual",
+        "when",
+        "where",
+        "with",
+        "without",
+    }
+
+    @classmethod
+    def import_dbapi(cls) -> Any:
+        """Import the DBAPI module."""
+        return CloudflareD1DBAPI
+
+    def create_connect_args(self, url: Any) -> tuple:
+        """Extract connection arguments from the URL."""
+        opts = {
+            "account_id": url.username,
+            "database_id": url.host,
+            "api_token": url.password,
+        }
+
+        # Handle additional query parameters
+        if url.query:
+            opts.update(url.query)
+
+        return (), opts
+
+    def get_isolation_level(self, connection: Any) -> Optional[str]:  # type: ignore[override]
+        """D1 doesn't support isolation levels."""
+        return None
+
+    def set_isolation_level(self, connection: Any, level: Optional[str]) -> None:
+        """D1 doesn't support isolation levels."""
+        pass
+
+    def get_table_names(
+        self, connection: Any, schema: Optional[str] = None, **kw: Any
+    ) -> List[str]:
+        """Get a list of table names."""
+        query = text("""
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name NOT LIKE 'sqlite_%'
+            ORDER BY name
+        """)
+        result = connection.execute(query)
+        return [row[0] for row in result]
+
+    def has_table(
+        self, connection: Any, table_name: str, schema: Optional[str] = None, **kw: Any
+    ) -> bool:
+        """Check if a table exists."""
+        query = text("""
+            SELECT name FROM sqlite_master
+            WHERE type=:table_type AND name=:table_name AND name NOT LIKE 'sqlite_%'
+        """)
+        result = connection.execute(
+            query, {"table_type": "table", "table_name": table_name}
+        )
+        return bool(result.fetchone())
+
+    def get_columns(  # type: ignore[override]
+        self, connection: Any, table_name: str, schema: Optional[str] = None, **kw: Any
+    ) -> List[Dict[str, Any]]:
+        """Get column information for a table."""
+        query = text(
+            f"PRAGMA table_info({self.identifier_preparer.quote_identifier(table_name)})"
+        )
+        result = connection.execute(query)
+
+        columns = []
+        for row in result:
+            # SQLite PRAGMA table_info returns: cid, name, type, notnull, dflt_value, pk
+            columns.append(
+                {
+                    "name": row[1],
+                    "type": self._get_column_type(row[2]),
+                    "nullable": not bool(row[3]),
+                    "default": row[4],
+                    "primary_key": bool(row[5]),
+                }
+            )
+
+        return columns
+
+    def _get_column_type(self, type_string: str) -> Any:
+        """Convert SQLite type string to SQLAlchemy type."""
+        type_string = type_string.upper()
+
+        # Handle common SQLite type mappings
+        if "INT" in type_string:
+            return INTEGER()
+        elif any(x in type_string for x in ["CHAR", "CLOB", "TEXT"]):
+            return TEXT()
+        elif any(x in type_string for x in ["REAL", "FLOA", "DOUBLE"]):
+            return REAL()
+        elif "BLOB" in type_string:
+            return LargeBinary()
+        elif "NUMERIC" in type_string:
+            return NUMERIC()
+        else:
+            return TEXT()  # Default to TEXT for unknown types
+
+    def get_pk_constraint(  # type: ignore[override]
+        self, connection: Any, table_name: str, schema: Optional[str] = None, **kw: Any
+    ) -> Dict[str, Any]:
+        """Get primary key constraint information."""
+        columns = self.get_columns(connection, table_name, schema, **kw)
+        pk_columns = [col["name"] for col in columns if col["primary_key"]]
+
+        return {
+            "constrained_columns": pk_columns,
+            "name": None,  # SQLite doesn't name PK constraints
+        }
+
+    def get_foreign_keys(  # type: ignore[override]
+        self, connection: Any, table_name: str, schema: Optional[str] = None, **kw: Any
+    ) -> List[Dict[str, Any]]:
+        """Get foreign key constraints."""
+        query = text(
+            f"PRAGMA foreign_key_list({self.identifier_preparer.quote_identifier(table_name)})"
+        )
+        result = connection.execute(query)
+
+        # Group foreign keys by constraint
+        fks = {}
+        for row in result:
+            # PRAGMA foreign_key_list returns: id, seq, table, from, to, on_update, on_delete, match
+            fk_id = row[0]
+            if fk_id not in fks:
+                fks[fk_id] = {
+                    "name": None,
+                    "constrained_columns": [],
+                    "referred_schema": schema,
+                    "referred_table": row[2],
+                    "referred_columns": [],
+                    "options": {"onupdate": row[5], "ondelete": row[6]},
+                }
+
+            fks[fk_id]["constrained_columns"].append(row[3])
+            fks[fk_id]["referred_columns"].append(row[4])
+
+        return list(fks.values())
+
+    def get_unique_constraints(  # type: ignore[override]
+        self, connection: Any, table_name: str, schema: Optional[str] = None, **kw: Any
+    ) -> List[Dict[str, Any]]:
+        """Get unique constraint information."""
+        query = text(
+            f"PRAGMA index_list({self.identifier_preparer.quote_identifier(table_name)})"
+        )
+        result = connection.execute(query)
+
+        unique_constraints_by_sig: Dict[tuple[str, ...], Dict[str, Any]] = {}
+        for row in result:
+            # PRAGMA index_list returns: seq, name, unique, origin, partial
+            if not bool(row[2]):
+                continue
+
+            origin = row[3] if len(row) > 3 else None
+            if origin in {"c", "pk"}:
+                # Explicit unique indexes are reflected by get_indexes(); primary
+                # key autoindexes are reflected by get_pk_constraint().
+                continue
+
+            index_name = row[1]
+            column_names = self._get_index_column_names(connection, index_name)
+            unique_constraints_by_sig[tuple(column_names)] = {
+                "name": None,
+                "column_names": column_names,
+            }
+
+        table_sql = self._get_table_sql(connection, table_name)
+        for constraint_name, column_names in self._parse_unique_constraints(table_sql):
+            constraint = unique_constraints_by_sig.get(tuple(column_names))
+            if constraint is not None:
+                constraint["name"] = constraint_name
+
+        return list(unique_constraints_by_sig.values())
+
+    def get_indexes(  # type: ignore[override]
+        self, connection: Any, table_name: str, schema: Optional[str] = None, **kw: Any
+    ) -> List[Dict[str, Any]]:
+        """Get index information."""
+        query = text(
+            f"PRAGMA index_list({self.identifier_preparer.quote_identifier(table_name)})"
+        )
+        result = connection.execute(query)
+
+        indexes = []
+        include_auto_indexes = kw.get("include_auto_indexes", False)
+        for row in result:
+            # PRAGMA index_list returns: seq, name, unique, origin, partial
+            index_name = row[1]
+            if index_name.startswith("sqlite_autoindex_") and not include_auto_indexes:
+                continue  # Skip auto-generated indexes
+
+            # Get column information for this index
+            column_names = self._get_index_column_names(connection, index_name)
+
+            indexes.append(
+                {
+                    "name": index_name,
+                    "column_names": column_names,
+                    "unique": bool(row[2]),
+                }
+            )
+
+        return indexes
+
+    def _get_index_column_names(self, connection: Any, index_name: str) -> List[str]:
+        """Get column names for an index."""
+        col_query = text(
+            f"PRAGMA index_info({self.identifier_preparer.quote_identifier(index_name)})"
+        )
+        col_result = connection.execute(col_query)
+
+        column_names = []
+        for col_row in col_result:
+            # PRAGMA index_info returns: seqno, cid, name
+            column_names.append(col_row[2])
+
+        return column_names
+
+    def _get_table_sql(self, connection: Any, table_name: str) -> Optional[str]:
+        """Get the CREATE TABLE SQL stored in sqlite_master."""
+        query = text("""
+            SELECT sql FROM sqlite_master
+            WHERE type='table' AND name=:table_name
+        """)
+        row = connection.execute(query, {"table_name": table_name}).fetchone()
+        return row[0] if row is not None else None
+
+    def _parse_unique_constraints(
+        self, table_sql: Optional[str]
+    ) -> List[tuple[Optional[str], List[str]]]:
+        """Parse unique constraint names and column lists from CREATE TABLE SQL."""
+        if table_sql is None:
+            return []
+
+        unique_constraints = []
+        unique_pattern = re.compile(
+            r'(?:CONSTRAINT\s+(?:"([^"]+)"|`([^`]+)`|\[([^\]]+)\]|(\w+))\s+)?'
+            r"UNIQUE\s*\(([^)]+)\)",
+            re.IGNORECASE,
+        )
+
+        for match in unique_pattern.finditer(table_sql):
+            constraint_name = next(
+                (group for group in match.group(1, 2, 3, 4) if group), None
+            )
+            column_names = self._parse_column_list(match.group(5))
+            unique_constraints.append((constraint_name, column_names))
+
+        return unique_constraints
+
+    def _parse_column_list(self, column_list_sql: str) -> List[str]:
+        """Parse a comma-separated identifier list."""
+        column_names = []
+        for raw_column in column_list_sql.split(","):
+            column = raw_column.strip()
+            if (
+                (column.startswith('"') and column.endswith('"'))
+                or (column.startswith("`") and column.endswith("`"))
+                or (column.startswith("[") and column.endswith("]"))
+            ):
+                column = column[1:-1]
+            column_names.append(column)
+        return column_names

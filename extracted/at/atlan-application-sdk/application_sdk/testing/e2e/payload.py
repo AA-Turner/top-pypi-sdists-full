@@ -1,0 +1,711 @@
+"""Build the AE submit payload for full-DAG e2e tests.
+
+Captured shape from the devex UI by inspecting the network tab on a real
+"submit MySQL extract" click. The payload nests the same connection
+attributes in three places (top-level ``payload[].body``,
+``parameters['connection']`` as a JSON string, and a long list of flat
+``connection.<key>`` parameter rows) — this duplication is what the
+tenant's package-workflows service expects, so we faithfully reproduce
+it from a single :class:`ConnectionSpec` source of truth.
+
+Two modes:
+
+* :data:`RunMode.DIRECT` — the AE workflow's ``extract`` activity
+  dispatches to ``task_queue: atlan-<app>-<deployment>`` and the
+  tenant's *production-deployed* connector pod picks it up. Tier 5.
+* :data:`RunMode.AGENT` — same queue, but ``agent-name`` routes to a
+  caller-deployed worker (e.g. CI-side compose with a unique
+  agent-name + S3 binding). Tier 4.
+
+The submitter's responsibility is to ensure the connector worker that
+listens on the resulting Temporal queue is actually running before the
+AE DAG dispatches to it. For tier 4 that's the docker compose worker;
+for tier 5 that's the prod-deployed pod.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+
+import orjson
+
+from application_sdk.testing.e2e.credential import CredentialBody
+from application_sdk.testing.e2e.substitutions import MustacheSubstitutions
+
+
+class RunMode(str, Enum):
+    """Whether the connector runs in tenant or in caller-controlled CI."""
+
+    DIRECT = "direct"
+    AGENT = "agent"
+
+
+@dataclass(frozen=True)
+class ConnectionSpec:
+    """Identity of the Connection the AE workflow will create.
+
+    The ``qualified_name`` should be unique per test run — the tenant
+    treats Connection QN as the upsert key, so colliding QNs across
+    test runs will overwrite each other and confuse asset assertions.
+    Convention: ``default/<connector>/<test-prefix>-<run_id>``.
+    """
+
+    name: str
+    qualified_name: str
+    connector_name: str  # mysql, mssql, etc — must match the @atlan/<conn> package
+    source_logo: str
+    admin_users: tuple[str, ...] = ()
+    admin_groups: tuple[str, ...] = ()
+    admin_roles: tuple[str, ...] = ()
+    category: str = "warehouse"
+    row_limit: int = 10_000
+    allow_query: bool = True
+    allow_query_preview: bool = True
+    is_discoverable: bool = True
+    is_editable: bool = False
+    default_credential_guid: str = ""
+
+    def attributes(self) -> dict[str, Any]:
+        """Pyatlan-style ``Connection.attributes`` block.
+
+        ``defaultCredentialGuid`` is only included when
+        ``default_credential_guid`` is non-empty — callers that have no
+        credential (public sources) omit it so Atlas never receives the
+        unsubstituted ``{{credentialGuid}}`` literal.
+        """
+        attrs: dict[str, Any] = {
+            "name": self.name,
+            "qualifiedName": self.qualified_name,
+            "allowQuery": self.allow_query,
+            "allowQueryPreview": self.allow_query_preview,
+            "rowLimit": self.row_limit,
+            "connectorName": self.connector_name,
+            "sourceLogo": self.source_logo,
+            "isDiscoverable": self.is_discoverable,
+            "isEditable": self.is_editable,
+            "category": self.category,
+            "adminUsers": list(self.admin_users),
+            "adminGroups": list(self.admin_groups),
+            "adminRoles": list(self.admin_roles),
+        }
+        if self.default_credential_guid:
+            attrs["defaultCredentialGuid"] = self.default_credential_guid
+        return attrs
+
+
+@dataclass(frozen=True)
+class DatabaseSpec:
+    """DB connection details for the credential payload.
+
+    Used by :class:`~application_sdk.testing.e2e.sql_app.SQLAppE2ETest`
+    to build its :class:`~application_sdk.testing.e2e.substitutions.SQLMustacheSubstitutions`
+    and the codegen'd ``<Connector>CredentialBody`` override.
+    """
+
+    host: str
+    port: int
+    username: str
+    password: str
+    auth_type: str = "basic"
+    extra: dict[str, Any] = field(default_factory=dict)
+    # e.g. atlan-connectors-mysql.
+    #
+    # .. deprecated:: 3.30.0
+    #    Set the ``connector_config_name`` ClassVar on the test class instead
+    #    (:attr:`application_sdk.testing.e2e.base.BaseE2ETest.connector_config_name`)
+    #    — that is the one the toolkit generates into a bundle's
+    #    ``_e2e_base.py``. This field is removed in v4.0.
+    #
+    # Until then it is a *fallback*, resolved by
+    # :meth:`~application_sdk.testing.e2e.base.BaseE2ETest.resolved_connector_config_name`:
+    # honoured when the ClassVar is empty, ignored (with a warning) when the
+    # ClassVar is set. It is never silently inert, and it never outranks the
+    # ClassVar. Note the separate, NOT-deprecated ``connector_config_name``
+    # field on the codegen'd ``<Connector>AgentCredentialBody`` — that one is a
+    # wire field on the credential body and is unrelated to this.
+    connector_config_name: str = ""
+
+
+@dataclass(frozen=True)
+class AgentSpec:
+    """Optional agent routing (tier 4 only).
+
+    ``agent_name`` is what AE reads out of the parsed ``agent-json`` blob
+    to derive the Temporal task queue (``atlan-<app>-<agent_name>``). The
+    CI worker listens on the same queue; AE then dispatches the extract
+    to it.
+    """
+
+    agent_name: str
+    agent_type: str = "new-app-framework"
+    key_type: str = "single-key"
+    aws_auth_method: str = "iam"
+    azure_auth_method: str = "managed_identity"
+
+
+# Fallback when a spec leaves ``auth_type`` blank. ``transform_agent_credentials``
+# builds no prefix at all from an empty ``authType`` (nothing would collapse), so
+# blank is treated as the historical default rather than passed through.
+_DEFAULT_AUTH_TYPE = "basic"
+
+
+def _resolve_auth_type(auth_type: str) -> str:
+    """The ``auth-type`` a bundle must declare for its ref-keys to collapse.
+
+    Emitting a blank ``auth-type`` is never correct: ``transform_agent_credentials``
+    derives its prefix from that field and an empty prefix is falsy, so *no*
+    dotted key collapses and the connector's client sees no credentials — the
+    exact FND-923 failure. A blank therefore takes :data:`_DEFAULT_AUTH_TYPE`,
+    the same fallback :func:`_agent_credential_ref_keys` uses for the prefix.
+
+    Args:
+        auth_type: The spec's ``auth_type`` (``DatabaseSpec.auth_type``).
+
+    Returns:
+        ``auth_type`` unchanged, or :data:`_DEFAULT_AUTH_TYPE` when blank.
+    """
+    return auth_type or _DEFAULT_AUTH_TYPE
+
+
+def _agent_credential_ref_keys(
+    *,
+    auth_type: str,
+    connector_short_name: str,
+) -> dict[str, str]:
+    """Dotted ``{auth_type}.username`` / ``.password`` → SDR secret-store ref-keys.
+
+    In agent mode the values are *secret-store keys*, not literal credentials —
+    the agent's local Dapr secret store resolves them at workflow time, so the
+    caller is responsible for pre-populating the store with these key names.
+
+    The prefix comes from :func:`_resolve_auth_type`, so a caller that writes its
+    ``auth-type`` from the same function is guaranteed to agree with these keys.
+
+    Args:
+        auth_type: The same value the bundle carries as ``auth-type``
+            (``DatabaseSpec.auth_type``). Blank falls back to
+            :data:`_DEFAULT_AUTH_TYPE`.
+        connector_short_name: Connector short name; upper-cased into the ref-key.
+
+    Returns:
+        Two dotted keys ready to splat into an agent bundle.
+    """
+    prefix = _resolve_auth_type(auth_type)
+    upper = connector_short_name.upper()
+    return {
+        f"{prefix}.username": f"SDR_{upper}_USERNAME",
+        f"{prefix}.password": f"SDR_{upper}_PASSWORD",
+    }
+
+
+def build_agent_json(
+    database: DatabaseSpec,
+    agent: AgentSpec,
+    connector_short_name: str,
+) -> dict[str, Any]:
+    """Build the agent_json routing block for AGENT-mode extract args.
+
+    This is the emit side of
+    :func:`~application_sdk.common.transforms.transform_agent_credentials`. That
+    transform collapses ``{authType}.<field>`` to a root-level ``<field>`` and
+    leaves every other dotted key untouched, so the credential ref-keys are
+    prefixed with the spec's own ``auth_type``, not a fixed ``basic``: a
+    non-basic connector (glue/athena ``iam``, Azure ``service_principal``,
+    token/OAuth) would otherwise reach its client with no credential fields at
+    all and fail with its own source-authentication error, which reads as a
+    provisioning problem rather than a payload defect (FND-923).
+
+    Both the declared ``auth-type`` and the ref-key prefix run through
+    :func:`_resolve_auth_type`, so they cannot drift apart even when the spec
+    leaves ``auth_type`` blank — a bundle declaring a blank ``auth-type``
+    collapses nothing at all.
+
+    .. note::
+
+       Only the dotted *prefix* is derived here; the two field names are not.
+       The platform convention is that every auth option's ``fields`` are named
+       ``username`` / ``password`` (snowflake ``keypair``, okta and entra_id all
+       carry client id/secret under those names, differing only in
+       ``displayName``), which holds for 10 of the 12 ``contract/app.pkl`` files
+       surveyed for FND-923. The two known exceptions are
+       ``atlan-snowflake-app``'s ``custom_oauth`` (``accessTokenSecret`` /
+       ``role`` / ``warehouse``) and ``atlan-trino-app``'s ``jwt``
+       (``__jwt_token`` and friends) — those must override the harness's
+       ``agent_json()`` hook rather than rely on this builder. Generating the
+       field names from ``credentialAuthOptions[*].fields`` — already the
+       codegen source for the DIRECT ``<Connector>CredentialBody`` in
+       :mod:`application_sdk.testing.e2e.credential` — is tracked as FND-945.
+    """
+    block: dict[str, Any] = {
+        "host": database.host,
+        "port": database.port,
+        "auth-type": _resolve_auth_type(database.auth_type),
+        "agent-name": agent.agent_name,
+        "agent-type": agent.agent_type,
+        "key-type": agent.key_type,
+        "aws-auth-method": agent.aws_auth_method,
+        "azure-auth-method": agent.azure_auth_method,
+        **_agent_credential_ref_keys(
+            auth_type=database.auth_type,
+            connector_short_name=connector_short_name,
+        ),
+    }
+    # Connector-specific connection fields ride as dotted ``extra.<k>`` keys.
+    # The prime case is ``database``: postgres (and any SQL client whose
+    # DB_CONFIG.required lists it) can't build a connection string without it,
+    # while mysql omits it entirely. ``transform_agent_credentials`` nests
+    # ``extra.<k>`` → ``credentials["extra"][k]``, which is exactly where the
+    # SQL client reads it — so a connector supplies its database (and any other
+    # extra) once via ``DatabaseSpec.extra`` and the harness wires it through,
+    # rather than each connector hand-patching its AE payload. Validated by a
+    # postgres full-DAG e2e run.
+    for key, value in database.extra.items():
+        block[f"extra.{key}"] = value
+    return block
+
+
+def build_seed_dag(
+    *,
+    connector_short_name: str,
+    extract_task_queue: str,
+    publish_task_queue: str = "atlan-publish-production",
+    qi_task_queue: str = "atlan-query-intelligence-production",
+    lineage_task_queue: str = "atlan-lineage-production",
+    connection: ConnectionSpec,
+    include_filter: str = '{"^def$":[".*"]}',
+    exclude_filter: str = "{}",
+    temp_table_regex: str = "",
+    extract_workflow_type: str | None = None,
+    qi_parsing_mode: str = "lorien-only",
+    qi_mine_output_type: str = "json",
+    qi_input_prefix_field: str = "view_data_prefix",
+    lake_provider: str = "aws",
+    mode: RunMode = RunMode.DIRECT,
+    agent: AgentSpec | None = None,
+    database: DatabaseSpec | None = None,
+) -> dict[str, Any]:
+    """Build a seed-version DAG matching the connector's manifest.json shape.
+
+    Workflows need at least one PUBLISHED version before package-
+    workflows submit will accept them; the seed version is a no-op
+    placeholder (uses ``credential_guid: __placeholder__``) that
+    package-workflows replaces on every submit. What matters for the
+    seed is that the DAG topology + task_queue references are correct
+    — the actual extract args get overridden at submit time.
+
+    Per-connector overrides (subclasses pass via kwargs):
+        - ``extract_workflow_type`` — must match what the connector's
+          worker actually registers as. v3 mysql registers ``"mysql"``
+          (just the connector name); v2 mssql registers
+          ``"mssql-metadata-extractor"``. Default = ``connector_short_name``
+          (the v3 convention); override for v2-style connectors.
+        - ``qi_parsing_mode`` — ``"lorien-only"`` (mssql) vs.
+          ``"competitive"`` (mysql per devex sample); driven by what
+          the connector emits as parseable SQL.
+        - Task queue names default to the tenant's production publish/
+          qi/lineage queues; override for non-production tenants.
+    """
+    if extract_workflow_type is None:
+        extract_workflow_type = connector_short_name
+
+    extract_args: dict[str, Any] = {
+        "credential_guid": "{{credentialGuid}}",
+        "connection": {
+            "connection_name": connection.name,
+            "connection_qualified_name": connection.qualified_name,
+        },
+        "extraction_method": mode.value,
+        "include_filter": include_filter,
+        "exclude_filter": exclude_filter,
+        "temp_table_regex": temp_table_regex,
+    }
+    if mode is RunMode.AGENT and agent is not None and database is not None:
+        extract_args["agent_json"] = build_agent_json(
+            database, agent, connector_short_name
+        )
+
+    return {
+        "extract": {
+            "node_type": "workflow",
+            "activity_name": "execute_workflow",
+            "activity_display_name": f"Extract {connector_short_name.title()} Metadata",
+            "app_name": connector_short_name,
+            "app_task_queue": extract_task_queue,
+            "inputs": {
+                "workflow_type": extract_workflow_type,
+                "task_queue": extract_task_queue,
+                "args": extract_args,
+            },
+        },
+        "qi": {
+            "node_type": "workflow",
+            "activity_name": "execute_workflow",
+            "activity_display_name": "Parse View Lineage",
+            "app_name": "query-intelligence",
+            "app_task_queue": qi_task_queue,
+            "inputs": {
+                "workflow_type": "QueryIntelligenceWorkflow",
+                "task_queue": qi_task_queue,
+                "args": {
+                    "connection_qualified_name": connection.qualified_name,
+                    "vendor_name": connector_short_name,
+                    "sql_key": "attributes.definition",
+                    "catalog_key": "attributes.databaseName",
+                    "schema_key": "attributes.schemaName",
+                    "timestamp_key": "",
+                    "mine_output_type": qi_mine_output_type,
+                    "parsing_mode": qi_parsing_mode,
+                    "lake_provider": lake_provider,
+                    "storage_bucket": "$.extract.outputs.storage_bucket",
+                    "input_prefix": f"$.extract.outputs.{qi_input_prefix_field}",
+                    "output_prefix": "$.extract.outputs.view_lineage_output_prefix",
+                },
+            },
+            "depends_on": {"node_id": "extract", "tag": "success"},
+        },
+        "publish": {
+            "node_type": "workflow",
+            "activity_name": "execute_workflow",
+            "activity_display_name": "Publish to Atlas",
+            "app_name": "publish",
+            "app_task_queue": publish_task_queue,
+            "inputs": {
+                "workflow_type": "PublishWorkflow",
+                "task_queue": publish_task_queue,
+                "args": {
+                    "connection_qualified_name": "",
+                    "transformed_data_prefix": "$.extract.outputs.transformed_data_prefix",
+                    "publish_state_prefix": "$.extract.outputs.publish_state_prefix",
+                    "current_state_prefix": "$.extract.outputs.current_state_prefix",
+                },
+            },
+            "depends_on": {"node_id": "extract", "tag": "success"},
+        },
+        "lineage-app": {
+            "node_type": "workflow",
+            "activity_name": "execute_workflow",
+            "activity_display_name": "Build Lineage Entities",
+            "app_name": "automation-engine",
+            "app_task_queue": lineage_task_queue,
+            "inputs": {
+                "workflow_type": "LineageWorkflow",
+                "task_queue": lineage_task_queue,
+                "args": {
+                    "connection_qualified_name": connection.qualified_name,
+                    "connector_name": connector_short_name,
+                    "session_key": "view-lineage",
+                    "sql_unquoted_case": "lower",
+                    "ignore_all_case": False,
+                    "input_path": "",
+                    "parsed_views_path": "$.extract.outputs.view_lineage_output_prefix",
+                    "lineage_output_path": "$.extract.outputs.lineage_stage_prefix",
+                    "cache_path": "connection-cache",
+                    "file_type": "json",
+                    "lake_provider": lake_provider,
+                    "cloud_storage_bucket": "$.extract.outputs.storage_bucket",
+                },
+            },
+            "depends_on": {
+                "and_conditions": [
+                    {"node_id": "qi", "tag": "success"},
+                    {"node_id": "publish", "tag": "success"},
+                ]
+            },
+        },
+        "lineage-publish": {
+            "node_type": "workflow",
+            "activity_name": "execute_workflow",
+            "activity_display_name": "Publish Lineage to Atlas",
+            "app_name": "publish",
+            "app_task_queue": publish_task_queue,
+            "inputs": {
+                "workflow_type": "PublishWorkflow",
+                "task_queue": publish_task_queue,
+                "args": {
+                    "connection_qualified_name": connection.qualified_name,
+                    "transformed_data_prefix": "$.extract.outputs.lineage_stage_prefix",
+                    "publish_state_prefix": "$.extract.outputs.lineage_publish_state_prefix",
+                    "current_state_prefix": "$.extract.outputs.lineage_current_state_prefix",
+                },
+            },
+            "depends_on": {"node_id": "lineage-app", "tag": "success"},
+        },
+    }
+
+
+# Top-level agent_json keys emitted as flat ``agent-json.<key>`` parameter rows
+# by build_ae_payload. These dotted names are frontend dynamic-form field ids:
+# the UI dumps its flattened formState into the parameter list, and this harness
+# reproduces that dump so a submit matches what production sends. No backend
+# consumer reads them. On the native/AE path Heracles flattens every row into
+# allParams and then only substitutes ``{{<row name>}}`` placeholders that
+# appear in the connector's manifest DAG — no manifest references a dotted row.
+# Agent routing itself reads the parsed ``agent-json`` blob (``agent-name`` out
+# of it), never these rows. They are emitted for UI-shape fidelity alone, which
+# is reason enough for an e2e harness — but it is not a reason for a connector
+# to hand-append more of them in a ``_build_ae_payload`` override. Only keys
+# present in the supplied agent_json are emitted.
+_AGENT_JSON_ROUTING_KEYS = (
+    "host",
+    "port",
+    "auth-type",
+    "agent-name",
+    "agent-type",
+    "key-type",
+    "aws-auth-method",
+    "azure-auth-method",
+    "secret-manager",
+    "secret-path",
+)
+
+
+def build_ae_payload(
+    *,
+    run_id: int,
+    mode: RunMode,
+    connector_short_name: str,
+    argo_package_name: str,
+    argo_template_name: str,
+    app_service_url: str,
+    connection: ConnectionSpec,
+    mustache_subs: MustacheSubstitutions,
+    credential_body: CredentialBody | None,
+    ae_workflow_slug: str = "",
+    entrypoint: str = "",
+    agent_json: dict[str, Any] | None = None,
+    credential_type: str = "",
+) -> dict[str, Any]:
+    """Assemble the AE submit body.
+
+    Args:
+        run_id: Run identifier (typically ``int(time.time())`` or
+            ``int(os.environ["GITHUB_RUN_ID"])``). Used as a unique
+            tag in the AE workflow name and labels.
+        mode: ``DIRECT`` (tier 5) or ``AGENT`` (tier 4).
+        connector_short_name: ``mysql``, ``mssql``, ``saperp``, etc.
+        argo_package_name: The ``@atlan/<connector>`` Argo package name.
+        argo_template_name: Cluster-scoped WorkflowTemplate name.
+        app_service_url: HTTP URL the AE workflow can reach the connector at.
+        connection: Where the Atlas Connection will be created (drives
+            the flat ``connection.*`` parameter rows and metadata).
+        mustache_subs: Typed substitution object carrying all
+            connector-specific manifest mustache values. Produced by
+            ``_mustache_substitutions()`` on the test class and
+            serialised via ``model_dump(by_alias=True)`` at the AE
+            parameters boundary.
+        credential_body: Typed credential body to post as
+            ``payload[].body``. SQL connectors return a
+            ``<Connector>CredentialBody`` instance; connectors with no
+            credentials (public sources) pass ``None`` to omit the
+            credential-creation block entirely.
+        ae_workflow_slug: If non-empty, used verbatim; otherwise
+            auto-derived from connector name + run_id.
+        agent_json: Optional agent-mode routing block (single-bundle shape:
+            ``key-type=""`` + ``secret-manager`` + ``secret-path`` + nested
+            ``extra`` ref-keys, or the dotted ``basic.*`` / ``keypair.*`` shape
+            from :func:`build_agent_json`). When supplied, the ``agent-json``
+            JSON-blob parameter is (re)written from it and the flat
+            ``agent-json.<key>`` rows (:data:`_AGENT_JSON_ROUTING_KEYS`) plus
+            the ``credential-guid.*`` rows are emitted alongside it — so
+            agent-mode connectors no longer hand-roll a ``_build_ae_payload``
+            override to append them. The blob is what agent routing actually
+            parses; the flat rows only reproduce the UI's submit shape and have
+            no backend consumer (see :data:`_AGENT_JSON_ROUTING_KEYS`). Absent
+            (default None)
+            => no flat rows and no blob rewrite (backward-compatible: the blob,
+            if any, comes from ``mustache_subs``'s ``{{agent-json}}`` field).
+        credential_type: The connector's credential-config name (e.g.
+            ``atlan-connectors-mysql``); defaults to
+            ``f"atlan-connectors-{connector_short_name}"`` when empty. Two
+            consumers: (a) the flat ``credential-guid.credential-type`` row,
+            emitted only in agent mode (when ``agent_json`` is given); and
+            (b) the credential body's ``connectorConfigName``, backfilled
+            when that field is absent so the submit matches what the real UI
+            always sends (see the inline comment at the backfill site) — i.e.
+            used even without ``agent_json``.
+
+    Returns:
+        Dict ready to ``orjson.dumps`` and POST to
+        ``/api/service/package-workflows?submit=true``.
+    """
+    label_key = f"orchestration.atlan.com/default-{connector_short_name}-{run_id}"
+    ae_workflow_name = f"atlan-{connector_short_name}-{run_id}"
+    ae_atlan_name = (
+        f"atlan-{connector_short_name}-default-{connector_short_name}-{run_id}"
+    )
+
+    # Build parameter list from the typed mustache_subs + universal connection params.
+    # The subs model's model_dump(by_alias=True) yields {{...}}-keyed entries; we
+    # extract them into flat Argo parameters with the mustache key stripped of braces.
+    subs_dict = mustache_subs.model_dump(by_alias=True, mode="json")
+
+    parameters: list[dict[str, Any]] = []
+
+    # Emit each mustache substitution as a named Argo parameter.
+    # Keys are "{{name}}" → parameter name is "name" (strip outer braces).
+    for alias_key, value in subs_dict.items():
+        if not (alias_key.startswith("{{") and alias_key.endswith("}}")):
+            continue
+        param_name = alias_key[2:-2]  # strip {{ and }}
+        if param_name == "connection":
+            # Connection goes as JSON string
+            parameters.append(
+                {
+                    "name": "connection",
+                    "value": orjson.dumps(value).decode(),
+                }
+            )
+        elif param_name == "agent-json" and value is not None:
+            parameters.append(
+                {"name": "agent-json", "value": orjson.dumps(value).decode()}
+            )
+        elif value is not None:
+            parameters.append({"name": param_name, "value": value})
+
+    # Agent-mode parameter rows. When an ``agent_json`` dict is supplied, it is
+    # the source of truth for the ``agent-json`` blob (overriding any emitted
+    # from mustache_subs) — that blob is the one row agent routing actually
+    # parses. The flat ``agent-json.<key>`` + ``credential-guid.*`` rows below
+    # are emitted only because the real UI sends them; nothing downstream reads
+    # them (see :data:`_AGENT_JSON_ROUTING_KEYS`). No-op when agent_json is
+    # None, so single-entrypoint / direct-mode submits are unaffected.
+    if agent_json is not None:
+        parameters = [p for p in parameters if p.get("name") != "agent-json"]
+        parameters.append(
+            {"name": "agent-json", "value": orjson.dumps(agent_json).decode()}
+        )
+        resolved_credential_type = (
+            credential_type or f"atlan-connectors-{connector_short_name}"
+        )
+        parameters.append(
+            {
+                "name": "credential-guid.credential-type",
+                "value": resolved_credential_type,
+            }
+        )
+        if "auth-type" in agent_json:
+            parameters.append(
+                {"name": "credential-guid.auth-type", "value": agent_json["auth-type"]}
+            )
+        for key in _AGENT_JSON_ROUTING_KEYS:
+            if key in agent_json:
+                parameters.append(
+                    {"name": f"agent-json.{key}", "value": agent_json[key]}
+                )
+
+    # Flat connection.* parameter rows (UI sends both the nested JSON
+    # and these for the orchestrator's convenience).
+    attrs = connection.attributes()
+    parameters.extend(
+        [
+            {"name": "connection.name", "value": attrs["name"]},
+            {"name": "connection.qualifiedName", "value": attrs["qualifiedName"]},
+            {"name": "connection.allowQuery", "value": attrs["allowQuery"]},
+            {
+                "name": "connection.allowQueryPreview",
+                "value": attrs["allowQueryPreview"],
+            },
+            {"name": "connection.rowLimit", "value": attrs["rowLimit"]},
+            {"name": "connection.connectorName", "value": attrs["connectorName"]},
+            {"name": "connection.sourceLogo", "value": attrs["sourceLogo"]},
+            {"name": "connection.isDiscoverable", "value": attrs["isDiscoverable"]},
+            {"name": "connection.isEditable", "value": attrs["isEditable"]},
+            {"name": "connection.category", "value": attrs["category"]},
+            {
+                "name": "connection.adminUsers",
+                "value": orjson.dumps(attrs["adminUsers"]).decode(),
+            },
+            {
+                "name": "connection.adminGroups",
+                "value": orjson.dumps(attrs["adminGroups"]).decode(),
+            },
+            {
+                "name": "connection.adminRoles",
+                "value": orjson.dumps(attrs["adminRoles"]).decode(),
+            },
+        ]
+    )
+
+    result: dict[str, Any] = {
+        "metadata": {
+            "labels": {
+                label_key: "true",
+                "orchestration.atlan.com/atlan-ui": "true",
+            },
+            "annotations": {
+                "orchestration.atlan.com/name": f"{connector_short_name.title()} Assets (full-DAG e2e)",
+                "package.argoproj.io/name": argo_package_name,
+                "orchestration.atlan.com/atlanName": ae_atlan_name,
+            },
+            "name": ae_workflow_name,
+            "namespace": "default",
+            "ae_workflow_slug": ae_workflow_slug
+            or f"{connector_short_name}-e2e-{run_id}",
+            "app_service_url": app_service_url,
+        },
+        "spec": {
+            "templates": [
+                {
+                    "name": "main",
+                    "dag": {
+                        "tasks": [
+                            {
+                                "name": "run",
+                                "arguments": {"parameters": parameters},
+                                "templateRef": {
+                                    "name": argo_template_name,
+                                    "template": "main",
+                                    "clusterScope": True,
+                                },
+                            }
+                        ]
+                    },
+                }
+            ],
+            "entrypoint": "main",
+            "workflowMetadata": {
+                "annotations": {"package.argoproj.io/name": argo_package_name}
+            },
+        },
+        "execution_mode": "native",
+    }
+
+    # App-entrypoint selector for AE's server-side manifest fetch. Multi-entrypoint
+    # connectors (crawler/miner, extract/lineage, per-flavor) serve a distinct
+    # manifest per entrypoint; without this AE fetches the bare manifest and 404s
+    # ("No manifest available"). Set ONLY when non-empty so single-entrypoint apps
+    # keep the default fetch. Distinct from ``spec.entrypoint`` above ("main"), which
+    # is the Argo template name, not the connector entrypoint.
+    if entrypoint:
+        result["metadata"]["entrypoint"] = entrypoint
+
+    # ``payload[]`` tells the orchestrator to create a credential and
+    # substitute ``{{credentialGuid}}`` in the parameters with the
+    # resulting GUID. Omit when the connector has no credential needs
+    # (e.g. public-source connectors like openapi Petstore).
+    if credential_body is not None:
+        body = credential_body.model_dump(by_alias=True, mode="json")
+        # The real UI always sends ``connectorConfigName`` on the credential
+        # body (sourced from the package manifest's ``ui.credentialType``, shape
+        # ``atlan-connectors-<connector>``). Backfill the conventional name when
+        # the codegen'd body didn't set one, so agent-mode connectors whose body
+        # is a minimal placeholder (salesforce/anaplan/saperp/glue) still submit
+        # what production submits. (Heracles itself tolerates a missing value —
+        # every read site is nil-safe; it falls back to the connector name and
+        # only 400s if BOTH are absent — so this mirrors the UI, it does not
+        # dodge a crash.)
+        body.setdefault(
+            "connectorConfigName",
+            credential_type or f"atlan-connectors-{connector_short_name}",
+        )
+        result["payload"] = [
+            {
+                "parameter": "credentialGuid",
+                "type": "credential",
+                "body": body,
+            }
+        ]
+
+    return result

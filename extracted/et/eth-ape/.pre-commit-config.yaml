@@ -1,0 +1,37 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    -   id: check-yaml
+
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12  # Latest ruff version
+    hooks:
+    -   id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+    -   id: ruff-format
+
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.3.1
+    hooks:
+    -   id: mypy
+        additional_dependencies: [
+                pydantic,
+                pandas-stubs,
+                types-python-dateutil,
+                types-PyYAML,
+                types-requests,
+                types-setuptools,
+                types-SQLAlchemy,
+                types-toml
+        ]
+
+-   repo: https://github.com/executablebooks/mdformat
+    rev: 1.0.0
+    hooks:
+    -   id: mdformat
+        additional_dependencies: [mdformat-gfm, mdformat-frontmatter, mdformat-pyproject]
+        args: ["*.md", "docs/**/*.md"]
+
+default_language_version:
+    python: python3

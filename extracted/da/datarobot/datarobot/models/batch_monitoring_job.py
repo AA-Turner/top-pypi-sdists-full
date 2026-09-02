@@ -83,12 +83,12 @@ if TYPE_CHECKING:
 
 class BatchMonitoringJob(AbstractBatchJob):
     """
-    A Batch Monitoring Job is used to monitor data sets outside DataRobot app.
+    A Batch Monitoring Job monitors data sets outside the DataRobot app.
 
     Attributes
     ----------
     id : str
-        the ID of the job
+        The ID of the job.
     """
 
     _job_spec = t.Dict({
@@ -159,12 +159,12 @@ class BatchMonitoringJob(AbstractBatchJob):
 
     @classmethod
     def get(cls, project_id: Optional[str], job_id: str) -> BatchMonitoringJob:
-        """Get batch monitoring job
+        """Get a batch monitoring job
 
         Attributes
         ----------
         job_id: str
-            ID of batch job
+            ID of batch job.
 
         Returns
         -------
@@ -181,9 +181,10 @@ class BatchMonitoringJob(AbstractBatchJob):
 
         Attributes
         ----------
-        fileobj: A file-like object where the CSV monitoring results will be
-            written to. Examples include an in-memory buffer
-            (e.g., io.BytesIO) or a file on disk (opened for binary writing).
+        fileobj : file-like object
+            A file-like object where the CSV monitoring results will be written to.
+            Examples include an in-memory buffer (e.g., io.BytesIO) or a file on disk
+            (opened for binary writing).
 
         timeout : int (optional, default 120)
             Seconds to wait for the download to become available.
@@ -195,7 +196,7 @@ class BatchMonitoringJob(AbstractBatchJob):
             If the timeout is reached, the job will be aborted and `RuntimeError`
             is raised.
 
-            Set to -1 to wait infinitely.
+            Set the timeout to -1 to wait infinitely.
 
         read_timeout : int (optional, default 660)
             Seconds to wait for the server to respond between chunks.
@@ -220,7 +221,7 @@ class BatchMonitoringJob(AbstractBatchJob):
         upload_read_timeout: int = DEFAULT_TIMEOUT.UPLOAD,
     ) -> BatchMonitoringJob:
         """
-        Create new batch monitoring job, upload the dataset, and
+        Create a new batch monitoring job, upload the dataset, and
         return a batch monitoring job.
 
         Attributes
@@ -229,10 +230,10 @@ class BatchMonitoringJob(AbstractBatchJob):
             Deployment which will be used for monitoring.
 
         intake_settings : dict
-            A dict configuring how data is coming from. Supported options:
+            A dict configuring how data is coming from. See supported options below.
 
-                - type : string, either `localFile`, `s3`, `azure`, `gcp`, `dataset`, `jdbc`
-                  `snowflake`, `synapse`, `bigquery`, or `datasphere`
+            Supported ``type`` values are ``localFile``, ``s3``, ``azure``, ``gcp``, ``dataset``, ``jdbc``,
+            ``snowflake``, ``synapse``, ``bigquery``, or ``datasphere``.
 
             Note that to pass a dataset, you not only need to specify the `type` parameter
             as `dataset`, but you must also set the `dataset` parameter as a
@@ -241,12 +242,12 @@ class BatchMonitoringJob(AbstractBatchJob):
             To monitor from a local file, add this parameter to the
             settings:
 
-                - file : A file-like object, string path to a file or a
-                  pandas.DataFrame of scoring data.
+                - file : file-like object
+                    A file-like object, string path to a file, or a ``pandas.DataFrame`` of scoring data.
 
             To monitor from S3, add the next parameters to the settings:
 
-                - url : string, the URL to score (e.g.: `s3://bucket/key`).
+                - url : string, the URL to score. For example: `s3://bucket/key`.
                 - credential_id : string (optional).
                 - endpoint_url : string (optional), any non-default endpoint
                   URL for S3 access (omit to use the default).
@@ -255,111 +256,114 @@ class BatchMonitoringJob(AbstractBatchJob):
 
             To monitor from JDBC, add the next parameters to the settings:
 
-                - data_store_id : string, the ID of the external data store connected
-                  to the JDBC data source (see
-                  :ref:`Database Connectivity <database-connectivity-overview>`).
-                - query : string (optional if `table`, `schema` and/or `catalog` is specified),
-                  a self-supplied SELECT statement of the data set you wish to predict.
-                - table : string (optional if `query` is specified),
-                  the name of specified database table.
-                - schema : string (optional if `query` is specified),
-                  the name of specified database schema.
-                - catalog : string  (optional if `query` is specified),
-                  (new in v2.22) the name of specified database catalog.
+                - data_store_id : string
+                    The ID of the external data store connected to the JDBC data source (see
+                    :ref:`Database Connectivity <database-connectivity-overview>`).
+                - query : string (optional if `table`, `schema` and/or `catalog` is specified)
+                    A self-supplied SELECT statement of the data set you wish to predict.
+                - table : string (optional if `query` is specified)
+                    The name of the specified database table.
+                - schema : string (optional if `query` is specified)
+                    The name of the specified database schema.
+                - catalog : string (optional if `query` is specified)
+                    (New in v2.22) The name of the specified database catalog.
                 - fetch_size : int (optional),
                   Changing the `fetchSize` can be used to balance throughput and memory
                   usage.
-                - credential_id : string (optional) the ID of the credentials holding
-                  information about a user with read-access to the JDBC data source (see
-                  :ref:`Credentials <credentials-api-doc>`).
+                - credential_id : string (optional)
+                    The ID of the credentials holding information about a user with read-access to
+                    the JDBC data source (see :ref:`Credentials <credentials-api-doc>`).
 
             To monitor from Datasphere, add the following parameters to the settings:
 
-                - `data_store_id` : string, the ID of the external data store connected to
-                  the Datasphere data source (see
-                  :ref:`Database Connectivity <database-connectivity-overview>`).
-                - `table` : string,  the name of specified database table.
-                - `schema` : string, the name of specified database schema.
-                - `credential_id` : string, the ID of the credentials holding information about
-                  a user with read-access to the Datasphere data source (see
-                  :ref:`Credentials <credentials-api-doc>`).
+                - `data_store_id` : string
+                    The ID of the external data store connected to the Datasphere data source (see
+                    :ref:`Database Connectivity <database-connectivity-overview>`).
+                - `table` : string
+                    The name of the specified database table.
+                - `schema` : string
+                    The name of the specified database schema.
+                - `credential_id` : string
+                    The ID of the credentials holding information about a user with read-access to
+                    the Datasphere data source (see :ref:`Credentials <credentials-api-doc>`).
 
         output_settings : dict (optional)
-            A dict configuring how monitored data is to be saved. Supported
-            options:
+            A dict configuring how monitored data is to be saved. See supported options below.
 
-                - type : string, either `localFile`, `s3`, `azure`, `gcp`, `jdbc`,
-                  `snowflake`, `synapse`, `bigquery`, or `datasphere`
+            Supported ``type`` values are ``localFile``, ``s3``, ``azure``, ``gcp``, ``jdbc``, ``snowflake``,
+            ``synapse``, ``bigquery``, or ``datasphere``.
 
             To save monitored data to a local file, add parameters to the
             settings:
 
-                - path : string (optional), path to save the scored data
-                  as CSV. If a path is not specified, you must download
-                  the scored data yourself with `job.download()`.
-                  If a path is specified, the call will block until the
-                  job is done. if there are no other jobs currently
-                  processing for the targeted prediction instance,
-                  uploading, scoring, downloading will happen in parallel
-                  without waiting for a full job to complete. Otherwise,
-                  it will still block, but start downloading the scored
-                  data as soon as it starts generating data. This is the
-                  fastest method to get predictions.
+                - path : string (optional)
+                    Path to save the scored data as CSV. If a path is not specified, you must
+                    download the scored data yourself with `job.download()`. If a path is specified,
+                    the call will block until the job is done. If there are no other jobs currently
+                    processing for the targeted prediction instance, uploading, scoring, and
+                    downloading will happen in parallel without waiting for a full job to complete.
+                    Otherwise, it will still block, but start downloading the scored data as soon as
+                    it starts generating data. This is the fastest method to get predictions.
 
             To save monitored data to S3, add the next parameters to the settings:
 
-                - url : string, the URL for storing the results
-                  (e.g.: `s3://bucket/key`).
+                - url : string, the URL for storing the results.
+                  For example: `s3://bucket/key`.
                 - credential_id : string (optional).
                 - endpoint_url : string (optional), any non-default endpoint
                   URL for S3 access (omit to use the default).
 
             To save monitored data to JDBC, add the next parameters to the settings:
 
-                - `data_store_id` : string, the ID of the external data store connected to
-                  the JDBC data source (see
-                  :ref:`Database Connectivity <database-connectivity-overview>`).
-                - `table` : string,  the name of specified database table.
-                - `schema` : string (optional), the name of specified database schema.
-                - `catalog` : string (optional), (new in v2.22) the name of specified database
-                  catalog.
-                - `statement_type` : string, the type of insertion statement to create,
-                  one of ``datarobot.enums.AVAILABLE_STATEMENT_TYPES``.
-                - `update_columns` : list(string) (optional),  a list of strings containing
-                  those column names to be updated in case `statement_type` is set to a
-                  value related to update or upsert.
-                - `where_columns` : list(string) (optional), a list of strings containing
-                  those column names to be selected in case `statement_type` is set to a
-                  value related to insert or update.
-                - `credential_id` : string, the ID of the credentials holding information about
-                  a user with write-access to the JDBC data source (see
-                  :ref:`Credentials <credentials-api-doc>`).
-                - `create_table_if_not_exists` : bool (optional), If no existing table is detected,
-                  attempt to create it before writing data with the strategy defined in the
-                  statementType parameter.
+                - `data_store_id` : string
+                    The ID of the external data store connected to the JDBC data source (see
+                    :ref:`Database Connectivity <database-connectivity-overview>`).
+                - `table` : string
+                    The name of the specified database table.
+                - `schema` : string (optional)
+                    The name of the specified database schema.
+                - `catalog` : string (optional)
+                    (New in v2.22) The name of the specified database catalog.
+                - `statement_type` : string
+                    The type of insertion statement to create, one of
+                    ``datarobot.enums.AVAILABLE_STATEMENT_TYPES``.
+                - `update_columns` : list(string) (optional)
+                    A list of strings containing those column names to be updated in case
+                    `statement_type` is set to a value related to update or upsert.
+                - `where_columns` : list(string) (optional)
+                    A list of strings containing those column names to be selected in case
+                    `statement_type` is set to a value related to insert or update.
+                - `credential_id` : string
+                    The ID of the credentials holding information about a user with write-access to
+                    the JDBC data source (see :ref:`Credentials <credentials-api-doc>`).
+                - `create_table_if_not_exists` : bool (optional)
+                    If no existing table is detected, attempt to create it before writing data with
+                    the strategy defined in the ``statementType`` parameter.
 
             To save monitored data to Datasphere, add the next parameters to the settings:
 
-                - `data_store_id` : string, the ID of the external data store connected to
-                  the Datasphere data source (see
-                  :ref:`Database Connectivity <database-connectivity-overview>`).
-                - `table` : string,  the name of specified database table.
-                - `schema` : string, the name of specified database schema.
-                - `credential_id` : string, the ID of the credentials holding information about
-                  a user with write-access to the Datasphere data source (see
-                  :ref:`Credentials <credentials-api-doc>`).
+                - `data_store_id` : string
+                    The ID of the external data store connected to the Datasphere data source (see
+                    :ref:`Database Connectivity <database-connectivity-overview>`).
+                - `table` : string
+                    The name of the specified database table.
+                - `schema` : string
+                    The name of the specified database schema.
+                - `credential_id` : string
+                    The ID of the credentials holding information about a user with write-access to
+                    the Datasphere data source (see :ref:`Credentials <credentials-api-doc>`).
 
         csv_settings : dict (optional)
-            CSV intake and output settings. Supported options:
+            CSV intake and output settings. See supported options below.
 
-            - `delimiter` : string (optional, default `,`), fields are delimited by
-              this character. Use the string `tab` to denote TSV (TAB separated values).
-              Must be either a one-character string or the string `tab`.
-            - `quotechar` : string (optional, default `"`), fields containing the
-              delimiter must be quoted using this character.
-            - `encoding` : string (optional, default `utf-8`), encoding for the CSV
-              files. For example (but not limited to): `shift_jis`, `latin_1` or
-              `mskanji`.
+            - `delimiter` : string (optional, default `,`)
+                Fields are delimited by this character. Use the string `tab` to denote TSV (TAB
+                separated values). Must be either a one-character string or the string `tab`.
+            - `quotechar` : string (optional, default `"`)
+                Fields containing the delimiter must be quoted using this character.
+            - `encoding` : string (optional, default `utf-8`)
+                Encoding for the CSV files. For example (but not limited to): `shift_jis`,
+                `latin_1` or `mskanji`.
 
         num_concurrent : int (optional)
             Number of concurrent chunks to score simultaneously. Defaults to
@@ -376,7 +380,7 @@ class BatchMonitoringJob(AbstractBatchJob):
 
         abort_on_error : boolean (optional)
              Default behavior is to abort the job if too many rows fail scoring. This will free
-             up resources for other jobs that may score successfully. Set to `false` to
+             up resources for other jobs that may score successfully. Use ``false`` to
              unconditionally score every row no matter how many errors are encountered.
              Defaults to `True`.
 
@@ -522,7 +526,7 @@ class BatchMonitoringJob(AbstractBatchJob):
         self._delete(ignore_404_errors)
 
     def get_status(self) -> Any:
-        """Get status of batch monitoring job
+        """Get the status of the batch monitoring job
 
         Returns
         -------
@@ -605,12 +609,12 @@ class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-
 
     @classmethod
     def get(cls, batch_monitoring_job_definition_id: str) -> BatchMonitoringJobDefinition:
-        """Get batch monitoring job definition
+        """Get a batch monitoring job definition
 
         Attributes
         ----------
         batch_monitoring_job_definition_id: str
-            ID of batch monitoring job definition
+            ID of batch monitoring job definition.
 
         Returns
         -------
@@ -632,7 +636,7 @@ class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-
     @classmethod
     def list(cls) -> List[BatchMonitoringJobDefinition]:
         """
-        Get job all monitoring job definitions
+        Returns a list of all monitoring job definitions.
 
         Returns
         -------
@@ -663,7 +667,7 @@ class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-
         schedule: Optional[Schedule] = None,
     ) -> BatchMonitoringJobDefinition:
         """
-        Creates a new batch monitoring job definition to be run either at scheduled interval or as
+        Creates a new batch monitoring job definition that runs either on a schedule or as
         a manual run.
 
         Attributes
@@ -674,7 +678,7 @@ class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-
 
         batch_monitoring_job: dict
             The job specifications for your batch monitoring job.
-            It requires the same job input parameters as used with BatchMonitoringJob
+            It requires the same job input parameters as used with BatchMonitoringJob.
 
         name : string (optional)
             The name you want your job to be identified with. Must be unique across the

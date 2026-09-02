@@ -1,0 +1,52 @@
+[project]
+name = "unifi-core"
+dynamic = ["version"]
+description = "UniFi controller connectivity: auth, detection, retry, exceptions"
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp>=3.14.3",
+    "pydantic>=2.10.0",
+    "pyyaml>=6.0",
+]
+
+# Product libraries are imported by `unifi_core/{network,protect,access}/`
+# manager modules. They live here as extras (rather than required deps or
+# in each consumer's pyproject) so consumers can opt in to the products
+# they need and can't accidentally forget to install one — that failure
+# mode hit prod historically. Versions floor at the lowest tested.
+[project.optional-dependencies]
+network = ["aiounifi>=92"]
+protect = [
+    "uiprotect>=15.14.2",
+    # uiprotect permits older PyJWT releases; published Core wheels must enforce
+    # the advisory-safe floor even when installed over an existing environment.
+    "PyJWT>=2.13.0",
+]
+access = ["py-unifi-access>=1.1.1"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.21.0",
+    "aioresponses>=0.7.9",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+raw-options.root = "../.."
+raw-options.tag_regex = "^core/v(?P<version>\\d+(?:\\.\\d+)*)(?:\\S*)$"
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "core/v*"]
+raw-options.fallback_version = "0.0.0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/unifi_core/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/unifi_core"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

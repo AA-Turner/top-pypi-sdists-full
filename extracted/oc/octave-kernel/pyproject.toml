@@ -1,0 +1,143 @@
+[build-system]
+requires = ["hatchling >=1.5"]
+build-backend = "hatchling.build"
+
+[project]
+name = "octave_kernel"
+description = "'A Jupyter kernel for Octave.'"
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
+authors = [{name = "'Steven Silvester'", email = "steven.silvester@ieee.org"}]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Free Threading",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+    "Topic :: System :: Shells",
+    "Typing :: Typed",
+]
+urls = {Homepage = "http://github.com/Calysto/octave_kernel"}
+requires-python = ">=3.11"
+version = "1.1.1"
+dependencies = [
+    "metakernel >=1.0.6",
+    "jupyter_client >=8.1.0",
+    "ipykernel >=6.22.0",
+    "rpds-py (>=2026.5.1)",
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[dependency-groups]
+dev = ["pre-commit", "jupyter-console"]
+test = ["pytest", "nbclient", "jupyter_kernel_test"]
+# Split out so `typing` stays a homogeneous array (all table entries) — a mixed
+# string/table array crashes Dependabot's Poetry resolver (toml-rb).
+typing-extra = ["pip", "mypy>=1.0"]
+typing = [{ include-group = "test" }, { include-group = "typing-extra" }]
+coverage = ["pytest", "pytest-cov"]
+benchmark = ["asv"]
+docs = ["mkdocs>=1.5", "mkdocs-material>=9.0", "mkdocstrings[python]>=0.24", "mkdocs-jupyter>=0.24,!=0.26.0"]
+
+[tool.poetry]
+package-mode = true
+
+# Used to call hatch_build.py
+[tool.hatch.build.hooks.custom]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"jupyter-data" = "share/jupyter/kernels/octave"
+
+[tool.hatch.build.targets.sdist]
+artifacts = ["jupyter-data"]
+include = [
+    "/jupyter-data",
+    "/octave_kernel",
+    "/tests",
+    "/docs",
+    "/*.md",
+    "/*.ipynb",
+    "/*.py",
+    "/mkdocs.yml",
+]
+
+[tool.coverage.run]
+relative_files = true
+
+[tool.pytest]
+minversion = "9.0"
+addopts = ["-ra", "--showlocals"]
+strict = true
+filterwarnings = ["error"]
+log_level = "INFO"
+testpaths = [
+  "tests",
+]
+
+[tool.interrogate]
+ignore-init-module=true
+ignore-init-method = true
+ignore-private=true
+ignore-property-decorators=true
+ignore-nested-functions=true
+ignore-nested-classes=true
+fail-under=100
+exclude = ["tests", "docs"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
+exclude = [
+    "hatch_build.*\\.py",
+    "env/"
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disable_error_code = ["no-untyped-def", "no-untyped-call"]
+
+[[tool.mypy.overrides]]
+module = "benchmarks.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["jupyter_kernel_test.*"]
+ignore_missing_imports = true
+
+[tool.pydoclint]
+style = 'numpy'
+arg-type-hints-in-signature = true
+arg-type-hints-in-docstring = false
+check-return-types = false
+allow-init-docstring = true
+skip-checking-raises = true
+native-mode-noqa-location = "docstring"
+
+[tool.ruff.lint]
+extend-select = [
+  "B",      # flake8-bugbear
+  "I",      # isort
+  "RUF",    # Ruff-specific
+  "S",      # flake8-bandit
+  "UP",     # pyupgrade
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S107", "S108", "S607"]
+"test_*.py" = ["S101", "S107", "S108", "S607"]
+
+[tool.check-wheel-contents]
+ignore = ["W002"]

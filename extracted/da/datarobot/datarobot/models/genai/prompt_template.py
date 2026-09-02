@@ -98,7 +98,7 @@ class PromptTemplateVersion(APIObject):
     version : int
         Version number.
     variables : List[Variable]
-        List of variables used in the prompt.
+        A list of variables used in the prompt.
     creation_date : str
         ISO-8601 formatted timestamp of when the version was created.
     creation_user_id : str
@@ -191,7 +191,7 @@ class PromptTemplateVersion(APIObject):
         prompt_text : str
             The prompt text with variables in {{variable}} format.
         variables : List[Variable], optional
-            List of Variable objects defining the variables used in the prompt template.
+            A list of Variable objects defining the variables used in the prompt template.
         commit_comment : str, optional
             Comment describing this version.
 
@@ -238,7 +238,7 @@ class PromptTemplateVersion(APIObject):
         prompt_template_id: str,
     ) -> List[PromptTemplateVersion]:
         """
-        List all versions of a prompt template.
+        Returns a list of all versions of a prompt template.
 
         Parameters
         ----------
@@ -276,7 +276,7 @@ class PromptTemplateVersion(APIObject):
         prompt_template_ids: Optional[List[str]] = None,
     ) -> List[PromptTemplateVersion]:
         """
-        List prompt template versions across multiple templates.
+        Returns a list of prompt template versions across multiple templates.
 
         Parameters
         ----------
@@ -384,7 +384,7 @@ class PromptTemplateVersion(APIObject):
         Raises
         ------
         ValueError
-            If prompt_text is None.
+            If ``prompt_text`` is None.
 
         Examples
         --------
@@ -510,7 +510,7 @@ class PromptTemplate(APIObject):
         search: Optional[str] = None,
     ) -> List[PromptTemplate]:
         """
-        List all prompt templates available to the user.
+        Returns a list of all prompt templates available to the user.
 
         Parameters
         ----------
@@ -596,7 +596,7 @@ class PromptTemplate(APIObject):
         prompt_text : str
             The prompt text with variables in {{variable}} format.
         variables : List[Variable], optional
-            List of Variable objects defining the variables used in the prompt template.
+            A list of Variable objects defining the variables used in the prompt template.
             Defaults to None, which sends an empty list to the API.
         commit_comment : str, optional
             Comment describing this version.
@@ -631,7 +631,7 @@ class PromptTemplate(APIObject):
 
     def list_versions(self) -> List[PromptTemplateVersion]:
         """
-        List all versions of this prompt template.
+        Returns a list of all versions of this prompt template.
 
         Returns
         -------

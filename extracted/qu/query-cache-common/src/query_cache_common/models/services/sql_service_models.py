@@ -55,18 +55,11 @@ class SubmitEnrichedSQLRequest(BaseSerDeModel):
     table_namespace: t.Optional[str] = None
 
 
-@proto_dataclass(sql_service_pb2.QueryHashMatchMetadataInfo)
-class QueryHashMatchMetadataInfo(BaseSerDeModel):
-    semantic_hash_match: bool
-    data_hash_match: bool
-
-
 @proto_dataclass(sql_service_pb2.ReadyToExecuteResponse)
 class ReadyToExecuteResponse(BaseSerDeModel):
     request_id: str
     explained_decision: shared_models.ExplainedDecision
     transformed_nodes_by_query: TransformedNodesByQuery = transformed_nodes_by_query_field()
-    query_hash_metadata_info: t.Optional[QueryHashMatchMetadataInfo] = None
     last_modified_query: str = ""  # Deprecated
     execution_decision_id: t.Optional[str] = ""
 

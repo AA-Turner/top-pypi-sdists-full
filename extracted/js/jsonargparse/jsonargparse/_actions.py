@@ -1,5 +1,6 @@
 """Collection of useful actions to define arguments."""
 
+import inspect
 import os
 import re
 import sys
@@ -9,7 +10,15 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
 
-from ._common import Action, NonParsingAction, get_parsing_setting, is_subclass, is_subclasses_disabled, parser_context
+from ._common import (
+    Action,
+    ImportDenied,
+    NonParsingAction,
+    get_parsing_setting,
+    is_subclass,
+    is_subclasses_disabled,
+    parser_context,
+)
 from ._loaders_dumpers import get_loader_exceptions, load_value
 from ._namespace import Namespace
 from ._optionals import _get_config_read_mode, ruamel_support
@@ -22,6 +31,7 @@ from ._util import (
     get_import_path,
     import_object,
     indent_text,
+    iter_to_or_str,
     iter_to_set_str,
     load_config_path_context,
     merge_config,
@@ -288,6 +298,8 @@ class _ActionConfigLoad(Action):
         def resolve_class(class_path):
             try:
                 return import_object(resolve_class_path_by_name(self.basetype, class_path))
+            except ImportDenied:
+                raise
             except Exception:
                 return None
 
@@ -321,7 +333,7 @@ class _ActionConfigLoad(Action):
             with load_config_path_context(cfg_path), change_to_path_dir(cfg_path):
                 cfg = parser._apply_actions(cfg, parent_key=self.dest)
             return cfg
-        except SubclassesDisabledError as ex:
+        except (SubclassesDisabledError, ImportDenied) as ex:
             raise TypeError(f'Parser key "{self.dest}":\n{indent_text(str(ex))}') from ex
         except (TypeError,) + get_loader_exceptions() as ex:
             str_ex = indent_text(f"- {ex}")
@@ -342,15 +354,15 @@ class _ActionHelpClassPath(NonParsingAction):
             super().__init__(**kwargs)
 
     def update_init_kwargs(self, kwargs):
-        from ._typehints import get_help_types, is_protocol, is_typed_dict
+        from ._typehints import get_help_types, is_namedtuple, is_protocol, is_structured_value_type, is_typed_dict
 
         self._typehint = kwargs.pop("_typehint")
         self._help_types = get_help_types(self._typehint)
-        typed_dicts = [t for t in self._help_types if is_typed_dict(t)]
-        # a subscripted generic typed dict is a generic alias instead of a class, see get_typed_dict_type
-        assert self._help_types and all(isinstance(b, type) for b in self._help_types if b not in typed_dicts)
+        # a subscripted generic typed dict or named tuple is a generic alias instead of a class
+        structured = [t for t in self._help_types if is_structured_value_type(t)]
+        assert self._help_types and all(isinstance(b, type) for b in self._help_types if b not in structured)
         # a single type means that the help refers to it, so no value is expected
-        single_type = len(self._help_types) == 1 and (is_subclasses_disabled(self._help_types[0]) or bool(typed_dicts))
+        single_type = len(self._help_types) == 1 and (is_subclasses_disabled(self._help_types[0]) or bool(structured))
         self._basename = iter_to_set_str(t.__name__ for t in self._help_types)
 
         if len(self._help_types) == 1:
@@ -363,13 +375,15 @@ class _ActionHelpClassPath(NonParsingAction):
             self._kind = "subclass of"
             if any(is_protocol(b) for b in self._help_types):
                 self._kind = "subclass or implementer of protocol"
-            if typed_dicts:
-                # a typed dict is given by name, since it doesn't accept a class path
-                if len(typed_dicts) == len(self._help_types):
+            if structured:
+                # a typed dict or named tuple is given by name, since it doesn't accept a class path
+                kinds = ["typed dict"] if any(is_typed_dict(t) for t in structured) else []
+                kinds += ["named tuple"] if any(is_namedtuple(t) for t in structured) else []
+                if len(structured) == len(self._help_types):
                     kwargs["metavar"] = "NAME"
-                    self._kind = "typed dict"
                 else:
-                    self._kind = "class or typed dict"
+                    kinds.insert(0, "class")
+                self._kind = iter_to_or_str(kinds)
             msg = f"the given {self._kind} "
 
         kwargs["default"] = SUPPRESS
@@ -382,15 +396,15 @@ class _ActionHelpClassPath(NonParsingAction):
         return self.print_help(args)
 
     def resolve_help_type(self, value, option_string):
-        from ._typehints import implements_protocol, is_typed_dict, resolve_class_path_by_name
+        from ._typehints import implements_protocol, is_structured_value_type, resolve_class_path_by_name
 
         if self.nargs == 0 or (self.nargs == "?" and value is None):
             return self._help_types[0]
-        typed_dict = next((t for t in self._help_types if is_typed_dict(t) and t.__name__ == value), None)
-        if typed_dict:
-            return typed_dict
-        # typed dicts excluded since they don't have subclasses that a class path could refer to
-        class_types = tuple(t for t in self._help_types if not is_typed_dict(t))
+        structured = next((t for t in self._help_types if is_structured_value_type(t) and t.__name__ == value), None)
+        if structured:
+            return structured
+        # structured value types excluded, they don't have subclasses that a class path could refer to
+        class_types = tuple(t for t in self._help_types if not is_structured_value_type(t))
         val_class = None
         if class_types:
             try:
@@ -399,6 +413,8 @@ class _ActionHelpClassPath(NonParsingAction):
                 raise TypeError(f"{option_string}: {ex}") from ex
         if not any(is_subclass(val_class, b) or implements_protocol(val_class, b) for b in class_types):
             raise TypeError(f'{option_string}: "{value}" is not a {self._kind} {self._basename}')
+        if not inspect.isclass(val_class):  # a function that implements a callable protocol
+            raise TypeError(f'{option_string}: "{value}" is not a class, so it has no help')
         return val_class
 
     def print_help(self, call_args):
@@ -560,7 +576,7 @@ class ActionParser:
             ValueError: If the parser parameter is invalid.
         """
         self._parser = parser
-        if not isinstance(self._parser, import_object("jsonargparse.ArgumentParser")):
+        if not isinstance(self._parser, __import__("jsonargparse").ArgumentParser):
             raise ValueError("Expected parser keyword argument to be an ArgumentParser.")
 
     @staticmethod

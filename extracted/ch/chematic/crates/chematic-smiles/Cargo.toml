@@ -1,0 +1,44 @@
+[package]
+name = "chematic-smiles"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "OpenSMILES parser, writer and canonical SMILES for chematic — pure Rust, WASM-compatible"
+keywords = ["smiles", "parser", "cheminformatics", "rdkit", "wasm"]
+categories = ["science", "science::computational-chemistry::cheminformatics", "parser-implementations", "algorithms"]
+readme = "README.md"
+homepage.workspace = true
+documentation = "https://docs.rs/chematic-smiles"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+chematic-core = { path = "../chematic-core", version = "0.49.0" }
+# Production use: `compute_stereo_alkene_ends` (canonical.rs) needs SSSR ring
+# membership to exclude endocyclic small-ring double bonds from marker-carrier
+# candidacy (issue #149's ring-constrained residual, see
+# docs/rfcs/ez_ring_constrained_residual_audit.md). chematic-perception's own
+# dev-dependency on chematic-smiles (for its own tests) does not create a
+# cycle here -- dev-dependencies never appear in a published crate's library
+# graph, only test binaries. Was previously a dev-only dependency of this
+# crate for a different reason (re-aromatizing test fixtures); now also a
+# real one.
+chematic-perception = { path = "../chematic-perception", version = "0.49.0" }
+
+[features]
+# Feature-gated internal work counters for the orbit-pruning canonical
+# search (`src/canonical_search.rs`). Off by default -- every counter bump
+# compiles to nothing without this feature, matching the existing
+# `chematic-rxn`/`perf-instrumentation` pattern (`docs/rfcs/reaction_transform_perf.md`).
+canonical-search-instrumentation = []
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["html_reports"] }
+
+[[bench]]
+name = "parse_bench"
+harness = false

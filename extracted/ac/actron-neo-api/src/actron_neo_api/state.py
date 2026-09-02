@@ -1,0 +1,126 @@
+"""State management module for Actron Air systems."""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Any, Callable
+
+from .models import ActronAirStatus
+
+if TYPE_CHECKING:
+    from .actron import ActronAirAPI
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class StateManager:
+    """Manages the state of Actron Air systems, handling updates and state merging."""
+
+    def __init__(self) -> None:
+        """Initialize the state manager.
+
+        Creates empty dictionaries for system status tracking
+        and initializes observer list for state change notifications.
+        """
+        self.status: dict[str, ActronAirStatus] = {}
+        self._observers: list[Callable[[str, dict[str, Any]], None]] = []
+        self._api: "ActronAirAPI | None" = None
+
+    def set_api(self, api: "ActronAirAPI") -> None:
+        """Set the API reference to be passed to status objects.
+
+        Args:
+            api: Reference to the ActronAirAPI instance
+
+        """
+        self._api = api
+
+        # Update existing status objects with the API reference
+        for status in self.status.values():
+            status.set_api(api)
+
+    def add_observer(self, observer: Callable[[str, dict[str, Any]], None]) -> None:
+        """Add an observer to be notified of state changes.
+
+        Duplicate observers are silently ignored.
+
+        Args:
+            observer: Callback function that takes (serial_number, status_data)
+
+        """
+        if observer not in self._observers:
+            self._observers.append(observer)
+
+    def remove_observer(self, observer: Callable[[str, dict[str, Any]], None]) -> None:
+        """Remove a previously registered observer.
+
+        Args:
+            observer: The callback to remove
+
+        """
+        try:
+            self._observers.remove(observer)
+        except ValueError:
+            pass
+
+    def get_status(self, serial_number: str) -> ActronAirStatus | None:
+        """Get the status for a specific system.
+
+        Args:
+            serial_number: Serial number of the AC system
+
+        Returns:
+            ActronAirStatus object if found, None otherwise
+
+        """
+        # Normalize serial number to lowercase for consistent lookup
+        return self.status.get(serial_number.lower())
+
+    def process_status_update(
+        self, serial_number: str, status_data: dict[str, Any] | ActronAirStatus
+    ) -> ActronAirStatus:
+        """Process a full status update for a system.
+
+        Args:
+            serial_number: Serial number of the AC system
+            status_data: Complete status data from API or ActronAirStatus object
+
+        Returns:
+            Updated ActronAirStatus object
+
+        Note:
+            This parses nested components, maps peripheral data to zones,
+            and notifies all registered observers.
+
+        """
+        if isinstance(status_data, ActronAirStatus):
+            status = status_data
+            raw_data = status.last_known_state
+        else:
+            status = ActronAirStatus.model_validate(status_data)
+            status.parse_nested_components()
+            raw_data = status_data
+
+        # Normalize serial number to lowercase for consistent storage
+        serial_number = serial_number.lower()
+
+        # Set serial number and API reference
+        status.serial_number = serial_number
+        if self._api:
+            status.set_api(self._api)
+
+        self.status[serial_number] = status
+
+        # Notify observers with a shallow copy — don't let observer errors break the update
+        for observer in self._observers:
+            try:
+                observer(serial_number, dict(raw_data) if isinstance(raw_data, dict) else raw_data)
+            except Exception as e:
+                _LOGGER.warning(
+                    "Observer callback failed for %s: %s",
+                    serial_number,
+                    e,
+                    exc_info=True,
+                )
+
+        return status

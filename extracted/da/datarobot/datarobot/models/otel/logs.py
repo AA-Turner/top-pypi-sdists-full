@@ -23,7 +23,7 @@ from datarobot.utils.pagination import unpaginate
 
 
 class OtelLogEntry(APIObject):
-    """An Otel log entry.
+    """An ``OTel`` log entry.
 
     .. versionadded:: v3.9
 
@@ -83,14 +83,14 @@ class OtelLogEntry(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List[OtelLogEntry]:
-        """List the log entries associated with the specified entity type/id.
+        """Returns a list of log entries associated with the specified entity type/ID.
 
         .. versionadded:: v3.9
 
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g., deployment or use_case).
+            The entity type of the log entries (e.g., deployment or ``use_case``).
         entity_id: str
             The entity ID of the log entries (e.g., `123456`).
         start_time: Optional[datetime | date | str]
@@ -151,14 +151,14 @@ class OtelLogEntry(APIObject):
         start_time: Optional[datetime | date | str] = None,
         end_time: Optional[datetime | date | str] = None,
     ) -> None:
-        """Delete all the log entries associated with the specified entity type/id.
+        """Deletes the log entries associated with the specified entity type/ID.
 
         .. versionadded:: v3.13
 
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g., deployment or use_case).
+            The entity type of the log entries (e.g., deployment or ``use_case``).
         entity_id: str
             The entity ID of the log entries (e.g., `123456`).
         start_time: Optional[datetime | date | str]

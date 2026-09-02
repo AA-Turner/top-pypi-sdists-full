@@ -1,0 +1,54 @@
+version: "3.9"
+
+services:
+  scraper:
+    build:
+      context: ../../
+      dockerfile: packages/matrx-scraper/Dockerfile
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      # --- Required ---
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+
+      # THE ONE DATABASE (Matrx Main) — both `web.*` and `scraper.*`. Never add
+      # a service-local connection string here: that is how `scraper.*` forked
+      # onto a second Postgres.
+      SUPABASE_MATRIX_HOST: ${SUPABASE_MATRIX_HOST}
+      SUPABASE_MATRIX_PORT: ${SUPABASE_MATRIX_PORT:-5432}
+      SUPABASE_MATRIX_DATABASE_NAME: ${SUPABASE_MATRIX_DATABASE_NAME:-postgres}
+      SUPABASE_MATRIX_USER: ${SUPABASE_MATRIX_USER}
+      SUPABASE_MATRIX_PASSWORD: ${SUPABASE_MATRIX_PASSWORD}
+      SUPABASE_MATRIX_URL: ${SUPABASE_MATRIX_URL}
+      SUPABASE_MATRIX_SECRET_KEY: ${SUPABASE_MATRIX_SECRET_KEY}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_S3_DEFAULT_BUCKET: ${AWS_S3_DEFAULT_BUCKET}
+      MATRX_SCRAPER_BASE_DIR: ${MATRX_SCRAPER_BASE_DIR:-/tmp/matrx-scraper}
+
+      # --- Optional auth ---
+      # ADMIN_USER_ID removed in 2026-05 — env-value-as-user-identity is
+      # forbidden. AuthMiddleware accepts only Supabase JWTs.
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-}
+
+      # --- Search ---
+      BRAVE_SEARCH_API_KEY_PRO_AI: ${BRAVE_SEARCH_API_KEY_PRO_AI:-}
+      PROXY_DATACENTER_URL: ${PROXY_DATACENTER_URL:-}
+      PROXY_RESIDENTIAL_URL: ${PROXY_RESIDENTIAL_URL:-}
+      # No ENABLE_* toggles and no BROWSER_POOL_SIZE: the cache, domain-config
+      # store, and browser pool are unconditional, and the pool size is the
+      # DEFAULT_BROWSER_POOL_SIZE code constant. Behavior never lives in env.
+
+      # --- Server ---
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      WORKERS: ${WORKERS:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/ready"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3

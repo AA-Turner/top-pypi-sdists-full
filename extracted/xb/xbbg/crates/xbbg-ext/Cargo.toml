@@ -1,28 +1,35 @@
 [package]
 name = "xbbg-ext"
 version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-edition.workspace = true
-description = "Extension utilities for xbbg - futures resolution, currency adjustment, historical data helpers"
+homepage.workspace = true
+readme = "README.md"
+description = "Extension utilities for xbbg: futures resolution, currency adjustment, and historical helpers"
+keywords = ["bloomberg", "market-data", "finance", "timezones", "xbbg"]
+categories = ["finance", "date-and-time"]
+publish = ["crates-io"]
+include = ["src/**/*.rs", "data/*.toml", "Cargo.toml", "README.md"]
 
 [dependencies]
 # Arrow for zero-copy DataFrame operations (narrow crates keep Python wheels small).
-arrow-array = { version = "59.0.0", default-features = false, features = ["chrono-tz"] }
-arrow-schema = "59.0.0"
+arrow-array = { workspace = true, features = ["chrono-tz"] }
+arrow-schema = { workspace = true }
 
 # Date/time handling
-chrono = { version = "0.4", default-features = false, features = ["std", "serde"] }
-chrono-tz = "0.10"
+chrono = { workspace = true, features = ["std", "serde"] }
+chrono-tz = { workspace = true }
 
 # Compile-time perfect hash maps for constants
-phf = { version = "0.14.0", features = ["macros"] }
+phf = { workspace = true }
 
 # Error handling
-thiserror = "2"
+thiserror = { workspace = true }
 
 # Market rules loading
-serde = { version = "1", features = ["derive"] }
-toml = "1.1.2"
+serde = { workspace = true }
+toml = { workspace = true }
 
 # Benchmarks have been consolidated into crates/xbbg-bench.

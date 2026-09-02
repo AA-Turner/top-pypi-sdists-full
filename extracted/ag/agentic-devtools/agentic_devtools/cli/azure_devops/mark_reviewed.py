@@ -1,0 +1,1291 @@
+"""
+Mark file as reviewed in Azure DevOps pull requests.
+
+This module handles marking files as "reviewed" in Azure DevOps PRs by:
+1. Updating the reviewer entry's reviewedFiles array via the Reviewers API
+2. Syncing the viewed status via the Contribution API for UI display
+
+The implementation mirrors the functionality of the original mark-file-reviewed.ps1.
+"""
+
+import sys
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
+from urllib.parse import quote
+
+from .auth import get_auth_headers, get_pat
+from .config import AzureDevOpsConfig
+from .helpers import require_requests
+
+# =============================================================================
+# Data Classes
+# =============================================================================
+
+_MAX_VIEWED_STATUS_BATCH_SIZE = 200
+
+
+@dataclass
+class AuthenticatedUser:
+    """Authenticated Azure DevOps user information."""
+
+    display_name: str | None
+    descriptor: str | None
+    storage_key: str | None
+    subject_descriptor: str | None
+
+
+@dataclass
+class CachedReviewerContext:
+    """Pre-fetched reviewer context for batch operations.
+
+    Caches authenticated user details, auth headers, and reviewer entry
+    so that ``mark_file_reviewed()`` can skip redundant API calls when
+    processing multiple files in a single batch.
+
+    ``reviewer_entry`` is updated by ``mark_file_reviewed()`` after the
+    first successful ``_update_reviewer_entry()`` call, so subsequent
+    files in the batch skip the ``_get_reviewer_entry()`` GET.
+
+    ``project_id`` and ``existing_hash_tokens`` are resolved once per batch so
+    each file does not repeat the same Contribution API context lookups.
+    """
+
+    requests: Any  # requests module reference
+    headers: dict[str, str]
+    auth_user: AuthenticatedUser
+    reviewer_id: str
+    instance_id: str | None
+    organization_account_name: str | None
+    reviewer_entry: dict[str, Any] | None  # Updated after first successful review
+    project_id: str | None = None
+    existing_hash_tokens: list[str] | None = None
+
+
+@dataclass
+class ChangeEntry:
+    """PR iteration change entry for a file."""
+
+    change_tracking_id: int
+    object_id: str | None
+    path: str
+
+
+@dataclass
+class ViewedStatusBatchResult:
+    """Viewed-status synchronization outcome for a batch of files."""
+
+    synced_paths: list[str]
+    failed_paths: list[str]
+
+
+@dataclass
+class MarkFilesReviewedResult:
+    """Combined reviewer/update outcome for ``mark_files_reviewed()``."""
+
+    synced_paths: list[str]
+    failed_paths: list[str]
+    error: str | None = None
+
+    @property
+    def succeeded(self) -> bool:
+        """Whether every requested path was synchronized successfully."""
+        return not self.failed_paths
+
+
+class ViewedStatusSyncError(RuntimeError):
+    """Viewed-status synchronization failed after only partial progress."""
+
+    def __init__(self, message: str, *, synced_paths: list[str], failed_paths: list[str]) -> None:
+        super().__init__(message)
+        self.synced_paths = synced_paths
+        self.failed_paths = failed_paths
+
+
+# =============================================================================
+# Path Normalization
+# =============================================================================
+
+
+def normalize_repo_path(path: str | None) -> str | None:
+    """Normalize a file path to repository format (/path/to/file)."""
+    if not path or not path.strip():
+        return None
+    clean = path.strip().replace("\\", "/").strip("/")
+    if not clean:
+        return None
+    return f"/{clean}"
+
+
+# =============================================================================
+# Azure DevOps API Helpers
+# =============================================================================
+
+
+def _get_connection_data(requests, headers: dict[str, str], org_root: str) -> dict[str, Any]:
+    """
+    Get Azure DevOps connection data including authenticated user info.
+
+    Returns:
+        Connection data dictionary with authenticatedUser, instanceId, etc.
+    """
+    connection_headers = dict(headers)
+    connection_headers["Accept"] = "application/json;api-version=7.1-preview.1"
+
+    url = f"{org_root}/_apis/connectionData?api-version=7.1-preview.1"
+    response = requests.get(url, headers=connection_headers, timeout=30)
+    response.raise_for_status()
+    return response.json()
+
+
+def _extract_authenticated_user(connection_data: dict[str, Any]) -> AuthenticatedUser:
+    """Extract authenticated user info from connection data."""
+    auth_user = connection_data.get("authenticatedUser", {})
+
+    display_name = auth_user.get("providerDisplayName") or auth_user.get("customDisplayName")
+    descriptor = auth_user.get("descriptor")
+    storage_key = auth_user.get("storageKey") or auth_user.get("id")
+    subject_descriptor = auth_user.get("subjectDescriptor")
+
+    return AuthenticatedUser(
+        display_name=display_name,
+        descriptor=descriptor,
+        storage_key=storage_key,
+        subject_descriptor=subject_descriptor,
+    )
+
+
+def _get_organization_account_name(org_url: str) -> str | None:
+    """Extract organization account name from URL."""
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(org_url)
+    except Exception:  # pragma: no cover
+        return None
+
+    # Check path first (e.g., https://dev.azure.com/example-org -> example-org)
+    path = parsed.path.strip("/")
+    if path:
+        segments = [s for s in path.split("/") if s]
+        return segments[-1]
+
+    # Fall back to hostname (e.g., acme.visualstudio.com -> acme)
+    host_parts = parsed.hostname.split(".") if parsed.hostname else []
+    return host_parts[0] if host_parts else None
+
+
+def _get_graph_api_root(org_root: str) -> str:
+    """
+    Get the Graph API root URL for Azure DevOps.
+
+    For dev.azure.com URLs, the Graph API is at vssps.dev.azure.com.
+    """
+    import re
+
+    if re.match(r"^https?://dev\.azure\.com", org_root):
+        return re.sub(r"^https?://dev\.azure\.com", "https://vssps.dev.azure.com", org_root)
+    return org_root
+
+
+def _resolve_storage_key_via_graph(
+    requests,
+    headers: dict[str, str],
+    org_root: str,
+    descriptor: str,
+) -> str | None:
+    """
+    Resolve storage key (GUID) for a user via the Graph API.
+
+    The Reviewers API requires the storage key (GUID) as the identifier,
+    not the descriptor. This function fetches the storage key from the
+    Graph API when it's not available in the connection data.
+
+    Args:
+        requests: requests module
+        headers: Authorization headers
+        org_root: Organization root URL (e.g., https://dev.azure.com/example-org)
+        descriptor: User descriptor (e.g., aad.xxx or msa.xxx)
+
+    Returns:
+        Storage key (GUID) or None if resolution fails
+    """
+    graph_root = _get_graph_api_root(org_root)
+    encoded_descriptor = quote(descriptor, safe="")
+    url = f"{graph_root}/_apis/graph/users/{encoded_descriptor}?api-version=7.1-preview.1"
+
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("storageKey")
+    except Exception as e:
+        print(f"Warning: Failed to resolve storage key for descriptor '{descriptor}': {e}")
+        return None
+
+
+def _get_project_id_via_api(
+    requests,
+    headers: dict[str, str],
+    org_root: str,
+    project: str,
+) -> str:
+    """
+    Get project ID using Azure DevOps REST API.
+
+    This is preferred over subprocess calls to Azure CLI as it avoids
+    potential hangs and is more reliable cross-platform.
+    """
+    project_encoded = quote(project, safe="")
+    url = f"{org_root}/_apis/projects/{project_encoded}?api-version=7.1-preview.4"
+
+    response = requests.get(url, headers=headers, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+
+    project_id = data.get("id")
+    if not project_id:
+        raise RuntimeError(f"Empty project ID returned for '{project}'")
+    return project_id
+
+
+def _get_reviewer_entry(
+    requests,
+    headers: dict[str, str],
+    org_root: str,
+    project_encoded: str,
+    repo_id: str,
+    pull_request_id: int,
+    reviewer_id: str,
+) -> dict[str, Any] | None:
+    """
+    Get existing reviewer entry for the authenticated user.
+
+    Returns:
+        Reviewer entry dict or None if user is not yet a reviewer.
+    """
+    encoded_reviewer_id = quote(reviewer_id, safe="")
+    url = (
+        f"{org_root}/{project_encoded}/_apis/git/repositories/{repo_id}"
+        f"/pullRequests/{pull_request_id}/reviewers/{encoded_reviewer_id}"
+        "?api-version=7.2-preview.1"
+    )
+
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as e:
+        # Handle cases where user is not yet a reviewer
+        status_code = e.response.status_code if e.response is not None else None
+        treat_as_missing = False
+
+        if status_code == 404:
+            treat_as_missing = True
+        elif status_code == 400:
+            # Check for "Invalid argument value" in response body
+            try:
+                error_body = e.response.json() if e.response is not None else {}
+                error_message = error_body.get("message", "")
+                error_type = error_body.get("typeKey", "")
+                if "invalid argument" in error_message.lower() or error_type == "InvalidArgumentValueException":
+                    treat_as_missing = True
+            except Exception:
+                # Try raw text check as fallback
+                try:
+                    error_text = e.response.text if e.response is not None else ""
+                    if "invalid argument" in error_text.lower():
+                        treat_as_missing = True
+                except Exception:  # pragma: no cover
+                    pass
+
+        if treat_as_missing:
+            print("Current user is not yet a reviewer; will create reviewer entry.")
+            return None
+        raise
+    except Exception as e:  # pragma: no cover
+        # Generic fallback for other exceptions
+        error_str = str(e).lower()
+        if "404" in error_str or "invalid argument" in error_str:
+            print("Current user is not yet a reviewer; will create reviewer entry.")
+            return None
+        raise
+
+
+def _update_reviewer_entry(
+    requests,
+    headers: dict[str, str],
+    org_root: str,
+    project_encoded: str,
+    repo_id: str,
+    pull_request_id: int,
+    reviewer_id: str,
+    existing_entry: dict[str, Any] | None,
+    updated_reviewed_files: list[str],
+) -> None:
+    """Update or create reviewer entry with updated reviewedFiles list."""
+    encoded_reviewer_id = quote(reviewer_id, safe="")
+    url = (
+        f"{org_root}/{project_encoded}/_apis/git/repositories/{repo_id}"
+        f"/pullRequests/{pull_request_id}/reviewers/{encoded_reviewer_id}"
+        "?api-version=7.2-preview.1"
+    )
+
+    body = {
+        "id": reviewer_id,
+        "vote": existing_entry.get("vote", 0) if existing_entry else 0,
+        "isFlagged": existing_entry.get("isFlagged", False) if existing_entry else False,
+        "hasDeclined": existing_entry.get("hasDeclined", False) if existing_entry else False,
+        "reviewedFiles": updated_reviewed_files,
+    }
+
+    headers_with_content = dict(headers)
+    headers_with_content["Content-Type"] = "application/json"
+
+    # Use PATCH if updating existing, PUT if creating new
+    method = "PATCH" if existing_entry else "PUT"
+    print(f"Updating reviewer entry via {method}...")
+
+    try:
+        if method == "PATCH":
+            response = requests.patch(url, headers=headers_with_content, json=body, timeout=30)
+        else:
+            response = requests.put(url, headers=headers_with_content, json=body, timeout=30)
+
+        response.raise_for_status()
+        print("Reviewer entry updated successfully.")
+    except Exception as e:
+        print(f"Error during reviewer entry update: {e}")
+        raise
+
+
+# =============================================================================
+# Batch Context (module-level, single-threaded)
+# =============================================================================
+
+_batch_cached_context: CachedReviewerContext | None = None
+
+
+def set_batch_context(ctx: CachedReviewerContext | None) -> None:
+    """Set the module-level batch cached context.
+
+    Called by ``submit_reviews()`` before the batch loop to enable
+    ``mark_file_reviewed()`` to reuse pre-fetched reviewer details.
+    Must be cleared (set to ``None``) in a ``finally`` block after
+    the loop completes.
+    """
+    global _batch_cached_context
+    _batch_cached_context = ctx
+
+
+def get_batch_context() -> CachedReviewerContext | None:
+    """Return the current module-level batch cached context, or ``None``."""
+    return _batch_cached_context
+
+
+def _build_reviewer_context(config: AzureDevOpsConfig, *, status_label: str = "") -> CachedReviewerContext:
+    """Shared implementation for building a ``CachedReviewerContext``.
+
+    Contains the common setup logic used by both ``fetch_reviewer_context()``
+    (batch path) and ``mark_file_reviewed()`` (standalone path).
+
+    Args:
+        config: Azure DevOps configuration (used to compute ``org_root``).
+        status_label: Optional label appended to the status message
+            (e.g. ``"cached for batch"``).
+
+    Returns:
+        A fully-populated ``CachedReviewerContext`` with
+        ``reviewer_entry=None`` (lazily populated on first use).
+
+    Raises:
+        RuntimeError: When the reviewer identity cannot be resolved.
+        Exception: On network / auth failures from underlying API calls.
+    """
+    org_root = config.organization.rstrip("/")
+    if not org_root.startswith("http"):  # pragma: no cover
+        org_root = f"https://dev.azure.com/{org_root}"
+
+    requests = require_requests()
+    pat = get_pat()
+    headers = get_auth_headers(pat)
+
+    label_suffix = f" ({status_label})" if status_label else ""
+    print(f"Retrieving authenticated user details{label_suffix}...")
+    connection_data = _get_connection_data(requests, headers, org_root)
+    auth_user = _extract_authenticated_user(connection_data)
+    instance_id = connection_data.get("instanceId")
+    organization_account_name = _get_organization_account_name(org_root)
+
+    reviewer_id = auth_user.storage_key
+    if not reviewer_id:
+        descriptor_to_resolve = auth_user.subject_descriptor or auth_user.descriptor
+        if descriptor_to_resolve:  # pragma: no cover
+            print(f"Resolving storage key via Graph API for descriptor: {descriptor_to_resolve}")
+            reviewer_id = _resolve_storage_key_via_graph(requests, headers, org_root, descriptor_to_resolve)
+
+    if not reviewer_id:
+        raise RuntimeError("Unable to resolve reviewer identity (storage key) for current user.")
+
+    identity_summary = f"Authenticated as '{auth_user.display_name or reviewer_id}'"
+    if auth_user.descriptor:  # pragma: no cover
+        identity_summary += f" (descriptor: {auth_user.descriptor})"
+    identity_summary += f" (storageKey: {reviewer_id})"
+    print(identity_summary)
+
+    return CachedReviewerContext(
+        requests=requests,
+        headers=headers,
+        auth_user=auth_user,
+        reviewer_id=reviewer_id,
+        instance_id=instance_id,
+        organization_account_name=organization_account_name,
+        reviewer_entry=None,
+    )
+
+
+def fetch_reviewer_context(config: AzureDevOpsConfig) -> CachedReviewerContext:
+    """Perform the one-time setup to build a ``CachedReviewerContext``.
+
+    Delegates to ``_build_reviewer_context()`` with a batch-specific
+    status label.  This is the public entry point used by
+    ``submit_reviews()`` to prefetch reviewer details once per batch.
+
+    Args:
+        config: Azure DevOps configuration (used to compute ``org_root``).
+
+    Returns:
+        A fully-populated ``CachedReviewerContext`` with
+        ``reviewer_entry=None`` (lazily populated on first use).
+
+    Raises:
+        RuntimeError: When the reviewer identity cannot be resolved.
+        Exception: On network / auth failures from underlying API calls.
+    """
+    return _build_reviewer_context(config, status_label="cached for batch")
+
+
+# =============================================================================
+# Viewed Status Sync (Contribution API)
+# =============================================================================
+
+
+def _get_existing_viewed_state_tokens(
+    requests,
+    headers: dict[str, str],
+    org_root: str,
+    project_id: str,
+    repo_id: str,
+    pull_request_id: int,
+) -> list[str]:
+    """
+    Get existing viewed state tokens from the PR visit data provider.
+
+    These tokens track which files have been "viewed" in the PR UI.
+    """
+    headers_with_content = dict(headers)
+    headers_with_content["Content-Type"] = "application/json"
+
+    url = f"{org_root}/_apis/Contribution/HierarchyQuery/project/{project_id}?api-version=7.1-preview.1"
+
+    payload = {
+        "contributionIds": ["ms.vss-code-web.pr-detail-visit-data-provider"],
+        "dataProviderContext": {
+            "properties": {
+                "repositoryId": repo_id,
+                "pullRequestId": pull_request_id,
+            }
+        },
+    }
+
+    try:
+        response = requests.post(url, headers=headers_with_content, json=payload, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        return []
+
+    provider = data.get("dataProviders", {}).get("ms.vss-code-web.pr-detail-visit-data-provider", {})
+    visit = provider.get("visit", {})
+    viewed_state_str = visit.get("viewedState")
+
+    if not viewed_state_str:
+        return []
+
+    # viewedState is a JSON string that needs to be parsed
+    import json
+
+    try:
+        viewed_state = json.loads(viewed_state_str)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+    hashes = viewed_state.get("hashes", {})
+    return list(hashes.keys()) if isinstance(hashes, dict) else []
+
+
+def _get_iteration_change_entry(
+    requests,
+    headers: dict[str, str],
+    base_url: str,
+    target_path: str,
+) -> ChangeEntry | None:
+    """
+    Find the change entry for a file across PR iterations.
+
+    Returns:
+        ChangeEntry with objectId and changeTrackingId, or None if not found.
+    """
+    target_lower = target_path.lower()
+    next_url = f"{base_url}&$top=200"
+
+    while next_url:
+        response = requests.get(next_url, headers=headers, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+
+        entries = data.get("value", []) or data.get("changeEntries", [])
+
+        for entry in entries:
+            item = entry.get("item", {})
+            entry_path = item.get("path", "")
+            if entry_path and entry_path.lower() == target_lower:
+                change_tracking_id = entry.get("changeTrackingId")
+                object_id = item.get("objectId")
+                if change_tracking_id:
+                    return ChangeEntry(
+                        change_tracking_id=change_tracking_id,
+                        object_id=object_id,
+                        path=entry_path,
+                    )
+
+        # Handle pagination
+        next_link = data.get("nextLink")
+        continuation_token = data.get("continuationToken")
+        next_skip = data.get("nextSkip")
+        next_top = data.get("nextTop")
+        if not continuation_token:
+            response_headers = getattr(response, "headers", None)
+            if isinstance(response_headers, Mapping):
+                continuation_token = response_headers.get("x-ms-continuationtoken")
+
+        if next_link:  # pragma: no cover
+            next_url = next_link
+        elif continuation_token:  # pragma: no cover
+            next_url = f"{base_url}&continuationToken={quote(continuation_token, safe='')}"
+        elif isinstance(next_skip, int) and isinstance(next_top, int):
+            next_url = f"{base_url}&$skip={next_skip}&$top={next_top}"
+        else:
+            next_url = None
+
+    return None
+
+
+def _get_iteration_change_entries(
+    requests,
+    headers: dict[str, str],
+    base_url: str,
+    target_paths: list[str],
+) -> dict[str, ChangeEntry]:
+    """Find change entries for multiple files with one paginated request chain."""
+    remaining = {path.lower(): path for path in target_paths}
+    found: dict[str, ChangeEntry] = {}
+    next_url = f"{base_url}&$top=200"
+
+    while next_url and remaining:
+        response = requests.get(next_url, headers=headers, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        entries = data.get("value", []) or data.get("changeEntries", [])
+        if not isinstance(entries, list):
+            entries = []
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            item = entry.get("item", {})
+            if not isinstance(item, dict):
+                continue
+            entry_path = item.get("path", "")
+            if not isinstance(entry_path, str) or not entry_path:
+                continue
+            target_key = entry_path.lower()
+            if target_key not in remaining:
+                continue
+            change_tracking_id = entry.get("changeTrackingId")
+            if not change_tracking_id:
+                continue
+            found[target_key] = ChangeEntry(
+                change_tracking_id=change_tracking_id,
+                object_id=item.get("objectId"),
+                path=entry_path,
+            )
+            remaining.pop(target_key)
+
+        next_link = data.get("nextLink")
+        continuation_token = data.get("continuationToken")
+        next_skip = data.get("nextSkip")
+        next_top = data.get("nextTop")
+        if not continuation_token:
+            response_headers = getattr(response, "headers", None)
+            if isinstance(response_headers, Mapping):
+                continuation_token = response_headers.get("x-ms-continuationtoken")
+        if next_link:  # pragma: no cover
+            next_url = next_link
+        elif continuation_token:  # pragma: no cover
+            next_url = f"{base_url}&continuationToken={quote(continuation_token, safe='')}"
+        elif isinstance(next_skip, int) and isinstance(next_top, int):
+            next_url = f"{base_url}&$skip={next_skip}&$top={next_top}"
+        else:
+            next_url = None
+
+    return found
+
+
+def _sync_viewed_status(
+    requests,
+    headers: dict[str, str],
+    org_root: str,
+    project: str,
+    project_id: str,
+    repository: str,
+    repo_id: str,
+    pull_request_id: int,
+    normalized_path: str,
+    organization_account_name: str | None,
+    instance_id: str | None,
+    existing_hash_tokens: list[str],
+) -> None:
+    """
+    Sync the viewed status for a file via the Contribution API.
+
+    This makes the file appear as "viewed" (eye icon) in the Azure DevOps PR UI.
+    """
+    project_encoded = quote(project, safe="")
+
+    # Get iterations to find the change entry
+    iterations_url = (
+        f"{org_root}/{project_encoded}/_apis/git/repositories/{repo_id}"
+        f"/pullRequests/{pull_request_id}/iterations?api-version=7.1-preview.1"
+    )
+
+    response = requests.get(iterations_url, headers=headers, timeout=30)
+    response.raise_for_status()
+    iterations_data = response.json()
+
+    iterations = iterations_data.get("value", [])
+    if not iterations:
+        print("Unable to resolve pull request iterations for viewed status sync.")
+        return
+
+    # Sort by ID descending to check most recent first
+    iterations = sorted(iterations, key=lambda x: int(x.get("id", 0)), reverse=True)
+
+    # Find change entry for the file
+    change_entry = None
+    for iteration in iterations:
+        iteration_id = iteration.get("id")
+        if not iteration_id:  # pragma: no cover
+            continue
+
+        base_changes_url = (
+            f"{org_root}/{project_encoded}/_apis/git/repositories/{repo_id}"
+            f"/pullRequests/{pull_request_id}/iterations/{iteration_id}/changes"
+            "?api-version=7.1-preview.1"
+        )
+
+        change_entry = _get_iteration_change_entry(requests, headers, base_changes_url, normalized_path)
+        if change_entry:
+            break
+
+    if not change_entry:
+        print(f"Unable to find change entry for '{normalized_path}'; skipping viewed status sync.")
+        return
+
+    if not change_entry.object_id:
+        print("Change entry missing object hash; skipping viewed status sync.")
+        return
+
+    # Build modify-hash tokens
+    path_without_leading = normalized_path.lstrip("/")
+    tokens_from_existing = []
+
+    normalized_lower = normalized_path.lower()
+    trimmed_lower = path_without_leading.lower()
+
+    for token in existing_hash_tokens:
+        if not token:
+            continue  # pragma: no cover
+        token_lower = token.lower()
+        if token_lower.endswith(f"@{normalized_lower}") or (
+            trimmed_lower and token_lower.endswith(f"@{trimmed_lower}")
+        ):
+            tokens_from_existing.append(token)
+
+    # Generate token from object ID
+    generated_token = None
+    if change_entry.object_id:  # pragma: no cover
+        upper_object_id = change_entry.object_id.upper()
+        hash_prefix_length = min(8, len(upper_object_id))
+        hash_prefix = upper_object_id[:hash_prefix_length]
+        generated_token = f"1@{hash_prefix}@{normalized_path}"
+
+    unique_tokens = []
+    if generated_token:  # pragma: no cover
+        unique_tokens = [generated_token]
+    elif tokens_from_existing:  # pragma: no cover
+        # Prefer tokens starting with "1@"
+        preferred = [t for t in tokens_from_existing if t.startswith("1@")]
+        unique_tokens = list(set(preferred or tokens_from_existing))
+
+    if not unique_tokens:  # pragma: no cover
+        print(f"Unable to build modify-hash tokens for '{normalized_path}'; skipping viewed status sync.")
+        return
+
+    # Build source page for routing
+    source_page = None
+    if project and repository:
+        route_values = {
+            "project": project,
+            "GitRepositoryName": repository,
+            "parameters": str(pull_request_id),
+            "vctype": "git",
+            "controller": "ContributedPage",
+            "action": "Execute",
+        }
+        if instance_id:
+            service_host = f"{instance_id} ({organization_account_name})" if organization_account_name else instance_id
+            route_values["serviceHost"] = service_host
+
+        source_page = {
+            "url": f"{org_root}/{project}/_git/{repository}/pullrequest/{pull_request_id}?_a=files",
+            "routeId": "ms.vss-code-web.pull-request-details-route",
+            "routeValues": route_values,
+        }
+
+    # Build contribution payload
+    properties: dict[str, Any] = {
+        "repositoryId": repo_id,
+        "pullRequestId": pull_request_id,
+        "projectId": project_id,
+        "modifyViewedStatus": 2,  # Mark as viewed
+        "modifyHashes": unique_tokens,
+    }
+    if source_page:
+        properties["sourcePage"] = source_page
+
+    contribution_url = f"{org_root}/_apis/Contribution/HierarchyQuery/project/{project_id}?api-version=7.1-preview.1"
+
+    payload = {
+        "contributionIds": ["ms.vss-code-web.pr-detail-visit-data-provider"],
+        "dataProviderContext": {"properties": properties},
+    }
+
+    headers_with_content = dict(headers)
+    headers_with_content["Content-Type"] = "application/json"
+
+    print(f"Syncing viewed status for '{normalized_path}' via Contribution API...")
+    response = requests.post(contribution_url, headers=headers_with_content, json=payload, timeout=30)
+    response.raise_for_status()
+
+
+def _sync_viewed_status_batch(
+    requests,
+    headers: dict[str, str],
+    org_root: str,
+    project: str,
+    project_id: str,
+    repository: str,
+    repo_id: str,
+    pull_request_id: int,
+    normalized_paths: list[str],
+    organization_account_name: str | None,
+    instance_id: str | None,
+    existing_hash_tokens: list[str],
+) -> ViewedStatusBatchResult:
+    """Sync viewed status for multiple files using bounded Contribution requests."""
+    project_encoded = quote(project, safe="")
+    iterations_url = (
+        f"{org_root}/{project_encoded}/_apis/git/repositories/{repo_id}"
+        f"/pullRequests/{pull_request_id}/iterations?api-version=7.1-preview.1"
+    )
+
+    response = requests.get(iterations_url, headers=headers, timeout=30)
+    response.raise_for_status()
+    iterations_data = response.json()
+    iterations = iterations_data.get("value", [])
+    if not isinstance(iterations, list) or not iterations:
+        print("Unable to resolve pull request iterations for viewed status sync.")
+        return ViewedStatusBatchResult([], list(normalized_paths))
+
+    def _iteration_id(iteration: Any) -> int:
+        try:
+            return int(iteration.get("id", 0))
+        except (AttributeError, TypeError, ValueError):
+            return 0
+
+    remaining_paths = list(normalized_paths)
+    change_entries: dict[str, ChangeEntry] = {}
+    for iteration in sorted(iterations, key=_iteration_id, reverse=True):
+        if not isinstance(iteration, dict):
+            continue
+        iteration_id = iteration.get("id")
+        if not iteration_id:
+            continue
+        base_changes_url = (
+            f"{org_root}/{project_encoded}/_apis/git/repositories/{repo_id}"
+            f"/pullRequests/{pull_request_id}/iterations/{iteration_id}/changes"
+            "?api-version=7.1-preview.1"
+        )
+        entries = _get_iteration_change_entries(requests, headers, base_changes_url, remaining_paths)
+        change_entries.update(entries)
+        remaining_paths = [path for path in remaining_paths if path.lower() not in entries]
+        if not remaining_paths:
+            break
+
+    failed_paths: list[str] = []
+    path_tokens: list[tuple[str, str]] = []
+    for normalized_path in normalized_paths:
+        change_entry = change_entries.get(normalized_path.lower())
+        if change_entry is None:
+            print(f"Unable to find change entry for '{normalized_path}'; skipping viewed status sync.")
+            failed_paths.append(normalized_path)
+            continue
+
+        if change_entry.object_id:
+            upper_object_id = change_entry.object_id.upper()
+            hash_prefix = upper_object_id[: min(8, len(upper_object_id))]
+            path_tokens.append((normalized_path, f"1@{hash_prefix}@{normalized_path}"))
+            continue
+
+        matching_tokens = [
+            token
+            for token in existing_hash_tokens
+            if token
+            and (
+                token.lower().endswith(f"@{normalized_path.lower()}")
+                or token.lower().endswith(f"@{normalized_path.lstrip('/').lower()}")
+            )
+        ]
+        preferred_tokens = [token for token in matching_tokens if token.startswith("1@")]
+        if preferred_tokens:
+            path_tokens.extend((normalized_path, token) for token in preferred_tokens)
+        elif matching_tokens:
+            path_tokens.extend((normalized_path, token) for token in matching_tokens)
+        else:
+            print(f"Unable to build modify-hash tokens for '{normalized_path}'; skipping viewed status sync.")
+            failed_paths.append(normalized_path)
+
+    unique_path_tokens: list[tuple[str, str]] = []
+    seen_tokens: set[str] = set()
+    for normalized_path, token in path_tokens:
+        if token in seen_tokens:
+            continue
+        seen_tokens.add(token)
+        unique_path_tokens.append((normalized_path, token))
+    if not unique_path_tokens:
+        return ViewedStatusBatchResult([], list(dict.fromkeys(failed_paths)))
+
+    source_page = None
+    if project and repository:
+        route_values = {
+            "project": project,
+            "GitRepositoryName": repository,
+            "parameters": str(pull_request_id),
+            "vctype": "git",
+            "controller": "ContributedPage",
+            "action": "Execute",
+        }
+        if instance_id:
+            service_host = f"{instance_id} ({organization_account_name})" if organization_account_name else instance_id
+            route_values["serviceHost"] = service_host
+        source_page = {
+            "url": f"{org_root}/{project}/_git/{repository}/pullrequest/{pull_request_id}?_a=files",
+            "routeId": "ms.vss-code-web.pull-request-details-route",
+            "routeValues": route_values,
+        }
+
+    contribution_url = f"{org_root}/_apis/Contribution/HierarchyQuery/project/{project_id}?api-version=7.1-preview.1"
+    headers_with_content = dict(headers)
+    headers_with_content["Content-Type"] = "application/json"
+
+    synced_paths: list[str] = []
+    for start in range(0, len(unique_path_tokens), _MAX_VIEWED_STATUS_BATCH_SIZE):
+        token_pairs = unique_path_tokens[start : start + _MAX_VIEWED_STATUS_BATCH_SIZE]
+        token_batch = [token for _, token in token_pairs]
+        batch_paths = list(dict.fromkeys(path for path, _ in token_pairs))
+        properties: dict[str, Any] = {
+            "repositoryId": repo_id,
+            "pullRequestId": pull_request_id,
+            "projectId": project_id,
+            "modifyViewedStatus": 2,
+            "modifyHashes": token_batch,
+        }
+        if source_page:
+            properties["sourcePage"] = source_page
+
+        payload = {
+            "contributionIds": ["ms.vss-code-web.pr-detail-visit-data-provider"],
+            "dataProviderContext": {"properties": properties},
+        }
+
+        print(f"Syncing viewed status for {len(token_batch)} files via Contribution API...")
+        try:
+            response = requests.post(contribution_url, headers=headers_with_content, json=payload, timeout=30)
+            response.raise_for_status()
+        except Exception as exc:
+            pending_paths = list(dict.fromkeys(path for path, _ in unique_path_tokens[start:]))
+            raise ViewedStatusSyncError(
+                f"Failed to sync viewed status: {exc}",
+                synced_paths=list(dict.fromkeys(synced_paths)),
+                failed_paths=list(dict.fromkeys(failed_paths + pending_paths)),
+            ) from exc
+        synced_paths.extend(batch_paths)
+
+    return ViewedStatusBatchResult(
+        synced_paths=list(dict.fromkeys(synced_paths)),
+        failed_paths=list(dict.fromkeys(failed_paths)),
+    )
+
+
+# =============================================================================
+# Main Entry Point
+# =============================================================================
+
+
+def mark_files_reviewed(
+    file_paths: list[str],
+    pull_request_id: int,
+    config: AzureDevOpsConfig,
+    repo_id: str,
+    dry_run: bool = False,
+    cached_context: CachedReviewerContext | None = None,
+    return_details: bool = False,
+) -> bool | MarkFilesReviewedResult:
+    """Mark multiple files as reviewed with shared Azure DevOps API context."""
+
+    def _result(
+        synced_paths: list[str],
+        failed_paths: list[str],
+        error: str | None = None,
+    ) -> bool | MarkFilesReviewedResult:
+        details = MarkFilesReviewedResult(
+            synced_paths=synced_paths,
+            failed_paths=list(dict.fromkeys(failed_paths)),
+            error=error,
+        )
+        return details if return_details else details.succeeded
+
+    normalized_paths: list[str] = []
+    reported_paths: list[str] = []
+    invalid_path: str | None = None
+    for file_path in file_paths:
+        normalized_path = normalize_repo_path(file_path)
+        if not normalized_path:
+            print(f"Error: Invalid file path '{file_path}'", file=sys.stderr)
+            if file_path not in reported_paths:
+                reported_paths.append(file_path)
+            invalid_path = invalid_path or file_path
+            continue
+        if normalized_path not in reported_paths:
+            reported_paths.append(normalized_path)
+        if normalized_path not in normalized_paths:
+            normalized_paths.append(normalized_path)
+
+    if invalid_path is not None:
+        return _result([], reported_paths, f"Invalid file path '{invalid_path}'")
+
+    if not normalized_paths:
+        return _result([], [])
+
+    if dry_run:
+        print(f"DRY-RUN: Would mark {len(normalized_paths)} files as reviewed on PR {pull_request_id}.")
+        return _result(normalized_paths, [])
+
+    org_root = config.organization.rstrip("/")
+    if not org_root.startswith("http"):  # pragma: no cover
+        org_root = f"https://dev.azure.com/{org_root}"
+    project_encoded = quote(config.project, safe="")
+
+    ctx = cached_context or get_batch_context()
+    if ctx is None:
+        try:
+            ctx = _build_reviewer_context(config)
+        except Exception as exc:
+            print(f"Failed to set up reviewer context: {exc}", file=sys.stderr)
+            return _result([], normalized_paths, f"Failed to set up reviewer context: {exc}")
+
+    requests = ctx.requests
+    headers = ctx.headers
+    reviewer_id = ctx.reviewer_id
+    instance_id = ctx.instance_id
+    organization_account_name = ctx.organization_account_name
+
+    if ctx.reviewer_entry is not None:
+        reviewer_entry = ctx.reviewer_entry
+    else:
+        try:
+            reviewer_entry = _get_reviewer_entry(
+                requests, headers, org_root, project_encoded, repo_id, pull_request_id, reviewer_id
+            )
+        except Exception as exc:
+            print(f"Failed to retrieve reviewer entry: {exc}", file=sys.stderr)
+            return _result([], normalized_paths, f"Failed to retrieve reviewer entry: {exc}")
+        if reviewer_entry is not None:
+            ctx.reviewer_entry = reviewer_entry
+
+    existing_reviewed = reviewer_entry.get("reviewedFiles", []) if reviewer_entry else []
+    to_mark = [path for path in normalized_paths if path not in existing_reviewed]
+    updated_reviewed = list(existing_reviewed)
+    if to_mark:
+        updated_reviewed.extend(path for path in to_mark if path not in updated_reviewed)
+        try:
+            _update_reviewer_entry(
+                requests,
+                headers,
+                org_root,
+                project_encoded,
+                repo_id,
+                pull_request_id,
+                reviewer_id,
+                reviewer_entry,
+                updated_reviewed,
+            )
+        except Exception as exc:
+            print(f"Failed to update reviewer entry: {exc}", file=sys.stderr)
+            return _result([], normalized_paths, f"Failed to update reviewer entry: {exc}")
+
+        ctx.reviewer_entry = {
+            "id": reviewer_id,
+            "vote": reviewer_entry.get("vote", 0) if reviewer_entry else 0,
+            "isFlagged": reviewer_entry.get("isFlagged", False) if reviewer_entry else False,
+            "hasDeclined": reviewer_entry.get("hasDeclined", False) if reviewer_entry else False,
+            "reviewedFiles": updated_reviewed,
+        }
+    else:
+        print("All files are already marked as reviewed; retrying viewed status sync.")
+
+    project_id = ctx.project_id
+    if not project_id:
+        try:
+            project_id = _get_project_id_via_api(requests, headers, org_root, config.project)
+        except Exception as exc:
+            print(f"Warning: Could not get project ID for viewed status sync: {exc}")
+            return _result([], normalized_paths, f"Could not get project ID for viewed status sync: {exc}")
+        if project_id:
+            ctx.project_id = project_id
+
+    if not project_id:
+        print("Warning: Could not get project ID for viewed status sync.")
+        return _result([], normalized_paths, "Could not get project ID for viewed status sync")
+
+    existing_tokens = ctx.existing_hash_tokens
+    if existing_tokens is None:
+        try:
+            existing_tokens = _get_existing_viewed_state_tokens(
+                requests, headers, org_root, project_id, repo_id, pull_request_id
+            )
+        except Exception:
+            existing_tokens = []
+        ctx.existing_hash_tokens = existing_tokens
+    try:
+        sync_result = _sync_viewed_status_batch(
+            requests,
+            headers,
+            org_root,
+            config.project,
+            project_id,
+            config.repository,
+            repo_id,
+            pull_request_id,
+            normalized_paths,
+            organization_account_name,
+            instance_id,
+            existing_tokens,
+        )
+    except ViewedStatusSyncError as exc:
+        print(f"Warning: {exc}")
+        return _result(exc.synced_paths, exc.failed_paths, str(exc))
+    except Exception as exc:
+        print(f"Warning: Failed to sync viewed status: {exc}")
+        return _result([], normalized_paths, f"Failed to sync viewed status: {exc}")
+    synced_paths = sync_result.synced_paths if isinstance(sync_result.synced_paths, list) else list(normalized_paths)
+    failed_paths = sync_result.failed_paths if isinstance(sync_result.failed_paths, list) else []
+    if failed_paths:
+        error = "Failed to sync viewed status for some files"
+        print(f"Warning: {error}: {', '.join(failed_paths)}")
+        return _result(synced_paths, failed_paths, error)
+
+    if to_mark:
+        print(f"Marked {len(to_mark)} files as reviewed.")
+    else:
+        print("All files are already marked as reviewed.")
+    return _result(synced_paths, [])
+
+
+def mark_file_reviewed(  # pragma: no cover
+    file_path: str,
+    pull_request_id: int,
+    config: AzureDevOpsConfig,
+    repo_id: str,
+    dry_run: bool = False,
+    cached_context: CachedReviewerContext | None = None,
+) -> bool:
+    """
+    Mark a file as reviewed in an Azure DevOps pull request.
+
+    This updates both:
+    1. The reviewer's reviewedFiles list (API-level tracking)
+    2. The viewed status in the UI (Contribution API)
+
+    Args:
+        file_path: Path of file to mark as reviewed
+        pull_request_id: Pull request ID
+        config: Azure DevOps configuration
+        repo_id: Repository ID
+        dry_run: If True, only print what would be done
+        cached_context: Optional pre-fetched reviewer context for batch
+            operations.  When provided, skips redundant API calls for
+            user details and (when ``reviewer_entry`` is populated)
+            the reviewer entry lookup.  Updates
+            ``cached_context.reviewer_entry`` to the latest reviewer
+            entry after a successful update so subsequent callers
+            benefit.
+
+    Returns:
+        True if successful, False otherwise
+    """
+    normalized_path = normalize_repo_path(file_path)
+    if not normalized_path:
+        print(f"Error: Invalid file path '{file_path}'", file=sys.stderr)
+        return False
+
+    org_root = config.organization.rstrip("/")
+    if not org_root.startswith("http"):  # pragma: no cover
+        org_root = f"https://dev.azure.com/{org_root}"
+
+    project_encoded = quote(config.project, safe="")
+
+    if dry_run:
+        print(f"DRY-RUN: Would mark '{normalized_path}' as reviewed on PR {pull_request_id}.")
+        return True
+
+    # Resolve cached context: explicit parameter > module-level batch > fresh fetch
+    ctx = cached_context or get_batch_context()
+
+    if ctx is not None:
+        # Use pre-fetched values from the cached context
+        requests = ctx.requests
+        headers = ctx.headers
+        reviewer_id = ctx.reviewer_id
+        instance_id = ctx.instance_id
+        organization_account_name = ctx.organization_account_name
+    else:
+        # Standalone (non-batch) path — delegate to shared helper
+        try:
+            ctx = _build_reviewer_context(config)
+        except Exception as e:
+            print(f"Failed to set up reviewer context: {e}", file=sys.stderr)
+            return False
+        requests = ctx.requests
+        headers = ctx.headers
+        reviewer_id = ctx.reviewer_id
+        instance_id = ctx.instance_id
+        organization_account_name = ctx.organization_account_name
+
+    # Get existing reviewer entry (skip if cached context has one)
+    if ctx is not None and ctx.reviewer_entry is not None:
+        reviewer_entry = ctx.reviewer_entry
+    else:
+        try:
+            reviewer_entry = _get_reviewer_entry(
+                requests, headers, org_root, project_encoded, repo_id, pull_request_id, reviewer_id
+            )
+        except Exception as e:
+            print(f"Failed to retrieve reviewer entry: {e}", file=sys.stderr)
+            return False
+        # Cache the fetched entry immediately so early-return paths
+        # (e.g. "already reviewed") don't trigger redundant GETs.
+        if ctx is not None and reviewer_entry is not None:
+            ctx.reviewer_entry = reviewer_entry
+
+    # Check if already reviewed
+    existing_reviewed = reviewer_entry.get("reviewedFiles", []) if reviewer_entry else []
+    if normalized_path in existing_reviewed:
+        print(f"File '{normalized_path}' already marked as reviewed.")
+        return True
+
+    # Update reviewer entry with new file
+    updated_reviewed = list(set(existing_reviewed + [normalized_path]))
+
+    try:
+        _update_reviewer_entry(
+            requests,
+            headers,
+            org_root,
+            project_encoded,
+            repo_id,
+            pull_request_id,
+            reviewer_id,
+            reviewer_entry,
+            updated_reviewed,
+        )
+    except Exception as e:
+        print(f"Failed to update reviewer entry: {e}", file=sys.stderr)
+        return False
+
+    # Cache the updated reviewer entry for subsequent batch calls
+    if ctx is not None:
+        ctx.reviewer_entry = {
+            "id": reviewer_id,
+            "vote": reviewer_entry.get("vote", 0) if reviewer_entry else 0,
+            "isFlagged": reviewer_entry.get("isFlagged", False) if reviewer_entry else False,
+            "hasDeclined": reviewer_entry.get("hasDeclined", False) if reviewer_entry else False,
+            "reviewedFiles": updated_reviewed,
+        }
+
+    # Get project ID once for the batch.  A failed lookup is not cached so a
+    # later file can retry the best-effort viewed-status synchronization.
+    project_id = ctx.project_id if ctx is not None else None
+    if not project_id:
+        try:
+            project_id = _get_project_id_via_api(requests, headers, org_root, config.project)
+        except Exception as e:
+            print(f"Warning: Could not get project ID for viewed status sync: {e}")
+            project_id = None
+        if ctx is not None and project_id:
+            ctx.project_id = project_id
+
+    # Sync viewed status via Contribution API (best effort)
+    if project_id:
+        existing_tokens = ctx.existing_hash_tokens if ctx is not None else None
+        if existing_tokens is None:
+            try:
+                existing_tokens = _get_existing_viewed_state_tokens(
+                    requests, headers, org_root, project_id, repo_id, pull_request_id
+                )
+            except Exception:
+                existing_tokens = []
+            if ctx is not None:
+                ctx.existing_hash_tokens = existing_tokens
+
+        try:
+            _sync_viewed_status(
+                requests,
+                headers,
+                org_root,
+                config.project,
+                project_id,
+                config.repository,
+                repo_id,
+                pull_request_id,
+                normalized_path,
+                organization_account_name,
+                instance_id,
+                existing_tokens,
+            )
+        except Exception as e:
+            print(f"Warning: Failed to sync viewed status: {e}")
+
+    print(f"Marked '{normalized_path}' as reviewed.")
+    return True

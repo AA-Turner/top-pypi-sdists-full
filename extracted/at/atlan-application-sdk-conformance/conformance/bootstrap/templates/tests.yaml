@@ -1,0 +1,184 @@
+# This file is scaffolded by `atlan-application-sdk-conformance bootstrap`
+# and drift-tracked at WARN by conformance check C002.
+#
+# Edit it freely — drift NEVER blocks CI (C002 is WARN-only, not BLOCK).
+# To pull structural updates from canonical, re-run bootstrap with --resync:
+#   atlan-application-sdk-conformance bootstrap --resync
+# (--resync preserves this file's per-repo values; pass --app-name etc. only
+#  to deliberately CHANGE them.)
+name: Tests
+
+# Unified workflow — unit + integration (testcontainers), and full-DAG e2e.
+#
+#   tests       — unit + integration tests via connector-integration-tests
+#                 composite. Source systems should start from session-scoped
+#                 pytest fixtures (see mysql/metabase conftest.py); uncomment
+#                 services-script below only if that pattern doesn't fit.
+#   e2e         — full-DAG tests against a real tenant via e2e-full-reusable.
+#                 Triggered by the 'e2e' PR label or workflow_dispatch.
+#   Tests Gate  — aggregator gate; the check INTENDED to be the required one
+#                 for branch protection.  tests must pass; e2e can be skipped.
+#
+#                 It is NOT required just because this file exists. Bootstrap
+#                 cannot change branch protection, so adopting this workflow
+#                 makes the check RUN, not BLOCK. Do not assume — read it
+#                 (FND-981, FND-1150):
+#                   gh api repos/<owner>/<repo>/branches/main \
+#                     --jq '.protection.required_status_checks.contexts'
+#                 The admin-only .../branches/main/protection endpoint 404s for
+#                 non-admins, but /branches/main exposes required_status_checks
+#                 to any pusher. Several connector repos today require only
+#                 `scan / Security Gate`, so no test check blocks their merges.
+#
+#                 Make it required as soon as this file is merged — it does not
+#                 wait on a coverage target or on every tier being wired up.
+#                 The exact context string to require is:
+#                   tests / Tests Gate
+#                 i.e. the `tests:` job below (which calls the reusable), then
+#                 the gate's own job name. The workflow name is NOT part of it,
+#                 even though the UI's checks list displays it. Rename the
+#                 `tests:` job and the context changes with it.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      # `labeled` is what makes adding the `e2e` label start a run. GitHub has
+      # no trigger-level filter for WHICH label, so an unrelated label add
+      # creates a run here too — the SDK's reusable workflow gates on
+      # `github.event.label.name` so those runs skip in seconds instead of
+      # re-running the live-tenant suite (FND-48). Keep the type; the filtering
+      # is not this file's job.
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+    branches:
+      - main
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      application_sdk_ref:
+        description: |
+          Branch/SHA of atlanhq/application-sdk for cross-repo dispatch.
+          Pins SDK in tests + e2e jobs. Empty = lockfile version.
+        required: false
+        default: ""
+        type: string
+      distinct_id:
+        description: |
+          Identifier for codex-/return-dispatch matching. Echoed in step
+          names so the calling workflow can locate this run via the GH API.
+        required: false
+        default: ""
+        type: string
+      agent_name_override:
+        description: |
+          Override agent-name for the e2e job (default ci-<run_id>).
+          Useful when re-running against a worker that is already up.
+        required: false
+        default: ""
+        type: string
+      run_e2e:
+        description: "Set to 'true' to trigger the e2e job (cross-repo dispatch from application-sdk). Defaults to off."
+        required: false
+        default: ""
+        type: string
+      base_image_ref:
+        description: |
+          Runtime base image for the connector Docker build (BASE_IMAGE
+          build-arg), set by the application-sdk PR dispatch so SDK
+          base-image / Dockerfile / daprd changes are exercised. Empty =
+          the connector Dockerfile default base.
+        required: false
+        default: ""
+        type: string
+      e2e_clouds:
+        description: |
+          Cloud providers to run the e2e suites against, comma-separated
+          (default aws,azure,gcp — every suite runs once per CSP tenant).
+          Narrow it to re-run a single cloud, e.g. when one tenant was down.
+          Empty here means "use the SDK default", not "no clouds".
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  tests:
+    # Declared rather than inherited from the repository default, because a
+    # called workflow's permissions can only EQUAL or NARROW its caller's. Every
+    # scope below is one the reusable workflow's own jobs declare; leaving this
+    # block out makes the whole set depend on `default_workflow_permissions`
+    # being `write`, so tightening that setting — an ordinary hardening step —
+    # would silently strip `contents: write` from the tenant lease and red the
+    # e2e install in every adopted connector at once (FND-702).
+    #
+    # A `permissions:` block is EXHAUSTIVE, not additive: every scope it omits
+    # becomes `none`. So this cannot be trimmed to "the ones this repo looks like
+    # it needs" — narrowing any line here clamps the reusable's job that uses it.
+    # If you are tempted to cut one, cut the job that needs it in
+    # application-sdk instead.
+    permissions:
+      # The (app, cloud) tenant lease: creates and deletes the lease ref that
+      # serialises e2e runs against a shared tenant. Held only by application-
+      # sdk's lease/release jobs, never by a job that runs connector test code.
+      contents: write
+      # Tells a live lease holder from a dead one, so a cancelled run's
+      # abandoned lease is self-healing rather than blocking the tenant.
+      actions: read
+      # Pushes and pulls the per-run e2e image from GHCR.
+      packages: write
+      # The unit tier's coverage-delta comment and the e2e tier's PR reporting.
+      pull-requests: write
+      # The e2e tier's commit status on the SDK commit that dispatched it.
+      statuses: write
+      # Mints the run's OIDC token for the dataforge source-credential exchange
+      # (no stored dataforge secret). Never granted by a repository default at
+      # any setting, so it only works when declared here. Inert — the fetch
+      # chain self-skips — in a repo that does not use dataforge.
+      id-token: write
+    uses: atlanhq/application-sdk/.github/workflows/tests-reusable.yaml@main
+    with:
+<% if unit_coverage_fail_under %>      unit-coverage-fail-under: "<< unit_coverage_fail_under >>"
+<% endif %><% if force_external_runtime %>      force-external-runtime: << force_external_runtime >>
+<% endif %>      app-name: "<< app_name >>"
+      app-image-name: "<< app_image_name >>"
+<% if enable_e2e != 'true' %>
+      enable-e2e: << enable_e2e >>
+<% endif %>
+<% if services_script %>
+      services-script: "<< services_script >>"
+<% else %>
+      # services-script: .github/test/setup-services.sh
+      # Uncomment services-script (and add the script) if your source systems
+      # need CI-level startup rather than pytest fixtures.  See mysql/metabase
+      # tests/integration/conftest.py for the preferred fixture-based approach,
+      # and openapi's .github/test/setup-services.sh for a reference
+      # demonstration of the hook (used intentionally to exercise the pattern).
+<% endif %>
+      # Review test-paths and pytest-args before committing; defaults auto-discover.
+      application-sdk-ref: ${{ inputs.application_sdk_ref }}
+      distinct-id: ${{ inputs.distinct_id }}
+      run-e2e: ${{ inputs.run_e2e }}
+      base-image-ref: ${{ inputs.base_image_ref }}
+      agent-name-override: ${{ inputs.agent_name_override }}
+      # Cross-CSP e2e matrix (FND-6): every e2e suite runs once per cloud
+      # provider, against that cloud's tenant. Forwarded empty on every
+      # non-dispatch event, which the SDK reads as "use the current default
+      # cloud list" — so the list stays defined in application-sdk and this
+      # file never needs an edit when a fourth CSP is added. Pass "none" on a
+      # dispatch to fall back to the single legacy tenant.
+      e2e-clouds: ${{ inputs.e2e_clouds }}
+      # ADR-0014 two-store SDR posture (docs/adr/0014-two-store-storage-
+      # architecture.md in application-sdk): the e2e job's `objectstore`
+      # is forced to the SDK-default CI-local binding and
+      # ENABLE_ATLAN_UPLOAD=true is set on the worker, so a connector
+      # code path that forgets to bridge an artifact via App.upload()
+      # from `objectstore` to `atlan-objectstore` shows up as zero
+      # downstream assets/lineage in Atlas. See atlan-mysql-app#381 for
+      # the first adopter + confirmed end-to-end proof of the boundary
+      # crossing.
+      two-store: true
+<% if secrets_block %><< secrets_block >><% else %>    secrets: inherit<% endif %>

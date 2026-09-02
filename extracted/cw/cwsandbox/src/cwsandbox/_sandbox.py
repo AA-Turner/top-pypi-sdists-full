@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import builtins
 import contextlib
+import inspect
 import logging
 import math
 import os
@@ -28,7 +29,7 @@ from collections.abc import (
     Mapping,
     Sequence,
 )
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, cast
@@ -37,7 +38,7 @@ import grpc
 import grpc.aio
 from google.protobuf import timestamp_pb2
 
-from cwsandbox._auth import resolve_auth_metadata
+from cwsandbox._auth import AuthConfig, resolve_auth_metadata
 from cwsandbox._defaults import (
     DEFAULT_BASE_URL,
     DEFAULT_CLIENT_TIMEOUT_BUFFER_SECONDS,
@@ -70,7 +71,13 @@ from cwsandbox._defaults import (
     _resolve_selector,
     _validate_poll_config,
 )
+from cwsandbox._direct import (
+    DirectDataPlaneClient,
+    DirectDataPlanePermissionUnavailable,
+    DirectDataPlaneUnavailable,
+)
 from cwsandbox._error_info import (
+    CWSANDBOX_BACKEND_UNAVAILABLE,
     CWSANDBOX_COMMAND_TIMEOUT,
     CWSANDBOX_ERROR_DOMAIN,
     CWSANDBOX_FILE_IO_FAILED,
@@ -86,7 +93,18 @@ from cwsandbox._error_info import (
     CWSANDBOX_FSS_SIZE_EXCEEDED,
     CWSANDBOX_FSS_WAIT_TIMEOUT,
     CWSANDBOX_INVALID_REQUEST,
+    CWSANDBOX_RUNNER_SHARD_RETIRING,
     CWSANDBOX_SANDBOX_NOT_FOUND,
+    CWSANDBOX_VOLUME_BACKEND_NOT_FOUND,
+    CWSANDBOX_VOLUME_IN_USE,
+    CWSANDBOX_VOLUME_NOT_FOUND,
+    CWSANDBOX_VOLUME_NOT_READY,
+    CWSANDBOX_VOLUME_NOT_SNAPSHOTTABLE,
+    CWSANDBOX_VOLUME_PLACEMENT_CONFLICT,
+    CWSANDBOX_VOLUME_QUOTA_EXCEEDED,
+    CWSANDBOX_VOLUME_RUNNER_INELIGIBLE,
+    CWSANDBOX_VOLUME_RUNNER_UNAVAILABLE,
+    CWSANDBOX_VOLUME_TYPE_NOT_SUPPORTED,
     FILE_ERROR_REASONS,
     SNAPSHOT_INTERNAL_REASONS,
     SNAPSHOT_TRANSIENT_REASONS,
@@ -112,7 +130,20 @@ from cwsandbox._proto import (
     settings_pb2_grpc,
 )
 from cwsandbox._resources import normalize_resources
+from cwsandbox._spec import (
+    coerce_security_context,
+    egress_rule_from_proto,
+    ingress_rule_from_proto,
+    network_to_proto,
+    object_storage_to_proto,
+    scratch_volume_to_proto,
+    security_context_to_proto,
+    volume_mount_to_proto,
+    volumes_to_proto,
+)
 from cwsandbox._types import (
+    Container,
+    DataPlaneMode,
     EgressRule,
     Endpoint,
     EndpointAuth,
@@ -124,16 +155,21 @@ from cwsandbox._types import (
     FileSystemSnapshotOptions,
     FileSystemSnapshotStatus,
     FileSystemSnapshotTrigger,
+    HttpsEndpointStatus,
     ImagePullCredentials,
+    IngressRule,
     NetworkOptions,
+    ObjectStorageAccess,
     OperationRef,
     PlacementMode,
     PlacementSpillover,
     Process,
     ProcessResult,
+    RegisteredVolumeOptions,
     ResourceOptions,
     ScratchVolumeOptions,
     Secret,
+    SecurityContext,
     Service,
     ServiceProtocol,
     ServiceVisibility,
@@ -141,6 +177,12 @@ from cwsandbox._types import (
     StreamWriter,
     TerminalResult,
     TerminalSession,
+    VolumeMount,
+    _coerce_container,
+    _coerce_object_storage_access,
+    _coerce_volume_mount,
+    _unique_secrets_by_env_var,
+    _validate_containers,
 )
 from cwsandbox.exceptions import (
     CWSandboxAuthenticationError,
@@ -170,6 +212,17 @@ from cwsandbox.exceptions import (
     SnapshotQuotaExceededError,
     SnapshotSizeExceededError,
     SnapshotWaitTimeoutError,
+    VolumeBackendNotFoundError,
+    VolumeError,
+    VolumeInUseError,
+    VolumeNotFoundError,
+    VolumeNotReadyError,
+    VolumeNotSnapshottableError,
+    VolumePlacementConflictError,
+    VolumeQuotaExceededError,
+    VolumeRunnerIneligibleError,
+    VolumeRunnerUnavailableError,
+    VolumeTypeNotSupportedError,
 )
 
 if TYPE_CHECKING:
@@ -178,6 +231,52 @@ if TYPE_CHECKING:
     from cwsandbox._session import Session
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _PreparedDataPlaneCall:
+    """A data-plane stub plus the metadata and optional direct-channel lease."""
+
+    stub: Any
+    metadata: tuple[tuple[str, str], ...]
+    direct_lease: Any | None = None
+    _released: bool = False
+
+    async def release(self, *, discard: bool = False) -> None:
+        if self._released:
+            return
+        self._released = True
+        if self.direct_lease is not None:
+            await self.direct_lease.release(discard=discard)
+
+    @property
+    def is_direct(self) -> bool:
+        return self.direct_lease is not None
+
+    async def discard(self) -> None:
+        if self.direct_lease is not None:
+            await self.direct_lease.discard()
+
+    def release_when_done(self, call: Any) -> None:
+        """Hold a direct channel until a streaming RPC reaches a terminal state."""
+
+        if self.direct_lease is None:
+            return
+
+        async def _release(done_call: Any) -> None:
+            discard = False
+            try:
+                code = done_call.code()
+                if inspect.isawaitable(code):
+                    code = await code
+                discard = code == grpc.StatusCode.UNAVAILABLE
+            except Exception:
+                pass
+            if discard:
+                await self.discard()
+            await self.release(discard=discard)
+
+        call.add_done_callback(lambda done_call: asyncio.create_task(_release(done_call)))
 
 
 class SandboxStatus(StrEnum):
@@ -224,6 +323,27 @@ class SandboxStatus(StrEnum):
         """Convert SandboxStatus to protobuf State enum."""
         proto_name = f"STATE_{self.name}"
         return sandbox_pb2.State.Value(proto_name)
+
+
+@dataclass(frozen=True, kw_only=True)
+class ContainerStatus:
+    """Observed state of one container on a sandbox.
+
+    Sandbox ``status`` / ``returncode`` stay primary-owned. This row is the
+    kubelet's view of that named container.
+
+    Attributes:
+        name: Container name.
+        state: Observed lifecycle state of this container.
+        exit_code: Exit code once the container is in a terminal state.
+            None while the container is still running.
+        restart_count: Times the container has restarted.
+    """
+
+    name: str
+    state: SandboxStatus
+    exit_code: int | None = None
+    restart_count: int = 0
 
 
 def _fss_status_from_proto(value: int) -> FileSystemSnapshotStatus:
@@ -385,16 +505,66 @@ def _coerce_file_system_snapshot(
 
 def _scratch_from_fss_options(
     opts: FileSystemSnapshotOptions,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Return (SandboxVolume kwargs, VolumeMount kwargs) for convenience FSS options."""
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Return (SandboxVolume kwargs, VolumeMount kwargs or None) for convenience FSS."""
     scratch: dict[str, Any] = {}
     if opts.size is not None:
         scratch["size"] = opts.size
     if opts.file_system_snapshot_id is not None:
         scratch["restore_from_snapshot_id"] = opts.file_system_snapshot_id
-    volume = {"name": DEFAULT_SCRATCH_VOLUME_NAME, "scratch": scratch}
-    mount = {"volume": DEFAULT_SCRATCH_VOLUME_NAME, "mount_path": opts.mount_path}
+    volume = {"name": opts.name or DEFAULT_SCRATCH_VOLUME_NAME, "scratch": scratch}
+    if not opts.mount_path:
+        return volume, None
+    mount = {"volume": volume["name"], "mount_path": opts.mount_path}
     return volume, mount
+
+
+_CONTAINERS_EXCLUSIVE_KWARGS = (
+    "container_image",
+    "command",
+    "args",
+    "resources",
+    "mounted_files",
+    "secrets",
+    "image_pull_credentials",
+    "environment_variables",
+)
+
+
+def _normalize_container_target(container: str | None) -> str | None:
+    if container is None:
+        return None
+    stripped = container.strip()
+    return stripped or None
+
+
+def _set_request_container(message: Any, container: str | None) -> None:
+    target = _normalize_container_target(container)
+    if target:
+        message.container = target
+
+
+def _has_compute_resources(resources: ResourceOptions | None) -> bool:
+    return resources is not None and bool(resources.requests or resources.limits or resources.gpu)
+
+
+def _validate_container_compute(containers: Sequence[Container]) -> None:
+    count = len(containers)
+    for row in containers:
+        is_primary = row.primary or count == 1
+        resources = normalize_resources(row.resources)
+        if count > 1 and not _has_compute_resources(resources):
+            label = row.name or "<unnamed>"
+            raise ValueError(
+                f"container {label!r} requires resources when more than one container is specified"
+            )
+        if resources is not None and resources.gpu and not is_primary:
+            raise ValueError("GPU is only allowed on the primary container")
+
+
+def _containers_conflict_message(conflicts: Sequence[str]) -> str:
+    listed = ", ".join(conflicts)
+    return f"containers= is mutually exclusive with single-container kwargs ({listed})"
 
 
 async def _create_snapshot_via_stub(
@@ -661,6 +831,71 @@ def _translate_snapshot_reason(
     return None
 
 
+def _translate_volume_reason(
+    reason: str,
+    *,
+    details: str,
+    operation: str,
+    volume_id: str | None,
+    metadata: Mapping[str, str] | None,
+    retry_delay: timedelta | None,
+) -> CWSandboxError | None:
+    """Map a trusted ``CWSANDBOX_VOLUME_*`` reason to a typed exception."""
+    volume_classes: dict[str, type[VolumeError]] = {
+        CWSANDBOX_VOLUME_NOT_FOUND: VolumeNotFoundError,
+        CWSANDBOX_VOLUME_NOT_READY: VolumeNotReadyError,
+        CWSANDBOX_VOLUME_PLACEMENT_CONFLICT: VolumePlacementConflictError,
+        CWSANDBOX_VOLUME_TYPE_NOT_SUPPORTED: VolumeTypeNotSupportedError,
+        CWSANDBOX_VOLUME_NOT_SNAPSHOTTABLE: VolumeNotSnapshottableError,
+        CWSANDBOX_VOLUME_RUNNER_INELIGIBLE: VolumeRunnerIneligibleError,
+        CWSANDBOX_VOLUME_BACKEND_NOT_FOUND: VolumeBackendNotFoundError,
+        CWSANDBOX_VOLUME_IN_USE: VolumeInUseError,
+        CWSANDBOX_VOLUME_QUOTA_EXCEEDED: VolumeQuotaExceededError,
+    }
+    cls = volume_classes.get(reason)
+    if cls is not None:
+        return cls(
+            f"{operation} failed ({reason}): {details}",
+            volume_id=volume_id,
+            reason=reason,
+            metadata=metadata,
+            retry_delay=retry_delay,
+        )
+    if reason == CWSANDBOX_VOLUME_RUNNER_UNAVAILABLE:
+        return VolumeRunnerUnavailableError(
+            f"{operation} failed ({reason}): {details}",
+            volume_id=volume_id,
+            reason=reason,
+            metadata=metadata,
+            retry_delay=retry_delay,
+        )
+    return None
+
+
+def _is_runner_shard_retiring_error(error: grpc.RpcError) -> bool:
+    parsed = parse_error_info(error)
+    return (
+        parsed is not None
+        and parsed.domain == CWSANDBOX_ERROR_DOMAIN
+        and parsed.reason == CWSANDBOX_RUNNER_SHARD_RETIRING
+    )
+
+
+def _is_unavailable_rpc_error(error: grpc.RpcError) -> bool:
+    return error.code() == grpc.StatusCode.UNAVAILABLE
+
+
+def _is_log_session_wrong_shard_error(error: grpc.RpcError) -> bool:
+    parsed = parse_error_info(error)
+    return (
+        parsed is not None
+        and parsed.domain == CWSANDBOX_ERROR_DOMAIN
+        and parsed.reason == CWSANDBOX_BACKEND_UNAVAILABLE
+        and bool(parsed.metadata.get("owner_shard_id"))
+        and bool(parsed.metadata.get("local_shard_id"))
+    )
+
+
 def _translate_rpc_error(
     e: grpc.RpcError,
     *,
@@ -668,6 +903,7 @@ def _translate_rpc_error(
     operation: str = "operation",
     filepath: str | None = None,
     file_system_snapshot_id: str | None = None,
+    volume_id: str | None = None,
 ) -> CWSandboxError:
     """Translate gRPC RpcError to appropriate CWSandbox exception.
 
@@ -765,6 +1001,16 @@ def _translate_rpc_error(
         )
         if snapshot_exc is not None:
             return snapshot_exc
+        volume_exc = _translate_volume_reason(
+            reason,
+            details=details,
+            operation=operation,
+            volume_id=volume_id or (parsed_metadata.get("volume_id") if parsed_metadata else None),
+            metadata=metadata,
+            retry_delay=retry_delay,
+        )
+        if volume_exc is not None:
+            return volume_exc
 
     if code == grpc.StatusCode.NOT_FOUND:
         # An FSS operation carries a snapshot ID, not a sandbox ID. Map a bare
@@ -775,6 +1021,14 @@ def _translate_rpc_error(
             return SnapshotNotFoundError(
                 f"File-system snapshot '{file_system_snapshot_id}' not found",
                 file_system_snapshot_id=file_system_snapshot_id,
+                reason=reason,
+                metadata=metadata,
+                retry_delay=retry_delay,
+            )
+        if volume_id is not None:
+            return VolumeNotFoundError(
+                f"Volume '{volume_id}' not found",
+                volume_id=volume_id,
                 reason=reason,
                 metadata=metadata,
                 retry_delay=retry_delay,
@@ -922,6 +1176,24 @@ def _volume_source_is_scratch(volume: sandbox_pb2.SandboxVolume) -> bool:
     "not a named volume" as scratch.
     """
     return not volume.HasField("volume_id")
+
+
+def _scratch_names_from_volumes(volumes: Sequence[Any]) -> tuple[str, ...]:
+    """Collect scratch volume names; skip registered-volume mounts."""
+    names: list[str] = []
+    for vol in volumes:
+        if isinstance(vol, RegisteredVolumeOptions):
+            continue
+        if isinstance(vol, ScratchVolumeOptions):
+            names.append(vol.name)
+            continue
+        if isinstance(vol, Mapping):
+            if "volume_id" in vol:
+                continue
+            name = vol.get("name", "")
+            if name:
+                names.append(str(name))
+    return tuple(names)
 
 
 _PollErrorClassification = Literal["retryable", "fatal"]
@@ -1373,6 +1645,7 @@ class Sandbox:
         command: str | None = None,
         args: list[str] | None = None,
         defaults: SandboxDefaults | None = None,
+        auth: AuthConfig | None = None,
         container_image: str | None = None,
         tags: list[str] | None = None,
         base_url: str | None = None,
@@ -1393,12 +1666,22 @@ class Sandbox:
         placement_mode: PlacementMode | str | None = None,
         placement_spillover: PlacementSpillover | str | None = None,
         services: list[Service] | tuple[Service, ...] | None = None,
-        volumes: list[ScratchVolumeOptions] | tuple[ScratchVolumeOptions, ...] | None = None,
+        volumes: (
+            list[ScratchVolumeOptions | RegisteredVolumeOptions | dict[str, Any]]
+            | tuple[ScratchVolumeOptions | RegisteredVolumeOptions | dict[str, Any], ...]
+            | None
+        ) = None,
         template_id: str | None = None,
         image_pull_credentials: ImagePullCredentials | dict[str, Any] | None = None,
+        runtime_class: str | None = None,
+        security_context: SecurityContext | dict[str, Any] | None = None,
+        working_dir: str | None = None,
+        object_storage_access: ObjectStorageAccess | dict[str, Any] | None = None,
         environment_variables: dict[str, str] | None = None,
         annotations: dict[str, str] | None = None,
         secrets: Sequence[Secret | dict[str, Any]] | None = None,
+        data_plane_mode: DataPlaneMode | str | None = None,
+        containers: Sequence[Container | Mapping[str, Any]] | None = None,
         _session: Session | None = None,
     ) -> None:
         """Initialize a sandbox (does not start it).
@@ -1407,6 +1690,8 @@ class Sandbox:
             command: Optional command to run in the sandbox
             args: Optional arguments for the command
             defaults: Optional SandboxDefaults to apply
+            auth: Authentication mode or provider. Explicit values override
+                ``defaults.auth`` for this sandbox instance.
             container_image: Container image to use (default: python:3.11)
             tags: Optional tags for the sandbox
             base_url: API URL (default: CWSANDBOX_BASE_URL env or localhost)
@@ -1440,7 +1725,12 @@ class Sandbox:
                 request. ``serverless_then_cks`` cannot be combined with
                 ``runner_ids``. Template sandboxes require ``strict``.
             services: Typed service ports (``Service`` list/tuple).
-            volumes: Named scratch volumes (``ScratchVolumeOptions``).
+            volumes: Scratch or registered volumes (``ScratchVolumeOptions``,
+                ``RegisteredVolumeOptions``, or a ``volume_id`` dict).
+            runtime_class: Optional runtime-class pin (e.g. ``"gvisor"``).
+            security_context: In-guest privilege for the primary container.
+            working_dir: Working directory for the primary container command.
+            object_storage_access: Temporary object-storage credentials.
             file_system_snapshot: Convenience single-mount FSS options
                 (``FileSystemSnapshotOptions`` or dict). Prefer ``volumes=`` for
                 multi-volume setups. Requires the organization to be enabled for FSS.
@@ -1453,6 +1743,15 @@ class Sandbox:
                 Use for non-sensitive metadata only.
             secrets: Secrets to inject as environment variables at create time.
                 Merged with defaults (defaults first, then this list).
+            data_plane_mode: Transport policy for exec, logs, and file operations.
+                Defaults to ``SandboxDefaults.data_plane_mode``.
+            containers: Multi-container spec. Mutually exclusive with
+                ``container_image``, ``command``/``args``, ``resources``,
+                ``mounted_files``, ``secrets``, ``image_pull_credentials``,
+                ``environment_variables``, ``security_context``, and
+                ``working_dir``. This list replaces those single-container
+                fields, including the same names on ``SandboxDefaults``.
+                Put secrets, env, and working_dir on each ``Container``.
         """
         if network is not None:
             if isinstance(network, dict):
@@ -1464,20 +1763,58 @@ class Sandbox:
 
         self._defaults = defaults or SandboxDefaults()
         self._session = _session
+        self._auth = auth if auth is not None else self._defaults.auth
 
         from_template = template_id is not None
+        effective_containers = (
+            containers
+            if containers is not None
+            else (None if from_template else self._defaults.containers)
+        )
+        using_containers = effective_containers is not None
+        if effective_containers is not None:
+            user_containers = _validate_containers(
+                tuple(_coerce_container(row) for row in effective_containers)
+            )
+            _validate_container_compute(user_containers)
+            conflicts = [
+                name
+                for name, value in (
+                    ("container_image", container_image),
+                    ("command", command),
+                    ("args", args),
+                    ("resources", resources),
+                    ("mounted_files", mounted_files),
+                    ("secrets", secrets),
+                    ("image_pull_credentials", image_pull_credentials),
+                    ("environment_variables", environment_variables),
+                    ("security_context", security_context),
+                    ("working_dir", working_dir),
+                )
+                if value is not None
+            ]
+            if conflicts:
+                raise TypeError(_containers_conflict_message(conflicts))
+        else:
+            user_containers = None
+
         # Template creates stay sparse for spec-owned fields (env, annotations,
         # command): SDK defaults would otherwise replace the template. Tags
         # still merge so session.list()/adopt can find the sandbox after a crash.
-        self._command: str | None = command if from_template else command or self._defaults.command
-        self._args: list[str] | None = (
-            args if args is not None else (None if from_template else list(self._defaults.args))
-        )
-
-        # Apply defaults with explicit values taking precedence
-        self._container_image: str | None = (
-            container_image if from_template else container_image or self._defaults.container_image
-        )
+        if using_containers:
+            self._command: str | None = None
+            self._args: list[str] | None = None
+            self._container_image: str | None = None
+        else:
+            self._command = command if from_template else command or self._defaults.command
+            self._args = (
+                args if args is not None else (None if from_template else list(self._defaults.args))
+            )
+            self._container_image = (
+                container_image
+                if from_template
+                else container_image or self._defaults.container_image
+            )
         self._base_url = (
             base_url or os.environ.get("CWSANDBOX_BASE_URL") or self._defaults.base_url
         ).rstrip("/")
@@ -1486,6 +1823,15 @@ class Sandbox:
             if request_timeout_seconds is not None
             else self._defaults.request_timeout_seconds
         )
+        effective_data_plane_mode = (
+            data_plane_mode if data_plane_mode is not None else self._defaults.data_plane_mode
+        )
+        self._data_plane_mode = (
+            DataPlaneMode(effective_data_plane_mode.lower())
+            if isinstance(effective_data_plane_mode, str)
+            else effective_data_plane_mode
+        )
+        self._direct_data_plane = DirectDataPlaneClient()
         self._poll_retry_budget_seconds = (
             poll_retry_budget_seconds
             if poll_retry_budget_seconds is not None
@@ -1506,9 +1852,13 @@ class Sandbox:
 
         self._tags: list[str] | None = self._defaults.merge_tags(tags)
         self._environment_variables = (
-            dict(environment_variables or {})
-            if from_template
-            else self._defaults.merge_environment_variables(environment_variables)
+            {}
+            if using_containers
+            else (
+                dict(environment_variables or {})
+                if from_template
+                else self._defaults.merge_environment_variables(environment_variables)
+            )
         )
         self._annotations = (
             dict(annotations or {})
@@ -1532,13 +1882,26 @@ class Sandbox:
         self._services: list[Service] | None = None
         self._template_id: str | None = None
         self._image_pull_credentials: ImagePullCredentials | None = None
+        self._runtime_class: str | None = None
+        self._security_context: SecurityContext | None = None
+        self._working_dir: str | None = None
+        self._object_storage_access: ObjectStorageAccess | None = None
+        self._effective_runtime_class: str | None = None
+        self._attached_volume_ids: tuple[str, ...] = ()
+        self._effective_egress: tuple[EgressRule, ...] = ()
+        self._effective_ingress: tuple[IngressRule, ...] = ()
         self._scratch_volume_names: tuple[str, ...] = ()
         self._service_urls: tuple[tuple[int, str, str], ...] = ()
+        self._service_endpoints: tuple[HttpsEndpointStatus, ...] = ()
         self._dns_egress_names: tuple[str, ...] = ()
         self._file_system_snapshot_ids: tuple[str, ...] = ()
+        self._spec_containers: tuple[Container, ...] = ()
+        self._container_statuses: tuple[ContainerStatus, ...] = ()
         # Use explicit resources or fall back to defaults, then normalize
         effective_resources = (
-            resources if resources is not None or from_template else self._defaults.resources
+            None
+            if using_containers
+            else (resources if resources is not None or from_template else self._defaults.resources)
         )
         normalized = normalize_resources(effective_resources)
         if normalized is not None:
@@ -1601,41 +1964,56 @@ class Sandbox:
             self._services = list(self._defaults.services)
         if volumes is not None:
             self._start_kwargs["volumes"] = list(volumes)
-            self._scratch_volume_names = tuple(
-                v.name if isinstance(v, ScratchVolumeOptions) else v.get("name", "")
-                for v in volumes
-            )
+            self._scratch_volume_names = _scratch_names_from_volumes(volumes)
         elif not from_template and self._defaults.volumes is not None:
             self._start_kwargs["volumes"] = list(self._defaults.volumes)
-            self._scratch_volume_names = tuple(v.name for v in self._defaults.volumes)
+            self._scratch_volume_names = _scratch_names_from_volumes(self._defaults.volumes)
         if template_id is not None:
             self._template_id = template_id
         if image_pull_credentials is not None:
             if isinstance(image_pull_credentials, dict):
                 image_pull_credentials = ImagePullCredentials(**image_pull_credentials)
             self._image_pull_credentials = image_pull_credentials
-        merged_secrets = ([] if from_template else list(self._defaults.secrets or ())) + [
+        effective_runtime_class = (
+            runtime_class
+            if runtime_class is not None or from_template
+            else self._defaults.runtime_class
+        )
+        self._runtime_class = effective_runtime_class or None
+        effective_security_context = (
+            security_context
+            if security_context is not None or from_template
+            else (None if using_containers else self._defaults.security_context)
+        )
+        self._security_context = coerce_security_context(effective_security_context)
+        effective_working_dir = (
+            working_dir
+            if working_dir is not None or from_template
+            else (None if using_containers else self._defaults.working_dir)
+        )
+        self._working_dir = effective_working_dir or None
+        effective_osa = (
+            object_storage_access
+            if object_storage_access is not None or from_template
+            else self._defaults.object_storage_access
+        )
+        self._object_storage_access = _coerce_object_storage_access(effective_osa)
+        if using_containers:
+            assert user_containers is not None
+            self._start_kwargs["containers"] = list(user_containers)
+        inherited_secrets: list[Secret] = (
+            [] if from_template or using_containers else list(self._defaults.secrets or ())
+        )
+        merged_secrets = inherited_secrets + [
             Secret(**s) if isinstance(s, dict) else s for s in (secrets or ())
         ]
         if merged_secrets:
-            seen: dict[str, Secret] = {}
-            for secret in merged_secrets:
-                env_var = secret.env_var
-                assert env_var is not None  # guaranteed by Secret.__post_init__
-                if env_var in seen and secret != seen[env_var]:
-                    raise ValueError(
-                        f"Conflicting secrets for env_var {env_var!r}: "
-                        f"Secret(store={seen[env_var].store!r}, name={seen[env_var].name!r}, "
-                        f"field={seen[env_var].field!r}) vs "
-                        f"Secret(store={secret.store!r}, name={secret.name!r}, "
-                        f"field={secret.field!r})"
-                    )
-                seen[env_var] = secret
-            self._start_kwargs["secrets"] = list(seen.values())
+            self._start_kwargs["secrets"] = list(_unique_secrets_by_env_var(merged_secrets))
 
         self._channel: grpc.aio.Channel | None = None
         self._stub: sandbox_pb2_grpc.SandboxServiceStub | None = None
         self._auth_metadata: tuple[tuple[str, str], ...] = ()
+        self._auth_metadata_resolved = False
         self._streaming_channel: grpc.aio.Channel | None = None
         self._streaming_channel_lock = asyncio.Lock()
         self._sandbox_id: str | None = None
@@ -1707,6 +2085,7 @@ class Sandbox:
         *args: str,
         container_image: str | None = None,
         defaults: SandboxDefaults | None = None,
+        auth: AuthConfig | None = None,
         request_timeout_seconds: float | None = None,
         poll_retry_budget_seconds: float | None = None,
         poll_rpc_timeout_seconds: float | None = None,
@@ -1725,12 +2104,22 @@ class Sandbox:
         placement_mode: PlacementMode | str | None = None,
         placement_spillover: PlacementSpillover | str | None = None,
         services: list[Service] | tuple[Service, ...] | None = None,
-        volumes: list[ScratchVolumeOptions] | tuple[ScratchVolumeOptions, ...] | None = None,
+        volumes: (
+            list[ScratchVolumeOptions | RegisteredVolumeOptions | dict[str, Any]]
+            | tuple[ScratchVolumeOptions | RegisteredVolumeOptions | dict[str, Any], ...]
+            | None
+        ) = None,
         template_id: str | None = None,
         image_pull_credentials: ImagePullCredentials | dict[str, Any] | None = None,
+        runtime_class: str | None = None,
+        security_context: SecurityContext | dict[str, Any] | None = None,
+        working_dir: str | None = None,
+        object_storage_access: ObjectStorageAccess | dict[str, Any] | None = None,
         environment_variables: dict[str, str] | None = None,
         annotations: dict[str, str] | None = None,
         secrets: Sequence[Secret | dict[str, Any]] | None = None,
+        data_plane_mode: DataPlaneMode | str | None = None,
+        containers: Sequence[Container | Mapping[str, Any]] | None = None,
     ) -> Sandbox:
         """Create and start a sandbox, return immediately once backend accepts.
 
@@ -1744,6 +2133,7 @@ class Sandbox:
                 If omitted, uses default command from SandboxDefaults.
             container_image: Container image to use
             defaults: Optional SandboxDefaults to apply
+            auth: Authentication mode or provider. Overrides ``defaults.auth``.
             request_timeout_seconds: Timeout for API requests (client-side)
             poll_retry_budget_seconds: Wall-clock budget for retrying transient
                 errors on the sandbox-status poll loop (default: 30s). Set to
@@ -1771,7 +2161,12 @@ class Sandbox:
             placement_spillover: ``PlacementSpillover`` or string. Default
                 ``strict``. See ``Sandbox.__init__``.
             services: Typed service ports (``Service`` list/tuple).
-            volumes: Named scratch volumes (``ScratchVolumeOptions``).
+            volumes: Scratch or registered volumes (``ScratchVolumeOptions``,
+                ``RegisteredVolumeOptions``, or a ``volume_id`` dict).
+            runtime_class: Optional runtime-class pin (e.g. ``"gvisor"``).
+            security_context: In-guest privilege for the primary container.
+            working_dir: Working directory for the primary container command.
+            object_storage_access: Temporary object-storage credentials.
             file_system_snapshot: Convenience single-mount FSS options
                 (``FileSystemSnapshotOptions`` or dict). Prefer ``volumes=`` for
                 multi-volume setups.
@@ -1784,6 +2179,16 @@ class Sandbox:
                 Use for non-sensitive metadata only.
             secrets: Secrets to inject as environment variables at create time.
                 Merged with defaults (defaults first, then this list).
+            data_plane_mode: Transport policy for exec, logs, and file operations.
+                ``auto`` prefers direct mTLS with gateway fallback.
+            containers: Multi-container spec. Mutually exclusive with
+                positional command/args and with ``container_image``,
+                ``resources``, ``mounted_files``, ``secrets``,
+                ``image_pull_credentials``, ``environment_variables``,
+                ``security_context``, and ``working_dir``. This list
+                replaces those single-container fields, including the
+                same names on ``SandboxDefaults``. Put secrets, env,
+                and working_dir on each ``Container``.
         Returns:
             A Sandbox instance (start request sent, but may still be starting)
 
@@ -1821,6 +2226,7 @@ class Sandbox:
             args=cmd_args,
             container_image=container_image,
             defaults=defaults,
+            auth=auth,
             request_timeout_seconds=request_timeout_seconds,
             poll_retry_budget_seconds=poll_retry_budget_seconds,
             poll_rpc_timeout_seconds=poll_rpc_timeout_seconds,
@@ -1842,9 +2248,15 @@ class Sandbox:
             volumes=volumes,
             template_id=template_id,
             image_pull_credentials=image_pull_credentials,
+            runtime_class=runtime_class,
+            security_context=security_context,
+            working_dir=working_dir,
+            object_storage_access=object_storage_access,
             environment_variables=environment_variables,
             annotations=annotations,
             secrets=secrets,
+            data_plane_mode=data_plane_mode,
+            containers=containers,
         )
         logger.debug("Creating sandbox with command: %s", command)
         sandbox.start().result()
@@ -1864,18 +2276,21 @@ class Sandbox:
 
         Args:
             template_id: Organization-scoped template UUID.
-            *args: Optional command args override. Requires ``command`` and
-                ``container_image``.
-            command: Optional command override. Requires ``container_image``.
+            *args: Optional command args override. Honored without ``command``.
+                Sparse single-container overlays still require ``container_image``.
+            command: Optional command override. Requires ``container_image``
+                unless ``containers=`` replaces the whole list.
             defaults: Optional SandboxDefaults.
             **kwargs: Same advanced create kwargs as ``run()``. Passing
                 ``container_image`` replaces the whole template container
                 (command, args, env, files, resources, name ``main``); there
-                is no fetch-and-merge. Other container-field overrides
-                (``command``, ``args``, ``environment_variables``,
+                is no fetch-and-merge. ``containers=`` is a full list replace
+                and does not require ``container_image``. Other container-field
+                overlays (``command``, ``args``, ``environment_variables``,
                 ``secrets``, ``resources``, ``mounted_files``, ``volumes``,
-                ``file_system_snapshot``, ``image_pull_credentials``) also
-                require ``container_image``:
+                ``file_system_snapshot``, ``image_pull_credentials``,
+                ``security_context``, ``working_dir``) require
+                ``container_image`` unless ``containers=`` replaces the list:
                 the API replaces the whole container list and rejects a
                 sparse patch. Session/default tags are merged and sent as a
                 replace-on-presence override so ``list()``/``adopt`` can find
@@ -1907,6 +2322,8 @@ class Sandbox:
     def session(
         cls,
         defaults: SandboxDefaults | Mapping[str, Any] | None = None,
+        *,
+        auth: AuthConfig | None = None,
     ) -> Session:
         """Create a session for managing multiple sandboxes.
 
@@ -1917,6 +2334,8 @@ class Sandbox:
 
         Args:
             defaults: Optional defaults to apply to sandboxes created via session
+            auth: Authentication strategy, resolved headers, or provider. Overrides
+                ``defaults.auth`` when provided.
 
         Returns:
             A Session instance
@@ -1935,7 +2354,7 @@ class Sandbox:
         """
         from cwsandbox._session import Session
 
-        return Session(defaults)
+        return Session(defaults, auth=auth)
 
     @classmethod
     def _from_sandbox_info(
@@ -1946,6 +2365,9 @@ class Sandbox:
         timeout_seconds: float,
         poll_retry_budget_seconds: float = DEFAULT_POLL_RETRY_BUDGET_SECONDS,
         poll_rpc_timeout_seconds: float = DEFAULT_POLL_RPC_TIMEOUT_SECONDS,
+        data_plane_mode: DataPlaneMode | str = DataPlaneMode.AUTO,
+        auth: AuthConfig | None = None,
+        auth_metadata: tuple[tuple[str, str], ...] | None = None,
     ) -> Sandbox:
         """Create a Sandbox instance from a protobuf sandbox info response."""
         info = _as_sandbox_view(info)
@@ -1971,13 +2393,21 @@ class Sandbox:
         sandbox._annotations = {}
         sandbox._channel = None
         sandbox._stub = None
-        sandbox._auth_metadata = ()
+        sandbox._auth = auth
+        sandbox._auth_metadata = auth_metadata or ()
+        sandbox._auth_metadata_resolved = auth_metadata is not None
         sandbox._streaming_channel = None
         sandbox._streaming_channel_lock = asyncio.Lock()
+        sandbox._data_plane_mode = (
+            DataPlaneMode(data_plane_mode.lower())
+            if isinstance(data_plane_mode, str)
+            else data_plane_mode
+        )
+        sandbox._direct_data_plane = DirectDataPlaneClient()
         sandbox._observed_file_op_cap_bytes = None
         sandbox._streaming_fallback_warned = False
         sandbox._session = None
-        sandbox._defaults = SandboxDefaults()
+        sandbox._defaults = SandboxDefaults(auth=auth)
         sandbox._start_kwargs = {}
         sandbox._create_request_id = None
         sandbox._placement_mode = None
@@ -1985,6 +2415,14 @@ class Sandbox:
         sandbox._services = None
         sandbox._template_id = None
         sandbox._image_pull_credentials = None
+        sandbox._runtime_class = None
+        sandbox._security_context = None
+        sandbox._working_dir = None
+        sandbox._object_storage_access = None
+        sandbox._effective_runtime_class = None
+        sandbox._attached_volume_ids = ()
+        sandbox._effective_egress = ()
+        sandbox._effective_ingress = ()
         sandbox._scratch_volume_names = (
             tuple(
                 volume.name
@@ -1995,9 +2433,12 @@ class Sandbox:
             else ()
         )
         sandbox._service_urls = ()
+        sandbox._service_endpoints = ()
         sandbox._dns_egress_names = ()
         sandbox._file_system_snapshot_id = None
         sandbox._file_system_snapshot_ids = ()
+        sandbox._spec_containers = ()
+        sandbox._container_statuses = ()
         sandbox._observed_file_op_cap_bytes = None
         sandbox._streaming_fallback_warned = False
         sandbox._start_lock = asyncio.Lock()
@@ -2052,9 +2493,12 @@ class Sandbox:
         runner_ids: list[str] | None = None,
         show_terminated: bool = False,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
         poll_retry_budget_seconds: float | None = None,
         poll_rpc_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str = DataPlaneMode.AUTO,
+        volume_ids: builtins.list[str] | tuple[str, ...] | None = None,
     ) -> OperationRef[builtins.list[Sandbox]]:
         """List existing sandboxes with optional filters.
 
@@ -2073,9 +2517,11 @@ class Sandbox:
             profile_ids: Removed in 1.x; passing a value raises ``TypeError``.
             profile_names: Removed in 1.x; passing a value raises ``TypeError``.
             runner_ids: Filter by runner IDs
+            volume_ids: Filter to sandboxes attached to these registered Volume IDs
             show_terminated: If True, include terminal sandboxes (completed,
                 failed, terminated). Defaults to False.
             base_url: Override API URL (default: CWSANDBOX_BASE_URL env or default)
+            auth: Authentication strategy, resolved headers, or provider for this request.
             timeout_seconds: Request timeout (default: 300s)
             poll_retry_budget_seconds: Wall-clock budget for retrying transient
                 errors on the sandbox-status poll loop (default: 30s). Set to 0
@@ -2083,6 +2529,7 @@ class Sandbox:
             poll_rpc_timeout_seconds: Per-call timeout for poll Get RPCs
                 (default: 15s). Separate from ``timeout_seconds``. Applied to
                 returned Sandbox instances.
+            data_plane_mode: Transport policy applied to returned sandboxes.
 
         Returns:
             OperationRef[list[Sandbox]]: Use .result() to block for results,
@@ -2116,9 +2563,12 @@ class Sandbox:
                 runner_ids=runner_ids,
                 show_terminated=show_terminated,
                 base_url=base_url,
+                auth=auth,
                 timeout_seconds=timeout_seconds,
                 poll_retry_budget_seconds=poll_retry_budget_seconds,
                 poll_rpc_timeout_seconds=poll_rpc_timeout_seconds,
+                data_plane_mode=data_plane_mode,
+                volume_ids=volume_ids,
             )
         )
         return OperationRef(future)
@@ -2134,9 +2584,12 @@ class Sandbox:
         runner_ids: builtins.list[str] | None = None,
         show_terminated: bool = False,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
         poll_retry_budget_seconds: float | None = None,
         poll_rpc_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str = DataPlaneMode.AUTO,
+        volume_ids: builtins.list[str] | tuple[str, ...] | None = None,
     ) -> builtins.list[Sandbox]:
         """Internal async: List existing sandboxes with optional filters."""
         normalized_tags = _normalize_tags(tags)
@@ -2162,7 +2615,7 @@ class Sandbox:
         if status is not None:
             status_enum = SandboxStatus(status)
 
-        auth_metadata = resolve_auth_metadata()
+        auth_metadata = resolve_auth_metadata(auth, base_url=effective_base_url)
 
         target, is_secure = parse_grpc_target(effective_base_url)
         channel = create_channel(target, is_secure)
@@ -2178,6 +2631,8 @@ class Sandbox:
                 raise TypeError("profile_ids/profile_names were removed in cwsandbox 1.x")
             if runner_ids is not None:
                 request_kwargs["runner_ids"] = runner_ids
+            if volume_ids:
+                request_kwargs["volume_ids"] = list(volume_ids)
 
             if show_terminated:
                 request_kwargs["show_terminated"] = True
@@ -2201,6 +2656,9 @@ class Sandbox:
                     timeout_seconds=timeout,
                     poll_retry_budget_seconds=effective_poll_retry_budget,
                     poll_rpc_timeout_seconds=effective_poll_rpc_timeout,
+                    data_plane_mode=data_plane_mode,
+                    auth=auth,
+                    auth_metadata=auth_metadata,
                 )
                 for sb in sandbox_infos
             ]
@@ -2213,9 +2671,11 @@ class Sandbox:
         sandbox_id: str,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
         poll_retry_budget_seconds: float | None = None,
         poll_rpc_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str = DataPlaneMode.AUTO,
     ) -> OperationRef[Sandbox]:
         """Attach to an existing sandbox by ID.
 
@@ -2225,6 +2685,7 @@ class Sandbox:
         Args:
             sandbox_id: The ID of the existing sandbox
             base_url: Override API URL (default: CWSANDBOX_BASE_URL env or default)
+            auth: Authentication strategy, resolved headers, or provider for this request.
             timeout_seconds: Request timeout (default: 300s)
             poll_retry_budget_seconds: Wall-clock budget for retrying transient
                 errors on the sandbox-status poll loop (default: 30s). Set to 0
@@ -2232,6 +2693,7 @@ class Sandbox:
             poll_rpc_timeout_seconds: Per-call timeout for poll Get RPCs
                 (default: 15s). Separate from ``timeout_seconds``. Applied to
                 the returned Sandbox instance.
+            data_plane_mode: Transport policy applied to the returned sandbox.
 
         Returns:
             OperationRef[Sandbox]: Use .result() to block for the Sandbox instance,
@@ -2256,9 +2718,11 @@ class Sandbox:
             cls._from_id_async(
                 sandbox_id,
                 base_url=base_url,
+                auth=auth,
                 timeout_seconds=timeout_seconds,
                 poll_retry_budget_seconds=poll_retry_budget_seconds,
                 poll_rpc_timeout_seconds=poll_rpc_timeout_seconds,
+                data_plane_mode=data_plane_mode,
             )
         )
         return OperationRef(future)
@@ -2269,9 +2733,11 @@ class Sandbox:
         sandbox_id: str,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
         poll_retry_budget_seconds: float | None = None,
         poll_rpc_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str = DataPlaneMode.AUTO,
     ) -> Sandbox:
         """Internal async: Attach to an existing sandbox by ID."""
         effective_base_url = (
@@ -2292,7 +2758,7 @@ class Sandbox:
         )
         _validate_poll_config(effective_poll_retry_budget, effective_poll_rpc_timeout)
 
-        auth_metadata = resolve_auth_metadata()
+        auth_metadata = resolve_auth_metadata(auth, base_url=effective_base_url)
 
         target, is_secure = parse_grpc_target(effective_base_url)
         channel = create_channel(target, is_secure)
@@ -2313,6 +2779,9 @@ class Sandbox:
                 timeout_seconds=timeout,
                 poll_retry_budget_seconds=effective_poll_retry_budget,
                 poll_rpc_timeout_seconds=effective_poll_rpc_timeout,
+                data_plane_mode=data_plane_mode,
+                auth=auth,
+                auth_metadata=auth_metadata,
             )
         finally:
             await channel.close(grace=None)
@@ -2323,6 +2792,7 @@ class Sandbox:
         sandbox_id: str,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
         missing_ok: bool = False,
     ) -> OperationRef[None]:
@@ -2334,6 +2804,7 @@ class Sandbox:
         Args:
             sandbox_id: The sandbox ID to delete
             base_url: Override API URL (default: CWSANDBOX_BASE_URL env or default)
+            auth: Authentication strategy, resolved headers, or provider for this request.
             timeout_seconds: Request timeout (default: 300s)
             missing_ok: If True, suppress SandboxNotFoundError when sandbox
                 doesn't exist.
@@ -2363,6 +2834,7 @@ class Sandbox:
             cls._delete_async(
                 sandbox_id,
                 base_url=base_url,
+                auth=auth,
                 timeout_seconds=timeout_seconds,
                 missing_ok=missing_ok,
             )
@@ -2375,6 +2847,7 @@ class Sandbox:
         sandbox_id: str,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
         missing_ok: bool = False,
     ) -> None:
@@ -2386,7 +2859,7 @@ class Sandbox:
             timeout_seconds if timeout_seconds is not None else DEFAULT_REQUEST_TIMEOUT_SECONDS
         )
 
-        auth_metadata = resolve_auth_metadata()
+        auth_metadata = resolve_auth_metadata(auth, base_url=effective_base_url)
 
         target, is_secure = parse_grpc_target(effective_base_url)
         channel = create_channel(target, is_secure)
@@ -2412,6 +2885,7 @@ class Sandbox:
         file_system_snapshot_id: str,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
     ) -> OperationRef[FileSystemSnapshot]:
         """Fetch a file-system snapshot (FSS) record by ID.
@@ -2422,6 +2896,7 @@ class Sandbox:
         Args:
             file_system_snapshot_id: The snapshot ID to fetch.
             base_url: Override API URL (default: CWSANDBOX_BASE_URL env or default).
+            auth: Authentication strategy, resolved headers, or provider for this request.
             timeout_seconds: Request timeout (default: 300s).
 
         Returns:
@@ -2436,7 +2911,10 @@ class Sandbox:
         """
         future = _LoopManager.get().run_async(
             cls._get_snapshot_async(
-                file_system_snapshot_id, base_url=base_url, timeout_seconds=timeout_seconds
+                file_system_snapshot_id,
+                base_url=base_url,
+                auth=auth,
+                timeout_seconds=timeout_seconds,
             )
         )
         return OperationRef(future)
@@ -2447,6 +2925,7 @@ class Sandbox:
         file_system_snapshot_id: str,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
     ) -> FileSystemSnapshot:
         """Internal async: fetch a snapshot record by ID."""
@@ -2456,7 +2935,7 @@ class Sandbox:
         timeout = (
             timeout_seconds if timeout_seconds is not None else DEFAULT_REQUEST_TIMEOUT_SECONDS
         )
-        auth_metadata = resolve_auth_metadata()
+        auth_metadata = resolve_auth_metadata(auth, base_url=effective_base_url)
         target, is_secure = parse_grpc_target(effective_base_url)
         channel = create_channel(target, is_secure)
         stub = sandbox_pb2_grpc.SandboxServiceStub(channel)  # type: ignore[no-untyped-call]
@@ -2481,6 +2960,7 @@ class Sandbox:
         source_sandbox_id: str | None = None,
         status: FileSystemSnapshotStatus | str | None = None,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
     ) -> OperationRef[builtins.list[FileSystemSnapshot]]:
         """List file-system snapshots (FSS) for the organization.
@@ -2495,6 +2975,7 @@ class Sandbox:
             status: If set, only snapshots in this status (FileSystemSnapshotStatus
                 or its string value).
             base_url: Override API URL (default: CWSANDBOX_BASE_URL env or default).
+            auth: Authentication strategy, resolved headers, or provider for this request.
             timeout_seconds: Request timeout (default: 300s).
 
         Returns:
@@ -2514,6 +2995,7 @@ class Sandbox:
                 source_sandbox_id=source_sandbox_id,
                 status=status,
                 base_url=base_url,
+                auth=auth,
                 timeout_seconds=timeout_seconds,
             )
         )
@@ -2526,6 +3008,7 @@ class Sandbox:
         source_sandbox_id: str | None = None,
         status: FileSystemSnapshotStatus | str | None = None,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
     ) -> builtins.list[FileSystemSnapshot]:
         """Internal async: list snapshots with optional client-side filters."""
@@ -2537,7 +3020,7 @@ class Sandbox:
         )
         status_filter = FileSystemSnapshotStatus(status) if status is not None else None
 
-        auth_metadata = resolve_auth_metadata()
+        auth_metadata = resolve_auth_metadata(auth, base_url=effective_base_url)
         target, is_secure = parse_grpc_target(effective_base_url)
         channel = create_channel(target, is_secure)
         stub = sandbox_pb2_grpc.SandboxServiceStub(channel)  # type: ignore[no-untyped-call]
@@ -2582,6 +3065,7 @@ class Sandbox:
         file_system_snapshot_id: str,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
         missing_ok: bool = False,
     ) -> OperationRef[None]:
@@ -2592,6 +3076,7 @@ class Sandbox:
         Args:
             file_system_snapshot_id: The snapshot ID to delete.
             base_url: Override API URL (default: CWSANDBOX_BASE_URL env or default).
+            auth: Authentication strategy, resolved headers, or provider for this request.
             timeout_seconds: Request timeout (default: 300s).
             missing_ok: If True, suppress SnapshotNotFoundError when the snapshot
                 doesn't exist (already deleted).
@@ -2610,6 +3095,7 @@ class Sandbox:
             cls._delete_snapshot_async(
                 file_system_snapshot_id,
                 base_url=base_url,
+                auth=auth,
                 timeout_seconds=timeout_seconds,
                 missing_ok=missing_ok,
             )
@@ -2622,6 +3108,7 @@ class Sandbox:
         file_system_snapshot_id: str,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
         missing_ok: bool = False,
     ) -> None:
@@ -2632,7 +3119,7 @@ class Sandbox:
         timeout = (
             timeout_seconds if timeout_seconds is not None else DEFAULT_REQUEST_TIMEOUT_SECONDS
         )
-        auth_metadata = resolve_auth_metadata()
+        auth_metadata = resolve_auth_metadata(auth, base_url=effective_base_url)
         target, is_secure = parse_grpc_target(effective_base_url)
         channel = create_channel(target, is_secure)
         stub = sandbox_pb2_grpc.SandboxServiceStub(channel)  # type: ignore[no-untyped-call]
@@ -2679,12 +3166,14 @@ class Sandbox:
         cls,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
     ) -> OperationRef[FileSystemSnapshotBucketConfig]:
         """Fetch the organization's FSS object-storage bucket configuration.
 
         Args:
             base_url: Override API URL (default: CWSANDBOX_BASE_URL env or default).
+            auth: Authentication strategy, resolved headers, or provider for this request.
             timeout_seconds: Request timeout (default: 300s).
 
         Returns:
@@ -2698,7 +3187,9 @@ class Sandbox:
         """
         future = _LoopManager.get().run_async(
             cls._get_snapshot_bucket_config_async(
-                base_url=base_url, timeout_seconds=timeout_seconds
+                base_url=base_url,
+                auth=auth,
+                timeout_seconds=timeout_seconds,
             )
         )
         return OperationRef(future)
@@ -2708,6 +3199,7 @@ class Sandbox:
         cls,
         *,
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
     ) -> FileSystemSnapshotBucketConfig:
         """Internal async: fetch the org's FSS bucket configuration."""
@@ -2717,7 +3209,7 @@ class Sandbox:
         timeout = (
             timeout_seconds if timeout_seconds is not None else DEFAULT_REQUEST_TIMEOUT_SECONDS
         )
-        auth_metadata = resolve_auth_metadata()
+        auth_metadata = resolve_auth_metadata(auth, base_url=effective_base_url)
         target, is_secure = parse_grpc_target(effective_base_url)
         channel = create_channel(target, is_secure)
         stub = settings_pb2_grpc.SettingsServiceStub(channel)  # type: ignore[no-untyped-call]
@@ -2750,6 +3242,7 @@ class Sandbox:
         bucket_name: str,
         region: str = "",
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
     ) -> OperationRef[FileSystemSnapshotBucketConfig]:
         """Set the organization's FSS object-storage bucket configuration.
@@ -2763,6 +3256,7 @@ class Sandbox:
                 the CoreWeave-managed bucket.
             region: Bucket region (required by some providers for BYO buckets).
             base_url: Override API URL (default: CWSANDBOX_BASE_URL env or default).
+            auth: Authentication strategy, resolved headers, or provider for this request.
             timeout_seconds: Request timeout (default: 300s).
 
         Returns:
@@ -2784,6 +3278,7 @@ class Sandbox:
                 bucket_name=bucket_name,
                 region=region,
                 base_url=base_url,
+                auth=auth,
                 timeout_seconds=timeout_seconds,
             )
         )
@@ -2796,6 +3291,7 @@ class Sandbox:
         bucket_name: str,
         region: str = "",
         base_url: str | None = None,
+        auth: AuthConfig | None = None,
         timeout_seconds: float | None = None,
     ) -> FileSystemSnapshotBucketConfig:
         """Internal async: set the org's FSS bucket configuration."""
@@ -2805,7 +3301,7 @@ class Sandbox:
         timeout = (
             timeout_seconds if timeout_seconds is not None else DEFAULT_REQUEST_TIMEOUT_SECONDS
         )
-        auth_metadata = resolve_auth_metadata()
+        auth_metadata = resolve_auth_metadata(auth, base_url=effective_base_url)
         target, is_secure = parse_grpc_target(effective_base_url)
         channel = create_channel(target, is_secure)
         stub = settings_pb2_grpc.SettingsServiceStub(channel)  # type: ignore[no-untyped-call]
@@ -2935,6 +3431,31 @@ class Sandbox:
         return self._service_urls
 
     @property
+    def service_endpoints(self) -> tuple[HttpsEndpointStatus, ...]:
+        """HTTPS product endpoints echoed from create, Get, or list.
+
+        Each entry includes the applied ``request_timeout_seconds`` (15 when
+        create omitted or sent ``0``). ``url`` can be empty after the API
+        suppresses it on a terminal sandbox; the timeout remains. Empty when
+        no HTTPS product endpoint was requested or the response omitted one.
+        """
+        return self._service_endpoints
+
+    @property
+    def containers(self) -> tuple[Container, ...]:
+        """Create-time container spec echoed from the sandbox resource.
+
+        Empty until create/Get/list populates it. ``primary=True`` is filled
+        on the inferred primary so a clone of this list is a valid create.
+        """
+        return self._spec_containers
+
+    @property
+    def container_statuses(self) -> tuple[ContainerStatus, ...]:
+        """Per-container observed state. Sandbox ``status`` stays primary-owned."""
+        return self._container_statuses
+
+    @property
     def dns_egress_names(self) -> tuple[str, ...]:
         """Hostnames granted at create, echoed from ``status.effective_egress``.
 
@@ -2942,6 +3463,26 @@ class Sandbox:
         none were requested. Terminal sandboxes keep the last echoed names.
         """
         return self._dns_egress_names
+
+    @property
+    def effective_runtime_class(self) -> str | None:
+        """Runtime class applied by the backend, echoed from status."""
+        return self._effective_runtime_class
+
+    @property
+    def attached_volume_ids(self) -> tuple[str, ...]:
+        """Registered Volume IDs attached to this sandbox, echoed from status."""
+        return self._attached_volume_ids
+
+    @property
+    def effective_egress(self) -> tuple[EgressRule, ...]:
+        """Effective egress rules echoed from ``status.effective_egress``."""
+        return self._effective_egress
+
+    @property
+    def effective_ingress(self) -> tuple[IngressRule, ...]:
+        """Effective ingress rules echoed from ``status.effective_ingress``."""
+        return self._effective_ingress
 
     @property
     def exposed_ports(self) -> tuple[tuple[int, str], ...] | None:
@@ -3218,6 +3759,7 @@ class Sandbox:
         """
         if self._session is not None:
             self._session._deregister_sandbox(self)
+        await self._direct_data_plane.close()
         if self._streaming_channel is not None:
             await self._streaming_channel.close(grace=None)
             self._streaming_channel = None
@@ -3331,13 +3873,18 @@ class Sandbox:
         if self._channel is not None:
             return
 
-        auth_metadata = resolve_auth_metadata()
+        auth_metadata = (
+            self._auth_metadata
+            if self._auth_metadata_resolved
+            else resolve_auth_metadata(self._auth, base_url=self._base_url)
+        )
         target, is_secure = parse_grpc_target(self._base_url)
         channel = create_channel(target, is_secure)
         stub = sandbox_pb2_grpc.SandboxServiceStub(channel)  # type: ignore[no-untyped-call]
         self._channel = channel
         self._stub = stub
         self._auth_metadata = auth_metadata
+        self._auth_metadata_resolved = True
         logger.debug("Initialized gRPC channel for %s", self._base_url)
 
     async def _get_or_create_streaming_channel(self) -> grpc.aio.Channel:
@@ -3704,131 +4251,200 @@ class Sandbox:
                 raise translated from e
         raise AssertionError("unreachable: placement spillover loop exited without return")
 
+    def _apply_resource_options(self, container: sandbox_pb2.Container, resources_opt: Any) -> None:
+        if resources_opt is None:
+            return
+        if not isinstance(resources_opt, ResourceOptions):
+            resources_opt = normalize_resources(resources_opt)
+        if resources_opt is None:
+            return
+        reqs = self._resources_to_proto(resources_opt.requests, resources_opt.gpu)
+        lims = self._resources_to_proto(resources_opt.limits, resources_opt.gpu)
+        if reqs is not None or lims is not None:
+            container.resource_requirements.CopyFrom(
+                sandbox_pb2.ResourceRequirements(
+                    requests=reqs or sandbox_pb2.Resources(),
+                    limits=lims or sandbox_pb2.Resources(),
+                )
+            )
+
+    @staticmethod
+    def _apply_secrets(container: sandbox_pb2.Container, secrets: Any) -> None:
+        if not secrets:
+            return
+        grouped: dict[str, list[dict[str, str]]] = {}
+        for secret in secrets:
+            if not isinstance(secret, Secret):
+                secret = Secret(**secret)
+            grouped.setdefault(secret.store, []).append(
+                {
+                    "path": secret.name,
+                    "field": secret.field,
+                    "env_var": secret.env_var or secret.name,
+                }
+            )
+        for store, mappings in grouped.items():
+            container.secret_stores.append(
+                sandbox_pb2.SecretStoreReference(store_name=store, secrets=mappings)
+            )
+
+    @staticmethod
+    def _apply_image_pull_credentials(container: sandbox_pb2.Container, ipc: Any) -> None:
+        if ipc is None:
+            return
+        if isinstance(ipc, dict):
+            ipc = ImagePullCredentials(**ipc)
+        container.image_pull_credentials.CopyFrom(
+            sandbox_pb2.ImagePullCredentials(
+                registry=ipc.registry,
+                credentials=sandbox_pb2.SecretSource(
+                    store_name=ipc.store, path=ipc.name, field=ipc.field
+                ),
+            )
+        )
+
+    @staticmethod
+    def _apply_mounted_files(container: sandbox_pb2.Container, mounted_files: Any) -> None:
+        if not mounted_files:
+            return
+        entries = (
+            (
+                {"mount_path": path, "file_content": content}
+                for path, content in mounted_files.items()
+            )
+            if isinstance(mounted_files, Mapping)
+            else iter(mounted_files)
+        )
+        for entry in entries:
+            path = entry["mount_path"]
+            content = entry["file_content"]
+            data = content if isinstance(content, (bytes, bytearray)) else str(content).encode()
+            container.files.append(sandbox_pb2.FileMount(path=path, content=bytes(data)))
+
+    @staticmethod
+    def _volume_mount_to_proto(mount: VolumeMount) -> sandbox_pb2.VolumeMount:
+        proto = sandbox_pb2.VolumeMount(volume=mount.volume, mount_path=mount.mount_path)
+        if mount.read_only:
+            proto.read_only = True
+        if mount.sub_path:
+            proto.sub_path = mount.sub_path
+        return proto
+
+    def _user_container_to_proto(self, row: Container) -> sandbox_pb2.Container:
+        container = sandbox_pb2.Container(image=row.image)
+        if row.name:
+            container.name = row.name
+        if row.command:
+            container.command = row.command
+        if row.args:
+            container.args.extend(row.args)
+        if row.environment_variables:
+            container.environment_variables.update(row.environment_variables)
+        if row.working_dir:
+            container.working_dir = row.working_dir
+        if row.primary:
+            container.primary = True
+        self._apply_resource_options(container, row.resources)
+        self._apply_secrets(container, row.secrets)
+        self._apply_image_pull_credentials(container, row.image_pull_credentials)
+        self._apply_mounted_files(container, row.mounted_files)
+        for mount in row.volume_mounts or ():
+            container.volume_mounts.append(self._volume_mount_to_proto(_coerce_volume_mount(mount)))
+        return container
+
+    @staticmethod
+    def _append_unique_mounts(
+        container: sandbox_pb2.Container, mounts: Sequence[sandbox_pb2.VolumeMount]
+    ) -> None:
+        existing = {(mount.volume, mount.mount_path) for mount in container.volume_mounts}
+        for mount in mounts:
+            key = (mount.volume, mount.mount_path)
+            if key not in existing:
+                container.volume_mounts.append(mount)
+                existing.add(key)
+
+    @staticmethod
+    def _primary_index(containers: Sequence[sandbox_pb2.Container]) -> int:
+        for index, row in enumerate(containers):
+            if row.HasField("primary") and row.primary:
+                return index
+        return 0
+
+    @staticmethod
+    def _container_to_partial(container: sandbox_pb2.Container) -> sandbox_pb2.PartialContainer:
+        partial = sandbox_pb2.PartialContainer()
+        partial.ParseFromString(container.SerializeToString())
+        return partial
+
     def _build_create_request(
         self, *, request_id: str, start_kwargs: dict[str, Any]
     ) -> sandbox_pb2.CreateSandboxRequest:
         """Build a v1 CreateSandboxRequest from constructor/start kwargs."""
-        container = sandbox_pb2.Container(
-            name="main",
-            image=self._container_image,
-            command=self._command,
-            args=list(self._args or []),
-        )
-        if self._environment_variables:
-            container.environment_variables.update(self._environment_variables)
-
-        resources_opt = start_kwargs.pop("resources", None)
-        if resources_opt is not None:
-            if not isinstance(resources_opt, ResourceOptions):
-                resources_opt = normalize_resources(resources_opt)
-            if resources_opt is not None:
-                reqs = self._resources_to_proto(resources_opt.requests, resources_opt.gpu)
-                lims = self._resources_to_proto(resources_opt.limits, resources_opt.gpu)
-                if reqs is not None or lims is not None:
-                    container.resource_requirements.CopyFrom(
-                        sandbox_pb2.ResourceRequirements(
-                            requests=reqs or sandbox_pb2.Resources(),
-                            limits=lims or sandbox_pb2.Resources(),
-                        )
-                    )
-
-        secrets = start_kwargs.pop("secrets", None)
-        if secrets:
-            grouped: dict[str, list[dict[str, str]]] = {}
-            for s in secrets:
-                if not isinstance(s, Secret):
-                    s = Secret(**s)
-                grouped.setdefault(s.store, []).append(
-                    {"path": s.name, "field": s.field, "env_var": s.env_var or s.name}
-                )
-            for store, mappings in grouped.items():
-                container.secret_stores.append(
-                    sandbox_pb2.SecretStoreReference(store_name=store, secrets=mappings)
-                )
-
-        ipc = start_kwargs.pop("image_pull_credentials", None) or self._image_pull_credentials
-        if ipc is not None:
-            if isinstance(ipc, dict):
-                ipc = ImagePullCredentials(**ipc)
-            container.image_pull_credentials.CopyFrom(
-                sandbox_pb2.ImagePullCredentials(
-                    registry=ipc.registry,
-                    credentials=sandbox_pb2.SecretSource(
-                        store_name=ipc.store, path=ipc.name, field=ipc.field
-                    ),
-                )
+        user_containers = start_kwargs.pop("containers", None)
+        proto_containers: list[sandbox_pb2.Container]
+        if user_containers:
+            proto_containers = [
+                self._user_container_to_proto(_coerce_container(row)) for row in user_containers
+            ]
+            start_kwargs.pop("resources", None)
+            start_kwargs.pop("secrets", None)
+            start_kwargs.pop("mounted_files", None)
+            start_kwargs.pop("image_pull_credentials", None)
+        else:
+            container = sandbox_pb2.Container(
+                name="main",
+                image=self._container_image,
+                command=self._command,
+                args=list(self._args or []),
             )
-
-        mounted_files = start_kwargs.pop("mounted_files", None)
-        if mounted_files:
-            entries = (
-                (
-                    {"mount_path": path, "file_content": content}
-                    for path, content in mounted_files.items()
+            if self._working_dir:
+                container.working_dir = self._working_dir
+            if self._security_context is not None:
+                container.security_context.CopyFrom(
+                    security_context_to_proto(self._security_context)
                 )
-                if isinstance(mounted_files, Mapping)
-                else iter(mounted_files)
+            if self._environment_variables:
+                container.environment_variables.update(self._environment_variables)
+            self._apply_resource_options(container, start_kwargs.pop("resources", None))
+            self._apply_secrets(container, start_kwargs.pop("secrets", None))
+            self._apply_image_pull_credentials(
+                container,
+                start_kwargs.pop("image_pull_credentials", None) or self._image_pull_credentials,
             )
-            for entry in entries:
-                path = entry["mount_path"]
-                content = entry["file_content"]
-                data = content if isinstance(content, (bytes, bytearray)) else str(content).encode()
-                container.files.append(sandbox_pb2.FileMount(path=path, content=bytes(data)))
+            self._apply_mounted_files(container, start_kwargs.pop("mounted_files", None))
+            proto_containers = [container]
 
         volumes: list[sandbox_pb2.SandboxVolume] = []
         mounts: list[sandbox_pb2.VolumeMount] = []
 
         volumes_arg = start_kwargs.pop("volumes", None)
         if volumes_arg:
-            for vol in volumes_arg:
-                if isinstance(vol, ScratchVolumeOptions):
-                    scratch: dict[str, Any] = {}
-                    if vol.size:
-                        scratch["size"] = vol.size
-                    if vol.restore_from_snapshot_id:
-                        scratch["restore_from_snapshot_id"] = vol.restore_from_snapshot_id
-                    volumes.append(sandbox_pb2.SandboxVolume(name=vol.name, scratch=scratch))
-                    mounts.append(
-                        sandbox_pb2.VolumeMount(volume=vol.name, mount_path=vol.mount_path)
-                    )
-                elif isinstance(vol, dict) and "volume_id" in vol:
-                    volumes.append(
-                        sandbox_pb2.SandboxVolume(name=vol["name"], volume_id=vol["volume_id"])
-                    )
-                    if vol.get("mount_path"):
-                        mounts.append(
-                            sandbox_pb2.VolumeMount(
-                                volume=vol["name"], mount_path=vol["mount_path"]
-                            )
-                        )
-                else:
-                    raise TypeError(
-                        "volumes entries must be ScratchVolumeOptions or "
-                        f"dict with volume_id, got {type(vol).__name__}"
-                    )
+            volumes, mounts, scratch_names = volumes_to_proto(list(volumes_arg))
+            self._scratch_volume_names = scratch_names
 
         fss_opts = start_kwargs.pop("file_system_snapshot", None)
         if fss_opts is not None:
             if not isinstance(fss_opts, FileSystemSnapshotOptions):
                 fss_opts = FileSystemSnapshotOptions(**fss_opts)
             scratch_opts = fss_opts.to_scratch_volume()
-            scratch_kw: dict[str, Any] = {}
-            if scratch_opts.size:
-                scratch_kw["size"] = scratch_opts.size
-            if scratch_opts.restore_from_snapshot_id:
-                scratch_kw["restore_from_snapshot_id"] = scratch_opts.restore_from_snapshot_id
-            volumes.append(sandbox_pb2.SandboxVolume(name=scratch_opts.name, scratch=scratch_kw))
-            mounts.append(
-                sandbox_pb2.VolumeMount(
-                    volume=scratch_opts.name, mount_path=scratch_opts.mount_path
+            volumes.append(scratch_volume_to_proto(scratch_opts))
+            if scratch_opts.mount_path:
+                mounts.append(
+                    volume_mount_to_proto(
+                        scratch_opts.name,
+                        scratch_opts.mount_path,
+                        sub_path=scratch_opts.sub_path,
+                        read_only=scratch_opts.read_only,
+                    )
                 )
-            )
             self._scratch_volume_names = tuple(
                 list(self._scratch_volume_names) + [scratch_opts.name]
             )
 
-        for mount in mounts:
-            container.volume_mounts.append(mount)
+        if proto_containers and mounts:
+            self._append_unique_mounts(
+                proto_containers[self._primary_index(proto_containers)], mounts
+            )
 
         services_arg = start_kwargs.pop("services", None) or self._services
         services: list[sandbox_pb2.Service] = []
@@ -3877,6 +4493,10 @@ class Sandbox:
                         sandbox_pb2.EndpointAuth,
                         sandbox_pb2.EndpointAuth.Value(f"ENDPOINT_AUTH_{auth.name}"),
                     )
+                    if endpoint.request_timeout_seconds:
+                        proto_svc.endpoint.request_timeout_seconds = (
+                            endpoint.request_timeout_seconds
+                        )
                 services.append(proto_svc)
 
         network = start_kwargs.pop("network", None)
@@ -3888,18 +4508,7 @@ class Sandbox:
                 raise TypeError(
                     f"network must be NetworkOptions, dict, or None, got {type(network).__name__}"
                 )
-            network_proto = sandbox_pb2.NetworkOptions()
-            if network.deny_egress is not None:
-                network_proto.deny_egress = network.deny_egress
-            if network.deny_ingress is not None:
-                network_proto.deny_ingress = network.deny_ingress
-            for rule in network.egress or ():
-                if not isinstance(rule, EgressRule):
-                    raise TypeError(
-                        f"egress entries must be EgressRule or dict, got {type(rule).__name__}"
-                    )
-                proto_rule = network_proto.egress.add()
-                proto_rule.dns_name = rule.dns_name
+            network_proto = network_to_proto(network)
 
         # Reject removed kwargs loudly.
         for removed in ("s3_mount", "max_timeout_seconds", "profile_ids", "profile_names", "ports"):
@@ -3926,8 +4535,7 @@ class Sandbox:
             mode = sandbox_pb2.SANDBOX_MODE_CKS
 
         spec = sandbox_pb2.SandboxSpec(
-            containers=[container],
-            primary_container="main",
+            containers=proto_containers,
             volumes=volumes,
             services=services,
             tags=list(self._tags or []),
@@ -3941,6 +4549,12 @@ class Sandbox:
             spec.annotations.update(self._annotations)
         if network_proto is not None:
             spec.network.CopyFrom(network_proto)
+        if self._runtime_class:
+            spec.runtime_class = self._runtime_class
+        if self._object_storage_access is not None:
+            spec.object_storage_access.CopyFrom(
+                object_storage_to_proto(self._object_storage_access)
+            )
 
         # Ignore unknown leftover keys that were consumed above; warn on leftovers.
         start_kwargs.pop("ports", None)
@@ -3965,7 +4579,8 @@ class Sandbox:
             request_id=request_id, start_kwargs=dict(overrides_kwargs)
         )
         spec = create_req.sandbox.spec
-        source_container = spec.containers[0]
+        source_container = spec.containers[0] if spec.containers else sandbox_pb2.Container()
+        containers_override = "containers" in explicit_keys
         container_field_overrides = (
             self._command is not None
             or self._args is not None
@@ -3975,18 +4590,18 @@ class Sandbox:
             or "secrets" in explicit_keys
             or "resources" in explicit_keys
             or self._image_pull_credentials is not None
+            or self._security_context is not None
+            or self._working_dir is not None
+            or containers_override
         )
-        if container_field_overrides and self._container_image is None:
+        if container_field_overrides and self._container_image is None and not containers_override:
             raise TypeError(
                 "replace-on-presence container overrides require container_image; "
                 "the API replaces the whole container list and rejects sparse patches"
             )
-        if self._container_image is not None:
-            if self._args is not None and self._command is None:
-                raise TypeError(
-                    "container overrides with args require command; "
-                    "the API rejects args without command after a whole-list container replace"
-                )
+        if containers_override:
+            override_containers = [self._container_to_partial(row) for row in spec.containers]
+        elif self._container_image is not None:
             container = sandbox_pb2.PartialContainer(
                 name="main",
                 image=self._container_image,
@@ -4007,12 +4622,19 @@ class Sandbox:
                 container.resource_requirements.CopyFrom(source_container.resource_requirements)
             if source_container.HasField("image_pull_credentials"):
                 container.image_pull_credentials.CopyFrom(source_container.image_pull_credentials)
+            if self._working_dir:
+                container.working_dir = self._working_dir
+            if self._security_context is not None:
+                container.security_context.CopyFrom(
+                    security_context_to_proto(self._security_context)
+                )
+            override_containers = [container]
         else:
-            container = sandbox_pb2.PartialContainer()
+            override_containers = []
 
         overrides = sandbox_pb2.PartialSandboxSpec()
-        if self._container_image is not None:
-            overrides.containers.append(container)
+        if override_containers:
+            overrides.containers.extend(override_containers)
         if {"volumes", "file_system_snapshot"} & explicit_keys:
             overrides.volumes.extend(spec.volumes)
         if self._services:
@@ -4029,6 +4651,10 @@ class Sandbox:
             overrides.mode = spec.mode
         if "network" in explicit_keys and spec.HasField("network"):
             overrides.network.CopyFrom(spec.network)
+        if self._runtime_class:
+            overrides.runtime_class = self._runtime_class
+        if self._object_storage_access is not None:
+            overrides.object_storage_access.CopyFrom(spec.object_storage_access)
         return sandbox_pb2.CreateSandboxFromTemplateRequest(
             template_id=template_id,
             overrides=overrides,
@@ -4068,14 +4694,47 @@ class Sandbox:
         )
         status = view._sandbox.status
         service_urls: list[tuple[int, str, str]] = []
+        service_endpoints: list[HttpsEndpointStatus] = []
         for s in status.services:
             url = s.url or (s.endpoint.url if s.HasField("endpoint") else "")
             if url:
                 service_urls.append((s.port, s.name, url))
+            if (
+                s.HasField("endpoint")
+                and s.endpoint.kind == sandbox_pb2.ENDPOINT_KIND_HTTPS
+                and s.endpoint.request_timeout_seconds > 0
+            ):
+                service_endpoints.append(
+                    HttpsEndpointStatus(
+                        port=s.port,
+                        name=s.name,
+                        kind=EndpointKind.HTTPS,
+                        auth=EndpointAuth.OPEN,
+                        url=s.endpoint.url,
+                        request_timeout_seconds=s.endpoint.request_timeout_seconds,
+                    )
+                )
         self._service_urls = tuple(service_urls)
+        self._service_endpoints = tuple(service_endpoints)
         self._dns_egress_names = tuple(
             rule.dns_name for rule in status.effective_egress if rule.dns_name
         )
+        self._effective_runtime_class = status.effective_runtime_class or None
+        self._attached_volume_ids = tuple(status.attached_volume_ids)
+        egress_rules: list[EgressRule] = []
+        for egress_proto in status.effective_egress:
+            try:
+                egress_rules.append(egress_rule_from_proto(egress_proto))
+            except ValueError:
+                continue
+        self._effective_egress = tuple(egress_rules)
+        ingress_rules: list[IngressRule] = []
+        for ingress_proto in status.effective_ingress:
+            try:
+                ingress_rules.append(ingress_rule_from_proto(ingress_proto))
+            except ValueError:
+                continue
+        self._effective_ingress = tuple(ingress_rules)
         if status.services:
             self._exposed_ports = tuple(
                 (s.port, s.name)
@@ -4097,6 +4756,87 @@ class Sandbox:
             self._resource_limits = self._resources_from_proto(status.effective_resources)
             self._resource_requests = self._resource_limits
             self._resource_gpu = self._gpu_from_proto(status.effective_resources)
+        echoed = tuple(self._container_from_proto(row) for row in view._sandbox.spec.containers)
+        if echoed and not any(row.primary for row in echoed):
+            echoed = (replace(echoed[0], primary=True),) + echoed[1:]
+        self._spec_containers = echoed
+        statuses: list[ContainerStatus] = []
+        for row in status.container_statuses:
+            state = SandboxStatus.from_proto(row.state)
+            statuses.append(
+                ContainerStatus(
+                    name=row.name,
+                    state=state,
+                    exit_code=row.exit_code if state in _TERMINAL_STATUSES else None,
+                    restart_count=row.restart_count,
+                )
+            )
+        self._container_statuses = tuple(statuses)
+
+    def _container_from_proto(self, proto: sandbox_pb2.Container) -> Container:
+        resources: ResourceOptions | None = None
+        if proto.HasField("resource_requirements"):
+            rr = proto.resource_requirements
+            gpu = None
+            requests = self._resources_from_proto(rr.requests) if rr.HasField("requests") else None
+            limits = self._resources_from_proto(rr.limits) if rr.HasField("limits") else None
+            if rr.HasField("requests"):
+                gpu = self._gpu_from_proto(rr.requests)
+            if gpu is None and rr.HasField("limits"):
+                gpu = self._gpu_from_proto(rr.limits)
+            if requests or limits or gpu:
+                resources = ResourceOptions(requests=requests, limits=limits, gpu=gpu)
+        elif proto.HasField("resources"):
+            cpu_mem = self._resources_from_proto(proto.resources)
+            gpu = self._gpu_from_proto(proto.resources)
+            if cpu_mem or gpu:
+                resources = ResourceOptions(requests=cpu_mem, limits=cpu_mem, gpu=gpu)
+        secrets = tuple(
+            Secret(
+                store=store.store_name,
+                name=mapping.path,
+                field=mapping.field,
+                env_var=mapping.env_var or None,
+            )
+            for store in proto.secret_stores
+            for mapping in store.secrets
+        )
+        mounts = tuple(
+            VolumeMount(
+                volume=mount.volume,
+                mount_path=mount.mount_path,
+                read_only=mount.read_only,
+                sub_path=mount.sub_path or None,
+            )
+            for mount in proto.volume_mounts
+        )
+        files = tuple(
+            {"mount_path": file_mount.path, "file_content": bytes(file_mount.content)}
+            for file_mount in proto.files
+        )
+        ipc = None
+        if proto.HasField("image_pull_credentials"):
+            creds = proto.image_pull_credentials
+            ipc = ImagePullCredentials(
+                registry=creds.registry,
+                store=creds.credentials.store_name,
+                name=creds.credentials.path,
+                field=creds.credentials.field,
+            )
+        return Container._from_observed(
+            image=proto.image,
+            name=proto.name or None,
+            command=proto.command or None,
+            args=tuple(proto.args) or None,
+            environment_variables=dict(proto.environment_variables) or None,
+            resources=resources,
+            mounted_files=files or None,
+            volume_mounts=mounts or None,
+            secrets=secrets or None,
+            working_dir=proto.working_dir or None,
+            image_pull_credentials=ipc,
+            primary=proto.HasField("primary") and proto.primary,
+        )
 
     @staticmethod
     def _resources_from_proto(res: sandbox_pb2.Resources) -> dict[str, str] | None:
@@ -4988,6 +5728,7 @@ class Sandbox:
             if self._stop_owned and self._session is not None:
                 self._session._deregister_sandbox(self)
             # Close channels to release resources
+            await self._direct_data_plane.close()
             if self._streaming_channel is not None:
                 await self._streaming_channel.close(grace=None)
                 self._streaming_channel = None
@@ -5205,6 +5946,7 @@ class Sandbox:
         since_time: datetime | None = None,
         timestamps: bool = False,
         timeout_seconds: float | None = None,
+        container: str | None = None,
     ) -> None:
         """Stream PID-1 logs via v1 unary StreamLogs → LogEntry server stream."""
         inner_exit_clean = False
@@ -5220,8 +5962,6 @@ class Sandbox:
             if not self._is_done and not self._is_stopping:
                 await self._wait_until_running_async()
 
-            await self._ensure_client()
-            auth_metadata = self._auth_metadata
             sandbox_id = self._sandbox_id
             assert sandbox_id is not None
 
@@ -5239,13 +5979,18 @@ class Sandbox:
 
             while not done and attempt < STREAMING_RESUME_MAX_ATTEMPTS:
                 is_resume = bool(session_id) and attempt > 0
-                channel = await self._get_or_create_streaming_channel()
-                stub = sandbox_pb2_grpc.SandboxServiceStub(channel)  # type: ignore[no-untyped-call]
+                prepared = await self._prepare_data_plane_call(
+                    sandbox_pb2.SANDBOX_DATA_PERMISSION_STREAM_LOGS,
+                    streaming=True,
+                    allow_terminal=True,
+                )
+                stub = prepared.stub
 
                 request = sandbox_pb2.StreamLogsRequest(
                     sandbox_id=sandbox_id,
                     follow=follow,
                 )
+                _set_request_container(request, container)
                 if is_resume:
                     request.resume_log_session_id = session_id
                     request.resume_log_offset = last_offset
@@ -5265,85 +6010,104 @@ class Sandbox:
                         request.since_time.CopyFrom(ts)
 
                 grpc_timeout = timeout_seconds if not follow else None
-                call = stub.StreamLogs(
-                    request,
-                    metadata=auth_metadata,
-                    **({"timeout": grpc_timeout} if grpc_timeout is not None else {}),
-                )
+                try:
+                    call = stub.StreamLogs(
+                        request,
+                        metadata=prepared.metadata,
+                        **({"timeout": grpc_timeout} if grpc_timeout is not None else {}),
+                    )
+                except BaseException:
+                    await prepared.release(discard=True)
+                    raise
+                prepared.release_when_done(call)
 
                 try:
-                    async for entry in call:
-                        if entry.HasField("error") and entry.error.code:
-                            code = entry.error.code
-                            msg = entry.error.message or code
-                            if code in _STREAMING_FRESH_REINIT_CODES:
-                                if not follow:
-                                    raise SandboxError(f"Log stream error: {msg}")
+                    try:
+                        async for entry in call:
+                            if entry.HasField("error") and entry.error.code:
+                                code = entry.error.code
+                                msg = entry.error.message or code
+                                if code in _STREAMING_FRESH_REINIT_CODES:
+                                    if not follow:
+                                        raise SandboxError(f"Log stream error: {msg}")
+                                    session_id = ""
+                                    last_offset = 0
+                                    line_parts = []
+                                    line_parts_bytes = 0
+                                    break
+                                if code == _STREAMING_INTERRUPTED:
+                                    if not follow:
+                                        raise SandboxError(f"Log stream error: {msg}")
+                                    break
+                                if code == STREAM_TRUNCATED:
+                                    raise SandboxStreamTruncatedError(msg)
+                                raise SandboxError(f"Log stream error: {msg}")
+                            if entry.log_session_id:
+                                session_id = entry.log_session_id
+                            if entry.next_log_offset:
+                                last_offset = int(entry.next_log_offset)
+                            chunk = entry.data.decode("utf-8", errors="replace")
+                            if not chunk:
+                                continue
+                            if follow:
+                                attempt = 0
+                                last_transport_error = None
+                            delivered_any = True
+                            line_parts.append(chunk)
+                            buf = "".join(line_parts)
+                            if "\n" in buf:
+                                *complete, remainder = buf.split("\n")
+                                for line in complete:
+                                    encoded_line = (line + "\n").encode("utf-8")
+                                    if len(encoded_line) > MAX_LINE_BUFFER_BYTES:
+                                        raise SandboxStreamTruncatedError(
+                                            f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
+                                        )
+                                    await output_queue.put(line + "\n")
+                                remainder_bytes = len(remainder.encode("utf-8")) if remainder else 0
+                                if remainder_bytes > MAX_LINE_BUFFER_BYTES:
+                                    raise SandboxStreamTruncatedError(
+                                        f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
+                                    )
+                                line_parts = [remainder] if remainder else []
+                                line_parts_bytes = remainder_bytes
+                            else:
+                                line_parts_bytes = len(buf.encode("utf-8"))
+                                if line_parts_bytes > MAX_LINE_BUFFER_BYTES:
+                                    raise SandboxStreamTruncatedError(
+                                        f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
+                                    )
+                        else:
+                            if line_parts:
+                                leftover = "".join(line_parts)
+                                if len(leftover.encode("utf-8")) > MAX_LINE_BUFFER_BYTES:
+                                    raise SandboxStreamTruncatedError(
+                                        f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
+                                    )
+                                await output_queue.put(leftover)
+                                line_parts = []
+                                line_parts_bytes = 0
+                            done = True
+                    except grpc.aio.AioRpcError as exc:
+                        last_transport_error = exc
+                        direct_unavailable = prepared.is_direct and _is_unavailable_rpc_error(exc)
+                        if direct_unavailable:
+                            await prepared.discard()
+                            if is_resume and _is_log_session_wrong_shard_error(exc):
                                 session_id = ""
                                 last_offset = 0
                                 line_parts = []
                                 line_parts_bytes = 0
-                                break
-                            if code == _STREAMING_INTERRUPTED:
-                                if not follow:
-                                    raise SandboxError(f"Log stream error: {msg}")
-                                break
-                            if code == STREAM_TRUNCATED:
-                                raise SandboxStreamTruncatedError(msg)
-                            raise SandboxError(f"Log stream error: {msg}")
-                        if entry.log_session_id:
-                            session_id = entry.log_session_id
-                        if entry.next_log_offset:
-                            last_offset = int(entry.next_log_offset)
-                        chunk = entry.data.decode("utf-8", errors="replace")
-                        if not chunk:
-                            continue
-                        if follow:
-                            attempt = 0
-                            last_transport_error = None
-                        delivered_any = True
-                        line_parts.append(chunk)
-                        buf = "".join(line_parts)
-                        if "\n" in buf:
-                            *complete, remainder = buf.split("\n")
-                            for line in complete:
-                                encoded_line = (line + "\n").encode("utf-8")
-                                if len(encoded_line) > MAX_LINE_BUFFER_BYTES:
-                                    raise SandboxStreamTruncatedError(
-                                        f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
-                                    )
-                                await output_queue.put(line + "\n")
-                            remainder_bytes = len(remainder.encode("utf-8")) if remainder else 0
-                            if remainder_bytes > MAX_LINE_BUFFER_BYTES:
-                                raise SandboxStreamTruncatedError(
-                                    f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
-                                )
-                            line_parts = [remainder] if remainder else []
-                            line_parts_bytes = remainder_bytes
-                        else:
-                            line_parts_bytes = len(buf.encode("utf-8"))
-                            if line_parts_bytes > MAX_LINE_BUFFER_BYTES:
-                                raise SandboxStreamTruncatedError(
-                                    f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
-                                )
-                    else:
-                        if line_parts:
-                            leftover = "".join(line_parts)
-                            if len(leftover.encode("utf-8")) > MAX_LINE_BUFFER_BYTES:
-                                raise SandboxStreamTruncatedError(
-                                    f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
-                                )
-                            await output_queue.put(leftover)
-                            line_parts = []
-                            line_parts_bytes = 0
-                        done = True
-                        continue
-                except grpc.aio.AioRpcError as exc:
-                    last_transport_error = exc
-                    if not (_is_resumable_transport_error(exc) and follow):
-                        raise _translate_rpc_error(
-                            exc, sandbox_id=sandbox_id, operation="Stream logs"
-                        ) from exc
+                        if prepared.is_direct and _is_runner_shard_retiring_error(exc):
+                            pass
+                        elif not (_is_resumable_transport_error(exc) and follow):
+                            raise _translate_rpc_error(
+                                exc, sandbox_id=sandbox_id, operation="Stream logs"
+                            ) from exc
+                finally:
+                    with contextlib.suppress(Exception):
+                        call.cancel()
+                    await prepared.release()
 
                 if done:
                     break
@@ -5380,19 +6144,67 @@ class Sandbox:
             if inner_exit_clean:
                 await output_queue.put(None)
 
-    async def _prepare_streaming_call(
+    async def _prepare_data_plane_call(
         self,
-    ) -> sandbox_pb2_grpc.SandboxServiceStub:
-        """Shared StreamExec preamble: ensure running, return a stub."""
+        permission: int,
+        *,
+        streaming: bool,
+        allow_terminal: bool = False,
+    ) -> _PreparedDataPlaneCall:
+        """Select direct mTLS or the gateway for one sandbox data operation."""
         await self._ensure_started_async()
-        if self._is_done or self._is_stopping:
+        if (self._is_done or self._is_stopping) and not allow_terminal:
             raise SandboxNotRunningError(f"Sandbox {self._sandbox_id} has been stopped")
         if self._sandbox_id is None:
             raise SandboxNotRunningError("No sandbox is running")
-        await self._wait_until_running_async()
+        if not self._is_done and not self._is_stopping:
+            await self._wait_until_running_async()
         await self._ensure_client()
-        channel = await self._get_or_create_streaming_channel()
-        return sandbox_pb2_grpc.SandboxServiceStub(channel)  # type: ignore[no-untyped-call]
+        assert self._stub is not None
+        assert self._sandbox_id is not None
+
+        if self._data_plane_mode != DataPlaneMode.GATEWAY:
+            try:
+                lease = await self._direct_data_plane.acquire(
+                    control_stub=self._stub,
+                    sandbox_id=self._sandbox_id,
+                    auth_metadata=self._auth_metadata,
+                    permission=permission,
+                    request_timeout=self._request_timeout_seconds,
+                    strict=self._data_plane_mode == DataPlaneMode.DIRECT,
+                )
+                return _PreparedDataPlaneCall(stub=lease.stub, metadata=(), direct_lease=lease)
+            except (DirectDataPlaneUnavailable, DirectDataPlanePermissionUnavailable) as exc:
+                if self._data_plane_mode == DataPlaneMode.DIRECT:
+                    raise SandboxUnavailableError(
+                        f"Direct data-plane access is unavailable for sandbox {self._sandbox_id}: "
+                        f"{exc}"
+                    ) from exc
+                logger.debug(
+                    "Direct data-plane access unavailable for sandbox %s; using gateway: %s",
+                    self._sandbox_id,
+                    exc,
+                )
+            except grpc.RpcError as exc:
+                raise _translate_rpc_error(
+                    exc,
+                    sandbox_id=self._sandbox_id,
+                    operation="Connect to sandbox data plane",
+                ) from exc
+
+        if streaming:
+            channel = await self._get_or_create_streaming_channel()
+            stub: Any = sandbox_pb2_grpc.SandboxServiceStub(channel)  # type: ignore[no-untyped-call]
+        else:
+            stub = self._stub
+        return _PreparedDataPlaneCall(stub=stub, metadata=self._auth_metadata)
+
+    async def _prepare_streaming_call(self) -> _PreparedDataPlaneCall:
+        """Shared StreamExec preamble and transport selection."""
+        return await self._prepare_data_plane_call(
+            sandbox_pb2.SANDBOX_DATA_PERMISSION_STREAM_EXEC,
+            streaming=True,
+        )
 
     async def _exec_streaming_tty_async(
         self,
@@ -5404,6 +6216,7 @@ class Sandbox:
         resize_queue: asyncio.Queue[tuple[int, int] | None],
         tty_width: int | None = None,
         tty_height: int | None = None,
+        container: str | None = None,
     ) -> TerminalResult:
         """Internal async: Execute TTY command, push raw bytes to output queue.
 
@@ -5418,9 +6231,11 @@ class Sandbox:
         if not command:
             raise ValueError("Command cannot be empty")
 
+        prepared: _PreparedDataPlaneCall | None = None
         try:
-            stub = await self._prepare_streaming_call()
-            auth_metadata = self._auth_metadata
+            prepared = await self._prepare_streaming_call()
+            stub = prepared.stub
+            auth_metadata = prepared.metadata
             # Narrow for closure capture: _prepare_streaming_call() raised if
             # _sandbox_id was None, but mypy cannot propagate that narrowing
             # into the request_generator closure below.
@@ -5446,6 +6261,7 @@ class Sandbox:
                     command=list(command),
                     tty=True,
                 )
+                _set_request_container(init_msg, container)
                 if tty_width is not None:
                     init_msg.tty_width = tty_width
                 if tty_height is not None:
@@ -5533,6 +6349,7 @@ class Sandbox:
                 timeout=None,
                 metadata=auth_metadata,
             )
+            prepared.release_when_done(call)
 
             # Bounded queue propagates backpressure to gRPC reads — when the
             # consumer is slow, collect_responses() blocks on put(), stopping
@@ -5623,6 +6440,9 @@ class Sandbox:
             except asyncio.QueueFull:
                 asyncio.create_task(output_queue.put(exc))
             raise
+        finally:
+            if prepared is not None:
+                await prepared.release()
 
     async def _exec_streaming_async(
         self,
@@ -5635,6 +6455,7 @@ class Sandbox:
         timeout_seconds: float | None = None,
         stdin_queue: asyncio.Queue[bytes | None] | None = None,
         stdin_writer: StreamWriter | None = None,
+        container: str | None = None,
     ) -> ProcessResult:
         """Internal async: Execute command using StreamExec RPC, push output to queues.
 
@@ -5650,8 +6471,9 @@ class Sandbox:
         if not command:
             raise ValueError("Command cannot be empty")
 
-        stub = await self._prepare_streaming_call()
-        auth_metadata = self._auth_metadata
+        prepared = await self._prepare_streaming_call()
+        stub = prepared.stub
+        auth_metadata = prepared.metadata
         # Narrow for closure capture: _prepare_streaming_call() raised if
         # _sandbox_id was None, but mypy cannot propagate that narrowing
         # into the request_generator closure below.
@@ -5688,12 +6510,12 @@ class Sandbox:
             which signals gRPC to half-close the send direction.
             """
             # Yield init message first
-            yield sandbox_pb2.ExecStreamRequest(
-                init=sandbox_pb2.ExecStreamInit(
-                    sandbox_id=sandbox_id,
-                    command=rpc_command,
-                )
+            init_msg = sandbox_pb2.ExecStreamInit(
+                sandbox_id=sandbox_id,
+                command=rpc_command,
             )
+            _set_request_container(init_msg, container)
+            yield sandbox_pb2.ExecStreamRequest(init=init_msg)
 
             # If stdin is enabled, wait for ready signal before sending data
             if stdin_queue is not None:
@@ -5750,13 +6572,18 @@ class Sandbox:
         call_timeout = (
             timeout + DEFAULT_CLIENT_TIMEOUT_BUFFER_SECONDS if timeout is not None else None
         )
-        call: grpc.aio.StreamStreamCall[
-            sandbox_pb2.ExecStreamRequest, sandbox_pb2.ExecStreamResponse
-        ] = stub.StreamExec(
-            request_iterator=request_generator(),
-            timeout=call_timeout,
-            metadata=auth_metadata,
-        )
+        try:
+            call: grpc.aio.StreamStreamCall[
+                sandbox_pb2.ExecStreamRequest, sandbox_pb2.ExecStreamResponse
+            ] = stub.StreamExec(
+                request_iterator=request_generator(),
+                timeout=call_timeout,
+                metadata=auth_metadata,
+            )
+        except BaseException:
+            await prepared.release(discard=True)
+            raise
+        prepared.release_when_done(call)
 
         # Queue decouples stream iteration from our processing.
         # Without this, processing suspends the stream and can cause issues.
@@ -5900,6 +6727,7 @@ class Sandbox:
         check: bool = False,
         timeout_seconds: float | None = None,
         stdin: bool = False,
+        container: str | None = None,
     ) -> Process:
         """Execute command, return Process immediately.
 
@@ -5917,6 +6745,7 @@ class Sandbox:
             stdin: If True, enable stdin streaming. Process.stdin will be a
                 StreamWriter that can send input to the command. If False (default),
                 stdin is closed immediately and Process.stdin is None.
+            container: Container name to exec into. Empty/None targets the primary.
 
         Returns:
             Process handle with streaming stdout/stderr. Call .result() to block
@@ -5982,6 +6811,7 @@ class Sandbox:
                 timeout_seconds=timeout_seconds,
                 stdin_queue=stdin_queue,
                 stdin_writer=stdin_writer,
+                container=container,
             )
         )
 
@@ -6000,6 +6830,7 @@ class Sandbox:
         *,
         width: int | None = None,
         height: int | None = None,
+        container: str | None = None,
     ) -> TerminalSession:
         """Start an interactive TTY session in the sandbox.
 
@@ -6012,6 +6843,8 @@ class Sandbox:
                 Accepts a sequence like ["/bin/sh"] or ["/usr/bin/python3"].
             width: Initial terminal width in columns.
             height: Initial terminal height in rows.
+            container: Container name for the TTY session. Empty/None targets
+                the primary.
 
         Returns:
             TerminalSession handle with .output (StreamReader[bytes]),
@@ -6058,6 +6891,7 @@ class Sandbox:
                 resize_queue=resize_queue,
                 tty_width=width,
                 tty_height=height,
+                container=container,
             )
         )
 
@@ -6086,6 +6920,8 @@ class Sandbox:
         timeout_seconds: float | None = None,
         operation: str,
         filepath: str | None = None,
+        _retry_retiring: bool = True,
+        container: str | None = None,
     ) -> tuple[int, bytes, bytes]:
         """Run one non-TTY StreamExec and return raw stdout/stderr bytes.
 
@@ -6093,11 +6929,13 @@ class Sandbox:
         keep handshake/timeout/error-translation in sync between the two.
         """
         timeout = timeout_seconds if timeout_seconds is not None else self._request_timeout_seconds
+        deadline = time.monotonic() + timeout if timeout is not None else None
 
         if not command:
             raise ValueError("Command cannot be empty")
 
-        stub = await self._prepare_streaming_call()
+        prepared = await self._prepare_streaming_call()
+        stub = prepared.stub
         # Narrow for closure capture: _prepare_streaming_call() raised if
         # _sandbox_id was None, but mypy cannot propagate that narrowing
         # into the request_generator closure below.
@@ -6118,12 +6956,12 @@ class Sandbox:
         request_error: Exception | None = None
 
         async def request_generator() -> AsyncIterator[sandbox_pb2.ExecStreamRequest]:
-            yield sandbox_pb2.ExecStreamRequest(
-                init=sandbox_pb2.ExecStreamInit(
-                    sandbox_id=sandbox_id,
-                    command=list(command),
-                )
+            init_msg = sandbox_pb2.ExecStreamInit(
+                sandbox_id=sandbox_id,
+                command=list(command),
             )
+            _set_request_container(init_msg, container)
+            yield sandbox_pb2.ExecStreamRequest(init=init_msg)
 
             if stdin is None:
                 return
@@ -6150,29 +6988,36 @@ class Sandbox:
                     chunk = buf[i : i + STDIN_CHUNK_SIZE]
                     yield sandbox_pb2.ExecStreamRequest(stdin=chunk)
             else:
-                # AsyncIterable[bytes] — caller controls chunk size; each
-                # yielded chunk is passed through unmodified so the caller
-                # never materializes the full payload in memory.
                 async for chunk in stdin:
                     if shutdown_event.is_set():
                         return
                     if not chunk:
                         continue
-                    yield sandbox_pb2.ExecStreamRequest(stdin=_coerce_bytes_chunk(chunk))
+                    data = _coerce_bytes_chunk(chunk)
+                    for i in range(0, len(data), STDIN_CHUNK_SIZE):
+                        if shutdown_event.is_set():
+                            return
+                        yield sandbox_pb2.ExecStreamRequest(stdin=data[i : i + STDIN_CHUNK_SIZE])
 
             yield sandbox_pb2.ExecStreamRequest(close=sandbox_pb2.ExecStreamClose())
 
         call_timeout = (
             timeout + DEFAULT_CLIENT_TIMEOUT_BUFFER_SECONDS if timeout is not None else None
         )
-        call: grpc.aio.StreamStreamCall[
-            sandbox_pb2.ExecStreamRequest, sandbox_pb2.ExecStreamResponse
-        ] = stub.StreamExec(
-            request_iterator=request_generator(),
-            timeout=call_timeout,
-            metadata=self._auth_metadata,
-        )
+        try:
+            call: grpc.aio.StreamStreamCall[
+                sandbox_pb2.ExecStreamRequest, sandbox_pb2.ExecStreamResponse
+            ] = stub.StreamExec(
+                request_iterator=request_generator(),
+                timeout=call_timeout,
+                metadata=prepared.metadata,
+            )
+        except BaseException:
+            await prepared.release(discard=True)
+            raise
+        prepared.release_when_done(call)
 
+        retiring_error: grpc.RpcError | None = None
         try:
             async for response in call:
                 if response.HasField("ready"):
@@ -6207,17 +7052,43 @@ class Sandbox:
             # by cancelling the receiver side.
             if request_error is not None:
                 raise request_error from e
-            raise _translate_rpc_error(
-                e,
-                sandbox_id=self._sandbox_id,
-                operation=operation,
-                filepath=filepath,
-            ) from e
+            if prepared.is_direct and _is_unavailable_rpc_error(e):
+                await prepared.discard()
+            replayable_stdin = stdin is None or isinstance(stdin, bytes)
+            if (
+                prepared.is_direct
+                and _retry_retiring
+                and replayable_stdin
+                and _is_runner_shard_retiring_error(e)
+            ):
+                retiring_error = e
+            else:
+                raise _translate_rpc_error(
+                    e,
+                    sandbox_id=self._sandbox_id,
+                    operation=operation,
+                    filepath=filepath,
+                ) from e
         finally:
             ready_event.set()
             shutdown_event.set()
             with contextlib.suppress(Exception):
                 call.cancel()
+
+        if retiring_error is not None:
+            await prepared.release(discard=True)
+            retry_timeout = self._remaining_budget(deadline)
+            if retry_timeout is not None and retry_timeout <= 0:
+                raise SandboxTimeoutError(f"{operation} timed out") from retiring_error
+            return await self._exec_streaming_binary_async(
+                command,
+                stdin=stdin,
+                timeout_seconds=retry_timeout,
+                operation=operation,
+                filepath=filepath,
+                _retry_retiring=False,
+                container=container,
+            )
 
         if request_error is not None:
             raise request_error
@@ -6234,29 +7105,48 @@ class Sandbox:
             b"".join(stderr_buffer),
         )
 
-    async def _read_file_unary_async(self, filepath: str, timeout: float) -> bytes:
-        assert self._stub is not None
+    async def _read_file_unary_async(
+        self, filepath: str, timeout: float, *, container: str | None = None
+    ) -> bytes:
         request = sandbox_pb2.ReadFileRequest(
             sandbox_id=self._sandbox_id,
             path=filepath,
         )
-
-        try:
-            response = await self._stub.ReadFile(
-                request, timeout=timeout, metadata=self._auth_metadata
+        _set_request_container(request, container)
+        for attempt in range(2):
+            prepared = await self._prepare_data_plane_call(
+                sandbox_pb2.SANDBOX_DATA_PERMISSION_READ_FILE,
+                streaming=False,
             )
-        except grpc.RpcError as e:
-            raise _translate_rpc_error(
-                e,
-                sandbox_id=self._sandbox_id,
-                operation="Read file",
-                filepath=filepath,
-            ) from e
-
-        return bytes(response.content)
+            discard = False
+            try:
+                response = await prepared.stub.ReadFile(
+                    request, timeout=timeout, metadata=prepared.metadata
+                )
+                return bytes(response.content)
+            except grpc.RpcError as e:
+                discard = prepared.is_direct and _is_unavailable_rpc_error(e)
+                if discard:
+                    await prepared.discard()
+                if prepared.is_direct and attempt == 0 and _is_runner_shard_retiring_error(e):
+                    continue
+                raise _translate_rpc_error(
+                    e,
+                    sandbox_id=self._sandbox_id,
+                    operation="Read file",
+                    filepath=filepath,
+                ) from e
+            finally:
+                await prepared.release(discard=discard)
+        raise AssertionError("unreachable")
 
     async def _read_file_via_exec_streaming(
-        self, filepath: str, timeout: float, *, expected_size: int | None = None
+        self,
+        filepath: str,
+        timeout: float,
+        *,
+        expected_size: int | None = None,
+        container: str | None = None,
     ) -> bytes:
         script = (
             "path=$1\n"
@@ -6275,6 +7165,7 @@ class Sandbox:
             timeout_seconds=timeout,
             operation="Read file",
             filepath=filepath,
+            container=container,
         )
         if returncode != 0:
             detail = stderr.decode("utf-8", errors="replace").strip()
@@ -6312,7 +7203,9 @@ class Sandbox:
         )
         return stdout
 
-    async def _stat_file_size_async(self, filepath: str, timeout: float) -> int | None:
+    async def _stat_file_size_async(
+        self, filepath: str, timeout: float, *, container: str | None = None
+    ) -> int | None:
         """Best-effort: ask the sandbox for the file's size in bytes.
 
         Returns ``None`` if the size could not be determined (stat unavailable,
@@ -6327,6 +7220,7 @@ class Sandbox:
                 timeout_seconds=timeout,
                 operation="Stat file size",
                 filepath=filepath,
+                container=container,
             )
         except Exception:
             return None
@@ -6413,6 +7307,8 @@ class Sandbox:
         self,
         filepath: str,
         timeout: float,
+        *,
+        container: str | None = None,
     ) -> bytes:
         """Internal async: Read a file from the sandbox filesystem."""
         await self._ensure_started_async()
@@ -6430,7 +7326,7 @@ class Sandbox:
         logger.debug("Reading file from sandbox %s: %s", self._sandbox_id, filepath)
 
         try:
-            return await self._read_file_unary_async(filepath, timeout)
+            return await self._read_file_unary_async(filepath, timeout, container=container)
         except SandboxFileError as e:
             if e.reason != CWSANDBOX_FILE_TOO_LARGE:
                 raise
@@ -6448,7 +7344,9 @@ class Sandbox:
             # ``size`` is the server-reported pre-read size: feed it to the
             # truncation check directly, so the fallback needs no extra stat
             # round-trip and cannot false-positive on a growing file.
-            return await self._read_file_via_exec_streaming(filepath, timeout, expected_size=size)
+            return await self._read_file_via_exec_streaming(
+                filepath, timeout, expected_size=size, container=container
+            )
         except SandboxResourceExhaustedError:
             # Backend resource pressure is indistinguishable from message-size
             # rejects on this code path without inspecting error text; remote
@@ -6462,19 +7360,21 @@ class Sandbox:
                 self._sandbox_id,
                 filepath,
             )
-            return await self._read_file_via_exec_streaming(filepath, timeout)
+            return await self._read_file_via_exec_streaming(filepath, timeout, container=container)
 
     def read_file(
         self,
         filepath: str,
         *,
         timeout_seconds: float | None = None,
+        container: str | None = None,
     ) -> OperationRef[bytes]:
         """Read file from sandbox, return OperationRef immediately.
 
         Args:
             filepath: Path to file in sandbox
             timeout_seconds: Timeout for the operation
+            container: Container to read from. Empty/None targets the primary.
 
         Returns:
             OperationRef[bytes]: Use .result() to block and retrieve contents.
@@ -6510,7 +7410,9 @@ class Sandbox:
             ```
         """
         timeout = timeout_seconds if timeout_seconds is not None else self._request_timeout_seconds
-        future = self._loop_manager.run_async(self._read_file_async(filepath, timeout))
+        future = self._loop_manager.run_async(
+            self._read_file_async(filepath, timeout, container=container)
+        )
         return OperationRef(future)
 
     async def _write_file_unary_async(
@@ -6518,29 +7420,50 @@ class Sandbox:
         filepath: str,
         contents: bytes,
         timeout: float,
+        *,
+        container: str | None = None,
     ) -> None:
-        assert self._stub is not None
         request = sandbox_pb2.WriteFileRequest(
             sandbox_id=self._sandbox_id,
             path=filepath,
             content=contents,
         )
-
-        try:
-            await self._stub.WriteFile(request, timeout=timeout, metadata=self._auth_metadata)
-        except grpc.RpcError as e:
-            raise _translate_rpc_error(
-                e,
-                sandbox_id=self._sandbox_id,
-                operation="Write file",
-                filepath=filepath,
-            ) from e
+        _set_request_container(request, container)
+        for attempt in range(2):
+            prepared = await self._prepare_data_plane_call(
+                sandbox_pb2.SANDBOX_DATA_PERMISSION_WRITE_FILE,
+                streaming=False,
+            )
+            discard = False
+            try:
+                await prepared.stub.WriteFile(
+                    request,
+                    timeout=timeout,
+                    metadata=prepared.metadata,
+                )
+                return
+            except grpc.RpcError as e:
+                discard = prepared.is_direct and _is_unavailable_rpc_error(e)
+                if discard:
+                    await prepared.discard()
+                if prepared.is_direct and attempt == 0 and _is_runner_shard_retiring_error(e):
+                    continue
+                raise _translate_rpc_error(
+                    e,
+                    sandbox_id=self._sandbox_id,
+                    operation="Write file",
+                    filepath=filepath,
+                ) from e
+            finally:
+                await prepared.release(discard=discard)
 
     async def _write_file_via_exec_streaming(
         self,
         filepath: str,
         contents: bytes,
         timeout: float,
+        *,
+        container: str | None = None,
     ) -> None:
         script = (
             "path=$1\n"
@@ -6565,6 +7488,7 @@ class Sandbox:
                 timeout_seconds=timeout,
                 operation="Write file",
                 filepath=filepath,
+                container=container,
             )
         except SandboxStreamBackpressureError:
             # A too-slow producer is its own actionable, typed failure. Let it
@@ -6683,6 +7607,8 @@ class Sandbox:
         filepath: str,
         contents: bytes,
         timeout: float,
+        *,
+        container: str | None = None,
     ) -> None:
         """Internal async: Write a file to the sandbox filesystem."""
         await self._ensure_started_async()
@@ -6727,11 +7653,13 @@ class Sandbox:
             self._notify_streaming_fallback_once(
                 "Write file", filepath, size, suggest_method="write_file_streaming"
             )
-            await self._write_file_via_exec_streaming(filepath, contents, timeout)
+            await self._write_file_via_exec_streaming(
+                filepath, contents, timeout, container=container
+            )
             return
 
         try:
-            await self._write_file_unary_async(filepath, contents, timeout)
+            await self._write_file_unary_async(filepath, contents, timeout, container=container)
         except SandboxFileError as e:
             if e.reason != CWSANDBOX_FILE_TOO_LARGE:
                 raise
@@ -6741,7 +7669,9 @@ class Sandbox:
             self._notify_streaming_fallback_once(
                 "Write file", filepath, size, suggest_method="write_file_streaming"
             )
-            await self._write_file_via_exec_streaming(filepath, contents, timeout)
+            await self._write_file_via_exec_streaming(
+                filepath, contents, timeout, container=container
+            )
         except SandboxResourceExhaustedError as e:
             # Legacy gRPC frame-size signal. Distinguishable from real backend
             # pressure only by message text, so the fallback fires only on the
@@ -6754,7 +7684,9 @@ class Sandbox:
                 self._sandbox_id,
                 filepath,
             )
-            await self._write_file_via_exec_streaming(filepath, contents, timeout)
+            await self._write_file_via_exec_streaming(
+                filepath, contents, timeout, container=container
+            )
 
     def write_file(
         self,
@@ -6762,6 +7694,7 @@ class Sandbox:
         contents: bytes,
         *,
         timeout_seconds: float | None = None,
+        container: str | None = None,
     ) -> OperationRef[None]:
         """Write file to sandbox, return OperationRef immediately.
 
@@ -6769,6 +7702,7 @@ class Sandbox:
             filepath: Path to file in sandbox
             contents: File contents as bytes
             timeout_seconds: Timeout for the operation
+            container: Container to write into. Empty/None targets the primary.
 
         Returns:
             OperationRef[None]: Use .result() to block until complete.
@@ -6795,7 +7729,9 @@ class Sandbox:
             ```
         """
         timeout = timeout_seconds if timeout_seconds is not None else self._request_timeout_seconds
-        future = self._loop_manager.run_async(self._write_file_async(filepath, contents, timeout))
+        future = self._loop_manager.run_async(
+            self._write_file_async(filepath, contents, timeout, container=container)
+        )
         return OperationRef(future)
 
     async def _write_file_streaming_async(
@@ -6803,6 +7739,8 @@ class Sandbox:
         filepath: str,
         source: bytes | Iterable[bytes] | AsyncIterable[bytes],
         timeout: float,
+        *,
+        container: str | None = None,
     ) -> None:
         await self._ensure_started_async()
         if self._is_done or self._is_stopping:
@@ -6844,6 +7782,7 @@ class Sandbox:
                 timeout_seconds=timeout,
                 operation="Stream write file",
                 filepath=filepath,
+                container=container,
             )
         except SandboxStreamBackpressureError:
             # A too-slow producer is its own actionable failure — surface the
@@ -6879,6 +7818,7 @@ class Sandbox:
         source: bytes | Iterable[bytes] | AsyncIterable[bytes],
         *,
         timeout_seconds: float | None = None,
+        container: str | None = None,
     ) -> OperationRef[None]:
         """Stream a file to the sandbox without materializing the full payload.
 
@@ -6889,8 +7829,8 @@ class Sandbox:
         Args:
             filepath: Absolute path inside the sandbox.
             source: Payload as ``bytes``, a sync ``Iterable[bytes]``, or an
-                ``AsyncIterable[bytes]``. Each yielded chunk is sent as-is;
-                ``bytes`` input is sliced into 1 MiB chunks internally.
+                ``AsyncIterable[bytes]``. Input is split into frame-safe chunks
+                before transmission.
                 Yielded items must be ``bytes``, ``bytearray``, or
                 ``memoryview``; anything else raises ``TypeError``.
             timeout_seconds: Wall-clock timeout for the streaming write.
@@ -6916,7 +7856,7 @@ class Sandbox:
         """
         timeout = timeout_seconds if timeout_seconds is not None else self._request_timeout_seconds
         future = self._loop_manager.run_async(
-            self._write_file_streaming_async(filepath, source, timeout)
+            self._write_file_streaming_async(filepath, source, timeout, container=container)
         )
         return OperationRef(future)
 
@@ -6925,6 +7865,9 @@ class Sandbox:
         filepath: str,
         output_queue: asyncio.Queue[bytes | Exception | None],
         timeout: float,
+        _retry_retiring: bool = True,
+        *,
+        container: str | None = None,
     ) -> None:
         try:
             # Absolute wall-clock deadline for the whole operation (stat + read),
@@ -6937,8 +7880,6 @@ class Sandbox:
             if self._sandbox_id is None:
                 raise SandboxNotRunningError("No sandbox is running")
             await self._wait_until_running_async()
-            await self._ensure_client()
-            stub = await self._prepare_streaming_call()
             # Capture into a local so the inner closure has a non-Optional binding.
             # Subsequent awaits invalidate mypy's narrowing of self._sandbox_id.
             assert self._sandbox_id is not None
@@ -6950,7 +7891,12 @@ class Sandbox:
             # never look like a short read (issue #1172 false-positive fix). The
             # stat draws from the operation's remaining budget, capped short
             # because it is an O(1) metadata lookup.
-            expected_size = await self._stat_file_size_async(filepath, self._stat_budget(deadline))
+            expected_size = await self._stat_file_size_async(
+                filepath, self._stat_budget(deadline), container=container
+            )
+
+            prepared = await self._prepare_streaming_call()
+            stub = prepared.stub
 
             stderr_buf = bytearray()
             stderr_cap = STREAMING_READ_STDERR_CAP_BYTES
@@ -6963,12 +7909,12 @@ class Sandbox:
                 # stdin close is unnecessary and can race server-side stream
                 # setup. The request stream half-closes when this generator
                 # returns, matching the stdin-less exec path.
-                yield sandbox_pb2.ExecStreamRequest(
-                    init=sandbox_pb2.ExecStreamInit(
-                        sandbox_id=sandbox_id,
-                        command=["/bin/cat", "--", filepath],
-                    )
+                init_msg = sandbox_pb2.ExecStreamInit(
+                    sandbox_id=sandbox_id,
+                    command=["/bin/cat", "--", filepath],
                 )
+                _set_request_container(init_msg, container)
+                yield sandbox_pb2.ExecStreamRequest(init=init_msg)
 
             # The read gets the budget remaining after the pre-read stat, so the
             # two phases together honor the caller's overall timeout.
@@ -6978,13 +7924,19 @@ class Sandbox:
                 if read_budget is not None
                 else None
             )
-            call: grpc.aio.StreamStreamCall[
-                sandbox_pb2.ExecStreamRequest, sandbox_pb2.ExecStreamResponse
-            ] = stub.StreamExec(
-                request_iterator=request_generator(),
-                timeout=call_timeout,
-                metadata=self._auth_metadata,
-            )
+            try:
+                call: grpc.aio.StreamStreamCall[
+                    sandbox_pb2.ExecStreamRequest, sandbox_pb2.ExecStreamResponse
+                ] = stub.StreamExec(
+                    request_iterator=request_generator(),
+                    timeout=call_timeout,
+                    metadata=prepared.metadata,
+                )
+            except BaseException:
+                await prepared.release(discard=True)
+                raise
+            prepared.release_when_done(call)
+            retry_retiring = False
             try:
                 async for response in call:
                     if response.HasField("output"):
@@ -7002,9 +7954,35 @@ class Sandbox:
                         break
                     elif response.HasField("error"):
                         raise _exec_stream_error(response.error.message, response.error.code)
+            except grpc.RpcError as exc:
+                if prepared.is_direct and _is_unavailable_rpc_error(exc):
+                    await prepared.discard()
+                if prepared.is_direct and _retry_retiring and _is_runner_shard_retiring_error(exc):
+                    retry_retiring = True
+                else:
+                    raise _translate_rpc_error(
+                        exc,
+                        sandbox_id=self._sandbox_id,
+                        operation="read_file_streaming",
+                        filepath=filepath,
+                    ) from exc
             finally:
                 with contextlib.suppress(Exception):
                     call.cancel()
+
+            if retry_retiring:
+                await prepared.release(discard=True)
+                retry_budget = self._remaining_budget(deadline)
+                if retry_budget is None or retry_budget > 0:
+                    await self._read_file_streaming_async(
+                        filepath,
+                        output_queue,
+                        timeout if retry_budget is None else retry_budget,
+                        _retry_retiring=False,
+                        container=container,
+                    )
+                    return
+                raise SandboxTimeoutError(f"Timed out reading file '{filepath}'")
 
             if exit_code is None:
                 raise SandboxFileError(
@@ -7058,6 +8036,7 @@ class Sandbox:
         filepath: str,
         *,
         timeout_seconds: float | None = None,
+        container: str | None = None,
     ) -> StreamReader[bytes]:
         """Stream a file from the sandbox in chunks without buffering the whole payload.
 
@@ -7118,7 +8097,7 @@ class Sandbox:
             maxsize=STREAMING_OUTPUT_QUEUE_SIZE
         )
         future = self._loop_manager.run_async(
-            self._read_file_streaming_async(filepath, output_queue, timeout)
+            self._read_file_streaming_async(filepath, output_queue, timeout, container=container)
         )
         reader = StreamReader(
             output_queue,
@@ -7139,6 +8118,7 @@ class Sandbox:
         since_time: datetime | None = None,
         timestamps: bool = False,
         timeout_seconds: float | None = None,
+        container: str | None = None,
     ) -> StreamReader[str]:
         """Stream logs from the sandbox's main process.
 
@@ -7170,6 +8150,8 @@ class Sandbox:
             timeout_seconds: Client-side deadline for the gRPC call. Defaults
                 to ``request_timeout_seconds`` when ``follow=False``, and
                 ``None`` (no timeout) when ``follow=True``.
+            container: Container whose logs to stream. Empty/None targets the
+                primary.
 
         Returns:
             StreamReader yielding log lines as strings. Iterate synchronously
@@ -7215,6 +8197,7 @@ class Sandbox:
                 since_time=since_time,
                 timestamps=timestamps,
                 timeout_seconds=timeout_seconds,
+                container=container,
             )
         )
 

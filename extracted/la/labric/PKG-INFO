@@ -1,0 +1,63 @@
+Metadata-Version: 2.5
+Name: labric
+Version: 0.9.6
+Summary: The official Python library for the Labric API
+Project-URL: Homepage, https://labric.co
+Project-URL: Platform, https://platform.labric.co
+Project-URL: Documentation, https://docs.labric.co
+Project-URL: Repository, https://github.com/Labric-Platforms/py-sdk
+Author: Labric
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: >=3.9
+Requires-Dist: httpx>=0.21.2
+Requires-Dist: pydantic>=1.9.2
+Requires-Dist: typing-extensions>=4.0.0
+Description-Content-Type: text/markdown
+
+# Labric Python SDK
+
+The official Python library for the [Labric](https://labric.co) API.
+Full documentation is available at [docs.labric.co](https://docs.labric.co).
+
+## Installation
+
+```bash
+pip install labric
+```
+
+## Usage
+
+```python
+from labric import Labric
+
+client = Labric()  # reads LABRIC_API_KEY from the environment
+# or pass the API key explicitly: Labric(api_key="lbk_...")
+
+client.tools.write(
+    target_name="samples",
+    target_type="table",
+    data=[{"sample_id": "S-001", "status": "received"}],
+    mode="create",
+)
+```
+
+An async client is also available:
+
+```python
+from labric import AsyncLabric
+```
+
+See the [API reference](https://docs.labric.co/api-reference) for the full list of
+methods and types.
+
+## Support
+
+- [Documentation](https://docs.labric.co)
+- [Issues](https://github.com/Labric-Platforms/py-sdk/issues)
+
+## Contributing
+
+This SDK is largely generated code. See
+[CONTRIBUTING.md](https://github.com/Labric-Platforms/py-sdk/blob/main/CONTRIBUTING.md)
+for how it is generated and released.

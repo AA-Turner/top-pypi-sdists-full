@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: netflix-spectator-py
-Version: 1.1.2
+Version: 1.1.3
 Summary: Library for reporting metrics from Python applications to SpectatorD and the Netflix Atlas Timeseries Database.
 Home-page: https://github.com/Netflix/spectator-py
 Author: Netflix Telemetry Engineering

@@ -49,7 +49,7 @@ class UseCaseUser(APIObject):
     Attributes
     ----------
     id : str
-        The id of the user.
+        The ID of the user.
     full_name : str
         The full name of the user. Optional.
     email : str
@@ -302,7 +302,7 @@ class UseCase(APIObject, BrowserMixin):
     @classmethod
     def get(cls, use_case_id: str) -> UseCase:
         """
-        Gets information about a Use Case.
+        Gets the information about a Use Case.
 
         Parameters
         ----------
@@ -484,7 +484,7 @@ class UseCase(APIObject, BrowserMixin):
         ----------
         entity : Union[UseCaseReferenceEntity, Project, Dataset, Application, Files]
             An existing entity to be linked to this Use Case.
-            Cannot be used if entity_type and entity_id are passed.
+            Cannot be used if ``entity_type`` and ``entity_id`` are passed.
         entity_type : UseCaseEntityType
             The entity type of the entity to link to this Use Case. Cannot be used if entity is passed.
         entity_id : str
@@ -521,7 +521,7 @@ class UseCase(APIObject, BrowserMixin):
         ----------
         entity : Union[UseCaseReferenceEntity, Project, Dataset, Application, Files]
             An existing entity instance to be removed from a Use Case.
-            Cannot be used if entity_type and entity_id are passed.
+            Cannot be used if ``entity_type`` and ``entity_id`` are passed.
         entity_type : UseCaseEntityType
             The entity type of the entity to link to this Use Case. Cannot be used if entity is passed.
         entity_id : str
@@ -644,7 +644,7 @@ class UseCase(APIObject, BrowserMixin):
 
     def list_projects(self) -> List[T]:
         """
-        List all projects associated with this Use Case.
+        List the projects associated with this Use Case.
 
         Returns
         -------
@@ -657,7 +657,7 @@ class UseCase(APIObject, BrowserMixin):
 
     def list_datasets(self) -> List[T]:
         """
-        List all datasets associated with this Use Case.
+        List the datasets associated with this Use Case.
 
         Returns
         -------
@@ -670,7 +670,7 @@ class UseCase(APIObject, BrowserMixin):
 
     def list_applications(self) -> List[T]:
         """
-        List all applications associated with this Use Case.
+        List the applications associated with this Use Case.
 
         Returns
         -------

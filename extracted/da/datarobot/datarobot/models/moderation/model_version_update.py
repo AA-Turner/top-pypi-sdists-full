@@ -21,7 +21,7 @@ from datarobot.utils import to_api
 
 class ModelVersionUpdate(APIObject):
     """
-    Implements the operation provided by "Save Configuration" in moderation UI.
+    Implements the save-configuration operation from the moderation UI.
     All guard configurations and overall config is saved to a new custom model version.
     """
 

@@ -180,43 +180,43 @@ class Project(APIObject, BrowserMixin):
     Attributes
     ----------
     id : str
-        the ID of the project
+        The ID of the project.
     project_name : str
-        the name of the project
+        The name of the project.
     project_description : str
-        an optional description for the project
+        An optional description for the project.
     mode : int
         The current autopilot mode. 0: Full Autopilot. 2: Manual Mode.
         4: Comprehensive Autopilot. null: Mode not set.
     target : str
-        the name of the selected target features
+        The name of the selected target features.
     target_type : str
-        Indicating what kind of modeling is being done in this project Options are: 'Regression',
+        Indicates what kind of modeling is being done in this project. Options are: 'Regression',
         'Binary' (Binary classification), 'Multiclass' (Multiclass classification),
-        'Multilabel' (Multilabel classification)
+        'Multilabel' (Multilabel classification).
     holdout_unlocked : bool
-        whether the holdout has been unlocked
+        Whether the holdout has been unlocked.
     metric : str
-        the selected project metric (e.g., `LogLoss`)
+        The selected project metric (e.g., `LogLoss`).
     stage : str
-        the stage the project has reached - one of ``datarobot.enums.PROJECT_STAGE``
+        The stage the project has reached - one of ``datarobot.enums.PROJECT_STAGE``.
     partition : dict
-        information about the selected partitioning options
+        Information about the selected partitioning options.
     positive_class : str
-        for binary classification projects, the selected positive class; otherwise, None
+        For binary classification projects, the selected positive class; otherwise, None.
     created : datetime.datetime
-        the time the project was created
+        The time the project was created.
     advanced_options : AdvancedOptions
-        information on the advanced options that were selected for the project settings,
-        e.g., a weights column or a cap of the runtime of models that can advance autopilot stages
+        Information on the advanced options that were selected for the project settings,
+        e.g., a weights column or a cap of the runtime of models that can advance autopilot stages.
     max_train_pct : float
         The maximum percentage of the project dataset that can be used without going into the
-        validation data or being too large to submit any blueprint for training
+        validation data or being too large to submit any blueprint for training.
     max_train_rows : int
-        the maximum number of rows that can be trained on without going into the validation data
-        or being too large to submit any blueprint for training
+        The maximum number of rows that can be trained on without going into the validation data
+        or being too large to submit any blueprint for training.
     file_name : str
-        The name of the file uploaded for the project dataset
+        The name of the file uploaded for the project dataset.
     credentials : Optional[List]
         A list of credentials for the datasets used in relationship configuration
         (previously graphs). For Feature Discovery projects, the list must be formatted
@@ -228,11 +228,11 @@ class Project(APIObject, BrowserMixin):
     unsupervised_mode : Optional[bool]
         (New in version v2.20) defaults to False, indicates whether this is an unsupervised project.
     relationships_configuration_id : Optional[str]
-        (New in version v2.21) id of the relationships configuration to use
+        (New in version v2.21) ID of relationships configuration to use.
     query_generator_id: Optional[str]
-        (New in version v2.27) id of the query generator applied for time series data prep
+        (New in version v2.27) ID of query generator applied for time series data prep.
     segmentation : dict, optional
-        information on the segmentation options for segmented project
+        Information on the segmentation options for segmented project.
     partitioning_method : PartitioningMethod, optional
         (New in version v3.0) The partitioning class for this project. This attribute should only be used
         with newly-created projects and before calling `Project.analyze_and_model()`. After the project has been
@@ -242,7 +242,7 @@ class Project(APIObject, BrowserMixin):
     catalog_version_id : str
         (New in version v3.0) The object ID of the ``catalog_version`` which the project's dataset belongs to.
     use_gpu: bool
-        (New in version v3.2) Whether project allows usage of GPUs
+        (New in version v3.2) Whether project allows usage of `GPUs`.
     use_case_id : Optional[str]
         (New in version v3.8) The object ID of the use case which the project belongs to.
     """
@@ -493,7 +493,7 @@ OR individual keyword arguments. You cannot pass both."
 
         Returns
         -------
-        AdvancedOptions
+        AdvancedOptions.
         """
 
         return AdvancedOptions(**self._options.collect_autopilot_payload())
@@ -544,7 +544,7 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         data : dict
-            Only those keys that match self._fields will be updated
+            Only those keys that match self._fields will be updated.
         """
         data = self._converter.check(from_api(data))
         for k, v in data.items():
@@ -601,7 +601,7 @@ OR individual keyword arguments. You cannot pass both."
     @classmethod
     def get(cls: Type[TProject], project_id: str) -> TProject:
         """
-        Gets information about a project.
+        Gets the information about a project.
 
         Parameters
         ----------
@@ -611,7 +611,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         project : Project
-            The queried project
+            The queried project.
 
         Examples
         --------
@@ -656,20 +656,20 @@ OR individual keyword arguments. You cannot pass both."
         ----------
         sourcedata : basestring, file, pathlib.Path or pandas.DataFrame
             Dataset to use for the project.
-            If string can be either a path to a local file, url to publicly
+            If string can be either a path to a local file, URL to publicly
             available file or raw file content. If using a file, the filename
             must consist of ASCII characters only.
         project_name : str, unicode, optional
             The name to assign to the empty project.
         max_wait : Optional[int]
             Time in seconds after which project creation is considered
-            unsuccessful
+            unsuccessful.
         read_timeout: int
             The maximum number of seconds to wait for the server to respond indicating that the
-            initial upload is complete
+            initial upload is complete.
         dataset_filename : string or None, optional
             (New in version v2.14) File name to use for dataset.
-            Ignored for url and file path sources.
+            Ignored for URL and file path sources.
         use_case: UseCase | string, optional
             A single UseCase object or ID to add this new Project to. Must be a kwarg.
 
@@ -685,12 +685,12 @@ OR individual keyword arguments. You cannot pass both."
         AsyncFailureError
             Polling for status of async process resulted in response
             with unsupported status code. Beginning in version 2.1, this
-            will be ProjectAsyncFailureError, a subclass of AsyncFailureError
+            will be ProjectAsyncFailureError, a subclass of AsyncFailureError.
         AsyncProcessUnsuccessfulError
-            Raised if project creation was unsuccessful
+            Raised if project creation was unsuccessful.
         AsyncTimeoutError
             Raised if project creation took more time, than specified
-            by ``max_wait`` parameter
+            by ``max_wait`` parameter.
 
         Examples
         --------
@@ -721,12 +721,12 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         plaintext : str
-            The string to encrypt
+            The string to encrypt.
 
         Returns
         -------
         ciphertext : str
-            The encrypted string
+            The encrypted string.
         """
         endpoint = "stringEncryptions/"
         response = cls._client.post(endpoint, data={"plain_text": plaintext})
@@ -752,17 +752,17 @@ OR individual keyword arguments. You cannot pass both."
         ----------
         url : str
             The location of the WebHDFS file, both server and full path. Per the DataRobot
-            specification, must begin with `hdfs://`, e.g., `hdfs:///tmp/10kDiabetes.csv`
+            specification, must begin with `hdfs://`, e.g., `hdfs:///tmp/10kDiabetes.csv`.
         port : Optional[int]
-            The port to use. If not specified, will default to the server default (50070)
+            The port to use. If not specified, will default to the server default (50070).
         project_name : Optional[str]
-            A name to give to the project
+            A name to give to the project.
         max_wait : int
             The maximum number of seconds to wait before giving up.
 
         Returns
         -------
-        Project
+        Project.
 
         Examples
         --------
@@ -799,13 +799,13 @@ OR individual keyword arguments. You cannot pass both."
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> TProject:
         """
-        Create a project from a data source. Either data_source or data_source_id
+        Create a project from a data source. Either ``data_source`` or ``data_source_id``
         should be specified.
 
         Parameters
         ----------
         data_source_id : str
-            the identifier of the data source.
+            The identifier of the data source.
         username : Optional[str]
             The username for database authentication. If supplied ``password`` must also be supplied.
         password : Optional[str]
@@ -822,7 +822,7 @@ OR individual keyword arguments. You cannot pass both."
             The credentials to authenticate with the database, to use instead of user/password or
             credential ID.
         project_name : Optional[str]
-            optional, a name to give to the project.
+            Optional, a name to give to the project.
         max_wait : int
             Optional; the maximum number of seconds to wait before giving up.
         use_case: UseCase | string, optional
@@ -880,10 +880,10 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         dataset_id: string
-            The ID of the dataset entry to user for the project's Dataset
+            The ID of the dataset entry to user for the project's Dataset.
         dataset_version_id: string, optional
             The ID of the dataset version to use for the project dataset. If not specified - uses
-            latest version associated with dataset_id
+            latest version associated with `dataset_id`.
         project_name: string, optional
             The name of the project to be created.
             If not specified, will be "Untitled Project" for database connections, otherwise
@@ -892,7 +892,7 @@ OR individual keyword arguments. You cannot pass both."
             The username for database authentication.
         password: string, optional
             The password (in cleartext) for database authentication. The password
-            will be encrypted on the server side in scope of HTTP request and never saved or stored
+            will be encrypted on the server side in scope of HTTP request and never saved or stored.
         credential_id: string, optional
             The ID of the set of credentials to use instead of user and password.
         use_kerberos: Optional[bool]
@@ -983,7 +983,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         project : Project
-            The created project
+            The created project.
         """
         prepare_model_package_path = (
             f"{cls._path}{clustering_project_id}/models/{clustering_model_id}/prepareSegmentedModelPackages/"
@@ -1058,34 +1058,34 @@ OR individual keyword arguments. You cannot pass both."
     @classmethod
     def from_async(cls: Type[TProject], async_location: str, max_wait: int = DEFAULT_MAX_WAIT) -> TProject:
         """
-        Given a temporary async status location poll for no more than max_wait seconds
+        Given a temporary async status location poll for no more than ``max_wait`` seconds
         until the async process (project creation or setting the target, for example)
-        finishes successfully, then return the ready project
+        finishes successfully, then return the ready project.
 
         Parameters
         ----------
         async_location : str
             The URL for the temporary async status resource. This is returned
             as a header in the response to a request that initiates an
-            async process
+            async process.
         max_wait : int
             The maximum number of seconds to wait before giving up.
 
         Returns
         -------
         project : Project
-            The project, now ready
+            The project, now ready.
 
         Raises
         ------
         ProjectAsyncFailureError
             If the server returned an unexpected response while polling for the
-            asynchronous operation to resolve
+            asynchronous operation to resolve.
         AsyncProcessUnsuccessfulError
-            If the final result of the asynchronous operation was a failure
+            If the final result of the asynchronous operation was a failure.
         AsyncTimeoutError
             If the asynchronous operation did not resolve within the time
-            specified
+            specified.
         """
         try:
             finished_location = wait_for_async_resolution(cls._client, async_location, max_wait=max_wait)
@@ -1162,10 +1162,10 @@ OR individual keyword arguments. You cannot pass both."
             Whether or not to begin modeling automatically.
         blueprint_threshold : Optional[int]
             Number of hours the model is permitted to run.
-            Minimum 1
+            Minimum 1.
         response_cap : Optional[float]
             Quantile of the response distribution to use for response capping
-            Must be in range 0.5 .. 1.0
+            Must be in range 0.5 .. 1.0.
         partitioning_method : PartitioningMethod object, optional
             Instance of one of the :ref:`Partition Classes <partitions-api>` defined in
             ``datarobot.helpers.partitioning_methods``.  As an alternative, use
@@ -1177,14 +1177,14 @@ OR individual keyword arguments. You cannot pass both."
             positive class for binary classification.  May only be specified
             for binary classification targets.
         target_type : Optional[str]
-            Override the automatically selected target_type. An example usage would be setting the
-            target_type='Multiclass' when you want to perform a multiclass classification task on a
+            Override the automatically selected `target_type`. An example usage would be setting the
+            `target_type`='Multiclass' when you want to perform a multiclass classification task on a
             numeric column that has a low cardinality.
-            You can use ``TARGET_TYPE`` enum.
+            You can use ``TARGET_TYPE`` ``enum``.
         unsupervised_mode : boolean, default ``False``
             Specifies whether to create an unsupervised project.
         blend_best_models: Optional[bool]
-            blend best models during Autopilot run
+            Blend best models during Autopilot run.
         scoring_code_only: Optional[bool]
             Keep only models that can be converted to scorable java code during Autopilot run.
         shap_only_mode: Optional[bool]
@@ -1202,7 +1202,7 @@ OR individual keyword arguments. You cannot pass both."
            for the specified number of highest ranking models on the Leaderboard,
            if over the Autopilot default.
         relationships_configuration_id : Optional[str]
-            (New in version v2.23) id of the relationships configuration to use
+            (New in version v2.23) ID of relationships configuration to use.
         autopilot_with_feature_discovery: Optional[bool].
             (New in version v2.23) If true, autopilot will run on a feature list that includes
             features found via search for interactions.
@@ -1217,18 +1217,18 @@ OR individual keyword arguments. You cannot pass both."
             of clusters for the Leaderboard.
         bias_mitigation_feature_name : Optional[str]
             The feature from protected features that will be used in a bias mitigation task to
-            mitigate bias
+            mitigate bias.
         bias_mitigation_technique : Optional[str]
             One of datarobot.enums.BiasMitigationTechnique
             Options:
-            - 'preprocessingReweighing'
-            - 'postProcessingRejectionOptionBasedClassification'
+            - '`preprocessingReweighing`'
+            - '`postProcessingRejectionOptionBasedClassification`'
             The technique by which we'll mitigate bias, which will inform which bias mitigation task
-            we insert into blueprints
+            we insert into blueprints.
         include_bias_mitigation_feature_as_predictor_variable : Optional[bool]
             Whether we should also use the mitigation feature as in input to the modeler just like
             any other categorical used for training, i.e., do we want the model to "train on" this
-            feature in addition to using it for bias mitigation
+            feature in addition to using it for bias mitigation.
         use_case: UseCase | string, optional
             A single UseCase object or ID to add this new Project to. Must be a kwarg.
 
@@ -1241,11 +1241,11 @@ OR individual keyword arguments. You cannot pass both."
         ------
         AsyncFailureError
             Polling for status of async process resulted in response
-            with unsupported status code
+            with unsupported status code.
         AsyncProcessUnsuccessfulError
-            Raised if project creation or target setting was unsuccessful
+            Raised if project creation or target setting was unsuccessful.
         AsyncTimeoutError
-            Raised if project creation or target setting timed out
+            Raised if project creation or target setting timed out.
 
         Examples
         --------
@@ -1335,13 +1335,11 @@ OR individual keyword arguments. You cannot pass both."
 
         Parameters
         ----------
-        search_params : dict, optional.
+        search_params : dict, optional
             If not `None`, the returned projects are filtered by lookup.
-            Currently you can query projects by:
+            Currently, you can query projects by ``project_name``.
 
-            * ``project_name``
-
-        use_cases : Union[UseCase, List[UseCase], str, List[str]], optional.
+        use_cases : Union[UseCase, List[UseCase], str, List[str]], optional
             If not `None`, the returned projects are filtered to those associated
             with a specific Use Case or Use Cases. Accepts either the entity or the ID.
 
@@ -1485,7 +1483,7 @@ OR individual keyword arguments. You cannot pass both."
         target : str
             Project target to specify for AIM.
         mode : str
-            Project ``AUTOPILOT_MODE``
+            Project ``AUTOPILOT_MODE``.
         metric : str
             Project metric to use.
         Returns
@@ -1521,7 +1519,7 @@ OR individual keyword arguments. You cannot pass both."
         use_gpu=None,
     ):
         """
-        Set target variable of an existing project and begin the autopilot process or send data to DataRobot
+        Sets the target variable of an existing project and begin the autopilot process or send data to DataRobot
         for feature analysis only if manual mode is specified.
 
         Any options saved using ``set_options`` will be used if nothing is passed to ``advanced_options``.
@@ -1542,7 +1540,7 @@ OR individual keyword arguments. You cannot pass both."
             The name of the target column in the uploaded file. Should not be provided if
             ``unsupervised_mode`` is ``True``.
         mode : Optional[str]
-            You can use ``AUTOPILOT_MODE`` enum to choose between ``AUTOPILOT_MODE.FULL_AUTO``,
+            You can use ``AUTOPILOT_MODE`` ``enum`` to choose between ``AUTOPILOT_MODE.FULL_AUTO``,
             ``AUTOPILOT_MODE.MANUAL``, ``AUTOPILOT_MODE.QUICK``, and ``AUTOPILOT_MODE.COMPREHENSIVE``.
             ``COMPREHENSIVE` runs all blueprints in the repository (this may be extremely slow).
             If unspecified, ``QUICK`` is used. If the ``MANUAL`` value is used, the model
@@ -1576,14 +1574,14 @@ OR individual keyword arguments. You cannot pass both."
             Time in seconds after which target setting is considered
             unsuccessful.
         target_type : Optional[str]
-            Override the automatically selected target_type. An example usage would be setting the
-            target_type='Multiclass' when you want to perform a multiclass classification task on a
-            numeric column that has a low cardinality. You can use ``TARGET_TYPE`` enum.
+            Override the automatically selected `target_type`. An example usage would be setting the
+            `target_type`='Multiclass' when you want to perform a multiclass classification task on a
+            numeric column that has a low cardinality. You can use ``TARGET_TYPE`` ``enum``.
         credentials: Optional[List]
-             a list of credentials for the datasets used in relationship configuration
+             A list of credentials for the datasets used in relationship configuration
              (previously graphs).
         feature_engineering_prediction_point : Optional[str]
-            additional aim parameter.
+            Additional aim parameter.
         unsupervised_mode : boolean, default ``False``
             (New in version v2.20) Specifies whether to create an unsupervised project. If ``True``,
             ``target`` may not be provided.
@@ -1600,7 +1598,7 @@ OR individual keyword arguments. You cannot pass both."
             Autopilot. Specifying multiple values in a list will build models with each number
             of clusters for the Leaderboard.
         use_gpu : Optional[bool]
-            (New in version v3.2) Specifies whether project should use GPUs
+            (New in version v3.2) Specifies whether project should use `GPUs`.
 
         Returns
         -------
@@ -1611,15 +1609,15 @@ OR individual keyword arguments. You cannot pass both."
         ------
         AsyncFailureError
             Polling for status of async process resulted in response
-            with unsupported status code
+            with unsupported status code.
         AsyncProcessUnsuccessfulError
-            Raised if target setting was unsuccessful
+            Raised if target setting was unsuccessful.
         AsyncTimeoutError
             Raised if target setting took more time, than specified
-            by ``max_wait`` parameter
+            by ``max_wait`` parameter.
         TypeError
             Raised if ``advanced_options``, ``partitioning_method`` or ``target_type`` is
-            provided, but is not of supported type
+            provided, but is not of supported type.
 
         See Also
         --------
@@ -1726,7 +1724,7 @@ OR individual keyword arguments. You cannot pass both."
         autopilot_cluster_list=None,
     ):
         """
-        Set target variable of an existing project and begin the Autopilot process (unless manual
+        Sets the target variable of an existing project and begin the Autopilot process (unless manual
         mode is specified).
 
         Target setting is an asynchronous process, which means that after
@@ -1744,13 +1742,13 @@ OR individual keyword arguments. You cannot pass both."
             The name of the target column in the uploaded file. Should not be provided if
             ``unsupervised_mode`` is ``True``.
         mode : Optional[str]
-            You can use ``AUTOPILOT_MODE`` enum to choose between
+            You can use ``AUTOPILOT_MODE`` ``enum`` to choose between.
 
             * ``AUTOPILOT_MODE.FULL_AUTO``
             * ``AUTOPILOT_MODE.MANUAL``
             * ``AUTOPILOT_MODE.QUICK``
             * ``AUTOPILOT_MODE.COMPREHENSIVE``: Runs all blueprints in the repository (warning:
-              this may be extremely slow).
+              This may be extremely slow).
 
             If unspecified, ``QUICK`` mode is used. If the ``MANUAL`` value is used, the model
             creation process needs to be started by executing the ``start_autopilot``
@@ -1785,7 +1783,7 @@ OR individual keyword arguments. You cannot pass both."
         target_type : Optional[str]
             Override the automatically selected `target_type`. An example usage would be setting the
             `target_type=Multiclass' when you want to perform a multiclass classification task on a
-            numeric column that has a low cardinality. You can use ``TARGET_TYPE`` enum.
+            numeric column that has a low cardinality. You can use ``TARGET_TYPE`` ``enum``.
         credentials: Optional[List]
              A list of credentials for the datasets used in relationship configuration
              (previously graphs).
@@ -1798,7 +1796,7 @@ OR individual keyword arguments. You cannot pass both."
         relationships_configuration_id : Optional[str]
             (New in version v2.21) ID of the relationships configuration to use.
         class_mapping_aggregation_settings : ClassMappingAggregationSettings, optional
-           Instance of ``datarobot.helpers.ClassMappingAggregationSettings``
+            Instance of ``datarobot.helpers.ClassMappingAggregationSettings``.
         segmentation_task_id : str or SegmentationTask, optional
             (New in version v2.28) The segmentation task that should be used to split the project
             for segmented modeling.
@@ -1902,7 +1900,7 @@ OR individual keyword arguments. You cannot pass both."
         characteristics: List[str]
             If specified, only models matching all listed characteristics are returned. Possible values
             "frozen","trained on gpu","with exportable coefficients","with mono constraints","with rating table",
-            "with scoring code","new series optimized"
+            "with scoring code","new series optimized".
         training_filters: List[str]
             If specified, only models matching at least one of the listed training conditions are returned.
             The following formats are supported for autoML and datetime partitioned projects:
@@ -1912,7 +1910,7 @@ OR individual keyword arguments. You cannot pass both."
             - <training_duration>-<time_window_sample_percent>-<sampling_method> Example: `P6Y0M0D-78-Random`,
             (returns models trained on 6 years of data, sampling rate 78%, random sampling).
             - `Start/end date`
-            - `Project settings`
+            - `Project settings`.
         number_of_clusters: list of int
             Filter models by number of clusters. Applicable only in unsupervised clustering projects.
         limit: int
@@ -1954,7 +1952,7 @@ OR individual keyword arguments. You cannot pass both."
         use_new_models_retrieval=False,
     ) -> Union[List[Model], List[GenericModel]]:
         """
-        List all completed, successful models in the leaderboard for the given project.
+        Returns a list of all completed, successful models in the leaderboard for the given project.
 
         Parameters
         ----------
@@ -2096,12 +2094,12 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         metric : Optional[str]
-            Metric to sort models
+            Metric to sort models.
 
         Returns
         -------
         model : Model
-            The top model
+            The top model.
 
         Raises
         ------
@@ -2201,21 +2199,21 @@ OR individual keyword arguments. You cannot pass both."
         return ",".join(processed_keys)
 
     def get_datetime_models(self) -> List[DatetimeModel]:
-        """List all models in the project as DatetimeModels
+        """Returns a list of all models in the project as DatetimeModels
 
         Requires the project to be datetime partitioned.  If it is not, a ClientError will occur.
 
         Returns
         -------
         models : list of DatetimeModel
-            the datetime models
+            The datetime models.
         """
         url = f"{self._path}{self.id}/datetimeModels/"
         data = unpaginate(url, None, self._client)
         return [DatetimeModel.from_server_data(item) for item in data]
 
     def get_prime_models(self) -> List[PrimeModel]:
-        """List all DataRobot Prime models for the project
+        """Returns a list of all DataRobot Prime models for the project
         Prime models were created to approximate a parent model, and have downloadable code.
 
         Returns
@@ -2227,14 +2225,14 @@ OR individual keyword arguments. You cannot pass both."
         return [PrimeModel.from_server_data(data) for data in model_data_list]
 
     def get_prime_files(self, parent_model_id=None, model_id=None):
-        """List all downloadable code files from DataRobot Prime for the project
+        """Returns a list of all downloadable code files from DataRobot Prime for the project
 
         Parameters
         ----------
         parent_model_id : Optional[str]
-            Filter for only those prime files approximating this parent model
+            Filter for only those prime files approximating this parent model.
         model_id : Optional[str]
-            Filter for only those prime files with code for this prime model
+            Filter for only those prime files with code for this prime model.
 
         Returns
         -------
@@ -2272,7 +2270,7 @@ OR individual keyword arguments. You cannot pass both."
         return Dataset.get(dataset_id=self.catalog_id)
 
     def get_datasets(self) -> List[PredictionDataset]:
-        """List all the datasets that have been uploaded for predictions
+        """Returns a list of all the datasets that have been uploaded for predictions
 
         Returns
         -------
@@ -2309,7 +2307,7 @@ OR individual keyword arguments. You cannot pass both."
             raising an error.
         read_timeout : Optional[int]
             The maximum number of seconds to wait for the server to respond indicating that the
-            initial upload is complete
+            initial upload is complete.
         forecast_point : datetime.datetime or None, optional
             (New in version v2.8) May only be specified for time series projects, otherwise the
             upload will be rejected. The time in the dataset relative to which predictions should be
@@ -2333,15 +2331,15 @@ OR individual keyword arguments. You cannot pass both."
             dataset. Cannot be provided with the ``forecast_point`` parameter.
         dataset_filename : string or None, optional
             (New in version v2.14) File name to use for the dataset.
-            Ignored for url and file path sources.
+            Ignored for URL and file path sources.
         relax_known_in_advance_features_check : Optional[bool]
             (New in version v2.15) For time series projects only. If True, missing values in the
             known in advance features are allowed in the forecast window at the prediction time.
             If omitted or False, missing values are not allowed.
         credentials: Optional[List] a list of credentials for the datasets used
-            in Feature discovery project
+            In Feature discovery project.
         secondary_datasets_config_id: string or None, optional
-            (New in version v2.23) The Id of the alternative secondary dataset config
+            (New in version v2.23) The ID of the alternative secondary dataset config
             to use during prediction for Feature discovery project.
         Returns
         -------
@@ -2454,7 +2452,7 @@ OR individual keyword arguments. You cannot pass both."
             known in advance features are allowed in the forecast window at the prediction time.
             If omitted or False, missing values are not allowed.
         credentials: Optional[List] a list of credentials for the datasets used
-            in Feature discovery project
+            In Feature discovery project.
         predictions_start_date : datetime.datetime or None, optional
             (New in version v2.20) For time series projects only. The start date for bulk
             predictions. Note that this parameter is for generating historical predictions using the
@@ -2470,12 +2468,12 @@ OR individual keyword arguments. You cannot pass both."
             files if the project is unsupervised and the dataset is considered as bulk predictions
             dataset. Cannot be provided with the ``forecast_point`` parameter.
         secondary_datasets_config_id: string or None, optional
-            (New in version v2.23) The Id of the alternative secondary dataset config
+            (New in version v2.23) The ID of the alternative secondary dataset config
             to use during prediction for Feature discovery project.
         Returns
         -------
         dataset : PredictionDataset
-            the newly uploaded dataset
+            The newly uploaded dataset.
 
         """
         form_data = {"dataSourceId": data_source_id, "user": username, "password": password}
@@ -2544,7 +2542,7 @@ OR individual keyword arguments. You cannot pass both."
             The credential ID of the AI Catalog dataset to upload.
         credential_data : BasicCredentialsDataDict | S3CredentialsDataDict | OAuthCredentialsDataDict, optional
             Credential data of the catalog dataset to upload. `credential_data` can be in
-            one of the following forms:
+            one of the following forms.
 
             Basic Credentials:
                 - credentialType (`str`)
@@ -2636,7 +2634,7 @@ OR individual keyword arguments. You cannot pass both."
                 - authenticationId (`str`)
                     The authorization identifier returned by the external OAuth provider service.
         dataset_version_id : Optional[str]
-            The version id of the dataset to use.
+            The version ID of dataset to use.
         max_wait : Optional[int]
             Optional, the maximum number of seconds to wait before giving up.
         forecast_point : datetime.datetime or None, optional
@@ -2651,7 +2649,7 @@ OR individual keyword arguments. You cannot pass both."
         credentials: list[BasicCredentialsDict | CredentialIdCredentialsDict], optional
             A list of credentials for the datasets used in Feature discovery project.
 
-            Items in `credentials` can have the following forms:
+            Items in `credentials` can have the following forms.
 
             Basic Credentials
                 - user (`str`)
@@ -2681,13 +2679,13 @@ OR individual keyword arguments. You cannot pass both."
             files if the project is unsupervised and the dataset is considered as bulk predictions
             dataset. Cannot be provided with the ``forecast_point`` parameter.
         secondary_datasets_config_id: string or None, optional
-            The Id of the alternative secondary dataset config
+            The ID of the alternative secondary dataset config
             to use during prediction for Feature discovery project.
 
         Returns
         -------
         dataset : PredictionDataset
-            the newly uploaded dataset
+            The newly uploaded dataset.
         """
         form_data = {"datasetId": dataset_id}
         if credential_id:
@@ -2727,7 +2725,7 @@ OR individual keyword arguments. You cannot pass both."
 
     def get_blueprints(self):
         """
-        List all blueprints recommended for a project.
+        Returns a list of all blueprints recommended for a project.
 
         Returns
         -------
@@ -2742,19 +2740,19 @@ OR individual keyword arguments. You cannot pass both."
 
     def get_features(self) -> List[Feature]:
         """
-        List all features for this project
+        Returns a list of all features for this project.
 
         Returns
         -------
-        list of Feature
-            all features for this project
+        List of Feature
+            all features for this project.
         """
         url = f"{self._path}{self.id}/features/"
         resp_data = self._client.get(url).json()
         return [Feature.from_server_data(item) for item in resp_data]
 
     def get_modeling_features(self, batch_size: Optional[int] = None) -> List[ModelingFeature]:
-        """List all modeling features for this project
+        """Returns a list of all modeling features for this project
 
         Only available once the target and partitioning settings have been set.  For more
         information on the distinction between input and modeling features, see the
@@ -2770,7 +2768,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         list of ModelingFeature
-            All modeling features in this project
+            All modeling features in this project.
         """
         url = f"{self._path}{self.id}/modelingFeatures/"
         params = {}
@@ -2780,12 +2778,12 @@ OR individual keyword arguments. You cannot pass both."
 
     def get_featurelists(self) -> List[Featurelist]:
         """
-        List all featurelists created for this project
+        Returns a list of all featurelists created for this project.
 
         Returns
         -------
-        list of Featurelist
-            All featurelists created for this project
+        List of Featurelist
+            All featurelists created for this project.
         """
         url = f"{self._path}{self.id}/featurelists/"
         resp_data = self._client.get(url).json()
@@ -2800,19 +2798,19 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         assoc_type : string or None
-            The type of association, must be either 'association' or 'correlation'
+            The type of association, must be either 'association' or 'correlation'.
         metric : string or None
             The specified association metric, belongs under either association
-            or correlation umbrella
+            or correlation umbrella.
         featurelist_id : string or None
             The desired featurelist for which to get association statistics
-            (New in version v2.19)
+            (New in version v2.19).
 
         Returns
         -------
         association_data : dict
             Pairwise metric strength data, feature clustering data,
-            and ordering data for Feature Association Matrix visualization
+            and ordering data for Feature Association Matrix visualization.
         """
         from .feature_association_matrix import (  # pylint: disable=import-outside-toplevel,cyclic-import
             FeatureAssociationMatrix,
@@ -2827,14 +2825,14 @@ OR individual keyword arguments. You cannot pass both."
         return feature_association_matrix.to_dict()
 
     def get_association_featurelists(self):
-        """List featurelists and get feature association status for each
+        """Returns a list of featurelists and get feature association status for each
 
         .. versionadded:: v2.19
 
         Returns
         -------
         feature_lists : dict
-            Dict with 'featurelists' as key, with list of featurelists as values
+            Dict with 'featurelists' as key, with list of featurelists as values.
         """
         from .feature_association_matrix import (  # pylint: disable=import-outside-toplevel,cyclic-import
             FeatureAssociationFeaturelists,
@@ -2852,28 +2850,28 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         feature1 : str
-            Feature name for the first feature of interest
+            Feature name for the first feature of interest.
         feature2 : str
-            Feature name for the second feature of interest
+            Feature name for the second feature of interest.
 
         Returns
         -------
         dict
-            This data has 3 keys: chart_type, features, values, and types
+            This data has 3 keys: chart_type, features, values, and types.
         chart_type : str
             Type of plotting the pair of features gets in the UI.
-            e.g., 'HORIZONTAL_BOX', 'VERTICAL_BOX', 'SCATTER' or 'CONTINGENCY'
+            e.g., 'HORIZONTAL_BOX', 'VERTICAL_BOX', 'SCATTER' or 'CONTINGENCY'.
         values : list
-            A list of triplet lists e.g.
+            A list of triplet lists, e.g.,
             {"values": [[460.0, 428.5, 0.001], [1679.3, 259.0, 0.001], ...]
             The first entry of each list is a value of feature1, the second entry of
             each list is a value of feature2, and the third is the relative frequency of
             the pair of datapoints in the sample.
         features : List[str]
-            A list of the passed features, [feature1, feature2]
+            A list of the passed features, [feature1, feature2].
         types : List[str]
             A list of the passed features' types inferred by DataRobot.
-            e.g., ['NUMERIC', 'CATEGORICAL']
+            e.g., ['NUMERIC', 'CATEGORICAL'].
         """
         from .feature_association_matrix import (  # pylint: disable=import-outside-toplevel,cyclic-import
             FeatureAssociationMatrixDetails,
@@ -2885,7 +2883,7 @@ OR individual keyword arguments. You cannot pass both."
         return feature_association_matrix_details.to_dict()
 
     def get_modeling_featurelists(self, batch_size: Optional[int] = None) -> List[ModelingFeaturelist]:
-        """List all modeling featurelists created for this project
+        """Returns a list of all modeling featurelists created for this project
 
         Modeling featurelists can only be created after the target and partitioning options have
         been set for a project.  In time series projects, these are the featurelists that can be
@@ -2903,7 +2901,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         list of ModelingFeaturelist
-            all modeling featurelists in this project
+            All modeling featurelists in this project.
         """
         url = f"{self._path}{self.id}/modelingFeaturelists/"
         params = {}
@@ -2932,7 +2930,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         status: FeatureRestorationStatus
-            information about features requested to be restored.
+            Information about features requested to be restored.
         """
         return DiscardedFeaturesInfo.restore(self.id, features, max_wait=max_wait)
 
@@ -2982,18 +2980,18 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         name : str
-            The name to give to the new feature
+            The name to give to the new feature.
         parent_name : str
-            The name of the feature to transform
+            The name of the feature to transform.
         variable_type : str
             The type the new column should have. See the values within
             ``datarobot.enums.VARIABLE_TYPE_TRANSFORM``.
         replacement : str or Optional[float]
-            The value that missing or unconvertable data should have
+            The value that missing or unconvertable data should have.
         date_extraction : Optional[str]
-            Must be specified when parent_name is a date column (and left None otherwise).
+            Must be specified when `parent_name` is a date column (and left None otherwise).
             Specifies which value from a date should be extracted. See the list of values in
-            ``datarobot.enums.DATE_EXTRACTION``
+            ``datarobot.enums.DATE_EXTRACTION``.
         max_wait : Optional[int]
             The maximum amount of time to wait for DataRobot to finish processing the new column.
             This process can take more time with more data to process. If this operation times
@@ -3003,16 +3001,16 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         Feature
-            The data of the new Feature
+            The data of the new Feature.
 
         Raises
         ------
         AsyncFailureError
-            If any of the responses from the server are unexpected
+            If any of the responses from the server are unexpected.
         AsyncProcessUnsuccessfulError
-            If the job being waited for has failed or has been cancelled
+            If the job being waited for has failed or has been cancelled.
         AsyncTimeoutError
-            If the resource did not resolve in time
+            If the resource did not resolve in time.
         """
         transform_url = f"{self._path}{self.id}/typeTransformFeatures/"
         payload = dict(name=name, parentName=parent_name, variableType=variable_type)
@@ -3038,7 +3036,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         Featurelist
-            featurelist found by name, optional
+            Featurelist found by name, optional.
 
         Examples
         --------
@@ -3096,14 +3094,14 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         Featurelist
-            newly created featurelist
+            Newly created featurelist.
 
         Raises
         ------
         DuplicateFeaturesError
-            Raised if `features` variable contains duplicate features
+            Raised if `features` variable contains duplicate features.
         InvalidUsageError
-            Raised method is called with incompatible arguments
+            Raised method is called with incompatible arguments.
 
         Examples
         --------
@@ -3225,10 +3223,10 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         name : str
-            the name of the modeling featurelist to create.  Names must be unique within the
+            The name of the modeling featurelist to create.  Names must be unique within the
             project, or the server will return an error.
         features : List[str]
-            the names of the features to include in the modeling featurelist.  Each feature must
+            The names of the features to include in the modeling featurelist.  Each feature must
             be a modeling feature.
         skip_datetime_partition_column: boolean, optional
             False by default. If True, featurelist will not contain datetime partition column.
@@ -3238,7 +3236,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         featurelist : ModelingFeaturelist
-            the newly created featurelist
+            The newly created featurelist.
 
         Examples
         --------
@@ -3271,25 +3269,25 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         feature_name: str
-            The name of the feature that was looked up
+            The name of the feature that was looked up.
         available_metrics: List[str]
             An array of strings representing the appropriate metrics.  If the feature
             cannot be selected as the target, then this array will be empty.
         metric_details: list of dict
-            The list of `metricDetails` objects
+            The list of `metricDetails` objects.
 
-            metric_name: str
-                Name of the metric
+            Metric_name: str
+                Name of the metric.
             supports_timeseries: boolean
-                This metric is valid for timeseries
+                This metric is valid for timeseries.
             supports_multiclass: boolean
-                This metric is valid for multiclass classification
+                This metric is valid for multiclass classification.
             supports_binary: boolean
-                This metric is valid for binary classification
+                This metric is valid for binary classification.
             supports_regression: boolean
-                This metric is valid for regression
+                This metric is valid for regression.
             ascending: boolean
-                Should the metric be sorted in ascending order
+                Should the metric be sorted in ascending order.
         """
         url = f"{self._path}{self.id}/features/metrics/"
         params = {"feature_name": feature_name}
@@ -3301,11 +3299,10 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         status : dict
-            Contains:
+            Contains the following items.
 
             * ``autopilot_done`` : a boolean.
-            * ``stage`` : a short string indicating which stage the project
-              is in.
+            * ``stage`` : a short string indicating which stage the project is in.
             * ``stage_description`` : a description of what ``stage`` means.
 
         Examples
@@ -3327,7 +3324,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         paused : boolean
-            Whether the command was acknowledged
+            Whether the command was acknowledged.
         """
         url = f"{self._path}{self.id}/autopilot/"
         payload = {"command": "stop"}
@@ -3374,13 +3371,13 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         featurelist_id : str
-            Identifier of featurelist that should be used for autopilot
+            Identifier of featurelist that should be used for autopilot.
         mode : Optional[str]
-            The Autopilot mode to run. You can use ``AUTOPILOT_MODE`` enum to choose between
+            The Autopilot mode to run. You can use ``AUTOPILOT_MODE`` ``enum`` to choose between.
 
             * ``AUTOPILOT_MODE.FULL_AUTO``
             * ``AUTOPILOT_MODE.QUICK``
-            * ``AUTOPILOT_MODE.COMPREHENSIVE``
+            * ``AUTOPILOT_MODE.COMPREHENSIVE``.
 
             If unspecified, ``AUTOPILOT_MODE.QUICK`` is used.
         blend_best_models : Optional[bool]
@@ -3400,7 +3397,7 @@ OR individual keyword arguments. You cannot pass both."
         autopilot_cluster_list : list of Optional[int]
             (New in v2.27) A list of integers, where each value will be used as the number of
             clusters in Autopilot model(s) for unsupervised clustering projects. Cannot be specified
-            unless project unsupervisedMode is true and unsupervisedType is set to 'clustering'.
+            unless project `unsupervisedMode` is true and `unsupervisedType` is set to 'clustering'.
 
         Raises
         ------
@@ -3452,17 +3449,17 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         trainable : str or Blueprint
-            For ``str``, this is assumed to be a blueprint_id. If no
+            For ``str``, this is assumed to be a `blueprint_id`. If no
             ``source_project_id`` is provided, the ``project_id`` will be assumed
             to be the project that this instance represents.
 
             Otherwise, for a ``Blueprint``, it contains the
-            blueprint_id and source_project_id that we want
+            `blueprint_id` and source_project_id that we want
             to use. ``featurelist_id`` will assume the default for this project
             if not provided, and ``sample_pct`` will default to using the maximum
             training value allowed for this project's partition setup.
             ``source_project_id`` will be ignored if a
-            ``Blueprint`` instance is used for this parameter
+            ``Blueprint`` instance is used for this parameter.
         sample_pct : Optional[float]
             The amount of data to use for training, as a percentage of the project dataset from 0
             to 100.
@@ -3470,7 +3467,7 @@ OR individual keyword arguments. You cannot pass both."
             The identifier of the featurelist to use. If not defined, the
             default for this project is used.
         source_project_id : Optional[str]
-            Which project created this blueprint_id. If ``None``, it defaults
+            Which project created this `blueprint_id`. If ``None``, it defaults
             to looking in this project. Note that you must have read
             permissions in this project.
         scoring_type : Optional[str]
@@ -3485,25 +3482,25 @@ OR individual keyword arguments. You cannot pass both."
         training_row_count : Optional[int]
             The number of rows to use to train the requested model.
         monotonic_increasing_featurelist_id : Optional[str]
-            (new in version 2.11) the ID of the featurelist that defines the set of features with
+            (New in version 2.11) the ID of the featurelist that defines the set of features with
             a monotonically increasing relationship to the target. Passing ``None`` disables
             increasing monotonicity constraint. Default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
         monotonic_decreasing_featurelist_id : Optional[str]
-            (new in version 2.11) the ID of the featurelist that defines the set of features with
+            (New in version 2.11) the ID of the featurelist that defines the set of features with
             a monotonically decreasing relationship to the target. Passing ``None`` disables
             decreasing monotonicity constraint. Default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
         n_clusters: Optional[int]
-            (new in version 2.27) Number of clusters to use in an unsupervised clustering model.
+            (New in version 2.27) Number of clusters to use in an unsupervised clustering model.
             This parameter is used only for unsupervised clustering models that don't automatically
             determine the number of clusters.
 
         Returns
         -------
         model_job_id : str
-            id of created job, can be used as parameter to ``ModelJob.get``
-            method or ``wait_for_async_model_creation`` function
+            ID of created job, can be used as parameter to ``ModelJob.get``
+            method or ``wait_for_async_model_creation`` function.
 
         Examples
         --------
@@ -3580,26 +3577,26 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         blueprint_id: str
-            The id of the model. See ``Project.get_blueprints`` to get the list
+            The ID of model. See ``Project.get_blueprints`` to get the list
             of all available blueprints for a project.
         featurelist_id: Optional[str]
             The dataset to use in training. If not specified, the default
             dataset for this project is used.
         source_project_id : Optional[str]
-            Which project created this blueprint_id. If ``None``, it defaults
+            Which project created this `blueprint_id`. If ``None``, it defaults
             to looking in this project. Note that you must have read
             permisisons in this project.
         sample_pct: Optional[float]
             The amount of training data to use.
         scoring_type: string, optional
-            Whether to do cross-validation - see ``Project.train`` for further explanation
+            Whether to do cross-validation - see ``Project.train`` for further explanation.
         training_row_count : Optional[int]
             The number of rows to use to train the requested model.
         monotonic_increasing_featurelist_id : Optional[str]
-            the ID of the featurelist that defines the set of features with
+            The ID of the featurelist that defines the set of features with
             a monotonically increasing relationship to the target.
         monotonic_decreasing_featurelist_id : Optional[str]
-            the ID of the featurelist that defines the set of features with
+            The ID of the featurelist that defines the set of features with
             a monotonically decreasing relationship to the target.
         n_clusters: Optional[int]
             Number of clusters used in an unsupervised clustering model. This parameter is used
@@ -3609,8 +3606,8 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         model_job_id : str
-            id of created job, can be used as parameter to ``ModelJob.get``
-            method or ``wait_for_async_model_creation`` function
+            ID of created job, can be used as parameter to ``ModelJob.get``
+            method or ``wait_for_async_model_creation`` function.
         """
         url = f"{self._path}{self.id}/models/"
         if sample_pct is not None and training_row_count is not None:
@@ -3666,15 +3663,15 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         blueprint_id : str
-            the blueprint to use to train the model
+            The blueprint to use to train the model.
         featurelist_id : Optional[str]
-            the featurelist to use to train the model.  If not specified, the project default will
+            The featurelist to use to train the model.  If not specified, the project default will
             be used.
         training_row_count : Optional[int]
-            the number of rows of data that should be used to train the model.  If specified,
+            The number of rows of data that should be used to train the model.  If specified,
             neither ``training_duration`` nor ``use_project_settings`` may be specified.
         training_duration : Optional[str]
-            a duration string specifying what time range the data used to train the model should
+            A duration string specifying what time range the data used to train the model should
             span.  If specified, neither ``training_row_count`` nor ``use_project_settings`` may be
             specified.
         sampling_method : Optional[str]
@@ -3690,7 +3687,7 @@ OR individual keyword arguments. You cannot pass both."
             evaluate backtest scores. If specified, neither ``training_row_count`` nor
             ``training_duration`` may be specified.
         source_project_id : Optional[str]
-            the ID of the project this blueprint comes from, if not this project.  If left
+            The ID of the project this blueprint comes from, if not this project.  If left
             unspecified, the blueprint must belong to this project.
         monotonic_increasing_featurelist_id : Optional[str]
             (New in version v2.18) Optional; the ID of the featurelist that defines
@@ -3704,12 +3701,12 @@ OR individual keyword arguments. You cannot pass both."
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
         n_clusters : Optional[int]
             The number of clusters to use in the specified unsupervised clustering model.
-            ONLY VALID IN UNSUPERVISED CLUSTERING PROJECTS
+            ONLY VALID IN UNSUPERVISED CLUSTERING PROJECTS.
 
         Returns
         -------
         job : ModelJob
-            the created job to build the model
+            The created job to build the model.
         """
         url = f"{self._path}{self.id}/datetimeModels/"
         payload = {"blueprint_id": blueprint_id}
@@ -3749,8 +3746,8 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         model_ids : List[str]
-            List of model ids that will be used to create blender. These models should have
-            completed validation stage without errors, and can't be blenders or DataRobot Prime
+            A list of model ids that will be used to create blender. These models should have
+            completed validation stage without errors, and can't be blenders or DataRobot Prime.
 
         blender_method : str
             Chosen blend method, one from ``datarobot.enums.BLENDER_METHOD``. If this is a time
@@ -3778,8 +3775,8 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         model_ids : List[str]
-            List of model ids that will be used to create blender. These models should have
-            completed validation stage without errors, and can't be blenders or DataRobot Prime
+            A list of model ids that will be used to create blender. These models should have
+            completed validation stage without errors, and can't be blenders or DataRobot Prime.
 
         blender_method : str
             Chosen blend method, one from ``datarobot.enums.BLENDER_METHOD``. If this is a time
@@ -3842,7 +3839,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         jobs : list
-            Each is an instance of Job
+            Each is an instance of Job.
         """
         url = f"{self._path}{self.id}/jobs/"
         params = {"status": status}
@@ -3854,7 +3851,7 @@ OR individual keyword arguments. You cannot pass both."
 
         Returns
         -------
-        list of BlenderModel
+        List of BlenderModel
             list of all blender models in project.
         """
         url = f"{self._path}{self.id}/blenderModels/"
@@ -3866,7 +3863,7 @@ OR individual keyword arguments. You cannot pass both."
 
         Returns
         -------
-        list of FrozenModel
+        List of FrozenModel
             list of all frozen models in project.
         """
         url = f"{self._path}{self.id}/frozenModels/"
@@ -3878,7 +3875,7 @@ OR individual keyword arguments. You cannot pass both."
 
         Returns
         -------
-        list of CombinedModel
+        List of CombinedModel
             list of all combined models in segmented project.
         """
         models_response = self._client.get(f"{self._path}{self.id}/combinedModels/").json()
@@ -3906,7 +3903,7 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         combined_model_id : Optional[str]
-            Id of the combined model to get segments for. If there is only a single
+            ID of the combined model to get segments for. If there is only a single
             combined model it can be retrieved automatically, but this must be
             specified when there are > 1 combined models.
 
@@ -3963,7 +3960,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         jobs : list
-            Each is an instance of ModelJob
+            Each is an instance of ModelJob.
         """
         url = f"{self._path}{self.id}/modelJobs/"
         params = {"status": status}
@@ -3991,7 +3988,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         jobs : list
-            Each is an instance of PredictJob
+            Each is an instance of PredictJob.
         """
         url = f"{self._path}{self.id}/predictJobs/"
         params = {"status": status}
@@ -4014,12 +4011,12 @@ OR individual keyword arguments. You cannot pass both."
         mode is changed from AUTOPILOT_MODE.FULL_AUTO.
 
         It makes API calls to sync the project state with the server and to look at
-        which jobs are enqueued.
+        which jobs are ``enqueued``.
 
         Parameters
         ----------
         check_interval : float or int
-            The maximum time (in seconds) to wait between checks for whether autopilot is finished
+            The maximum time (in seconds) to wait between checks for whether autopilot is finished.
         timeout : float or int or None
             After this long (in seconds), we give up. If None, never timeout.
         verbosity:
@@ -4031,10 +4028,10 @@ OR individual keyword arguments. You cannot pass both."
         Raises
         ------
         AsyncTimeoutError
-            If autopilot does not finished in the amount of time specified
+            If autopilot does not finished in the amount of time specified.
         RuntimeError
             If a condition is detected that indicates that autopilot will not complete
-            on its own
+            on its own.
         """
         for _, seconds_waited in retry.wait(timeout, maxdelay=check_interval):
             if verbosity > VERBOSITY_LEVEL.SILENT:
@@ -4054,12 +4051,12 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         status : dict
-            The latest result of calling self.get_status
+            The latest result of calling self.get_status.
 
         Raises
         ------
         RuntimeError
-            If any conditions are detected which mean autopilot may not complete on its own
+            If any conditions are detected which mean autopilot may not complete on its own.
         """
         status = self.get_status()
         if status["stage"] != PROJECT_STAGE.MODELING:
@@ -4078,12 +4075,12 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         project_name : str
-            The new name
+            The new name.
         """
         self._update(project_name=project_name)
 
     def set_project_description(self, project_description: str) -> None:
-        """Set or Update the project description.
+        """Updates the project description.
 
         Parameters
         ----------
@@ -4145,17 +4142,17 @@ OR individual keyword arguments. You cannot pass both."
         advanced_options : AdvancedOptions, optional
             AdvancedOptions instance as an alternative to passing individual parameters.
         weights : string, optional
-            The name of a column indicating the weight of each row
+            The name of a column indicating the weight of each row.
         response_cap : float in [0.5, 1), optional
             Quantile of the response distribution to use for response capping.
         blueprint_threshold : Optional[int]
             Number of hours models are permitted to run before being excluded from later autopilot
             stages
-            Minimum 1
+            Minimum 1.
         seed : Optional[int]
-            a seed to use for randomization
+            A seed to use for randomization.
         smart_downsampled : Optional[bool]
-            whether to use smart downsampling to throw away excess rows of the majority class.  Only
+            Whether to use smart downsampling to throw away excess rows of the majority class.  Only
             applicable to classification and zero-boosted regression projects.
         majority_downsampling_rate : Optional[float]
             The percentage between 0 and 100 of the majority rows that should be kept.  Specify only if
@@ -4163,26 +4160,26 @@ OR individual keyword arguments. You cannot pass both."
             minority class.
         offset : list of Optional[str]
             (New in version v2.6) the list of the names of the columns containing the offset
-            of each row
+            of each row.
         exposure : string, optional
-            (New in version v2.6) the name of a column containing the exposure of each row
+            (New in version v2.6) the name of a column containing the exposure of each row.
         accuracy_optimized_mb : Optional[bool]
             (New in version v2.6) Include additional, longer-running models that will be run by the
             autopilot and available to run manually.
         events_count : string, optional
             (New in version v2.8) the name of a column specifying events count.
         monotonic_increasing_featurelist_id : string, optional
-            (new in version 2.11) the ID of the featurelist that defines the set of features
+            (New in version 2.11) the ID of the featurelist that defines the set of features
             with a monotonically increasing relationship to the target. If None,
             no such constraints are enforced. When specified, this will set a default for the project
             that can be overridden at model submission time if desired.
         monotonic_decreasing_featurelist_id : string, optional
-            (new in version 2.11) the ID of the featurelist that defines the set of features
+            (New in version 2.11) the ID of the featurelist that defines the set of features
             with a monotonically decreasing relationship to the target. If None,
             no such constraints are enforced. When specified, this will set a default for the project
             that can be overridden at model submission time if desired.
         only_include_monotonic_blueprints : Optional[bool]
-            (new in version 2.11) when true, only blueprints that support enforcing
+            (New in version 2.11) when true, only blueprints that support enforcing
             monotonic constraints will be available in the project or selected for the autopilot.
         allowed_pairwise_interaction_groups : list of tuple, optional
             (New in version v2.19) For GA2M models - specify groups of columns for which pairwise
@@ -4190,10 +4187,10 @@ OR individual keyword arguments. You cannot pass both."
             allow interactions between columns A x B, B x C, A x C, C x D. All others (A x D, B x D) will
             not be considered.
         blend_best_models: Optional[bool]
-            (New in version v2.19) blend best models during Autopilot run
+            (New in version v2.19) blend best models during Autopilot run.
         scoring_code_only: Optional[bool]
             (New in version v2.19) Keep only models that can be converted to scorable java code
-            during Autopilot run
+            during Autopilot run.
         shap_only_mode: Optional[bool]
             (New in version v2.21) Keep only models that support SHAP values during Autopilot run. Use
             SHAP-based insights wherever possible. Defaults to False.
@@ -4255,21 +4252,21 @@ OR individual keyword arguments. You cannot pass both."
         fairness_threshold: Optional[str].
             (New in version v2.24) Threshold value for the fairness metric.
             Can be in a range of ``[0.0, 1.0]``. If the relative (i.e., normalized) fairness
-            score is below the threshold, then the user will see a visual indication on the
+            score is below the threshold, then the user will see a visual indication on the.
         bias_mitigation_feature_name : Optional[str]
             The feature from protected features that will be used in a bias mitigation task to
-            mitigate bias
+            mitigate bias.
         bias_mitigation_technique : Optional[str]
             One of datarobot.enums.BiasMitigationTechnique
             Options:
-            - 'preprocessingReweighing'
-            - 'postProcessingRejectionOptionBasedClassification'
+            - '`preprocessingReweighing`'
+            - '`postProcessingRejectionOptionBasedClassification`'
             The technique by which we'll mitigate bias, which will inform which bias mitigation task
-            we insert into blueprints
+            we insert into blueprints.
         include_bias_mitigation_feature_as_predictor_variable : Optional[bool]
             Whether we should also use the mitigation feature as in input to the modeler just like
             any other categorical used for training, i.e., do we want the model to "train on" this
-            feature in addition to using it for bias mitigation
+            feature in addition to using it for bias mitigation.
         series_id : string, optional
             (New in version v3.6) The name of a column containing the series ID for each row.
         forecast_distance : string, optional
@@ -4303,7 +4300,7 @@ OR individual keyword arguments. You cannot pass both."
 
         Returns
         -------
-        dict of advanced options and their values
+        Dict of advanced options and their values.
         """
         return vars(self.advanced_options)
 
@@ -4375,7 +4372,7 @@ OR individual keyword arguments. You cannot pass both."
         Raises
         ------
         TypeError
-            If cv_method or validation_type are not set and partitioning_method is not set.
+            If `cv_method` or `validation_type` are not set and `partitioning_method` is not set.
         InvalidUsageError
             If invoked after project.set_target or project.start, or
             if invoked with the wrong combination of args for a given partitioning method.
@@ -4428,7 +4425,7 @@ OR individual keyword arguments. You cannot pass both."
 
         Returns
         -------
-        list of RatingTableModel
+        List of RatingTableModel
             list of all models with a rating table in project.
         """
         url = f"{self._path}{self.id}/ratingTableModels/"
@@ -4440,7 +4437,7 @@ OR individual keyword arguments. You cannot pass both."
 
         Returns
         -------
-        list of RatingTable
+        List of RatingTable
             list of rating tables in project.
         """
         url = f"{self._path}{self.id}/ratingTables/"
@@ -4472,13 +4469,13 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         access_list : list of :class:`SharingAccess <datarobot.SharingAccess>`
-            the modifications to make.
+            The modifications to make.
         send_notification : boolean, default ``None``
             (New in version v2.21) Optional; whether or not an email notification should be sent,
-            default to None
+            default to None.
         include_feature_discovery_entities : boolean, default ``None``
             (New in version v2.21) optional (default: None), whether or not to share all the
-            related entities i.e., datasets for a project with Feature Discovery enabled
+            related entities i.e., datasets for a project with Feature Discovery enabled.
 
         Returns
         -------
@@ -4487,9 +4484,9 @@ OR individual keyword arguments. You cannot pass both."
         Raises
         ------
         datarobot.ClientError :
-            if you do not have permission to share this project, if the user you're sharing with
+            If you do not have permission to share this project, if the user you're sharing with
             doesn't exist, if the same user appears multiple times in the access_list, or if these
-            changes would leave the project without an owner
+            changes would leave the project without an owner.
 
         Examples
         --------
@@ -4523,7 +4520,7 @@ OR individual keyword arguments. You cannot pass both."
         max_wait: int = 600,
     ) -> List[Feature]:
         """
-        Create new features by transforming the type of existing ones.
+        Creates a set of new features by transforming the type of existing ones.
 
         .. versionadded:: v2.17
 
@@ -4547,7 +4544,7 @@ OR individual keyword arguments. You cannot pass both."
         parent_names : list[str]
             The list of variable names to be transformed.
         variable_type : str
-            The type new columns should have. Can be one of 'categorical', 'categoricalInt',
+            The type new columns should have. Can be one of 'categorical', '`categoricalInt`',
             'numeric', and 'text' - supported values can be found in
             ``datarobot.enums.VARIABLE_TYPE_TRANSFORM``.
         prefix : Optional[str]
@@ -4573,7 +4570,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         list of Features
-            all features for this project after transformation.
+            All features for this project after transformation.
 
         Raises
         ------
@@ -4622,10 +4619,10 @@ OR individual keyword arguments. You cannot pass both."
         ----------
         new_project_name : Optional[str]
             The desired name of the new project. If omitted, the API will default to
-            'Copy of <original project>'
+            'Copy of <original project>'.
         max_wait : Optional[int]
             Time in seconds after which project creation is considered
-            unsuccessful
+            unsuccessful.
 
         Returns
         -------
@@ -4654,34 +4651,34 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         name : str
-            The name of final Interaction Feature
+            The name of final Interaction Feature.
         features : list(str)
-            List of two categorical feature names
+            A list of two categorical feature names.
         separator : str
-            The character used to join the two data values, one of these ` + - / | & . _ , `
+            The character used to join the two data values, one of these ``+ - / | & . _ ,``.
         max_wait : Optional[int]
             Time in seconds after which project creation is considered unsuccessful.
 
         Returns
         -------
         datarobot.models.InteractionFeature
-            The data of the new Interaction feature
+            The data of the new Interaction feature.
 
         Raises
         ------
         ClientError
-            If requested Interaction feature can not be created. Possible reasons for example are:
+            If requested Interaction feature can not be created. Possible reasons for example are the following.
 
-                * one of `features` either does not exist or is of unsupported type
-                * feature with requested `name` already exists
+                * one of `features` either does not exist or is of unsupported type.
+                * feature with requested `name` already exists.
                 * invalid separator character submitted.
 
         AsyncFailureError
-            If any of the responses from the server are unexpected
+            If any of the responses from the server are unexpected.
         AsyncProcessUnsuccessfulError
-            If the job being waited for has failed or has been cancelled
+            If the job being waited for has failed or has been cancelled.
         AsyncTimeoutError
-            If the resource did not resolve in time
+            If the resource did not resolve in time.
         """
         if not isinstance(features, list):
             msg = 'List of two existing categorical feature names expected, got "{}"'.format(features)
@@ -4709,7 +4706,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         relationships_configuration: RelationshipsConfiguration
-            relationships configuration applied to project
+            Relationships configuration applied to project.
         """
         url = f"{self._path}{self.id}/relationshipsConfiguration/"
         response = self._client.get(url).json()
@@ -4720,14 +4717,14 @@ OR individual keyword arguments. You cannot pass both."
         file_name: str,
         pred_dataset_id: Optional[str] = None,
     ) -> None:
-        """Download Feature discovery training or prediction dataset
+        """Downloads a Feature discovery training or prediction dataset
 
         Parameters
         ----------
         file_name : str
             File path where dataset will be saved.
         pred_dataset_id : Optional[str]
-            ID of the prediction dataset
+            ID of the prediction dataset.
         """
         url = f"{self._path}{self.id}/featureDiscoveryDatasetDownload/"
         if pred_dataset_id:
@@ -4796,14 +4793,14 @@ OR individual keyword arguments. You cannot pass both."
 
         The forecast windows settings, validation and holdout duration specified in the
         datetime specification must be consistent with project settings as these parameters
-        are used to check whether the specified catalog version id has been validated or not.
+        are used to check whether the specified catalog version ID has been validated or not.
         See :ref:`external baseline predictions documentation <external-baseline-predictions>`
         for example usage.
 
         Parameters
         ----------
         catalog_version_id: str
-            Id of the catalog version for validating external baseline predictions.
+            ID of the catalog version for validating external baseline predictions.
         target: str
             The name of the target column.
         datetime_partitioning: DatetimePartitioning object
@@ -4818,7 +4815,7 @@ OR individual keyword arguments. You cannot pass both."
             * ``holdout_start_date``
             * ``holdout_end_date``
             * ``backtests``
-            * ``multiseries_id_columns``
+            * ``multiseries_id_columns``.
 
             If the above attributes are different from the project settings, the catalog version
             will not pass the validation check in the autopilot.
@@ -4860,7 +4857,7 @@ OR individual keyword arguments. You cannot pass both."
         return ExternalBaselineValidationInfo.from_server_data(self._client.get(result_url).json())
 
     def download_multicategorical_data_format_errors(self, file_name: str) -> None:
-        """Download multicategorical data format errors to the CSV file. If any format errors
+        """Downloads the multicategorical data format errors to the CSV file. If any format errors
         where detected in potentially multicategorical features the resulting file will contain
         at max 10 entries. CSV file content contains feature name, dataset index in which the
         error was detected, row value and type of error detected. In case that there were no
@@ -4885,7 +4882,7 @@ OR individual keyword arguments. You cannot pass both."
         Returns
         -------
         multiseries_names: List[str]
-            List of all distinct entries in the multiseries column
+            A list of all distinct entries in the multiseries column.
         """
         response = self._client.get(f"{self._path}{self.id}/multiseriesNames/")
         response_json = response.json()
@@ -4908,7 +4905,7 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         segment : str
-            Segment to restart
+            Segment to restart.
         """
         if not self.is_segmented:
             raise NotImplementedError("Project is not segmented.")
@@ -4930,7 +4927,7 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         parent_model_id : Optional[str]
-          Filter by parent models
+          Filter by parent models.
         offset : Optional[int]
           Number of items to skip.
         limit : Optional[int]
@@ -4970,26 +4967,26 @@ OR individual keyword arguments. You cannot pass both."
         Parameters
         ----------
         bias_mitigation_parent_leaderboard_id : str
-          The leaderboard id of the model to apply bias mitigation to
+          The leaderboard ID of model to apply bias mitigation to.
         bias_mitigation_feature_name : str
           The feature name of the protected features that will be used in a bias mitigation task to
-          attempt to mitigate bias
+          attempt to mitigate bias.
         bias_mitigation_technique : Optional[str]
             One of datarobot.enums.BiasMitigationTechnique
             Options:
-            - 'preprocessingReweighing'
-            - 'postProcessingRejectionOptionBasedClassification'
+            - '`preprocessingReweighing`'
+            - '`postProcessingRejectionOptionBasedClassification`'
             The technique by which we'll mitigate bias, which will inform which bias mitigation task
-            we insert into blueprints
+            we insert into blueprints.
         include_bias_mitigation_feature_as_predictor_variable : bool
           Whether we should also use the mitigation feature as in input to the modeler just like
           any other categorical used for training, i.e., do we want the model to "train on" this
-          feature in addition to using it for bias mitigation
+          feature in addition to using it for bias mitigation.
 
         Returns
         -------
         ModelJob
-          the job of the model with bias mitigation applied that was just submitted for training
+          The job of the model with bias mitigation applied that was just submitted for training.
         """
         url = f"{self._path}{self.id}/biasMitigatedModels/"
         payload = {
@@ -5021,12 +5018,12 @@ OR individual keyword arguments. You cannot pass both."
         ----------
         bias_mitigation_feature_name : str
           The feature name of the protected features that will be used in a bias mitigation task to
-          attempt to mitigate bias
+          attempt to mitigate bias.
 
         Returns
         -------
         BiasMitigationFeatureInfo
-            Bias mitigation feature info model for the requested feature
+            Bias mitigation feature info model for the requested feature.
         """
         url = "{}{}/biasMitigationFeatureInfo/{}".format(self._path, self.id, bias_mitigation_feature_name)
         initial_project_post_response = self._client.post(url)
@@ -5054,12 +5051,12 @@ OR individual keyword arguments. You cannot pass both."
         ----------
         bias_mitigation_feature_name : str
           The feature name of the protected features that will be used in a bias mitigation task to
-          attempt to mitigate bias
+          attempt to mitigate bias.
 
         Returns
         -------
         BiasMitigationFeatureInfo
-            Bias mitigation feature info model for the requested feature
+            Bias mitigation feature info model for the requested feature.
         """
         url = "{}{}/biasMitigationFeatureInfo/?featureName={}".format(self._path, self.id, bias_mitigation_feature_name)
         feature_info_data = self._client.get(url).json()
@@ -5120,7 +5117,7 @@ OR individual keyword arguments. You cannot pass both."
         return full_partitioning
 
     def list_datetime_partition_spec(self) -> Optional[DatetimePartitioningSpecification]:
-        """List datetime partitioning settings.
+        """Returns a list of datetime partitioning settings.
 
         This method makes an API call to retrieve settings from the DB if project is in the modeling
         stage, i.e., if `analyze_and_model` (autopilot) has already been called.
@@ -5132,7 +5129,7 @@ OR individual keyword arguments. You cannot pass both."
 
         Returns
         -------
-        DatetimePartitioningSpecification or None
+        DatetimePartitioningSpecification or None.
         """
         if self.partitioning_method and self.stage != PROJECT_STAGE.MODELING:
             res = vars(self.partitioning_method)

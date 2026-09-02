@@ -52,7 +52,7 @@ sidecar_model_metric_validation_trafaret = t.Dict({
 
 
 class SidecarModelMetricValidation(APIObject):
-    """A sidecar model metric validation for LLMs.
+    """A sidecar model metric validation for ``LLMs``.
 
     Attributes
     ----------
@@ -70,11 +70,11 @@ class SidecarModelMetricValidation(APIObject):
         The data that will be used for accessing the deployment prediction server.
         This field is only available for deployments that pass validation.
         Dict fields are as follows:
-        - prediction_api_url - The URL for the deployment prediction server.
-        - datarobot_key - The first of two auth headers for the prediction server.
-        - authorization_header - The second of two auth headers for the prediction server.
-        - input_type - The input type the model expects, either JSON or CSV.
-        - model_type - The target type of the deployed custom model.
+        - ``prediction_api_url``: The URL for the deployment prediction server.
+        - ``datarobot_key``: The first of two auth headers for the prediction server.
+        - ``authorization_header``: The second of two auth headers for the prediction server.
+        - ``input_type``: The input type the model expects, either JSON or CSV.
+        - ``model_type``: The target type of the deployed custom model.
     tenant_id : str
         The ID of the tenant that created the sidecar model metric validation.
     name : str
@@ -232,7 +232,7 @@ class SidecarModelMetricValidation(APIObject):
         target_column_name: Optional[str] = None,
         citation_prefix_column_name: Optional[str] = None,
     ) -> List[SidecarModelMetricValidation]:
-        """List sidecar model metric validations.
+        """Returns a list of sidecar model metric validations.
 
         Parameters
         ----------

@@ -1,8 +1,7 @@
 import logging
 import re
-from typing import Dict, Tuple, List, Optional, Any, Type
+from typing import Dict, Tuple, List, Optional, Any, Type, TYPE_CHECKING
 
-from databricks.sql.thrift_api.TCLIService import ttypes
 from databricks.sql.types import SSLOptions
 from databricks.sql.auth.auth import get_python_sql_connector_auth_provider
 from databricks.sql.auth.authenticators import AccessTokenAuthProvider
@@ -10,14 +9,37 @@ from databricks.sql.auth.common import ClientContext
 from databricks.sql.exc import SessionAlreadyClosedError, DatabaseError, RequestError
 from databricks.sql import __version__
 from databricks.sql import USER_AGENT_NAME
-from databricks.sql.backend.thrift_backend import ThriftDatabricksClient
-from databricks.sql.backend.sea.backend import SeaDatabricksClient
 from databricks.sql.backend.databricks_client import DatabricksClient
 from databricks.sql.backend.types import SessionId, BackendType
 from databricks.sql.common.unified_http_client import UnifiedHttpClient
 from databricks.sql.common.agent import detect as detect_agent
+from databricks.sql.telemetry.telemetry_client import TelemetryClientFactory
+
+if TYPE_CHECKING:
+    from databricks.sql.backend.thrift_backend import ThriftDatabricksClient
+    from databricks.sql.backend.sea.backend import SeaDatabricksClient
 
 logger = logging.getLogger(__name__)
+
+
+# The backend client classes are resolved lazily (PEP 562) rather than imported
+# at module load. ``ThriftDatabricksClient`` pulls in the Apache Thrift
+# ``thrift`` package, so importing it eagerly would drag ``thrift`` into the
+# SEA and kernel connect paths (breaking build systems that ship their own
+# ``thrift``, e.g. Buck). Exposing them as module attributes -- rather than as
+# function-local imports inside ``open`` -- also keeps the long-standing test
+# seam ``patch("databricks.sql.session.ThriftDatabricksClient")`` working.
+# See ``test_lazy_thrift_import``.
+def __getattr__(name: str) -> Any:
+    if name == "ThriftDatabricksClient":
+        from databricks.sql.backend.thrift_backend import ThriftDatabricksClient
+
+        return ThriftDatabricksClient
+    if name == "SeaDatabricksClient":
+        from databricks.sql.backend.sea.backend import SeaDatabricksClient
+
+        return SeaDatabricksClient
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class Session:
@@ -164,15 +186,53 @@ class Session:
             # original credentials. On this path we intentionally did
             # NOT build the connector's own OAuth provider (see __init__
             # above), so these raw kwargs are the only source of the
-            # OAuth client id/secret. These are kernel-only; the Thrift
-            # / SEA backends are unaffected.
+            # OAuth client id/secret and optional federation client id.
+            # These are kernel-only; the Thrift / SEA backends are
+            # unaffected.
             kernel_auth_options = {
                 "auth_type": kwargs.get("auth_type"),
                 "oauth_client_id": kwargs.get("oauth_client_id"),
                 "oauth_client_secret": kwargs.get("oauth_client_secret"),
                 "oauth_redirect_port": kwargs.get("oauth_redirect_port"),
                 "oauth_scopes": kwargs.get("oauth_scopes"),
+                # JWT private-key M2M (RFC 7523 client assertion): the kernel
+                # signs a short-lived assertion with the private key instead
+                # of sending a client secret. token_url points the assertion
+                # at the workspace's OAuth IdP token endpoint (e.g. Entra ID).
+                "oauth_jwt_key_file": kwargs.get("oauth_jwt_key_file"),
+                "oauth_jwt_kid": kwargs.get("oauth_jwt_kid"),
+                "oauth_jwt_passphrase": kwargs.get("oauth_jwt_passphrase"),
+                "oauth_jwt_algorithm": kwargs.get("oauth_jwt_algorithm"),
+                "token_url": kwargs.get("token_url"),
                 "credentials_provider": kwargs.get("credentials_provider"),
+                "identity_federation_client_id": kwargs.get(
+                    "identity_federation_client_id"
+                ),
+                # OAuth U2M token-cache enable/disable: controls whether the kernel
+                # persists U2M refresh tokens to disk (encrypted, in the OS config dir:
+                # ~/Library/Application Support/databricks-sql-kernel/oauth/ on macOS,
+                # ~/.config/databricks-sql-kernel/oauth/ on Linux).
+                # A typed Optional[bool]; on the oauth-u2m branch omitted/None
+                # ⇒ token_cache_enabled=False (disabled, in-memory only) — the
+                # opt-in default that preserves backward compat when token
+                # persistence moves to the kernel path; True ⇒ on-disk persistence.
+                # This is forwarded to the kernel's pyo3 Session as token_cache_enabled
+                # on the oauth-u2m auth branch only.
+                "oauth_token_cache_enabled": kwargs.get("oauth_token_cache_enabled"),
+                # Azure Entra SP credentials for the azure-sp-m2m path. The
+                # kernel owns Azure resolution (endpoint/scope/tenant discovery),
+                # so these raw kwargs are the only source; without threading them
+                # the bridge would fail with "requires azure_client_id". The
+                # tenant and workspace-resource-id are optional (the kernel
+                # auto-discovers the tenant; the resource id adds the
+                # management-token resource-id header for an RBAC-only SP).
+                # Kernel-only; Thrift / SEA are unaffected.
+                "azure_client_id": kwargs.get("azure_client_id"),
+                "azure_client_secret": kwargs.get("azure_client_secret"),
+                "azure_tenant_id": kwargs.get("azure_tenant_id"),
+                "azure_workspace_resource_id": kwargs.get(
+                    "azure_workspace_resource_id"
+                ),
             }
             # Forward the connector's retry-tuning kwargs so the kernel's
             # own retry policy honours them (the kernel owns the retry
@@ -191,6 +251,55 @@ class Session:
                     "_retry_stop_after_attempts_duration"
                 ),
             }
+            # Forward the binding/runtime identity and telemetry knobs
+            # added by kernel telemetry phase 7. Python-side telemetry
+            # still owns feature-flag evaluation and event export for the
+            # Thrift/SEA paths; the kernel path needs the same driver
+            # identity at Session construction time so kernel-owned
+            # telemetry can populate its system configuration.
+            kernel_telemetry_options = {
+                # Preserve the caller's explicit telemetry choice. When unset,
+                # leave it as None so the kernel owns the enable decision --
+                # this is an INTENTIONAL divergence from the Thrift/SEA path,
+                # not an oversight. There, an unset enable_telemetry defaults to
+                # True (client.py) but only actually emits when the
+                # `enableTelemetryForPythonDriver` server feature flag is on
+                # (telemetry_client.py). That feature-flag gate is Python-side
+                # and is bypassed on the kernel path (is_telemetry_enabled
+                # short-circuits to False for use_kernel), so forwarding the
+                # connector's True default here would force telemetry on without
+                # an equivalent gate. Passing None instead defers to the
+                # kernel's own default/gating, which is expected to mirror the
+                # feature-flag-gated wrapper behaviour; only an explicit caller
+                # opt-in/opt-out overrides it.
+                "enable_telemetry": kwargs.get("enable_telemetry"),
+                # Match the connector's default batch size (client.py forwards
+                # the same TelemetryClientFactory.DEFAULT_BATCH_SIZE fallback)
+                # so an unset telemetry_batch_size resolves to the same value
+                # on the kernel path as on the Thrift/SEA path, rather than
+                # letting the kernel silently pick its own internal default.
+                "telemetry_batch_size": kwargs.get(
+                    "telemetry_batch_size", TelemetryClientFactory.DEFAULT_BATCH_SIZE
+                ),
+                # Preserve the caller's explicit circuit-breaker choice. When
+                # unset, leave it as None so the kernel owns the decision --
+                # mirroring the enable_telemetry handling above rather than
+                # forcing a default. This is deliberately NOT defaulted to True:
+                # although ClientContext's signature default is True
+                # (auth/common.py:55), the Thrift/SEA path never reaches it --
+                # build_client_context (utils.py:1018) always passes
+                # _telemetry_circuit_breaker_enabled explicitly (None when the
+                # caller leaves it unset), and ClientContext coerces it with
+                # bool(None) -> False (auth/common.py:89). So the *effective*
+                # Thrift/SEA default when unset is False, not True; forwarding
+                # True here would turn the circuit breaker on for an
+                # unconfigured connection while Thrift/SEA leaves it off.
+                # Passing None instead defers to the kernel's own default;
+                # only an explicit caller value overrides it.
+                "telemetry_circuit_breaker_enabled": kwargs.get(
+                    "_telemetry_circuit_breaker_enabled"
+                ),
+            }
             return KernelDatabricksClient(
                 server_hostname=server_hostname,
                 http_path=http_path,
@@ -203,15 +312,23 @@ class Session:
                 _use_arrow_native_complex_types=_use_arrow_native_complex_types,
                 auth_options=kernel_auth_options,
                 retry_options=kernel_retry_options,
+                request_timeout_secs=kwargs.get("_socket_timeout"),
+                telemetry_options=kernel_telemetry_options,
             )
+
+        # These reference the lazily-resolved module attributes defined via
+        # ``__getattr__`` above (or a test's ``patch(...)`` of them), so neither
+        # backend class -- and in particular ``thrift`` -- is imported until the
+        # branch that actually needs it runs.
+        import databricks.sql.session as _session_module
 
         databricks_client_class: Type[DatabricksClient]
         if self.use_sea:
             logger.debug("Creating SEA backend client")
-            databricks_client_class = SeaDatabricksClient
+            databricks_client_class = _session_module.SeaDatabricksClient
         else:
             logger.debug("Creating Thrift backend client")
-            databricks_client_class = ThriftDatabricksClient
+            databricks_client_class = _session_module.ThriftDatabricksClient
 
         common_args = {
             "server_hostname": server_hostname,
@@ -315,6 +432,12 @@ class Session:
 
     @staticmethod
     def server_parameterized_queries_enabled(protocolVersion):
+        # Function-local import: the protocol-version constant lives in the
+        # Thrift-generated ttypes, but this check only ever runs with a
+        # Thrift-negotiated protocol version, so deferring keeps ``thrift`` out
+        # of the SEA/kernel load path.
+        from databricks.sql.thrift_api.TCLIService import ttypes
+
         if (
             protocolVersion
             and protocolVersion >= ttypes.TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V8

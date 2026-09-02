@@ -22,7 +22,7 @@ from datarobot.utils.pagination import unpaginate
 
 
 class OtelStats(APIObject):
-    """Otel statistics.
+    """``OTel`` statistics.
 
     .. versionadded:: v3.14
 
@@ -77,7 +77,7 @@ class OtelStats(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List[OtelStats]:
-        """List the Otel usage statistics.
+        """Returns a list of the ``OTel`` usage statistics.
 
         .. versionadded:: v3.14
 

@@ -22,48 +22,48 @@ from datarobot.utils.pagination import unpaginate
 
 
 class KeyValue(APIObject):
-    """A DataRobot Key-Value.
+    """A DataRobot key-value.
 
     .. versionadded:: v3.4
 
     Attributes
     ----------
     id: str
-        ID of the Key-Value
+        The ID of the key-value.
     created_at: str
-        creation time of the Key-Value
+        The creation time of the key-value.
     entity_id: str
-        ID of the related Entity
+        The ID of the related entity.
     entity_type: KeyValueEntityType
-        type of the related Entity
+        The type of the related entity.
     name: str
-        Key-Value name
+        The key-value name.
     value: str
-        Key-Value value
+        The key-value value.
     numeric_value: float
-        Key-Value numeric value
+        The numeric value of the key-value.
     boolean_value: bool
-        Key-Value boolean value
+        The true/false value of the key-value.
     value_type: KeyValueType
-        Key-Value type
+        The key-value type.
     description: str
-        Key-Value description
+        The key-value description.
     creator_id: str
-        ID of the user who created the Key-Value
+        The ID of the user who created the key-value.
     creator_name: str
-        ID of the user who created the Key-Value
+        The name of the user who created the key-value.
     category: KeyValueCategory
-        Key-Value category
+        The key-value category.
     artifact_size: int
-        size in bytes of associated image, if applicable
+        The size in bytes of the associated image, if applicable.
     original_file_name: str
-        name of uploaded original image or dataset file
+        The name of the uploaded original image or dataset file.
     is_editable: bool
-        true if a user with permissions can edit or delete
+        Whether a user with permissions can edit or delete the key-value.
     is_dataset_missing: bool
-        true if the key-value type is "dataset" and its dataset is not visible to the user
+        Whether the key-value type is "dataset" and its dataset is not visible to the user.
     error_message: str
-        additional information if "isDataSetMissing" is true. Blank if there are no errors
+        Additional information if `isDataSetMissing` is true; blank if there are no errors.
     """
 
     _path = "keyValues/"
@@ -146,54 +146,54 @@ class KeyValue(APIObject):
 
     @classmethod
     def get(cls, key_value_id: str) -> KeyValue:
-        """Get Key-Value by id.
+        """Get the key-value by ID.
 
         .. versionadded:: v3.4
 
         Parameters
         ----------
         key_value_id: str
-            ID of the Key-Value
+            The ID of the key-value.
 
         Returns
         -------
         KeyValue
-            retrieved Key-Value
+            The retrieved key-value.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = cls._key_value_path(key_value_id)
         return cls.from_location(path)
 
     @classmethod
     def list(cls, entity_id: str, entity_type: KeyValueEntityType) -> List[KeyValue]:
-        """List Key-Values.
+        """List the key-values.
 
         .. versionadded:: v3.4
 
         Parameters
         ----------
         entity_id: str
-            ID of the related Entity
+            The ID of the related entity.
         entity_type: KeyValueEntityType
-            type of the related Entity
+            The type of the related entity.
 
         Returns
         -------
         List[KeyValue]
-            a list of Key-Values
+            A list of key-values.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         data = unpaginate(
             cls._path,
@@ -204,30 +204,30 @@ class KeyValue(APIObject):
 
     @classmethod
     def find(cls, entity_id: str, entity_type: KeyValueEntityType, name: str) -> Optional[KeyValue]:
-        """Find Key-Value by name.
+        """Find a key-value by name.
 
         .. versionadded:: v3.4
 
         Parameters
         ----------
         entity_id: str
-            ID of the related Entity
+            The ID of the related entity.
         entity_type: KeyValueEntityType
-            type of the related Entity
+            The type of the related entity.
         name: str
-            name of the Key-Value
+            The name of the key-value.
 
         Returns
         -------
         List[KeyValue]
-            a list of Key-Values
+            A list of key-values.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         data = unpaginate(
             cls._path,
@@ -257,31 +257,31 @@ class KeyValue(APIObject):
         Parameters
         ----------
         entity_id: str
-            ID of the associated resource
+            The ID of the associated resource.
         entity_type: KeyValueEntityType
-            type of the associated resource
+            The type of the associated resource.
         name: str
-            name of the Key-Value. Cannot contain: { } ; |
+            The name of the key-value. It cannot contain ``{ } ; |``.
         category: KeyValueCategory
-            category of the Key-Value
+            The category of the key-value.
         value_type: KeyValueType
-            type of the Key-Value value
+            The type of the key-value value.
         value: Optional[Union[str, float, bool]]
-            value of Key-Value
+            The value of the key-value.
         description: Optional[str]
-            description of the Key-Value
+            The description of the key-value.
 
         Returns
         -------
         KeyValue
-            created Key-Value
+            The created key-value.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         value_keys = {
             KeyValueType.NUMERIC: "numericValue",
@@ -315,35 +315,35 @@ class KeyValue(APIObject):
         description: Optional[str] = None,
         comment: Optional[str] = None,
     ) -> None:
-        """Update Key-Value.
+        """Update the key-value.
 
         .. versionadded:: v3.4
 
         Parameters
         ----------
         entity_id: Optional[str]
-            ID of the associated resource
+            The ID of the associated resource.
         entity_type: Optional[KeyValueEntityType]
-            type of the associated resource
+            The type of the associated resource.
         name: Optional[str]
-            name of the Key-Value. Cannot contain: { } ; |
+            The name of the key-value. It cannot contain ``{ } ; |``.
         category: Optional[KeyValueCategory]
-            category of the Key-Value
+            The category of the key-value.
         value_type: Optional[KeyValueType]
-            type of the Key-Value value
+            The type of the key-value value.
         value: Optional[[Union[str, float, bool]]
-            value of Key-Value
+            The value of the key-value.
         description: Optional[str]
-            description of the Key-Value
+            The description of the key-value.
         comment: Optional[str]
-            user comment explaining the change
+            The user comment explaining the change.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         payload = {
             "entityId": entity_id if entity_id is not None else self.entity_id,
@@ -372,23 +372,23 @@ class KeyValue(APIObject):
         self._update_values(new_version)
 
     def refresh(self) -> None:
-        """Update Key-Value with the latest data from server.
+        """Update the key-value with the latest data from the server.
 
         .. versionadded:: v3.4
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         new_object = self.get(self.id)
         self._update_values(new_object)
 
     def delete(self) -> None:
-        """Delete Key-Value.
+        """Delete the key-value.
 
         .. versionadded:: v3.4
 

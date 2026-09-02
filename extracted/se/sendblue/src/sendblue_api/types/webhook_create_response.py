@@ -1,0 +1,81 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import List, Union, Optional
+from typing_extensions import TypeAlias
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+from .webhook_configuration import WebhookConfiguration
+
+__all__ = [
+    "WebhookCreateResponse",
+    "Webhooks",
+    "WebhooksCallLog",
+    "WebhooksContactCreated",
+    "WebhooksContactProfile",
+    "WebhooksInboundCall",
+    "WebhooksLineAssigned",
+    "WebhooksLineBlocked",
+    "WebhooksOutbound",
+    "WebhooksReceive",
+    "WebhooksTypingIndicator",
+]
+
+WebhooksCallLog: TypeAlias = Union[str, WebhookConfiguration]
+
+WebhooksContactCreated: TypeAlias = Union[str, WebhookConfiguration]
+
+WebhooksContactProfile: TypeAlias = Union[str, WebhookConfiguration]
+
+WebhooksInboundCall: TypeAlias = Union[str, WebhookConfiguration]
+
+WebhooksLineAssigned: TypeAlias = Union[str, WebhookConfiguration]
+
+WebhooksLineBlocked: TypeAlias = Union[str, WebhookConfiguration]
+
+WebhooksOutbound: TypeAlias = Union[str, WebhookConfiguration]
+
+WebhooksReceive: TypeAlias = Union[str, WebhookConfiguration]
+
+WebhooksTypingIndicator: TypeAlias = Union[str, WebhookConfiguration]
+
+
+class Webhooks(BaseModel):
+    call_log: Optional[List[WebhooksCallLog]] = None
+    """Webhooks for call log events"""
+
+    contact_created: Optional[List[WebhooksContactCreated]] = None
+    """Webhooks for contact created events"""
+
+    contact_profile: Optional[List[WebhooksContactProfile]] = None
+    """Webhooks for durable contact-profile publication completion and failure events"""
+
+    global_secret: Optional[str] = FieldInfo(alias="globalSecret", default=None)
+    """Global secret applied to all webhooks"""
+
+    inbound_call: Optional[List[WebhooksInboundCall]] = None
+    """Webhooks for inbound call events"""
+
+    line_assigned: Optional[List[WebhooksLineAssigned]] = None
+    """Webhooks for line assigned events"""
+
+    line_blocked: Optional[List[WebhooksLineBlocked]] = None
+    """Webhooks for line blocked events"""
+
+    outbound: Optional[List[WebhooksOutbound]] = None
+    """Webhooks for outbound message status updates"""
+
+    receive: Optional[List[WebhooksReceive]] = None
+    """Webhooks for inbound message events"""
+
+    typing_indicator: Optional[List[WebhooksTypingIndicator]] = None
+    """Webhooks for typing indicator events"""
+
+
+class WebhookCreateResponse(BaseModel):
+    message: Optional[str] = None
+
+    status: Optional[str] = None
+
+    webhooks: Optional[Webhooks] = None

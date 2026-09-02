@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: kfnetlist
+Version: 0.2.2
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Rust
+Classifier: Operating System :: OS Independent
+Requires-Dist: klayout>=0.30.8,<0.31 ; extra == 'dev'
+Requires-Dist: pytest>=9.0.3,<10 ; extra == 'dev'
+Requires-Dist: ruff>=0.15.12,<0.16 ; extra == 'dev'
+Requires-Dist: kfnetlist[notebooks] ; extra == 'docs'
+Requires-Dist: zensical>=0.0.40,<0.1 ; extra == 'docs'
+Requires-Dist: mkdocs-literate-nav>=0.6.3,<0.7 ; extra == 'docs'
+Requires-Dist: mkdocstrings[python]>=1.0.4,<1.1 ; extra == 'docs'
+Requires-Dist: pymdown-extensions>=10.21.2,<10.22 ; extra == 'docs'
+Requires-Dist: ruff>=0.15.12,<0.16 ; extra == 'docs'
+Requires-Dist: jupytext>=1.16.2,<2 ; extra == 'notebooks'
+Requires-Dist: nbconvert>=7.16,<8 ; extra == 'notebooks'
+Requires-Dist: ipykernel>=6.29,<7 ; extra == 'notebooks'
+Provides-Extra: dev
+Provides-Extra: docs
+Provides-Extra: notebooks
+License-File: LICENSE
+Summary: Standalone Netlist schema for kfactory and netlist tooling
+Author-email: gdsfactory community <contact@gdsfactory.com>
+Requires-Python: >=3.12

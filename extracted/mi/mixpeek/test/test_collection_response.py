@@ -199,7 +199,10 @@ class TestCollectionResponse(unittest.TestCase):
                     unique_id_field = null, ),
                 vector_count = 56,
                 taxonomy_count = 56,
-                retriever_count = 56
+                retriever_count = 56,
+                warnings = [
+                    ''
+                    ]
             )
         else:
             return CollectionResponse(

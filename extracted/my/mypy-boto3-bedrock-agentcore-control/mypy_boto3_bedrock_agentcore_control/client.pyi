@@ -1818,7 +1818,7 @@ class BedrockAgentCoreControlClient(BaseClient):
         self, **kwargs: Unpack[StartPolicyGenerationRequestTypeDef]
     ) -> StartPolicyGenerationResponseTypeDef:
         """
-        Initiates the AI-powered generation of Cedar policies from natural language
+        Initiates the AI-powered generation of Dogwood policies from natural language
         descriptions within the AgentCore Policy system.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/start_policy_generation.html)

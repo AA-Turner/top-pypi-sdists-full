@@ -1,0 +1,75 @@
+# This is a GitHub workflow defining a set of jobs with a set of steps.
+# ref: https://docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions
+#
+name: Test JavaScript
+
+on:
+  pull_request:
+    paths:
+      - "jsx/**"
+      - "**/*.js"
+      - ".github/workflows/test-jsx.yml"
+  push:
+    paths:
+      - "jsx/**"
+      - "**/*.js"
+      - ".github/workflows/test-jsx.yml"
+    branches-ignore:
+      - "dependabot/**"
+      - "pre-commit-ci-update-config"
+    tags:
+      - "**"
+  # zizmor: ignore[cache-poisoning] not used for publishing
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The ./jsx folder contains React based source code files that are to compile
+  # to share/jupyterhub/static/js/admin-react.js. The ./jsx folder includes
+  # tests also has tests that this job is meant to run with `npm test`
+  # according to the documentation in jsx/README.md.
+  test-jsx-admin-react:
+    name: Test JSX (admin-react.js)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: "24"
+
+      - name: install jsx
+        run: |
+          cd jsx
+          npm ci
+
+      - name: test
+        run: |
+          cd jsx
+          npm test
+
+  test-share-static-js:
+    name: Test share/jupyterhub/static/js
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: "24"
+
+      - name: install dependencies
+        run: |
+          npm ci
+
+      - name: test
+        run: |
+          npm test

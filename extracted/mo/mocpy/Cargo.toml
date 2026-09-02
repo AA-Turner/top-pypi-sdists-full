@@ -1,0 +1,58 @@
+[package]
+name = "MOCPy"
+version = "0.20.0"
+authors = [
+  "Matthieu Baumann <matthieu.baumann@astro.unistra.fr>",
+  "Thomas Boch <thomas.boch@astro.unistra.fr>",
+  "Manon Marchand <manon.marchand@astro.unistra.fr>",
+  "F.-X. Pineau <francois-xavier.pineau@astro.unistra.fr>",
+]
+edition = "2024"
+license = "BSD-3-Clause"
+readme = "README.md"
+categories = ["algorithms", "science"]
+repository = "https://github.com/cds-astro/mocpy"
+description = "MOC parsing and manipulation in Python"
+documentation = "https://cds-astro.github.io/mocpy"
+exclude = [".*", "binder/", "docs/", "notebooks/", "resources/"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[lib]
+name = "mocpy"
+path = "src/lib.rs"
+test = true
+doctest = true
+bench = true
+crate-type = ["cdylib"]
+
+[dependencies]
+moc = { version = "0.19.2", features = ["storage"] }
+# moc = { git = 'https://github.com/cds-astro/cds-moc-rust', rev = '147be185a91b04b75b508b2fe8c2f3a9a2d51d6e', features = ["storage"] }
+healpix = { package = "cdshealpix", version = "0.9.1" }
+# healpix = { package = "cdshealpix", git = 'https://github.com/cds-astro/cds-healpix-rust', branch = 'master' }
+rayon = "1.11"
+num_threads = "0.1"
+
+[dependencies.numpy]
+version = "0.26"
+
+[dependencies.ndarray]
+version = "0.16"
+default-features = false # do not include the default features, and optionally
+                         # cherry-pick individual features
+features = ["rayon"]
+
+[dependencies.pyo3]
+version = "0.26"
+features = ["extension-module"]
+
+[profile.release]
+opt-level = 3
+
+[profile.dev]
+opt-level = 0
+
+
+

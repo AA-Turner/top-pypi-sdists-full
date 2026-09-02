@@ -151,6 +151,14 @@ def cli_command_find_duplicate_resource_policies(ctx, **kwargs):
     policies.find_duplicate_resource_policies(ctx, **kwargs)
 
 
+@click.command(name="find-orgs-with-legacy-policies")
+@click.option("--org-id", default=None)
+@click.option("--start-org", default=None)
+@click.pass_context
+def cli_command_find_orgs_with_legacy_policies(ctx, **kwargs):
+    policies.find_orgs_with_legacy_policies(ctx, **kwargs)
+
+
 @click.command(name="update-resource-policy")
 @click.option("--org-id", default=None)
 @click.option("--instance-id", default=None)

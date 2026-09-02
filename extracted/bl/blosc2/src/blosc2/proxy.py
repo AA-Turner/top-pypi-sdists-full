@@ -8,24 +8,41 @@
 import ast
 import asyncio
 import inspect
+import itertools
+import math
+import os
 import textwrap
-from abc import ABC, abstractmethod
 from collections.abc import Sequence
-
-try:
-    from numpy.typing import DTypeLike
-except (ImportError, AttributeError):
-    # fallback to internal module (use with caution)
-    from numpy._typing import DTypeLike
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
 import blosc2
 from blosc2.dsl_kernel import DSLKernel, DSLSyntaxError
 
-# Default Proxy.afetch concurrency cap for remote sources (e.g. C2Array),
-# where fetches are dominated by round-trip latency, not local CPU/IO.
-REMOTE_MAX_CONCURRENCY = 8
+# What a proxy reads from, which lived here until the import graph asked for it
+# further down (see `proxy_source`).  The four classes are re-exported rather
+# than used: `blosc2.proxy.X` is where anything outside would look for them
+from blosc2.proxy_source import (  # noqa: F401
+    BLOCK_HOT_CHUNKS,
+    REMOTE_MAX_CONCURRENCY,
+    ByteRangeNDSource,
+    FsspecNDSource,
+    NotRanged,
+    ProxyNDSource,
+    ProxySource,
+    _chunk_payloads,
+    _splice_chunk,
+    batched,
+    convert_dtype,
+)
+from blosc2.schunk import _set_default_dparams
+
+# vlmeta entries the proxy keeps its own state in: what it has fetched, and which
+# remote bytes the cache was filled from. A caller cannot write these.
+_RESERVED_VLMETA = frozenset(
+    {"proxy-fetched", "proxy-fetched-blocks", "proxy-fetched-bpc", "proxy-stamp", "proxy-index"}
+)
 
 # `jit` kwargs that tune *how* an expression is evaluated, not what container the
 # result is stored in. Unlike storage kwargs (`cparams`, `chunks`, `urlpath`, ...),
@@ -35,179 +52,19 @@ REMOTE_MAX_CONCURRENCY = 8
 _JIT_EXECUTION_TUNING_KWARGS = frozenset({"jit", "jit_backend", "fp_accuracy"})
 
 
-class ProxyNDSource(ABC):
-    """
-    Base interface for NDim sources in :ref:`Proxy`.
-    """
-
-    @property
-    @abstractmethod
-    def shape(self) -> tuple:
-        """
-        The shape of the source.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def chunks(self) -> tuple:
-        """
-        The chunk shape of the source.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def blocks(self) -> tuple:
-        """
-        The block shape of the source.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def dtype(self) -> np.dtype:
-        """
-        The dtype of the source.
-        """
-        pass
-
-    @property
-    def cparams(self) -> blosc2.CParams:
-        """
-        The compression parameters of the source.
-
-        This property is optional and can be overridden if the source has a
-        different compression configuration.
-        """
-        return blosc2.CParams(typesize=self.dtype.itemsize)
-
-    @abstractmethod
-    def get_chunk(self, nchunk: int) -> bytes:
-        """
-        Return the compressed chunk in :paramref:`self`.
-
-        Parameters
-        ----------
-        nchunk: int
-            The unidimensional index of the chunk to retrieve.
-
-        Returns
-        -------
-        out: bytes object
-            The compressed chunk.
-        """
-        pass
-
-    async def aget_chunk(self, nchunk: int) -> bytes:
-        """
-        Return the compressed chunk in :paramref:`self` asynchronously.
-
-        Parameters
-        ----------
-        nchunk: int
-            The index of the chunk to retrieve.
-
-        Returns
-        -------
-        out: bytes object
-            The compressed chunk.
-
-        Notes
-        -----
-        This method is optional, and only available if the source has an async
-        `aget_chunk` method.
-        """
-        raise NotImplementedError(
-            "aget_chunk is only available if the source has an async aget_chunk method"
-        )
-
-
-class ProxySource(ABC):
-    """
-    Base interface for sources of :ref:`Proxy` that are not NDim objects.
-    """
-
-    @property
-    @abstractmethod
-    def nbytes(self) -> int:
-        """
-        The total number of bytes in the source.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def chunksize(self) -> tuple:
-        """
-        The chunksize of the source.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def typesize(self) -> int:
-        """
-        The typesize of the source.
-        """
-        pass
-
-    @property
-    def cparams(self) -> blosc2.CParams:
-        """
-        The compression parameters of the source.
-
-        This property is optional and can be overridden if the source has a
-        different compression configuration.
-        """
-        return blosc2.CParams(typesize=self.typesize)
-
-    @abstractmethod
-    def get_chunk(self, nchunk: int) -> bytes:
-        """
-        Return the compressed chunk in :paramref:`self`.
-
-        Parameters
-        ----------
-        nchunk: int
-            The index of the chunk to retrieve.
-
-        Returns
-        -------
-        out: bytes object
-            The compressed chunk.
-        """
-        pass
-
-    async def aget_chunk(self, nchunk: int) -> bytes:
-        """
-        Return the compressed chunk in :paramref:`self` asynchronously.
-
-        Parameters
-        ----------
-        nchunk: int
-            The index of the chunk to retrieve.
-
-        Returns
-        -------
-        out: bytes object
-            The compressed chunk.
-
-        Notes
-        -----
-        This method is optional and only available if the source has an async
-        `aget_chunk` method.
-        """
-        raise NotImplementedError(
-            "aget_chunk is only available if the source has an async aget_chunk method"
-        )
-
-
 class Proxy(blosc2.Operand):
     """Proxy (with cache support) for an object following the :ref:`ProxySource` interface.
 
     This can be used to cache chunks of a regular data container which follows the
     :ref:`ProxySource` or :ref:`ProxyNDSource` interfaces.
+    """
+
+    _stamped = False
+    """Whether the source names the bytes it reads, as `_adopt_cache` found out.
+
+    Kept because `_save_fetched` asks after every fetch and the answer cannot
+    change: a source either can name itself or cannot.  Asking the source each
+    time would cost a request for one that has to look at its remote to answer.
     """
 
     def __init__(
@@ -225,6 +82,28 @@ class Proxy(blosc2.Operand):
         mode: str, optional
             "a" means read/write (create if it doesn't exist); "w" means create
             (overwrite if it exists). Default is "a".
+
+            With "a" and an existing :paramref:`urlpath`, the cache written by an
+            earlier run is adopted as is, so whatever it already holds is not
+            fetched from the source again. It must be a cache from a proxy over a
+            source of the same geometry (shape, dtype and partitioning); anything
+            else raises rather than being silently reused or overwritten.
+
+            A source that can name the exact bytes it reads, as
+            :ref:`FsspecNDSource` does with its ``stamp`` (fsspec's token) and
+            :ref:`C2Array` with the server's mtime, is checked against that
+            too: a cache built from different bytes raises, even when the geometry
+            still fits. For every other source geometry is all there is to check,
+            so a source whose contents changed underneath while its geometry did
+            not is adopted, and the cache keeps serving what the earlier run
+            fetched; pass ``mode="w"`` when that source may have been rewritten.
+
+            A proxy that :func:`blosc2.open` rebuilds over its own cache never
+            comes through here -- the cache is handed to it as it stands -- so
+            there a stamp that no longer matches empties the cache instead of
+            raising: it starts as though nothing had been fetched and fills again
+            from the bytes served now. Opened read-only there is nothing to
+            empty, and every read falls through to the source.
         kwargs: dict, optional
             Keyword arguments supported:
 
@@ -247,12 +126,48 @@ class Proxy(blosc2.Operand):
             kwargs = {}
         self._cache = kwargs.pop("_cache", None)
         vlmeta = kwargs.pop("vlmeta", None)
+        caterva2_env = kwargs.pop("caterva2_env", False)
+        # Before anything is built or emptied: a call that is going to be refused
+        # must leave the cache at `urlpath` exactly as it found it, and adopting
+        # one whose stamp has moved on empties it as its first act
+        reserved = sorted(_RESERVED_VLMETA & set(vlmeta or ()))
+        if reserved:
+            # Writing these would hand the proxy a bitmap or an identity it never
+            # earned: a caller's `proxy-fetched` makes it skip chunks it has not
+            # fetched, and a caller's `proxy-stamp` makes a good cache fail its
+            # identity check (or a stale one pass it)
+            raise ValueError(
+                f"{', '.join(reserved)} {'is' if len(reserved) == 1 else 'are'} reserved "
+                f"for the proxy's own bookkeeping and cannot be set through vlmeta"
+            )
 
-        if self._cache is None:
+        # Before either the cache is reopened or its stamp is judged: a source
+        # read once when it was opened names itself as it was then, and a handle
+        # that has outlived someone else's writes would hand over a stamp the
+        # cache still matches and a set of bytes it no longer does.  Sources whose
+        # bytes cannot move underneath them do not offer this and are not asked
+        refresh = getattr(self.src, "refresh_stamp", None)
+        if refresh is not None:
+            refresh()
+
+        if self._cache is None and mode == "a" and urlpath is not None and os.path.exists(urlpath):
+            # Reuse the cache left by an earlier run: whatever was fetched then is
+            # still in there, and the creation path below would refuse to build
+            # over an existing container anyway
+            if kwargs:
+                # The container already exists, so these would be quietly dropped
+                raise ValueError(
+                    f"{', '.join(kwargs)} cannot be applied to the existing cache at {urlpath}; "
+                    f"pass mode='w' to build it anew"
+                )
+            self._cache = self._reopen_cache(urlpath)
+
+        fresh = self._cache is None
+        if fresh:
             meta_val = {
                 "local_abspath": None,
                 "urlpath": None,
-                "caterva2_env": kwargs.pop("caterva2_env", False),
+                "caterva2_env": caterva2_env,
             }
             container = getattr(self.src, "schunk", self.src)
             if hasattr(container, "urlpath"):
@@ -283,15 +198,424 @@ class Proxy(blosc2.Operand):
                 )
                 self._cache.fill_special(self.src.nbytes // self.src.typesize, blosc2.SpecialValue.UNINIT)
         self._schunk_cache = getattr(self._cache, "schunk", self._cache)
+        # What is already cached cannot be read off the cache itself: a chunk that
+        # is a run of a single value (zeros, NaNs, whatever blosc2.full() writes)
+        # is stored as a special chunk once fetched, telling it apart from the
+        # empty ones the cache starts life with. Hence an explicit bitmap. A
+        # source that serves blocks needs one bit per block, since a chunk in the
+        # cache may hold only some of them and reads zeros for the rest.
+        # Having the block methods is not the same as being able to use them for
+        # this dataset: a source that knows it is served whole says so with
+        # `serves_blocks`, and then the block path is never taken and the bitmap
+        # is the chunkwise one an older blosc2 also reads.  Asked rather than
+        # tried, since trying costs a request at the moment a proxy is built --
+        # which a proxy over a cache that already holds what is wanted never pays.
+        serves_blocks = getattr(self.src, "serves_blocks", True) and all(
+            getattr(self.src, name, None) is not None
+            for name in ("blocks_per_chunk", "wants_blocks", "chunk_layout", "block_plan", "read_range")
+        )
+        self._blocks_per_chunk = self.src.blocks_per_chunk if serves_blocks else 1
+        # Blocks of the last few partly filled chunks, so a rewrite need not read
+        # the chunk back out of the cache to find out what is already in it
+        self._hot_payloads = {}
+        # The index as last written to the cache, to write it again only if it moves
+        self._saved_index = None
+        # Evictions the cache has seen, so `_sync_evictions` can spot new ones
+        self._specialized = getattr(self._schunk_cache, "nspecialized", 0)
         if self.urlpath is None:
             self.urlpath = getattr(self._schunk_cache, "urlpath", None)
-        if vlmeta:
-            for key in vlmeta:
-                self._schunk_cache.vlmeta[key] = vlmeta[key]
+        self._fetched = self._adopt_cache(fresh, self._schunk_cache.nchunks)
+        for key in vlmeta or ():
+            self._schunk_cache.vlmeta[key] = vlmeta[key]
+
+    @property
+    def traffic(self) -> "blosc2.proxy_source.Traffic | None":
+        """What this proxy has read off its source, or None for a local one.
+
+        Cumulative bytes and requests since the source was opened, counted at the
+        transport, so the frame index and the block offsets are in it as well as
+        the data, and the metadata call that opened the handle is not.  What a
+        slice cost in traffic is the difference between two readings of this, or
+        one reading after :meth:`Traffic.reset`.
+
+        It is what says whether block granularity is doing anything for a given
+        dataset and access pattern: whole chunks and blocks of them take similar
+        time on a fast link and differ by the compression ratio in bytes, and
+        bytes are what a shared uplink runs out of.
+
+        None where nothing crosses a wire -- a proxy over a local array -- since
+        a counter that only ever reads zero would say the traffic was free rather
+        than that it was never measured.
+
+        Examples
+        --------
+        >>> proxy = blosc2.open(url, lazy=True)  # doctest: +SKIP
+        >>> proxy.traffic.reset()  # doctest: +SKIP
+        >>> _ = proxy[0, 0, 0]  # doctest: +SKIP
+        >>> proxy.traffic  # doctest: +SKIP
+        Traffic(requests=2, nbytes=20480)
+        """
+        return getattr(self.src, "traffic", None)
 
     def __enter__(self) -> "Proxy":
         """Enter a context manager and return this proxy."""
         return self
+
+    @property
+    def _fetched_key(self) -> str:
+        """Where the bitmap lives, which says what it counts: chunks or blocks."""
+        return "proxy-fetched-blocks" if self._blocks_per_chunk > 1 else "proxy-fetched"
+
+    def _adopt_cache(self, fresh: bool, nchunks: int) -> bytearray:
+        """Take up what the cache holds, as far as it is about the bytes served now.
+
+        Geometry alone cannot tell a replaced source from the one a cache was
+        filled from, so a source that can name itself has its stamp recorded here
+        -- read before it is written, or the check would be against the copy of
+        itself just written and pass for every writable cache.
+
+        A cache filled under another stamp holds the frame that used to be at
+        that path: the same geometry, and not one byte of it need be the same
+        data.  None of it is reusable -- neither the chunks nor the positions they
+        were fetched by -- so it starts empty, which for a cache that cannot be
+        written to means every read falls through to the source (see
+        `__getitem__`) rather than coming back stale.
+        """
+        stamp = getattr(self.src, "stamp", None)
+        # Whether this source names itself at all, kept rather than asked again:
+        # reading the stamp of one that is being written to costs a request, and
+        # `_save_fetched` wants only the yes or no, after every fetch it makes
+        self._stamped = stamp is not None
+        stored = None if fresh else self._schunk_cache.vlmeta.get("proxy-stamp")
+        replaced = stamp is not None and stored is not None and stored != stamp
+        writable = getattr(self._schunk_cache, "mode", None) != "r"
+        if replaced and writable:
+            # Before the stamp, never after: the bitmap is what says the chunks
+            # are there, so a run that stopped in between would leave a cache
+            # claiming the new bytes and holding the old ones
+            self._forget_fetched(nchunks)
+        if stamp is not None and writable and stored != stamp:
+            # Not into a cache opened read-only, which `blosc2.open(path, mode="r")`
+            # hands over for a persisted proxy: nothing may be written there, and a
+            # proxy over one stays observational anyway.  Nor when it is already
+            # what is there: writing a vlmeta entry rewrites the cache file, and
+            # merely opening a proxy over a cache it fits should not touch it.
+            self._schunk_cache.vlmeta["proxy-stamp"] = stamp
+        if fresh or replaced:
+            return bytearray((nchunks * self._blocks_per_chunk + 7) // 8)
+        # Where the chunks are, and where the blocks of the partly filled ones
+        # are, as an earlier run read them.  Only from a cache that names the very
+        # same remote bytes, checked here rather than taken on trust from how the
+        # cache was come by: a `_cache=` handed in never passed `_reopen_cache`.
+        adopt = getattr(self.src, "_adopt_index", None)
+        if adopt is not None and stamp is not None and stored == stamp:
+            index = self._schunk_cache.vlmeta.get("proxy-index")
+            adopt(index)
+            # What is on disk, so that a run which reads nothing new out of the
+            # source writes it back over itself for nothing: the offsets are the
+            # bulk of a large frame's index, and this is the first fetch's
+            # comparison, not just the second's
+            self._saved_index = index
+        return self._load_fetched(nchunks)
+
+    def _forget_fetched(self, nchunks: int) -> None:
+        """Empty the cache's record of what it holds, for bytes that are gone.
+
+        The chunks themselves are left where they are: every one of them is
+        overwritten by the fetch that asks for it again, and rewriting the whole
+        container here would be a download's worth of work to say `nothing`.
+        What has to go is every trace of what was fetched, in both the bitmaps a
+        cache may carry -- the block one this proxy writes, and the chunk one a
+        run before it may have left -- since either would be believed on the next
+        open, and where the chunks of the frame that is gone were.
+        """
+        vlmeta = self._schunk_cache.vlmeta
+        vlmeta[self._fetched_key] = bytes((nchunks * self._blocks_per_chunk + 7) // 8)
+        if self._fetched_key != "proxy-fetched" and vlmeta.get("proxy-fetched") is not None:
+            # The chunkwise bitmap a run before the block one left, which
+            # `_load_fetched` falls back to when there is no block bitmap
+            vlmeta["proxy-fetched"] = bytes((nchunks + 7) // 8)
+        if vlmeta.get("proxy-index") is not None:
+            vlmeta["proxy-index"] = {}
+
+    def _load_fetched(self, nchunks: int) -> bytearray:
+        """The bitmap of already fetched blocks that a previous run left behind."""
+        bpc = self._blocks_per_chunk
+        fetched = bytearray((nchunks * bpc + 7) // 8)
+        self._fetched = fetched
+        stored = self._schunk_cache.vlmeta.get(self._fetched_key)
+        if stored is not None and len(stored) == len(fetched):
+            return bytearray(stored)
+        # A cache left by a run that fetched whole chunks: those are complete, so
+        # promote every chunk it recorded to all of its blocks
+        chunkwise = self._schunk_cache.vlmeta.get("proxy-fetched")
+        if bpc > 1:
+            if chunkwise is not None and len(chunkwise) == (nchunks + 7) // 8:
+                for nchunk in range(nchunks):
+                    if chunkwise[nchunk // 8] >> (nchunk % 8) & 1:
+                        self._mark_fetched(nchunk)
+            # Anything else stays empty and gets fetched again. A chunk that holds
+            # blocks looks exactly like a complete one from outside -- the bitmap
+            # is the only thing that knows -- so guessing from the cache would
+            # serve zeros for what it never fetched.
+            return fetched
+        # A cache written before the bitmap existed, or one handed over through
+        # `_cache=`: everything that is not a special chunk was surely fetched
+        for info in self._schunk_cache.iterchunks_info():
+            if info.special == blosc2.SpecialValue.NOT_SPECIAL:
+                self._mark_fetched(info.nchunk)
+        return fetched
+
+    def _mark_fetched(self, nchunk: int, nblock: int | None = None) -> None:
+        """Record a block as cached, or the whole chunk when *nblock* is None."""
+        base = nchunk * self._blocks_per_chunk
+        blocks = range(self._blocks_per_chunk) if nblock is None else (nblock,)
+        for n in blocks:
+            self._fetched[(base + n) // 8] |= 1 << ((base + n) % 8)
+
+    def _is_fetched(self, nchunk: int, nblock: int = 0) -> bool:
+        n = nchunk * self._blocks_per_chunk + nblock
+        return bool(self._fetched[n // 8] >> (n % 8) & 1)
+
+    def _sync_evictions(self) -> None:
+        """Notice chunks dropped from the cache behind the proxy's back.
+
+        `SChunk.update_special(n, UNINIT)` is the documented way to reclaim a
+        cached chunk's storage, and it leaves a chunk that looks exactly like one
+        never fetched -- which is why the bitmap exists, and why the bitmap would
+        otherwise go on claiming the chunk is there.  The cache counts those
+        replacements, so this costs one integer compare until one happens.
+        """
+        specialized = getattr(self._schunk_cache, "nspecialized", 0)
+        if specialized == self._specialized:
+            return
+        self._specialized = specialized
+        for info in self._schunk_cache.iterchunks_info():
+            if info.special != blosc2.SpecialValue.UNINIT:
+                continue
+            base = info.nchunk * self._blocks_per_chunk
+            for n in range(base, base + self._blocks_per_chunk):
+                self._fetched[n // 8] &= ~(1 << (n % 8))
+            self._hot_payloads.pop(info.nchunk, None)
+
+    def _plan(self, item):
+        """Where *item* lands on the cache's grid, read once for a fetch.
+
+        Reading a key is not free -- `process_key` normalizes it, and for a
+        boolean mask :func:`_fancy_cells` then divmods every coordinate it
+        selects -- so a fetch works it out once and both the chunks and the
+        blocks it wants come from that.  One of:
+
+        ``("cells", {chunk: {block}})``
+            Placed exactly, by :func:`_fancy_cells`.
+        ``("box", spans)``
+            A half-open run per dimension, for the caller to intersect with the
+            grid.  Only for a key of plain slices: a step is placed exactly, as
+            cells, since the run it lies in holds blocks it selects nothing from.
+        ``("chunks", nchunks)``
+            Every chunk, whole: a key nothing here can place, which is the
+            granularity the proxy had before blocks and always a superset.
+        ``("opaque", item)``
+            An SChunk cache has no grid to place a key on; only
+            `get_slice_nchunks` reads one.
+        """
+        everything = ("chunks", list(range(self._schunk_cache.nchunks)))
+        if not isinstance(self._cache, blosc2.NDArray):
+            return everything if _whole_array(item) else ("opaque", item)
+        shape, chunks, blocks = self._cache.shape, self._cache.chunks, self._cache.blocks
+        if _whole_array(item):  # full realization
+            return "box", [(0, s) for s in shape]
+        cells = _fancy_cells(item, shape, chunks, blocks)
+        if cells is _UNMAPPABLE:
+            return everything
+        if cells is not None:
+            return "cells", cells
+        # A box, which the span path intersects with the grid more cheaply than
+        # naming its cells would -- a chunk it covers whole says `every` rather
+        # than counting its blocks out.  Unless it steps: then the run is a
+        # superset by the step's own factor, and the cells are worth naming
+        spans = _item_spans(item, shape)
+        if spans is None:
+            return everything
+        if _stepped(item, shape):
+            return "cells", _box_cells(item, shape, chunks, blocks)
+        return "box", spans
+
+    def _wanted_chunks(self, item) -> list[int]:
+        """The chunks *item* touches."""
+        self._sync_evictions()
+        return self._chunks_of(self._plan(item))
+
+    def _chunks_of(self, plan) -> list[int]:
+        """The chunks a :meth:`_plan` touches."""
+        kind, payload = plan
+        if kind == "chunks":
+            return payload
+        if kind == "cells":
+            return sorted(payload)
+        if kind == "opaque":
+            return [int(n) for n in blosc2.get_slice_nchunks(self._cache, payload)]
+        chunks = self._cache.chunks
+        ranges = []
+        for (lo, hi), csize in zip(payload, chunks, strict=True):
+            # Ahead of the grid, which a zero-length dimension has no chunk size
+            # to divide by: a run selecting nothing selects it in every dimension
+            if hi <= lo:
+                return []
+            ranges.append(range(lo // csize, (hi - 1) // csize + 1))
+        grid = [math.ceil(s / c) for s, c in zip(self._cache.shape, chunks, strict=True)]
+        return [int(np.ravel_multi_index(c, grid)) for c in itertools.product(*ranges)]
+
+    def _missing_chunks(self, item) -> list[int]:
+        """The chunks *item* touches that the cache does not hold in full."""
+        bpc = self._blocks_per_chunk
+        return [n for n in self._wanted_chunks(item) if not all(self._is_fetched(n, b) for b in range(bpc))]
+
+    def _missing_blocks(self, item) -> dict[int, list[int]]:
+        """{chunk: blocks} that *item* touches and the cache does not hold."""
+        missing = {}
+        for nchunk, nblocks in self._wanted_blocks(item).items():
+            absent = [b for b in nblocks if not self._is_fetched(nchunk, b)]
+            if absent:
+                missing[nchunk] = absent
+        return missing
+
+    def _wanted_blocks(self, item) -> dict[int, Sequence[int]]:
+        """{chunk: blocks} that *item* touches, by intersecting it with the block grid.
+
+        A key of integer arrays or boolean masks is placed on the grid exactly,
+        by :func:`_fancy_cells`: each selected coordinate lives in one block, so
+        scattered points cost blocks and not the chunks holding them.  Anything
+        left that this cannot reduce to a box -- a key nobody has thought about --
+        asks for every block of the chunks it touches, which is the granularity
+        the proxy had before blocks and always a superset of the right answer.
+        A step is a box: the run it lies in, which is a superset too, and a much
+        smaller one than the chunks that run crosses.
+        """
+        self._sync_evictions()
+        every = range(self._blocks_per_chunk)
+        kind, payload = plan = self._plan(item)
+        if kind != "box":
+            if kind == "cells":
+                # A key that happens to cover a chunk whole says so as cheaply as
+                # a slice does; see the same shortcut on the box path below
+                return {
+                    n: every if len(b) == self._blocks_per_chunk else sorted(b) for n, b in payload.items()
+                }
+            return dict.fromkeys(self._chunks_of(plan), every)
+        chunks, blocks = self._cache.chunks, self._cache.blocks
+        spans = payload
+        chunk_grid = [math.ceil(s / c) for s, c in zip(self._cache.shape, chunks, strict=True)]
+        blocks_in_chunk = [math.ceil(c / b) for c, b in zip(chunks, blocks, strict=True)]
+        wanted = {}
+        for nchunk in self._chunks_of(plan):
+            coords = np.unravel_index(nchunk, chunk_grid)
+            ranges = []
+            for dim, (start, stop) in enumerate(spans):
+                lo = max(start - int(coords[dim]) * chunks[dim], 0)
+                hi = min(stop - int(coords[dim]) * chunks[dim], chunks[dim])
+                ranges.append(range(lo // blocks[dim], (hi - 1) // blocks[dim] + 1))
+            if all(len(r) == n for r, n in zip(ranges, blocks_in_chunk, strict=True)):
+                # The slice covers this chunk whole, so naming its blocks one by
+                # one only to name all of them is the expensive way to say `every`
+                wanted[nchunk] = every
+                continue
+            wanted[nchunk] = [
+                int(np.ravel_multi_index(b, blocks_in_chunk)) for b in itertools.product(*ranges)
+            ]
+        return wanted
+
+    def _save_fetched(self) -> None:
+        """Persist the bitmap, so a later run does not fetch these chunks again.
+
+        Called even when a fetch failed partway: whatever did arrive is kept.
+
+        The blocks-per-chunk goes with it, not for reading the bitmap back -- the
+        source's geometry gives that -- but so that an eviction can clear the right
+        bits without a proxy being alive to ask.
+        """
+        self._schunk_cache.vlmeta[self._fetched_key] = bytes(self._fetched)
+        if self._blocks_per_chunk > 1:
+            self._schunk_cache.vlmeta["proxy-fetched-bpc"] = self._blocks_per_chunk
+        # Where the source read things to be, so the next run over this cache need
+        # not ask again.  Only for a source that can name the bytes it read: an
+        # unstamped one cannot tell a replaced frame from the one these positions
+        # came from, and reusing them across a replacement is worse than serving
+        # stale data.  Bounded by keeping layouts for the partly filled chunks
+        # alone, which are the only ones a later fetch would ask about.
+        state = getattr(self.src, "_index_state", None)
+        if state is not None and self._stamped:
+            index = state(self._partly_filled())
+            # Only when it says something new: the offsets are the bulk of it and
+            # never change once read, so a slice-by-slice walk would otherwise
+            # rewrite eight bytes per chunk of the frame after every fetch
+            if index != self._saved_index:
+                self._schunk_cache.vlmeta["proxy-index"] = index
+                self._saved_index = index
+
+    def _partly_filled(self) -> list[int]:
+        """Chunks the cache holds some of the blocks of, but not all."""
+        bpc = self._blocks_per_chunk
+        nchunks = self._schunk_cache.nchunks
+        if bpc == 1 or not nchunks:
+            return []
+        # Counted over the whole bitmap at once: a loop over chunks x blocks is
+        # millions of bit tests on a large array, and this runs after every fetch
+        bits = np.unpackbits(np.frombuffer(bytes(self._fetched), dtype=np.uint8), bitorder="little")
+        counts = bits[: nchunks * bpc].reshape(nchunks, bpc).sum(axis=1)
+        return np.flatnonzero((counts > 0) & (counts < bpc)).tolist()
+
+    def _reopen_cache(self, urlpath: str):
+        """Adopt the cache container stored at *urlpath*, checking it fits the source."""
+        # Not blosc2.open(): that would rebuild the source we already hold, and
+        # raise outright for sources it cannot reconstruct from the cache metadata
+        kwargs = {}
+        _set_default_dparams(kwargs)
+        cached = blosc2.blosc2_ext.open(str(urlpath), "a", 0, **kwargs)
+        schunk = getattr(cached, "schunk", cached)
+        if "proxy-source" not in schunk.meta:
+            raise ValueError(
+                f"{urlpath} is not a proxy cache; pass mode='w' to overwrite it or choose another urlpath"
+            )
+        # Chunk *numbers* are the currency between cache and source, so the
+        # partitioning has to match, not just the logical shape: fetch() would
+        # otherwise ask the source for chunk n meaning something else entirely
+        # A cache of the other kind is a mismatch in itself, and asking it for a
+        # shape it does not have would raise AttributeError instead of saying so
+        if hasattr(self.src, "shape") != hasattr(cached, "shape"):
+            raise ValueError(
+                f"the cache at {urlpath} is a {type(cached).__name__}, which does not fit a "
+                f"{type(self.src).__name__} source"
+            )
+        if hasattr(self.src, "shape"):
+            fields = "shape, dtype, chunks, blocks"
+            here = (tuple(cached.shape), cached.dtype, tuple(cached.chunks), tuple(cached.blocks))
+            there = (
+                tuple(self.src.shape),
+                np.dtype(self.src.dtype),
+                tuple(self.src.chunks),
+                tuple(self.src.blocks),
+            )
+        else:
+            fields = "nbytes, chunksize, typesize"
+            here = (schunk.nbytes, schunk.chunksize, schunk.typesize)
+            there = (self.src.nbytes, self.src.chunksize, self.src.typesize)
+        if here != there:
+            raise ValueError(
+                f"the cache at {urlpath} was built for a different source: it holds {here}, "
+                f"the source is {there} ({fields})"
+            )
+        # Same geometry is not the same bytes: a replaced remote frame keeps its
+        # layout while every cached chunk, and every offset it was fetched by,
+        # goes stale.  Only for sources that can name themselves; the rest are
+        # adopted on geometry alone, as documented.
+        stamp = getattr(self.src, "stamp", None)
+        if stamp is not None and schunk.vlmeta.get("proxy-stamp") != stamp:
+            raise ValueError(
+                f"the cache at {urlpath} was built against different remote bytes; "
+                f"pass mode='w' to fetch them anew"
+            )
+        return cached
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         """Exit a context manager.
@@ -301,7 +625,9 @@ class Proxy(blosc2.Operand):
         """
         return False
 
-    def fetch(self, item: slice | list[slice] | None = ()) -> blosc2.NDArray | blosc2.schunk.SChunk:
+    def fetch(
+        self, item: slice | list[slice] | None = (), max_concurrency: int | None = None
+    ) -> blosc2.NDArray | blosc2.schunk.SChunk:
         """
         Get the container used as cache with the requested data updated.
 
@@ -310,11 +636,28 @@ class Proxy(blosc2.Operand):
         item: slice or list of slices, optional
             If not None, only the chunks that intersect with the slices
             in items will be retrieved if they have not been already.
+        max_concurrency: int, optional
+            Maximum number of `get_chunk` calls to run at once, in a thread
+            pool. Only worth raising for sources whose fetches are dominated by
+            round-trip latency, and only safe for sources whose `get_chunk` is
+            thread-safe, such as :ref:`FsspecNDSource`. Defaults to the source's
+            own `max_concurrency` attribute if it has one, else 1 (serial).
 
         Returns
         -------
         out: :ref:`NDArray` or :ref:`SChunk`
             The local container used to cache the already requested data.
+
+        Notes
+        -----
+        A source that can serve individual blocks (:ref:`FsspecNDSource`) is
+        asked only for the blocks the slice touches, rather than for whole
+        chunks, whenever that is the cheaper way round -- see the thresholds in
+        `blosc2.proxy_source`.  The chunks left in the cache then hold only those
+        blocks, and read as zeros elsewhere until the rest are fetched.  A source
+        that stops answering range reads partway (a server that now computes
+        the dataset, or is too busy to serve it from its file) does not fail the
+        fetch: the chunks it was asked for come whole instead.
 
         Examples
         --------
@@ -329,21 +672,186 @@ class Proxy(blosc2.Operand):
         [2 3]
         [4 5]]
         """
-        if item == ():
-            # Full realization
-            for info in self._schunk_cache.iterchunks_info():
-                if info.special != blosc2.SpecialValue.NOT_SPECIAL:
-                    chunk = self.src.get_chunk(info.nchunk)
-                    self._schunk_cache.update_chunk(info.nchunk, chunk)
-        else:
-            # Get only a slice
-            nchunks = blosc2.get_slice_nchunks(self._cache, item)
-            for info in self._schunk_cache.iterchunks_info():
-                if info.nchunk in nchunks and info.special != blosc2.SpecialValue.NOT_SPECIAL:
-                    chunk = self.src.get_chunk(info.nchunk)
-                    self._schunk_cache.update_chunk(info.nchunk, chunk)
+        if self._blocks_per_chunk > 1:
+            try:
+                return self._fetch_by_block(item, max_concurrency)
+            except NotRanged:
+                # The transport stopped answering range reads partway: whatever
+                # arrived before it did is in the cache and stays there, and what
+                # is still missing falls through to whole chunks below, which is
+                # the one way of reading a source that never goes away
+                pass
+
+        missing = self._missing_chunks(item)
+        try:
+            for nchunk, chunk in self._get_chunks(missing, max_concurrency):
+                self._store_chunk(nchunk, chunk)
+        finally:
+            if missing:
+                self._save_fetched()
 
         return self._cache
+
+    def _get_chunks(self, nchunks: list[int], max_concurrency: int | None):
+        """Yield (nchunk, chunk) pairs, overlapping the fetches when asked to."""
+        yield from zip(nchunks, self._run(self.src.get_chunk, nchunks, max_concurrency), strict=True)
+
+    def _run(self, func, tasks: list, max_concurrency: int | None):
+        """Yield `func(task)` for every task, overlapping the calls when asked to."""
+        if max_concurrency is None:
+            max_concurrency = getattr(self.src, "max_concurrency", 1)
+        if max_concurrency <= 1 or len(tasks) < 2:
+            yield from map(func, tasks)
+            return
+        # Writing to the cache stays on this thread; only the fetches fan out
+        pool = ThreadPoolExecutor(max_workers=min(max_concurrency, len(tasks)))
+        try:
+            yield from pool.map(func, tasks)
+        finally:
+            # map() queues every task up front, so without cancel_futures an error
+            # here (or a Ctrl-C) would first sit through thousands of pending
+            # requests; only the handful already running are waited for
+            pool.shutdown(cancel_futures=True)
+
+    def _asking_blocks(self, missing: dict, wave: dict | None) -> dict:
+        """The chunks of *missing* the source wants taken apart, in order.
+
+        The wave and the run count go with the question only to a source that
+        says it takes them (``wants_wave``), which is an opt-in in the same shape
+        as ``max_ranges`` and read the same way: a `wants_blocks` written to the
+        two-argument protocol raises `TypeError` on being handed more.
+        """
+        wants = self.src.wants_blocks
+        if not getattr(self.src, "wants_wave", False):
+            return {n: bs for n, bs in missing.items() if wants(n, len(bs))}
+        return {n: bs for n, bs in missing.items() if wants(n, len(bs), wave, _runs(sorted(bs)))}
+
+    def _fetch_by_block(self, item, max_concurrency: int | None):
+        """`fetch()` against a source that can serve single blocks.
+
+        Two waves of requests, not two per chunk: first where the blocks of every
+        chunk worth taking apart are, then the blocks themselves, together with
+        whatever chunks are cheaper to take whole.  Which is which is decided
+        before any of it, so the chunks that do not want blocks cost exactly one
+        request each, as they did before this existed.
+
+        A transport that carries several ranges per request (`max_ranges`)
+        collapses each wave further, into as few requests as its limit allows;
+        one that does not sees exactly the reads it always saw.
+        """
+        missing = self._missing_blocks(item)
+        if not missing:
+            return self._cache
+        # A transport that batches ranges pays the block path's fixed cost once
+        # for the whole fetch, so what it wants asked is the wave rather than the
+        # chunk; see `ByteRangeNDSource._wave_saves`.
+        batches = getattr(self.src, "max_ranges", 1) > 1
+        wave = {n: len(bs) for n, bs in missing.items()} if batches else None
+        wanted = self._asking_blocks(missing, wave)
+        whole = [n for n in missing if n not in wanted]
+
+        layouts = dict(zip(wanted, self._chunk_layouts(list(wanted), max_concurrency), strict=True))
+        # A chunk with nothing to take apart (memcpyed, or a single block) says so
+        # only once its header is read
+        whole += [n for n, layout in layouts.items() if layout is None]
+        wanted = {n: bs for n, bs in wanted.items() if layouts[n] is not None}
+        if wave is not None and len(wanted) < len(wave):
+            # Those chunks were counted in the wave that was weighed, and are not
+            # in it any more.  The offsets read is spent either way, but the block
+            # reads are still ahead, so what is left is weighed before they go out
+            kept = self._asking_blocks(wanted, {n: len(bs) for n, bs in wanted.items()})
+            whole += [n for n in wanted if n not in kept]
+            wanted = kept
+
+        # Each task is what one request will carry: a whole chunk on its own, or
+        # a batch of range reads (of one, for a transport that takes one)
+        runs = [(n, run) for n in wanted for run in self.src.block_plan(n, wanted[n])]
+        batch = max(getattr(self.src, "max_ranges", 1), 1)
+        tasks = [((n, None),) for n in whole] + list(batched(runs, batch))
+
+        # `read_ranges` is the optional half of the protocol: a source that only
+        # has `read_range` is asked one range at a time, as `batch` is 1 for it
+        read_ranges = getattr(self.src, "read_ranges", None)
+
+        def fetch(task):
+            if task[0][1] is None:
+                return [self.src.get_chunk(task[0][0])]
+            spans = [(run[0], run[1]) for _, run in task]
+            if read_ranges is None:
+                return [self.src.read_range(*span) for span in spans]
+            return read_ranges(spans)
+
+        pending = {}
+        try:
+            for task, answers in zip(tasks, self._run(fetch, tasks, max_concurrency), strict=True):
+                for (nchunk, run), data in zip(task, answers, strict=True):
+                    if run is None:
+                        self._store_chunk(nchunk, data)
+                        continue
+                    payloads = pending.setdefault(nchunk, {})
+                    for nblock, offset, size in run[2]:
+                        payloads[nblock] = data[offset : offset + size]
+                    # Write the chunk once its last outstanding block has landed, so
+                    # nothing is held longer than it takes to splice it in
+                    if len(payloads) == len(wanted[nchunk]):
+                        self._write_blocks(nchunk, pending.pop(nchunk), layouts[nchunk][0])
+        finally:
+            self._save_fetched()
+
+        return self._cache
+
+    def _chunk_layouts(self, nchunks: list[int], max_concurrency: int | None) -> list:
+        """Where the blocks of every one of *nchunks* are, in as few requests as fit.
+
+        How many go in one request is the source's business (`chunk_layouts` is
+        what batches them, down to a batch of one); what is this proxy's is that
+        the requests past the first are round trips like any other, and so are
+        overlapped rather than run one after the next.
+        """
+        layouts = getattr(self.src, "chunk_layouts", None)
+        if layouts is None:  # a source that only serves them one at a time
+            return list(self._run(self.src.chunk_layout, nchunks, max_concurrency))
+        tasks = list(batched(nchunks, max(getattr(self.src, "max_ranges", 1), 1)))
+        return [layout for answers in self._run(layouts, tasks, max_concurrency) for layout in answers]
+
+    def _write_blocks(self, nchunk: int, payloads: dict[int, bytes], header: bytes) -> None:
+        """Put the blocks just fetched into the cache, keeping those already there.
+
+        Every fetch that adds blocks to a chunk rewrites that chunk, so filling
+        one a slice at a time is quadratic in bytes moved.  It stays cheap --
+        compressed bytes, and a rewrite never exceeds what fetching that chunk
+        whole would have downloaded once -- and the write itself cannot be
+        deferred, since the cache container is what the read comes out of.  What
+        can be avoided is the other half: `_hot_payloads` keeps the blocks of the
+        last few partly filled chunks, so they need not be read back out of the
+        cache and taken apart on every rewrite.
+        """
+        nblocks = self._blocks_per_chunk
+        kept = self._hot_payloads.pop(nchunk, None)
+        if kept is None:
+            # Not held any more (or not by this run): the chunk in the cache was
+            # spliced by an earlier fetch, so its blocks come back out the way
+            # they went in, compressed and without a copy of anything else
+            held = [n for n in range(nblocks) if self._is_fetched(nchunk, n)]
+            kept = _chunk_payloads(self._schunk_cache.get_chunk(nchunk), nblocks, held) if held else {}
+        kept.update(payloads)
+        # ponytail: the write half stays quadratic -- a rewrite hands the cache
+        # the whole chunk, and it cannot be deferred or batched further, since the
+        # cache is what the next read comes out of. Removing it needs the cache to
+        # hold blocks apart from their chunk, which is a different container.
+        self._schunk_cache.update_chunk(nchunk, _splice_chunk(header, nblocks, kept))
+        for nblock in payloads:
+            self._mark_fetched(nchunk, nblock)
+        if len(kept) < nblocks:  # a chunk that is now complete will never be rewritten
+            self._hot_payloads[nchunk] = kept
+            while len(self._hot_payloads) > BLOCK_HOT_CHUNKS:
+                self._hot_payloads.pop(next(iter(self._hot_payloads)))
+
+    def _store_chunk(self, nchunk: int, chunk: bytes) -> None:
+        """Put a whole chunk in the cache, dropping anything held about its blocks."""
+        self._schunk_cache.update_chunk(nchunk, chunk)
+        self._mark_fetched(nchunk)
+        self._hot_payloads.pop(nchunk, None)
 
     async def afetch(
         self, item: slice | list[slice] | None = (), max_concurrency: int | None = None
@@ -373,6 +881,10 @@ class Proxy(blosc2.Operand):
         -----
         This method is only available if the :ref:`ProxySource` or :ref:`ProxyNDSource`
         have an async `aget_chunk` method.
+
+        Whole chunks, even from a source that can serve single blocks: a chunk
+        the cache holds only part of is fetched in full here, where `fetch()`
+        would ask only for the blocks it is missing.
 
         Examples
         --------
@@ -431,28 +943,27 @@ class Proxy(blosc2.Operand):
         if not callable(getattr(self.src, "aget_chunk", None)):
             raise NotImplementedError("afetch is only available if the source has an aget_chunk method")
 
-        if item == ():
-            wanted = None  # every missing chunk
-        else:
-            wanted = set(blosc2.get_slice_nchunks(self._cache, item))
-        to_fetch = [
-            info.nchunk
-            for info in self._schunk_cache.iterchunks_info()
-            if info.special != blosc2.SpecialValue.NOT_SPECIAL and (wanted is None or info.nchunk in wanted)
-        ]
+        to_fetch = self._missing_chunks(item)
 
         if max_concurrency is None:
-            max_concurrency = REMOTE_MAX_CONCURRENCY if isinstance(self.src, blosc2.C2Array) else 1
+            max_concurrency = getattr(
+                self.src,
+                "max_concurrency",
+                REMOTE_MAX_CONCURRENCY if isinstance(self.src, blosc2.C2Array) else 1,
+            )
         semaphore = asyncio.Semaphore(max(1, max_concurrency))
 
         async def _fetch_one(nchunk):
             async with semaphore:
                 chunk = await self.src.aget_chunk(nchunk)
             # Runs to completion between awaits, so concurrent writers can't interleave.
-            self._schunk_cache.update_chunk(nchunk, chunk)
+            self._store_chunk(nchunk, chunk)
 
         if to_fetch:
-            await asyncio.gather(*(_fetch_one(nchunk) for nchunk in to_fetch))
+            try:
+                await asyncio.gather(*(_fetch_one(nchunk) for nchunk in to_fetch))
+            finally:
+                self._save_fetched()
 
         return self._cache
 
@@ -587,6 +1098,270 @@ class Proxy(blosc2.Operand):
         return {key: ProxyNDField(self, key) for key in _fields}
 
 
+_UNMAPPABLE = object()
+"""A key that selects something, but nothing this can reduce to cells of the grid."""
+
+
+def _runs(nblocks: Sequence[int]) -> int:
+    """How many ranges *nblocks* will coalesce into, near enough to price them.
+
+    Blocks land in the frame roughly in index order, so consecutive indices are
+    the runs `block_plan` merges; this counts them without reading the layout
+    that would say exactly.  What they cost is `ByteRangeNDSource._runs_pay`.
+    """
+    return 1 + sum(later != earlier + 1 for earlier, later in itertools.pairwise(nblocks))
+
+
+def _whole_array(item) -> bool:
+    """True where *item* is the empty tuple, the key that asks for everything.
+
+    Written out rather than `item == ()` because a key can be a numpy array, and
+    an array asked whether it equals a tuple compares elementwise and raises.
+    """
+    return isinstance(item, tuple) and len(item) == 0
+
+
+def _dim_cells(dim, lo, hi, chunks, blocks, step=1, anchor=0) -> set[tuple[int, int]]:
+    """The (chunk, block) pairs along *dim* that coordinates lo..hi inclusive fall in.
+
+    Blocks partition a chunk and restart at every chunk boundary -- a chunk need
+    not be a whole number of blocks -- so a block is located by where it sits
+    inside its chunk, never by a running count across the array.
+
+    With a *step*, only the cells actually holding a selected coordinate: those
+    are the ones congruent to *anchor* modulo *step*, whichever way the slice
+    runs, so a cell is wanted exactly when the lowest such coordinate at or after
+    its start falls at or before its end.  Which needs the cell's *extent*, and
+    that is where this is easy to get wrong: the last block of a chunk that is
+    not a whole number of blocks is shorter than the rest, so a block ends where
+    its chunk does when that comes first.
+    """
+    exact = step > 1
+    cells = set()
+    for c in range(lo // chunks[dim], hi // chunks[dim] + 1):
+        first = max(lo - c * chunks[dim], 0) // blocks[dim]
+        last = min(hi - c * chunks[dim], chunks[dim] - 1) // blocks[dim]
+        if not exact:
+            cells |= {(c, b) for b in range(first, last + 1)}
+            continue
+        for b in range(first, last + 1):
+            start = max(c * chunks[dim] + b * blocks[dim], lo)
+            end = min(c * chunks[dim] + min((b + 1) * blocks[dim], chunks[dim]) - 1, hi)
+            if anchor + -((anchor - start) // step) * step <= end:
+                cells.add((c, b))
+    return cells
+
+
+def _strides(grid) -> list[int]:
+    """C-order strides of *grid*: what one step along each dimension counts for.
+
+    Numbering a cell is then a dot product, which can be done to a whole column
+    of coordinates at once -- where `np.ravel_multi_index` would be a call per
+    cell, and the planning of a large fancy key is nearly all such calls.
+    """
+    strides = [1] * len(grid)
+    for i in range(len(grid) - 2, -1, -1):
+        strides[i] = strides[i + 1] * grid[i + 1]
+    return strides
+
+
+def _sort_dims(key):
+    """The dimensions of *key* indexed by an array, and those indexed plainly.
+
+    `_UNMAPPABLE` for anything else.  Everything `process_key` hands back is one
+    of these today -- a mask has already become an integer array by the time it
+    arrives, and an integer a slice of one -- so this is what keeps a key nobody
+    has thought about from being read as one that was.
+    """
+    advanced, basic = [], []
+    for dim, k in enumerate(key):
+        if isinstance(k, np.ndarray):
+            if not np.issubdtype(k.dtype, np.integer):
+                return _UNMAPPABLE  # coordinates, or this cannot place it
+            advanced.append(dim)
+        elif isinstance(k, slice):
+            basic.append(dim)
+        else:
+            return _UNMAPPABLE
+    return advanced, basic
+
+
+def _fancy_cells(item, shape, chunks, blocks):
+    """{chunk: {blocks}} a fancy key touches, exactly, or None where it is a plain box.
+
+    A slice reduces to a box and the caller intersects that with the block grid;
+    an integer array does not, and used to fall back to every block of every
+    chunk it touched -- which for scattered points is the whole of each of them,
+    the granularity blocks exist to avoid.  Here each selected coordinate is
+    located in its own block, so N points cost N blocks and not N chunks.
+
+    `process_key` has already broadcast the advanced indices against each other,
+    which is numpy's own rule for how they pair up, so the arrays arrive with one
+    shape and reading them elementwise is reading the coordinates selected.
+    Dimensions indexed by a slice are crossed with those, since every selected
+    coordinate is taken at every position of the slice.
+
+    A boolean mask arrives here already an integer array, and one per dimension
+    it spanned: `process_key` turns it into the coordinates it selects, paired
+    the way a mask's own dimensions pair.  So masks are placed as exactly as
+    lists are, and nothing here has to know which it was given.
+
+    `_UNMAPPABLE` for a key that selects something this cannot place, and the
+    caller then asks for whole chunks, which is a superset and so always safe.
+    Never a smaller answer than the truth: a block that should have been fetched
+    and was not reads as zeros, which nothing downstream could tell from data.
+    A key `process_key` refuses is not one of those -- the cache cannot index it
+    either, so it raises here rather than fetching an array's worth of blocks for
+    an answer that is never going to be returned.
+    """
+    from blosc2.utils import process_key
+
+    key, _ = process_key(item, shape)
+    sorted_dims = _sort_dims(key)
+    if sorted_dims is _UNMAPPABLE:
+        return _UNMAPPABLE
+    advanced, basic = sorted_dims
+    if not advanced:
+        return None  # a box, which the caller has a cheaper way to intersect
+
+    chunk_grid = [math.ceil(s / c) for s, c in zip(shape, chunks, strict=True)]
+    blocks_in_chunk = [math.ceil(c / b) for c, b in zip(chunks, blocks, strict=True)]
+    chunk_strides = _strides(chunk_grid)
+    block_strides = _strides(blocks_in_chunk)
+
+    # The advanced dimensions are read together: one coordinate each, per element.
+    # Located in bulk and numbered as they are located, since a mask may select
+    # millions of them and one divmod apiece is then what planning costs
+    flat = [key[d].reshape(-1) for d in advanced]
+    if flat[0].size == 0:
+        return {}
+    part_chunk = np.zeros(flat[0].size, dtype=np.int64)
+    part_block = np.zeros(flat[0].size, dtype=np.int64)
+    for dim, coords in zip(advanced, flat, strict=True):
+        chunk, offset = np.divmod(coords.astype(np.int64, copy=False), chunks[dim])
+        part_chunk += chunk * chunk_strides[dim]
+        part_block += (offset // blocks[dim]) * block_strides[dim]
+    # What the advanced dimensions alone say about the cell, as one number so that
+    # the distinct cells are a single sort: the points sharing one are fetched by
+    # fetching it once, and there are far fewer cells than there are points
+    per_chunk = math.prod(blocks_in_chunk)
+    cell_chunk, cell_block = np.divmod(np.unique(part_chunk * per_chunk + part_block), per_chunk)
+
+    crossed = []
+    for dim in basic:
+        start, stop, step = key[dim].indices(shape[dim])
+        # A reversed slice runs from stop + 1 up to start, and covers the same
+        # run its forward twin does -- reading it as empty would fetch nothing
+        lo, hi = (stop + 1, start) if step < 0 else (start, stop - 1)
+        if hi < lo:
+            return {}
+        crossed.append(_dim_cells(dim, lo, hi, chunks, blocks, abs(step), start))
+
+    # A crossed dimension contributes the same offset to every paired cell, so the
+    # whole cross product is one broadcast sum rather than a loop over
+    # combinations: the paired cells lie along one axis and each crossed
+    # dimension adds an axis of its own, which is `itertools.product` done by
+    # numpy.  For a mask over a large array the crossing, not the divmod above,
+    # is nearly all of what planning costs.
+    axes = [cell_chunk], [cell_block]
+    for i, dim in enumerate(basic):
+        at = np.asarray(sorted(crossed[i]), dtype=np.int64)
+        shape_i = [1] * (len(basic) + 1)
+        shape_i[i + 1] = -1
+        axes[0].append((at[:, 0] * chunk_strides[dim]).reshape(shape_i))
+        axes[1].append((at[:, 1] * block_strides[dim]).reshape(shape_i))
+    grid = [1] * (len(basic) + 1)
+    grid[0] = -1
+    nchunks = sum(axes[0][1:], axes[0][0].reshape(grid)).reshape(-1)
+    nblocks = sum(axes[1][1:], axes[1][0].reshape(grid)).reshape(-1)
+
+    return _group_cells(nchunks, nblocks)
+
+
+def _group_cells(nchunks: np.ndarray, nblocks: np.ndarray) -> dict[int, set]:
+    """``{chunk: {block}}`` out of two flat columns naming one cell each.
+
+    One sort and one split, rather than a dict lookup per cell: the grouping then
+    costs an entry per *chunk*, where a large fancy key names cells in the
+    millions.  Duplicates go the same way -- several coordinates of a mask share
+    a block, which is the whole reason blocks are worth naming.
+    """
+    order = np.lexsort((nblocks, nchunks))
+    nchunks, nblocks = nchunks[order], nblocks[order]
+    starts = np.flatnonzero(np.concatenate(([True], nchunks[1:] != nchunks[:-1])))
+    return {
+        int(n): set(group.tolist())
+        for n, group in zip(nchunks[starts], np.split(nblocks, starts[1:]), strict=True)
+    }
+
+
+def _stepped(item, shape) -> bool:
+    """Whether *item* is a box that steps, and so is worth placing exactly."""
+    from blosc2.utils import process_key
+
+    key, _ = process_key(item, shape)
+    return any(isinstance(k, slice) and abs(k.indices(shape[d])[2]) > 1 for d, k in enumerate(key))
+
+
+def _box_cells(item, shape, chunks, blocks) -> dict[int, set]:
+    """``{chunk: {block}}`` a stepped box touches, exactly.
+
+    The cells of a box are the cross product of what each dimension selects,
+    because a box is: a cell holds a selected coordinate exactly when every one
+    of its dimensions does.  So this is :func:`_fancy_cells`'s crossing with
+    nothing paired to cross against, and :func:`_dim_cells` following the step
+    is what makes each dimension's answer exact rather than the run it lies in.
+    """
+    from blosc2.utils import process_key
+
+    key, _ = process_key(item, shape)
+    chunk_grid = [math.ceil(s / c) for s, c in zip(shape, chunks, strict=True)]
+    blocks_in_chunk = [math.ceil(c / b) for c, b in zip(chunks, blocks, strict=True)]
+    chunk_strides, block_strides = _strides(chunk_grid), _strides(blocks_in_chunk)
+
+    at_chunk, at_block = [], []
+    for dim, k in enumerate(key):
+        start, stop, step = k.indices(shape[dim])
+        lo, hi = (stop + 1, start) if step < 0 else (start, stop - 1)
+        if hi < lo:
+            return {}
+        cells = np.array(sorted(_dim_cells(dim, lo, hi, chunks, blocks, abs(step), start)), dtype=np.int64)
+        axis = [1] * len(shape)
+        axis[dim] = -1
+        at_chunk.append((cells[:, 0] * chunk_strides[dim]).reshape(axis))
+        at_block.append((cells[:, 1] * block_strides[dim]).reshape(axis))
+
+    return _group_cells(sum(at_chunk).reshape(-1), sum(at_block).reshape(-1))
+
+
+def _item_spans(item, shape) -> list[tuple[int, int]] | None:
+    """The half-open run *item* covers along every dimension, or None if it is no box.
+
+    A step is covered rather than followed: the run it lies in holds every
+    coordinate it selects and some it does not, and a superset is the one kind of
+    wrong answer a fetch may give.  So `[::2]` reads the same blocks its unstepped
+    twin does, and a reversed slice reads what its forward twin does -- rather
+    than either of them falling through to every chunk of the array, which is
+    what a `None` here costs.  Fancy indexing has no run to give; the caller has
+    already placed it exactly by then.
+    """
+    if _whole_array(item):
+        return [(0, s) for s in shape]
+    from blosc2.utils import process_key
+
+    key, _ = process_key(item, shape)
+    if not all(isinstance(k, slice) for k in key):
+        return None
+    spans = []
+    for dim, k in enumerate(key):
+        start, stop, step = k.indices(shape[dim])
+        # A negative step runs from stop + 1 up to start; reading it as its own
+        # bounds would make it empty and fetch nothing at all
+        lo, hi = (stop + 1, start + 1) if step < 0 else (start, stop)
+        spans.append((lo, max(hi, lo)))
+    return spans
+
+
 class ProxyNDField(blosc2.Operand):
     def __init__(self, proxy: Proxy, field: str):
         self.proxy = proxy
@@ -635,20 +1410,6 @@ class ProxyNDField(blosc2.Operand):
         # Get the data and return the corresponding field
         nparr = self.proxy[item]
         return nparr[self.field]
-
-
-def convert_dtype(dt: str | DTypeLike):
-    """
-    Attempts to convert to blosc2.dtype (i.e. numpy dtype)
-    """
-    if hasattr(dt, "as_numpy_dtype"):
-        dt = dt.as_numpy_dtype
-    try:
-        return np.dtype(dt)
-    except TypeError:  # likely passed e.g. a torch.float64
-        return np.dtype(str(dt).split(".")[1])
-    except Exception as e:
-        raise TypeError(f"Could not parse dtype arg {dt}.") from e
 
 
 class SimpleProxy(blosc2.Operand):

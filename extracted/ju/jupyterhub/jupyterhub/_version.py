@@ -3,7 +3,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 # version_info updated by running `tbump`
-version_info = (5, 5, 1, "", "")
+version_info = (6, 0, 0, "", "")
 
 # pep 440 version: no dot before beta/rc, but before .dev
 # 0.1.0rc1
@@ -56,7 +56,6 @@ def _check_version(hub_version, singleuser_version, log):
         else:
             # log warning-level for more significant mismatch, such as 1.0.0 vs 2.0.0
             key = f'{hub_version}-{singleuser_version}'
-            global _version_mismatch_warning_logged
             if _version_mismatch_warning_logged.get(key):
                 do_log = False  # We already logged this warning so don't log it again.
             else:

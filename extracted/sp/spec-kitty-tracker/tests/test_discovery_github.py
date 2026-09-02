@@ -26,7 +26,6 @@ from spec_kitty_tracker.discovery.types import (
 )
 from spec_kitty_tracker.nango import NangoConnectionContext
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -413,7 +412,11 @@ class TestGitHubResourceDiscovery:
         discoverer = GitHubResourceDiscovery(_make_context())
 
         workspace = DiscoveredWorkspace(
-            id="100", name="acme", display="Acme", kind="org", provider="github",
+            id="100",
+            name="acme",
+            display="Acme",
+            kind="org",
+            provider="github",
             provider_context={"workspace_type": "org", "login": "acme", "account_id": "100"},
         )
 
@@ -436,7 +439,11 @@ class TestGitHubResourceDiscovery:
         discoverer = GitHubResourceDiscovery(_make_context())
 
         workspace = DiscoveredWorkspace(
-            id="100", name="acme", display="Acme", kind="org", provider="github",
+            id="100",
+            name="acme",
+            display="Acme",
+            kind="org",
+            provider="github",
             provider_context={"workspace_type": "org", "login": "acme", "account_id": "100"},
         )
 
@@ -470,7 +477,11 @@ class TestGitHubPagination:
         discoverer = GitHubResourceDiscovery(_make_context())
 
         workspace = DiscoveredWorkspace(
-            id="100", name="acme", display="Acme", kind="org", provider="github",
+            id="100",
+            name="acme",
+            display="Acme",
+            kind="org",
+            provider="github",
             provider_context={"workspace_type": "org", "login": "acme", "account_id": "100"},
         )
 
@@ -488,25 +499,25 @@ class TestGitHubPagination:
         routes: dict[str, tuple[int, Any, dict[str, str] | None]] = {}
 
         for page_num in range(1, 12):  # 11 pages total, but we stop at 10
-            repos = [
-                _sample_repo(page_num, f"repo-{page_num}", f"acme/repo-{page_num}", "acme")
-            ]
+            repos = [_sample_repo(page_num, f"repo-{page_num}", f"acme/repo-{page_num}", "acme")]
             if page_num == 1:
                 key = "/orgs/acme/repos?sort=full_name&per_page=100"
             else:
                 key = f"page={page_num}"
 
             next_page = page_num + 1
-            link_header = (
-                f'<https://api.github.com/orgs/acme/repos?page={next_page}>; rel="next"'
-            )
+            link_header = f'<https://api.github.com/orgs/acme/repos?page={next_page}>; rel="next"'
             routes[key] = (200, repos, {"link": link_header})
 
         mock = RoutingMockTransport(routes)
         discoverer = GitHubResourceDiscovery(_make_context())
 
         workspace = DiscoveredWorkspace(
-            id="100", name="acme", display="Acme", kind="org", provider="github",
+            id="100",
+            name="acme",
+            display="Acme",
+            kind="org",
+            provider="github",
             provider_context={"workspace_type": "org", "login": "acme", "account_id": "100"},
         )
 
@@ -527,7 +538,11 @@ class TestGitHubPagination:
         discoverer = GitHubResourceDiscovery(_make_context())
 
         workspace = DiscoveredWorkspace(
-            id="100", name="acme", display="Acme", kind="org", provider="github",
+            id="100",
+            name="acme",
+            display="Acme",
+            kind="org",
+            provider="github",
             provider_context={"workspace_type": "org", "login": "acme", "account_id": "100"},
         )
 
@@ -543,9 +558,7 @@ class TestGitHubPagination:
         routes: dict[str, tuple[int, Any, dict[str, str] | None]] = {}
 
         for page_num in range(1, 11):  # 10 pages
-            repos = [
-                _sample_repo(page_num, f"repo-{page_num}", f"acme/repo-{page_num}", "acme")
-            ]
+            repos = [_sample_repo(page_num, f"repo-{page_num}", f"acme/repo-{page_num}", "acme")]
             if page_num == 1:
                 key = "/orgs/acme/repos?sort=full_name&per_page=100"
             else:
@@ -566,7 +579,11 @@ class TestGitHubPagination:
         discoverer = GitHubResourceDiscovery(_make_context())
 
         workspace = DiscoveredWorkspace(
-            id="100", name="acme", display="Acme", kind="org", provider="github",
+            id="100",
+            name="acme",
+            display="Acme",
+            kind="org",
+            provider="github",
             provider_context={"workspace_type": "org", "login": "acme", "account_id": "100"},
         )
 

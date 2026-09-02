@@ -44,14 +44,13 @@ class ExternalScores(APIObject):
     Attributes
     ----------
     project_id: str
-        id of the project the model belongs to
+        ID of the project the model belongs to.
     model_id: str
-        id of the model
+        ID of the model.
     dataset_id: str
-        id of the prediction dataset with target or actual value column for unsupervised case
+        ID of the prediction dataset with target or actual value column for unsupervised case.
     actual_value_column: Optional[str]
-        For unsupervised projects only.
-        Actual value column which was used to calculate the classification metrics and
+        For unsupervised projects only. Actual value column which was used to calculate the classification metrics and
         insights on the prediction dataset.
     scores: list of dicts in a form of {'label': metric_name, 'value': score}
         Scores on the dataset.
@@ -106,19 +105,19 @@ class ExternalScores(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            ID of the project the model belongs to.
         model_id : str
-            id of the model for which insights is requested
+            ID of the model for which insights are requested.
         dataset_id : str
-            id of the dataset for which insights is requested
+            ID of the dataset for which insights are requested.
         actual_value_column : Optional[str]
-            actual values column label, for unsupervised projects only
+            Actual values column label, for unsupervised projects only.
 
 
         Returns
         -------
         job : Job
-            an instance of created async job
+            An instance of created async job.
         """
 
         from datarobot.models import Job  # pylint: disable=import-outside-toplevel,cyclic-import
@@ -145,16 +144,15 @@ class ExternalScores(APIObject):
         Parameters
         ----------
         project_id: str
-            id of the project
+            ID of the project.
         model_id: Optional[str]
-            if specified, only scores for this model will be retrieved
+            If specified, only scores for this model are retrieved.
         dataset_id: Optional[str]
-            if specified, only scores for this dataset will be retrieved
+            If specified, only scores for this dataset are retrieved.
         offset: Optional[int]
-            this many results will be skipped, default: 0
+            This many results will be skipped, default: 0.
         limit: Optional[int]
-            at most this many results are returned, default: 100, max 1000.
-            To return all results, specify 0
+            At most this many results are returned, default: 100, max 1000. To return all results, specify 0.
 
         Returns
         -------
@@ -176,16 +174,16 @@ class ExternalScores(APIObject):
 
     @classmethod
     def get(cls, project_id: str, model_id: str, dataset_id: str) -> ExternalScores:
-        """Retrieve external scores for the project, model and dataset.
+        """Retrieve external scores for the project, model, and dataset.
 
         Parameters
         ----------
         project_id: str
-            id of the project
+            ID of the project.
         model_id: str
-            if specified, only scores for this model will be retrieved
+            If specified, only scores for this model are retrieved.
         dataset_id: str
-            if specified, only scores for this dataset will be retrieved
+            If specified, only scores for this dataset are retrieved.
 
         Returns
         -------

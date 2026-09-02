@@ -1069,17 +1069,22 @@ def add_agilicus_default_has_resource_permission(
     action="allow",
     **kwargs,
 ):
-    default_not_application = "default_not_application"
+    resource_cond = "default_resource_perm_applies"
     cond = agilicus.ScopeCondition(
         condition_type=ConditionTypes.scope_condition.name,
-        scopes=[agilicus.StandaloneRuleScope("urn:agilicus:application")],
+        scopes=[
+            agilicus.StandaloneRuleScope("urn:agilicus:application_service"),
+            agilicus.StandaloneRuleScope("urn:agilicus:ssh"),
+            agilicus.StandaloneRuleScope("urn:agilicus:fileshare"),
+            agilicus.StandaloneRuleScope("urn:agilicus:desktop"),
+        ],
     )
     add_rule(
         ctx,
-        default_not_application,
+        resource_cond,
         cond,
         ["none"],
-        negated=True,
+        negated=False,
         **kwargs,
     )
     add_has_resource_permission_condition_rule(
@@ -1097,7 +1102,7 @@ def add_agilicus_default_has_resource_permission(
         ctx,
         name,
         children=[name, "default_expose_network", no_permission_rule_name],
-        rules=[default_not_application],
+        rules=[resource_cond],
         **kwargs,
     )
     add_ruleset(ctx, name, trees=[name], labels=[label], **kwargs)

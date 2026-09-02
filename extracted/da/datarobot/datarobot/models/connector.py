@@ -24,20 +24,20 @@ from ..utils.waiters import wait_for_async_resolution
 
 
 class Connector(APIObject):
-    """A connector
+    """A connector.
 
     Attributes
     ----------
     id : str
-        the ID of the connector.
+        The ID of the connector.
     creator_id : str
-        the ID of the user who created the connector.
+        The ID of the user who created the connector.
     base_name : str
-        the file name of the jar file.
+        The filename of the jar file.
     canonical_name : str
-        the user-friendly name of the connector.
+        The user-friendly name of the connector.
     configuration_id : str
-        the ID of the configuration of the connector.
+        The ID of the configuration of the connector.
     """
 
     _path = "externalConnectors/"
@@ -69,18 +69,18 @@ class Connector(APIObject):
     @classmethod
     def list(cls, data_type: Optional[DataTypes] = None) -> List[Connector]:
         """
-        Returns list of available connectors.
+        Returns a list of available connectors.
 
         Parameters
         ----------
         data_type : DataTypes
-            If specified, returns the connectors that support the specified data type. If not specified, it will
-            default to DataTypes.ALL
+            If specified, returns the connectors that support the specified data type. If not
+            specified, defaults to ``DataTypes.ALL``.
 
         Returns
         -------
         connectors : list of Connector instances
-            contains a list of available connectors.
+            Contains a list of available connectors.
 
         Examples
         --------
@@ -105,12 +105,12 @@ class Connector(APIObject):
         Parameters
         ----------
         connector_id : str
-            the identifier of the connector.
+            The identifier of the connector.
 
         Returns
         -------
         connector : Connector
-            the required connector.
+            The required connector.
 
         Examples
         --------
@@ -126,22 +126,22 @@ class Connector(APIObject):
     @classmethod
     def create(cls, *, connector_type: str) -> Connector:
         """
-        Creates the connector from a jar file. Only available to admin users.
+        Creates the connector from a jar file. Only available to administrator users.
 
         Parameters
         ----------
         connector_type: str
-            The type of the native connector to create
+            The type of the native connector to create.
 
         Returns
         -------
         connector : Connector
-            the created connector.
+            The created connector.
 
         Raises
         ------
         ClientError
-            raised if user is not granted for `Can manage connectors` feature
+            Raised if the user is not granted the `Can manage connectors` feature.
 
         Examples
         --------
@@ -152,21 +152,22 @@ class Connector(APIObject):
             >>> connector
             Connector('Google Drive')
         """
-
         resp = cls._client.post(cls._path, data={"connector_type": connector_type})
-
-        finished_location = wait_for_async_resolution(cls._client, resp.headers["Location"], max_wait=DEFAULT_MAX_WAIT)
-        connector_id = get_id_from_location(finished_location)
-        return cls.get(connector_id)
+        if resp.status_code == 202:
+            finished_location = wait_for_async_resolution(
+                cls._client, resp.headers["Location"], max_wait=DEFAULT_MAX_WAIT
+            )
+            return cls.get(get_id_from_location(finished_location))
+        return cls.from_server_data(resp.json())
 
     def delete(self) -> None:
         """
-        Removes the connector. Only available to admin users.
+        Removes the connector. Only available to administrator users.
 
         Raises
         ------
         ClientError
-            raised if user is not granted for `Can manage connectors` feature
+            Raised if the user is not granted the `Can manage connectors` feature.
         """
         self._client.delete(f"{self._path}{self.id}/")
 

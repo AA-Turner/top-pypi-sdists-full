@@ -27,6 +27,7 @@ __all__ = (
     "AacCodecProfileType",
     "AacCodingModeType",
     "AacLoudnessMeasurementModeType",
+    "AacPassthroughControlType",
     "AacRateControlModeType",
     "AacRawFormatType",
     "AacSpecificationType",
@@ -270,6 +271,7 @@ __all__ = (
     "H265UnregisteredSeiTimecodeType",
     "H265WriteMp4PackagingTypeType",
     "HDRToSDRToneMapperType",
+    "Hdr10PlusPresenceType",
     "HlsAdMarkersType",
     "HlsAudioOnlyContainerType",
     "HlsAudioOnlyHeaderType",
@@ -447,7 +449,12 @@ __all__ = (
     "TrackTypeType",
     "TransferCharacteristicsType",
     "TsPtsOffsetType",
+    "TtmlBackgroundColorType",
+    "TtmlFontColorType",
+    "TtmlFontStyleType",
+    "TtmlFontWeightType",
     "TtmlStylePassthroughType",
+    "TtmlTextDecorationType",
     "TypeType",
     "UncompressedFourccType",
     "UncompressedFramerateControlType",
@@ -518,6 +525,7 @@ AacCodingModeType = Literal[
     "CODING_MODE_AUTO",
 ]
 AacLoudnessMeasurementModeType = Literal["ANCHOR", "PROGRAM"]
+AacPassthroughControlType = Literal["NO_PASSTHROUGH", "WHEN_POSSIBLE"]
 AacRateControlModeType = Literal["CBR", "VBR"]
 AacRawFormatType = Literal["LATM_LOAS", "NONE"]
 AacSpecificationType = Literal["MPEG2", "MPEG4"]
@@ -733,18 +741,21 @@ CmfcIFrameOnlyManifestType = Literal["EXCLUDE", "INCLUDE"]
 CmfcKlvMetadataType = Literal["NONE", "PASSTHROUGH"]
 CmfcManifestMetadataSignalingType = Literal["DISABLED", "ENABLED"]
 CmfcScte35EsamType = Literal["INSERT", "NONE"]
-CmfcScte35SourceType = Literal["NONE", "PASSTHROUGH"]
+CmfcScte35SourceType = Literal["MANIFEST_CUES", "NONE", "PASSTHROUGH"]
 CmfcTimedMetadataBoxVersionType = Literal["VERSION_0", "VERSION_1"]
 CmfcTimedMetadataType = Literal["NONE", "PASSTHROUGH"]
 CodecType = Literal[
     "AAC",
     "AC3",
+    "AMR",
     "AV1",
     "AVC",
     "C608",
     "C708",
+    "DV",
     "EAC3",
     "FLAC",
+    "H263",
     "HEVC",
     "JPEG2000",
     "MJPEG",
@@ -760,11 +771,16 @@ CodecType = Literal[
     "THEORA",
     "UNCOMPRESSED",
     "UNKNOWN",
+    "VC1",
+    "VC3",
     "VFW",
     "VORBIS",
     "VP8",
     "VP9",
     "WEBVTT",
+    "WMA",
+    "WMA2",
+    "WMAPRO",
 ]
 ColorMetadataType = Literal["IGNORE", "INSERT"]
 ColorPrimariesType = Literal[
@@ -827,7 +843,9 @@ DashIsoImageBasedTrickPlayType = Literal[
 DashIsoIntervalCadenceType = Literal["FOLLOW_CUSTOM", "FOLLOW_IFRAME", "FOLLOW_SEGMENTATION"]
 DashIsoMpdManifestBandwidthTypeType = Literal["AVERAGE", "MAX"]
 DashIsoMpdProfileType = Literal["MAIN_PROFILE", "ON_DEMAND_PROFILE"]
-DashIsoPlaybackDeviceCompatibilityType = Literal["CENC_V1", "UNENCRYPTED_SEI"]
+DashIsoPlaybackDeviceCompatibilityType = Literal[
+    "CENC_V1", "CENC_V1_UNENCRYPTED_HEADERS", "UNENCRYPTED_SEI"
+]
 DashIsoPtsOffsetHandlingForBFramesType = Literal["MATCH_INITIAL_PTS", "ZERO_BASED"]
 DashIsoSegmentControlType = Literal["SEGMENTED_FILES", "SINGLE_FILE"]
 DashIsoSegmentLengthControlType = Literal["EXACT", "GOP_MULTIPLE", "MATCH"]
@@ -919,7 +937,19 @@ FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
 FormatType = Literal[
-    "avi", "matroska", "mp3", "mp4", "mpegps", "mpegts", "mxf", "quicktime", "wave", "webm"
+    "asf",
+    "avi",
+    "flac",
+    "matroska",
+    "mp3",
+    "mp4",
+    "mpegps",
+    "mpegts",
+    "mxf",
+    "ogg",
+    "quicktime",
+    "wave",
+    "webm",
 ]
 FrameControlType = Literal["NEAREST_IDRFRAME", "NEAREST_IFRAME"]
 FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SHOT_CHANGE", "SSIM", "VMAF"]
@@ -1037,6 +1067,7 @@ H265TreeBlockSizeType = Literal["AUTO", "TREE_SIZE_32X32"]
 H265UnregisteredSeiTimecodeType = Literal["DISABLED", "ENABLED"]
 H265WriteMp4PackagingTypeType = Literal["HEV1", "HVC1"]
 HDRToSDRToneMapperType = Literal["PRESERVE_DETAILS", "VIBRANT"]
+Hdr10PlusPresenceType = Literal["PRESENT"]
 HlsAdMarkersType = Literal["ELEMENTAL", "ELEMENTAL_SCTE35"]
 HlsAudioOnlyContainerType = Literal["AUTOMATIC", "M2TS"]
 HlsAudioOnlyHeaderType = Literal["EXCLUDE", "INCLUDE"]
@@ -1087,6 +1118,7 @@ JobStatusType = Literal["CANCELED", "COMPLETE", "ERROR", "PROGRESSING", "SUBMITT
 JobTemplateListByType = Literal["CREATION_DATE", "NAME", "SYSTEM"]
 JobsQueryFilterKeyType = Literal[
     "audioCodec",
+    "errorCode",
     "fileInput",
     "jobEngineVersionRequested",
     "jobEngineVersionUsed",
@@ -1307,7 +1339,7 @@ M2tsNielsenId3Type = Literal["INSERT", "NONE"]
 M2tsPcrControlType = Literal["CONFIGURED_PCR_PERIOD", "PCR_EVERY_PES_PACKET"]
 M2tsPreventBufferUnderflowType = Literal["DISABLED", "ENABLED"]
 M2tsRateModeType = Literal["CBR", "VBR"]
-M2tsScte35SourceType = Literal["NONE", "PASSTHROUGH"]
+M2tsScte35SourceType = Literal["MANIFEST_CUES", "NONE", "PASSTHROUGH"]
 M2tsSegmentationMarkersType = Literal[
     "EBP", "EBP_LEGACY", "NONE", "PSI_SEGSTART", "RAI_ADAPT", "RAI_SEGSTART"
 ]
@@ -1316,7 +1348,7 @@ M3u8AudioDurationType = Literal["DEFAULT_CODEC_DURATION", "MATCH_VIDEO_DURATION"
 M3u8DataPtsControlType = Literal["ALIGN_TO_VIDEO", "AUTO"]
 M3u8NielsenId3Type = Literal["INSERT", "NONE"]
 M3u8PcrControlType = Literal["CONFIGURED_PCR_PERIOD", "PCR_EVERY_PES_PACKET"]
-M3u8Scte35SourceType = Literal["NONE", "PASSTHROUGH"]
+M3u8Scte35SourceType = Literal["MANIFEST_CUES", "NONE", "PASSTHROUGH"]
 MatrixCoefficientsType = Literal[
     "CD_CL",
     "CD_NCL",
@@ -1357,7 +1389,7 @@ MpdCaptionContainerTypeType = Literal["FRAGMENTED_MP4", "RAW"]
 MpdKlvMetadataType = Literal["NONE", "PASSTHROUGH"]
 MpdManifestMetadataSignalingType = Literal["DISABLED", "ENABLED"]
 MpdScte35EsamType = Literal["INSERT", "NONE"]
-MpdScte35SourceType = Literal["NONE", "PASSTHROUGH"]
+MpdScte35SourceType = Literal["MANIFEST_CUES", "NONE", "PASSTHROUGH"]
 MpdTimedMetadataBoxVersionType = Literal["VERSION_0", "VERSION_1"]
 MpdTimedMetadataType = Literal["NONE", "PASSTHROUGH"]
 Mpeg2AdaptiveQuantizationType = Literal["HIGH", "LOW", "MEDIUM", "OFF"]
@@ -1558,7 +1590,12 @@ TransferCharacteristicsType = Literal[
     "UNSPECIFIED",
 ]
 TsPtsOffsetType = Literal["AUTO", "MILLISECONDS", "SECONDS"]
+TtmlBackgroundColorType = Literal["AUTO", "BLACK", "NONE", "WHITE"]
+TtmlFontColorType = Literal["AUTO", "BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELLOW"]
+TtmlFontStyleType = Literal["ITALIC", "NORMAL"]
+TtmlFontWeightType = Literal["BOLD", "NORMAL"]
 TtmlStylePassthroughType = Literal["DISABLED", "ENABLED"]
+TtmlTextDecorationType = Literal["NONE", "UNDERLINE"]
 TypeType = Literal["CUSTOM", "SYSTEM"]
 UncompressedFourccType = Literal["I420", "I422", "I444"]
 UncompressedFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]

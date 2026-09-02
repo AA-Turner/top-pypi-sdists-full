@@ -112,9 +112,9 @@ class OtelMetricConfig(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g., deployment, or use_case)
+            The entity type of the log entries (e.g., deployment or ``use_case``).
         entity_id: str
-            The entity ID of the log entries (e.g., `123456`)
+            The entity ID of the log entries (e.g., `123456`).
         otel_name: str
             Name of the reported metric.
         display_name: Optional[str]
@@ -155,9 +155,9 @@ class OtelMetricConfig(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g., deployment, or use_case)
+            The entity type of the log entries (e.g., deployment or ``use_case``).
         entity_id: str
-            The entity ID of the log entries (e.g., `123456`)
+            The entity ID of the log entries (e.g., `123456`).
         configs: List[OtelMetricConfig]
             Ordered list of OpenTelemetry metric configurations.
         """
@@ -190,16 +190,16 @@ class OtelMetricConfig(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List[OtelMetricConfig]:
-        """List OpenTelemetry metric configurations.
+        """Returns a list of OpenTelemetry metric configurations.
 
         .. versionadded:: v3.9
 
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g., deployment, or use_case)
+            The entity type of the log entries (e.g., deployment or ``use_case``).
         entity_id: str
-            The entity ID of the log entries (e.g., `123456`)
+            The entity ID of the log entries (e.g., `123456`).
         offset: Optional[int]
             Offset for pagination.
         limit: Optional[int]
@@ -238,9 +238,9 @@ class OtelMetricConfig(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g., deployment, or use_case)
+            The entity type of the log entries (e.g., deployment or ``use_case``).
         entity_id: str
-            The entity ID of the log entries (e.g., `123456`)
+            The entity ID of the log entries (e.g., `123456`).
         config_id: str
             ID of the OpenTelemetry metric configuration.
 
@@ -305,7 +305,7 @@ class OtelMetricConfig(APIObject):
 
     def delete(self) -> None:
         """
-        Delete this OpenTelemetry metric configuration.
+        Deletes the OpenTelemetry metric configuration.
 
         .. versionadded:: v3.9
 

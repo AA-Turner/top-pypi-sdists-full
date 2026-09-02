@@ -253,7 +253,7 @@ class NonOOTBDataset(APIObject):
         use_case: Optional[Union[UseCase, str]] = None,
     ) -> List[NonOOTBDataset]:
         """
-        List all non out-of-the-box datasets available to the user.
+        Returns a list of all non out-of-the-box datasets available to the user.
 
         Returns
         -------
@@ -324,7 +324,7 @@ class OOTBDataset(APIObject):
         cls,
     ) -> List[OOTBDataset]:
         """
-        List all out-of-the-box datasets available to the user.
+        Returns a list of all out-of-the-box datasets available to the user.
 
         Returns
         -------
@@ -490,16 +490,16 @@ class LLMTestConfigurationSupportedInsights(APIObject):
         playground: Optional[Union[Playground, str]] = None,
     ) -> LLMTestConfigurationSupportedInsights:
         """
-        List all supported insights for a LLM test configuration.
+        Returns a list of all supported insights for a LLM test configuration.
 
         Parameters
         ----------
         use_case : Optional[Union[UseCase, str]], optional
-            Returns only those supported insight configurations
+            Limits results to supported insight configurations
             associated with a particular Use Case, specified by
             either the Use Case name or ID.
         playground : Optional[Union[Playground, str]], optional
-            Returns only those supported insight configurations
+            Limits results to supported insight configurations
             associated with a particular playground, specified by
             either the Playground or ID.
 
@@ -600,7 +600,7 @@ class LLMTestConfiguration(APIObject):
         llm_test_grading_criteria : LLMTestGradingCriteria
             The LLM test grading criteria.
         use_case : Optional[Union[UseCase, str]], optional
-            Use case to link to the created llm test configuration.
+            Use case to link to the created LLM test configuration.
         description : Optional[str]
             The LLM test configuration description. If None, the default,
             description returns an empty string.
@@ -652,16 +652,16 @@ class LLMTestConfiguration(APIObject):
         test_config_type: Optional[LLMTestConfigurationType] = None,
     ) -> List[LLMTestConfiguration]:
         """
-        List all LLM test configurations available to the user. If a Use Case is specified,
+        Returns a list of all LLM test configurations available to the user. If a Use Case is specified,
         results are restricted to only those configurations associated with that Use Case.
 
         Parameters
         ----------
         use_case : Optional[UseCaseLike], optional
-            Returns only those configurations associated with a particular Use Case,
+            Limits results to configurations associated with a particular Use Case,
             specified by either the Use Case name or ID.
         test_config_type : Optional[LLMTestConfigurationType], optional
-            Returns only configurations of the specified type. If not specified,
+            Limits results to configurations of the specified type. If not specified,
             the custom test configurations are returned.
 
         Returns

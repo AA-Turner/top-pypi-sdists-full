@@ -1,0 +1,58 @@
+[tool.poetry]
+name = "macwinnie-pyhelpers"
+version = "3.0.4"
+description = "Set of python helpers for daily jobs"
+authors = ["macwinnie <dev@macwinnie.me>"]
+license = "GNU AFFERO GENERAL PUBLIC LICENSE"
+readme = "README.md"
+homepage = "https://macwinnie.github.io/python-helpers"
+repository = "https://github.com/macwinnie/python-helpers/"
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: OS Independent",
+]
+packages = [
+    { include = "macwinnie_pyhelpers" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4"
+jinja2 = "^3.1.2"
+pandas = { version = "^2.1.2", optional = true }
+selenium = { version = "^4.16.0", optional = true }
+
+[tool.poetry.extras]
+all = ["selenium","pandas"]
+browser = ["selenium"]
+csv = ["pandas"]
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.5.0"
+build = "^1.0.3"
+pytest = "^7.4.3"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
+twine = "^5.1.1"
+pdoc = "^14.1.0"
+lxml = "^4.9.3"
+tomlkit = "^0.12.3"
+gitpython = "^3.1.40"
+testfixtures = "^8.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+minversion = "7.1"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+
+[tool.coverage.run]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+fail_under = 100

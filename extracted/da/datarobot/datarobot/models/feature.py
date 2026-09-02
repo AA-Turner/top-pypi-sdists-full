@@ -42,7 +42,7 @@ class HasHistogram:  # pylint: disable=missing-class-docstring
         Returns
         -------
         featureHistogram : FeatureHistogram
-            The requested histogram with desired number or bins
+            The requested histogram with the desired number of bins.
         """
         return FeatureHistogram.get(self.project_id, self.name, bin_limit)
 
@@ -66,38 +66,38 @@ class Feature(APIObject, HasHistogram):
     Attributes
     ----------
     id : int
-        The ID for the feature - note that `name` is used to reference the feature instead of `id`
+        The ID for the feature; note that `name` is used to reference the feature instead of `id`.
     project_id : str
-        the ID of the project the feature belongs to
+        The ID of the project the feature belongs to.
     name : str
-        the name of the feature
+        The name of the feature.
     feature_type : str
-        the type of the feature, e.g., 'Categorical', 'Text'
+        The type of the feature, e.g., 'Categorical', 'Text'.
     importance : float or None
-        numeric measure of the strength of relationship between the feature and target (independent
+        Numeric measure of the strength of relationship between the feature and target (independent
         of any model or other features); may be None for non-modeling features such as partition
-        columns
+        columns.
     low_information : bool
-        whether a feature is considered too uninformative for modeling (e.g., because it has too few
-        values)
+        Whether a feature is considered too uninformative for modeling (e.g., because it has too few
+        values).
     unique_count : int
-        number of unique values
+        The number of unique values.
     na_count : int or None
-        number of missing values
+        The number of missing values.
     date_format : str or None
         For Date features, the date format string for how this feature
-        was interpreted, compatible with https://docs.python.org/2/library/time.html#time.strftime .
+        was interpreted, compatible with https://docs.python.org/2/library/time.html#time.strftime.
         For other feature types, None.
     min : str, int, float, or None
-        The minimum value of the source data in the EDA sample
+        The minimum value of the source data in the EDA sample.
     max : str, int, float, or None
-        The maximum value of the source data in the EDA sample
+        The maximum value of the source data in the EDA sample.
     mean : str, int, or, float
-        The arithmetic mean of the source data in the EDA sample
+        The arithmetic mean of the source data in the EDA sample.
     median : str, int, float, or None
-        The median of the source data in the EDA sample
+        The median of the source data in the EDA sample.
     std_dev : str, int, float, or None
-        The standard deviation of the source data in the EDA sample
+        The standard deviation of the source data in the EDA sample.
     time_series_eligible : bool
         Whether this feature can be used as the datetime partition column in a time series project.
     time_series_eligibility_reason : str
@@ -115,33 +115,18 @@ class Feature(APIObject, HasHistogram):
         Whether a feature is considered to have target leakage or not.  A value of
         'SKIPPED_DETECTION' indicates that target leakage detection was not run on the feature.
         'FALSE' indicates no leakage, 'MODERATE' indicates a moderate risk of target leakage, and
-        'HIGH_RISK' indicates a high risk of target leakage
+        'HIGH_RISK' indicates a high risk of target leakage.
     feature_lineage_id : str
-        id of a lineage for automatically discovered features or derived time series features.
-    key_summary: list of dict
-        Statistics for top 50 keys (truncated to 103 characters) of
-        Summarized Categorical column example:
-
-        {\'key\':\'DataRobot\',
-        \'summary\':{\'min\':0, \'max\':29815.0, \'stdDev\':6498.029, \'mean\':1490.75,
-        \'median\':0.0, \'pctRows\':5.0}}
-
-        where,
-            key: string or None
-                name of the key
-            summary: dict
-                statistics of the key
-
-                max: maximum value of the key.
-                min: minimum value of the key.
-                mean: mean value of the key.
-                median: median value of the key.
-                stdDev: standard deviation of the key.
-                pctRows: percentage occurrence of key in the EDA sample of the feature.
+        The ID of a lineage for automatically discovered features or derived time series features.
+    key_summary : list of dict
+        A list of dictionaries with statistics for the top 50 keys (truncated to 103 characters) of
+        a Summarized Categorical column. Each entry contains a ``key`` (string or None) and a
+        ``summary`` dictionary with ``max``, ``min``, ``mean``, ``median``, ``stdDev``, and
+        ``pctRows`` fields.
     multilabel_insights_key : str or None
-        For multicategorical columns this will contain a key for multilabel insights. The key is
-        unique for a project, feature and EDA stage combination. This will be the key for the most
-        recent, finished EDA stage.
+        For multicategorical columns, contains a key for multilabel insights. The key is unique
+        for a project, feature, and EDA stage combination. This is the key for the most recent,
+        finished EDA stage.
     """
 
     _converter = t.Dict({
@@ -243,12 +228,12 @@ class Feature(APIObject, HasHistogram):
         project_id : str
             The ID of the project the feature is associated with.
         feature_name : str
-            The name of the feature to retrieve
+            The name of the feature to retrieve.
 
         Returns
         -------
         feature : Feature
-            The queried instance
+            The queried instance.
         """
         path = cls._build_url(project_id, feature_name)
         return cls.from_location(path)
@@ -272,20 +257,17 @@ class Feature(APIObject, HasHistogram):
         Parameters
         ----------
         multiseries_id_columns : List[str]
-            the name(s) of the multiseries id columns to use with this datetime partition column.
-            Currently only one multiseries id column is supported.
+            The name(s) of the multiseries ID columns to use with this datetime partition column. Currently only one
+            multiseries ID column is supported.
         max_wait : Optional[int]
-            if a multiseries detection task is run, the maximum amount of time to wait for it to
-            complete before giving up
+            If a multiseries detection task is run, the maximum amount of time to wait for it to complete before giving
+            up.
 
         Returns
         -------
         properties : dict
-            A dict with three keys:
-
-                - time_series_eligible : bool, whether the column can be used as a partition column
-                - time_unit : str or null, the inferred time unit if used as a partition column
-                - time_step : int or null, the inferred time step if used as a partition column
+            A dict with keys ``time_series_eligible`` (``bool``), ``time_unit`` (``str`` or null), and ``time_step``
+            (``int`` or null).
         """
 
         def _extract_properties():
@@ -350,22 +332,19 @@ class Feature(APIObject, HasHistogram):
 
         Parameters
         ----------
-        datetime_partition_column : datetime partition column
+        datetime_partition_column : str
+            The datetime partition column.
         cross_series_group_by_columns : List[str]
-            the name(s) of the columns to use with this multiseries ID column.
-            Currently only one cross-series group-by column is supported.
+            The name(s) of the columns to use with this multiseries ID column. Currently only one cross-series group-by
+            column is supported.
         max_wait : Optional[int]
-            if a multiseries detection task is run, the maximum amount of time to wait for it to
-            complete before giving up
+            If a multiseries detection task is run, the maximum amount of time to wait for it to complete before giving
+            up.
 
         Returns
         -------
         properties : dict
-            A dict with three keys:
-
-                - name : str, column name
-                - eligibility : str, reason for column eligibility
-                - isEligible : bool, is column eligible as cross-series group-by
+            A dict with keys ``name`` (``str``), ``eligibility`` (``str``), and ``isEligible`` (``bool``).
         """
 
         def _extract_properties():
@@ -427,9 +406,9 @@ class Feature(APIObject, HasHistogram):
         Raises
         ------
         datarobot.errors.InvalidUsageError
-            if this method is called on a unsuited feature
+            If this method is called on an unsuited feature.
         ValueError
-            if no multilabel_insights_key is present for this feature
+            If no ``multilabel_insights_key`` is present for this feature.
         """
         if self.multilabel_insights_key:
             return MulticategoricalHistogram.get(self.multilabel_insights_key)
@@ -454,9 +433,9 @@ class Feature(APIObject, HasHistogram):
         Raises
         ------
         datarobot.errors.InvalidUsageError
-            if this method is called on a unsuited feature
+            If this method is called on an unsuited feature.
         ValueError
-            if no multilabel_insights_key is present for this feature
+            If no ``multilabel_insights_key`` is present for this feature.
         """
         if self.multilabel_insights_key:
             return PairwiseCorrelations.get(self.multilabel_insights_key)
@@ -481,9 +460,9 @@ class Feature(APIObject, HasHistogram):
         Raises
         ------
         datarobot.errors.InvalidUsageError
-            if this method is called on a unsuited feature
+            If this method is called on an unsuited feature.
         ValueError
-            if no multilabel_insights_key is present for this feature
+            If no ``multilabel_insights_key`` is present for this feature.
         """
         if self.multilabel_insights_key:
             return PairwiseJointProbabilities.get(self.multilabel_insights_key)
@@ -508,9 +487,9 @@ class Feature(APIObject, HasHistogram):
         Raises
         ------
         datarobot.errors.InvalidUsageError
-            if this method is called on a unsuited feature
+            If this method is called on an unsuited feature.
         ValueError
-            if no multilabel_insights_key is present for this feature
+            If no ``multilabel_insights_key`` is present for this feature.
         """
         if self.multilabel_insights_key:
             return PairwiseConditionalProbabilities.get(self.multilabel_insights_key)
@@ -547,62 +526,47 @@ class ModelingFeature(APIObject, HasHistogram):
     Attributes
     ----------
     project_id : str
-        the ID of the project the feature belongs to
+        The ID of the project the feature belongs to.
     name : str
-        the name of the feature
+        The name of the feature.
     feature_type : str
-        the type of the feature, e.g., 'Categorical', 'Text'
+        The type of the feature, e.g., 'Categorical', 'Text'.
     importance : float or None
-        numeric measure of the strength of relationship between the feature and target (independent
+        Numeric measure of the strength of relationship between the feature and target (independent
         of any model or other features); may be None for non-modeling features such as partition
-        columns
+        columns.
     low_information : bool
-        whether a feature is considered too uninformative for modeling (e.g., because it has too few
-        values)
+        Whether a feature is considered too uninformative for modeling (e.g., because it has too few
+        values).
     unique_count : int
-        number of unique values
+        The number of unique values.
     na_count : int or None
-        number of missing values
+        The number of missing values.
     date_format : str or None
         For Date features, the date format string for how this feature
-        was interpreted, compatible with https://docs.python.org/2/library/time.html#time.strftime .
+        was interpreted, compatible with https://docs.python.org/2/library/time.html#time.strftime.
         For other feature types, None.
     min : str, int, float, or None
-        The minimum value of the source data in the EDA sample
+        The minimum value of the source data in the EDA sample.
     max : str, int, float, or None
-        The maximum value of the source data in the EDA sample
+        The maximum value of the source data in the EDA sample.
     mean : str, int, or, float
-        The arithmetic mean of the source data in the EDA sample
+        The arithmetic mean of the source data in the EDA sample.
     median : str, int, float, or None
-        The median of the source data in the EDA sample
+        The median of the source data in the EDA sample.
     std_dev : str, int, float, or None
-        The standard deviation of the source data in the EDA sample
+        The standard deviation of the source data in the EDA sample.
     parent_feature_names : List[str]
         A list of the names of input features used to derive this modeling feature.  In cases where
         the input features and modeling features are the same, this will simply contain the
         feature's name.  Note that if a derived feature was used to create this modeling feature,
         the values here will not necessarily correspond to the features that must be supplied at
         prediction time.
-    key_summary: list of dict
-        Statistics for top 50 keys (truncated to 103 characters) of
-        Summarized Categorical column example:
-
-        {\'key\':\'DataRobot\',
-        \'summary\':{\'min\':0, \'max\':29815.0, \'stdDev\':6498.029, \'mean\':1490.75,
-        \'median\':0.0, \'pctRows\':5.0}}
-
-        where,
-            key: string or None
-                name of the key
-            summary: dict
-                statistics of the key
-
-                max: maximum value of the key.
-                min: minimum value of the key.
-                mean: mean value of the key.
-                median: median value of the key.
-                stdDev: standard deviation of the key.
-                pctRows: percentage occurrence of key in the EDA sample of the feature.
+    key_summary : list of dict
+        A list of dictionaries with statistics for the top 50 keys (truncated to 103 characters) of
+        a Summarized Categorical column. Each entry contains a ``key`` (string or None) and a
+        ``summary`` dictionary with ``max``, ``min``, ``mean``, ``median``, ``stdDev``, and
+        ``pctRows`` fields.
     """
 
     _converter = t.Dict({
@@ -684,12 +648,12 @@ class ModelingFeature(APIObject, HasHistogram):
         project_id : str
             The ID of the project the feature is associated with.
         feature_name : str
-            The name of the feature to retrieve
+            The name of the feature to retrieve.
 
         Returns
         -------
         feature : ModelingFeature
-            The requested feature
+            The requested feature.
         """
         path = cls._build_url(project_id, feature_name)
         return cls.from_location(path)
@@ -715,36 +679,36 @@ class DatasetFeature(APIObject):
     Attributes
     ----------
     id : int
-        The ID for the feature - note that `name` is used to reference the feature instead of `id`
+        The ID for the feature; note that `name` is used to reference the feature instead of `id`.
     dataset_id : str
-        the ID of the dataset the feature belongs to
+        The ID of the dataset the feature belongs to.
     dataset_version_id : str
-        the ID of the dataset version the feature belongs to
+        The ID of the dataset version the feature belongs to.
     name : str
-        the name of the feature
+        The name of the feature.
     feature_type : Optional[str]
-        the type of the feature, e.g., 'Categorical', 'Text'
+        The type of the feature, e.g., 'Categorical', 'Text'.
     low_information : Optional[bool]
-        whether a feature is considered too uninformative for modeling (e.g., because it has too few
-        values)
+        Whether a feature is considered too uninformative for modeling (e.g., because it has too few
+        values).
     unique_count : Optional[int]
-        number of unique values
+        The number of unique values.
     na_count : Optional[int]
-        number of missing values
+        The number of missing values.
     date_format : Optional[str]
         For Date features, the date format string for how this feature
-        was interpreted, compatible with https://docs.python.org/2/library/time.html#time.strftime .
+        was interpreted, compatible with https://docs.python.org/2/library/time.html#time.strftime.
         For other feature types, None.
     min : str, int, Optional[float]
-        The minimum value of the source data in the EDA sample
+        The minimum value of the source data in the EDA sample.
     max : str, int, Optional[float]
-        The maximum value of the source data in the EDA sample
+        The maximum value of the source data in the EDA sample.
     mean : str, int, Optional[float]
-        The arithmetic mean of the source data in the EDA sample
+        The arithmetic mean of the source data in the EDA sample.
     median : str, int, Optional[float]
-        The median of the source data in the EDA sample
+        The median of the source data in the EDA sample.
     std_dev : str, int, Optional[float]
-        The standard deviation of the source data in the EDA sample
+        The standard deviation of the source data in the EDA sample.
     time_series_eligible : Optional[bool]
         Whether this feature can be used as the datetime partition column in a time series project.
     time_series_eligibility_reason : Optional[str]
@@ -762,8 +726,8 @@ class DatasetFeature(APIObject):
         Whether a feature is considered to have target leakage or not.  A value of
         'SKIPPED_DETECTION' indicates that target leakage detection was not run on the feature.
         'FALSE' indicates no leakage, 'MODERATE' indicates a moderate risk of target leakage, and
-        'HIGH_RISK' indicates a high risk of target leakage
-    target_leakage_reason: string, optional
+        'HIGH_RISK' indicates a high risk of target leakage.
+    target_leakage_reason : string, optional
         The descriptive text explaining the reason for target leakage, if any.
     """
 
@@ -849,7 +813,7 @@ class DatasetFeature(APIObject):
         Returns
         -------
         featureHistogram : DatasetFeatureHistogram
-            The requested histogram with desired number or bins
+            The requested histogram with the desired number of bins.
         """
         return DatasetFeatureHistogram.get(self.dataset_id, self.name, bin_limit)
 
@@ -887,7 +851,7 @@ class BaseFeatureHistogram(APIObject):
     Attributes
     ----------
     plot : list
-        a list of dictionaries with a schema described as ``HistogramBin``
+        A list of dictionaries with a schema described as ``HistogramBin``.
 
     """
 
@@ -918,13 +882,12 @@ class BaseFeatureHistogram(APIObject):
         object_id : str
             The ID of the object the feature is associated with.
         feature_name : str
-            The name of the feature to retrieve
+            The name of the feature to retrieve.
         bin_limit : int or None
             Desired max number of histogram bins. If omitted, by default
             endpoint will use 60.
-        key_name: string or None
-            (Only required for summarized categorical feature)
-            Name of the top 50 keys for which plot to be retrieved
+        key_name : string or None
+            (Only required for summarized categorical feature.) Name of the top 50 keys for which the plot is retrieved.
 
         Returns
         -------
@@ -963,13 +926,12 @@ class FeatureHistogram(BaseFeatureHistogram):  # pylint: disable=missing-class-d
         project_id : str
             The ID of the project the feature is associated with.
         feature_name : str
-            The name of the feature to retrieve
+            The name of the feature to retrieve.
         bin_limit : int or None
             Desired max number of histogram bins. If omitted, by default
             endpoint will use 60.
-        key_name: string or None
-            (Only required for summarized categorical feature)
-            Name of the top 50 keys for which plot to be retrieved
+        key_name : string or None
+            (Only required for summarized categorical feature.) Name of the top 50 keys for which the plot is retrieved.
 
         Returns
         -------
@@ -997,13 +959,12 @@ class DatasetFeatureHistogram(BaseFeatureHistogram):  # pylint: disable=missing-
         dataset_id : str
             The ID of the Dataset the feature is associated with.
         feature_name : str
-            The name of the feature to retrieve
+            The name of the feature to retrieve.
         bin_limit : int or None
             Desired max number of histogram bins. If omitted, by default
             the endpoint will use 60.
-        key_name: string or None
-            (Only required for summarized categorical feature)
-            Name of the top 50 keys for which plot to be retrieved
+        key_name : string or None
+            (Only required for summarized categorical feature.) Name of the top 50 keys for which the plot is retrieved.
 
         Returns
         -------
@@ -1015,20 +976,20 @@ class DatasetFeatureHistogram(BaseFeatureHistogram):  # pylint: disable=missing-
 
 class InteractionFeature(APIObject):
     """
-    Interaction feature data
+    Interaction feature data.
 
     .. versionadded:: v2.21
 
     Attributes
     ----------
-    rows: int
-        Total number of rows
-    source_columns: list(str)
-        names of two categorical features which were combined into this one
-    bars: list(dict)
-        dictionaries representing frequencies of each independent value from the source columns
-    bubbles: list(dict)
-        dictionaries representing frequencies of each combined value in the interaction feature.
+    rows : int
+        The total number of rows.
+    source_columns : list(str)
+        The names of two categorical features which were combined into this one.
+    bars : list(dict)
+        Dictionaries representing frequencies of each independent value from the source columns.
+    bubbles : list(dict)
+        Dictionaries representing frequencies of each combined value in the interaction feature.
     """
 
     _converter = t.Dict({
@@ -1075,14 +1036,14 @@ class InteractionFeature(APIObject):
         Parameters
         ----------
         project_id : str
-            The id of the project the feature belongs to
+            The ID of the project the feature belongs to.
         feature_name : str
-            The name of the Interaction feature to retrieve
+            The name of the Interaction feature to retrieve.
 
         Returns
         -------
         feature : InteractionFeature
-            The queried instance
+            The queried instance.
         """
         feature_url = cls._url(project_id, feature_name)
         return cls.from_location(feature_url)
@@ -1093,78 +1054,55 @@ class FeatureLineage(APIObject):
 
     Attributes
     ----------
-    steps: list
-        list of steps which were applied to build the feature.
+    steps : list
+        A list of steps which were applied to build the feature.
 
-        ``steps`` structure is:
+    Notes
+    -----
+    Each entry in ``steps`` is a dictionary with the following fields:
 
-            id - (int)
-                step id starting with 0.
-            step_type: (str)
-                one of the data/action/json/generatedData.
-            name: (str)
-                name of the step.
-            description: (str)
-                description of the step.
-            parents: (list[int])
-                references to other steps id.
-            is_time_aware: (bool)
-                indicator of step being time aware. Mandatory only for *action* and *join* steps.
-                *action* step provides additional information about feature derivation window
-                in the `timeInfo` field.
-            catalog_id: (str)
-                id of the catalog for a *data* step.
-            catalog_version_id: (str)
-                id of the catalog version for a *data* step.
-            group_by: (list[str])
-                list of columns which this *action* step aggregated by.
-            columns: (list)
-                names of columns involved into the feature generation. Available only for *data* steps.
-            time_info: (dict)
-                description of the feature derivation window which was applied to this *action* step.
-            join_info: (list[dict])
-                *join* step details.
+    * ``id`` (int): Step ID starting with 0.
+    * ``step_type`` (str): One of ``data``, ``action``, ``json``, or ``generatedData``.
+    * ``name`` (str): Name of the step.
+    * ``description`` (str): Description of the step.
+    * ``parents`` (list[int]): References to other step IDs.
+    * ``is_time_aware`` (bool): Indicator of the step being time aware. Mandatory only for ``action`` and
+      ``join`` steps. An ``action`` step provides additional information about the feature derivation window in the
+      ``timeInfo`` field.
+    * ``catalog_id`` (str): ID of the catalog for a *data* step.
+    * ``catalog_version_id`` (str): ID of the catalog version for a *data* step.
+    * ``group_by`` (list[str]): A list of columns which this *action* step aggregated by.
+    * ``columns`` (list): Names of columns involved in the feature generation. Available only for *data* steps.
+    * ``time_info`` (dict): Description of the feature derivation window which was applied to this *action* step.
+    * ``join_info`` (list[dict]): *join* step details.
 
-        ``columns`` structure is
+    Each ``columns`` entry is a dictionary with:
 
-            data_type: (str)
-                the type of the feature, e.g., 'Categorical', 'Text'
-            is_input: (bool)
-                indicates features which provided data to transform in this lineage.
-            name: (str)
-                feature name.
-            is_cutoff: (bool)
-                indicates a cutoff column.
+    * ``data_type`` (str): The type of the feature, e.g., 'Categorical', 'Text'.
+    * ``is_input`` (bool): Indicates features which provided data to transform in this lineage.
+    * ``name`` (str): Feature name.
+    * ``is_cutoff`` (bool): Indicates a cutoff column.
 
-        ``time_info`` structure is:
+    The ``time_info`` structure is:
 
-            latest: (dict)
-                end of the feature derivation window applied.
-            duration: (dict)
-                size of the feature derivation window applied.
+    * ``latest`` (dict): End of the feature derivation window applied.
+    * ``duration`` (dict): Size of the feature derivation window applied.
 
-        ``latest`` and `duration` structure is:
+    Each ``latest`` and ``duration`` entry is a dictionary with:
 
-            time_unit: (str)
-                time unit name like 'MINUTE', 'DAY', 'MONTH' etc.
-            duration: (int)
-                value/size of this duration object.
+    * ``time_unit`` (str): Time unit name like 'MINUTE', 'DAY', 'MONTH', etc.
+    * ``duration`` (int): Value or size of this duration object.
 
-        ``join_info`` structure is:
+    Each ``join_info`` entry is a dictionary with:
 
-            join_type - (str)
-                kind of join, left/right.
-            left_table - (dict)
-                information about a dataset which was considered as left.
-            right_table - (str)
-                information about a dataset which was considered as right.
+    * ``join_type`` (str): Kind of join, left/right.
+    * ``left_table`` (dict): Information about a dataset which was considered as left.
+    * ``right_table`` (str): Information about a dataset which was considered as right.
 
-        ``left_table`` and ``right_table`` structure is:
+    Each ``left_table`` and ``right_table`` entry is a dictionary with:
 
-            `columns` - (list[str])
-                list of columns which datasets were joined by.
-            `datasteps` - (list[int])
-                list of *data* steps id which brought the *columns* into the current step dataset.
+    * ``columns`` (list[str]): A list of columns which datasets were joined by.
+    * ``datasteps`` (list[int]): A list of *data* step IDs which brought the *columns* into the current step dataset.
     """
 
     _join_table_trafaret = t.Dict({t.Key("datasteps"): t.List(Int(gte=1)), t.Key("columns"): t.List(String)})
@@ -1228,14 +1166,14 @@ class FeatureLineage(APIObject):
         Parameters
         ----------
         project_id : str
-            The id of the project the feature belongs to
+            The ID of the project the feature belongs to.
         id : str
-            id of a feature lineage to retrieve
+            The ID of a feature lineage to retrieve.
 
         Returns
         -------
         lineage : FeatureLineage
-            The queried instance
+            The queried instance.
         """
         return cls.from_location(f"projects/{project_id}/featureLineages/{id}/")
 
@@ -1260,9 +1198,9 @@ class MulticategoricalHistogram(APIObject):
     Attributes
     ----------
     feature_name : str
-        Name of the feature
+        The name of the feature.
     values : list(dict)
-        List of Histogram values with a schema described as ``HistogramValues``
+        A list of histogram values with a schema described as ``HistogramValues``.
 
     """
 
@@ -1300,29 +1238,28 @@ class MulticategoricalHistogram(APIObject):
 
         Parameters
         ----------
-        multilabel_insights_key: string
-            Key for multilabel insights, unique for a project, feature and EDA stage combination.
-            The multilabel_insights_key can be retrieved via
-            ``Feature.multilabel_insights_key``.
+        multilabel_insights_key : string
+            Key for multilabel insights, unique for a project, feature, and EDA stage combination.
+            The ``multilabel_insights_key`` can be retrieved via ``Feature.multilabel_insights_key``.
 
         Returns
         -------
         MulticategoricalHistogram
-            The multicategorical histogram for multilabel_insights_key
+            The multicategorical histogram for the ``multilabel_insights_key``.
         """
         url = f"multilabelInsights/{multilabel_insights_key}/histogram/"
         return cls.from_location(url)
 
     def to_dataframe(self):
         """
-        Convenience method to get all the information from this multicategorical_histogram instance
+        Convenience method to get all the information from this ``multicategorical_histogram`` instance
         in form of a ``pandas.DataFrame``.
 
         Returns
         -------
         pandas.DataFrame
-            Histogram information as a multicategorical_histogram. The dataframe will contain these
-            columns: feature_name, label, label_relevance, row_count and row_pct
+            Histogram information as a ``multicategorical_histogram``. The dataframe will contain these
+            columns: feature_name, label, label_relevance, row_count, and row_pct.
         """
         rows = []
         for label_values in self.values:

@@ -24,9 +24,9 @@ class CreateFailoverTestJobRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters.
+        # Generate a parameter value from your client to ensure uniqueness across different requests. ClientToken supports only ASCII characters.
         # 
-        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
+        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
         self.client_token = client_token
         # The description of the failover test job.
         # 
@@ -34,18 +34,18 @@ class CreateFailoverTestJobRequest(DaraModel):
         self.description = description
         # Specifies whether to perform a dry run. Valid values:
         # 
-        # - **true**: performs a dry run without creating the failover test node. The system checks the AccessKey pair, the authorization of the Resource Access Management (RAM) user, and whether the required parameters are specified. If the check fails, the corresponding error is returned. If the check passes, the DryRunOperation error code is returned.
-        # - **false** (default): sends a Normal request. If the check passes, a 2xx HTTP status code is returned and the failover test node is created.
+        # - **true**: sends the request without creating the failover test node. The system checks the AccessKey validity, Resource Access Management (RAM) user authorization, and required parameters. If the check fails, the corresponding error is returned. If the check passes, the DryRunOperation error code is returned.
+        # - **false** (default): sends a Normal request. After the check passes, a 2xx HTTP status code is returned and the failover test job is created.
         self.dry_run = dry_run
         # The duration of the failover test job. Unit: minutes. Valid values: **1 to 4320**.
         # 
         # This parameter is required.
         self.job_duration = job_duration
-        # The type of the failover test job. Valid values:
+        # The failover test job type. Valid values:
         # 
-        # - **StartNow**: starts immediately. The failover test job starts immediately after it is created.
+        # - **StartNow**: starts immediately. The test job starts executing immediately after it is created.
         # 
-        # - **StartLater**: does not start. Only the failover test job is created without starting the test.
+        # - **StartLater**: does not start. Only creates the test job without executing it.
         # 
         # This parameter is required.
         self.job_type = job_type
@@ -57,14 +57,14 @@ class CreateFailoverTestJobRequest(DaraModel):
         self.owner_id = owner_id
         # The region ID of the failover test job.
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
+        # You can call [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) to query region IDs.
         self.region_id = region_id
-        # The list of resource IDs to test. You can add up to 16 resources.
+        # The list of test resource IDs. You can add up to 16 test resources.
         # 
         # This parameter is required.
         self.resource_id = resource_id
         self.resource_owner_account = resource_owner_account
-        # The type of the resource to test. Valid values: **PHYSICALCONNECTION**: Express Connect circuit.
+        # The type of the test resource. Valid values: **PHYSICALCONNECTION**: Express Connect circuit.
         # 
         # This parameter is required.
         self.resource_type = resource_type

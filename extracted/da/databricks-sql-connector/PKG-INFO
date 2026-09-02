@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-sql-connector
-Version: 4.4.0
+Version: 4.5.0
 Summary: Databricks SQL Connector for Python
 License: Apache-2.0
 License-File: LICENSE
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: kernel
 Provides-Extra: pyarrow
-Requires-Dist: databricks-sql-kernel (>=0.2.0,<0.3.0) ; (python_version >= "3.10") and (extra == "kernel")
+Requires-Dist: databricks-sql-kernel (>=1.0.0,<2.0.0) ; (python_version >= "3.10") and (extra == "kernel")
 Requires-Dist: lz4 (>=4.0.2,<5.0.0) ; python_version >= "3.10" and python_version < "3.14"
 Requires-Dist: lz4 (>=4.4.5,<5.0.0) ; python_version >= "3.14"
 Requires-Dist: oauthlib (>=3.1.0,<4.0.0)
@@ -60,6 +60,10 @@ For the latest documentation, see
 - [Databricks](https://docs.databricks.com/dev-tools/python-sql-connector.html)
 - [Azure Databricks](https://docs.microsoft.com/en-us/azure/databricks/dev-tools/python-sql-connector)
 
+For a full reference of every `sql.connect(...)` keyword argument — type,
+default, per-backend support (Thrift vs Kernel), and meaning — see
+[`CONNECTION_PARAMETERS.md`](CONNECTION_PARAMETERS.md).
+
 ## Quickstart
 
 ### Installing the core library
@@ -90,7 +94,8 @@ Notes:
   `cp310-abi3`). On older interpreters the `[kernel]` extra installs
   nothing and `use_kernel=True` raises an `ImportError`.
 - The extra also pulls in PyArrow, which the kernel result path requires.
-- Authentication supports PAT (`access_token`), OAuth M2M, and OAuth U2M.
+- Authentication supports PAT (`access_token`), OAuth M2M/U2M, and SP-wide
+  workload identity federation (`identity_federation_client_id`).
 
 
 ```bash

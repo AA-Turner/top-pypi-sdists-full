@@ -72,7 +72,7 @@ def from_language_enum_to_api_representation(lang_enum: OCRJobDatasetLanguage) -
 
 
 class OCRJobStatusEnum(Enum):
-    """OCR Job status enum"""
+    """OCR Job status enumeration."""
 
     EXECUTING = auto()
     FAILURE = auto()
@@ -158,7 +158,7 @@ class OCREngineSpecificParameters:
         self.output_format = output_format
 
     def get_payload(self) -> Dict[str, Optional[str]]:
-        """return dict containing engine specific parameters whose values are not None"""
+        """Returns a dict containing engine specific parameters whose values are not None."""
         data = {
             "engine_type": self.engine_type,
             "output_format": self.output_format,
@@ -169,7 +169,7 @@ class OCREngineSpecificParameters:
 class OCRJobResource(APIObject):
     """An OCR job resource container. It is used to:
     - Get an existing OCR  job resource.
-    - List available OCR job resources.
+    - Returns a list of available OCR job resources.
     - Start an OCR job.
     - Check the status of a started OCR job.
     - Download the error report of a started OCR job.
@@ -237,7 +237,7 @@ class OCRJobResource(APIObject):
         Parameters
         ----------
         job_resource_id: str
-            identifier of OCR job resource
+            Identifier of the OCR job resource.
 
         Returns
         -------
@@ -317,7 +317,7 @@ class OCRJobResource(APIObject):
         return StartOCRJobResponse.from_server_data(data)
 
     def get_job_status(self) -> OCRJobStatusEnum:
-        """Get status of the OCR job associated with this OCR job resource.
+        """Returns the status of the OCR job associated with this OCR job resource.
 
         Returns
         -------
@@ -335,7 +335,7 @@ class OCRJobResource(APIObject):
         Parameters
         ----------
         download_file_path: Path
-            path to download error report
+            Path to download the error report.
 
         Returns
         -------

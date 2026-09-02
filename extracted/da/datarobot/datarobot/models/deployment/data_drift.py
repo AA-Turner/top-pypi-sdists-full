@@ -64,19 +64,19 @@ class TargetDrift(APIObject, MonitoringDataQueryBuilderMixin):
     Attributes
     ----------
     model_id : str
-        the model used to retrieve target drift metric
+        The model used to retrieve target drift metric.
     period : dict
-        the time period used to retrieve target drift metric
+        The time period used to retrieve target drift metric.
     metric : str
-        the data drift metric
+        The data drift metric.
     target_name : str
-        name of the target
+        The name of the target.
     drift_score : float
-        target drift score
+        The target drift score.
     sample_size : int
-        count of data points for comparison
+        The count of data points for comparison.
     baseline_sample_size : int
-        count of data points for baseline
+        The count of data points for baseline.
     """
 
     _path = "deployments/{}/targetDrift/"
@@ -145,23 +145,24 @@ class TargetDrift(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         model_id : str
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         metric : str
-            (New in version v2.22) metric used to calculate the drift score
+            (New in version v2.22) The metric used to calculate the drift score.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
+
         Returns
         -------
         target_drift : TargetDrift
-            the queried target drift information
+            The queried target drift information.
 
         Examples
         --------
@@ -199,19 +200,19 @@ class FeatureDrift(APIObject, MonitoringDataQueryBuilderMixin):
     Attributes
     ----------
     model_id : str
-        the model used to retrieve feature drift metric
+        The model used to retrieve feature drift metric.
     period : dict
-        the time period used to retrieve feature drift metric
+        The time period used to retrieve feature drift metric.
     metric : str
-        the data drift metric
+        The data drift metric.
     name : str
-        name of the feature
+        The name of the feature.
     drift_score : float
-        feature drift score
+        The feature drift score.
     sample_size : int
-        count of data points for comparison
+        The count of data points for comparison.
     baseline_sample_size : int
-        count of data points for baseline
+        The count of data points for baseline.
     """
 
     _path = "deployments/{}/featureDrift/"
@@ -283,24 +284,24 @@ class FeatureDrift(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         model_id : str
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         metric : str
-            (New in version v2.22) metric used to calculate the drift score
+            (New in version v2.22) The metric used to calculate the drift score.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         feature_drift_data : [FeatureDrift]
-            the queried feature drift information
+            The queried feature drift information.
 
         Examples
         --------
@@ -361,9 +362,9 @@ class PredictionsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     Attributes
     ----------
     baselines : List
-        target baseline for each model queried
+        The target baseline for each model queried.
     buckets : List
-        predictions over time bucket for each model and bucket queried
+        The predictions over time bucket for each model and bucket queried.
     """
 
     _path = "deployments/{}/predictionsOverTime/"
@@ -404,29 +405,29 @@ class PredictionsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         model_ids : list[str]
-            ID of models to retrieve prediction stats
+            The IDs of models to retrieve prediction stats for.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         bucket_size : BUCKET_SIZE
-            time duration of each bucket
+            The time duration of each bucket.
         target_classes : list[str]
-            class names of target, only for deployments with multiclass target
+            Class names of target, only for deployments with a `multiclass` target.
         include_percentiles : bool
-            if the returned data includes percentiles,
-            only for a deployment with a binary and regression target
+            Whether the returned data includes percentiles,
+            only for a deployment with a binary and regression target.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         predictions_over_time : PredictionsOverTime
-            the queried predictions over time information
+            The queried predictions over time information.
         """
 
         path = cls._path.format(deployment_id)

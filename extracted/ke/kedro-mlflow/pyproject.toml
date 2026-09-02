@@ -1,0 +1,191 @@
+# PEP-518 https://peps.python.org/pep-0518/
+
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = ["setuptools>=65.5.1", "setuptools-scm>=8.0"]  # PEP 518 specifications
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kedro_mlflow"
+authors = [
+    {name = "Yolan Honoré-Rougé"}
+]
+description = "A kedro-plugin to use mlflow in your kedro projects"
+requires-python = ">=3.10"
+dependencies = [
+    "kedro>=1.0.0, <2.0.0",
+    "mlflow>=3.0.0, <4.0.0",
+    "pydantic>=1.0.0, <3.0.0",
+]
+keywords = [
+    "kedro-plugin",
+    "kedro",
+    "mlflow",
+    "experiment tracking",
+    "model versioning",
+    "model serving",
+    "machine learning",
+    "data pipelines",
+    "data science",
+    "ml engineering",
+    "mlops"
+]
+license = {text = "Apache Software License (Apache 2.0)"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Kedro",
+    "Environment :: Plugins",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+]
+dynamic = ["readme", "version"]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=5.4.0, <9.0.0",
+    "pytest-cov>=2.8.0, <7.0.0",
+    "pytest-lazy-fixtures>=1.0.0, <2.0.0", # pytest==8.0.0 breaks pytest-lazy-fixture (without final S) : https://github.com/TvoroG/pytest-lazy-fixture/issues/65
+    "pytest-mock>=3.1.0, <4.0.0",
+    "pytest-xdist>=3.0.0,<4.0.0",  # mess up the test readibility in the console but is much faster for the CI with "-n auto" option
+    "ruff>=0.5.0,<1.0.0",  # ensure consistency with pre-commit
+    "scikit-learn>=0.23.0, <1.7.0",
+    "kedro-datasets[pandas.CSVDataSet]>=8.0.0",
+]
+
+doc = [
+    "sphinx>=4.5.0,<9.0.0",
+    "sphinx-markdown-tables~=0.0.15",
+    "sphinx-click>=3.1,<6.1",
+    "sphinx_copybutton~=0.5.0",
+    "myst-parser>=0.17.2,<4.1.0",
+    "sphinx_design>=0.6.0,<0.7.0",
+    "pydata-sphinx-theme>=0.16.0,<0.17.0",
+]
+dev = [
+    "pre-commit>=2.0.0,<5.0.0",
+    "ipykernel",
+]
+
+all = [ "kedro_mlflow[test,doc,dev]" ]
+
+[project.urls]
+Source = "https://github.com/Galileo-Galilei/kedro-mlflow"
+Documentation = "https://kedro-mlflow.readthedocs.io/en/stable/"
+Tracker = "https://github.com/Galileo-Galilei/kedro-mlflow/issues"
+
+[project.entry-points."kedro.hooks"]
+mlflow_hook = "kedro_mlflow.framework.hooks.mlflow_hook:mlflow_hook"
+
+[project.entry-points."kedro.project_commands"]
+kedro_mlflow = "kedro_mlflow.framework.cli.cli:commands"
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = ["kedro_mlflow*"]
+
+[tool.setuptools.package-data]
+kedro_mlflow = ["py.typed", "*.yml"]
+
+[tool.setuptools.dynamic]
+readme = {file = "README.md", content-type = "text/markdown"}
+version = {attr = "kedro_mlflow.__version__"}
+
+[tool.pytest.ini_options]
+addopts = "--cov=kedro_mlflow --cov-report=html tests/"
+
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+    "/template/",
+    "debug"
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.10
+target-version = "py310"
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = ["E4", "E7", "E9", "F"]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+#
+# This is currently disabled by default, but it is planned for this
+# to be opt-out in the future.
+docstring-code-format = false
+
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = "dynamic"
+
+[tool.bumpversion]
+current_version = "2.0.3"
+
+[[tool.bumpversion.files]]
+filename = "kedro_mlflow/__init__.py"
+
+[[tool.bumpversion.files]]
+filename = "README.md"

@@ -14,6 +14,7 @@ from tornado import web
 from .. import orm
 from ..handlers import BaseHandler
 from ..scopes import get_scopes_for
+from ..spawner import SpawnException
 from ..utils import isoformat, url_escape_path, url_path_join
 
 PAGINATION_MEDIA_TYPE = "application/jupyterhub-pagination+json"
@@ -130,16 +131,17 @@ class APIHandler(BaseHandler):
         status_message = responses.get(status_code, 'Unknown Error')
         if exc_info:
             exception = exc_info[1]
-            # get the custom message, if defined
-            try:
-                message = exception.log_message % exception.args
-            except Exception:
-                pass
+            if isinstance(exception, SpawnException):
+                log_message = exception.log_message
+                message = exception.message
+                reason = exception.reason
+            elif isinstance(exception, web.HTTPError):
+                message = exception.get_message()
+                reason = exception.reason
+                status_message = reason or message
 
-            # construct the custom reason, if defined
-            reason = getattr(exception, 'reason', '')
-            if reason:
-                status_message = reason
+            # get special jupyterhub_message, if defined
+            message = getattr(exception, "jupyterhub_message", message)
 
         if exception and isinstance(exception, SQLAlchemyError):
             try:
@@ -194,6 +196,7 @@ class APIHandler(BaseHandler):
 
         model = {
             'name': orm_spawner.name,
+            'display_name': orm_spawner.display_name,
             'full_name': f"{orm_spawner.user.name}/{orm_spawner.name}",
             'last_activity': isoformat(orm_spawner.last_activity),
             'started': isoformat(orm_spawner.started),
@@ -325,6 +328,7 @@ class APIHandler(BaseHandler):
             'read:users': {
                 'kind',
                 'name',
+                'user_info',
                 'admin',
                 'roles',
                 'groups',
@@ -333,7 +337,7 @@ class APIHandler(BaseHandler):
                 'created',
                 'last_activity',
             },
-            'read:users:name': {'kind', 'name', 'admin'},
+            'read:users:name': {'kind', 'name', 'user_info', 'admin'},
             'read:users:groups': {'kind', 'name', 'groups'},
             'read:users:activity': {'kind', 'name', 'last_activity'},
             'read:servers': {'kind', 'name', 'servers'},
@@ -374,6 +378,9 @@ class APIHandler(BaseHandler):
                 # leave present and empty
                 # if request has access to read servers in general
                 model["servers"] = servers
+
+            if "user_info" in allowed_keys:
+                model["user_info"] = user.user_info
 
         return model
 

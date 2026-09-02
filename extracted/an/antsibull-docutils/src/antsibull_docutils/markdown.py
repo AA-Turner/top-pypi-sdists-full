@@ -21,7 +21,12 @@ from docutils.writers.html5_polyglot import Writer as HTMLWriter
 
 from .html_utils import html_argument_escape, html_escape
 from .md_utils import md_escape
-from .utils import RenderResult, SupportedParser, get_docutils_publish_settings
+from .utils import (
+    _PARSER_NAME_ARG,
+    RenderResult,
+    SupportedParser,
+    get_docutils_publish_settings,
+)
 
 
 class GlobalContext:
@@ -725,17 +730,20 @@ def render_as_markdown(
     if global_context is None:
         global_context = GlobalContext()
     document_context = DocumentContext(global_context)
-    warnings_stream = io.StringIO()
     # pylint: disable=duplicate-code
+    warnings_stream = io.StringIO()
+    opts: dict[str, t.Any] = {
+        _PARSER_NAME_ARG: parser_name,
+    }
     parts = publish_parts(
         source=source,
         source_path=source_path,
         destination_path=destination_path,
-        parser_name=parser_name,
         writer=MarkDownWriter(document_context),
         settings_overrides=get_docutils_publish_settings(
             warnings_stream=warnings_stream
         ),
+        **opts,
     )
     # pylint: enable=duplicate-code
     whole = parts["whole"]

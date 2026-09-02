@@ -1,0 +1,375 @@
+"""Tests for run_ai_pr_loop_v2 command."""
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from agentic_devtools.cli.ci.models import EventPayload
+from agentic_devtools.cli.ci.pipeline.command import (
+    EXIT_GUARD_BLOCKED,
+    EXIT_METADATA_FAILED,
+    EXIT_RATE_LIMIT_PAUSED,
+    EXIT_SUCCESS,
+    run_ai_pr_loop_v2,
+)
+from agentic_devtools.cli.shared.retry import ProviderRateLimitError
+
+
+class TestRunAiPrLoopV2:
+    """Tests for the pipeline v2 command entry point."""
+
+    def test_returns_success_when_no_pr_number(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=0)
+        result = run_ai_pr_loop_v2(provider, event)
+        assert result == EXIT_SUCCESS
+
+    def test_returns_metadata_failed_on_snapshot_error(self) -> None:
+        """Snapshot build failure after lock acquisition returns EXIT_METADATA_FAILED."""
+        provider = MagicMock()
+        provider.get_pr_metadata.side_effect = RuntimeError("API error")
+        event = EventPayload(pr_number=1)
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.acquire_lock",
+                return_value="token-abc",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.release_lock",
+            ),
+        ):
+            result = run_ai_pr_loop_v2(provider, event)
+            assert result == EXIT_METADATA_FAILED
+
+    def test_lock_acquired_before_snapshot(self) -> None:
+        """Lock must be acquired before building the snapshot to save API quota on races."""
+        call_order: list[str] = []
+        provider = MagicMock()
+
+        def _acquire(p, pr):
+            call_order.append("acquire_lock")
+            return "tok"
+
+        def _get_meta(pr):
+            call_order.append("get_pr_metadata")
+            raise RuntimeError("stop here")
+
+        provider.get_pr_metadata.side_effect = _get_meta
+        event = EventPayload(pr_number=1)
+
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.acquire_lock",
+                side_effect=_acquire,
+            ),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+        ):
+            run_ai_pr_loop_v2(provider, event)
+
+        assert call_order == ["acquire_lock", "get_pr_metadata"], "Lock must be acquired before building the snapshot"
+
+    def test_snapshot_not_built_when_lock_not_acquired(self) -> None:
+        """When lock returns None (already held), snapshot API calls are never made."""
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.command.acquire_lock",
+            return_value=None,
+        ):
+            result = run_ai_pr_loop_v2(provider, event)
+            assert result == EXIT_SUCCESS
+            provider.get_pr_metadata.assert_not_called()
+
+    def test_guard_blocked_returns_guard_exit_code(self) -> None:
+        provider = MagicMock()
+        provider.get_pr_metadata.return_value = MagicMock(
+            head_sha="abc",
+            base_branch="main",
+            head_branch="feat",
+            labels=["ai-pr-loop-ignore"],
+            requested_reviewers=[],
+            is_draft=False,
+            mergeable=True,
+            title="test",
+            head_repo_full_name="o/r",
+            base_repo_full_name="o/r",
+            number=1,
+        )
+        provider.list_pr_files.return_value = ["src/main.py"]
+        provider.list_check_runs.return_value = []
+        provider.list_reviews.return_value = []
+        provider.list_pr_issue_events.return_value = []
+        provider.count_commits_above_merge_base.return_value = 1
+        provider.find_comment.return_value = None
+
+        event = EventPayload(pr_number=1)
+
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.acquire_lock",
+                return_value="token-123",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.release_lock",
+            ),
+        ):
+            result = run_ai_pr_loop_v2(provider, event)
+            assert result == EXIT_GUARD_BLOCKED
+
+    def test_pipeline_runs_resolve_threads_before_squash_and_review_request(self) -> None:
+        """Thread resolution must run before squash and review request in the same pass."""
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.acquire_lock",
+                return_value="token-123",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.release_lock",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.run_pipeline",
+            ) as mock_run_pipeline,
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.post_summary_comment",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command._determine_exit_code",
+                return_value=EXIT_SUCCESS,
+            ),
+        ):
+            run_ai_pr_loop_v2(provider, event)
+
+        actions = mock_run_pipeline.call_args.args[2]
+        action_names = [action.name for action in actions]
+        assert action_names.index("resolve_threads") < action_names.index("squash")
+        assert action_names.index("resolve_threads") < action_names.index("request_review")
+        assert action_names.index("rebase") < action_names.index("dispatch_conflict_resolution")
+        assert action_names.index("dispatch_conflict_resolution") < action_names.index("request_review")
+
+    def test_actionable_check_names_are_threaded_into_run_pipeline(self) -> None:
+        """run_pipeline receives the same actionable_check_names as the initial snapshot build."""
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        actionable_check_names = frozenset({"custom-check"})
+
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.acquire_lock",
+                return_value="token-123",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.release_lock",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot",
+                return_value=MagicMock(),
+            ) as mock_build,
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.run_pipeline",
+            ) as mock_run_pipeline,
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.post_summary_comment",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command._determine_exit_code",
+                return_value=EXIT_SUCCESS,
+            ),
+        ):
+            run_ai_pr_loop_v2(provider, event, actionable_check_names=actionable_check_names)
+
+        assert mock_build.call_args.kwargs["actionable_check_names"] == actionable_check_names
+        assert mock_run_pipeline.call_args.kwargs["actionable_check_names"] == actionable_check_names
+
+    def test_returns_metadata_failed_when_lock_acquisition_raises(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.command.acquire_lock",
+            side_effect=RuntimeError("lock boom"),
+        ):
+            result = run_ai_pr_loop_v2(provider, event)
+
+        assert result == EXIT_METADATA_FAILED
+
+    def test_release_lock_exception_is_non_fatal(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+
+        with (
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.acquire_lock",
+                return_value="token-123",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot",
+                return_value=MagicMock(ci_status="passing"),
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.run_pipeline",
+                return_value=MagicMock(results=[], snapshot=MagicMock(ci_status="passing")),
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.post_summary_comment",
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command._determine_exit_code",
+                return_value=EXIT_SUCCESS,
+            ),
+            patch(
+                "agentic_devtools.cli.ci.pipeline.command.release_lock",
+                side_effect=RuntimeError("release boom"),
+            ),
+        ):
+            result = run_ai_pr_loop_v2(provider, event)
+
+        assert result == EXIT_SUCCESS
+
+    def test_rate_limit_during_lock_is_controlled_pause(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(retry_after_seconds=30, provider="github", credential_identity="GH_TOKEN")
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", side_effect=error),
+            patch("agentic_devtools.cli.ci.pipeline.command.persist_cooldown", return_value=None),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_RATE_LIMIT_PAUSED
+
+    def test_non_rate_limit_lock_error_remains_metadata_failure(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(is_rate_limit=False)
+        with patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", side_effect=error):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_METADATA_FAILED
+
+    def test_rate_limit_during_snapshot_is_controlled_pause(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(provider="github", credential_identity="GH_TOKEN")
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", side_effect=error),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+            patch("agentic_devtools.cli.ci.pipeline.command.persist_cooldown", return_value=None),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_RATE_LIMIT_PAUSED
+
+    def test_non_rate_limit_snapshot_error_remains_metadata_failure(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(is_rate_limit=False)
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", side_effect=error),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_METADATA_FAILED
+
+    def test_rate_limit_during_pipeline_is_controlled_pause(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(provider="github", credential_identity="GH_TOKEN")
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", side_effect=error),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+            patch("agentic_devtools.cli.ci.pipeline.command.persist_cooldown", return_value=None),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_RATE_LIMIT_PAUSED
+
+    def test_rate_limit_during_summary_is_controlled_pause(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(provider="github", credential_identity="GH_TOKEN")
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.post_summary_comment", side_effect=error),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+            patch("agentic_devtools.cli.ci.pipeline.command.persist_cooldown", return_value=None),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_RATE_LIMIT_PAUSED
+
+    def test_non_rate_limit_pipeline_error_is_reraised(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(is_rate_limit=False)
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", side_effect=error),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+        ):
+            with pytest.raises(ProviderRateLimitError):
+                run_ai_pr_loop_v2(provider, event)
+
+    def test_non_rate_limit_summary_error_is_reraised(self) -> None:
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(is_rate_limit=False)
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.post_summary_comment", side_effect=error),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock"),
+        ):
+            with pytest.raises(ProviderRateLimitError):
+                run_ai_pr_loop_v2(provider, event)
+
+    def test_rate_limit_during_release_lock_is_controlled_pause(self) -> None:
+        """A rate-limit error from release_lock must be converted to the paused outcome."""
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(retry_after_seconds=60, provider="github", credential_identity="GH_TOKEN")
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.post_summary_comment"),
+            patch("agentic_devtools.cli.ci.pipeline.command._determine_exit_code", return_value=EXIT_SUCCESS),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock", side_effect=error),
+            patch("agentic_devtools.cli.ci.pipeline.command.persist_cooldown", return_value=None),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_RATE_LIMIT_PAUSED
+
+    def test_non_rate_limit_release_lock_error_is_non_fatal(self) -> None:
+        """A non-rate-limit ProviderRateLimitError from release_lock is logged and ignored."""
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        error = ProviderRateLimitError(is_rate_limit=False)
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.post_summary_comment"),
+            patch("agentic_devtools.cli.ci.pipeline.command._determine_exit_code", return_value=EXIT_SUCCESS),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock", side_effect=error),
+        ):
+            assert run_ai_pr_loop_v2(provider, event) == EXIT_SUCCESS
+
+    def test_primary_exception_not_suppressed_by_release_lock_rate_limit(self) -> None:
+        """A rate-limit error in release_lock must not suppress a propagating primary exception."""
+        provider = MagicMock()
+        event = EventPayload(pr_number=1)
+        primary_error = RuntimeError("pipeline failure")
+        lock_error = ProviderRateLimitError(retry_after_seconds=60, provider="github", credential_identity="GH_TOKEN")
+        with (
+            patch("agentic_devtools.cli.ci.pipeline.command.acquire_lock", return_value="token"),
+            patch("agentic_devtools.cli.ci.pipeline.command.build_pr_state_snapshot", return_value=MagicMock()),
+            patch("agentic_devtools.cli.ci.pipeline.command.run_pipeline", side_effect=primary_error),
+            patch("agentic_devtools.cli.ci.pipeline.command.release_lock", side_effect=lock_error),
+            patch("agentic_devtools.cli.ci.pipeline.command.persist_cooldown", return_value=None),
+        ):
+            with pytest.raises(RuntimeError, match="pipeline failure"):
+                run_ai_pr_loop_v2(provider, event)

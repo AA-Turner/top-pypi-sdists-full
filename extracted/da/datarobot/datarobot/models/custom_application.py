@@ -87,7 +87,7 @@ class CustomApplication(APIObject):
     creator_userhash : str
         Userhash of the creator.
     permissions : List[str]
-        List of permissions for the current user.
+        A list of permissions for the current user.
     created_at : str
         Timestamp when the application was created.
     updated_at : str
@@ -101,7 +101,7 @@ class CustomApplication(APIObject):
     allow_auto_stopping : bool
         Whether the application can be automatically stopped.
     external_access_recipients : List[str]
-        List of external access recipients.
+        A list of external access recipients.
     resources : Optional[Dict[str, Any]]
         Resource allocation details including CPU, memory, and replicas. May be None if not allocated.
     required_key_scope_level : Optional[str]
@@ -234,7 +234,7 @@ class CustomApplication(APIObject):
 
     def get_resources(self) -> Optional[Dict[str, Any]]:
         """
-        Get resource allocation details for this custom application.
+        Returns the resource allocation details for this custom application.
 
         Returns
         -------
@@ -259,7 +259,7 @@ class CustomApplication(APIObject):
 
     def get_resource_summary(self) -> Optional[Dict[str, Any]]:
         """
-        Get a human-readable summary of resource allocation.
+        Returns a human-readable summary of resource allocation.
 
         Returns
         -------
@@ -311,7 +311,7 @@ class CustomApplication(APIObject):
 
     def get_details(self) -> Dict[str, Any]:
         """
-        Get comprehensive details about this custom application.
+        Returns the comprehensive details about this custom application.
 
         Returns
         -------
@@ -368,7 +368,7 @@ class CustomApplication(APIObject):
 
     def delete(self, hard_delete: bool = False) -> None:
         """
-        Delete this custom application.
+        Deletes the custom application.
 
         Parameters
         ----------
@@ -396,11 +396,12 @@ class CustomApplication(APIObject):
         Returns
         -------
         logs_info : Dict[str, Any]
-            Dictionary containing:
-            - logs: List[str] - Application runtime logs (up to 1000 entries)
-            - build_log: str - Build log of the custom application (optional)
-            - build_status: str - Build status of the custom application (optional)
-            - build_error: str - Build error message if build failed (optional)
+            A dictionary with the following keys.
+
+            - logs: ``List[str]`` - Application runtime logs (up to 1000 entries).
+            - ``build_log``: ``str`` - Build log of the custom application (optional).
+            - ``build_status``: ``str`` - Build status of the custom application (optional).
+            - ``build_error``: ``str`` - Build error message if build failed (optional).
 
         Examples
         --------

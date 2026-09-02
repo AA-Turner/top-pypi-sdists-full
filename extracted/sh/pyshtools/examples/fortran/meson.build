@@ -1,8 +1,0 @@
-subdir('MarsCrustalThickness')
-subdir('SHCilmPlus')
-subdir('SHExpandDH')
-subdir('SHExpandLSQ')
-subdir('SHLocalizedAdmitCorr')
-subdir('SHMag')
-subdir('SHRotate')
-subdir('TimingAccuracy')

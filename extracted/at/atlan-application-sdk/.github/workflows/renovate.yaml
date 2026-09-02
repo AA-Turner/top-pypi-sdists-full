@@ -1,0 +1,210 @@
+name: Renovate (self-hosted fleet runner)
+
+# Central OSS Renovate runner for the atlan-*-app fleet — the replacement for
+# the free Mend-hosted app. Discovers consumers, then runs the OSS Renovate CLI
+# once per repo (matrix) authenticated as the atlan-app-fleet App.
+#
+# Why runner-native (npm i -g renovate) rather than the containerised
+# renovatebot/github-action: postUpgradeTasks and Renovate's NATIVE uv.lock
+# updates both execute in Renovate's own environment. Running on the runner lets
+# us provide the toolchain (uv, pkl, python, ruff) with the same steps the old
+# renovate-pkl-sync.yaml glue used, instead of baking a custom Renovate image.
+#
+# LIVE: dry_run defaults to 'null', so scheduled runs and the release fan-out
+# open/update real PRs across the discovered fleet. Mend has been uninstalled
+# fleet-wide, so there is no second engine to collide with. For a manual dry
+# run, dispatch with dry_run='full' (and optionally scope with the repos input).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Renovate dry-run mode. 'null' = live (default, open/update PRs); 'full' = no changes (manual dry run)."
+        type: choice
+        options: ["full", "lookup", "null"]
+        default: "null"
+      repos:
+        description: 'Optional JSON array of "owner/repo" to scope the run (pilot). Empty = full discovered fleet.'
+        type: string
+        default: ""
+  schedule:
+    # Baseline cadence. Best-effort (GitHub may delay scheduled runs under load);
+    # on-demand immediacy comes from the release fan-out that dispatches this
+    # workflow from tag-and-publish.yaml / contract-toolkit-publish.yml.
+    - cron: "0 */4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate-fleet
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    name: Discover consumer repos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      repos: ${{ steps.discover.outputs.repos }}
+    steps:
+      - name: Mint fleet App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          owner: atlanhq
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Discover atlan-application-sdk consumers
+        id: discover
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          python3 .github/scripts/discover_org_consumers.py \
+            --owner atlanhq \
+            --exclude atlanhq/application-sdk
+
+  renovate:
+    name: Renovate ${{ matrix.repo }}
+    needs: [discover]
+    # Run when there is at least one repo — either the pilot `repos` input or the
+    # discovered fleet. Ternary lives in a GitHub expression; no shell branching.
+    if: ${{ (inputs.repos != '' && inputs.repos != '[]') || needs.discover.outputs.repos != '[]' }}
+    runs-on: ubuntu-latest
+    # Cap a hung renovate/gh call so a stuck matrix job frees the runner well
+    # before GitHub's 6h default rather than occupying it for hours.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      # Cap concurrency to keep the shared fleet-App GitHub API budget under the
+      # 15k/hr ceiling during a full-fleet sweep (see Model A scaling notes).
+      max-parallel: 10
+      matrix:
+        # Pilot scope (`repos` input) when provided, else the discovered fleet.
+        # `&&`/`||` short-circuit, so fromJson is never called on an empty string.
+        repo: ${{ (inputs.repos != '' && fromJson(inputs.repos)) || fromJson(needs.discover.outputs.repos) }}
+    env:
+      # Live by default. workflow_dispatch supplies the input ('null' default);
+      # scheduled runs have no inputs context, so the `|| 'null'` fallback applies.
+      # A manual dry run = dispatch with dry_run='full'.
+      RENOVATE_DRY_RUN: ${{ inputs.dry_run || 'null' }}
+    steps:
+      - name: Mint fleet App token
+        id: app-token
+        # Owner-scoped (not per-repo): each matrix job mints its own token, so
+        # API budgets stay isolated.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          owner: atlanhq
+
+      # application-sdk itself — provides the pkl-sync driver and the self-hosted
+      # admin config. Renovate clones each target repo into its own base dir (a
+      # temp dir), so this checkout is never disturbed.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Install the pkl-sync driver as a bare PATH command. postUpgradeTasks
+      # commands are NOT shell-expanded by Renovate, so the preset invokes
+      # `renovate-pkl-sync` directly (no ${VAR} path to expand). The script's
+      # `#!/usr/bin/env python3` shebang makes it directly executable.
+      #
+      # renovate_pkl_sync.py does `sys.path.insert(0, str(Path(__file__).parent))`
+      # then `from pkl_contract_layout import ...` — so the sibling module must
+      # land in the same directory on PATH, or the bare command 404s on import at
+      # runtime (ModuleNotFoundError, every consumer repo, every run). Copying a
+      # single file is what makes that possible at all — the retired
+      # renovate-pkl-sync.yaml reusable sparse-checked out the whole
+      # .github/scripts/ directory and so never hit it. Guarded by
+      # check_renovate_pkl_sync_install.py so a future split doesn't silently
+      # regress this again.
+      - name: Install pkl-sync driver on PATH
+        run: |
+          sudo install -m 0755 .github/scripts/renovate_pkl_sync.py /usr/local/bin/renovate-pkl-sync
+          sudo install -m 0644 .github/scripts/pkl_contract_layout.py /usr/local/bin/pkl_contract_layout.py
+
+      # The release-age driver for the lock-refresh lane (FND-359), installed the
+      # same way and for the same reason: postUpgradeTasks commands are not
+      # shell-expanded, so the preset invokes `renovate-uv-lock-bounded` as a bare
+      # PATH command. Single-file with no sibling imports, so unlike the pkl-sync
+      # driver above there is nothing else to place beside it. If this step is
+      # ever dropped, the command 404s, Renovate reports an artifact error, and
+      # the auto-approve gate withholds approval — the lock does not silently
+      # refresh unbounded (FND-367).
+      - name: Install release-age lock driver on PATH
+        run: sudo install -m 0755 .github/scripts/renovate_uv_lock_bounded.py /usr/local/bin/renovate-uv-lock-bounded
+
+      # The contract-ledger driver (FND-607), installed the same way. It runs on
+      # the conformance-package lane and after the bounded resolve on the
+      # lock-refresh lane, regenerating contract_schema.lock.json at the version
+      # the branch just locked — the ledger is a generated artifact whose content
+      # depends on the generating version, while CI checks it with an unpinned
+      # `uvx` install, so without this a conformance release that adds an SDK
+      # contract-base field reds B006 on every repo that has not yet adopted it,
+      # the adopting PR included. Single-file with no sibling imports. If this
+      # step is dropped the command 404s, Renovate reports an artifact error, and
+      # the auto-approve gate withholds approval — the bump does not silently
+      # merge with a stale ledger.
+      - name: Install contract-ledger driver on PATH
+        run: sudo install -m 0755 .github/scripts/renovate_contract_ledger.py /usr/local/bin/renovate-contract-ledger
+
+      # Provides `uv`/`uvx` — used by Renovate's native uv manager to refresh
+      # uv.lock AND by the driver's `uvx ruff` formatting of generated Python.
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.7"
+
+      # Version omitted deliberately: this job has no pkl pin of its own, so it
+      # tracks the action's fleet-wide default rather than reintroducing a
+      # fourth literal "0.27.2" that drifts silently.
+      - uses: ./.github/actions/install-pkl
+
+      # Renovate 43 requires Node >=24.11 — newer than the ubuntu-latest default,
+      # so pin the runtime explicitly rather than relying on the preinstalled one.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Install Renovate CLI
+        # Exact pin for reproducibility; bump deliberately (Renovate releases
+        # multiple times a week). Keep in step with the setup-node version above.
+        run: npm install -g renovate@43.265.3
+
+      # Reap a lock-maintenance branch whose refusal will clear itself, so this
+      # pass rebuilds it. Ordered immediately before Renovate on purpose: the
+      # branch is deleted and recreated inside one job, so the repo is never
+      # left without a lock PR and the PR timeline shows no delete/recreate
+      # churn. Only refusals stamped `window-empty` are reaped — a yanked pin or
+      # an unsatisfiable floor keeps its tripwire and stays red for a human,
+      # because recycling one of those every four hours would hide it. Never
+      # fails the job: Renovate runs regardless, so a reaper outage costs one
+      # cycle of recovery latency, not the lock refresh (FND-909).
+      - name: Reap self-healing lock refusals
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Both passed as env rather than interpolated into `run:`. TARGET_REPO
+          # keeps a matrix value out of the shell line, and RENOVATE_DRY_RUN is
+          # what stops a dry run deleting real branches: the job-level default
+          # is the literal 'null' for a live run, and the script treats anything
+          # else as --dry-run. Resolving that inside the script keeps the `run:`
+          # line branch-free, per docs/standards/ci.md.
+          TARGET_REPO: ${{ matrix.repo }}
+          RENOVATE_DRY_RUN: ${{ env.RENOVATE_DRY_RUN }}
+        run: python3 .github/scripts/renovate_reap_refused_locks.py
+
+      - name: Run Renovate
+        env:
+          RENOVATE_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Admin config: platform, autodiscover=false, allowedCommands allowlist,
+          # and the github-actions manager disable.
+          RENOVATE_CONFIG_FILE: ${{ github.workspace }}/renovate-config/self-hosted.js
+          LOG_LEVEL: debug
+          # Pass the matrix repo through the environment rather than interpolating
+          # it into the shell string, so the value can never be parsed as shell.
+          TARGET_REPO: ${{ matrix.repo }}
+        # Positional arg = the single repository this job handles. The consumer's
+        # own renovate.json (extending renovate-config/default.json) is read as usual.
+        run: renovate "$TARGET_REPO"

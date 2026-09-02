@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: jupyterhub
-Version: 5.5.1
+Version: 6.0.0
 Summary: JupyterHub: A multi-user server for Jupyter notebooks
 Author-email: Jupyter Development Team <jupyter@googlegroups.com>
-License: BSD-3-Clause
+License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://hub.jupyter.org
 Project-URL: Documentation, https://jupyterhub.readthedocs.io
 Project-URL: Funding, https://jupyter.org/about
@@ -14,21 +14,20 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: POSIX
 Classifier: Framework :: Jupyter
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: aiodns
+Requires-Dist: aiohttp
 Requires-Dist: alembic>=1.4
-Requires-Dist: async_generator>=1.9; python_version < "3.10"
 Requires-Dist: certipy>=0.1.2
 Requires-Dist: idna
-Requires-Dist: importlib_metadata>=3.6; python_version < "3.10"
 Requires-Dist: jinja2>=2.11.0
-Requires-Dist: jupyter_events
+Requires-Dist: jupyter_events>=0.11.0
 Requires-Dist: oauthlib>=3.0
 Requires-Dist: packaging
 Requires-Dist: pamela>=1.1.0; sys_platform != "win32"
@@ -38,8 +37,8 @@ Requires-Dist: pydantic>=2
 Requires-Dist: python-dateutil
 Requires-Dist: requests
 Requires-Dist: SQLAlchemy>=1.4.1
-Requires-Dist: tornado>=5.1
-Requires-Dist: traitlets>=4.3.2
+Requires-Dist: tornado>=6.5
+Requires-Dist: traitlets>=5.4
 Provides-Extra: test
 Requires-Dist: beautifulsoup4[html5lib]; extra == "test"
 Requires-Dist: coverage; extra == "test"
@@ -49,7 +48,7 @@ Requires-Dist: jupyterlab>=3; extra == "test"
 Requires-Dist: mock; extra == "test"
 Requires-Dist: nbclassic; extra == "test"
 Requires-Dist: pytest>=3.3; extra == "test"
-Requires-Dist: pytest-asyncio!=0.23.*,>=0.17; extra == "test"
+Requires-Dist: pytest-asyncio>=1.1; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-rerunfailures; extra == "test"
 Requires-Dist: requests-mock; extra == "test"
@@ -115,7 +114,7 @@ for administration of the Hub and its users.
 ### Check prerequisites
 
 - A Linux/Unix based system
-- [Python](https://www.python.org/downloads/) 3.8 or greater
+- [Python](https://www.python.org/downloads/) 3.10 or greater
 - [nodejs/npm](https://www.npmjs.com/)
   - If you are using **`conda`**, the nodejs and npm dependencies will be installed for
     you by conda.

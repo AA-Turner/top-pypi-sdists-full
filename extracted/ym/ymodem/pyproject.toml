@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "setuptools-scm>=7.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ymodem"
+
+description = "Ymodem Python implementation"
+
+readme = "README.md"
+requires-python = ">=3.7"
+keywords = ["pyserial", "serial", "xmodem", "ymodem", "python", "python3"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = [
+    "ordered-set>=4.1.0",
+    "pyserial>=3.5",
+    "importlib-metadata >= 4.0; python_version < '3.8'",
+]
+dynamic = ["version"]
+
+
+[project.urls]
+"Homepage" = "https://github.com/alexwoo1900/ymodem"
+"Bug Reports" = "https://github.com/alexwoo1900/ymodem/issues"
+#"Funding" = "https://donate.pypi.org"
+#"Say Thanks!" = ""
+"Source" = "https://github.com/alexwoo1900/ymodem"
+
+
+[tool.setuptools]
+packages = ["ymodem"]
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0.dev0"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.4.1",
+    "pre-commit>=2.21.0",
+]
+
+[project.scripts]
+ymodem = "ymodem.__main__:main"

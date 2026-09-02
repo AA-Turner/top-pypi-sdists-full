@@ -1,0 +1,12 @@
+Metadata-Version: 1.1
+Name: abbreviations
+Version: 0.2.5
+Summary: Python3 implementation of the Schwartz-Hearst algorithm for extracting abbreviation-definition pairs
+Home-page: https://github.com/philgooch/abbreviation-extraction
+Author: Phil Gooch and Vincent Van Asch
+Author-email: philgooch@users.noreply.github.com
+License: MIT
+Download-URL: https://github.com/philgooch/abbreviation-extraction/archive/v0.2.5.tar.gz
+Description: UNKNOWN
+Keywords: python3,nlp,keyword-extraction,abbreviations,information-extraction
+Platform: UNKNOWN

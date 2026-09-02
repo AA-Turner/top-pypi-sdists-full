@@ -1,0 +1,138 @@
+# AI PR Loop Redispatch — Smart Continuous Scheduling
+#
+# Dispatched by ai-pr-loop.yml at the end of each run to keep the processing
+# loop going without a cron scheduler.  Before sleeping and re-dispatching
+# ai-pr-loop-throttler, it applies two stop conditions:
+#
+#   1. No eligible open PRs — exits cleanly (loop breaks; ai-pr-loop-dispatcher
+#      will restart it when a new PR is opened or updated).
+#   2. No merges to main in 24+ hours — exits cleanly (likely stuck PRs that
+#      need human intervention).
+#
+# When both guards pass it waits for both the throttler cooldown and the
+# provider cooldown (if present), then dispatches ai-pr-loop-throttler.yml.
+#
+# Cooldown writes use persist_cooldown's read/merge/verify/retry loop for
+# cross-process safety. Each scheduling workflow uses its own concurrency
+# group to prevent displacement of pending runs across workflow types.
+
+name: AI PR Loop Redispatch
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  actions: write
+  pull-requests: read
+  contents: read
+
+concurrency:
+  group: ai-pr-loop-redispatch
+  cancel-in-progress: false
+
+jobs:
+  smart-redispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install agentic-devtools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Check stop conditions
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          FALLBACK_GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "::warning::REPO_VARIABLE_WRITER_PAT is unavailable; falling back to SPECKIT_PR_TOKEN for stop-condition checks."
+            export GH_TOKEN="${FALLBACK_GH_TOKEN}"
+          fi
+
+          # --- Stop condition 1: no eligible open PRs ---
+          OPEN_COUNT=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --limit 500 \
+            --json labels,number,isCrossRepository \
+            | jq '[.[] | select((.isCrossRepository | not) and (.labels | map(.name) | index("ai-pr-loop-ignore") | not))] | length')
+
+          if [ "$OPEN_COUNT" -eq 0 ]; then
+            echo "No eligible open PRs — stopping loop."
+            echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Eligible open PRs: $OPEN_COUNT"
+
+          # --- Stop condition 2: no merges to main in 24+ hours ---
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          LAST_MERGE=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state merged \
+            --base "$DEFAULT_BRANCH" \
+            --limit 1 \
+            --json mergedAt \
+            --jq '.[0].mergedAt // empty')
+          if [ -z "$LAST_MERGE" ]; then
+            echo "Could not determine last merge date — stopping loop (fail-safe)."
+            echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          LAST_MERGE_EPOCH=$(date -d "$LAST_MERGE" +%s)
+          NOW_EPOCH=$(date +%s)
+          SECONDS_SINCE_MERGE=$(( NOW_EPOCH - LAST_MERGE_EPOCH ))
+          HOURS_SINCE_MERGE=$(( SECONDS_SINCE_MERGE / 3600 ))
+
+          if [ "$HOURS_SINCE_MERGE" -ge 24 ]; then
+            echo "No merges to main in ${HOURS_SINCE_MERGE}h — stopping loop (likely stuck PRs needing human intervention)."
+            echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Last merge to main was ${HOURS_SINCE_MERGE}h ago — continuing loop."
+          echo "should_dispatch=true" >> "$GITHUB_OUTPUT"
+
+      - name: Wait until safe to dispatch
+        if: steps.check.outputs.should_dispatch == 'true'
+        id: timing
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
+          REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+        run: |
+          agdt-ai-pr-loop-watchdog \
+            --mode redispatch-wait \
+            --repo "$GITHUB_REPOSITORY" \
+            --default-branch "${{ github.event.repository.default_branch }}"
+
+      - name: Dispatch ai-pr-loop-throttler
+        if: >-
+          steps.check.outputs.should_dispatch == 'true' && steps.timing.outputs.should_dispatch == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          FALLBACK_GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+        run: |
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "::warning::REPO_VARIABLE_WRITER_PAT is unavailable; falling back to SPECKIT_PR_TOKEN for workflow dispatch."
+            export GH_TOKEN="${FALLBACK_GH_TOKEN}"
+          fi
+          if ! gh workflow run ai-pr-loop-throttler.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "${{ github.event.repository.default_branch }}"
+          then
+            echo "::warning::Could not dispatch ai-pr-loop-throttler.yml (workflow may be disabled); watchdog will retry."
+          fi

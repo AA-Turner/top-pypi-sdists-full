@@ -1,0 +1,1016 @@
+from __future__ import annotations
+
+import threading
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from io import StringIO
+from pathlib import Path
+from typing import Any, Protocol
+
+from click.exceptions import Exit
+
+from trilogy import Executor
+from trilogy.constants import logger
+from trilogy.core import graph as nx
+from trilogy.execution.report import emit_report, exit_code_for
+from trilogy.scripts.common import CLIRuntimeParams, ExecutionStats, RefreshParams
+from trilogy.scripts.dependency import (
+    DependencyResolver,
+    DependencyStrategy,
+    ExecutionNode,
+    ManagedRefreshNode,
+    ScriptNode,
+    create_script_nodes,
+)
+from trilogy.utility import safe_open
+
+
+class ExecutionMode(Enum):
+    """Mode of script execution."""
+
+    RUN = "run"
+    INTEGRATION = "integration"
+    UNIT = "unit"
+    REFRESH = "refresh"
+
+
+@dataclass
+class ExecutionResult:
+    """Result of executing a single script."""
+
+    node: ExecutionNode
+    success: bool
+    error: Exception | None = None
+    duration: float = 0.0  # seconds
+    stats: ExecutionStats | None = None
+    # True when the node never ran because a dependency failed. Kept distinct
+    # from success=False so telemetry can separate real failures from skips.
+    skipped: bool = False
+
+
+@dataclass
+class ParallelExecutionSummary:
+    """Summary of a parallel execution run."""
+
+    total_scripts: int
+    successful: int
+    skipped: int
+    failed: int
+    total_duration: float
+    results: list[ExecutionResult]
+
+    @property
+    def all_succeeded(self) -> bool:
+        return self.failed == 0
+
+
+class ExecutionStrategy(Protocol):
+    """Protocol for execution traversal strategies."""
+
+    def execute(
+        self,
+        graph: nx.DiGraph,
+        resolver: DependencyResolver,
+        max_workers: int,
+        executor_factory: Callable[[Any], Any],
+        execution_fn: Callable[[Any, Any], Any],
+        on_script_start: Callable[[Any], None] | None = None,
+        on_script_complete: Callable[[ExecutionResult], None] | None = None,
+    ) -> list[ExecutionResult]:
+        """
+        Execute nodes according to the strategy.
+        """
+        ...
+
+
+# State-tracking sets/dicts are keyed by the graph's string node keys.
+CompletedSet = set[str]
+FailedSet = set[str]
+InProgressSet = set[str]
+ResultsList = list[ExecutionResult]
+RemainingDepsDict = dict[str, int]
+ReadyList = list[str]
+OnCompleteCallback = Callable[[ExecutionResult], None] | None
+# Maps each string graph key back to its rich ScriptNode/ManagedRefreshNode.
+NodeMap = dict[str, ExecutionNode]
+
+
+def build_node_map(graph: nx.DiGraph) -> NodeMap:
+    """Recover the rich node object for each string key in a graph.
+
+    Graphs of ManagedRefreshNode carry their map under ``graph.graph['node_map']``
+    (ManagedRefreshNode is not reconstructable from its key). ScriptNode graphs
+    have no map; each key is a path and the node is rebuilt from it.
+    """
+    stored = graph.graph.get("node_map")
+    if isinstance(stored, dict):
+        return {key: stored[key] for key in graph.nodes() if key in stored}
+    return {key: ScriptNode(path=Path(key)) for key in graph.nodes()}
+
+
+def _propagate_failure(
+    failed_key: str,
+    graph: nx.DiGraph,
+    node_map: NodeMap,
+    completed: CompletedSet,
+    in_progress: InProgressSet,
+    results: ResultsList,
+    failed: FailedSet,
+    on_script_complete: OnCompleteCallback,
+) -> None:
+    """
+    Recursively mark all *unstarted* dependents of a failed node as failed and skipped.
+    """
+    for dependent in graph.successors(failed_key):
+        if dependent not in completed and dependent not in in_progress:
+            skip_result = ExecutionResult(
+                node=node_map[dependent],
+                success=False,
+                error=RuntimeError("Skipped due to failed dependency"),
+                duration=0.0,
+                skipped=True,
+            )
+            results.append(skip_result)
+            completed.add(dependent)
+            failed.add(dependent)
+            if on_script_complete:
+                on_script_complete(skip_result)
+            _propagate_failure(
+                dependent,
+                graph,
+                node_map,
+                completed,
+                in_progress,
+                results,
+                failed,
+                on_script_complete,
+            )
+
+
+def _get_next_ready(ready: ReadyList) -> str | None:
+    """Get next ready node key from the queue."""
+    if ready:
+        return ready.pop(0)
+    return None
+
+
+def _mark_node_complete(
+    node_key: str,
+    success: bool,
+    graph: nx.DiGraph,
+    node_map: NodeMap,
+    completed: CompletedSet,
+    failed: FailedSet,
+    in_progress: InProgressSet,
+    remaining_deps: RemainingDepsDict,
+    ready: ReadyList,
+    results: ResultsList,
+    on_script_complete: OnCompleteCallback,
+) -> None:
+    """
+    Mark a node as complete, update dependent counts, and add newly ready/skipped nodes.
+    """
+    in_progress.discard(node_key)
+    completed.add(node_key)
+    if not success:
+        failed.add(node_key)
+
+    # Update dependents
+    for dependent in graph.successors(node_key):
+        if dependent in completed or dependent in in_progress:
+            continue
+
+        if success:
+            remaining_deps[dependent] -= 1
+            if remaining_deps[dependent] == 0:
+                # Check if any dependency failed before running
+                deps = set(graph.predecessors(dependent))
+                if deps & failed:
+                    # Skip this node - dependency failed
+                    skip_result = ExecutionResult(
+                        node=node_map[dependent],
+                        success=False,
+                        error=RuntimeError("Skipped due to failed dependency"),
+                        duration=0.0,
+                        skipped=True,
+                    )
+                    results.append(skip_result)
+                    completed.add(dependent)
+                    failed.add(dependent)
+                    if on_script_complete:
+                        on_script_complete(skip_result)
+                    # Recursively mark dependents as failed
+                    _propagate_failure(
+                        dependent,
+                        graph,
+                        node_map,
+                        completed,
+                        in_progress,
+                        results,
+                        failed,
+                        on_script_complete,
+                    )
+                else:
+                    ready.append(dependent)
+        else:
+            # Current node failed - mark this dependent as skipped
+            if dependent not in failed:
+                skip_result = ExecutionResult(
+                    node=node_map[dependent],
+                    success=False,
+                    error=RuntimeError("Skipped due to failed dependency"),
+                    duration=0.0,
+                    skipped=True,
+                )
+                results.append(skip_result)
+                completed.add(dependent)
+                failed.add(dependent)
+                if on_script_complete:
+                    on_script_complete(skip_result)
+                # Recursively mark dependents as failed
+                _propagate_failure(
+                    dependent,
+                    graph,
+                    node_map,
+                    completed,
+                    in_progress,
+                    results,
+                    failed,
+                    on_script_complete,
+                )
+
+
+def _is_execution_done(completed: CompletedSet, total_count: int) -> bool:
+    """Check if all nodes have been processed."""
+    return len(completed) >= total_count
+
+
+def _execute_single(
+    node: Any,
+    executor_factory: Callable[[Any], Executor],
+    execution_fn: Callable[[Any, Any], ExecutionStats | None],
+) -> ExecutionResult:
+    """Execute a single node and return the result."""
+    start_time = datetime.now()
+    executor = None
+    try:
+        executor = executor_factory(node)
+        stats = execution_fn(executor, node)
+
+        duration = (datetime.now() - start_time).total_seconds()
+        if executor:
+            executor.close()
+        return ExecutionResult(
+            node=node,
+            success=True,
+            error=None,
+            duration=duration,
+            stats=stats if isinstance(stats, ExecutionStats) else None,
+        )
+    except Exception as e:
+        duration = (datetime.now() - start_time).total_seconds()
+        if executor:
+            executor.close()  # Ensure executor is closed even on failure
+        return ExecutionResult(
+            node=node,
+            success=False,
+            error=e,
+            duration=duration,
+        )
+
+
+def _create_worker(
+    graph: nx.DiGraph,
+    node_map: NodeMap,
+    lock: threading.Lock,
+    work_available: threading.Condition,
+    completed: CompletedSet,
+    failed: FailedSet,
+    in_progress: InProgressSet,
+    remaining_deps: RemainingDepsDict,
+    ready: ReadyList,
+    results: ResultsList,
+    total_count: int,
+    executor_factory: Callable[[Any], Any],
+    execution_fn: Callable[[Any, Any], Any],
+    on_script_start: Callable[[Any], None] | None,
+    on_script_complete: OnCompleteCallback,
+) -> Callable[[], None]:
+    """
+    Create a worker function for thread execution to process the dependency graph.
+    """
+
+    def worker() -> None:
+        while True:
+            node_key = None
+
+            with work_available:
+                # Wait for work or global completion
+                while not ready and not _is_execution_done(completed, total_count):
+                    work_available.wait()
+
+                if _is_execution_done(completed, total_count):
+                    return
+
+                node_key = _get_next_ready(ready)
+                if node_key is None:
+                    # Should be impossible if total_count check is correct, but handles race condition safety
+                    continue
+
+                in_progress.add(node_key)
+
+            # Execute outside the lock
+            if node_key is not None:
+                node = node_map[node_key]
+                if on_script_start:
+                    on_script_start(node)
+                result = _execute_single(node, executor_factory, execution_fn)
+
+                # Use the lock for state updates and notification
+                with lock:
+                    results.append(result)
+
+                    if on_script_complete:
+                        try:
+                            on_script_complete(result)
+                        except Exception as e:
+                            # display errors must not kill the worker or skip _mark_node_complete
+                            logger.debug("on_script_complete callback failed: %s", e)
+
+                    _mark_node_complete(
+                        node_key,
+                        result.success,
+                        graph,
+                        node_map,
+                        completed,
+                        failed,
+                        in_progress,
+                        remaining_deps,
+                        ready,
+                        results,
+                        on_script_complete,
+                    )
+                    work_available.notify_all()  # Notify other workers of new ready/completed state
+
+    return worker
+
+
+class EagerBFSStrategy:
+    """
+    Eager Breadth-First Search (BFS) execution strategy.
+
+    Scripts execute as soon as all their dependencies complete, maximizing parallelism.
+    Uses a thread pool coordinated by locks and condition variables.
+    """
+
+    def execute(
+        self,
+        graph: nx.DiGraph,
+        resolver: DependencyResolver,
+        max_workers: int,
+        executor_factory: Callable[[Any], Any],
+        execution_fn: Callable[[Any, Any], Any],
+        on_script_start: Callable[[Any], None] | None = None,
+        on_script_complete: Callable[[ExecutionResult], None] | None = None,
+    ) -> list[ExecutionResult]:
+        """Execute scripts eagerly as dependencies complete."""
+        if not graph.nodes():
+            return []
+
+        node_map = build_node_map(graph)
+
+        lock = threading.Lock()
+        work_available = threading.Condition(lock)
+
+        # Track state
+        completed: CompletedSet = set()
+        failed: FailedSet = set()
+        in_progress: InProgressSet = set()
+        results: ResultsList = []
+
+        # Calculate in-degrees (number of incomplete dependencies)
+        remaining_deps: RemainingDepsDict = {
+            key: graph.in_degree(key) for key in graph.nodes()
+        }
+
+        # Ready queue - keys with all dependencies satisfied initially (in-degree 0)
+        ready: ReadyList = [key for key in graph.nodes() if remaining_deps[key] == 0]
+
+        total_count = len(graph.nodes())
+
+        # Create the worker function
+        worker = _create_worker(
+            graph=graph,
+            node_map=node_map,
+            lock=lock,
+            work_available=work_available,
+            completed=completed,
+            failed=failed,
+            in_progress=in_progress,
+            remaining_deps=remaining_deps,
+            ready=ready,
+            results=results,
+            total_count=total_count,
+            executor_factory=executor_factory,
+            execution_fn=execution_fn,
+            on_script_start=on_script_start,
+            on_script_complete=on_script_complete,
+        )
+
+        # Start worker threads
+        workers = min(max_workers, total_count)
+        threads: list[threading.Thread] = []
+        for _ in range(workers):
+            t = threading.Thread(target=worker, daemon=True)
+            t.start()
+            threads.append(t)
+
+        # Wake up any waiting workers if we have initial work
+        with work_available:
+            work_available.notify_all()
+
+        # Wait for all threads to complete
+        for t in threads:
+            t.join()
+
+        return results
+
+
+class ParallelExecutor:
+    """
+    Executes scripts in parallel while respecting dependencies.
+
+    Uses an Eager BFS traversal by default, running scripts as soon as their
+    dependencies complete.
+    """
+
+    def __init__(
+        self,
+        max_workers: int = 5,
+        dependency_strategy: DependencyStrategy | None = None,
+        execution_strategy: ExecutionStrategy | None = None,
+    ):
+        """
+        Initialize the parallel executor.
+
+        Args:
+            max_workers: Maximum number of parallel workers.
+            dependency_strategy: Strategy for resolving dependencies.
+            execution_strategy: Strategy for traversing the graph during execution.
+        """
+        self.max_workers = max_workers
+        # Resolver finds dependencies and builds the graph
+        self.resolver = DependencyResolver(strategy=dependency_strategy)
+        # Execution strategy determines how the graph is traversed and executed
+        self.execution_strategy = execution_strategy or EagerBFSStrategy()
+
+    def execute(
+        self,
+        root: Path,
+        executor_factory: Callable[[Any], Any],
+        execution_fn: Callable[[Any, Any], Any],
+        on_script_start: Callable[[Any], None] | None = None,
+        on_script_complete: Callable[[ExecutionResult], None] | None = None,
+        graph: nx.DiGraph | None = None,
+    ) -> ParallelExecutionSummary:
+        """
+        Execute scripts or custom nodes in parallel respecting dependencies.
+
+        Args:
+            root: Root path (folder or single file) to find scripts.
+            executor_factory: Factory function to create an executor for a node.
+            execution_fn: Function that executes a node given (executor, node).
+            on_script_start: Optional callback on starting a node.
+            on_script_complete: Optional callback on finishing a node.
+            graph: Optional pre-built dependency graph to execute.
+
+        Returns:
+            ParallelExecutionSummary with all results.
+        """
+        start_time = datetime.now()
+
+        # Build or use provided dependency graph
+        if graph is None:
+            if root.is_dir():
+                graph = self.resolver.build_folder_graph(root)
+            else:
+                nodes = create_script_nodes([root])
+                graph = self.resolver.build_graph(nodes)
+
+        # Total count of nodes for summary/completion check
+        total_scripts = len(graph.nodes())
+
+        # Execute using the configured strategy
+        results = self.execution_strategy.execute(
+            graph=graph,
+            resolver=self.resolver,
+            max_workers=self.max_workers,
+            executor_factory=executor_factory,
+            execution_fn=execution_fn,
+            on_script_start=on_script_start,
+            on_script_complete=on_script_complete,
+        )
+
+        total_duration = (datetime.now() - start_time).total_seconds()
+        successful = sum(1 for r in results if r.success)
+        failed = sum(1 for r in results if not r.success)
+
+        return ParallelExecutionSummary(
+            total_scripts=total_scripts,
+            successful=successful,
+            skipped=0,
+            failed=failed,
+            total_duration=total_duration,
+            results=results,
+        )
+
+    def get_folder_execution_plan(self, folder: Path) -> nx.DiGraph:
+        """
+        Get the execution plan (dependency graph) for all scripts in a folder.
+        """
+        return self.resolver.build_folder_graph(folder)
+
+    def get_execution_plan(self, files: list[Path]) -> nx.DiGraph:
+        """
+        Get the execution plan (dependency graph) without executing.
+        """
+        nodes = create_script_nodes(files)
+        return self.resolver.build_graph(nodes)
+
+
+def run_single_script_execution(
+    files: list[StringIO | Path],
+    directory: Path,
+    input_type: str,
+    input_name: str,
+    edialect,
+    param: tuple[str, ...],
+    conn_args,
+    debug: bool,
+    execution_mode: ExecutionMode,
+    config,
+    refresh_params: RefreshParams | None = None,
+    debug_file: str | None = None,
+    row_limit: int | None = None,
+    show_scopes: bool = False,
+    query_timeout: float | None = None,
+    dry_run: bool = False,
+) -> int:
+    """Run single script execution. Returns count of assets refreshed (for refresh mode)."""
+    from trilogy.scripts.common import create_executor
+    from trilogy.scripts.display import show_execution_info
+
+    config_path_str = str(config.source_path) if config.source_path else None
+    show_execution_info(
+        input_type, input_name, edialect.value, debug, config_path_str, debug_file
+    )
+
+    exec = create_executor(
+        param, directory, conn_args, edialect, debug, config, debug_file, query_timeout
+    )
+    base = files[0]
+    if isinstance(base, StringIO):
+        text = base.getvalue()
+    else:
+        with safe_open(base) as raw:
+            text = raw.read()
+
+    try:
+        return _dispatch_single_script_execution(
+            exec,
+            text,
+            base,
+            execution_mode,
+            debug=debug,
+            row_limit=row_limit,
+            refresh_params=refresh_params,
+            show_scopes=show_scopes,
+            dry_run=dry_run,
+        )
+    finally:
+        # The parallel path closes its executors in _execute_single; close here
+        # too so file-backed engines (e.g. duckdb) release their handles.
+        exec.close()
+
+
+def _dispatch_single_script_execution(
+    exec: Executor,
+    text: str,
+    base: StringIO | Path,
+    execution_mode: ExecutionMode,
+    debug: bool,
+    row_limit: int | None,
+    refresh_params: RefreshParams | None,
+    show_scopes: bool = False,
+    dry_run: bool = False,
+) -> int:
+    from trilogy.scripts.common import (
+        flush_debugging_hooks,
+        handle_execution_exception,
+    )
+    from trilogy.scripts.single_execution import (
+        execute_integration_mode,
+        execute_refresh_mode,
+        execute_run_mode,
+        execute_unit_mode,
+    )
+
+    try:
+        if execution_mode == ExecutionMode.RUN:
+            queries, definitions = exec.parse_text_with_definitions(
+                text, root=base if isinstance(base, Path) else None
+            )
+            execute_run_mode(
+                exec,
+                queries,
+                row_limit=row_limit,
+                definitions=definitions,
+                show_scopes=show_scopes,
+                dry_run=dry_run,
+            )
+        elif execution_mode == ExecutionMode.INTEGRATION:
+            exec.parse_text(text, root=base if isinstance(base, Path) else None)
+            execute_integration_mode(exec)
+        elif execution_mode == ExecutionMode.UNIT:
+            exec.parse_text(text, root=base if isinstance(base, Path) else None)
+            execute_unit_mode(exec)
+        elif execution_mode == ExecutionMode.REFRESH:
+            rp = refresh_params or RefreshParams()
+            exec.parse_text(text, root=base if isinstance(base, Path) else None)
+            result = execute_refresh_mode(
+                exec,
+                policy=rp.policy(),
+                print_watermarks=rp.print_watermarks,
+                dry_run=rp.dry_run,
+                interactive=rp.interactive,
+                script_path=base if isinstance(base, Path) else None,
+            )
+            if debug:
+                flush_debugging_hooks(exec)
+            return result.refreshed_count
+        else:
+            raise NotImplementedError(
+                f"Execution mode '{execution_mode.value}' is not implemented."
+            )
+    except Exception as e:
+        source = str(base) if isinstance(base, Path) else "stdin"
+        handle_execution_exception(e, debug=debug, source=source)
+
+    if debug:
+        flush_debugging_hooks(exec)
+    return 0
+
+
+def _report_node_fields(node: ExecutionNode) -> dict[str, Any]:
+    """Attribution fields for report records: file for scripts, physical
+    address + owner script for managed refresh nodes."""
+    if isinstance(node, ManagedRefreshNode):
+        return {
+            "address": node.address,
+            "owner_script": str(node.owner_script.path),
+            "node_kind": "managed_address",
+        }
+    return {
+        "file": str(node.path) if isinstance(node, ScriptNode) else str(node),
+        "node_kind": "script",
+    }
+
+
+def _report_file_start(node: ExecutionNode) -> None:
+    emit_report("file_start", **_report_node_fields(node))
+
+
+def _report_file_end(result: ExecutionResult) -> None:
+    stats = result.stats
+    emit_report(
+        "file_end",
+        **_report_node_fields(result.node),
+        success=result.success,
+        skipped=result.skipped or None,
+        duration_s=round(result.duration, 6),
+        error_type=type(result.error).__name__ if result.error else None,
+        error=(str(result.error) or None) if result.error else None,
+        stats=(
+            {
+                "persist_count": stats.persist_count,
+                "update_count": stats.update_count,
+                "validate_count": stats.validate_count,
+                "compiled_query_count": len(stats.compiled_queries),
+            }
+            if stats
+            else None
+        ),
+    )
+
+
+def _report_single_script_outcome(
+    label: str,
+    duration: float,
+    execution_mode: ExecutionMode,
+    succeeded: int = 0,
+    skipped: int = 0,
+    refresh_count: int = 0,
+    error: BaseException | None = None,
+) -> None:
+    """Emit the terminal ``file_end`` + ``summary`` pair for the inline /
+    single-script path, which bypasses the parallel executor's own reporting."""
+    emit_report(
+        "file_end",
+        file=label,
+        node_kind="script",
+        success=error is None,
+        duration_s=round(duration, 6),
+        error_type=type(error).__name__ if error else None,
+        error=(str(error) or None) if error else None,
+    )
+    emit_report(
+        "summary",
+        success=error is None,
+        exit_code=exit_code_for(error) if error else None,
+        total=1,
+        succeeded=succeeded,
+        failed=1 if error else 0,
+        skipped=skipped,
+        partial_failure=False,
+        total_duration_s=round(duration, 6),
+        refreshed_assets=(
+            refresh_count
+            if error is None and execution_mode == ExecutionMode.REFRESH
+            else None
+        ),
+    )
+
+
+def get_execution_strategy(strategy_name: str):
+    """Get execution strategy by name."""
+    strategies = {
+        "eager_bfs": EagerBFSStrategy,
+    }
+    if strategy_name not in strategies:
+        raise ValueError(
+            f"Unknown execution strategy: {strategy_name}. "
+            f"Available: {', '.join(strategies.keys())}"
+        )
+    return strategies[strategy_name]()
+
+
+def run_parallel_execution(
+    cli_params: CLIRuntimeParams,
+    execution_fn: Callable[[Executor, Any, bool], ExecutionStats] | None = None,
+    execution_mode: ExecutionMode = ExecutionMode.RUN,
+    graph: nx.DiGraph | None = None,
+    executor_factory_override: Callable[[Any], Executor] | None = None,
+    fail_on_error: bool = True,
+) -> ParallelExecutionSummary:
+    """
+    Run parallel execution for directory inputs, or single-script execution
+    with polished progress display for single files/inline queries.
+    """
+    from trilogy.scripts.common import (
+        create_executor_for_script,
+        merge_runtime_config,
+        resolve_input_information,
+    )
+    from trilogy.scripts.dependency import ETLDependencyStrategy
+    from trilogy.scripts.display import (
+        ParallelProgressTracker,
+        failure_report,
+        print_error,
+        print_info,
+        print_success,
+        show_dry_run_queries,
+        show_dry_run_summary,
+        show_execution_info,
+        show_parallel_execution_start,
+        show_parallel_execution_summary,
+    )
+    from trilogy.scripts.environment import parse_env_vars
+
+    # Check if input is a directory (parallel execution)
+    pathlib_input = Path(cli_params.input)
+
+    # CLI --env parses first so config loading sees it (env_file values apply
+    # before it; CLI wins).
+    cli_env_vars: dict[str, str] = {}
+    if cli_params.env:
+        try:
+            cli_env_vars = parse_env_vars(cli_params.env)
+        except ValueError as e:
+            print_error(str(e))
+            raise Exit(1) from e
+
+    files_iter, directory, input_type, input_name, config = resolve_input_information(
+        cli_params.input, cli_params.config_path, extra_env=cli_env_vars or None
+    )
+    files = list(files_iter)
+
+    # Merge CLI params with config file
+    edialect, parallelism = merge_runtime_config(cli_params, config)
+    if not (pathlib_input.exists() or graph) or (len(files) == 1 and not graph):
+        # Inline query - use polished single-script execution
+        single_label = (
+            str(files[0]) if files and isinstance(files[0], Path) else "inline"
+        )
+        emit_report("file_start", file=single_label, node_kind="script")
+        single_start = datetime.now()
+        try:
+            refresh_count = run_single_script_execution(
+                files=files,
+                directory=directory,
+                input_type=input_type,
+                input_name=input_name,
+                edialect=edialect,
+                param=cli_params.param,
+                conn_args=cli_params.conn_args,
+                debug=cli_params.debug,
+                execution_mode=execution_mode,
+                config=config,
+                refresh_params=cli_params.refresh_params,
+                debug_file=cli_params.debug_file,
+                row_limit=cli_params.row_limit,
+                show_scopes=cli_params.show_scopes,
+                query_timeout=cli_params.timeout,
+                dry_run=cli_params.dry_run,
+            )
+        except BaseException as e:
+            _report_single_script_outcome(
+                single_label,
+                (datetime.now() - single_start).total_seconds(),
+                execution_mode,
+                error=e,
+            )
+            raise
+        duration = (datetime.now() - single_start).total_seconds()
+        # For refresh mode: skipped=1 if nothing was refreshed, successful=1 otherwise
+        if execution_mode == ExecutionMode.REFRESH:
+            skipped = 1 if refresh_count == 0 else 0
+            successful = 0 if refresh_count == 0 else 1
+        else:
+            skipped = 0
+            successful = 1
+        _report_single_script_outcome(
+            single_label,
+            duration,
+            execution_mode,
+            succeeded=successful,
+            skipped=skipped,
+            refresh_count=refresh_count,
+        )
+        return ParallelExecutionSummary(
+            total_scripts=1,
+            successful=successful,
+            skipped=skipped,
+            failed=0,
+            total_duration=duration,
+            results=[],
+        )
+    # Multiple files or physical graph - use parallel execution
+    config_path_str = str(config.source_path) if config.source_path else None
+    # Skip header when caller already printed it (e.g. directory refresh pre-builds the graph)
+    if graph is None:
+        show_execution_info(
+            input_type, input_name, edialect.value, cli_params.debug, config_path_str
+        )
+
+    # Get execution strategy
+    strategy = get_execution_strategy(cli_params.execution_strategy)
+
+    # Set up parallel executor
+    parallel_exec = ParallelExecutor(
+        max_workers=parallelism,
+        dependency_strategy=ETLDependencyStrategy(),
+        execution_strategy=strategy,
+    )
+
+    execution_plan = graph
+    # Get execution plan for display
+    if execution_plan is None:
+        if pathlib_input.is_dir():
+            execution_plan = parallel_exec.get_folder_execution_plan(pathlib_input)
+        elif pathlib_input.is_file():
+            execution_plan = parallel_exec.get_execution_plan([pathlib_input])
+        else:
+            raise FileNotFoundError(f"Input path '{pathlib_input}' does not exist.")
+
+    num_edges = execution_plan.number_of_edges()
+    num_nodes = execution_plan.number_of_nodes()
+
+    show_parallel_execution_start(
+        num_nodes, num_edges, parallelism, cli_params.execution_strategy
+    )
+
+    # Factory to create executor for each node
+    def default_executor_factory(node: ScriptNode) -> Executor:
+        return create_executor_for_script(
+            node,
+            cli_params.param,
+            cli_params.conn_args,
+            edialect,
+            cli_params.debug,
+            config,
+            cli_params.debug_file,
+            cli_params.timeout,
+        )
+
+    executor_factory = executor_factory_override or default_executor_factory
+
+    if execution_fn is None:
+        raise ValueError("execution_fn is required for parallel execution")
+
+    # Run parallel execution with live spinner per in-progress node
+    tracker = ParallelProgressTracker()
+
+    # Wrap execution_fn to pass quiet=True and route per-target progress
+    # updates back to this node's tracker task description (e.g. validation).
+    def quiet_execution_fn(exec: Executor, node: Any) -> ExecutionStats | None:
+        from trilogy.scripts.common import (
+            reset_progress_label_callback,
+            set_progress_label_callback,
+        )
+
+        token = set_progress_label_callback(
+            lambda lbl: tracker.update_node_label(node, lbl)
+        )
+        try:
+            return execution_fn(exec, node, True)
+        finally:
+            reset_progress_label_callback(token)
+
+    def on_start(node: Any) -> None:
+        _report_file_start(node)
+        tracker.on_start(node)
+
+    def on_complete(result: ExecutionResult) -> None:
+        _report_file_end(result)
+        tracker.on_complete(result)
+
+    with tracker:
+        summary = parallel_exec.execute(
+            root=pathlib_input,
+            executor_factory=executor_factory,
+            execution_fn=quiet_execution_fn,
+            on_script_start=on_start,
+            on_script_complete=on_complete,
+            graph=execution_plan,
+        )
+
+    # Workers run quiet, so any SQL a dry run compiled is printed here.
+    if cli_params.dry_run:
+        show_dry_run_queries(summary.results)
+
+    # For refresh mode, calculate skipped (successful but no updates)
+    if execution_mode == ExecutionMode.REFRESH:
+        skipped = sum(
+            1
+            for r in summary.results
+            if r.success and r.stats and r.stats.update_count == 0
+        )
+        # Adjust successful count to exclude skipped
+        summary = ParallelExecutionSummary(
+            total_scripts=summary.total_scripts,
+            successful=summary.successful - skipped,
+            skipped=skipped,
+            failed=summary.failed,
+            total_duration=summary.total_duration,
+            results=summary.results,
+        )
+
+    show_parallel_execution_summary(summary)
+
+    dep_skipped = sum(1 for r in summary.results if r.skipped)
+    real_failed = summary.failed - dep_skipped
+    emit_report(
+        "summary",
+        success=summary.all_succeeded,
+        exit_code=None if summary.all_succeeded else 1,
+        total=summary.total_scripts,
+        succeeded=summary.successful,
+        failed=real_failed,
+        skipped=summary.skipped + dep_skipped,
+        partial_failure=bool(real_failed and summary.successful),
+        total_duration_s=round(summary.total_duration, 6),
+        refreshed_assets=(
+            sum(r.stats.update_count for r in summary.results if r.stats)
+            if execution_mode == ExecutionMode.REFRESH
+            else None
+        ),
+    )
+
+    if not summary.all_succeeded:
+        print_error(failure_report(summary))
+        if fail_on_error:
+            raise Exit(1)
+        return summary
+
+    if cli_params.dry_run and execution_mode == ExecutionMode.REFRESH:
+        would_refresh = sum(r.stats.update_count for r in summary.results if r.stats)
+        print_info(f"Dry run: {would_refresh} asset(s) would be refreshed")
+    elif cli_params.dry_run:
+        show_dry_run_summary(
+            sum(len(r.stats.compiled_queries) for r in summary.results if r.stats)
+        )
+    else:
+        print_success("All scripts executed successfully!")
+    return summary

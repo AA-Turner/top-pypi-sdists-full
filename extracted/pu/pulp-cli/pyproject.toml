@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pulp-cli"
-version = "0.40.5"
+version = "0.40.6"
 description = "Command line interface to talk to pulpcore's REST API."
 readme = "README.md"
 requires-python = ">=3.10,<3.16"
@@ -22,8 +22,8 @@ classifiers=[
   "Typing :: Typed",
 ]
 dependencies = [
-  "pulp-glue==0.40.5",
-  "click>=8.0.0,<8.5",  # Proven to not do semver.
+  "pulp-glue==0.40.6",
+  "click>=8.0.0,<8.6",  # Not SemVer, more like <major>.<major>.<patch> : https://palletsprojects.com/versions
   "PyYAML>=5.3,<6.1",
   "schema>=0.7.5,<0.8",
   "tomli>=2.0.0,<2.1;python_version<'3.11'",
@@ -128,7 +128,7 @@ paralleltests = true
 
 [tool.bumpversion]
 # This section is managed by the cookiecutter templates.
-current_version = "0.40.5"
+current_version = "0.40.6"
 commit = false
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"

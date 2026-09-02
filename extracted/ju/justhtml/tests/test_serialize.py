@@ -1,0 +1,1497 @@
+import textwrap
+import unittest
+
+from justhtml import HTMLContext, UrlRule
+from justhtml import JustHTML as _JustHTML
+from justhtml.core.constants import SPECIAL_ELEMENTS
+from justhtml.core.types import Doctype
+from justhtml.dom import Comment, DocumentFragment, Node, ProcessingInstruction, Template, Text
+from justhtml.parser.context import FragmentContext
+from justhtml.serializer import (
+    _BLOCK_SCAN_BUDGET,
+    _can_unquote_attr_value,
+    _choose_attr_quote,
+    _collapse_html_whitespace,
+    _escape_attr_value,
+    _escape_text,
+    _has_block_descendant,
+    _is_blocky_element,
+    _is_formatting_whitespace_text,
+    _is_layout_blocky_element,
+    _neutralize_rawtext_end_tag_sequences,
+    _normalize_formatting_whitespace,
+    _serialize_doctype,
+    _should_pretty_indent_children,
+    serialize_end_tag,
+    serialize_start_tag,
+    to_html,
+    to_test_format,
+)
+from tests.harness.scaling import assert_scales_linearly
+
+
+def JustHTML(*args, **kwargs):  # noqa: N802
+    if "sanitize" not in kwargs:
+        kwargs["sanitize"] = False
+    return _JustHTML(*args, **kwargs)
+
+
+class TestSerialize(unittest.TestCase):
+    def test_basic_document(self):
+        html = "<!DOCTYPE html><html><head><title>Test</title></head><body><p>Hello</p></body></html>"
+        doc = JustHTML(html)
+        output = doc.to_html()
+        assert "<!DOCTYPE html>" in output
+        assert "<title>Test</title>" in output
+        assert "<p>Hello</p>" in output
+
+    def test_safe_document_serialization_preserves_document_wrappers(self):
+        doc = JustHTML("<p>Hi</p>")
+        output = doc.to_html(pretty=False)
+        assert output == "<html><head></head><body><p>Hi</p></body></html>"
+
+    def test_safe_document_serialization_preserves_doctype(self):
+        doc = JustHTML("<!DOCTYPE html><html><head></head><body><p>Hi</p></body></html>")
+        output = doc.to_html(pretty=False)
+        assert output == "<!DOCTYPE html><html><head></head><body><p>Hi</p></body></html>"
+
+    def test_processing_instruction_serialization(self):
+        frag = DocumentFragment()
+        frag.append_child(ProcessingInstruction("target data"))
+
+        assert to_html(frag, pretty=False) == "<?target data?>"
+        assert to_html(frag, pretty=True) == "<?target data?>"
+        assert to_test_format(frag) == "| <?target data?>"
+
+    def test_processing_instruction_serialization_neutralizes_breakout(self):
+        # Browsers parse "<?...>" as a bogus comment ending at the first ">".
+        # An interior ">" must not close the token and expose following markup.
+        frag = DocumentFragment()
+        frag.append_child(ProcessingInstruction("foo><img src=x onerror=alert(1)>"))
+
+        compact = to_html(frag, pretty=False)
+        assert compact == "<?foo <img src=x onerror=alert(1) ?>"
+        assert ">" not in compact[2:-2]
+        assert to_html(frag, pretty=True) == compact
+
+    def test_processing_instruction_serialization_empty_data(self):
+        frag = DocumentFragment()
+        frag.append_child(ProcessingInstruction(None))
+
+        assert to_html(frag, pretty=False) == "<??>"
+        assert to_html(frag, pretty=True) == "<??>"
+
+    def test_compact_serialization_preserves_non_html_doctype(self):
+        doc = JustHTML("<!DOCTYPE svg><html><head></head><body></body></html>", sanitize=False)
+        output = doc.to_html(pretty=False)
+        assert output == "<!DOCTYPE svg><html><head></head><body></body></html>"
+
+    def test_compact_serialization_preserves_public_and_system_doctype_identifiers(self):
+        html = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"><html><head></head><body></body></html>'
+        doc = JustHTML(html, sanitize=False)
+        output = doc.to_html(pretty=False)
+        assert output == html
+
+    def test_serialize_doctype_defaults_to_html_when_data_is_missing(self):
+        node = Node("!doctype", data=None)
+        assert _serialize_doctype(node) == "<!DOCTYPE html>"
+
+    def test_serialize_doctype_supports_legacy_string_data(self):
+        node = Node("!doctype", data="svg")
+        assert _serialize_doctype(node) == "<!DOCTYPE svg>"
+
+    def test_serialize_doctype_omits_unsafe_name(self):
+        node = Node("!doctype", data="html><img src=x onerror=alert(1)")
+        assert _serialize_doctype(node) == "<!DOCTYPE>"
+
+    def test_serialize_doctype_supports_public_identifier_without_system_identifier(self):
+        node = Node("!doctype", data=Doctype(name="html", public_id="-//Example//DTD HTML//EN"))
+        assert _serialize_doctype(node) == '<!DOCTYPE html PUBLIC "-//Example//DTD HTML//EN">'
+
+    def test_serialize_doctype_supports_system_identifier_without_name(self):
+        node = Node("!doctype", data=Doctype(name="", system_id="about:legacy-compat"))
+        assert _serialize_doctype(node) == '<!DOCTYPE SYSTEM "about:legacy-compat">'
+
+    def test_fragment_parameter_default_context(self):
+        doc = JustHTML("<p>Hi</p>", fragment=True)
+        assert doc.root.name == "#document-fragment"
+
+        output = doc.to_html(pretty=False)
+        assert "<html>" not in output
+        assert output == "<p>Hi</p>"
+
+    def test_fragment_parameter_respects_explicit_fragment_context(self):
+        # <tr> only parses correctly in table-related fragment contexts.
+        doc = JustHTML(
+            "<tr><td>cell</td></tr>",
+            fragment=True,
+            fragment_context=FragmentContext("tbody"),
+        )
+        output = doc.to_html(pretty=False)
+        assert output == "<tr><td>cell</td></tr>"
+
+    def test_pretty_template_serializes_template_content(self):
+        frag = DocumentFragment()
+        template = Template("template", namespace="html")
+        frag.append_child(template)
+
+        p = Node("p")
+        p.append_child(Text("x"))
+        assert template.template_content is not None
+        template.template_content.append_child(p)
+
+        out = to_html(frag, pretty=True)
+        assert "<template>" in out
+        assert "<p>" in out
+        assert out.index("<template>") < out.index("<p>") < out.index("</template>")
+
+    def test_pretty_serialization_handles_deeply_nested_tree_without_recursion(self):
+        root = Node("div")
+        parent = root
+        for _ in range(1200):
+            child = Node("div")
+            parent.append_child(child)
+            parent = child
+        parent.append_child(Text("x"))
+
+        output = to_html(root, pretty=True)
+
+        assert output.startswith("<div>")
+        assert output.endswith("</div>")
+        assert "x" in output
+        assert len(output) < 400_000
+
+    def test_collapse_html_whitespace_vertical_tab(self):
+        # \v is not HTML whitespace, so it should be preserved as a non-whitespace character
+        # while surrounding whitespace is collapsed.
+        text = "  a  \v  b  "
+        # Expected: "a \v b" because \v is treated as a regular character,
+        # so "  a  " -> "a ", "\v", "  b  " -> " b"
+        # Wait, let's trace the logic:
+        # "  a  \v  b  "
+        # parts: [" ", "a", " ", "\v", " ", "b", " "] (roughly)
+        # joined: " a \v b " -> stripped: "a \v b"
+        self.assertEqual(_collapse_html_whitespace(text), "a \v b")
+
+    def test_can_unquote_attr_value_coverage(self):
+        self.assertFalse(_can_unquote_attr_value(None))
+        self.assertTrue(_can_unquote_attr_value("foo"))
+        self.assertFalse(_can_unquote_attr_value("foo bar"))
+        self.assertFalse(_can_unquote_attr_value("foo=bar"))
+        self.assertFalse(_can_unquote_attr_value("foo'bar"))
+        self.assertFalse(_can_unquote_attr_value('foo"bar'))
+        # < is allowed in unquoted attribute values in HTML5
+        self.assertTrue(_can_unquote_attr_value("foo<bar"))
+
+    def test_attributes(self):
+        html = '<div id="test" class="foo" data-val="x&y"></div>'
+        doc = JustHTML(html)
+        output = doc.to_html()
+        assert 'id="test"' in output
+        assert 'class="foo"' in output
+        assert 'data-val="x&amp;y"' in output  # Check escaping
+
+    def test_text_escaping(self):
+        frag = DocumentFragment()
+        div = Node("div")
+        frag.append_child(div)
+        div.append_child(Text("a<b&c"))
+        output = to_html(frag, pretty=False)
+        assert output == "<div>a&lt;b&amp;c</div>"
+
+    def test_to_html_context_url(self):
+        # Test serialization with HTMLContext.URL
+        # Case 1: Simple text node
+        node = Text("https://example.com/foo bar")
+        output = to_html(node, context=HTMLContext.URL)
+        # Expect percent encoding of space
+        self.assertEqual(output, "https://example.com/foo%20bar")
+
+        # Case 2: Element with text content
+        div = Node("div")
+        div.append_child(Text("  /path/to/thing?q=a b  "))
+        # to_html with URL context should strip whitespace and encode
+        output = to_html(div, context=HTMLContext.URL)
+        self.assertEqual(output, "/path/to/thing?q=a%20b")
+
+    def test_to_html_context_url_escapes_literal_ampersand_for_html_embedding(self):
+        # HTMLContext.URL is documented for href/src attributes, so a literal
+        # "&" must be HTML-escaped: otherwise it could combine with adjacent
+        # text to form an unintended character reference when a browser
+        # parses the attribute (e.g. a legacy no-semicolon named entity).
+        node = Text("https://example.com/x&ampshy")
+        output = to_html(node, context=HTMLContext.URL)
+        self.assertEqual(output, "https://example.com/x&amp;ampshy")
+
+        # Multi-parameter query strings still work correctly as HTML markup.
+        node2 = Text("https://example.com/search?q=a&lang=en")
+        output2 = to_html(node2, context=HTMLContext.URL)
+        self.assertEqual(output2, "https://example.com/search?q=a&amp;lang=en")
+
+    def test_to_html_inner_html_js_context(self):
+        output = _JustHTML.escape_html_text_in_js_string('<div a="b">Hi &amp; <b>world</b></div>')
+        # & escapes to \u0026
+        # " escapes to \"
+        # <, > were already escaped to &lt;, &gt; by html escaping, then the & in those is escaped
+        # but let's see. &lt; -> \u0026lt;
+        # Actually, let's just make it exact.
+        expected = r"&lt;div a=\"b\"&gt;Hi &amp;amp; &lt;b&gt;world&lt;/b&gt;&lt;/div&gt;"
+        assert output == expected
+
+    def test_to_html_inner_html_js_context_single_quote(self):
+        output = _JustHTML.escape_html_text_in_js_string("<p>It's ok</p>", quote="'")
+        expected = r"&lt;p&gt;It\'s ok&lt;/p&gt;"
+        assert output == expected
+
+    def test_escape_html_text_in_js_string_noop_when_no_html_chars(self):
+        # Covers the HTML-escaping fast-path for plain text.
+        assert _JustHTML.escape_html_text_in_js_string("plain text") == "plain text"
+
+    def test_to_html_js_string_context(self):
+        doc = JustHTML("<b>Hi</b>", fragment=True)
+        output = doc.to_html(pretty=False, context=HTMLContext.JS_STRING)
+        # < -> \u003c, > -> \u003e
+        assert output == r"\u003cb\u003eHi\u003c/b\u003e"
+
+    def test_escape_url_in_js_string(self):
+        output = _JustHTML.escape_url_in_js_string("/path with space?x=1&y=2")
+        # = -> \u003d, & -> \u0026
+        assert output == r"/path%20with%20space?x=1&y=2"
+
+    def test_clean_url_value_requires_rule(self):
+        rule = UrlRule(allowed_schemes={"https"})
+        assert _JustHTML.clean_url_value(value="https://example.com/x", url_rule=rule) == "https://example.com/x"
+
+        assert _JustHTML.clean_url_value(value="javascript:alert(1)", url_rule=rule) is None
+        assert _JustHTML.clean_url_value(value="javascript&#58alert(1)", url_rule=rule) is None
+        assert _JustHTML.clean_url_value(value="javascript&#0000058alert(1)", url_rule=rule) is None
+
+    def test_clean_url_value_decodes_html_character_references_before_validating(self):
+        rule = UrlRule(allowed_schemes={"https", "mailto"})
+        output = _JustHTML.clean_url_value(
+            value="https://example.com/search?q=alpha&amp;lang=en",
+            url_rule=rule,
+        )
+        assert output == "https://example.com/search?q=alpha&lang=en"
+
+    def test_clean_url_value_strips_invisible_unicode_before_validating(self):
+        rule = UrlRule(allowed_schemes={"https"})
+        assert _JustHTML.clean_url_value(value="java\u200bscript:alert(1)", url_rule=rule) is None
+        assert _JustHTML.clean_url_value(value="java&ZeroWidthSpace;script:alert(1)", url_rule=rule) is None
+
+    def test_clean_url_value_rejects_backslash_urls(self):
+        rule = UrlRule(allowed_schemes=set(), resolve_protocol_relative=None, allow_relative=True)
+        assert _JustHTML.clean_url_value(value=r"\\evil.example/x", url_rule=rule) is None
+        assert _JustHTML.clean_url_value(value=r"/\evil.example/x", url_rule=rule) is None
+
+    def test_clean_url_value_returns_none_for_malformed_bracketed_host(self):
+        rule = UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}, allow_relative=True)
+        assert _JustHTML.clean_url_value(value="https://[evil.example]/x", url_rule=rule) is None
+        assert _JustHTML.clean_url_value(value="https://ex[ample].com/x", url_rule=rule) is None
+
+    def test_clean_url_value_rejects_whitespace_in_allowlisted_authority(self):
+        rule = UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}, allow_relative=True)
+        assert _JustHTML.clean_url_value(value="https://tru sted.example/x", url_rule=rule) is None
+        assert _JustHTML.clean_url_value(value="https://trusted.example :443/x", url_rule=rule) is None
+        assert (
+            _JustHTML.clean_url_value(value="https://trusted.example/a b", url_rule=rule)
+            == "https://trusted.example/a%20b"
+        )
+
+    def test_clean_url_value_rejects_noncanonical_allowlisted_authority_hosts(self):
+        rule = UrlRule(allowed_schemes={"https"}, allowed_hosts={"example.com"}, allow_relative=True)
+        assert _JustHTML.clean_url_value(value="https://%65xample.com/x", url_rule=rule) is None
+
+        rule = UrlRule(allowed_schemes={"https"}, allowed_hosts={"127.0.0.1"}, allow_relative=True)
+        assert _JustHTML.clean_url_value(value="https://2130706433/x", url_rule=rule) is None
+        assert _JustHTML.clean_url_value(value="https://127.0.0.1/x", url_rule=rule) == "https://127.0.0.1/x"
+
+    def test_clean_url_in_js_string(self):
+        rule = UrlRule(allowed_schemes={"https"})
+        output = _JustHTML.clean_url_in_js_string(
+            value="https://example.com/path with space?x=1&y=2",
+            url_rule=rule,
+        )
+        assert output == r"https://example.com/path%20with%20space?x=1&y=2"
+
+        # Test disallowed URL returns None
+        assert _JustHTML.clean_url_in_js_string(value="javascript:alert(1)", url_rule=rule) is None
+
+    def test_escape_attr_value(self):
+        output = _JustHTML.escape_attr_value('" onerror="alert(1)', quote='"')
+        assert output == "&quot; onerror=&quot;alert(1)"
+
+    def test_to_html_html_attr_value_context(self):
+        doc = JustHTML("<b>Hi</b>", fragment=True)
+        output = doc.to_html(pretty=False, context=HTMLContext.HTML_ATTR_VALUE, quote='"')
+        assert output == "&lt;b&gt;Hi&lt;/b&gt;"
+
+    def test_to_html_html_attr_value_context_escapes_quotes(self):
+        doc = JustHTML('<p class="x">Hi</p>', fragment=True)
+        output = doc.to_html(pretty=False, context=HTMLContext.HTML_ATTR_VALUE, quote='"')
+        assert output == "&lt;p class=&quot;x&quot;&gt;Hi&lt;/p&gt;"
+
+    def test_to_html_html_js_string_context_escapes_quotes(self):
+        doc = JustHTML('<p class="x">Hi</p>', fragment=True)
+        output = doc.to_html(pretty=False, context=HTMLContext.JS_STRING)
+        # <u003c p class=\u003d\"x\"\u003e...
+        assert output == r"\u003cp class=\"x\"\u003eHi\u003c/p\u003e"
+
+    def test_to_html_unknown_context_raises(self):
+        doc = JustHTML("<p>Hi</p>", fragment=True)
+        with self.assertRaises(TypeError):
+            _ = doc.to_html(pretty=False, context="nope")
+
+    def test_void_elements(self):
+        html = "<br><hr><img>"
+        doc = JustHTML(html)
+        output = doc.to_html()
+        assert "<br>" in output
+        assert "<hr>" in output
+        assert "<img>" in output
+        assert "</br>" not in output
+
+    def test_comments(self):
+        html = "<!-- hello world -->"
+        doc = JustHTML(html)
+        output = doc.to_html()
+        assert "<!-- hello world -->" in output
+
+    def test_comment_serialization_neutralizes_breakout_sequences(self):
+        root = Node("div")
+        root.append_child(Comment("--><img src=x onerror=alert(1)>"))
+
+        assert root.to_html(pretty=False) == "<div><!--- -><img src=x onerror=alert(1)>--></div>"
+
+    def test_comment_serialization_neutralizes_leading_invalid_comment_states(self):
+        payloads = [
+            "><img id=pwn src=x onerror=alert(1)>",
+            "-><img id=pwn src=x onerror=alert(1)>",
+            ">><!--><img id=pwn src=x onerror=alert(1)>",
+        ]
+
+        for payload in payloads:
+            with self.subTest(payload=payload):
+                root = Node("div")
+                root.append_child(Comment(payload))
+
+                html = root.to_html(pretty=False)
+                reparsed = JustHTML(html, fragment=True)
+
+                assert reparsed.query("#pwn") == []
+
+    def test_comment_serialization_handles_empty_comment_data(self):
+        root = Node("div")
+        root.append_child(Comment(""))
+
+        assert root.to_html(pretty=False) == "<div><!----></div>"
+
+    def test_comment_serialization_neutralizes_trailing_bang_dash_edge_case(self):
+        root = Node("div")
+        root.append_child(Comment("x<!-"))
+
+        assert root.to_html(pretty=False) == "<div><!--x<!- --></div>"
+
+    def test_comment_serialization_neutralizes_repeated_hyphens_and_trailing_dash(self):
+        root = Node("div")
+        root.append_child(Comment("---"))
+
+        assert root.to_html(pretty=False) == "<div><!--- - - --></div>"
+
+    def test_document_fragment(self):
+        # Manually create a document fragment since parser returns Document
+        frag = DocumentFragment()
+        child = Node("div")
+        frag.append_child(child)
+        output = to_html(frag)
+        assert "<div></div>" in output
+
+    def test_text_only_children(self):
+        html = "<div>Text only</div>"
+        doc = JustHTML(html)
+        output = doc.to_html()
+        assert "<div>Text only</div>" in output
+
+    def test_pretty_text_only_element_collapses_whitespace(self):
+        doc = JustHTML("<h3>\n\nSorry to interrupt, but we're short on time to hit our goal.\n</h3>")
+        h3 = doc.query("h3")[0]
+        assert h3.to_html(pretty=True) == ("<h3>Sorry to interrupt, but we're short on time to hit our goal.</h3>")
+
+    def test_pretty_text_only_div_collapses_whitespace(self):
+        html = (
+            '<div class="overlay-banner-main-footer-cta">'
+            "\n\nWe ask you, sincerely: don't skip this, join the 2% of readers who give.\n"
+            "</div>"
+        )
+        doc = JustHTML(html)
+        div = doc.query("div")[0]
+        assert div.to_html(pretty=True) == (
+            '<div class="overlay-banner-main-footer-cta">'
+            "We ask you, sincerely: don't skip this, join the 2% of readers who give."
+            "</div>"
+        )
+
+    def test_pretty_block_container_splits_on_formatting_whitespace_runs(self):
+        # Wikipedia-like: large spacing/newlines between inline-ish siblings should become line breaks,
+        # even when there is some non-whitespace text in the flow (which disables the simpler
+        # "all-children-are-elements" multiline rule).
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Text("      "))
+        div.append_child(Node("a"))
+        div.append_child(Text("\n  \t"))
+        div.append_child(Text("Search"))
+        div.append_child(Text("     "))
+        div.append_child(Node("ul"))
+
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <a></a>
+              Search
+              <ul></ul>
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_pretty_block_container_falls_back_when_run_contains_blocky_and_inline(self):
+        # If a "run" contains a blocky element + other nodes, we skip the smart
+        # run-splitting layout and fall back to the existing compact-pretty logic.
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Text("     "))
+        div.append_child(Node("ul"))
+        div.append_child(Node("span"))  # Adjacent to <ul> (no whitespace) => same run
+        div.append_child(Text("\n  \t"))
+        div.append_child(Node("a"))
+        div.append_child(Text("     "))
+        div.append_child(Text("Tail"))
+
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <ul></ul>
+              <span></span>
+              <a></a>
+              Tail
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_pretty_block_container_keeps_inline_run_on_one_line(self):
+        div = Node("div")
+        div.append_child(Text("Hello"))
+        div.append_child(Text(" "))
+        div.append_child(Node("em"))
+        div.append_child(Text(" world"))
+        assert div.to_html(pretty=True) == "<div>Hello <em></em> world</div>"
+
+    def test_pretty_block_container_breaks_before_block_child_even_with_small_spaces(self):
+        # Wikipedia-like: block element begins after only small spacing, so the
+        # "formatting whitespace separator" heuristic doesn't trigger.
+        # We still want the block subtree (and its indentation) to be preserved.
+        div = Node("div")
+        div.append_child(Text("Main menu  Navigation  "))
+
+        ul = Node("ul")
+        li = Node("li")
+        li.append_child(Text("Item"))
+        ul.append_child(li)
+        div.append_child(ul)
+
+        assert div.to_html(pretty=True) == textwrap.dedent(
+            """\
+            <div>
+              Main menu  Navigation
+              <ul>
+                <li>Item</li>
+              </ul>
+            </div>
+            """
+        ).strip("\n")
+
+    def test_is_formatting_whitespace_text(self):
+        assert _is_formatting_whitespace_text("") is False
+        assert _is_formatting_whitespace_text("  ") is False
+        assert _is_formatting_whitespace_text("   ") is True
+        assert _is_formatting_whitespace_text("\n") is True
+
+    def test_is_blocky_element_returns_false_for_text_comment_and_doctype_nodes(self):
+        assert _is_blocky_element(Text("x")) is False
+        assert _is_blocky_element(Comment(data="c")) is False
+        assert _is_blocky_element(Node("!doctype")) is False
+        wrapper = Node("span")
+        wrapper.append_child(Text("x"))
+        assert _is_blocky_element(wrapper) is False
+
+    def test_is_blocky_element_returns_false_for_objects_without_children(self):
+        class _NameOnly:
+            name = "span"
+
+        assert _is_blocky_element(_NameOnly()) is False
+
+    def test_is_layout_blocky_element_returns_false_for_objects_without_name(self):
+        assert _is_layout_blocky_element(object()) is False
+
+    def test_is_layout_blocky_element_returns_false_for_comment_node(self):
+        assert _is_layout_blocky_element(Comment(data="c")) is False
+        assert _is_layout_blocky_element(Node("span")) is False
+        wrapper = Node("span")
+        wrapper.append_child(Text("x"))
+        assert _is_layout_blocky_element(wrapper) is False
+
+    def test_is_layout_blocky_element_true_for_layout_blocks_and_descendants(self):
+        assert _is_layout_blocky_element(Node("div")) is True
+
+        # Descendant scan: wrapper is inline, but contains a layout block (<ul>).
+        wrapper = Node("span")
+        inner = Node("span")
+        inner.append_child(Node("ul"))
+        # Put None last so it gets popped first (covers the None-skip branch).
+        wrapper.children = [inner, None]
+        assert _is_layout_blocky_element(wrapper) is True
+
+        # Grandchild scan path that does not find a layout block.
+        outer = Node("span")
+        mid = Node("span")
+        mid.append_child(Node("em"))
+        outer.append_child(mid)
+        assert _is_layout_blocky_element(outer) is False
+
+    def test_is_layout_blocky_element_returns_false_for_objects_without_children(self):
+        class _NameOnly:
+            name = "span"
+
+        assert _is_layout_blocky_element(_NameOnly()) is False
+
+    def test_pretty_block_container_smart_mode_keeps_small_spacing_inside_run(self):
+        # Ensure smart run-splitting covers whitespace-only nodes inside runs
+        # (" ") and renders inline elements via _node_to_html(..., indent=0).
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Text("\n  "))
+        div.append_child(Text("Hello"))
+        div.append_child(Text(" "))
+        div.append_child(Node("em"))
+        div.append_child(Text(" world"))
+        div.append_child(Text("\n"))
+        div.append_child(Node("a"))
+
+        assert div.to_html(pretty=True) == textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              Hello <em></em> world
+              <a></a>
+            </div>
+            """
+        ).strip("\n")
+
+    def test_pretty_block_container_smart_mode_ignores_leading_and_trailing_formatting_whitespace(self):
+        # Covers trimming of leading/trailing formatting whitespace in smart-mode.
+        div = Node("div")
+        div.append_child(Text("\n"))
+        div.append_child(Node("span"))
+        div.append_child(Text("\n"))
+        div.append_child(Node("a"))
+        div.append_child(Text(" "))
+        div.append_child(Text("Tail"))
+        div.append_child(Text("\n"))
+
+        assert div.to_html(pretty=True) == textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <a></a> Tail
+            </div>
+            """
+        ).strip("\n")
+
+    def test_pretty_block_container_smart_mode_collapses_consecutive_separators(self):
+        # Two adjacent formatting-whitespace text nodes should act like a single separator.
+        div = Node("div")
+
+        # Note: append_child() may merge adjacent text nodes, so set children directly
+        # to guarantee two distinct formatting-whitespace nodes.
+        div.children = [
+            Node("span"),
+            Text("\n"),
+            Text("\n  \t"),
+            Node("a"),
+            # Make the container mixed-content so we actually take the smart
+            # run-splitting path (the simpler multiline indentation path is disabled
+            # when there is non-whitespace text).
+            Text(" Tail"),
+        ]
+
+        assert div.to_html(pretty=True) == textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <a></a> Tail
+            </div>
+            """
+        ).strip("\n")
+
+    def test_pretty_block_container_multiline_mode_skips_none_and_edge_whitespace(self):
+        # Exercise None-child skipping and leading/trailing whitespace-only handling.
+        div = Node("div")
+        ul = Node("ul")
+        ul.append_child(Node("li"))
+        div.children = [
+            None,
+            Text("   "),
+            Text("Text"),
+            ul,
+            Text("   "),
+            None,
+        ]
+
+        assert div.to_html(pretty=True) == textwrap.dedent(
+            """\
+            <div>
+              Text
+              <ul>
+                <li></li>
+              </ul>
+            </div>
+            """
+        ).strip("\n")
+
+    def test_pretty_text_only_element_empty_text_is_dropped(self):
+        h3 = Node("h3")
+        h3.append_child(Text(""))
+        assert h3.to_html(pretty=True) == "<h3></h3>"
+
+    def test_pretty_text_only_script_preserves_whitespace(self):
+        doc = JustHTML("<script>\n  var x = 1;\n\n  var y = 2;\n</script>")
+        script = doc.query("script")[0]
+        assert script.to_html(pretty=True) == ("<script>\n  var x = 1;\n\n  var y = 2;\n</script>")
+
+    def test_script_text_round_trip_does_not_escape_raw_text(self):
+        html = "<!DOCTYPE html><html><head><script>var x = 3 > 5 && y > 1;</script></head><body></body></html>"
+        doc = JustHTML(html, strict=True, sanitize=False)
+
+        assert doc.query("script")[0].to_html(pretty=False) == "<script>var x = 3 > 5 && y > 1;</script>"
+
+        round_tripped = JustHTML(doc.to_html(pretty=False), strict=True, sanitize=False)
+        assert round_tripped.query("script")[0].children[0].data == "var x = 3 > 5 && y > 1;"
+
+    def test_style_text_round_trip_does_not_escape_raw_text(self):
+        html = '<!DOCTYPE html><html><head><style>body::before { content: "a > b & c"; }</style></head><body></body></html>'
+        doc = JustHTML(html, strict=True, sanitize=False)
+
+        assert doc.query("style")[0].to_html(pretty=False) == '<style>body::before { content: "a > b & c"; }</style>'
+
+        round_tripped = JustHTML(doc.to_html(pretty=False), strict=True, sanitize=False)
+        assert round_tripped.query("style")[0].children[0].data == 'body::before { content: "a > b & c"; }'
+
+    def test_legacy_raw_text_elements_round_trip_without_entity_escaping(self):
+        text = "<b>not markup</b> &amp;"
+        for name in ("iframe", "noembed", "noframes", "xmp"):
+            with self.subTest(name=name):
+                html = f"<{name}>{text}</{name}>"
+                doc = JustHTML(html, fragment=True, sanitize=False)
+                assert doc.to_html(pretty=False) == html
+                round_tripped = JustHTML(doc.to_html(pretty=False), fragment=True, sanitize=False)
+                assert round_tripped.query(name)[0].children[0].data == text
+
+    def test_legacy_raw_text_elements_neutralize_programmatic_end_tags(self):
+        for name in ("iframe", "noembed", "noframes", "xmp"):
+            with self.subTest(name=name):
+                element = Node(name)
+                element.append_child(Text(f"</{name}><script>alert(1)</script>"))
+
+                serialized = element.to_html(pretty=False)
+
+                assert f"</{name}><script>" not in serialized.lower()
+                reparsed = JustHTML(serialized, fragment=True, sanitize=False)
+                assert reparsed.query("script") == []
+
+    def test_foreign_elements_with_raw_text_names_escape_text(self):
+        for name in ("iframe", "noembed", "noframes", "script", "style", "xmp"):
+            with self.subTest(name=name):
+                element = Node(name, namespace="svg")
+                element.append_child(Text("<b>markup</b> &amp;"))
+
+                assert element.to_html(pretty=False) == f"<{name}>&lt;b&gt;markup&lt;/b&gt; &amp;amp;</{name}>"
+
+    def test_programmatic_style_text_breakout_is_neutralized(self) -> None:
+        root = Node("div")
+        style = Node("style")
+        style.append_child(Text("</style><img src=x onerror=alert(1)>"))
+        root.append_child(style)
+
+        assert root.to_html(pretty=False) == "<div><style>&lt;/style><img src=x onerror=alert(1)></style></div>"
+
+    def test_programmatic_script_text_breakout_is_neutralized(self) -> None:
+        root = Node("div")
+        script = Node("script")
+        script.append_child(Text("</script><img src=x onerror=alert(1)>"))
+        root.append_child(script)
+
+        assert root.to_html(pretty=False) == "<div><script>&lt;/script><img src=x onerror=alert(1)></script></div>"
+
+    def test_neutralize_rawtext_end_tag_sequences_helper_edge_cases(self) -> None:
+        assert _neutralize_rawtext_end_tag_sequences("", "style") == ""
+        assert _neutralize_rawtext_end_tag_sequences("</stylex>", "style") == "</stylex>"
+
+    def test_neutralize_rawtext_end_tag_sequences_after_length_changing_case_char(self) -> None:
+        assert _neutralize_rawtext_end_tag_sequences("İ</style><img>", "style") == "İ&lt;/style><img>"
+
+    def test_neutralize_rawtext_end_tag_sequences_does_not_unicode_fold_to_ascii(self) -> None:
+        assert _neutralize_rawtext_end_tag_sequences("\u212a</style><img>", "style") == "\u212a&lt;/style><img>"
+
+    def test_compact_mode_does_not_normalize_script_text_children(self):
+        # Artificial tree to cover serializer branch: skip normalization inside rawtext elements.
+        script = Node("script")
+        script.append_child(Text("a\nb"))
+        script.append_child(Node("span"))
+        assert script.to_html(pretty=True) == "<script>a\nb<span></span></script>"
+
+    def test_mixed_children(self):
+        html = "<div>Text <span>Span</span></div>"
+        doc = JustHTML(html)
+        div = doc.query("div")[0]
+        output = div.to_html(pretty=True)
+        assert output == "<div>Text <span>Span</span></div>"
+
+    def test_mixed_children_normalizes_newlines_in_text_nodes(self):
+        html = '<span>100+\n <span class="jsl10n">articles</span></span>'
+        doc = JustHTML(html)
+        outer = doc.query("span")[0]
+        output = outer.to_html(pretty=True)
+        assert "100+ <span" in output
+        assert "100+\n" not in output
+
+        html2 = '<span class="text">\n100+\n <span class="jsl10n">articles</span></span>'
+        doc2 = JustHTML(html2)
+        outer2 = doc2.query("span")[0]
+        output2 = outer2.to_html(pretty=True)
+        assert ">100+ <span" in output2
+
+    def test_mixed_children_preserves_pure_space_runs(self):
+        html = "<p>Hello  <b>world</b></p>"
+        doc = JustHTML(html)
+        p = doc.query("p")[0]
+        assert p.to_html(pretty=True) == "<p>Hello  <b>world</b></p>"
+
+    def test_normalize_formatting_whitespace_empty(self):
+        assert _normalize_formatting_whitespace("") == ""
+
+    def test_normalize_formatting_whitespace_no_formatting_chars(self):
+        assert _normalize_formatting_whitespace("a  b") == "a  b"
+
+    def test_normalize_formatting_whitespace_preserves_double_spaces(self):
+        # Contains a newline (so normalization runs), but the double-space run does
+        # not include formatting whitespace and should be preserved.
+        assert _normalize_formatting_whitespace("a  b\nc") == "a  b c"
+
+    def test_normalize_formatting_whitespace_collapses_newlines_and_tabs(self):
+        assert _normalize_formatting_whitespace("a\n\t  b") == "a b"
+
+    def test_normalize_formatting_whitespace_trims_edges_from_newlines(self):
+        assert _normalize_formatting_whitespace("\n100+\n ") == "100+ "
+        assert _normalize_formatting_whitespace(" hi\n") == " hi"
+
+    def test_pretty_print_does_not_insert_spaces_in_inline_mixed_content(self):
+        html = (
+            '<code class="constructorsynopsis cpp">'
+            '<span class="methodname">BApplication</span>'
+            '(<span class="methodparam">'
+            '<span class="modifier">const </span>'
+            '<span class="type">char* </span>'
+            '<span class="parameter">signature</span>'
+            "</span>);"
+            "</code>"
+        )
+        doc = JustHTML(html)
+        code = doc.query("code")[0]
+
+        pretty_html = code.to_html(pretty=True)
+        assert "</span>(<span" in pretty_html
+
+        rendered_text = JustHTML(pretty_html).to_text(separator="", strip=False)
+        assert rendered_text == "BApplication(const char* signature);"
+
+    def test_pretty_print_preserves_formatting_whitespace_before_inline_element(self):
+        doc = JustHTML("<p>hello\n<code>world</code></p>", fragment=True)
+
+        assert doc.to_html() == "<p>hello <code>world</code></p>"
+
+    def test_pretty_print_preserves_formatting_whitespace_after_inline_element(self):
+        doc = JustHTML("<p><code>hello</code>\nworld</p>", fragment=True)
+
+        assert doc.to_html() == "<p><code>hello</code> world</p>"
+
+    def test_empty_attributes(self):
+        html = "<input disabled>"
+        doc = JustHTML(html)
+        output = doc.to_html()
+        assert "<input disabled>" in output
+
+    def test_none_attributes(self):
+        # Manually create node with None attribute value
+        node = Node("div")
+        node.attrs = {"data-test": None}
+        output = to_html(node)
+        assert "<div data-test></div>" in output
+
+    def test_empty_string_attribute(self):
+        html = '<div data-val=""></div>'
+        doc = JustHTML(html)
+        output = doc.to_html()
+        assert "<div data-val></div>" in output
+
+    def test_boolean_attribute_value_case_insensitive_minimization(self):
+        # Attribute values that match the attribute name case-insensitively should be minimized.
+        assert serialize_start_tag("input", {"disabled": "DISABLED"}) == "<input disabled>"
+
+    def test_non_boolean_attribute_matching_its_name_is_not_minimized(self):
+        assert serialize_start_tag("p", {"id": "id"}) == '<p id="id">'
+        assert serialize_start_tag("div", {"disabled": "disabled"}) == '<div disabled="disabled">'
+
+    def test_current_boolean_attributes_are_minimized_for_their_html_elements(self):
+        cases = (
+            ("div", "autofocus"),
+            ("section", "headingreset"),
+            ("input", "alpha"),
+            ("img", "controls"),
+            ("template", "shadowrootcustomelementregistry"),
+        )
+        for name, attribute in cases:
+            with self.subTest(name=name, attribute=attribute):
+                assert serialize_start_tag(name, {attribute: attribute.upper()}) == f"<{name} {attribute}>"
+
+    def test_non_boolean_and_foreign_attributes_are_not_minimized(self):
+        assert serialize_start_tag("iframe", {"credentialless": "credentialless"}) == (
+            '<iframe credentialless="credentialless">'
+        )
+        assert serialize_start_tag("input", {"disabled": "disabled"}, namespace="svg") == (
+            '<input disabled="disabled">'
+        )
+
+    def test_serialize_start_tag_quotes(self):
+        # Prefer single quotes if the value contains a double quote but no single quote
+        tag = serialize_start_tag("span", {"title": 'foo"bar'})
+        assert tag == "<span title='foo\"bar'>"
+
+        # Otherwise use double quotes and escape embedded double quotes
+        tag = serialize_start_tag("span", {"title": "foo'bar\"baz"})
+        assert tag == '<span title="foo\'bar&quot;baz">'
+
+        # Always quote normal attribute values
+        assert serialize_start_tag("span", {"title": "foo"}) == '<span title="foo">'
+
+    def test_serialize_start_tag_unquoted_mode_and_escape_lt(self):
+        # In unquoted mode, escape '&' and '<'.
+        assert (
+            serialize_start_tag(
+                "span",
+                {"title": "a<b&c"},
+                quote_attr_values=False,
+            )
+            == "<span title=a&lt;b&amp;c>"
+        )
+
+    def test_serialize_start_tag_none_attr_non_minimized(self):
+        # When boolean minimization is disabled, None becomes an explicit empty value.
+        assert (
+            serialize_start_tag(
+                "span",
+                {"disabled": None},
+                minimize_boolean_attributes=False,
+            )
+            == '<span disabled="">'
+        )
+
+    def test_serialize_start_tag_void_trailing_solidus_with_attrs(self):
+        assert (
+            serialize_start_tag(
+                "input",
+                {"type": "text"},
+                use_trailing_solidus=True,
+                is_void=True,
+            )
+            == '<input type="text" />'
+        )
+
+    def test_serialize_start_tag_rejects_unsafe_attribute_names(self):
+        with self.assertRaisesRegex(ValueError, "Unsafe attribute name"):
+            serialize_start_tag("div", {"x onmouseover=alert(1)": "1"})
+
+        with self.assertRaisesRegex(ValueError, "Unsafe attribute name"):
+            serialize_start_tag("div", {"title><img": "1"})
+
+    def test_serialize_end_tag(self):
+        assert serialize_end_tag("span") == "</span>"
+
+    def test_serialize_end_tag_rejects_unsafe_element_name(self):
+        with self.assertRaisesRegex(ValueError, "Unsafe element name"):
+            serialize_end_tag("div><img")
+
+    def test_programmatic_dom_serialization_rejects_unsafe_names(self):
+        with self.assertRaisesRegex(ValueError, "Unsafe attribute name"):
+            Node("div", attrs={"title> <img src=x onerror=alert(1)": "y"}).to_html(pretty=False)
+
+        with self.assertRaisesRegex(ValueError, "Unsafe element name"):
+            Node("div><img src=x onerror=alert(1)", attrs={}).to_html(pretty=False)
+
+        assert Node("!doctype", data="html><img src=x onerror=alert(1)").to_html(pretty=False) == "<!DOCTYPE>"
+
+    def test_malformed_doctype_names_serialize_without_raising(self):
+        cases = [
+            ("<!DOCTYPE ...>Hello", "<!DOCTYPE><html><head></head><body>Hello</body></html>"),
+            (
+                "<!DOCTYPE <!DOCTYPE HTML>><!--<!--x-->-->",
+                "<!DOCTYPE><html><head></head><body>&gt;--&gt;</body></html>",
+            ),
+        ]
+        for html, expected in cases:
+            with self.subTest(html=html):
+                assert _JustHTML(html).to_html(pretty=False) == expected
+                assert _JustHTML(html, collect_errors=True).to_html(pretty=False) == expected
+
+    def test_serializer_private_helpers_none(self):
+        assert _escape_text(None) == ""
+        assert _choose_attr_quote(None) == '"'
+        assert _escape_attr_value(None, '"') == ""
+
+        # Covered for branch completeness: unquote check rejects None.
+        assert _can_unquote_attr_value(None) is False
+
+    def test_mixed_content_whitespace(self):
+        html = "<div>   <p></p></div>"
+        doc = JustHTML(html)
+        output = doc.to_html()
+        assert "<div>" in output
+        assert "<p></p>" in output
+
+    def test_pretty_indent_skips_whitespace_text_nodes(self):
+        div = Node("div")
+        div.append_child(Text("\n  "))
+        div.append_child(Node("p"))
+        div.append_child(Text("\n"))
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <p></p>
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_pretty_indent_children_indents_inline_elements_in_block_containers(self):
+        div = Node("div")
+        div.append_child(Node("span"))
+        output = div.to_html(pretty=True)
+        assert output == "<div>\n  <span></span>\n</div>"
+
+    def test_pretty_indent_children_indents_adjacent_inline_elements_in_block_containers(self):
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Node("em"))
+        output = div.to_html(pretty=True)
+        assert output == "<div>\n  <span></span>\n  <em></em>\n</div>"
+
+    def test_compact_pretty_collapses_large_whitespace_gaps(self):
+        # Two adjacent inline children are rendered in compact mode.
+        # For block-ish containers with whitespace separators, compact pretty upgrades
+        # to a multiline layout for readability.
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Text("     "))
+        div.append_child(Node("span"))
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <span></span>
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_compact_pretty_collapses_newline_whitespace_to_single_space(self):
+        # Newlines/tabs between inline siblings upgrade to multiline layout.
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Text("\n  \t"))
+        div.append_child(Node("span"))
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <span></span>
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_should_pretty_indent_children_no_element_children(self):
+        children = [Text("  "), Text("\n")]
+        assert _should_pretty_indent_children(children) is True
+
+    def test_should_pretty_indent_children_skips_none_children(self):
+        # Defensive: children lists can contain None.
+        children = [None, Text(" "), None]
+        assert _should_pretty_indent_children(children) is True
+
+    def test_should_pretty_indent_children_single_special_element_child(self):
+        # Single block-ish child should allow indentation.
+        children = [Node("div")]
+        assert _should_pretty_indent_children(children) is True
+
+    def test_should_pretty_indent_children_single_inline_element_child(self):
+        # Single inline/phrasing child should *not* allow indentation.
+        children = [Node("span")]
+        assert _should_pretty_indent_children(children) is False
+
+    def test_should_pretty_indent_children_single_inline_child_with_block_descendant(self):
+        # Inline wrapper that contains block-ish content should be treated as block-ish.
+        wrapper = Node("span")
+        wrapper.append_child(Node("div"))
+        assert _should_pretty_indent_children([wrapper]) is True
+
+    def test_should_pretty_indent_children_allows_adjacent_blocky_inline_children(self):
+        # Two inline elements that both contain block-ish descendants should allow indentation.
+        a1 = Node("a")
+        a1.append_child(Node("div"))
+        a2 = Node("a")
+        a2.append_child(Node("div"))
+        assert _should_pretty_indent_children([a1, a2]) is True
+
+    def test_is_blocky_element_returns_false_for_objects_without_name(self):
+        assert _is_blocky_element(object()) is False
+
+    def test_is_blocky_element_scans_grandchildren(self):
+        # Ensure the descendant scanning path is exercised even when no block-ish
+        # elements are found.
+        outer = Node("span")
+        mid = Node("span")
+        mid.append_child(Node("em"))
+        outer.append_child(mid)
+        assert _is_blocky_element(outer) is False
+
+    def test_should_pretty_indent_children_single_anchor_with_special_grandchild(self):
+        # Anchor wrapping block-ish content should be treated as block-ish.
+        link = Node("a")
+        link.children = [None, Node("div")]
+        assert _should_pretty_indent_children([link]) is True
+
+    def test_compact_pretty_preserves_small_spacing_exactly(self):
+        # When there is already whitespace separating element siblings in a block-ish
+        # container, prefer multiline formatting over preserving exact whitespace.
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Text("  "))
+        div.append_child(Node("span"))
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <span></span>
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_compact_pretty_skips_none_children(self):
+        div = Node("div")
+        # Manually inject a None child to exercise defensive branch.
+        div.children = [Node("span"), None, Node("em")]
+        output = div.to_html(pretty=True)
+        assert output == "<div>\n  <span></span>\n  <em></em>\n</div>"
+
+    def test_compact_pretty_drops_empty_text_children(self):
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Text(""))
+        div.append_child(Node("span"))
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <span></span>
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_compact_pretty_drops_leading_and_trailing_whitespace(self):
+        div = Node("div")
+        div.append_child(Text(" \n"))
+        div.append_child(Node("a"))
+        div.append_child(Text(" \t\n"))
+        output = div.to_html(pretty=True)
+        assert output == "<div>\n  <a></a>\n</div>"
+
+    def test_pretty_block_container_puts_comments_on_their_own_lines(self):
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Text(" "))
+        div.append_child(Comment(data="x"))
+        div.append_child(Text(" "))
+        div.append_child(Node("span"))
+        output = div.to_html(pretty=True)
+        assert output == textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <!--x-->
+              <span></span>
+            </div>
+            """
+        ).strip("\n")
+
+    def test_pretty_document_preserves_paragraph_line_breaks_when_body_has_comment(self):
+        doc = JustHTML(
+            "<!doctype html><html><body><!-- c --><p>One</p>\n<p>Two</p></body></html>",
+            sanitize=False,
+        )
+
+        output = doc.to_html(pretty=True)
+        assert output == textwrap.dedent(
+            """\
+            <!DOCTYPE html>
+            <html>
+              <head></head>
+              <body>
+                <!-- c -->
+                <p>One</p>
+                <p>Two</p>
+              </body>
+            </html>
+            """
+        ).strip("\n")
+
+    def test_blockish_compact_multiline_not_used_with_non_whitespace_text(self):
+        div = Node("div")
+        div.append_child(Node("span"))
+        div.append_child(Text("hi"))
+        div.append_child(Text(" "))
+        div.append_child(Node("span"))
+        output = div.to_html(pretty=True)
+        assert output == "<div><span></span>hi <span></span></div>"
+
+    def test_blockish_compact_multiline_allows_trailing_text(self):
+        div = Node("div")
+        div.append_child(Node("div"))
+        div.append_child(Text(" "))
+        div.append_child(Node("div"))
+        div.append_child(Text(" Collapse\n"))
+
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <div></div>
+              <div></div>
+              Collapse
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_blockish_compact_multiline_skips_when_inner_lines_are_empty(self):
+        # Exercise the multiline eligibility path where it matches, but each
+        # child renders to an empty string (so we fall back to compact mode).
+        div = Node("div")
+        frag1 = DocumentFragment()
+        frag1.append_child(Text("  "))
+        frag2 = DocumentFragment()
+        frag2.append_child(Text("\n"))
+        div.children = [frag1, Text(" "), frag2]
+
+        output = div.to_html(pretty=True)
+        assert output == "<div> </div>"
+
+    def test_blockish_compact_multiline_skips_none_children(self):
+        div = Node("div")
+        div.children = [Node("span"), Text(" "), None, Node("span")]
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <span></span>
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_blockish_compact_multiline_skips_none_children_with_trailing_text(self):
+        # Exercise the multiline-eligibility path that allows trailing non-whitespace text,
+        # while also skipping None children in both scanning and rendering loops.
+        div = Node("div")
+        div.children = [
+            Node("span"),
+            Text(" "),
+            None,
+            Node("span"),
+            Text(" trailing\n"),
+        ]
+        output = div.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <span></span>
+              <span></span>
+              trailing
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_compact_mode_collapses_newline_whitespace_for_inline_container(self):
+        # For non-block containers, we stay in compact mode and collapse
+        # formatting whitespace to a single space.
+        outer = Node("span")
+        outer.append_child(Node("span"))
+        outer.append_child(Text("\n  \t"))
+        outer.append_child(Node("span"))
+        output = outer.to_html(pretty=True)
+        assert output == "<span><span></span> <span></span></span>"
+
+    def test_pretty_comment_multiline_drops_edge_whitespace_with_none_children(self):
+        # Ensure whitespace edge trimming is robust with None children.
+        div = Node("div")
+        div.children = [
+            Text(" \n"),
+            Node("a"),
+            Comment(data="x"),
+            Text(" \t\n"),
+            None,
+        ]
+        output = div.to_html(pretty=True)
+        assert output == textwrap.dedent(
+            """\
+            <div>
+              <a></a>
+              <!--x-->
+            </div>
+            """
+        ).strip("\n")
+
+    def test_compact_comment_text_mode_drops_edge_whitespace_with_none_children(self):
+        div = Node("div")
+        div.children = [
+            None,
+            Text(" \n"),
+            Comment(data="x"),
+            Text("hi"),
+            Text(" \t\n"),
+            None,
+        ]
+        output = div.to_html(pretty=True)
+        assert output == "<div><!--x-->hi</div>"
+
+    def test_pretty_indentation_skips_whitespace_text_nodes(self):
+        # Hit the indentation-mode branch that skips whitespace-only text nodes.
+        outer = Node("span")
+        outer.children = [Node("div"), Text(" \n\t"), Node("div")]
+        output = outer.to_html(pretty=True)
+        assert output == "<span>\n  <div></div>\n  <div></div>\n</span>"
+
+    def test_indents_single_anchor_child_when_anchor_wraps_block_elements(self):
+        container = Node("div")
+        link = Node("a")
+        link.append_child(Node("div"))
+        link.append_child(Node("div"))
+        container.append_child(link)
+
+        output = container.to_html(pretty=True)
+        expected = textwrap.dedent(
+            """\
+            <div>
+              <a>
+                <div></div>
+                <div></div>
+              </a>
+            </div>
+            """
+        ).strip("\n")
+        assert output == expected
+
+    def test_single_anchor_child_not_blockish_without_special_grandchildren(self):
+        link = Node("a")
+        link.children = [None, Node("span")]
+        assert _should_pretty_indent_children([link]) is False
+
+    def test_single_anchor_child_not_blockish_without_grandchildren(self):
+        link = Node("a")
+        link.children = []
+        assert _should_pretty_indent_children([link]) is False
+
+    def test_should_pretty_indent_children_rejects_comments(self):
+        assert _should_pretty_indent_children([Comment(data="x")]) is False
+
+    def test_pretty_indent_children_indents_comments(self):
+        div = Node("div")
+        div.append_child(Comment(data="x"))
+        div.append_child(Node("p"))
+        output = div.to_html(pretty=True)
+        assert output == textwrap.dedent(
+            """\
+            <div>
+              <!--x-->
+              <p></p>
+            </div>
+            """
+        ).strip("\n")
+
+    def test_whitespace_in_fragment(self):
+        frag = DocumentFragment()
+        # Node constructor: name, attrs=None, data=None, namespace=None
+        text_node = Text("   ")
+        frag.append_child(text_node)
+        output = to_html(frag)
+        assert output == ""
+
+    def test_text_node_pretty_strips_and_renders(self):
+        frag = DocumentFragment()
+        frag.append_child(Text("  hi  "))
+        output = to_html(frag, pretty=True)
+        assert output == "hi"
+
+    def test_empty_text_node_is_dropped_when_not_pretty(self):
+        div = Node("div")
+        div.append_child(Text(""))
+        output = to_html(div, pretty=False)
+        assert output == "<div></div>"
+
+    def test_element_with_nested_children(self):
+        # Test serialize.py line 82->86: all_text branch when NOT all text
+        html = "<div><span>inner</span></div>"
+        doc = JustHTML(html)
+        output = doc.to_html()
+        assert "<div>" in output
+        assert "<span>inner</span>" in output
+        assert "</div>" in output
+
+    def test_element_without_attributes(self):
+        # Test serialize.py line 82->86: attr_parts is empty (no attributes)
+        node = Node("div")
+        text_node = Text("hello")
+        node.append_child(text_node)
+        output = to_html(node)
+        assert output == "<div>hello</div>"
+
+    def test_to_test_format_single_element(self):
+        # Test to_test_format on non-document node (line 102)
+        node = Node("div")
+        output = to_test_format(node)
+        assert output == "| <div>"
+
+    def test_to_test_format_template_with_attributes(self):
+        # Test template with attributes (line 126)
+        template = Template("template", namespace="html")
+        template.attrs = {"id": "t1"}
+        child = Node("p")
+        template.template_content.append_child(child)
+        output = to_test_format(template)
+        assert "| <template>" in output
+        assert '|   id="t1"' in output
+        assert "|   content" in output
+        assert "|     <p>" in output
+
+    def test_escape_js_string_invalid_quote(self):
+        with self.assertRaises(ValueError):
+            _JustHTML.escape_js_string("test", quote="x")
+
+    def test_escape_attr_value_invalid_quote(self):
+        with self.assertRaises(ValueError):
+            _JustHTML.escape_attr_value("test", quote="x")
+
+    def test_to_html_html_attr_value_context_invalid_quote(self):
+        doc = JustHTML("<b>Hi</b>", fragment=True)
+        with self.assertRaises(ValueError):
+            doc.to_html(pretty=False, context=HTMLContext.HTML_ATTR_VALUE, quote="x")
+
+    def test_clean_url_value_not_urlrule(self):
+        with self.assertRaises(TypeError):
+            _JustHTML.clean_url_value(value="https://example.com/", url_rule="not a rule")
+
+    def test_clean_url_value_proxy_without_config(self):
+        with self.assertRaises(ValueError):
+            rule = UrlRule(allowed_schemes={"https"}, handling="proxy")
+            _JustHTML.clean_url_value(value="https://example.com/", url_rule=rule)
+
+    def test_escape_js_string_special_chars(self):
+        # Test all special escape sequences
+        result = _JustHTML.escape_js_string("\\back\nline\rret\ttab\bbell\fform\u2028ls\u2029ps", quote='"')
+        assert result == "\\\\back\\nline\\rret\\ttab\\bbell\\fform\\u2028ls\\u2029ps"
+
+        # Test empty string
+        assert _JustHTML.escape_js_string("", quote='"') == ""
+
+    def test_escape_html_text_in_js_string_empty(self):
+        assert _JustHTML.escape_html_text_in_js_string("", quote='"') == ""
+
+    def test_escape_url_value_empty(self):
+        assert _JustHTML.escape_url_value("") == ""
+
+    def test_pretty_nested_inline_markup_scales_linearly(self):
+        assert_scales_linearly(
+            lambda size: _JustHTML("<span>" * size + "x", sanitize=False).root,
+            lambda root: root.to_html(pretty=True),
+        )
+
+    def test_pretty_nested_inline_around_block_scales_linearly(self):
+        assert_scales_linearly(
+            lambda size: _JustHTML("<span>" * size + "<div>x", sanitize=False).root,
+            lambda root: root.to_html(pretty=True),
+        )
+
+    def test_block_descendant_lookup_folds_only_large_subtrees(self):
+        """Small subtrees answer directly; only large ones pay for a fold.
+
+        Nearly every subtree in a real document is small, so recording an answer
+        for each of its descendants would cost more than the walk it saves. The
+        fold exists for the deep shapes the scaling tests above cover.
+        """
+
+        def fragment(html):
+            return _JustHTML(html, fragment=True, sanitize=False).root
+
+        small = fragment("<span>" * 4 + "x")
+        memo = {}
+        assert not _has_block_descendant(small, SPECIAL_ELEMENTS, memo)
+        assert list(memo) == [small]
+
+        deep = fragment("<span>" * (_BLOCK_SCAN_BUDGET * 2) + "x")
+        memo = {}
+        assert not _has_block_descendant(deep, SPECIAL_ELEMENTS, memo)
+        assert len(memo) > 1
+
+        # A block anywhere below still reports, folded or not.
+        assert _has_block_descendant(fragment("<span>" * 4 + "<div>x"), SPECIAL_ELEMENTS, {})
+        assert _has_block_descendant(fragment("<span>" * (_BLOCK_SCAN_BUDGET * 2) + "<div>x"), SPECIAL_ELEMENTS, {})
+
+        # The fold walks whatever the tree holds: an empty element contributes
+        # nothing and is never pushed, and a hole left by a detached child is
+        # skipped on the way down and again when the answer is composed.
+        holed = fragment("<span>" * (_BLOCK_SCAN_BUDGET * 2) + "<em></em>x")
+        innermost = holed
+        while innermost.children and innermost.children[0].name == "span":
+            innermost = innermost.children[0]
+        assert [child.name for child in innermost.children] == ["em", "#text"]
+        innermost.children = [None, *innermost.children]
+        memo = {}
+        assert not _has_block_descendant(holed, SPECIAL_ELEMENTS, memo)
+        assert len(memo) > 1
+
+
+if __name__ == "__main__":
+    unittest.main()

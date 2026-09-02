@@ -65,11 +65,11 @@ class Predictions(APIObject):
     Attributes
     ----------
     project_id : str
-        id of the project the model belongs to
+        The ID of the project the model belongs to.
     model_id : str
-        id of the model
+        The ID of the model.
     prediction_id : str
-        id of generated predictions
+        The ID of generated predictions.
     includes_prediction_intervals : Optional[bool]
         (New in v2.16) For :ref:`time series <time-series>` projects only.
         Indicates if prediction intervals will be part of the response. Defaults to False.
@@ -251,11 +251,11 @@ class Predictions(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project
+            The ID of the project.
         model_id : Optional[str]
-            if specified, only predictions metadata for this model will be retrieved
+            If specified, only predictions metadata for this model will be retrieved.
         dataset_id : Optional[str]
-            if specified, only predictions metadata for this dataset will be retrieved
+            If specified, only predictions metadata for this dataset will be retrieved.
 
         Returns
         -------
@@ -278,9 +278,9 @@ class Predictions(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project the model belongs to.
         prediction_id : str
-            id of the prediction set
+            The ID of the prediction set.
 
         Returns
         -------
@@ -304,7 +304,7 @@ class Predictions(APIObject):
         ----------
         class_prefix : Optional[str]
             The prefix to append to labels in the final dataframe. Default is ``class_``
-            (e.g., apple -> class_apple)
+            (e.g., apple -> ``class_apple``).
         serializer : Optional[str]
             Serializer to use for the download. Options: ``json`` (default) or ``csv``.
 
@@ -315,9 +315,9 @@ class Predictions(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         serializers = {
             "json": self._get_all_as_dataframe_json,
@@ -348,15 +348,15 @@ class Predictions(APIObject):
 
     def download_to_csv(self, filename: Union[str, bool], encoding: str = "utf-8", serializer: str = "json") -> None:
         """
-        Save prediction rows into CSV file.
+        Saves the prediction rows into a CSV file.
 
         Parameters
         ----------
         filename : str or file object
-            path or file object to save prediction rows
+            The path or file object used to save prediction rows.
         encoding : string, optional
-            A string representing the encoding to use in the output file, defaults to
-            'utf-8'
+            A string representing the encoding to use in the output file. Defaults to
+            ``utf-8``.
         serializer : Optional[str]
             Serializer to use for the download. Options: ``json`` (default) or ``csv``.
         """

@@ -1,0 +1,77 @@
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
+
+[project]
+name = "inertia-django"
+version = "2.0.0"
+description = "Django adapter for the InertiaJS framework"
+license = "MIT"
+requires-python = ">=3.10"
+readme = "README.md"
+keywords = [
+    "inertia",
+    "inertiajs",
+    "django",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.1",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = ["django>=5.2"]
+
+[[project.authors]]
+name = "Brandon Shar"
+
+[project.urls]
+Homepage = "https://github.com/inertiajs/inertia-django"
+Repository = "https://github.com/inertiajs/inertia-django"
+
+[project.optional-dependencies]
+ssr = ["requests>=2"]
+
+[dependency-groups]
+dev = [
+    "django-stubs[compatible-mypy]>=5.2.2,<6.0.0",
+    "mypy>=1.17.0,<2.0.0",
+    "pytest>=8.3.5,<9.0.0",
+    "pytest-cov>=6.0.0,<7.0.0",
+    "pytest-django>=4.10.0,<5.0.0",
+    "ruff>=0.11.2,<0.12.0",
+    "types-requests>=2.32.4.20250611,<3.0.0",
+]
+
+[tool.uv.build-backend]
+module-name = "inertia"
+module-root = ""
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "B",
+    "SIM",
+    "I",
+]
+ignore = ["E501"]
+unfixable = [
+    "B",
+    "SIM",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "inertia.tests.settings"
+django_find_project = false
+
+[tool.mypy]
+plugins = ["mypy_django_plugin.main"]
+strict = true
+exclude = ["inertia/test.*"]
+
+[tool.django-stubs]
+django_settings_module = "inertia.tests.settings"

@@ -1,0 +1,563 @@
+"""Tests for agentic_devtools.state.set_context_value."""
+
+from unittest.mock import patch
+
+import pytest
+
+from agentic_devtools import state
+
+
+class TestSetContextValue:
+    """Tests for set_context_value function."""
+
+    def test_set_context_value_rejects_non_context_keys(self, temp_state_dir):
+        """Test that set_context_value only accepts context keys."""
+        with pytest.raises(ValueError, match="set_context_value only accepts"):
+            state.set_context_value("some_other_key", "value")
+
+    def test_set_context_value_pull_request_id(self, temp_state_dir):
+        """Test setting pull_request_id via set_context_value."""
+        result = state.set_context_value("pull_request_id", 12345, verbose=False)
+
+        assert result is True
+        assert state.get_value("pull_request_id") == 12345
+
+    def test_set_context_value_jira_issue_key(self, temp_state_dir):
+        """Test setting jira.issue_key via set_context_value."""
+        result = state.set_context_value("jira.issue_key", "PROJECT-1234", verbose=False)
+
+        assert result is True
+        assert state.get_value("jira.issue_key") == "PROJECT-1234"
+
+    def test_set_context_value_jira_issue_key_change_preserves_non_context_state(self, temp_state_dir):
+        """Test changing jira.issue_key preserves non-context state but clears counterpart."""
+        state.set_value("jira.issue_key", "PROJECT-OLD")
+        state.set_value("pull_request_id", 12345)
+        state.set_value("other_data", "should survive")
+
+        with patch.object(state, "_trigger_cross_lookup"):
+            result = state.set_context_value("jira.issue_key", "PROJECT-NEW", verbose=False)
+
+        assert result is True
+        assert state.get_value("jira.issue_key") == "PROJECT-NEW"
+        assert state.get_value("pull_request_id") is None  # counterpart cleared
+        assert state.get_value("other_data") == "should survive"
+
+    def test_set_context_value_no_change_returns_false(self, temp_state_dir):
+        """Test that setting same value returns False (no change)."""
+        state.set_value("pull_request_id", 12345)
+
+        result = state.set_context_value("pull_request_id", 12345, verbose=False)
+
+        assert result is False
+
+    def test_set_context_value_no_change_preserves_other_state(self, temp_state_dir):
+        """Test that setting same value doesn't clear other state."""
+        state.set_value("pull_request_id", 12345)
+        state.set_value("other_key", "should_persist")
+
+        state.set_context_value("pull_request_id", 12345, verbose=False)
+
+        assert state.get_value("other_key") == "should_persist"
+
+    def test_set_context_value_change_does_not_clear_temp(self, temp_state_dir):
+        """Test that changing context value does NOT clear temp folder."""
+        state.set_value("pull_request_id", 12345)
+        state.set_value("other_key", "should_survive")
+
+        (temp_state_dir / "temp-data.json").write_text("{}", encoding="utf-8")
+
+        with patch.object(state, "_trigger_cross_lookup"):
+            result = state.set_context_value("pull_request_id", 99999, verbose=False)
+
+        assert result is True
+        assert state.get_value("pull_request_id") == 99999
+        assert state.get_value("other_key") == "should_survive"
+        assert (temp_state_dir / "temp-data.json").exists()
+
+    def test_set_context_value_change_clears_stale_counterpart(self, temp_state_dir):
+        """Test that context switch clears the stale counterpart key."""
+        state.set_value("pull_request_id", 12345)
+        state.set_value("jira.issue_key", "PROJECT-OLD")
+
+        with patch.object(state, "_trigger_cross_lookup"):
+            state.set_context_value("pull_request_id", 99999, verbose=False)
+
+        assert state.get_value("pull_request_id") == 99999
+        assert state.get_value("jira.issue_key") is None  # stale counterpart cleared
+
+    def test_set_context_value_counterpart_clear_noop_when_absent(self, temp_state_dir):
+        """Test counterpart clearing is a no-op when no counterpart key exists."""
+        with patch.object(state, "_trigger_cross_lookup"):
+            state.set_context_value("pull_request_id", 12345, verbose=False)
+
+        assert state.get_value("pull_request_id") == 12345
+        assert state.get_value("jira.issue_key") is None
+
+    def test_set_context_value_handles_non_dict_nested_counterpart(self, temp_state_dir):
+        """Counterpart nested delete is a no-op when parent exists but is non-dict."""
+        state.save_state({"jira": "not-a-dict", "pull_request_id": 1})
+        state.set_context_value("pull_request_id", 2, verbose=False)
+        assert state.get_value("pull_request_id") == 2
+        assert state.get_value("jira") == "not-a-dict"
+
+    def test_set_context_value_single_save_cycle(self, temp_state_dir):
+        """Test that set + counterpart delete happen in a single save_state call."""
+        state.set_value("pull_request_id", 12345)
+        state.set_value("jira.issue_key", "PROJECT-OLD")
+
+        with patch.object(state, "_trigger_cross_lookup"):
+            with patch.object(state, "save_state", wraps=state.save_state) as spy:
+                state.set_context_value("pull_request_id", 99999, verbose=False)
+
+                assert spy.call_count == 1
+                # The single save_state call should contain the new key and
+                # lack the counterpart — both mutations in one write.
+                saved_dict = spy.call_args[0][0]
+                assert saved_dict["pull_request_id"] == 99999
+                assert "issue_key" not in saved_dict.get("jira", {})
+
+    def test_set_context_value_string_to_int_comparison(self, temp_state_dir):
+        """Test that string/int values are normalized for comparison."""
+        state.set_value("pull_request_id", "12345")
+
+        result = state.set_context_value("pull_request_id", 12345, verbose=False)
+
+        assert result is False
+
+    def test_set_context_value_triggers_cross_lookup(self, temp_state_dir):
+        """Test that set_context_value triggers cross-lookup when enabled."""
+        with patch.object(state, "_trigger_cross_lookup") as mock_lookup:
+            state.set_context_value(
+                "pull_request_id",
+                12345,
+                verbose=False,
+                trigger_cross_lookup=True,
+            )
+
+            mock_lookup.assert_called_once_with("pull_request_id", 12345, False)
+
+    def test_set_context_value_no_cross_lookup_when_disabled(self, temp_state_dir):
+        """Test that cross-lookup is not triggered when disabled."""
+        with patch.object(state, "_trigger_cross_lookup") as mock_lookup:
+            state.set_context_value(
+                "pull_request_id",
+                12345,
+                verbose=False,
+                trigger_cross_lookup=False,
+            )
+
+            mock_lookup.assert_not_called()
+
+    def test_set_context_value_no_cross_lookup_on_same_value(self, temp_state_dir):
+        """Test that cross-lookup is not triggered when value unchanged."""
+        state.set_value("pull_request_id", 12345)
+
+        with patch.object(state, "_trigger_cross_lookup") as mock_lookup:
+            state.set_context_value(
+                "pull_request_id",
+                12345,
+                verbose=False,
+                trigger_cross_lookup=True,
+            )
+
+            mock_lookup.assert_not_called()
+
+    def test_set_context_value_issue_key_no_cross_lookup(self, temp_state_dir):
+        """Test that issue_key does NOT trigger cross-lookup even when enabled."""
+        with patch.object(state, "_trigger_cross_lookup") as mock_lookup:
+            state.set_context_value(
+                "issue_key",
+                "42",
+                verbose=False,
+                trigger_cross_lookup=True,
+            )
+
+            mock_lookup.assert_not_called()
+
+    def test_set_context_value_verbose_output(self, temp_state_dir, capsys):
+        """Test verbose output during context switching."""
+        state.set_value("pull_request_id", 12345)
+
+        with patch.object(state, "_trigger_cross_lookup"):
+            state.set_context_value("pull_request_id", 99999, verbose=True)
+
+        captured = capsys.readouterr()
+        assert "Context switch" in captured.out
+        assert "12345" in captured.out
+        assert "99999" in captured.out
+        assert "Clearing temp folder" not in captured.out
+
+    def test_set_context_value_verbose_first_set(self, temp_state_dir, capsys):
+        """Test verbose output when setting context for first time."""
+        with patch.object(state, "_trigger_cross_lookup"):
+            state.set_context_value("pull_request_id", 12345, verbose=True)
+
+        captured = capsys.readouterr()
+        assert "Setting context" in captured.out
+        assert "12345" in captured.out
+
+    def test_set_context_value_verbose_unchanged(self, temp_state_dir, capsys):
+        """Test verbose output when value unchanged."""
+        state.set_value("pull_request_id", 12345)
+
+        state.set_context_value("pull_request_id", 12345, verbose=True)
+
+        captured = capsys.readouterr()
+        assert "unchanged" in captured.out
+
+
+class TestSetContextValueIssueKey:
+    """Tests for issue_key as a context-switch key in set_context_value."""
+
+    def test_set_context_value_issue_key(self, temp_state_dir):
+        """Test setting issue_key via set_context_value."""
+        result = state.set_context_value("issue_key", "42", verbose=False)
+
+        assert result is True
+        assert state.get_value("issue_key") == "42"
+
+    def test_issue_key_clears_pull_request_id(self, temp_state_dir):
+        """Test that setting issue_key clears pull_request_id."""
+        state.set_value("pull_request_id", 12345)
+
+        with patch.object(state, "_trigger_cross_lookup"):
+            state.set_context_value("issue_key", "42", verbose=False)
+
+        assert state.get_value("issue_key") == "42"
+        assert state.get_value("pull_request_id") is None
+
+    def test_issue_key_does_not_clear_jira_issue_key(self, temp_state_dir):
+        """Test that setting issue_key does NOT clear jira.issue_key.
+
+        Both represent issue context; neither clears the other for backward
+        compatibility — they may coexist with different values.
+        """
+        state.set_value("jira.issue_key", "PROJECT-1234")
+
+        with patch.object(state, "_trigger_cross_lookup"):
+            state.set_context_value("issue_key", "42", verbose=False)
+
+        assert state.get_value("issue_key") == "42"
+        assert state.get_value("jira.issue_key") == "PROJECT-1234"
+
+    def test_pull_request_id_clears_both_issue_keys(self, temp_state_dir):
+        """Test that setting pull_request_id clears both issue_key and jira.issue_key."""
+        state.set_value("issue_key", "42")
+        state.set_value("jira.issue_key", "PROJECT-1234")
+
+        with patch.object(state, "_trigger_cross_lookup"):
+            state.set_context_value("pull_request_id", 99999, verbose=False)
+
+        assert state.get_value("pull_request_id") == 99999
+        assert state.get_value("issue_key") is None
+        assert state.get_value("jira.issue_key") is None
+
+    def test_jira_issue_key_does_not_clear_issue_key(self, temp_state_dir):
+        """Test that setting jira.issue_key does NOT clear issue_key."""
+        state.set_value("issue_key", "42")
+
+        with patch.object(state, "_trigger_cross_lookup"):
+            state.set_context_value("jira.issue_key", "PROJECT-1234", verbose=False)
+
+        assert state.get_value("jira.issue_key") == "PROJECT-1234"
+        assert state.get_value("issue_key") == "42"
+
+    def test_issue_key_no_change_returns_false(self, temp_state_dir):
+        """Test that setting same issue_key value returns False."""
+        state.set_value("issue_key", "42")
+
+        result = state.set_context_value("issue_key", "42", verbose=False)
+
+        assert result is False
+
+    def test_issue_key_github_format_with_hash(self, temp_state_dir):
+        """Test that GitHub-format issue numbers with # work."""
+        result = state.set_context_value("issue_key", "#42", verbose=False)
+
+        assert result is True
+        assert state.get_value("issue_key") == "#42"
+
+
+class TestSetContextValueBootstrapSync:
+    """Tests for bootstrap sync inside set_context_value.
+
+    set_context_value() must call _sync_bootstrap_for_context_key() so that
+    the bootstrap worktree_key stays in sync when context keys are set via
+    the CLI (agdt-set routes context keys through set_context_value).
+    """
+
+    def test_issue_key_syncs_bootstrap(self, temp_state_dir):
+        """set_context_value('issue_key', ...) syncs bootstrap worktree_key."""
+        with patch.object(state, "_sync_bootstrap_for_context_key") as mock_sync:
+            state.set_context_value("issue_key", "42", verbose=False)
+
+        mock_sync.assert_called_once()
+        call_args = mock_sync.call_args[0]
+        assert call_args[0] == "issue_key"
+        assert call_args[1] == "42"
+
+    def test_jira_issue_key_syncs_bootstrap(self, temp_state_dir):
+        """set_context_value('jira.issue_key', ...) syncs bootstrap worktree_key."""
+        with patch.object(state, "_sync_bootstrap_for_context_key") as mock_sync:
+            with patch.object(state, "_trigger_cross_lookup"):
+                state.set_context_value("jira.issue_key", "PROJECT-1234", verbose=False)
+
+        mock_sync.assert_called_once()
+        call_args = mock_sync.call_args[0]
+        assert call_args[0] == "jira.issue_key"
+        assert call_args[1] == "PROJECT-1234"
+
+    def test_pull_request_id_syncs_bootstrap(self, temp_state_dir):
+        """set_context_value('pull_request_id', ...) syncs bootstrap worktree_key."""
+        with patch.object(state, "_sync_bootstrap_for_context_key") as mock_sync:
+            with patch.object(state, "_trigger_cross_lookup"):
+                state.set_context_value("pull_request_id", 12345, verbose=False)
+
+        mock_sync.assert_called_once()
+        call_args = mock_sync.call_args[0]
+        assert call_args[0] == "pull_request_id"
+        assert call_args[1] == 12345
+
+    def test_no_bootstrap_sync_when_value_unchanged(self, temp_state_dir):
+        """set_context_value does not sync bootstrap when value is unchanged."""
+        state.set_value("issue_key", "42")
+
+        with patch.object(state, "_sync_bootstrap_for_context_key") as mock_sync:
+            state.set_context_value("issue_key", "42", verbose=False)
+
+        mock_sync.assert_not_called()
+
+    def test_bootstrap_receives_post_clear_state(self, temp_state_dir):
+        """Bootstrap sync receives state after counterparts have been cleared.
+
+        When setting pull_request_id, the counterpart issue_key is cleared
+        from the state dict before bootstrap sync. This ensures the bootstrap
+        update sees the correct state (no stale issue_key blocking the PR
+        bootstrap update).
+        """
+        state.set_value("issue_key", "42")
+
+        with patch.object(state, "_sync_bootstrap_for_context_key") as mock_sync:
+            with patch.object(state, "_trigger_cross_lookup"):
+                state.set_context_value("pull_request_id", 99999, verbose=False)
+
+        mock_sync.assert_called_once()
+        call_key, _, passed_state = mock_sync.call_args[0]
+        # issue_key should have been cleared before bootstrap sync
+        assert call_key == "pull_request_id"
+        assert "issue_key" not in passed_state
+
+    def test_int_issue_key_triggers_bootstrap_sync(self, temp_state_dir):
+        """set_context_value('issue_key', int) syncs bootstrap with int value."""
+        with patch.object(state, "_sync_bootstrap_for_context_key") as mock_sync:
+            state.set_context_value("issue_key", 42, verbose=False)
+
+        mock_sync.assert_called_once()
+        assert mock_sync.call_args[0][1] == 42
+
+    def test_end_to_end_issue_key_updates_bootstrap_file(self, tmp_path, monkeypatch):
+        """End-to-end: set_context_value('issue_key', ...) updates bootstrap file."""
+        import json
+
+        agdt_dir = tmp_path / ".agdt"
+        agdt_dir.mkdir(parents=True)
+        bootstrap_path = agdt_dir / "runtime-bootstrap.json"
+        bootstrap_path.write_text(json.dumps({"identity": "ama"}), encoding="utf-8")
+
+        state_dir = tmp_path / ".agdt" / "workflows" / "_unscoped"
+        state_dir.mkdir(parents=True)
+
+        monkeypatch.chdir(tmp_path)
+        with patch.object(state, "get_state_dir", return_value=state_dir):
+            state.set_context_value("issue_key", "42", verbose=False)
+
+        data = json.loads(bootstrap_path.read_text(encoding="utf-8"))
+        assert data["worktree_key"] == "42"
+        assert data["identity"] == "ama"
+
+    def test_end_to_end_pr_id_updates_bootstrap_after_clearing_issue_key(self, tmp_path, monkeypatch):
+        """End-to-end: set_context_value('pull_request_id', ...) updates bootstrap
+        after clearing counterpart issue keys."""
+        import json
+
+        agdt_dir = tmp_path / ".agdt"
+        agdt_dir.mkdir(parents=True)
+        bootstrap_path = agdt_dir / "runtime-bootstrap.json"
+        bootstrap_path.write_text(json.dumps({"identity": "ama"}), encoding="utf-8")
+
+        state_dir = tmp_path / ".agdt" / "workflows" / "_unscoped"
+        state_dir.mkdir(parents=True)
+
+        monkeypatch.chdir(tmp_path)
+        with patch.object(state, "get_state_dir", return_value=state_dir):
+            # Pre-set issue_key (this will set bootstrap to "42")
+            state.set_context_value("issue_key", "42", verbose=False)
+
+            data = json.loads(bootstrap_path.read_text(encoding="utf-8"))
+            assert data["worktree_key"] == "42"
+
+            # Now switch to PR context — should clear issue_key and update bootstrap
+            with patch.object(state, "_trigger_cross_lookup"):
+                state.set_context_value("pull_request_id", 99999, verbose=False)
+
+        data = json.loads(bootstrap_path.read_text(encoding="utf-8"))
+        assert data["worktree_key"] == "PR99999"
+
+
+class TestTriggerCrossLookup:
+    """Tests for _trigger_cross_lookup (called by set_context_value)."""
+
+    def test_trigger_cross_lookup_pr_to_jira(self, temp_state_dir, capsys):
+        """Test that PR change triggers Jira lookup."""
+        with patch("agentic_devtools.state._start_jira_lookup_from_pr") as mock_jira_lookup:
+            state._trigger_cross_lookup("pull_request_id", 12345, verbose=True)
+
+            mock_jira_lookup.assert_called_once_with(12345)
+
+        captured = capsys.readouterr()
+        assert "Starting background lookup for Jira issue from PR" in captured.out
+
+    def test_trigger_cross_lookup_jira_to_pr(self, temp_state_dir, capsys):
+        """Test that Jira change triggers PR lookup."""
+        with patch("agentic_devtools.state._start_pr_lookup_from_jira") as mock_pr_lookup:
+            state._trigger_cross_lookup("jira.issue_key", "PROJECT-1234", verbose=True)
+
+            mock_pr_lookup.assert_called_once_with("PROJECT-1234")
+
+        captured = capsys.readouterr()
+        assert "Starting background lookup for PR from Jira issue" in captured.out
+
+    def test_trigger_cross_lookup_unknown_key_does_nothing(self, temp_state_dir, capsys):
+        """Test that unknown key does nothing (early exit)."""
+        with patch("agentic_devtools.state._start_jira_lookup_from_pr") as mock_jira:
+            with patch("agentic_devtools.state._start_pr_lookup_from_jira") as mock_pr:
+                state._trigger_cross_lookup("unknown_key", "value", verbose=True)
+
+                mock_jira.assert_not_called()
+                mock_pr.assert_not_called()
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+
+class TestStartJiraLookupFromPr:
+    """Tests for _start_jira_lookup_from_pr (called by _trigger_cross_lookup)."""
+
+    def test_start_jira_lookup_calls_async_function(self, temp_state_dir):
+        """Test that _start_jira_lookup_from_pr calls async lookup."""
+        with patch("agentic_devtools.cli.azure_devops.async_commands.lookup_jira_issue_from_pr_async") as mock_async:
+            state._start_jira_lookup_from_pr(12345)
+
+            mock_async.assert_called_once_with(12345)
+
+    def test_start_jira_lookup_handles_import_error(self, temp_state_dir):
+        """Test that _start_jira_lookup_from_pr handles ImportError gracefully."""
+        with patch.dict(
+            "sys.modules",
+            {"agentic_devtools.cli.azure_devops.async_commands": None},
+        ):
+            state._start_jira_lookup_from_pr(12345)
+
+    def test_start_jira_lookup_handles_exception(self, temp_state_dir):
+        """Test that _start_jira_lookup_from_pr handles exceptions gracefully."""
+        with patch(
+            "agentic_devtools.cli.azure_devops.async_commands.lookup_jira_issue_from_pr_async",
+            side_effect=Exception("Network error"),
+        ):
+            state._start_jira_lookup_from_pr(12345)
+
+
+class TestStartPrLookupFromJira:
+    """Tests for _start_pr_lookup_from_jira (called by _trigger_cross_lookup)."""
+
+    def test_start_pr_lookup_calls_async_function(self, temp_state_dir):
+        """Test that _start_pr_lookup_from_jira calls async lookup."""
+        with patch("agentic_devtools.cli.azure_devops.async_commands.lookup_pr_from_jira_issue_async") as mock_async:
+            state._start_pr_lookup_from_jira("PROJECT-1234")
+
+            mock_async.assert_called_once_with("PROJECT-1234")
+
+    def test_start_pr_lookup_handles_import_error(self, temp_state_dir):
+        """Test that _start_pr_lookup_from_jira handles ImportError gracefully."""
+        with patch.dict(
+            "sys.modules",
+            {"agentic_devtools.cli.azure_devops.async_commands": None},
+        ):
+            state._start_pr_lookup_from_jira("PROJECT-1234")
+
+    def test_start_pr_lookup_handles_exception(self, temp_state_dir):
+        """Test that _start_pr_lookup_from_jira handles exceptions gracefully."""
+        with patch(
+            "agentic_devtools.cli.azure_devops.async_commands.lookup_pr_from_jira_issue_async",
+            side_effect=Exception("Network error"),
+        ):
+            state._start_pr_lookup_from_jira("PROJECT-1234")
+
+
+class TestSetContextValueIssueKeyValidation:
+    """Tests for issue_key type validation in set_context_value."""
+
+    def test_rejects_bool_true(self, temp_state_dir):
+        """Test that bool True is rejected for issue_key."""
+        with pytest.raises(ValueError, match="non-empty string or plain integer"):
+            state.set_context_value("issue_key", True, verbose=False)
+
+    def test_rejects_bool_false(self, temp_state_dir):
+        """Test that bool False is rejected for issue_key."""
+        with pytest.raises(ValueError, match="non-empty string or plain integer"):
+            state.set_context_value("issue_key", False, verbose=False)
+
+    def test_rejects_dict(self, temp_state_dir):
+        """Test that dict is rejected for issue_key."""
+        with pytest.raises(ValueError, match="non-empty string or plain integer"):
+            state.set_context_value("issue_key", {"bad": "value"}, verbose=False)
+
+    def test_rejects_list(self, temp_state_dir):
+        """Test that list is rejected for issue_key."""
+        with pytest.raises(ValueError, match="non-empty string or plain integer"):
+            state.set_context_value("issue_key", [1, 2], verbose=False)
+
+    def test_rejects_none(self, temp_state_dir):
+        """Test that None is rejected for issue_key."""
+        with pytest.raises(ValueError, match="non-empty string or plain integer"):
+            state.set_context_value("issue_key", None, verbose=False)
+
+    def test_rejects_empty_string(self, temp_state_dir):
+        """Test that empty string is rejected for issue_key."""
+        with pytest.raises(ValueError, match="non-empty string"):
+            state.set_context_value("issue_key", "", verbose=False)
+
+    def test_rejects_whitespace_string(self, temp_state_dir):
+        """Test that whitespace-only string is rejected for issue_key."""
+        with pytest.raises(ValueError, match="non-empty string"):
+            state.set_context_value("issue_key", "   ", verbose=False)
+
+    def test_accepts_valid_string(self, temp_state_dir):
+        """Test that valid string is accepted for issue_key."""
+        result = state.set_context_value("issue_key", "PROJECT-42", verbose=False)
+        assert result is True
+        assert state.get_value("issue_key") == "PROJECT-42"
+
+    def test_accepts_int(self, temp_state_dir):
+        """Test that int is accepted for issue_key."""
+        result = state.set_context_value("issue_key", 42, verbose=False)
+        assert result is True
+        assert state.get_value("issue_key") == 42
+
+    def test_bool_does_not_clear_pull_request_id(self, temp_state_dir):
+        """Test that rejected bool does not clear pull_request_id."""
+        state.set_value("pull_request_id", 99999)
+        with pytest.raises(ValueError):
+            state.set_context_value("issue_key", True, verbose=False)
+        assert state.get_value("pull_request_id") == 99999
+
+    def test_no_validation_for_pull_request_id(self, temp_state_dir):
+        """Test that pull_request_id is not subject to issue_key validation."""
+        result = state.set_context_value("pull_request_id", 12345, verbose=False)
+        assert result is True
+
+    def test_no_validation_for_jira_issue_key(self, temp_state_dir):
+        """Test that jira.issue_key is not subject to issue_key validation."""
+        result = state.set_context_value("jira.issue_key", "PROJECT-1234", verbose=False)
+        assert result is True

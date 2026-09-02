@@ -25,13 +25,14 @@ from urllib.parse import urlparse
 
 from jinja2 import ChoiceLoader, FunctionLoader
 from tornado import ioloop
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from tornado.httpclient import HTTPRequest
 from tornado.web import RequestHandler
 from traitlets import (
     Any,
     Bool,
     Bytes,
     CUnicode,
+    Dict,
     Integer,
     TraitError,
     Unicode,
@@ -43,12 +44,14 @@ from traitlets import (
 from traitlets.config import Configurable
 
 from .._version import __version__, _check_version
+from ..httpclient import fetch
 from ..log import log_request
 from ..services.auth import HubOAuth, HubOAuthCallbackHandler, HubOAuthenticated
 from ..utils import (
     _bool_env,
     exponential_backoff,
     isoformat,
+    make_ssl_context,
     url_path_join,
 )
 from ._decorator import allow_unauthenticated
@@ -173,13 +176,11 @@ flags = {
 class SingleUserNotebookAppMixin(Configurable):
     """A Subclass of the regular NotebookApp that is aware of the parent multiuser context."""
 
-    description = dedent(
-        """
+    description = dedent("""
     Single-user server for JupyterHub. Extends the Jupyter Notebook server.
 
     Meant to be invoked by JupyterHub Spawners, not directly.
-    """
-    )
+    """)
 
     examples = ""
     subcommands = {}
@@ -396,27 +397,19 @@ class SingleUserNotebookAppMixin(Configurable):
             path = list(_exclude_home(path))
         return path
 
-    # create dynamic default http client,
-    # configured with any relevant ssl config
-    hub_http_client = Any()
+    hub_http_client_opts = Dict()
 
-    @default('hub_http_client')
-    def _default_client(self):
-        # can't use ssl_options in case of pycurl
-        defaults = dict(validate_cert=True)
-        # don't set falsy empty strings,
-        # which tornado interprets as paths
-        if self.client_ca:
-            defaults["ca_certs"] = self.client_ca
-        if self.keyfile:
-            defaults["client_key"] = self.keyfile
-        if self.certfile:
-            defaults["client_cert"] = self.certfile
-        AsyncHTTPClient.configure(
-            AsyncHTTPClient.configured_class(),
-            defaults=defaults,
+    @default('hub_http_client_opts')
+    def _default_client_opts(self):
+        client_opts = dict()
+        ssl_context = make_ssl_context(
+            self.hub_auth.keyfile,
+            self.hub_auth.certfile,
+            cafile=self.hub_auth.client_ca,
         )
-        return AsyncHTTPClient()
+        if ssl_context:
+            client_opts["ssl"] = ssl_context
+        return client_opts
 
     async def check_hub_version(self):
         """Test a connection to my Hub
@@ -424,11 +417,10 @@ class SingleUserNotebookAppMixin(Configurable):
         - exit if I can't connect at all
         - check version and warn on sufficient mismatch
         """
-        client = self.hub_http_client
         RETRIES = 5
         for i in range(1, RETRIES + 1):
             try:
-                resp = await client.fetch(self.hub_api_url)
+                resp = await fetch(self.hub_api_url, **self.hub_http_client_opts)
             except Exception:
                 self.log.exception(
                     "Failed to connect to my Hub at %s (attempt %i/%i). Is it running?",
@@ -480,7 +472,6 @@ class SingleUserNotebookAppMixin(Configurable):
 
     async def notify_activity(self):
         """Notify jupyterhub of activity"""
-        client = self.hub_http_client
         last_activity = self.web_app.last_activity()
         if not last_activity:
             self.log.debug("No activity to send to the Hub")
@@ -507,7 +498,7 @@ class SingleUserNotebookAppMixin(Configurable):
                     "Authorization": f"token {self.hub_auth.api_token}",
                     "Content-Type": "application/json",
                 },
-                body=json.dumps(
+                data=json.dumps(
                     {
                         'servers': {
                             self.server_name: {'last_activity': last_activity_timestamp}
@@ -517,7 +508,7 @@ class SingleUserNotebookAppMixin(Configurable):
                 ),
             )
             try:
-                await client.fetch(req)
+                await fetch(req, **self.hub_http_client_opts)
             except Exception:
                 self.log.exception("Error notifying Hub of activity")
                 return False

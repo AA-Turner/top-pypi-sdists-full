@@ -1,0 +1,22 @@
+base-config:
+  company: AI21 Labs
+  country: Israel
+  documentation_url: https://www.ai21.com/jamba
+  supports:
+    images: false
+    files: false
+  metadata:
+    available_for_everyone: false
+  properties:
+    context_window: 0
+    max_tokens: 4096
+    training_cutoff: null
+    reasoning_model: false
+
+jamba-models:
+  base-config:
+    open_source: true
+    supports:
+      temperature: true
+    default_parameters:
+      temperature: 0.4

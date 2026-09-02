@@ -1,0 +1,310 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+import typing_extensions
+
+import httpx
+
+from ... import _legacy_response
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import maybe_transform
+from ..._compat import cached_property
+from ..._resource import SyncAPIResource, AsyncAPIResource
+from ..._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
+from ...pagination import SyncIndividualsPage, AsyncIndividualsPage
+from ...types.hris import directory_list_params
+from ..._base_client import AsyncPaginator, make_request_options
+from ...types.hris.individual_in_directory import IndividualInDirectory
+
+__all__ = ["Directory", "AsyncDirectory"]
+
+
+class Directory(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> DirectoryWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#accessing-raw-response-data-eg-headers
+        """
+        return DirectoryWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> DirectoryWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#with_streaming_response
+        """
+        return DirectoryWithStreamingResponse(self)
+
+    def list(
+        self,
+        *,
+        entity_ids: SequenceNotStr[str] | Omit = omit,
+        limit: int | Omit = omit,
+        offset: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncIndividualsPage[IndividualInDirectory]:
+        """
+        Read company directory and organization structure
+
+        Args:
+          entity_ids: The entity IDs to specify which entities' data to access. Provide exactly one
+              entity ID per request; a maximum of one is accepted.
+
+          limit: Number of employees to return (defaults to 100, maximum 10000)
+
+          offset: Index to start from (defaults to 0)
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/employer/directory",
+            page=SyncIndividualsPage[IndividualInDirectory],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "entity_ids": entity_ids,
+                        "limit": limit,
+                        "offset": offset,
+                    },
+                    directory_list_params.DirectoryListParams,
+                ),
+                security={"bearer_auth": True},
+            ),
+            model=IndividualInDirectory,
+        )
+
+    @typing_extensions.deprecated("use `list` instead")
+    def list_individuals(
+        self,
+        *,
+        entity_ids: SequenceNotStr[str] | Omit = omit,
+        limit: int | Omit = omit,
+        offset: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncIndividualsPage[IndividualInDirectory]:
+        """
+        Read company directory and organization structure
+
+        Args:
+          entity_ids: The entity IDs to specify which entities' data to access. Provide exactly one
+              entity ID per request; a maximum of one is accepted.
+
+          limit: Number of employees to return (defaults to 100, maximum 10000)
+
+          offset: Index to start from (defaults to 0)
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self.list(
+            entity_ids=entity_ids,
+            limit=limit,
+            offset=offset,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+
+class AsyncDirectory(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncDirectoryWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncDirectoryWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncDirectoryWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#with_streaming_response
+        """
+        return AsyncDirectoryWithStreamingResponse(self)
+
+    def list(
+        self,
+        *,
+        entity_ids: SequenceNotStr[str] | Omit = omit,
+        limit: int | Omit = omit,
+        offset: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[IndividualInDirectory, AsyncIndividualsPage[IndividualInDirectory]]:
+        """
+        Read company directory and organization structure
+
+        Args:
+          entity_ids: The entity IDs to specify which entities' data to access. Provide exactly one
+              entity ID per request; a maximum of one is accepted.
+
+          limit: Number of employees to return (defaults to 100, maximum 10000)
+
+          offset: Index to start from (defaults to 0)
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/employer/directory",
+            page=AsyncIndividualsPage[IndividualInDirectory],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "entity_ids": entity_ids,
+                        "limit": limit,
+                        "offset": offset,
+                    },
+                    directory_list_params.DirectoryListParams,
+                ),
+                security={"bearer_auth": True},
+            ),
+            model=IndividualInDirectory,
+        )
+
+    @typing_extensions.deprecated("use `list` instead")
+    def list_individuals(
+        self,
+        *,
+        entity_ids: SequenceNotStr[str] | Omit = omit,
+        limit: int | Omit = omit,
+        offset: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[IndividualInDirectory, AsyncIndividualsPage[IndividualInDirectory]]:
+        """
+        Read company directory and organization structure
+
+        Args:
+          entity_ids: The entity IDs to specify which entities' data to access. Provide exactly one
+              entity ID per request; a maximum of one is accepted.
+
+          limit: Number of employees to return (defaults to 100, maximum 10000)
+
+          offset: Index to start from (defaults to 0)
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self.list(
+            entity_ids=entity_ids,
+            limit=limit,
+            offset=offset,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+
+
+class DirectoryWithRawResponse:
+    def __init__(self, directory: Directory) -> None:
+        self._directory = directory
+
+        self.list = _legacy_response.to_raw_response_wrapper(
+            directory.list,
+        )
+        self.list_individuals = (  # pyright: ignore[reportDeprecated]
+            _legacy_response.to_raw_response_wrapper(
+                directory.list_individuals,  # pyright: ignore[reportDeprecated],
+            )
+        )
+
+
+class AsyncDirectoryWithRawResponse:
+    def __init__(self, directory: AsyncDirectory) -> None:
+        self._directory = directory
+
+        self.list = _legacy_response.async_to_raw_response_wrapper(
+            directory.list,
+        )
+        self.list_individuals = (  # pyright: ignore[reportDeprecated]
+            _legacy_response.async_to_raw_response_wrapper(
+                directory.list_individuals,  # pyright: ignore[reportDeprecated],
+            )
+        )
+
+
+class DirectoryWithStreamingResponse:
+    def __init__(self, directory: Directory) -> None:
+        self._directory = directory
+
+        self.list = to_streamed_response_wrapper(
+            directory.list,
+        )
+        self.list_individuals = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                directory.list_individuals,  # pyright: ignore[reportDeprecated],
+            )
+        )
+
+
+class AsyncDirectoryWithStreamingResponse:
+    def __init__(self, directory: AsyncDirectory) -> None:
+        self._directory = directory
+
+        self.list = async_to_streamed_response_wrapper(
+            directory.list,
+        )
+        self.list_individuals = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                directory.list_individuals,  # pyright: ignore[reportDeprecated],
+            )
+        )

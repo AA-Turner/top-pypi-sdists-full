@@ -109,10 +109,12 @@ __all__ = (
     "OriginIpAddressTypeEnumType",
     "OriginProtocolPolicyEnumType",
     "PaginatorName",
+    "PartnerStatusType",
     "PortAccessTypeType",
     "PortInfoSourceTypeType",
     "PortStateType",
     "PricingUnitType",
+    "ProfileTypeType",
     "R53HostedZoneDeletionStateCodeType",
     "RecordStateType",
     "RegionName",
@@ -128,6 +130,7 @@ __all__ = (
     "SetupStatusType",
     "StatusType",
     "StatusTypeType",
+    "TierNameType",
     "TreatMissingDataType",
     "ViewerMinimumTlsProtocolVersionEnumType",
 )
@@ -337,6 +340,7 @@ MetricNameType = Literal[
     "DatabaseConnections",
     "DiskQueueDepth",
     "FreeStorageSpace",
+    "FreeableMemory",
     "HTTPCode_Instance_2XX_Count",
     "HTTPCode_Instance_3XX_Count",
     "HTTPCode_Instance_4XX_Count",
@@ -354,6 +358,7 @@ MetricNameType = Literal[
     "StatusCheckFailed",
     "StatusCheckFailed_Instance",
     "StatusCheckFailed_System",
+    "SwapUsage",
     "UnhealthyHostCount",
 ]
 MetricStatisticType = Literal["Average", "Maximum", "Minimum", "SampleCount", "Sum"]
@@ -444,6 +449,7 @@ OperationTypeType = Literal[
     "EnableAddOn",
     "GetAlarms",
     "GetContactMethods",
+    "GetProfile",
     "OpenInstancePublicPorts",
     "PutAlarm",
     "PutInstancePublicPorts",
@@ -476,10 +482,12 @@ OperationTypeType = Literal[
 ]
 OriginIpAddressTypeEnumType = Literal["dualstack", "ipv4", "ipv6"]
 OriginProtocolPolicyEnumType = Literal["http-only", "https-only"]
+PartnerStatusType = Literal["Active", "Suspended"]
 PortAccessTypeType = Literal["Private", "Public"]
 PortInfoSourceTypeType = Literal["CLOSED", "DEFAULT", "INSTANCE", "NONE"]
 PortStateType = Literal["closed", "open"]
 PricingUnitType = Literal["Bundles", "GB", "GB-Mo", "Hrs", "Queries"]
+ProfileTypeType = Literal["LightsailPartner", "Lightsailor"]
 R53HostedZoneDeletionStateCodeType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
 RecordStateType = Literal["Failed", "Started", "Succeeded"]
 RegionNameType = Literal[
@@ -510,8 +518,10 @@ RelationalDatabaseMetricNameType = Literal[
     "DatabaseConnections",
     "DiskQueueDepth",
     "FreeStorageSpace",
+    "FreeableMemory",
     "NetworkReceiveThroughput",
     "NetworkTransmitThroughput",
+    "SwapUsage",
 ]
 RelationalDatabasePasswordVersionType = Literal["CURRENT", "PENDING", "PREVIOUS"]
 RenewalStatusType = Literal["Failed", "PendingAutoRenewal", "PendingValidation", "Success"]
@@ -552,6 +562,7 @@ StatusType = Literal[
     "stopping",
 ]
 StatusTypeType = Literal["Active", "Inactive"]
+TierNameType = Literal["Accelerate", "Essential", "Growth", "Premier"]
 TreatMissingDataType = Literal["breaching", "ignore", "missing", "notBreaching"]
 ViewerMinimumTlsProtocolVersionEnumType = Literal[
     "TLSv1.1_2016", "TLSv1.2_2018", "TLSv1.2_2019", "TLSv1.2_2021"
@@ -560,8 +571,11 @@ LightsailServiceName = Literal["lightsail"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -736,6 +750,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -750,8 +765,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -778,6 +791,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -845,10 +860,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -866,6 +881,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -931,7 +947,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -952,6 +967,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -1010,6 +1026,7 @@ PaginatorName = Literal[
     "get_static_ips",
 ]
 RegionName = Literal[
+    "ap-east-1",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-south-1",
@@ -1020,9 +1037,11 @@ RegionName = Literal[
     "ca-central-1",
     "eu-central-1",
     "eu-north-1",
+    "eu-south-2",
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",
+    "sa-east-1",
     "us-east-1",
     "us-east-2",
     "us-west-2",

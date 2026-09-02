@@ -238,7 +238,7 @@ class MemorySpace(APIObject):
         deduplication_key: Optional[str] = None,
     ) -> List[MemorySpace]:
         """
-        List memory spaces accessible to the current user.
+        List the memory spaces accessible to the current user.
 
         .. versionadded:: v3.15
 
@@ -314,7 +314,7 @@ class MemorySpace(APIObject):
         llm_base_url : str or None
             The new chat API URL used for memory extraction.
             Pass ``None`` to clear and fall back to the DataRobot LLM gateway (the default).
-            Set this only when the gateway does not work — for example, in air-gapped
+            Set the URL only when the gateway does not work — for example, in air-gapped
             environments or when the required LLM model is not provided by the gateway and cannot be added.
         custom_instructions : str or None
             The new custom instructions (maximum 10 000 characters). Pass ``None`` to revert to
@@ -647,7 +647,7 @@ class Session(APIObject):
         description: Optional[str] = None,
     ) -> List[Session]:
         """
-        List sessions within a single memory space.
+        List the sessions within a single memory space.
 
         .. versionadded:: v3.15
 
@@ -799,7 +799,7 @@ class Session(APIObject):
         event_type: Optional[str] = None,
     ) -> List[Event]:
         """
-        List events in this session.
+        List the events in this session.
 
         Provide either ``offset`` or ``last_n``, but not both.
 
@@ -859,7 +859,7 @@ class Session(APIObject):
         event_type : str or None
             The new event-type label.
         emitter : dict or None
-            The new emitter information; the type of entity that emitted the event (e.g. ``"agent"`` or ``"user"``).
+            The new emitter information; the type of entity that emitted the event (e.g., ``"agent"`` or ``"user"``).
         created_at : datetime.datetime or None
             Optional timestamp for optimistic concurrency control.
 

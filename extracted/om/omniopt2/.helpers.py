@@ -1,0 +1,1398 @@
+from __future__ import annotations
+
+import sys
+
+try:
+    import difflib
+    import hashlib
+    import json
+    import logging
+    import math
+    import os
+    import re
+    import shutil
+    import subprocess
+    import tempfile
+    import traceback
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    import zipfile
+    from datetime import datetime
+    from itertools import combinations
+    from pprint import pprint
+    from typing import Any
+
+    import matplotlib
+    matplotlib.use("Agg")
+    import numpy as np
+    import pandas as pd
+    from matplotlib.colors import LinearSegmentedColormap
+    from matplotlib.widgets import Button, TextBox
+except OSError as e:
+    print(f"Error loading module: {e}")
+    sys.exit(109)
+
+all_columns_to_remove = ['trial_index', 'arm_name', 'trial_status', 'generation_method', 'generation_node']
+val_if_nothing_found = 99999999999999999999999999999999999999999999999999999999999
+NO_RESULT = f"{val_if_nothing_found:.0e}"
+
+def starts_with_OO_Info(s: str) -> bool:
+    if not isinstance(s, str):
+        raise TypeError(f"Expected input of type str, got {type(s).__name__}")
+
+    return s.startswith("OO_Info_")
+
+def dier(*args: Any, exit: bool | int = True) -> None:
+    for msg in args:
+        pprint(msg)
+    if exit is False or exit == 0:
+        return
+    sys.exit(exit if isinstance(exit, int) else 1)
+
+def check_environment_variable(variable_name: str) -> bool:
+    try:
+        value = os.environ[variable_name]
+        if value == "1":
+            return True
+    except KeyError:
+        pass
+
+    return False
+
+def in_venv() -> bool:
+    return sys.prefix != sys.base_prefix
+
+def looks_like_float(x: float | str | None) -> bool:
+    if isinstance(x, (int, float)):
+        return True  # int and float types are directly considered as floats
+
+    if isinstance(x, str):
+        try:
+            float(x)  # Try converting string to float
+            return True
+        except ValueError:
+            return False  # If conversion fails, it's not a float-like string
+
+    return False  # If x is neither str, int, nor float, it's not float-like
+
+def looks_like_int(x: float | str | None) -> bool:
+    if isinstance(x, bool):
+        return False
+
+    if isinstance(x, int):
+        return True
+
+    if isinstance(x, float):
+        return x.is_integer()
+
+    if isinstance(x, str):
+        return bool(re.match(r'^\d+$', x))
+
+    return False
+
+def looks_like_number (x: float | str | None) -> bool:
+    return looks_like_float(x) or looks_like_int(x) or type(x) is int or type(x) is float or type(x) is np.int64
+
+def to_int_when_possible(val: Any) -> None | int | float | str:
+    if isinstance(val, int):
+        return val
+
+    if isinstance(val, float):
+        if val.is_integer():
+            return int(val)
+        return val
+
+    if isinstance(val, str):
+        val = val.strip()
+
+        if re.fullmatch(r'-?\d+', val):
+            return int(val)
+
+        if re.fullmatch(r'-?\d+\.\d+', val):
+            try:
+                fval = float(val)
+                return fval if not fval.is_integer() else int(fval)
+            except Exception:
+                return val
+
+        if re.fullmatch(r'-?\d+(?:\.\d+)?[eE][-+]?\d+', val):
+            try:
+                fval = float(val)
+                return fval if not fval.is_integer() else int(fval)
+            except Exception:
+                return val
+
+        return val
+
+    try:
+        fval = float(val)
+        return fval if not fval.is_integer() else int(fval)
+    except Exception:
+        return val
+
+def flatten_extend(matrix: list) -> list:
+    flat_list = []
+    for row in matrix:
+        flat_list.extend(row)
+    return flat_list
+
+def convert_string_to_number(input_string: str) -> int | float | None:
+    try:
+        assert isinstance(input_string, str), "Input must be a string"
+
+        input_string = input_string.replace(",", ".")
+
+        float_pattern = re.compile(r"[+-]?\d*\.\d+")
+        int_pattern = re.compile(r"[+-]?\d+")
+
+        float_match = float_pattern.search(input_string)
+        if float_match:
+            number_str = float_match.group(0)
+            try:
+                number = float(number_str)
+                return number
+            except ValueError as e:
+                print(f"Failed to convert {number_str} to float: {e}")
+
+        int_match = int_pattern.search(input_string)
+        if int_match:
+            return int(int_match.group(0))
+    except AssertionError as e:
+        print(f"Assertion error: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+
+        tb = traceback.format_exc()
+        print(tb)
+
+    return None
+
+def log_error(error_text: str) -> None:
+    print(f"Error: {error_text}", file=sys.stderr)
+
+def check_if_results_are_empty(result_column_values: Any, csv_file_path: str) -> None:
+    filtered_data = list(filter(lambda x: not math.isnan(x), result_column_values.tolist()))
+
+    number_of_non_nan_results = len(filtered_data)
+
+    if number_of_non_nan_results == 0:
+        print(f"No values were found. Every evaluation found in {csv_file_path} evaluated to NaN.")
+        sys.exit(11)
+
+def get_result_column_values(df: pd.DataFrame, csv_file_path: str) -> Any:
+    res_col_name = get_result_name_or_default_from_csv_file_path(csv_file_path)
+
+    result_column_values = df[res_col_name]
+
+    check_if_results_are_empty(result_column_values, csv_file_path)
+
+    return result_column_values
+
+def check_path(_path: str) -> None:
+    if not os.path.exists(_path):
+        print(f'The folder {_path} does not exist.')
+        sys.exit(1)
+
+class bcolors:
+    header = '\033[95m'
+    blue = '\033[94m'
+    cyan = '\033[96m'
+    green = '\033[92m'
+    warning = '\033[93m'
+    red = '\033[91m'
+    endc = '\033[0m'
+    bold = '\033[1m'
+    underline = '\033[4m'
+    yellow = '\033[33m'
+
+def print_color(color: str, text: str) -> None:
+    color_codes = {
+        "header": bcolors.header,
+        "blue": bcolors.blue,
+        "cyan": bcolors.cyan,
+        "green": bcolors.green,
+        "warning": bcolors.warning,
+        "red": bcolors.red,
+        "bold": bcolors.bold,
+        "underline": bcolors.underline,
+        "yellow": bcolors.yellow
+    }
+
+    end_color = bcolors.endc
+
+    try:
+        assert color in color_codes, f"Color '{color}' is not supported."
+        print(f"{color_codes[color]}{text}{end_color}", file=sys.stderr)
+    except AssertionError as e:
+        print(f"Error: {e}")
+        print(text)
+
+def create_widgets(_data: Any) -> Any:
+    _plt, button, MAXIMUM_TEXTBOX, MINIMUM_TEXTBOX, _args, TEXTBOX_MINIMUM, TEXTBOX_MAXIMUM, update_graph = _data
+
+    button_ax = _plt.axes([0.8, 0.025, 0.1, 0.04])
+    button = Button(button_ax, 'Update Graph')
+
+    button.on_clicked(update_graph)
+
+    max_string, min_string = "", ""
+
+    if looks_like_float(_args.max):
+        max_string = str(_args.max)
+
+    if looks_like_float(_args.min):
+        min_string = str(_args.min)
+
+    TEXTBOX_MINIMUM = _plt.axes([0.2, 0.025, 0.1, 0.04])
+    MINIMUM_TEXTBOX = TextBox(TEXTBOX_MINIMUM, 'Minimum result:', initial=min_string)
+
+    TEXTBOX_MAXIMUM = _plt.axes([0.5, 0.025, 0.1, 0.04])
+    MAXIMUM_TEXTBOX = TextBox(TEXTBOX_MAXIMUM, 'Maximum result:', initial=max_string)
+
+    return button, MAXIMUM_TEXTBOX, MINIMUM_TEXTBOX, TEXTBOX_MINIMUM, TEXTBOX_MAXIMUM
+
+def die_if_no_nonempty_graph(non_empty_graphs: Any, _exit: Any) -> None:
+    if not non_empty_graphs:
+        print('No non-empty graphs to display.')
+        if _exit:
+            sys.exit(2)
+
+def get_r(df_filtered: pd.DataFrame) -> int:
+    r = 2
+
+    if len(list(df_filtered.columns)) == 1:
+        r = 1
+
+    return r
+
+def save_to_file (_fig: Any, _args: Any, _plt: Any) -> None:
+    _fig.set_size_inches(15.5, 9.5)
+
+    _path = os.path.dirname(_args.save_to_file)
+    if _path:
+        os.makedirs(_path, exist_ok=True)
+    try:
+        _plt.savefig(_args.save_to_file)
+    except OSError as e:
+        print(f"Error: {e}. This may happen on unstable file systems or in docker containers.")
+        sys.exit(199)
+
+def check_dir_and_csv(_args: Any, csv_file_path: str) -> None:
+    if not os.path.isdir(_args.run_dir):
+        print(f"The path {_args.run_dir} does not point to a folder. Must be a folder.")
+        sys.exit(11)
+
+    if not os.path.exists(csv_file_path):
+        print(f'The file {csv_file_path} does not exist.')
+        sys.exit(39)
+
+def get_csv_file_path(_args: Any) -> str:
+    pd_csv = "results.csv"
+    csv_file_path = os.path.join(_args.run_dir, pd_csv)
+    check_dir_and_csv(_args, csv_file_path)
+
+    return csv_file_path
+
+def drop_empty_results (df: pd.DataFrame, res_col_name: str) -> pd.DataFrame:
+    negative_rows_to_remove = df[df[res_col_name].astype(str) == '-' + NO_RESULT].index
+    positive_rows_to_remove = df[df[res_col_name].astype(str) == NO_RESULT].index
+
+    df.drop(negative_rows_to_remove, inplace=True)
+    df.drop(positive_rows_to_remove, inplace=True)
+
+    return df
+
+def hide_empty_plots(parameter_combinations: list, num_rows: int, num_cols: int, axs: Any) -> Any:
+    for i in range(len(parameter_combinations), num_rows * num_cols):
+        row = i // num_cols
+        col = i % num_cols
+        axs[row, col].set_visible(False)
+
+    return axs
+
+def check_first_line_max(run_dir: str) -> bool:
+    file_path = f"{run_dir}/result_min_max.txt"
+
+    try:
+        # Open the file and read the first line
+        with open(file_path, mode='r', encoding="utf-8") as file:
+            first_line = file.readline().strip()  # Removes leading and trailing whitespace
+
+        # Check if the first line is "max"
+        return first_line.lower() == "max"
+
+    except FileNotFoundError:
+        print(f"Error: The file {file_path} was not found.")
+        return False
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return False
+
+def get_title(_args: Any, result_column_values: pd.DataFrame, df_filtered: pd.DataFrame, num_entries: int, _min: float | None, _max: float | None) -> str:
+    res_col_name = get_result_name_or_default_from_csv_file_path(_args.run_dir + "/results.csv")
+
+    maximize = check_first_line_max(_args.run_dir)
+
+    extreme_index = None
+    if maximize:
+        extreme_index = result_column_values.idxmax()
+    else:
+        extreme_index = result_column_values.idxmin()
+
+    extreme_values = df_filtered.loc[extreme_index].to_dict()
+
+    title = "Minimum"
+    if maximize:
+        title = "Maximum"
+
+    extreme_values_items = extreme_values.items()
+
+    title_values = []
+
+    for _l in extreme_values_items:
+        if res_col_name not in _l:
+            key = _l[0]
+            value = to_int_when_possible(_l[1])
+            if key not in ["generation_node", res_col_name]:
+                title_values.append(f"{key} = {value}")
+
+    title += " of f("
+    title += ', '.join(title_values)
+    title += f") = {to_int_when_possible(result_column_values[extreme_index])}"
+
+    title += f"\nNumber of evaluations shown: {num_entries}"
+
+    if _min is not None:
+        title += f", show min = {to_int_when_possible(_min)}"
+
+    if _max is not None:
+        title += f", show max = {to_int_when_possible(_max)}"
+
+    return title
+
+def setup_logging() -> None:
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+def _unidiff_output(expected: str, actual: str) -> str:
+    """
+    Helper function. Returns a string containing the unified diff of two multiline strings.
+    """
+
+    diff = difflib.unified_diff(expected, actual)
+
+    return ''.join(diff)
+
+def print_diff(n: str, i: str, o: str) -> None:
+    if isinstance(i, str):
+        print(f"{n} Should be:", i.strip())
+    else:
+        print(f"{n} Should be:", i)
+
+    if isinstance(o, str):
+        print("Is:", o.strip())
+    else:
+        print("Is:", o)
+
+    if isinstance(i, str) or isinstance(o, str):
+        output = _unidiff_output(str(json.dumps(i)), str(json.dumps(o)))
+        if output:
+            print("Diff:", output)
+
+def _is_equal(name: str, _input: Any, output: Any) -> bool:
+    _equal_types = [
+        int, str, float, bool
+    ]
+    for equal_type in _equal_types:
+        if type(_input) is equal_type and type(output) and _input != output:
+            print_color("red", f"\n\nFailed test (1): {name}")
+            return True
+
+    if type(_input) is not type(output):
+        print_color("red", f"\n\nFailed test (4): {name}")
+        return True
+
+    if isinstance(_input, bool) and _input != output:
+        print_color("red", f"\n\nFailed test (6): {name}")
+        return True
+
+    if (output is None and _input is not None) or (output is not None and _input is None):
+        print_color("red", f"\n\nFailed test (7): {name}")
+        return True
+
+    #print_color("green", f"Test OK: {name}")
+    return False
+
+def is_equal(n: str, o: Any, i: Any) -> bool:
+    r = _is_equal(n, i, o)
+
+    if r:
+        print_diff(n, i, o)
+
+    if os.path.exists("None"):
+        print("Folder 'None' exists! Exiting.")
+        sys.exit(255)
+
+    return r
+
+def _is_not_equal(name: str, _input: Any, output: Any) -> bool:
+    _equal_types = [
+        int, str, float, bool
+    ]
+    for equal_type in _equal_types:
+        if isinstance(_input, equal_type) and isinstance(output, equal_type) and _input == output:
+            print_color("red", f"\n\nFailed test (1): {name}")
+            return True
+
+    if isinstance(_input, bool) and _input == output:
+        print_color("red", f"\n\nFailed test (2): {name}")
+        return True
+
+    if not (output is not None and _input is not None):
+        print_color("red", f"\n\nFailed test (3): {name}")
+        return True
+
+    #print_color("green", f"Test OK: {name}")
+    return False
+
+def is_not_equal(n: str, i: Any, o: Any) -> bool:
+    r = _is_not_equal(n, i, o)
+
+    if r:
+        print_diff(n, i, o)
+
+    return r
+
+def set_min_max(MINIMUM_TEXTBOX: Any, MAXIMUM_TEXTBOX: Any, _min: None | float, _max: None | float) -> tuple[int | float | None, int | float | None]:
+    if MINIMUM_TEXTBOX and looks_like_float(MINIMUM_TEXTBOX.text):
+        _min = convert_string_to_number(MINIMUM_TEXTBOX.text)
+
+    if MAXIMUM_TEXTBOX and looks_like_float(MAXIMUM_TEXTBOX.text):
+        _max = convert_string_to_number(MAXIMUM_TEXTBOX.text)
+
+    return _min, _max
+
+def get_num_subplots_rows_and_cols(non_empty_graphs: list) -> tuple[int, int, int]:
+    num_subplots = len(non_empty_graphs)
+    num_cols = math.ceil(math.sqrt(num_subplots))
+    num_rows = math.ceil(num_subplots / num_cols)
+
+    return num_subplots, num_cols, num_rows
+
+def remove_widgets(fig: Any, button: Any, MAXIMUM_TEXTBOX: Any, MINIMUM_TEXTBOX: Any) -> None:
+    for widget in fig.axes:
+        if widget not in [button.ax, MAXIMUM_TEXTBOX.ax, MINIMUM_TEXTBOX.ax]:
+            widget.remove()
+
+def get_non_empty_graphs(parameter_combinations: list, df_filtered: pd.DataFrame, _exit: bool | None) -> list:
+    non_empty_graphs = []
+
+    if len(parameter_combinations[0]) == 1:
+        param = parameter_combinations[0][0]
+        if param in df_filtered and df_filtered[param].notna().any():
+            non_empty_graphs = [(param,)]
+    else:
+        if len(parameter_combinations) > 1 or type(parameter_combinations[0]) is tuple:
+            non_empty_graphs = [param_comb for param_comb in parameter_combinations if df_filtered[param_comb[0]].notna().any() and df_filtered[param_comb[1]].notna().any()]
+        elif len(parameter_combinations) == 1:
+            non_empty_graphs = [param_comb for param_comb in parameter_combinations if df_filtered[param_comb].notna().any()]
+        else:
+            print("Error: No non-empty parameter combinations")
+            sys.exit(75)
+
+    if not non_empty_graphs:
+        print('No non-empty graphs to display.')
+        if _exit:
+            sys.exit(2)
+
+    return non_empty_graphs
+
+def get_df_filtered(_args: Any, df: pd.DataFrame) -> pd.DataFrame:
+    res_col_name = get_result_name_or_default_from_csv_file_path(_args.run_dir + "/results.csv")
+
+    columns_to_remove = []
+    existing_columns = df.columns.values.tolist()
+
+    for col in existing_columns:
+        if col in all_columns_to_remove:
+            columns_to_remove.append(col)
+
+    if len(_args.allow_axes):
+        for col in existing_columns:
+            if col != res_col_name and col not in flatten_extend(_args.allow_axes):
+                columns_to_remove.append(col)
+
+    df_filtered = df.drop(columns=columns_to_remove)
+
+    return df_filtered
+
+def print_filtering_message(_min: float | None, _max: float | None) -> None:
+    if _min and not _max:
+        print("Using --min filtered out all results")
+    elif not _min and _max:
+        print("Using --max filtered out all results")
+    elif _min and _max:
+        print("Using --min and --max filtered out all results")
+    else:
+        print("For some reason, there were values in the beginning but not after filtering")
+
+def print_no_results_message(csv_file_path: str, _min: float | None, _max: float | None) -> None:
+    if _min is not None and _max is not None:
+        print(f"No applicable values could be found in {csv_file_path} (min: {_min}, max: {_max}).")
+    elif _min is not None:
+        print(f"No applicable values could be found in {csv_file_path} (min: {_min}).")
+    elif _max is not None:
+        print(f"No applicable values could be found in {csv_file_path} (max: {_max}).")
+    else:
+        print(f"No applicable values could be found in {csv_file_path}.")
+
+def check_min_and_max(num_entries: int, nr_of_items_before_filtering: int, csv_file_path: str, _min: float | None = None, _max: float | None = None, _exit: bool = True) -> None:
+    if num_entries is None or num_entries == 0:
+        if nr_of_items_before_filtering:
+            print_filtering_message(_min, _max)
+        else:
+            if not os.environ.get("NO_NO_RESULT_ERROR"):
+                print_no_results_message(csv_file_path, _min, _max)
+
+        if _exit:
+            sys.exit(4)
+
+def contains_strings(series: Any) -> bool:
+    return series.apply(lambda x: isinstance(x, str)).any()
+
+def file_exists(csv_file_path: str | None) -> bool:
+    return bool(csv_file_path) and isinstance(csv_file_path, str) and os.path.exists(csv_file_path)
+
+def load_csv(csv_file_path: str) -> pd.DataFrame:
+    return pd.read_csv(csv_file_path, index_col=0)
+
+def headers_match(df: pd.DataFrame, old_headers_string: str | None) -> bool:
+    if old_headers_string is None:
+        return True
+    df_header_string = ','.join(sorted(df.columns))
+    return df_header_string == old_headers_string
+
+def filter_by_result_range(df: pd.DataFrame, res_col_name: str, _min: float | None, _max: float | None) -> pd.DataFrame:
+    if res_col_name not in df:
+        handle_missing_result_column(res_col_name)
+
+    if _min is not None:
+        df = df[df[res_col_name] >= _min]
+    if _max is not None:
+        df = df[df[res_col_name] <= _max]
+    return df.dropna(subset=[res_col_name])
+
+def handle_missing_result_column(res_col_name: str) -> None:
+    if not os.environ.get("NO_NO_RESULT_ERROR"):
+        print(f"There was no '{res_col_name}' column. This may mean all tests failed. Cannot continue.")
+    sys.exit(10)
+
+def drop_string_columns(df: pd.DataFrame) -> pd.DataFrame:
+    columns_with_strings = [col for col in df.columns if contains_strings(df[col])]
+    df = df.drop(columns=columns_with_strings)
+    if len(df.columns) <= 1 and columns_with_strings:
+        print("All available columns contained strings instead of numbers. Cannot plot.")
+        sys.exit(19)
+    return df
+
+def handle_csv_exceptions(csv_file_path: str, error: Exception) -> None:
+    error_messages = {
+        pd.errors.EmptyDataError: f"{csv_file_path} has no lines to parse.",
+        pd.errors.ParserError: f"{csv_file_path} is invalid CSV. Parsing error: {str(error).rstrip()}",
+        UnicodeDecodeError: f"{csv_file_path} does not seem to be a text-file or has invalid UTF-8 encoding."
+    }
+    if not os.environ.get("PLOT_TESTS"):
+        print(error_messages.get(type(error), "Unknown error."))
+    sys.exit({pd.errors.EmptyDataError: 19, pd.errors.ParserError: 12, UnicodeDecodeError: 7}.get(type(error), 1))
+
+def get_result_name_or_default_from_csv_file_path(csv_file_path: str) -> str:
+    res_col_name = "result"
+
+    dir_path = '/'.join(csv_file_path.split('/')[:-1]) + '/'
+
+    result_names_txt = f"{dir_path}/result_names.txt"
+
+    if os.path.exists(result_names_txt):
+        with open(result_names_txt, mode='r', encoding="utf-8") as file:
+            lines = file.readlines()
+            if len(lines) > 1:
+                raise ValueError(f"The file >{result_names_txt} contains more than one line<")
+            res_col_name = lines[0].strip()
+
+    return res_col_name
+
+def get_df_without_special_columns(df: pd.DataFrame) -> pd.DataFrame:
+    columns_to_remove = []
+    existing_columns = df.columns.values.tolist()
+
+    for col in existing_columns:
+        if col in all_columns_to_remove or starts_with_OO_Info(col) or col in ["signal", "hostname", "queue_time", "submit_time", "exit_code", "end_time", "run_time", "program_string", "start_time"]:
+            columns_to_remove.append(col)
+
+    df_filtered = df.drop(columns=columns_to_remove)
+
+    return df_filtered
+
+def get_data(
+    csv_file_path: str,
+    _min: float | None,
+    _max: float | None,
+    old_headers_string: str | None = None,
+    drop_columns_with_strings: str | bool = False
+) -> pd.DataFrame | None:
+    if not isinstance(csv_file_path, str):
+        return None
+
+    res_col_name = get_result_name_or_default_from_csv_file_path(csv_file_path)
+
+    if not file_exists(csv_file_path):
+        return None
+
+    try:
+        df = load_csv(csv_file_path)
+        df = get_df_without_special_columns(df)
+        if not headers_match(df, old_headers_string):
+            print(f"Cannot merge {csv_file_path}. Old headers: {old_headers_string}, new headers: {','.join(sorted(df.columns))}")
+            return None
+        df = filter_by_result_range(df, res_col_name, _min, _max)
+        if drop_columns_with_strings:
+            df = drop_string_columns(df)
+        return drop_empty_results(df, res_col_name)
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, UnicodeDecodeError) as e:
+        handle_csv_exceptions(csv_file_path, e)
+    except KeyError as e:
+        print(f"Column '{res_col_name}' could not be found in {csv_file_path}: {e}.")
+        sys.exit(6)
+
+    return None
+
+def show_legend(_args: Any, _fig: Any, _scatter: Any, axs: Any) -> None:
+    res_col_name = get_result_name_or_default_from_csv_file_path(_args.run_dir + "/results.csv")
+
+    try:
+        if not _args.no_legend:
+            cbar = _fig.colorbar(_scatter, ax=axs, orientation='vertical', fraction=0.02, pad=0.05)
+            cbar.set_label(res_col_name, rotation=270, labelpad=15)
+
+            cbar.formatter.set_scientific(False)
+            cbar.formatter.set_useMathText(False)
+    except Exception as e:
+        print_color("red", f"ERROR: show_legend failed with error: {e}")
+
+def get_parameter_combinations(df_filtered: pd.DataFrame, csv_file_path: str) -> list:
+    res_col_name = get_result_name_or_default_from_csv_file_path(csv_file_path)
+
+    r = get_r(df_filtered)
+
+    df_filtered_cols = df_filtered.columns.tolist()
+
+    del df_filtered_cols[df_filtered_cols.index(res_col_name)]
+
+    parameter_combinations: list = list(combinations(df_filtered_cols, r))
+
+    if len(parameter_combinations) == 0:
+        parameter_combinations = list([*df_filtered_cols])
+
+    return parameter_combinations
+
+def get_colors(df: pd.DataFrame, csv_file_path: str) -> Any:
+    res_col_name = get_result_name_or_default_from_csv_file_path(csv_file_path)
+
+    colors = None
+
+    try:
+        colors = df[res_col_name]
+    except KeyError as e:
+        if str(e) == f"'{res_col_name}'":
+            print(f"get_colors: Could not find any results for column {res_col_name}")
+            sys.exit(3)
+        else:
+            print(f"Key-Error: {e}")
+            sys.exit(8)
+
+    return colors
+
+def get_color_list(df: pd.DataFrame, _args: Any, _plt: Any, csv_file_path: str) -> Any:
+    colors = get_colors(df, csv_file_path)
+
+    if colors is None:
+        print_color("yellow", "colors is None. Cannot plot.")
+        sys.exit(3)
+
+    maximize = check_first_line_max(_args.run_dir)
+    if maximize:
+        colors = -1 * colors  # Negate colors for maximum result
+
+    norm = None
+    try:
+        norm = _plt.Normalize(colors.min(), colors.max())
+    except Exception as e:
+        print_color("red", f"Wrong values in CSV or error parsing CSV file: {e}")
+        sys.exit(16)
+
+    c = ["darkred", "red", "lightcoral", "palegreen", "green", "darkgreen"]
+    c = c[::-1]
+    v = [0, 0.3, 0.5, 0.7, 0.9, 1]
+    _l = list(zip(v, c))
+
+    cmap = LinearSegmentedColormap.from_list('rg', _l, N=256)
+
+    return cmap, norm, colors
+
+def merge_df_with_old_data(_args: Any, df: pd.DataFrame, _min: float | None, _max: float | None, old_headers_string: str) -> pd.DataFrame:
+    if len(_args.merge_with_previous_runs):
+        for prev_run in _args.merge_with_previous_runs:
+            prev_run_csv_path = prev_run[0] + "/results.csv"
+            prev_run_df = get_data(prev_run_csv_path, _min, _max, old_headers_string)
+            if prev_run_df is not None and not prev_run_df.empty:
+                df = df.merge(prev_run_df, how='outer')
+    return df
+
+def print_if_not_plot_tests_and_exit(msg: str, exit_code: int) -> str:
+    if not os.environ.get("PLOT_TESTS"):
+        print(msg)
+    if exit_code is not None:
+        sys.exit(exit_code)
+
+    return msg
+
+def load_and_merge_data(_args: Any, _min: float | None, _max: float | None, filter_out_strings: str, csv_file_path: str) -> pd.DataFrame | None:
+    df = get_data(csv_file_path, _min, _max, None, filter_out_strings)
+
+    if df is not None and not df.empty:
+        old_headers_string = ','.join(sorted(df.columns))
+        return merge_df_with_old_data(_args, df, _min, _max, old_headers_string)
+
+    return None
+
+def _update_graph(_params: list) -> None:
+    csv_file_path, plt, fig, MINIMUM_TEXTBOX, MAXIMUM_TEXTBOX, _min, _max, _args, filter_out_strings, set_title, plot_graphs, button = _params
+
+    try:
+        csv_file_path = get_csv_file_path(_args)
+        _min, _max = set_min_max(MINIMUM_TEXTBOX, MAXIMUM_TEXTBOX, _min, _max)
+        df = load_and_merge_data(_args, _min, _max, filter_out_strings, csv_file_path)
+        if df is not None and not df.empty:
+            df_filtered = get_df_filtered(_args, df)
+
+            check_filtering(df, df_filtered, csv_file_path, _min, _max)
+            plot_parameters([csv_file_path, df, df_filtered, _args, fig, button, MINIMUM_TEXTBOX, MAXIMUM_TEXTBOX, plot_graphs, set_title, filter_out_strings, _min, _max])
+
+            plt.draw()
+        else:
+            print("Failed to get df")
+
+    except Exception as e:
+        _handle_update_graph_exception(e)
+
+def check_filtering(df: pd.DataFrame, df_filtered: pd.DataFrame, csv_file_path: str, _min: float | None, _max: float | None) -> None:
+    nr_of_items_before_filtering = len(df)
+    check_min_and_max(len(df_filtered), nr_of_items_before_filtering, csv_file_path, _min, _max)
+
+def plot_parameters(_params: list) -> None:
+    csv_file_path, df, df_filtered, _args, fig, button, MINIMUM_TEXTBOX, MAXIMUM_TEXTBOX, plot_graphs, set_title, filter_out_strings, _min, _max = _params
+    parameter_combinations = get_parameter_combinations(df_filtered, csv_file_path)
+    non_empty_graphs = get_non_empty_graphs(parameter_combinations, df_filtered, filter_out_strings)
+
+    num_subplots, num_cols, num_rows = get_num_subplots_rows_and_cols(non_empty_graphs)
+    remove_widgets(fig, button, MAXIMUM_TEXTBOX, MINIMUM_TEXTBOX)
+
+    axs = fig.subplots(num_rows, num_cols)
+    result_column_values = get_result_column_values(df, get_csv_file_path(_args))
+
+    plot_graphs([df, fig, axs, df_filtered, non_empty_graphs, num_subplots, parameter_combinations, num_rows, num_cols, result_column_values, csv_file_path])
+    set_title(df_filtered, result_column_values, len(df_filtered), _min, _max)
+
+def _handle_update_graph_exception(e: str | Exception) -> None:
+    if "invalid command name" not in str(e):
+        print(f"Failed to update graph: {e}")
+
+def set_margins(fig: Any) -> None:
+    left = 0.04
+    right = 0.864
+    bottom = 0.171
+    top = 0.9
+    wspace = 0.27
+    hspace = 0.31
+
+    fig.subplots_adjust(left=left, bottom=bottom, right=right, top=top, wspace=wspace, hspace=hspace)
+
+def use_matplotlib(_args: Any) -> None:
+    try:
+        if not _args.save_to_file:
+            matplotlib.use('TkAgg')
+    except Exception as e:
+        print(f"An error occurred while loading TkAgg. This may happen when you forgot to add -X to your ssh-connection: {e}.")
+        sys.exit(33)
+
+def filter_data(_args: Any, dataframe: pd.DataFrame, min_value: float | None = None, max_value: float | None = None, csv_file_path: str = "") -> pd.DataFrame:
+    res_col_name = get_result_name_or_default_from_csv_file_path(csv_file_path)
+
+    try:
+        if min_value is not None:
+            dataframe = dataframe[dataframe[res_col_name] >= min_value]
+        if max_value is not None:
+            dataframe = dataframe[dataframe[res_col_name] <= max_value]
+    except KeyError:
+        print_if_not_plot_tests_and_exit(f"{_args.run_dir}/results.csv seems to have no results column.", 19)
+
+    return dataframe
+
+def print_traceback() -> None:
+    tb = traceback.format_exc()
+    print(tb)
+
+def is_valid_time_format(time_string: str) -> bool:
+    try:
+        datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S')
+        return True
+    except ValueError:
+        return False
+
+def check_args(_args: Any) -> None:
+    if _args.min and _args.max:
+        if _args.min > _args.max:
+            _args.max, _args.min = _args.min, _args.max
+        elif _args.min == _args.max:
+            print("Max and min value are the same. May result in empty data")
+
+    check_path(_args.run_dir)
+
+def can_be_plotted(path: str) -> bool:
+    result_file = os.path.join(path, "result_names.txt")
+
+    if not os.path.exists(result_file):
+        return True
+
+    with open(result_file, "r", encoding="utf-8") as file:
+        lines = [line.strip() for line in file if line.strip()]
+
+    return len(lines) == 1
+
+def die_if_cannot_be_plotted(run_dir: str | None) -> None:
+    if run_dir is None:
+        log_error("run_dir was empty")
+        sys.exit(2)
+
+    if not can_be_plotted(run_dir):
+        log_error(f"{run_dir} contains multiple RESULTS and thus can only be plotted by parallel plot")
+        sys.exit(2)
+
+
+DEFAULT_USAGE_STATS_BASE_URL = "https://imageseg.scads.de/omniax"
+
+
+def _resolve_usage_stats_base_url() -> str:
+    """Return the base URL for usage-stat and exit-code-lookup calls.
+
+    Reads $HOME/.oo_base_url, which is the override mechanism the old bash
+    implementation used (see omniopt bash `myexit` / `send_status_report`).
+    """
+    base = DEFAULT_USAGE_STATS_BASE_URL
+    override_path = os.path.join(os.path.expanduser("~"), ".oo_base_url")
+    if os.path.exists(override_path):
+        try:
+            with open(override_path, "r", encoding="utf-8") as f:
+                base = f.read().strip() or base
+        except OSError:
+            pass
+    return base
+
+
+def get_anon_user_id() -> str:
+    """Return an anonymized per-user identifier.
+
+    Python port of the bash `get_anon_user_id` function.  The output is
+    deterministic for the same user / host but does not contain the
+    username in plain text.
+    """
+    user = os.environ.get("USER", "") or os.environ.get("USERNAME", "") or ""
+    try:
+        try:
+            groups = os.getgroups()
+            groups_blob = " ".join(sorted([str(g) for g in groups]))
+        except Exception:
+            groups_blob = ""
+    except Exception:
+        groups_blob = ""
+    user_groups = f"{user}|groups={groups_blob}"
+
+    pw_material = f"{groups_blob}-{user}"
+
+    def _sha(s: str) -> str:
+        return hashlib.sha512(s.encode("utf-8")).hexdigest()
+
+    pw_hash = _sha(_sha(pw_material)[::-1])[::-1]
+    pw_hash = _sha(pw_hash)
+    pw_hash = _sha(pw_hash)
+
+    def _keystream(seed: str, length: int) -> bytes:
+        out = b""
+        counter = 0
+        while len(out) < length:
+            out += hashlib.sha512(f"{seed}:{counter}".encode()).digest()
+            counter += 1
+        return out[:length]
+
+    plaintext = user_groups.encode("utf-8")
+    key_seed = pw_hash
+    ks = _keystream(f"{key_seed}:stream", len(plaintext))
+    ciphertext = bytes(p ^ k for p, k in zip(plaintext, ks))
+
+    import base64
+    encrypted_b64 = base64.b64encode(ciphertext).decode("ascii")
+
+    hashed = _sha(_sha(_sha(encrypted_b64)[::-1])[::-1])
+    return hashed[:32]
+
+
+def _urlopen_quiet(url: str, timeout: float = 5.0) -> bool:
+    """Fire-and-forget https GET.  Returns True on success, swallows errors."""
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            resp.read(1024)
+        return True
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return False
+
+
+def send_anonymized_usage_stats(
+    has_sbatch: bool,
+    run_uuid: str,
+    git_hash: str,
+    exit_code: int | None,
+    runtime_seconds: int,
+) -> None:
+    """Fire a single usage-stats ping, mirroring the bash equivalent.
+
+    Equivalent of bash `send_status_report`: builds the same `anon_user`,
+    `has_sbatch`, `run_uuid`, `git_hash`, `exit_code`, `runtime` params and
+    hits the configured base URL with a `--spider`-style GET.  Errors are
+    swallowed; this is best-effort telemetry.
+    """
+    if os.environ.get("ITWORKSONMYMACHINE"):
+        anon_user = "affeaffeaffeaffeaffeaffeaffeaffe"
+    elif os.environ.get("OO_MAIN_TESTS"):
+        anon_user = "affed00faffed00faffed00faffed00f"
+    else:
+        try:
+            anon_user = get_anon_user_id()
+        except Exception:
+            return
+
+    if not git_hash:
+        git_hash = "pipinstall" if os.environ.get("CUSTOM_VIRTUAL_ENV") == "1" else "NOT_DETERMININABLE"
+
+    if exit_code is None:
+        exit_code = -1
+
+    base = _resolve_usage_stats_base_url()
+    params = {
+        "anon_user": anon_user,
+        "has_sbatch": "1" if has_sbatch else "0",
+        "run_uuid": run_uuid or "",
+        "git_hash": git_hash,
+        "exit_code": str(exit_code),
+        "runtime": str(int(runtime_seconds or 0)),
+    }
+    qs = "&".join(f"{k}={urllib.parse.quote(str(v), safe='')}" for k, v in params.items())
+    url = f"{base}/usage_stats.php?{qs}"
+    _urlopen_quiet(url)
+
+
+def fetch_exit_code_help(exit_code: int, *, timeout: float = 5.0) -> str:
+    """Look up a human-readable explanation for a non-zero exit code.
+
+    Mirrors the bash `myexit`: if the user has not pressed Ctrl-C
+    (`cancelled_manually`) and the exit code is non-zero, fetch the help
+    page.  Returns "" on any error.
+    """
+    if not exit_code:
+        return ""
+    try:
+        base = _resolve_usage_stats_base_url()
+        url = f"{base}/exit_code_table.php?exit_code={int(exit_code)}"
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = resp.read(8192)
+        return data.decode("utf-8", errors="replace").strip()
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return ""
+
+
+def is_sbatch_in_path() -> bool:
+    """Return True if and only if `sbatch` is on PATH.  Mirrors bash `command -v sbatch`."""
+    for directory in os.environ.get("PATH", "").split(":"):
+        if not directory:
+            continue
+        candidate = os.path.join(directory, "sbatch")
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return True
+    return False
+
+
+def _parse_share_url(url: str) -> tuple[str, str] | None:
+    """Pull (user_id, experiment_name) out of an OmniOpt share URL.
+
+    Returns None if the URL doesn't look like a share URL.  Mirrors the bash
+    regex used by the old omniopt script.
+    """
+    if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+        return None
+
+    user_id = ""
+    experiment_name = ""
+    for piece in url.split("?", 1)[-1].split("&"):
+        if piece.startswith("user_id="):
+            user_id = piece[len("user_id="):]
+        elif piece.startswith("experiment_name="):
+            experiment_name = piece[len("experiment_name="):]
+
+    has_run_nr = "run_nr=" in url
+    if not user_id or not experiment_name or not has_run_nr:
+        return None
+    return user_id, experiment_name
+
+
+def download_share_run(continue_url: str, runs_root: str = "runs") -> str | None:
+    """Download a shared run zip and unpack it under runs_root.
+
+    Python port of the bash continue-from-URL block.  Returns the
+    on-disk path of the freshly extracted run folder, or None on failure.
+    """
+    parsed = _parse_share_url(continue_url)
+    if parsed is None:
+        return None
+    user_id, experiment_name = parsed
+
+    base, _sep, query = continue_url.partition("?")
+    zip_url = base.replace("share.php", "download_share_all.php")
+    if "?" in zip_url:
+        zip_url = zip_url + "&" + query
+    else:
+        zip_url = zip_url + "?" + query
+
+    tmp_dir = tempfile.mkdtemp(prefix="oo_download_")
+    zip_path = os.path.join(tmp_dir, "share_download.zip")
+    try:
+        try:
+            with urllib.request.urlopen(zip_url, timeout=60) as resp:
+                with open(zip_path, "wb") as f:
+                    shutil.copyfileobj(resp, f)
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            return None
+
+        if not zipfile.is_zipfile(zip_path):
+            return None
+
+        base_dir = os.path.join(runs_root, user_id, experiment_name)
+        os.makedirs(base_dir, exist_ok=True)
+        idx = 0
+        target = os.path.join(base_dir, str(idx))
+        while os.path.isdir(target):
+            idx += 1
+            target = os.path.join(base_dir, str(idx))
+
+        os.makedirs(target, exist_ok=False)
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(target)
+
+        return target
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def humanize_seconds(total_seconds: int) -> str:
+    """Render a wallclock duration as 'X days Y hours Z minutes and N seconds'.
+
+    Same shape the legacy bash runtime helper emitted, so we can swap
+    one for the other without changing any user-visible output.
+    """
+    total = int(total_seconds)
+    days = total // 86400
+    hours = (total // 3600) % 24
+    minutes = (total // 60) % 60
+    seconds = total % 60
+
+    parts = []
+    if days > 0:
+        parts.append(f"{days} days")
+    if hours > 0:
+        parts.append(f"{hours} hours")
+    if minutes > 0:
+        parts.append(f"{minutes} minutes")
+    if days > 0 or hours > 0 or minutes > 0:
+        parts.append("and")
+    parts.append(f"{seconds} seconds")
+    return " ".join(parts)
+
+
+_MINUTE_RE = re.compile(r"^\d+$")
+_TIME_RE = re.compile(r"^[0-9]+:[0-9]+:[0-9]+$")
+
+
+def minutes_to_hh_mm_ss(value: str) -> str:
+    """Convert a minute count or an already-formatted time string.
+
+    Mirrors the legacy bash helper -- used to build sbatch's
+    --time value from the user-supplied --time flag (in minutes).
+    """
+    if _MINUTE_RE.match(value):
+        total_minutes = int(value)
+        hours = total_minutes // 60
+        minutes = total_minutes % 60
+        return f"{hours:02d}:{minutes:02d}:00"
+    if _TIME_RE.match(value):
+        return value
+    raise ValueError(f"{value} is not a valid input. Must be a number of minutes (digits) or an hour-minute-second string")
+
+
+def remaining_time(target_date: str) -> str:
+    """Pretty-print how long until `target_date` is reached.
+
+    Mirrors the legacy bash helper used by the SLURM spinner that
+    shows the estimated job start time.  Empty string when the
+    date is in the past.
+    """
+    cleaned = re.sub(r"\x1b\[[0-9;]*m", "", target_date)
+    try:
+        target_epoch = int(datetime.strptime(cleaned, "%Y-%m-%d %H:%M:%S").timestamp())
+    except (TypeError, ValueError):
+        return ""
+    now_epoch = int(datetime.now().timestamp())
+    difference = target_epoch - now_epoch
+    if difference < 0:
+        return ""
+    difference_minutes = difference // 60
+    if difference_minutes < 30:
+        if difference_minutes == 0:
+            return "soon"
+        if difference_minutes == 1:
+            return f"in about {difference_minutes} minute"
+        return f"in about {difference_minutes} minutes"
+    difference_rounded = (difference * 5 + 299) // 300
+    minutes = difference_rounded % 60
+    hours = (difference_rounded // 60) % 24
+    days = (difference_rounded // 1440) % 365
+    years = difference_rounded // 525600
+
+    result = ""
+    if years > 0:
+        result += f" {years} {'year' if years == 1 else 'years'}"
+    if days > 0:
+        if result:
+            result += " and"
+        result += f" {days} {'day' if days == 1 else 'days'}"
+    if hours > 0:
+        if result:
+            result += " and"
+        result += f" {hours} {'hour' if hours == 1 else 'hours'}"
+    if minutes > 0:
+        if result:
+            result += " and"
+        result += f" {minutes} {'minute' if minutes == 1 else 'minutes'}"
+
+    if result:
+        return f"in about{result}"
+    return ""
+
+
+def slurmlogpath(job_id: str) -> str:
+    """Return the stdout log path of a SLURM job (empty string on failure).
+
+    Thin wrapper used by the sbatch-submit spinner and the
+    wait_until_ended branch.
+    """
+    if shutil.which("scontrol") is None:
+        return ""
+    try:
+        out = subprocess.check_output(
+            ["scontrol", "show", "job", str(job_id)],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("StdOut="):
+            return line[len("StdOut="):]
+    return ""
+
+
+def _run_git(script_dir: str, *args: str, timeout: float = 10.0) -> str | None:
+    """Run a git command in `script_dir`.  Returns stdout or None on failure."""
+    try:
+        return subprocess.check_output(
+            ["git", "-C", script_dir, *args],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+        ).strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _read_git_hash(script_dir: str) -> str:
+    """Read current commit hash from `git_hash` file or `git rev-parse`."""
+    git_hash_file = os.path.join(script_dir, "git_hash")
+    if os.path.isfile(git_hash_file):
+        try:
+            with open(git_hash_file, "r", encoding="utf-8") as f:
+                return f.read().strip() or "NOT_DETERMININABLE"
+        except OSError:
+            return "NOT_DETERMININABLE"
+    return _run_git(script_dir, "rev-parse", "HEAD") or "NOT_DETERMININABLE"
+
+
+def _at_or_near_tag_message(
+    git_hash: str, current_tag: str, tag_commit_hash: str, n: int
+) -> str:
+    """Build the 'Current git-hash: ... (version/with-hash)' message
+    used when HEAD is on or close to the tagged commit.
+    """
+    if n != 0:
+        # n was not an integer (e.g. -1 used as a sentinel); callers
+        # handle the actual message construction.
+        return f"Current git-hash: {git_hash} (version: {current_tag})"
+    if git_hash == tag_commit_hash:
+        return f"Current git-hash: {git_hash} (version: {current_tag})"
+    return f"Current git-hash: {git_hash} ({current_tag}, {tag_commit_hash})"
+
+
+def _past_tag_message(
+    git_hash: str, current_tag: str, tag_commit_hash: str, n: int
+) -> str:
+    """Build the 'N commits ago' message used when HEAD is past the tag."""
+    noun = "commit" if n == 1 else "commits"
+    return (
+        f"Current git-hash: {git_hash} (last fully tested stable version "
+        f"{n} {noun} ago [{tag_commit_hash}, {current_tag}])"
+    )
+
+
+def resolve_git_version(
+    script_dir: str,
+    checkout_to_latest: bool = False,
+) -> tuple[str, str]:
+    """Return (action, payload) describing what omniopt should do about git.
+
+    action: "print" | "checkout" | "none"
+    payload:
+      - "print"   -> the message to display (may contain newlines)
+      - "checkout" -> the commit hash to git-checkout
+      - "none"    -> empty string
+
+    Equivalent to the ~80-line bash block in the legacy omniopt that
+    compared `git describe` / `git rev-list` output and decided which
+    "Current git-hash: ..." message to print.
+    """
+    git_hash = _read_git_hash(script_dir)
+
+    # Best-effort tag fetch.
+    _run_git(script_dir, "fetch", "--tags", timeout=15.0)
+
+    current_tag = _run_git(script_dir, "describe", "--tags", "--abbrev=0") or ""
+    if not current_tag:
+        if git_hash != "NOT_DETERMININABLE":
+            return "print", f"Current git-hash: {git_hash}"
+        return "none", ""
+
+    tag_commit_hash = _run_git(script_dir, "rev-list", "-n", "1", current_tag) or ""
+    if not tag_commit_hash:
+        return "print", f"Current git-hash: {git_hash} (version: {current_tag})"
+
+    commits_since_raw = _run_git(
+        script_dir, "rev-list", "--count", f"{tag_commit_hash}..HEAD"
+    ) or ""
+    if not commits_since_raw:
+        return "print", f"Current git-hash: {git_hash} (version: {current_tag}, {tag_commit_hash})"
+
+    try:
+        n = int(commits_since_raw)
+    except ValueError:
+        n = -1  # sentinel: not an integer; the message builders fall back
+
+    if n <= 0:
+        return "print", _at_or_near_tag_message(
+            git_hash, current_tag, tag_commit_hash, n
+        )
+
+    if checkout_to_latest:
+        return "checkout", tag_commit_hash
+
+    msg = _past_tag_message(git_hash, current_tag, tag_commit_hash, n)
+
+    if not os.environ.get("OO_MAIN_TESTS"):
+        warning = (
+            f"The current version was not thoroughly tested. It may "
+            f"contain bugs. Checkout to {tag_commit_hash} or use "
+            f"--checkout_to_latest_tested_version."
+        )
+        return "print", msg + "\n" + warning
+
+    return "print", msg
+
+
+if __name__ == "__main__":
+    import argparse
+
+    _cli = argparse.ArgumentParser(prog=".helpers.py")
+    _sub = _cli.add_subparsers(dest="cmd", required=True)
+
+    _p_humanize = _sub.add_parser("humanize-seconds", help="render a wallclock duration as 'days, hours, minutes, and seconds'")
+    _p_humanize.add_argument("seconds", type=int)
+
+    _p_hh = _sub.add_parser("minutes-to-hh-mm-ss", help="format minutes or hour-minute-second strings for sbatch --time")
+    _p_hh.add_argument("value")
+
+    _p_rt = _sub.add_parser("remaining-time", help="format remaining-time message")
+    _p_rt.add_argument("target_date")
+
+    _p_sl = _sub.add_parser("slurm-log-path", help="print stdout log path of a SLURM job")
+    _p_sl.add_argument("job_id")
+
+    _p_dl = _sub.add_parser(
+        "download-share-run",
+        help="download a shared run zip and print the local path",
+    )
+    _p_dl.add_argument("url")
+
+    _p_gv = _sub.add_parser(
+        "git-version",
+        help="print 'Current git-hash: ...' message and decide whether to checkout",
+    )
+    _p_gv.add_argument("script_dir")
+    _p_gv.add_argument(
+        "--checkout-to-latest",
+        action="store_true",
+        help="if set, signal a checkout instead of just printing the warning",
+    )
+
+    _args = _cli.parse_args()
+
+    try:
+        if _args.cmd == "humanize-seconds":
+            print(humanize_seconds(_args.seconds))
+        elif _args.cmd == "minutes-to-hh-mm-ss":
+            print(minutes_to_hh_mm_ss(_args.value))
+        elif _args.cmd == "remaining-time":
+            print(remaining_time(_args.target_date))
+        elif _args.cmd == "slurm-log-path":
+            print(slurmlogpath(_args.job_id))
+        elif _args.cmd == "download-share-run":
+            print(download_share_run(_args.url) or "")
+        elif _args.cmd == "git-version":
+            action, payload = resolve_git_version(
+                _args.script_dir, checkout_to_latest=_args.checkout_to_latest
+            )
+            print(action)
+            if payload:
+                print(payload)
+    except (SystemExit, ValueError) as exc:
+        if isinstance(exc, SystemExit):
+            raise
+        sys.stderr.write(f"error: {exc}\n")
+        sys.exit(1)

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fasttransport"
+dynamic = ["version"]
+description = "Sync and async HTTP transports over httpx2, plus base classes for small REST clients"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "Jeremy Howard", email = "github@jhoward.fastmail.fm"}]
+keywords = ['nbdev']
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = ['fastcore>=2.2.11', 'httpx2>=2.9.1']
+
+[project.optional-dependencies]
+dev = ['cachy>=0.0.7']
+
+[project.urls]
+Repository = "https://github.com/AnswerDotAI/fasttransport"
+Documentation = "https://AnswerDotAI.github.io/fasttransport/"
+
+[project.entry-points.nbdev]
+fasttransport = "fasttransport._modidx:d"
+
+[tool.setuptools.dynamic]
+version = {attr = "fasttransport.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["fasttransport"]
+
+[tool.nbdev]

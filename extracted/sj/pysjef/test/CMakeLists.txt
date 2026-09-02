@@ -1,0 +1,50 @@
+include(FetchContent)
+FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG "v1.14.0"
+)
+FetchContent_GetProperties(googletest)
+if (NOT googletest_POPULATED)
+    FetchContent_MakeAvailable(googletest)
+endif ()
+
+file(COPY He.molpro DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+if (WIN32)
+    find_program(MOLPRO molpro.bat)
+else ()
+    find_program(MOLPRO molpro)
+endif ()
+if (NOT MOLPRO STREQUAL MOLPRO-NOTFOUND)
+    message(STATUS "Molpro included in tests")
+endif ()
+
+include(GoogleTest)
+foreach (t test-sjef test-sjef-c test-Locker test-sjef-molpro test-Shell test-backend-config)
+    if (NOT (MOLPRO STREQUAL MOLPRO-NOTFOUND AND t STREQUAL test-sjef-molpro))
+        add_executable(${t} ${t}.cpp test-sjef.h)
+        add_dependencies(${t} dummy)
+        target_compile_definitions(${t} PRIVATE SJEF_VERSION=\"${SJEF_VERSION}\")
+        target_link_libraries(${t} PUBLIC gmock_main ${PROJECT_NAME})
+        if (NOT CMAKE_CROSSCOMPILING)
+            gtest_discover_tests(${t})
+            add_test(${t} ${t})
+        endif ()
+    endif ()
+endforeach ()
+set_property(TARGET test-Shell PROPERTY CXX_STANDARD 17)
+
+foreach (t test-c-sjef-backend)
+    add_executable(${t} ${t}.c)
+    target_link_libraries(${t} PUBLIC ${PROJECT_NAME})
+endforeach ()
+
+target_link_libraries(test-Locker PRIVATE Boost::boost)
+if (NOT MOLPRO STREQUAL MOLPRO-NOTFOUND)
+    target_link_libraries(test-sjef-molpro PRIVATE Boost::boost)
+endif ()
+
+add_executable(logger logger.cpp)
+target_link_libraries(logger PRIVATE ${PROJECT_NAME})
+target_compile_definitions(test-Locker PRIVATE EXECUTABLE_SUFFIX="${CMAKE_EXECUTABLE_SUFFIX}")
+add_dependencies(test-Locker logger)

@@ -1,1 +1,0 @@
-"""Cargo-audit parser module."""

@@ -63,11 +63,11 @@ class ServiceStats(APIObject, MonitoringDataQueryBuilderMixin):
     Attributes
     ----------
     model_id : str
-        the model used to retrieve service stats metrics
+        The model used to retrieve service stats metrics.
     period : dict
-        the time period used to retrieve service stats metrics
+        The time period used to retrieve service stats metrics.
     metrics : dict
-        the service stats metrics
+        The service stats metrics.
     """
 
     _path = "deployments/{}/serviceStats/"
@@ -133,35 +133,35 @@ class ServiceStats(APIObject, MonitoringDataQueryBuilderMixin):
         segment_value: Optional[str] = None,
         slow_requests_threshold: Optional[float] = None,
     ) -> ServiceStats:
-        """Retrieve value of service stat metrics over a certain time period.
+        """Retrieve values of service stat metrics over a certain time period.
 
         .. versionadded:: v2.18
 
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         model_id : Optional[str]
-            the ID of the model
+            The ID of the model.
         start_time : datetime, optional
-            start of the time period
+            Start of the time period.
         end_time : datetime, optional
-            end of the time period
+            End of the time period.
         execution_time_quantile : Optional[float]
-            quantile for `executionTime`, defaults to 0.5
+            The `quantile` for `executionTime`, defaults to 0.5.
         response_time_quantile : Optional[float]
-            quantile for `responseTime`, defaults to 0.5
+            The `quantile` for `responseTime`, defaults to 0.5.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
         slow_requests_threshold : Optional[float]
-            threshold for `slowRequests`, defaults to 1000
+            The threshold for `slowRequests`, defaults to 1000.
 
         Returns
         -------
         service_stats : ServiceStats
-            the queried service stats metrics
+            The queried service stats metrics.
         """
 
         path = cls._path.format(deployment_id)
@@ -191,9 +191,9 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     Attributes
     ----------
     metric : str
-        the service stat metric being retrieved
+        The service stat metric being retrieved.
     buckets : dict
-        how the service stat metric changes over time
+        How the service stat metric changes over time.
     """
 
     _path = "deployments/{}/serviceStatsOverTime/"
@@ -256,30 +256,30 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         metric : SERVICE_STAT_METRIC, optional
-            the service stat metric to retrieve
+            The service stat metric to retrieve.
         model_id : Optional[str | List[str]]
-            the ID of the model
+            The ID of the model.
         start_time : datetime, optional
-            start of the time period
+            Start of the time period.
         end_time : datetime, optional
-            end of the time period
+            End of the time period.
         bucket_size : Optional[str]
-            time duration of a bucket, in ISO 8601 time duration format
+            The time duration of a bucket, in ISO 8601 time duration format.
         quantile : Optional[float]
-            quantile for 'executionTime' or 'responseTime', ignored when querying other metrics
+            The `quantile` for `executionTime` or `responseTime`, ignored when querying other metrics.
         threshold : Optional[int]
-            threshold for 'slowQueries', ignored when querying other metrics
+            The threshold for `slowQueries`, ignored when querying other metrics.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         service_stats_over_time : ServiceStatsOverTime
-            the queried service stat over time information
+            The queried service stat over time information.
         """
 
         path = cls._path.format(deployment_id)

@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "AdminStatusType",
+    "AssociationModeType",
     "AutoEnableMembersType",
     "CloudProviderType",
     "ClusterStatusType",
@@ -39,6 +40,10 @@ __all__ = (
     "DataSourceType",
     "DescribeMalwareScansPaginatorName",
     "DestinationTypeType",
+    "DetectionRuleConfigurationStatusType",
+    "DetectionRuleDataSourceType",
+    "DetectionRuleFilterConditionType",
+    "DetectionRuleSeverityType",
     "DetectionSourceType",
     "DetectorFeatureResultType",
     "DetectorFeatureType",
@@ -50,6 +55,7 @@ __all__ = (
     "FeatureStatusType",
     "FeedbackType",
     "FilterActionType",
+    "FilterFieldNameType",
     "FindingPublishingFrequencyType",
     "FindingResourceTypeType",
     "FindingStatisticTypeType",
@@ -65,6 +71,9 @@ __all__ = (
     "IpSetStatusType",
     "KubernetesResourcesTypesType",
     "ListCoveragePaginatorName",
+    "ListCustomDetectionRuleAssociationsPaginatorName",
+    "ListCustomDetectionRuleOrgConfigurationsPaginatorName",
+    "ListCustomDetectionRulesPaginatorName",
     "ListDetectorsPaginatorName",
     "ListFiltersPaginatorName",
     "ListFindingsPaginatorName",
@@ -101,6 +110,8 @@ __all__ = (
     "ResourceServiceName",
     "ResourceTypeType",
     "RiskLevelType",
+    "RuleLanguageType",
+    "RuleSchemaType",
     "ScanCategoryType",
     "ScanCriterionKeyType",
     "ScanResultStatusType",
@@ -122,6 +133,7 @@ __all__ = (
 )
 
 AdminStatusType = Literal["DISABLE_IN_PROGRESS", "ENABLED"]
+AssociationModeType = Literal["DRY_RUN", "LIVE"]
 AutoEnableMembersType = Literal["ALL", "NEW", "NONE"]
 CloudProviderType = Literal["AWS"]
 ClusterStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING", "UPDATING"]
@@ -172,6 +184,10 @@ DataSourceType = Literal[
 ]
 DescribeMalwareScansPaginatorName = Literal["describe_malware_scans"]
 DestinationTypeType = Literal["S3"]
+DetectionRuleConfigurationStatusType = Literal["ACTIVE", "FAILED", "PROCESSING"]
+DetectionRuleDataSourceType = Literal["CloudTrailManagementEvent"]
+DetectionRuleFilterConditionType = Literal["CONTAINS", "EQUALS"]
+DetectionRuleSeverityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
 DetectionSourceType = Literal["AMAZON", "BITDEFENDER"]
 DetectorFeatureResultType = Literal[
     "AI_ANALYST",
@@ -208,6 +224,9 @@ FeatureAdditionalConfigurationType = Literal[
 FeatureStatusType = Literal["DISABLED", "ENABLED"]
 FeedbackType = Literal["NOT_USEFUL", "USEFUL"]
 FilterActionType = Literal["ARCHIVE", "NOOP"]
+FilterFieldNameType = Literal[
+    "dataSource", "description", "name", "service", "severity", "tactic", "technique"
+]
 FindingPublishingFrequencyType = Literal["FIFTEEN_MINUTES", "ONE_HOUR", "SIX_HOURS"]
 FindingResourceTypeType = Literal[
     "ACCESS_KEY",
@@ -286,6 +305,13 @@ KubernetesResourcesTypesType = Literal[
     "STATEFULSETS",
 ]
 ListCoveragePaginatorName = Literal["list_coverage"]
+ListCustomDetectionRuleAssociationsPaginatorName = Literal[
+    "list_custom_detection_rule_associations"
+]
+ListCustomDetectionRuleOrgConfigurationsPaginatorName = Literal[
+    "list_custom_detection_rule_org_configurations"
+]
+ListCustomDetectionRulesPaginatorName = Literal["list_custom_detection_rules"]
 ListDetectorsPaginatorName = Literal["list_detectors"]
 ListFiltersPaginatorName = Literal["list_filters"]
 ListFindingsPaginatorName = Literal["list_findings"]
@@ -353,6 +379,8 @@ PublishingStatusType = Literal[
 ]
 ResourceTypeType = Literal["EC2", "ECS", "EKS"]
 RiskLevelType = Literal["Critical", "High", "Info", "Low", "Medium"]
+RuleLanguageType = Literal["SQL"]
+RuleSchemaType = Literal["CloudTrail"]
 ScanCategoryType = Literal["FULL_SCAN", "INCREMENTAL_SCAN"]
 ScanCriterionKeyType = Literal["EC2_INSTANCE_TAG"]
 ScanResultStatusType = Literal["NO_THREATS_FOUND", "THREATS_FOUND"]
@@ -869,6 +897,9 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "describe_malware_scans",
     "list_coverage",
+    "list_custom_detection_rule_associations",
+    "list_custom_detection_rule_org_configurations",
+    "list_custom_detection_rules",
     "list_detectors",
     "list_filters",
     "list_findings",

@@ -1,0 +1,47 @@
+"""Tests for _print_dry_run_plan helper."""
+
+from agentic_devtools.cli.azure_devops.review_scaffold import _print_dry_run_plan
+
+
+class TestPrintDryRunPlan:
+    """Tests for _print_dry_run_plan helper."""
+
+    def test_prints_pr_id(self, capsys):
+        """Prints the PR ID in the plan header."""
+        _print_dry_run_plan(999, [], {})
+        out = capsys.readouterr().out
+        assert "[DRY RUN] Scaffolding plan for PR 999:" in out
+
+    def test_prints_file_entries(self, capsys):
+        """Prints a line for each file."""
+        _print_dry_run_plan(1, ["/src/a.ts", "/src/b.ts"], {"src": ["/src/a.ts", "/src/b.ts"]})
+        out = capsys.readouterr().out
+        assert "Would create file summary thread for /src/a.ts" in out
+        assert "Would create file summary thread for /src/b.ts" in out
+
+    def test_prints_folder_groupings(self, capsys):
+        """Prints a grouping line for each folder (no thread creation)."""
+        _print_dry_run_plan(1, ["/src/a.ts"], {"src": ["/src/a.ts"]})
+        out = capsys.readouterr().out
+        assert "Would group files under folder: src" in out
+
+    def test_prints_overall_thread(self, capsys):
+        """Prints a line for the overall PR summary thread."""
+        _print_dry_run_plan(1, [], {})
+        out = capsys.readouterr().out
+        assert "Would create overall PR summary thread" in out
+
+    def test_prints_total_api_calls(self, capsys):
+        """Prints total API call count (N files + 1 overall + 1 activity log + 1 demote reply)."""
+        files = ["/a/x.ts", "/a/y.ts", "/b/z.ts"]
+        folders = {"a": ["/a/x.ts", "/a/y.ts"], "b": ["/b/z.ts"]}
+        _print_dry_run_plan(1, files, folders)
+        out = capsys.readouterr().out
+        # 3 files + 3 (overall + activity log + demote reply) = 6
+        assert "Total API calls: 6" in out
+
+    def test_prints_activity_log_thread(self, capsys):
+        """Prints a line for the Review Activity Log thread."""
+        _print_dry_run_plan(1, [], {})
+        out = capsys.readouterr().out
+        assert "Would create Review Activity Log thread" in out

@@ -1,0 +1,1523 @@
+"""Stream abstract class."""
+
+import abc
+import copy
+import datetime
+import json
+import logging
+from os import PathLike
+from pathlib import Path
+from types import MappingProxyType
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    Set,
+    cast,
+)
+
+import pendulum
+import requests
+import singer
+import concurrent.futures
+import queue
+from singer import RecordMessage, Schema, SchemaMessage, StateMessage
+
+from hotglue_singer_sdk.exceptions import InvalidStreamSortException
+from hotglue_singer_sdk.helpers._catalog import pop_deselected_record_properties
+from hotglue_singer_sdk.helpers._compat import final
+from hotglue_singer_sdk.helpers._flattening import get_flattening_options
+from hotglue_singer_sdk.helpers._schema import SchemaPlus
+from hotglue_singer_sdk.helpers._singer import (
+    Catalog,
+    CatalogEntry,
+    MetadataMapping,
+    SelectionMask,
+)
+from hotglue_singer_sdk.helpers._state import (
+    finalize_state_progress_markers,
+    get_starting_replication_value,
+    get_state_partitions_list,
+    get_writeable_state_dict,
+    increment_state,
+    log_sort_error,
+    reset_state_progress_markers,
+    write_replication_key_signpost,
+    write_starting_replication_value,
+)
+from hotglue_singer_sdk.helpers._typing import (
+    conform_record_data_types,
+    is_datetime_type,
+    to_json_compatible,
+)
+from hotglue_singer_sdk.helpers._util import utc_now
+from hotglue_singer_sdk.mapper import RemoveRecordTransform, SameRecordTransform, StreamMap
+from hotglue_singer_sdk.plugin_base import PluginBase as TapBaseClass
+import isodate
+from datetime import timezone
+import os
+
+# Replication methods
+REPLICATION_FULL_TABLE = "FULL_TABLE"
+REPLICATION_INCREMENTAL = "INCREMENTAL"
+REPLICATION_LOG_BASED = "LOG_BASED"
+
+FactoryType = TypeVar("FactoryType", bound="Stream")
+
+METRICS_LOG_LEVEL_SETTING = "metrics_log_level"
+CHILD_REPLICATION_KEY_VALUE = "child_replication_key_value"
+
+
+class Stream(metaclass=abc.ABCMeta):
+    """Abstract base class for tap streams."""
+
+    STATE_MSG_FREQUENCY = int(os.environ.get("PARQUET_BATCH_MAX_SIZE", 1000))  # Number of records between state messages
+    _MAX_RECORDS_LIMIT: Optional[int] = None
+
+    # Used for nested stream relationships
+    parent_stream_type: Optional[Type["Stream"]] = None
+    ignore_parent_replication_key: bool = False
+    parallelization_limit: int = 1
+
+    # Internal API cost aggregator
+    _sync_costs: Dict[str, int] = {}
+
+    def __init__(
+        self,
+        tap: TapBaseClass,
+        schema: Optional[Union[str, PathLike, Dict[str, Any], Schema]] = None,
+        name: Optional[str] = None,
+    ) -> None:
+        """Init tap stream.
+
+        Args:
+            tap: Singer Tap this stream belongs to.
+            schema: JSON schema for records in this stream.
+            name: Name of this stream.
+
+        Raises:
+            ValueError: TODO
+            FileNotFoundError: TODO
+        """
+        if name:
+            self.name: str = name
+        if not self.name:
+            raise ValueError("Missing argument or class variable 'name'.")
+
+        self.logger: logging.Logger = tap.logger
+        self.tap_name: str = tap.name
+        self._config: dict = dict(tap.config)
+        self._tap = tap
+        self._tap_state = tap.state
+        self._tap_input_catalog: Optional[Catalog] = None
+        self._stream_maps: Optional[List[StreamMap]] = None
+        self.forced_replication_method: Optional[str] = None
+        self._replication_key: Optional[str] = None
+        self._primary_keys: Optional[List[str]] = None
+        self._state_partitioning_keys: Optional[List[str]] = None
+        self._schema_filepath: Optional[Path] = None
+        self._metadata: Optional[MetadataMapping] = None
+        self._mask: Optional[SelectionMask] = None
+        self._schema: dict
+        self.child_streams: List[Stream] = []
+        self._minimum_start_time: Optional[datetime.datetime] = None
+        self._selected_filters_version: Optional[str] = None
+        self._selected_filters: Optional[dict] = None
+        self._MAX_RECORDS_LIMIT = self.config.get("_hg_max_records_limit", {}).get(self.name, None)
+
+        if schema:
+            if isinstance(schema, (PathLike, str)):
+                if not Path(schema).is_file():
+                    raise FileNotFoundError(
+                        f"Could not find schema file '{self.schema_filepath}'."
+                    )
+
+                self._schema_filepath = Path(schema)
+            elif isinstance(schema, dict):
+                self._schema = schema
+            elif isinstance(schema, Schema):
+                self._schema = schema.to_dict()
+            else:
+                raise ValueError(
+                    f"Unexpected type {type(schema).__name__} for arg 'schema'."
+                )
+
+        if self.schema_filepath:
+            self._schema = json.loads(Path(self.schema_filepath).read_text())
+
+        if not self.schema:
+            raise ValueError(
+                f"Could not initialize schema for stream '{self.name}'. "
+                "A valid schema object or filepath was not provided."
+            )
+
+        if hasattr(self._tap, "_selected_filters") and self._tap._selected_filters \
+            and self._tap._selected_filters.get("streams", {}).get(self.name, {}):
+            self._selected_filters_version = self._tap._selected_filters.get("filters_version")
+            self._selected_filters = self._tap._selected_filters["streams"][self.name]
+            self.logger.info(f"Stream: {self.name} - Selected filters version: {self._selected_filters_version} - Selected filters: {self._selected_filters}")
+            self.setup_selected_filters()
+
+    def setup_selected_filters(self) -> None:
+        """Setup selected filters for the stream."""
+        pass
+
+    def get_available_filters_metadata(self) -> Dict[str, Any]:
+        """Describe available filters for this stream (for --get-available-filters).
+
+        Example:
+        {
+            "supported_operators": ["AND", "OR"],
+            "supports_nesting_clauses": True,
+            "filters": {
+                "filter_name": {
+                    "label": "Filter Name",
+                    "supported_operators": ["IN", "EQ"],
+                    "target_field": "field_name",
+                    "options": "reference_data.stream_name.field_name",
+                }
+            }
+        }
+
+        Override in taps that support user-configurable filters.
+        If no filters are supported, returns None.
+        """
+        pass
+
+    def get_available_filters_reference_data(self, fields_to_include: Set[str]) -> List[Dict[str, Any]]:
+        """Get reference data for for the stream.
+
+        Args:
+            fields_to_include: List of fields to get reference data for. This is the list of fields that are used in the "options" field of the filters.
+
+        Returns:
+            A list of dictionaries, each dictionary is a record from the stream.
+            The records fields are filtered to only include the fields in the `fields_to_include` list.
+        """
+        records = []
+        for record_result in self.get_records(context=None):
+            if isinstance(record_result, tuple):
+                # Tuple items should be the record and the child context
+                record, child_context = record_result
+            else:
+                record = record_result
+            filtered_record = {k: v for k, v in record.items() if k in fields_to_include}
+            if filtered_record:
+                records.append(filtered_record)
+        return records
+
+    @property
+    def stream_maps(self) -> List[StreamMap]:
+        """Get stream transformation maps.
+
+        The 0th item is the primary stream map. List should not be empty.
+
+        Returns:
+            A list of one or more map transformations for this stream.
+        """
+        if self._stream_maps:
+            return self._stream_maps
+
+        if self._tap.mapper:
+            self._stream_maps = self._tap.mapper.stream_maps[self.name]
+            self.logger.info(
+                f"Tap has custom mapper. Using {len(self.stream_maps)} provided map(s)."
+            )
+        else:
+            self.logger.info(
+                f"No custom mapper provided for '{self.name}'. "
+                "Using SameRecordTransform."
+            )
+            self._stream_maps = [
+                SameRecordTransform(
+                    stream_alias=self.name,
+                    raw_schema=self.schema,
+                    key_properties=self.primary_keys,
+                    flattening_options=get_flattening_options(self.config),
+                )
+            ]
+        return self._stream_maps
+
+    @property
+    def is_timestamp_replication_key(self) -> bool:
+        """Check is replication key is a timestamp.
+
+        Developers can override to `True` in order to force this value, although this
+        should not be required in most use cases since the type can generally be
+        accurately detected from the JSON Schema.
+
+        Returns:
+            True if the stream uses a timestamp-based replication key.
+        """
+        if not self.replication_key:
+            return False
+        type_dict = self.schema.get("properties", {}).get(self.replication_key)
+        return is_datetime_type(type_dict)
+
+    def get_starting_replication_key_value(
+        self, context: Optional[dict]
+    ) -> Optional[Any]:
+        """Get starting replication key.
+
+        Will return the value of the stream's replication key when `--state` is passed.
+        If no prior state exists, will return `None`.
+
+        Developers should use this method to seed incremental processing for
+        non-datetime replication keys. For datetime and date replication keys, use
+        :meth:`~hotglue_singer_sdk.Stream.get_starting_timestamp()`
+
+        Args:
+            context: Stream partition or context dictionary.
+
+        Returns:
+            Starting replication value.
+        """
+        state = self.get_context_state(context)
+
+        return get_starting_replication_value(state)
+
+    def get_starting_timestamp(
+        self, context: Optional[dict]
+    ) -> Optional[datetime.datetime]:
+        """Get starting replication timestamp.
+
+        Will return the value of the stream's replication key when `--state` is passed.
+        If no state exists, will return `start_date` if set, or `None` if neither
+        the stream state nor `start_date` is set.
+
+        Developers should use this method to seed incremental processing for date
+        and datetime replication keys. For non-datetime replication keys, use
+        :meth:`~hotglue_singer_sdk.Stream.get_starting_replication_key_value()`
+
+        Args:
+            context: Stream partition or context dictionary.
+
+        Returns:
+            `start_date` from config, or state value if using timestamp replication.
+
+        Raises:
+            ValueError: If the replication value is not a valid timestamp.
+        """
+        value = self.get_starting_replication_key_value(context)
+
+        if value is None:
+            return None
+
+        if not self.is_timestamp_replication_key:
+            raise ValueError(
+                f"The replication key {self.replication_key} is not of timestamp type"
+            )
+
+        return cast(datetime.datetime, pendulum.parse(value))
+    
+    def get_config_start_date(self, return_str = False) -> datetime.datetime:
+        start_date_str = self.config.get("start_date")
+        start_date_offset = self.config.get("start_date_offset")
+        start_date = None
+        if start_date_offset:
+            start_date_offset = isodate.parse_duration(start_date_offset)
+            start_date = datetime.datetime.now(timezone.utc) - start_date_offset
+        elif start_date_str:
+            start_date = pendulum.parse(start_date_str)
+        
+        if return_str and start_date_str:
+            if start_date_offset:
+                return start_date.isoformat()
+            return start_date_str
+        return start_date
+    
+    def get_starting_time(self, context, is_inclusive=False):
+        start_date = self.get_config_start_date()
+        rep_key = self.get_starting_timestamp(context)
+
+        if is_inclusive:
+            rep_key = rep_key + datetime.timedelta(seconds=1)
+
+        # if stream has a minimum start time and start date or replication key is less than the minimum start time, return the minimum start time
+        if hasattr(self, "minimum_start_time") and self.minimum_start_time and (rep_key or start_date) < self.minimum_start_time:
+            return self.minimum_start_time
+        return rep_key or start_date
+
+    @final
+    @property
+    def selected(self) -> bool:
+        """Check if stream is selected.
+
+        Returns:
+            True if the stream is selected.
+        """
+        return self.mask.get((), True)
+
+    @final
+    @property
+    def has_selected_descendents(self) -> bool:
+        """Check descendents.
+
+        Returns:
+            True if any child streams are selected, recursively.
+        """
+        for child in self.child_streams or []:
+            if child.selected or child.has_selected_descendents:
+                return True
+
+        return False
+
+    @final
+    @property
+    def descendent_streams(self) -> List["Stream"]:
+        """Get child streams.
+
+        Returns:
+            A list of all children, recursively.
+        """
+        result: List[Stream] = list(self.child_streams) or []
+        for child in self.child_streams:
+            result += child.descendent_streams or []
+        return result
+
+    def _write_replication_key_signpost(
+        self,
+        context: Optional[dict],
+        value: Union[datetime.datetime, str, int, float],
+    ) -> None:
+        """Write the signpost value, if available.
+
+        Args:
+            context: Stream partition or context dictionary.
+            value: TODO
+
+        Returns:
+            TODO
+        """
+        if not value:
+            return
+
+        state = self.get_context_state(context)
+        write_replication_key_signpost(state, value)
+
+    def compare_start_date(self, value: str, start_date_value: str) -> str:
+        """Compare a bookmark value to a start date and return the most recent value.
+
+        If the replication key is a datetime-formatted string, this method will parse
+        the value and compare it to the start date. Otherwise, the bookmark value is
+        returned.
+
+        If the tap uses a non-datetime replication key (e.g. an UNIX timestamp), the
+        developer is encouraged to override this method to provide custom logic for
+        comparing the bookmark value to the start date.
+
+        Args:
+            value: The replication key value.
+            start_date_value: The start date value from the config.
+
+        Returns:
+            The most recent value between the bookmark and start date.
+        """
+        if self.is_timestamp_replication_key:
+            return max(value, start_date_value, key=pendulum.parse)
+        else:
+            return value
+
+    def _write_starting_replication_value(self, context: Optional[dict]) -> None:
+        """Write the starting replication value, if available.
+
+        Args:
+            context: Stream partition or context dictionary.
+        """
+        value = None
+        state = self.get_context_state(context)
+
+        if self.replication_key:
+            if self.selected:
+                replication_key_value = state.get("replication_key_value")
+            else:
+                replication_key_value = state.get(CHILD_REPLICATION_KEY_VALUE)
+            if replication_key_value and self.replication_key == state.get(
+                "replication_key"
+            ):
+                value = replication_key_value
+
+            # Use start_date if it is more recent than the replication_key state
+            start_date_value: Optional[str] = self.get_config_start_date(return_str=True)
+            if start_date_value:
+                if not value:
+                    value = start_date_value
+                else:
+                    value = self.compare_start_date(value, start_date_value)
+
+        write_starting_replication_value(state, value)
+
+    def _increment_child_replication_state(
+        self, latest_record: Dict[str, Any], *, context: Optional[dict] = None
+    ) -> None:
+        """Track parent progress for child stream traversal when parent is deselected."""
+        if self.replication_method not in [
+            REPLICATION_INCREMENTAL,
+            REPLICATION_LOG_BASED,
+        ]:
+            return
+        if not self.replication_key:
+            raise ValueError(
+                f"Could not detect replication key for '{self.name}' stream"
+                f"(replication method={self.replication_method})"
+            )
+
+        state_dict = self.get_context_state(context)
+        old_rk_value = to_json_compatible(state_dict.get(CHILD_REPLICATION_KEY_VALUE))
+        new_rk_value = to_json_compatible(latest_record[self.replication_key])
+        if old_rk_value is None or not self.check_sorted or new_rk_value >= old_rk_value:
+            state_dict["replication_key"] = self.replication_key
+            state_dict[CHILD_REPLICATION_KEY_VALUE] = new_rk_value
+            return
+
+        if self.is_sorted:
+            raise InvalidStreamSortException(
+                f"Unsorted data detected in stream. Latest value '{new_rk_value}' is "
+                f"smaller than previous max '{old_rk_value}'."
+            )
+
+    def get_replication_key_signpost(
+        self, context: Optional[dict]
+    ) -> Optional[Union[datetime.datetime, Any]]:
+        """Get the replication signpost.
+
+        For timestamp-based replication keys, this defaults to `utc_now()`. For
+        non-timestamp replication keys, default to `None`. For consistency in subsequent
+        calls, the value will be frozen (cached) at its initially called state, per
+        partition argument if applicable.
+
+        Developers may optionally override this method in advanced use cases such
+        as unsorted incremental streams or complex hierarchical stream scenarios.
+        For more info: :doc:`/implementation/state`
+
+        Args:
+            context: Stream partition or context dictionary.
+
+        Returns:
+            Max allowable bookmark value for this stream's replication key.
+        """
+        if self.is_timestamp_replication_key:
+            return utc_now()
+
+        return None
+
+    @property
+    def schema_filepath(self) -> Optional[Path]:
+        """Get path to schema file.
+
+        Returns:
+            Path to a schema file for the stream or `None` if n/a.
+        """
+        return self._schema_filepath
+
+    @property
+    def schema(self) -> dict:
+        """Get schema.
+
+        Returns:
+            JSON Schema dictionary for this stream.
+        """
+        return self._schema
+
+    @property
+    def primary_keys(self) -> Optional[List[str]]:
+        """Get primary keys.
+
+        Returns:
+            A list of primary key(s) for the stream.
+        """
+        if not self._primary_keys:
+            return []
+        return self._primary_keys
+
+    @primary_keys.setter
+    def primary_keys(self, new_value: List[str]) -> None:
+        """Set primary key(s) for the stream.
+
+        Args:
+            new_value: TODO
+        """
+        self._primary_keys = new_value
+
+    @property
+    def state_partitioning_keys(self) -> Optional[List[str]]:
+        """Get state partition keys.
+
+        If not set, a default partitioning will be inherited from the stream's context.
+        If an empty list is set (`[]`), state will be held in one bookmark per stream.
+
+        Returns:
+            Partition keys for the stream state bookmarks.
+        """
+        return self._state_partitioning_keys
+
+    @state_partitioning_keys.setter
+    def state_partitioning_keys(self, new_value: Optional[List[str]]) -> None:
+        """Set partition keys for the stream state bookmarks.
+
+        If not set, a default partitioning will be inherited from the stream's context.
+        If an empty list is set (`[]`), state will be held in one bookmark per stream.
+
+        Args:
+            new_value: the new list of keys
+        """
+        self._state_partitioning_keys = new_value
+
+    @property
+    def replication_key(self) -> Optional[str]:
+        """Get replication key.
+
+        Returns:
+            Replication key for the stream.
+        """
+        if not self._replication_key:
+            return None
+        return self._replication_key
+
+    @replication_key.setter
+    def replication_key(self, new_value: str) -> None:
+        """Set replication key for the stream.
+
+        Args:
+            new_value: TODO
+        """
+        self._replication_key = new_value
+    
+    @property
+    def minimum_start_time(self) -> Optional[datetime.datetime]:
+        return self._minimum_start_time if hasattr(self, "_minimum_start_time") else None
+
+    @minimum_start_time.setter
+    def minimum_start_time(self, value: Optional[datetime.datetime]):
+        self._minimum_start_time = value
+
+    @property
+    def is_sorted(self) -> bool:
+        """Expect stream to be sorted.
+
+        When `True`, incremental streams will attempt to resume if unexpectedly
+        interrupted.
+
+        Returns:
+            `True` if stream is sorted. Defaults to `False`.
+        """
+        return False
+
+    @property
+    def check_sorted(self) -> bool:
+        """Check if stream is sorted.
+
+        This setting enables additional checks which may trigger
+        `InvalidStreamSortException` if records are found which are unsorted.
+
+        Returns:
+            `True` if sorting is checked. Defaults to `True`.
+        """
+        return True
+
+
+
+    def get_paging_windows(self, context: Optional[dict]) -> List[Dict[str, Any]]:
+        """
+        Generate list of paging windows to be added to each context.
+
+        Returns:
+            A list of paging windows to be added to each context.
+        """
+        return []
+
+    @property
+    def metadata(self) -> MetadataMapping:
+        """Get stream metadata.
+
+        Metadata attributes (`inclusion`, `selected`, etc.) are part of the Singer spec.
+
+        Metadata from an input catalog will override standard metadata.
+
+        Returns:
+            A mapping from property breadcrumbs to metadata objects.
+        """
+        if self._metadata is not None:
+            return self._metadata
+
+        if self._tap_input_catalog:
+            catalog_entry = self._tap_input_catalog.get_stream(self.tap_stream_id)
+            if catalog_entry:
+                self._metadata = catalog_entry.metadata
+                return self._metadata
+
+        self._metadata = MetadataMapping.get_standard_metadata(
+            schema=self.schema,
+            replication_method=self.forced_replication_method,
+            key_properties=self.primary_keys or [],
+            valid_replication_keys=(
+                [self.replication_key] if self.replication_key else None
+            ),
+            schema_name=None,
+        )
+
+        # If there's no input catalog, select all streams
+        if self._tap_input_catalog is None:
+            self._metadata.root.selected = True
+
+        return self._metadata
+
+    @property
+    def _singer_catalog_entry(self) -> CatalogEntry:
+        """Return catalog entry as specified by the Singer catalog spec.
+
+        Returns:
+            TODO
+        """
+        return CatalogEntry(
+            tap_stream_id=self.tap_stream_id,
+            stream=self.name,
+            schema=SchemaPlus.from_dict(self.schema),
+            metadata=self.metadata,
+            key_properties=self.primary_keys or [],
+            replication_key=self.replication_key,
+            replication_method=self.replication_method,
+            is_view=None,
+            database=None,
+            table=None,
+            row_count=None,
+            stream_alias=None,
+        )
+
+    @property
+    def _singer_catalog(self) -> Catalog:
+        """TODO.
+
+        Returns:
+            TODO
+        """
+        return Catalog([(self.tap_stream_id, self._singer_catalog_entry)])
+
+    @property
+    def config(self) -> Mapping[str, Any]:
+        """Get stream configuration.
+
+        Returns:
+            A frozen (read-only) config dictionary map.
+        """
+        return MappingProxyType(self._config)
+
+    @property
+    def tap_stream_id(self) -> str:
+        """Return a unique stream ID.
+
+        Default implementations will return `self.name` but this behavior may be
+        overridden if required by the developer.
+
+        Returns:
+            Unique stream ID.
+        """
+        return self.name
+
+    @property
+    def replication_method(self) -> str:
+        """Get replication method.
+
+        Returns:
+            Replication method to be used for this stream.
+        """
+        if self.forced_replication_method:
+            return str(self.forced_replication_method)
+        if self.replication_key:
+            return REPLICATION_INCREMENTAL
+        return REPLICATION_FULL_TABLE
+
+    # State properties:
+
+    @property
+    def tap_state(self) -> dict:
+        """Return a writeable state dict for the entire tap.
+
+        Note: This dictionary is shared (and writable) across all streams.
+
+        This method is internal to the SDK and should not need to be overridden.
+        Developers may access this property but this is not recommended except in
+        advanced use cases. Instead, developers should access the latest stream
+        replication key values using :meth:`~hotglue_singer_sdk.Stream.get_starting_timestamp()`
+        for timestamp keys, or
+        :meth:`~hotglue_singer_sdk.Stream.get_starting_replication_key_value()` for
+        non-timestamp keys.
+
+        Returns:
+            A writeable state dict for the entire tap.
+        """
+        return self._tap_state
+
+    def get_context_state(self, context: Optional[dict]) -> dict:
+        """Return a writable state dict for the given context.
+
+        Gives a partitioned context state if applicable; else returns stream state.
+        A blank state will be created in none exists.
+
+        This method is internal to the SDK and should not need to be overridden.
+        Developers may access this property but this is not recommended except in
+        advanced use cases. Instead, developers should access the latest stream
+        replication key values using
+        :meth:`~hotglue_singer_sdk.Stream.get_starting_timestamp()` for timestamp keys, or
+        :meth:`~hotglue_singer_sdk.Stream.get_starting_replication_key_value()` for
+        non-timestamp keys.
+
+        Partition level may be overridden by
+        :attr:`~hotglue_singer_sdk.Stream.state_partitioning_keys` if set.
+
+        Args:
+            context: Stream partition or context dictionary.
+
+        Returns:
+            A partitioned context state if applicable; else returns stream state.
+            A blank state will be created in none exists.
+        """
+        state_partition_context = self._get_state_partition_context(context)
+        if state_partition_context:
+            return get_writeable_state_dict(
+                self.tap_state,
+                self.name,
+                state_partition_context=state_partition_context,
+            )
+        return self.stream_state
+
+    @property
+    def stream_state(self) -> dict:
+        """Get writable state.
+
+        This method is internal to the SDK and should not need to be overridden.
+        Developers may access this property but this is not recommended except in
+        advanced use cases. Instead, developers should access the latest stream
+        replication key values using :meth:`~hotglue_singer_sdk.Stream.get_starting_timestamp()`
+        for timestamp keys, or
+        :meth:`~hotglue_singer_sdk.Stream.get_starting_replication_key_value()` for
+        non-timestamp keys.
+
+        A blank state entry will be created if one doesn't already exist.
+
+        Returns:
+            A writable state dict for this stream.
+        """
+        return get_writeable_state_dict(self.tap_state, self.name)
+
+    # Partitions
+
+    @property
+    def partitions(self) -> Optional[List[dict]]:
+        """Get stream partitions.
+
+        Developers may override this property to provide a default partitions list.
+
+        By default, this method returns a list of any partitions which are already
+        defined in state, otherwise None.
+
+        Returns:
+            A list of partition key dicts (if applicable), otherwise `None`.
+        """
+        result: List[dict] = []
+        for partition_state in (
+            get_state_partitions_list(self.tap_state, self.name) or []
+        ):
+            result.append(partition_state["context"])
+        return result or None
+
+    # Private bookmarking methods
+
+    def _increment_stream_state(
+        self, latest_record: Dict[str, Any], *, context: Optional[dict] = None
+    ) -> None:
+        """Update state of stream or partition with data from the provided record.
+
+        Raises InvalidStreamSortException is self.is_sorted = True and unsorted data is
+        detected.
+
+        Args:
+            latest_record: TODO
+            context: Stream partition or context dictionary.
+
+        Raises:
+            ValueError: TODO
+        """
+        state_dict = self.get_context_state(context)
+        if latest_record:
+            if self.replication_method in [
+                REPLICATION_INCREMENTAL,
+                REPLICATION_LOG_BASED,
+            ]:
+                if not self.replication_key:
+                    raise ValueError(
+                        f"Could not detect replication key for '{self.name}' stream"
+                        f"(replication method={self.replication_method})"
+                    )
+                treat_as_sorted = self.is_sorted
+                if not treat_as_sorted and self.state_partitioning_keys is not None:
+                    # Streams with custom state partitioning are not resumable.
+                    treat_as_sorted = False
+                increment_state(
+                    state_dict,
+                    replication_key=self.replication_key,
+                    latest_record=latest_record,
+                    is_sorted=treat_as_sorted,
+                    check_sorted=self.check_sorted,
+                )
+
+    # Private message authoring methods:
+
+    def _emits_resumable_interim_state(self) -> bool:
+        """Whether interim STATE messages should look like finalized bookmarks.
+
+        Only sorted leaf streams are safe to resume from mid-sync STATE.
+        """
+        return self.is_sorted and not self.child_streams
+
+    def _write_state_message(self) -> None:
+        """Write out a STATE message with the latest state.
+
+        For sorted streams with no children, emit a finalized copy so mid-sync
+        STATE is resumable (no progress markers / interim keys).
+        """
+        state_to_emit = self.tap_state
+        if self._emits_resumable_interim_state():
+            state_to_emit = copy.deepcopy(self.tap_state)
+            stream_state = state_to_emit.get("bookmarks", {}).get(self.name)
+            if stream_state is not None:
+                finalize_state_progress_markers(stream_state)
+                for partition_state in stream_state.get("partitions", []):
+                    finalize_state_progress_markers(partition_state)
+        singer.write_message(StateMessage(value=state_to_emit))
+
+    def _generate_schema_messages(self) -> Generator[SchemaMessage, None, None]:
+        """Generate schema messages from stream maps.
+
+        Yields:
+            Schema message objects.
+        """
+        bookmark_keys = [self.replication_key] if self.replication_key else None
+        for stream_map in self.stream_maps:
+            if isinstance(stream_map, RemoveRecordTransform):
+                # Don't emit schema if the stream's records are all ignored.
+                continue
+
+            schema_message = SchemaMessage(
+                stream_map.stream_alias,
+                stream_map.transformed_schema,
+                stream_map.transformed_key_properties,
+                bookmark_keys,
+            )
+            yield schema_message
+
+    def _write_schema_message(self) -> None:
+        """Write out a SCHEMA message with the stream schema."""
+        for schema_message in self._generate_schema_messages():
+            singer.write_message(schema_message)
+
+    @property
+    def mask(self) -> SelectionMask:
+        """Get a boolean mask for stream and property selection.
+
+        Returns:
+            A mapping of breadcrumbs to boolean values, representing stream and field
+            selection.
+        """
+        if self._mask is None:
+            self._mask = self.metadata.resolve_selection()
+        return self._mask
+
+    def _generate_record_messages(
+        self,
+        record: dict,
+    ) -> Generator[RecordMessage, None, None]:
+        """Write out a RECORD message.
+
+        Args:
+            record: A single stream record.
+
+        Yields:
+            Record message objects.
+        """
+        pop_deselected_record_properties(record, self.schema, self.mask, self.logger)
+        record = conform_record_data_types(
+            stream_name=self.name,
+            row=record,
+            schema=self.schema,
+            logger=self.logger,
+        )
+        for stream_map in self.stream_maps:
+            mapped_record = stream_map.transform(record)
+            # Emit record if not filtered
+            if mapped_record is not None:
+                record_message = RecordMessage(
+                    stream=stream_map.stream_alias,
+                    record=mapped_record,
+                    version=None,
+                    time_extracted=utc_now(),
+                )
+
+                yield record_message
+
+    def _write_record_message(self, record: dict) -> None:
+        """Write out a RECORD message.
+
+        Args:
+            record: A single stream record.
+        """
+        for record_message in self._generate_record_messages(record):
+            singer.write_message(record_message)
+
+    @property
+    def _metric_logging_function(self) -> Optional[Callable]:
+        """Return the metrics logging function.
+
+        Returns:
+            The logging function for emitting metrics.
+
+        Raises:
+            ValueError: If logging level setting is an unsupported value.
+        """
+        if METRICS_LOG_LEVEL_SETTING not in self.config:
+            return self.logger.info
+
+        if self.config[METRICS_LOG_LEVEL_SETTING].upper() == "INFO":
+            return self.logger.info
+
+        if self.config[METRICS_LOG_LEVEL_SETTING].upper() == "DEBUG":
+            return self.logger.debug
+
+        if self.config[METRICS_LOG_LEVEL_SETTING].upper() == "NONE":
+            return None
+
+        raise ValueError(
+            "Unexpected logging level for metrics: "
+            + self.config[METRICS_LOG_LEVEL_SETTING]
+        )
+
+    def _write_metric_log(self, metric: dict, extra_tags: Optional[dict]) -> None:
+        """Emit a metric log. Optionally with appended tag info.
+
+        Args:
+            metric: TODO
+            extra_tags: TODO
+
+        Returns:
+            None
+        """
+        if not self._metric_logging_function:
+            return None
+
+        if extra_tags:
+            metric["tags"].update(extra_tags)
+        self._metric_logging_function(f"INFO METRIC: {str(metric)}")
+
+    def _write_record_count_log(
+        self, record_count: int, context: Optional[dict]
+    ) -> None:
+        """Emit a metric log. Optionally with appended tag info.
+
+        Args:
+            record_count: TODO
+            context: Stream partition or context dictionary.
+        """
+        extra_tags = {} if not context else {"context": context}
+        counter_metric: Dict[str, Any] = {
+            "type": "counter",
+            "metric": "record_count",
+            "value": record_count,
+            "tags": {"stream": self.name},
+        }
+        self._write_metric_log(counter_metric, extra_tags=extra_tags)
+
+    def _write_request_duration_log(
+        self,
+        endpoint: str,
+        response: requests.Response,
+        context: Optional[dict],
+        extra_tags: Optional[dict],
+    ) -> None:
+        """TODO.
+
+        Args:
+            endpoint: TODO
+            response: TODO
+            context: Stream partition or context dictionary.
+            extra_tags: TODO
+        """
+        request_duration_metric: Dict[str, Any] = {
+            "type": "timer",
+            "metric": "http_request_duration",
+            "value": response.elapsed.total_seconds(),
+            "tags": {
+                "endpoint": endpoint,
+                "http_status_code": response.status_code,
+                "status": "succeeded" if response.status_code < 400 else "failed",
+            },
+        }
+        extra_tags = extra_tags or {}
+        if context:
+            extra_tags["context"] = context
+        self._write_metric_log(metric=request_duration_metric, extra_tags=extra_tags)
+
+    def log_sync_costs(self) -> None:
+        """Log a summary of Sync costs.
+
+        The costs are calculated via `calculate_sync_cost`.
+        This method can be overridden to log results in a custom
+        format. It is only called once at the end of the life of
+        the stream.
+        """
+        if len(self._sync_costs) > 0:
+            msg = f"Total Sync costs for stream {self.name}: {self._sync_costs}"
+            self.logger.info(msg)
+
+    def _check_max_record_limit(self, record_count: int) -> None:
+        """TODO.
+
+        Args:
+            record_count: TODO.
+
+        Raises:
+            MaxRecordsLimitException: TODO.
+        """
+        return (
+            self._MAX_RECORDS_LIMIT is not None
+            and record_count >= self._MAX_RECORDS_LIMIT
+        )
+
+    # Handle interim stream state
+
+    def reset_state_progress_markers(self, state: Optional[dict] = None) -> None:
+        """Reset progress markers. If all=True, all state contexts will be set.
+
+        This method is internal to the SDK and should not need to be overridden.
+
+        Args:
+            state: State object to promote progress markers with.
+        """
+        if state is None or state == {}:
+            context: Optional[dict]
+            for context in self.partitions or [{}]:
+                context = context or None
+                state = self.get_context_state(context)
+                reset_state_progress_markers(state)
+            return
+
+        reset_state_progress_markers(state)
+
+    def finalize_state_progress_markers(self, state: Optional[dict] = None) -> None:
+        """Reset progress markers. If all=True, all state contexts will be finalized.
+
+        This method is internal to the SDK and should not need to be overridden.
+
+        If all=True and the stream has children, child streams will also be finalized.
+
+        Args:
+            state: State object to promote progress markers with.
+        """
+        if state is None or state == {}:
+            for child_stream in self.child_streams or []:
+                child_stream.finalize_state_progress_markers()
+
+            context: Optional[dict]
+            for context in self.partitions or [{}]:
+                context = context or None
+                state = self.get_context_state(context)
+                finalize_state_progress_markers(state)
+            return
+
+        finalize_state_progress_markers(state)
+
+    def get_child_threads(self) -> int:
+        """Get the number of child threads to use.
+
+        Returns:
+            The number of child threads to use.
+        """
+        highest_parallelization_limit = 1
+        for child_stream in self.child_streams:
+            if (child_stream.selected or child_stream.has_selected_descendents) and child_stream.parallelization_limit > 0:
+                if child_stream.parallelization_limit > highest_parallelization_limit:
+                    highest_parallelization_limit = child_stream.parallelization_limit
+        return highest_parallelization_limit
+
+    def _sync_children_with_threads(self, child_context: List[Dict]) -> None:
+        requests_no = len(child_context)
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=requests_no
+        ) as executor:
+            futures = {
+                executor.submit(self._sync_children, x): x for x in child_context
+            }
+            # Process each future as it completes
+            for future in concurrent.futures.as_completed(futures):
+                # Yield records
+                future.result()
+
+    def _get_records_for_window(
+        self, window_context: dict
+    ) -> Iterable[Union[dict, Tuple[dict, dict]]]:
+        """Return all records for a single paging window.
+
+        Override in subclasses for more efficient collection (e.g. RESTStream
+        calls request_records directly to avoid a redundant post_process pass).
+        """
+        yield from self.get_records(window_context)
+
+    def _sync_records_parallel(
+        self,
+        current_context: Optional[dict],
+        windows: List[dict],
+    ) -> Iterable[Union[dict, Tuple[dict, dict]]]:
+        """Yield records from all paging windows, dispatching batches in parallel.
+
+        Each batch of up to parallelization_limit windows runs concurrently in a
+        thread pool.
+        """
+        workers = min(max(1, self.parallelization_limit), len(windows))
+        base_context = current_context or {}
+        self.logger.info(
+            f"[{self.name}] parallel sync: {len(windows)} windows, "
+            f"batch_size={workers}, parallelization_limit={self.parallelization_limit}"
+        )
+        for i in range(0, len(windows), workers):
+            batch = windows[i : i + workers]
+            self.logger.info(
+                f"[{self.name}] dispatching batch {i // workers + 1}: "
+                f"{len(batch)} windows"
+            )
+            records_queue: queue.Queue = queue.Queue()
+            complete_marker = object()
+
+            def run_window(window_context: dict) -> None:
+                try:
+                    for record in self._get_records_for_window(window_context):
+                        records_queue.put(record)
+                finally:
+                    records_queue.put(complete_marker)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(batch)) as executor:
+                futures = [
+                    executor.submit(run_window, dict(base_context, **window))
+                    for window in batch
+                ]
+                remaining = len(futures)
+                while remaining:
+                    item = records_queue.get()
+                    if item is complete_marker:
+                        remaining -= 1
+                    else:
+                        yield item
+                for future in futures:
+                    future.result()
+
+    # Private sync methods:
+
+    def _sync_records(  # noqa C901  # too complex
+        self, context: Optional[dict] = None
+    ) -> None:
+        """Sync records, emitting RECORD and STATE messages.
+
+        Args:
+            context: Stream partition or context dictionary.
+
+        Raises:
+            InvalidStreamSortException: TODO
+        """
+        record_count = 0
+        current_context: Optional[dict]
+        context_list: Optional[List[dict]]
+        context_list = [context] if context is not None else self.partitions
+        selected = self.selected
+
+        for current_context in context_list or [{}]:
+            partition_record_count = 0
+            current_context = current_context or None
+            state = self.get_context_state(current_context)
+            state_partition_context = self._get_state_partition_context(current_context)
+            self._write_starting_replication_value(current_context)
+            child_context: Optional[dict] = (
+                None if current_context is None else copy.copy(current_context)
+            )
+
+            # check if any of the child streams have a parallelization limit greater than 1
+            child_threads = self.get_child_threads()
+            # if the number of child threads is greater than 1, we need to use threads
+            use_threads = False
+            if child_threads > 1:
+                use_threads = True
+            # create a list of child contexts to use for parallelization
+            paralellization_context = []
+
+            windows = self.get_paging_windows(current_context)
+            use_parallel_windows = len(windows) > 1 and self.parallelization_limit > 1
+
+            records_iter = (
+                self._sync_records_parallel(current_context, windows)
+                if use_parallel_windows
+                else self.get_records(current_context)
+            )
+
+            for record_result in records_iter:
+                if isinstance(record_result, tuple):
+                    # Tuple items should be the record and the child context
+                    record, child_context = record_result
+                else:
+                    record = record_result
+                child_context = copy.copy(
+                    self.get_child_context(record=record, context=child_context)
+                )
+                for key, val in (state_partition_context or {}).items():
+                    # Add state context to records if not already present
+                    if key not in record:
+                        record[key] = val
+
+                # Sync children, except when primary mapper filters out the record
+                if self.stream_maps[0].get_filter_result(record):
+                    # if use_threads is True and the number of child contexts in the list is less than the number of child threads, add the child context to the list
+                    if use_threads:
+                        # if the number of child contexts in the list is less than the number of child threads, add the child context to the list
+                        if len(paralellization_context) < child_threads:
+                            paralellization_context.append(child_context)
+                        # if the number of child contexts in the list is equal to the number of child threads, sync the children with threads
+                        if len(paralellization_context) == child_threads:
+                            self._sync_children_with_threads(paralellization_context)
+                            paralellization_context = []
+                    else:
+                        self._sync_children(child_context)
+                if selected:
+                    self._write_record_message(record)
+                    try:
+                        self._increment_stream_state(record, context=current_context)
+                    except InvalidStreamSortException as ex:
+                        log_sort_error(
+                            log_fn=self.logger.error,
+                            ex=ex,
+                            record_count=record_count + 1,
+                            partition_record_count=partition_record_count + 1,
+                            current_context=current_context,
+                            state_partition_context=state_partition_context,
+                            stream_name=self.name,
+                        )
+                        raise ex
+                elif self.has_selected_descendents and self.replication_key:
+                    try:
+                        self._increment_child_replication_state(
+                            record, context=current_context
+                        )
+                    except InvalidStreamSortException as ex:
+                        log_sort_error(
+                            log_fn=self.logger.error,
+                            ex=ex,
+                            record_count=record_count + 1,
+                            partition_record_count=partition_record_count + 1,
+                            current_context=current_context,
+                            state_partition_context=state_partition_context,
+                            stream_name=self.name,
+                        )
+                        raise ex
+
+                record_count += 1
+                partition_record_count += 1
+
+                if selected and record_count % self.STATE_MSG_FREQUENCY == 0:
+                    self._write_state_message()
+
+                if self._check_max_record_limit(record_count):
+                    return
+            
+            # if parallelization context is not empty, sync the children with threads
+            if use_threads and len(paralellization_context) > 0:
+                self._sync_children_with_threads(paralellization_context)
+                paralellization_context = []
+            if current_context == state_partition_context:
+                # Finalize per-partition state only if 1:1 with context
+                finalize_state_progress_markers(state)
+        if not context:
+            # Finalize total stream only if we have the full full context.
+            # Otherwise will be finalized by tap at end of sync.
+            finalize_state_progress_markers(self.stream_state)
+        self._write_record_count_log(record_count=record_count, context=context)
+        # Reset interim bookmarks before emitting final STATE message:
+        self._write_state_message()
+
+    # Public methods ("final", not recommended to be overridden)
+
+    @final
+    def sync(self, context: Optional[dict] = None) -> None:
+        """Sync this stream.
+
+        This method is internal to the SDK and should not need to be overridden.
+
+        Args:
+            context: Stream partition or context dictionary.
+        """
+        msg = f"Beginning {self.replication_method.lower()} sync of '{self.name}'"
+        if context:
+            msg += f" with context: {context}"
+        self.logger.info(f"{msg}...")
+
+        # Use a replication signpost, if available
+        signpost = self.get_replication_key_signpost(context)
+        if signpost:
+            self._write_replication_key_signpost(context, signpost)
+
+        # Send a SCHEMA message to the downstream target:
+        if self.selected:
+            self._write_schema_message()
+        # Sync the records themselves:
+        self._sync_records(context)
+
+    def _sync_children(self, child_context: dict) -> None:
+        for child_stream in self.child_streams:
+            if child_stream.selected or child_stream.has_selected_descendents:
+                child_stream.state_partitioning_keys = list(
+                    set(child_stream.state_partitioning_keys or [])
+                    | set(child_context.keys())
+                )
+                child_stream.sync(context=child_context)
+
+    # Overridable Methods
+
+    def apply_catalog(self, catalog: Catalog) -> None:
+        """Apply a catalog dict, updating any settings overridden within the catalog.
+
+        Developers may override this method in order to introduce advanced catalog
+        parsing, or to explicitly fail on advanced catalog customizations which
+        are not supported by the tap.
+
+        Args:
+            catalog: Catalog object passed to the tap. Defines schema, primary and
+                replication keys, as well as selection metadata.
+        """
+        self._tap_input_catalog = catalog
+
+        catalog_entry = catalog.get_stream(self.name)
+        if catalog_entry:
+            self.primary_keys = catalog_entry.key_properties
+            self.replication_key = catalog_entry.replication_key
+            if catalog_entry.replication_method:
+                self.forced_replication_method = catalog_entry.replication_method
+
+    def _get_state_partition_context(self, context: Optional[dict]) -> Optional[Dict]:
+        """Override state handling if Stream.state_partitioning_keys is specified.
+
+        Args:
+            context: Stream partition or context dictionary.
+
+        Returns:
+            TODO
+        """
+        if context is None:
+            return None
+
+        if self.state_partitioning_keys is None:
+            return None
+
+        return {k: v for k, v in context.items() if k in self.state_partitioning_keys}
+
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        """Return a child context object from the record and optional provided context.
+
+        By default, will return context if provided and otherwise the record dict.
+
+        Developers may override this behavior to send specific information to child
+        streams for context.
+
+        Args:
+            record: Individual record in the stream.
+            context: Stream partition or context dictionary.
+
+        Returns:
+            A dictionary with context values for a child stream.
+
+        Raises:
+            NotImplementedError: If the stream has children but this method is not
+                overriden.
+        """
+        if context is None:
+            for child_stream in self.child_streams:
+                if child_stream.state_partitioning_keys is None:
+                    parent_type = type(self).__name__
+                    child_type = type(child_stream).__name__
+                    raise NotImplementedError(
+                        "No child context behavior was defined between parent stream "
+                        f"'{self.name}' and child stream '{child_stream.name}'."
+                        "The parent stream must define "
+                        f"`{parent_type}.get_child_context()` and/or the child stream "
+                        f"must define `{child_type}.state_partitioning_keys`."
+                    )
+
+        return context or record
+
+    def get_estimated_record_count(self) -> Optional[int]:
+        """Return estimated record count before sync, if supported.
+
+        Taps may override to provide a pre-sync record total for progress reporting.
+        Return None if estimation is not supported for this stream.
+
+        .. note::
+            This hook runs after ``Tap._set_compatible_replication_methods`` and
+            after the stream's starting replication value is initialized.
+
+        Args:
+            context: Stream partition or context dictionary.
+        """
+        return None
+
+    # Abstract Methods
+
+    @abc.abstractmethod
+    def get_records(
+        self, context: Optional[dict]
+    ) -> Iterable[Union[dict, Tuple[dict, dict]]]:
+        """Abstract row generator function. Must be overridden by the child class.
+
+        Each row emitted should be a dictionary of property names to their values.
+        Returns either a record dict or a tuple: (record_dict, child_context)
+
+        A method which should retrieve data from the source and return records
+        incrementally using the python `yield` operator.
+
+        Only custom stream types need to define this method. REST and GraphQL streams
+        should instead use the class-specific methods for REST or GraphQL, respectively.
+
+        This method takes an optional `context` argument, which can be safely ignored
+        unless the stream is a child stream or requires partitioning.
+        More info: :doc:`/partitioning`.
+
+        Parent streams can optionally return a tuple, in which
+        case the second item in the tuple being a `child_context` dictionary for the
+        stream's `context`.
+        More info: :doc:`/parent_streams`
+
+        Args:
+            context: Stream partition or context dictionary.
+        """
+        pass
+
+    def post_process(self, row: dict, context: Optional[dict] = None) -> Optional[dict]:
+        """As needed, append or transform raw data to match expected structure.
+
+        Optional. This method gives developers an opportunity to "clean up" the results
+        prior to returning records to the downstream tap - for instance: cleaning,
+        renaming, or appending properties to the raw record result returned from the
+        API.
+
+        Developers may also return `None` from this method to filter out
+        invalid or not-applicable records from the stream.
+
+        Args:
+            row: Individual record in the stream.
+            context: Stream partition or context dictionary.
+
+        Returns:
+            The resulting record dict, or `None` if the record should be excluded.
+        """
+        return row

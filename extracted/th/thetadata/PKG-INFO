@@ -1,0 +1,251 @@
+Metadata-Version: 2.5
+Name: thetadata
+Version: 1.0.10
+Summary: Python client library for ThetaData market data APIs
+Project-URL: Homepage, https://www.thetadata.net
+Project-URL: Repository, https://github.com/AXIOMXLLC/python_library
+Project-URL: Issues, https://github.com/AXIOMXLLC/python_library/issues
+Author-email: ThetaData <support@thetadata.net>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: grpc,market-data,options,pandas,polars,stocks,thetadata
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Office/Business :: Financial :: Investment
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.12
+Requires-Dist: grpcio>=1.75.0
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: pandas>=2.3.2
+Requires-Dist: polars>=1.33.1
+Requires-Dist: protobuf>=6.32.1
+Requires-Dist: zstandard>=0.25.0
+Description-Content-Type: text/markdown
+
+# thetadata-python
+
+Python client library for accessing ThetaData market data APIs over gRPC.
+
+This package provides a `ThetaClient` for querying US stock, option, and index market data from [ThetaData](https://www.thetadata.net). Results can be returned as either Polars or Pandas DataFrames.
+
+## Features
+
+- Direct client access to ThetaData services
+- Stock, option, and index endpoints
+- Return data as **Polars** or **Pandas** DataFrames
+- Built-in response decompression
+- Simple authentication with a credentials file or explicit credentials
+
+## Requirements
+
+- Python 3.12+
+- An active ThetaData subscription
+
+## Installation
+
+```bash
+pip install thetadata
+```
+
+## Authentication
+
+You can authenticate in three ways.
+
+### 1. Default credentials file
+
+By default, `ThetaClient()` looks for `./creds.txt`.
+
+File format:
+
+```text
+email@example.com
+your-password
+```
+
+```python
+from thetadata import ThetaClient
+
+client = ThetaClient()
+```
+
+### 2. Explicit credentials
+
+```python
+from thetadata import ThetaClient
+
+client = ThetaClient(email="email@example.com", password="your-password")
+```
+
+### 3. Environment variable
+
+Set `THETADATA_CREDENTIALS_FILE` to point to your credentials file.
+
+```bash
+export THETADATA_CREDENTIALS_FILE=/path/to/creds.txt
+```
+
+```powershell
+$env:THETADATA_CREDENTIALS_FILE = "C:\path\to\creds.txt"
+```
+
+## Quick Start
+
+### Default Polars output
+
+```python
+from datetime import date
+from thetadata import ThetaClient
+
+client = ThetaClient()
+
+bars = client.stock_history_eod(
+    symbol="AAPL",
+    start_date=date(2024, 1, 2),
+    end_date=date(2024, 1, 5),
+)
+
+print(bars)
+```
+
+### Pandas output
+
+```python
+from datetime import date
+from thetadata import ThetaClient
+
+client = ThetaClient(dataframe_type="pandas")
+
+quotes = client.stock_history_quote(
+    symbol="AAPL",
+    date=date(2024, 1, 2),
+    interval="1m",
+)
+
+print(quotes.head())
+```
+
+### Reuse authentication across clients
+
+```python
+from thetadata import ThetaClient
+
+polars_client = ThetaClient(dataframe_type="polars")
+pandas_client = ThetaClient(
+    existing_authorized_client=polars_client,
+    dataframe_type="pandas",
+)
+```
+
+## Common Examples
+
+### Stock symbols
+
+```python
+from thetadata import ThetaClient
+
+client = ThetaClient()
+df = client.stock_list_symbols()
+```
+
+### Stock intraday OHLC
+
+```python
+from datetime import date, time
+from thetadata import ThetaClient
+
+client = ThetaClient()
+df = client.stock_history_ohlc(
+    symbol="AAPL",
+    date=date(2024, 1, 2),
+    interval="1m",
+    start_time=time(9, 30),
+    end_time=time(16, 0),
+)
+```
+
+### Option chain snapshot greeks
+
+```python
+from datetime import date
+from thetadata import ThetaClient
+
+client = ThetaClient()
+df = client.option_snapshot_greeks_all(
+    symbol="SPY",
+    expiration=date(2025, 3, 21),
+    strike="*",
+    right="both",
+)
+```
+
+### Index history
+
+```python
+from datetime import date
+from thetadata import ThetaClient
+
+client = ThetaClient()
+df = client.index_history_eod(
+    symbol="SPX",
+    start_date=date(2024, 1, 2),
+    end_date=date(2024, 1, 10),
+)
+```
+
+## DataFrame Output
+
+`ThetaClient` supports two output modes:
+
+- `dataframe_type="polars"` (default)
+- `dataframe_type="pandas"`
+
+## Logging
+
+```python
+import logging
+
+logging.basicConfig(level=logging.INFO)
+```
+
+This will surface library logging, including authentication and request-related messages.
+
+## Errors
+
+The package exposes custom exceptions in `thetadata.errors`:
+
+- `AuthenticationError`
+- `NoDataFoundError`
+
+Example:
+
+```python
+from datetime import date
+from thetadata import ThetaClient
+from thetadata.errors import AuthenticationError, NoDataFoundError
+
+try:
+    client = ThetaClient()
+    df = client.stock_history_eod(
+        symbol="AAPL",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 1, 31),
+    )
+except AuthenticationError:
+    print("Authentication failed")
+except NoDataFoundError:
+    print("No data returned for query")
+```
+
+## Notes
+
+- Some methods accept `symbol: str` while others expect `symbol: list[str]`.
+- Snapshot endpoints may return rapidly changing data.
+- Time-based requests use `datetime.date` and `datetime.time` values.
+
+## License
+
+Apache-2.0

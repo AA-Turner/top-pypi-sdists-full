@@ -1,1 +1,0 @@
-"""Summary tables test package."""

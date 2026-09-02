@@ -1,0 +1,60 @@
+Metadata-Version: 2.4
+Name: ocdsextensionregistry
+Version: 0.7.0
+Summary: Eases access to information from the extension registry of the Open Contracting Data Standard
+Author-email: Open Contracting Partnership <data@open-contracting.org>
+License: BSD
+Project-URL: Homepage, https://github.com/open-contracting/extension_registry.py
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: json-merge-patch
+Requires-Dist: jsonref>=1
+Requires-Dist: requests
+Requires-Dist: requests-cache>=1
+Requires-Dist: cattrs!=22.1.0; platform_python_implementation == "PyPy"
+Provides-Extra: cli
+Requires-Dist: Babel; extra == "cli"
+Requires-Dist: MyST-Parser>=0.13.5; extra == "cli"
+Requires-Dist: ocds-babel[markdown]>=0.3.3; extra == "cli"
+Requires-Dist: Sphinx>=4; extra == "cli"
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
+
+|PyPI Version| |Build Status| |Coverage Status| |Python Version|
+
+This Python package eases access to information about extensions in the `Open Contracting Data Standard <https://standard.open-contracting.org>`__'s `extension registry <https://github.com/open-contracting/extension_registry>`__.
+
+It includes Python classes for programmatic access, as well as a suite of command-line tools which can:
+
+* download any versions of extensions
+* generate POT files (message catalogs) from extension files, as part of a translation worlflow
+* generate a data file in JSON format, that provides all the information about versions of extensions
+
+The basic package includes only the Python classes for programmatic access:
+
+.. code-block:: bash
+
+    pip install ocdsextensionregistry
+
+To install the command-line tools, `follow these instructions <https://ocdsextensionregistry.readthedocs.io/en/latest/cli.html>`__.
+
+If you are viewing this on GitHub or PyPI, open the `full documentation <https://ocdsextensionregistry.readthedocs.io/>`__ for additional details.
+
+.. |PyPI Version| image:: https://img.shields.io/pypi/v/ocdsextensionregistry.svg
+   :target: https://pypi.org/project/ocdsextensionregistry/
+.. |Build Status| image:: https://github.com/open-contracting/extension_registry.py/actions/workflows/ci.yml/badge.svg
+   :target: https://github.com/open-contracting/extension_registry.py/actions/workflows/ci.yml
+.. |Coverage Status| image:: https://coveralls.io/repos/github/open-contracting/extension_registry.py/badge.svg?branch=main
+   :target: https://coveralls.io/github/open-contracting/extension_registry.py?branch=main
+.. |Python Version| image:: https://img.shields.io/pypi/pyversions/ocdsextensionregistry.svg
+   :target: https://pypi.org/project/ocdsextensionregistry/

@@ -1,0 +1,439 @@
+"""Simple focused tests for settings and zone models."""
+
+from unittest.mock import MagicMock
+
+import pytest
+
+from actron_neo_api.models.settings import ActronAirUserAirconSettings
+from actron_neo_api.models.zone import ActronAirPeripheral, ActronAirZone
+
+
+class TestUserAirconSettings:
+    """Test ActronAirUserAirconSettings properties and commands."""
+
+    def test_turbo_supported_with_dict(self) -> None:
+        """Test turbo_supported when turbo_mode is a dict with Supported key."""
+        settings = ActronAirUserAirconSettings(TurboMode={"Supported": True, "Enabled": False})
+        assert settings.turbo_supported is True
+
+    def test_turbo_supported_dict_no_supported_key(self) -> None:
+        """Test turbo_supported when dict doesn't have Supported key."""
+        settings = ActronAirUserAirconSettings(turbo_mode_enabled={"Enabled": False})
+        assert settings.turbo_supported is False
+
+    def test_turbo_supported_with_bool(self) -> None:
+        """Test turbo_supported when turbo_mode is a bool."""
+        settings = ActronAirUserAirconSettings(turbo_mode_enabled=True)
+        assert settings.turbo_supported is False
+
+    def test_turbo_enabled_with_dict(self) -> None:
+        """Test turbo_enabled when turbo_mode is a dict."""
+        settings = ActronAirUserAirconSettings(TurboMode={"Enabled": True})
+        assert settings.turbo_enabled is True
+
+    def test_turbo_enabled_with_bool(self) -> None:
+        """Test turbo_enabled when turbo_mode is a bool."""
+        settings = ActronAirUserAirconSettings(TurboMode=True)
+        assert settings.turbo_enabled is True
+
+    def test_continuous_fan_enabled_with_plus(self) -> None:
+        """Test continuous_fan_enabled with +CONT."""
+        settings = ActronAirUserAirconSettings(FanMode="AUTO+CONT")
+        assert settings.continuous_fan_enabled is True
+
+    def test_continuous_fan_enabled_with_dash(self) -> None:
+        """Test continuous_fan_enabled with -CONT."""
+        settings = ActronAirUserAirconSettings(FanMode="LOW-CONT")
+        assert settings.continuous_fan_enabled is True
+
+    def test_continuous_fan_enabled_without_cont(self) -> None:
+        """Test continuous_fan_enabled without CONT."""
+        settings = ActronAirUserAirconSettings(FanMode="HIGH")
+        assert settings.continuous_fan_enabled is False
+
+    def test_base_fan_mode_with_plus_cont(self) -> None:
+        """Test base_fan_mode extraction with +CONT."""
+        settings = ActronAirUserAirconSettings(FanMode="AUTO+CONT")
+        assert settings.base_fan_mode == "AUTO"
+
+    def test_base_fan_mode_with_dash_cont(self) -> None:
+        """Test base_fan_mode extraction with -CONT."""
+        settings = ActronAirUserAirconSettings(FanMode="LOW-CONT")
+        assert settings.base_fan_mode == "LOW"
+
+    def test_base_fan_mode_without_cont(self) -> None:
+        """Test base_fan_mode without CONT."""
+        settings = ActronAirUserAirconSettings(FanMode="HIGH")
+        assert settings.base_fan_mode == "HIGH"
+
+    def test_set_system_mode_on(self) -> None:
+        """Test set_system_mode_command for turning on."""
+        settings = ActronAirUserAirconSettings()
+        command = settings._set_system_mode_command("COOL")
+
+        assert command["command"]["UserAirconSettings.isOn"] is True
+        assert command["command"]["UserAirconSettings.Mode"] == "COOL"
+        assert command["command"]["type"] == "set-settings"
+
+    def test_set_system_mode_off(self) -> None:
+        """Test set_system_mode_command for turning off."""
+        settings = ActronAirUserAirconSettings(Mode="COOL")
+        command = settings._set_system_mode_command("OFF")
+
+        assert command["command"]["UserAirconSettings.isOn"] is False
+        # Mode is preserved when turning off so it remembers what mode to use when turning back on
+        assert command["command"]["UserAirconSettings.Mode"] == "COOL"
+
+    def test_set_fan_mode_preserves_cont(self) -> None:
+        """Test set_fan_mode_command preserves continuous mode."""
+        settings = ActronAirUserAirconSettings(FanMode="AUTO+CONT")
+        command = settings._set_fan_mode_command("LOW")
+
+        assert command["command"]["UserAirconSettings.FanMode"] == "LOW+CONT"
+
+    def test_set_fan_mode_without_cont(self) -> None:
+        """Test set_fan_mode_command without continuous mode."""
+        settings = ActronAirUserAirconSettings(FanMode="AUTO")
+        command = settings._set_fan_mode_command("LOW")
+
+        assert command["command"]["UserAirconSettings.FanMode"] == "LOW"
+
+    def test_set_continuous_mode_enable(self) -> None:
+        """Test set_continuous_mode_command to enable."""
+        settings = ActronAirUserAirconSettings(FanMode="HIGH")
+        command = settings._set_continuous_mode_command(True)
+
+        assert command["command"]["UserAirconSettings.FanMode"] == "HIGH+CONT"
+
+    def test_set_continuous_mode_disable(self) -> None:
+        """Test set_continuous_mode_command to disable."""
+        settings = ActronAirUserAirconSettings(FanMode="HIGH+CONT")
+        command = settings._set_continuous_mode_command(False)
+
+        assert command["command"]["UserAirconSettings.FanMode"] == "HIGH"
+
+    def test_set_temperature_command_cool(self) -> None:
+        """Test set_temperature_command in COOL mode."""
+        settings = ActronAirUserAirconSettings(Mode="COOL")
+        command = settings._set_temperature_command(22.0)
+
+        assert command["command"]["UserAirconSettings.TemperatureSetpoint_Cool_oC"] == 22.0
+
+    def test_set_temperature_command_heat(self) -> None:
+        """Test set_temperature_command in HEAT mode."""
+        settings = ActronAirUserAirconSettings(Mode="HEAT")
+        command = settings._set_temperature_command(20.0)
+
+        assert command["command"]["UserAirconSettings.TemperatureSetpoint_Heat_oC"] == 20.0
+
+    def test_set_temperature_command_auto(self) -> None:
+        """Test set_temperature_command in AUTO mode."""
+        settings = ActronAirUserAirconSettings(
+            Mode="AUTO", TemperatureSetpoint_Cool_oC=24.0, TemperatureSetpoint_Heat_oC=20.0
+        )
+        command = settings._set_temperature_command(25.0)
+
+        assert command["command"]["UserAirconSettings.TemperatureSetpoint_Cool_oC"] == 25.0
+        assert command["command"]["UserAirconSettings.TemperatureSetpoint_Heat_oC"] == 21.0
+
+    def test_set_temperature_command_no_mode(self) -> None:
+        """Test set_temperature_command with no mode raises error."""
+        settings = ActronAirUserAirconSettings(Mode="")
+
+        with pytest.raises(ValueError, match="No mode available"):
+            settings._set_temperature_command(22.0)
+
+    def test_set_away_mode_command(self) -> None:
+        """Test set_away_mode_command."""
+        settings = ActronAirUserAirconSettings()
+        command = settings._set_away_mode_command(True)
+
+        assert command["command"]["UserAirconSettings.AwayMode"] is True
+
+    def test_set_quiet_mode_command(self) -> None:
+        """Test set_quiet_mode_command."""
+        settings = ActronAirUserAirconSettings()
+        command = settings._set_quiet_mode_command(True)
+
+        assert command["command"]["UserAirconSettings.QuietModeEnabled"] is True
+
+    def test_set_turbo_mode_command(self) -> None:
+        """Test set_turbo_mode_command."""
+        settings = ActronAirUserAirconSettings()
+        command = settings._set_turbo_mode_command(True)
+
+        assert command["command"]["UserAirconSettings.TurboMode.Enabled"] is True
+
+
+class TestZoneProperties:
+    """Test ActronAirZone properties."""
+
+    def test_is_active_without_parent(self) -> None:
+        """Test is_active without parent status raises."""
+        zone = ActronAirZone(zone_id=0, CanOperate=True)
+        with pytest.raises(RuntimeError, match="Zone must be attached to a parent status"):
+            _ = zone.is_active
+
+    def test_is_active_cannot_operate(self) -> None:
+        """Test is_active when zone cannot operate."""
+        zone = ActronAirZone(zone_id=0, CanOperate=False)
+        parent = MagicMock()
+        parent.user_aircon_settings.enabled_zones = [True, True]
+        zone.set_parent_status(parent)
+
+        assert zone.is_active is False
+
+    def test_is_active_zone_disabled(self) -> None:
+        """Test is_active when zone is disabled."""
+        zone = ActronAirZone(zone_id=0, CanOperate=True)
+        parent = MagicMock()
+        parent.user_aircon_settings.enabled_zones = [False, True]
+        zone.set_parent_status(parent)
+
+        assert zone.is_active is False
+
+    def test_is_active_zone_enabled(self) -> None:
+        """Test is_active when zone is enabled and can operate."""
+        zone = ActronAirZone(zone_id=0, CanOperate=True)
+        parent = MagicMock()
+        parent.user_aircon_settings.enabled_zones = [True, True]
+        zone.set_parent_status(parent)
+
+        assert zone.is_active is True
+
+    def test_hvac_mode_without_parent(self) -> None:
+        """Test hvac_mode without parent raises."""
+        zone = ActronAirZone(zone_id=0)
+        with pytest.raises(RuntimeError, match="Zone must be attached to a parent status"):
+            _ = zone.hvac_mode
+
+    def test_hvac_mode_system_off(self) -> None:
+        """Test hvac_mode when system is off."""
+        zone = ActronAirZone(zone_id=0, can_operate=True)
+        parent = MagicMock()
+        parent.user_aircon_settings.is_on = False
+        parent.user_aircon_settings.mode = "COOL"
+        parent.user_aircon_settings.enabled_zones = [True]
+        zone.set_parent_status(parent)
+
+        assert zone.hvac_mode == "OFF"
+
+    def test_hvac_mode_zone_inactive(self) -> None:
+        """Test hvac_mode when zone is inactive."""
+        zone = ActronAirZone(zone_id=0, CanOperate=True)
+        parent = MagicMock()
+        parent.user_aircon_settings.is_on = True
+        parent.user_aircon_settings.mode = "COOL"
+        parent.user_aircon_settings.enabled_zones = [False]
+        zone.set_parent_status(parent)
+
+        assert zone.hvac_mode == "OFF"
+
+    def test_hvac_mode_active(self) -> None:
+        """Test hvac_mode when zone is active."""
+        zone = ActronAirZone(zone_id=0, CanOperate=True)
+        parent = MagicMock()
+        parent.user_aircon_settings.is_on = True
+        parent.user_aircon_settings.mode = "COOL"
+        parent.user_aircon_settings.enabled_zones = [True]
+        zone.set_parent_status(parent)
+
+        assert zone.hvac_mode == "COOL"
+
+    def test_temperature(self) -> None:
+        """Test temperature property returns live_temp_c."""
+        zone = ActronAirZone(zone_id=0, LiveTemp_oC=23.5)
+        assert zone.temperature == 23.5
+
+    def test_humidity(self) -> None:
+        """Test humidity property returns live_humidity_pc."""
+        zone = ActronAirZone(zone_id=0, LiveHumidity_pc=50.0)
+        assert zone.humidity == 50.0
+
+    def test_max_temp_without_parent(self) -> None:
+        """Test max_temp without parent raises RuntimeError (fail fast)."""
+        zone = ActronAirZone(zone_id=0)
+        with pytest.raises(RuntimeError, match="Zone must be attached to a parent status"):
+            _ = zone.max_temp
+
+    def test_min_temp_without_parent(self) -> None:
+        """Test min_temp without parent raises RuntimeError (fail fast)."""
+        zone = ActronAirZone(zone_id=0)
+        with pytest.raises(RuntimeError, match="Zone must be attached to a parent status"):
+            _ = zone.min_temp
+
+
+class TestZoneCommands:
+    """Test ActronAirZone command generation."""
+
+    def test_set_temperature_command_cool(self) -> None:
+        """Test _set_temperature_command in COOL mode."""
+        zone = ActronAirZone(zone_id=0)
+        parent = MagicMock()
+        parent.user_aircon_settings.mode = "COOL"
+        zone.set_parent_status(parent)
+
+        command = zone._set_temperature_command(22.0)
+
+        assert command["command"]["RemoteZoneInfo[0].TemperatureSetpoint_Cool_oC"] == 22.0
+
+    def test_set_temperature_command_heat(self) -> None:
+        """Test _set_temperature_command in HEAT mode."""
+        zone = ActronAirZone(zone_id=1)
+        parent = MagicMock()
+        parent.user_aircon_settings.mode = "HEAT"
+        zone.set_parent_status(parent)
+
+        command = zone._set_temperature_command(20.0)
+
+        assert command["command"]["RemoteZoneInfo[1].TemperatureSetpoint_Heat_oC"] == 20.0
+
+    def test_set_temperature_command_auto(self) -> None:
+        """Test _set_temperature_command in AUTO mode."""
+        zone = ActronAirZone(zone_id=0)
+        parent = MagicMock()
+        parent.user_aircon_settings.mode = "AUTO"
+        parent.user_aircon_settings.temperature_setpoint_cool_c = 24.0
+        parent.user_aircon_settings.temperature_setpoint_heat_c = 20.0
+        zone.set_parent_status(parent)
+
+        command = zone._set_temperature_command(25.0)
+
+        assert command["command"]["RemoteZoneInfo[0].TemperatureSetpoint_Cool_oC"] == 25.0
+        assert command["command"]["RemoteZoneInfo[0].TemperatureSetpoint_Heat_oC"] == 21.0
+
+    def test_set_temperature_command_no_parent(self) -> None:
+        """Test _set_temperature_command without parent raises error."""
+        zone = ActronAirZone(zone_id=0)
+
+        with pytest.raises(RuntimeError, match="Zone must be attached to a parent status"):
+            zone._set_temperature_command(22.0)
+
+    def test_set_enable_command_enable(self) -> None:
+        """Test _set_enable_command to enable zone."""
+        zone = ActronAirZone(zone_id=0)
+        parent = MagicMock()
+        parent.user_aircon_settings.enabled_zones = [False, True, False]
+        zone.set_parent_status(parent)
+
+        command = zone._set_enable_command(True)
+
+        assert command["command"]["UserAirconSettings.EnabledZones"] == [True, True, False]
+
+    def test_set_enable_command_disable(self) -> None:
+        """Test _set_enable_command to disable zone."""
+        zone = ActronAirZone(zone_id=1)
+        parent = MagicMock()
+        parent.user_aircon_settings.enabled_zones = [True, True, False]
+        zone.set_parent_status(parent)
+
+        command = zone._set_enable_command(False)
+
+        assert command["command"]["UserAirconSettings.EnabledZones"] == [True, False, False]
+
+    def test_set_enable_command_out_of_range(self) -> None:
+        """Test _set_enable_command with out of range zone_id."""
+        zone = ActronAirZone(zone_id=5)
+        parent = MagicMock()
+        parent.user_aircon_settings.enabled_zones = [True, False]
+        zone.set_parent_status(parent)
+
+        with pytest.raises(ValueError, match="out of range"):
+            zone._set_enable_command(True)
+
+
+class TestPeripheral:
+    """Test ActronAirPeripheral."""
+
+    def test_zones_without_parent(self) -> None:
+        """Test zones property without parent."""
+        peripheral = ActronAirPeripheral(ZoneAssignment=[1, 2])
+        assert peripheral.zones == []
+
+    def test_zones_with_parent(self) -> None:
+        """Test zones property with parent."""
+        peripheral = ActronAirPeripheral(ZoneAssignment=[1, 2])
+
+        zone1 = MagicMock()
+        zone2 = MagicMock()
+        zone3 = MagicMock()
+
+        parent = MagicMock()
+        parent.remote_zone_info = [zone1, zone2, zone3]
+        peripheral.set_parent_status(parent)
+
+        zones = peripheral.zones
+        assert len(zones) == 2
+        assert zones[0] is zone1
+        assert zones[1] is zone2
+
+    def test_zones_out_of_range(self) -> None:
+        """Test zones property with out of range assignments."""
+        peripheral = ActronAirPeripheral(ZoneAssignment=[1, 99])
+
+        zone1 = MagicMock()
+
+        parent = MagicMock()
+        parent.remote_zone_info = [zone1]
+        peripheral.set_parent_status(parent)
+
+        zones = peripheral.zones
+        assert len(zones) == 1
+        assert zones[0] is zone1
+
+    def test_from_peripheral_data_with_sensors(self) -> None:
+        """Test from_peripheral_data with sensor data."""
+        data = {
+            "LogicalAddress": 3,
+            "DeviceType": "ZoneController",
+            "ZoneAssignment": [1],
+            "SerialNumber": "ABC123",
+            "SensorInputs": {"SHTC1": {"Temperature_oC": 22.5, "RelativeHumidity_pc": 55.0}},
+        }
+
+        peripheral = ActronAirPeripheral.from_peripheral_data(data)
+
+        assert peripheral.temperature == 22.5
+        assert peripheral.humidity == 55.0
+
+    def test_from_peripheral_data_without_sensors(self) -> None:
+        """Test from_peripheral_data without sensor data."""
+        data = {
+            "LogicalAddress": 3,
+            "DeviceType": "ZoneController",
+            "ZoneAssignment": [1],
+            "SerialNumber": "ABC123",
+        }
+
+        peripheral = ActronAirPeripheral.from_peripheral_data(data)
+
+        assert peripheral.temperature is None
+        assert peripheral.humidity is None
+
+    def test_from_peripheral_data_invalid_temp(self) -> None:
+        """Test from_peripheral_data with invalid temperature."""
+        data = {
+            "LogicalAddress": 3,
+            "DeviceType": "ZoneController",
+            "ZoneAssignment": [1],
+            "SerialNumber": "ABC123",
+            "SensorInputs": {"SHTC1": {"Temperature_oC": "invalid"}},
+        }
+
+        peripheral = ActronAirPeripheral.from_peripheral_data(data)
+
+        assert peripheral.temperature is None
+
+    def test_from_peripheral_data_invalid_humidity(self) -> None:
+        """Test from_peripheral_data with invalid humidity."""
+        data = {
+            "LogicalAddress": 3,
+            "DeviceType": "ZoneController",
+            "ZoneAssignment": [1],
+            "SerialNumber": "ABC123",
+            "SensorInputs": {"SHTC1": {"RelativeHumidity_pc": "invalid"}},
+        }
+
+        peripheral = ActronAirPeripheral.from_peripheral_data(data)
+
+        assert peripheral.humidity is None

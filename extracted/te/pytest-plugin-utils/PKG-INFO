@@ -1,0 +1,172 @@
+Metadata-Version: 2.3
+Name: pytest-plugin-utils
+Version: 0.4.0
+Summary: Reusable configuration and artifact utilities for building pytest plugins
+Keywords: pytest,plugin,testing,utilities
+Author: Michael Bianco
+Author-email: Michael Bianco <mike@mikebian.co>
+Requires-Python: >=3.12
+Project-URL: Repository, https://github.com/iloveitaly/pytest-plugin-utils
+Description-Content-Type: text/markdown
+
+[![Release Notes](https://img.shields.io/github/release/iloveitaly/pytest-plugin-utils)](https://github.com/iloveitaly/pytest-plugin-utils/releases)
+[![Downloads](https://static.pepy.tech/badge/pytest-plugin-utils/month)](https://pepy.tech/project/pytest-plugin-utils)
+![GitHub CI Status](https://github.com/iloveitaly/pytest-plugin-utils/actions/workflows/build_and_publish.yml/badge.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+# Reusable pytest Plugin Utilities
+
+Building pytest plugins means dealing with the same problems repeatedly: managing configuration options with proper precedence (CLI vs INI vs defaults), creating per-test artifact directories, and sanitizing test names for filesystem paths. This package extracts those common patterns into reusable utilities.
+
+I created this after extracting the config and path handling logic from `pytest-playwright-artifacts`. Rather than reinvent option handling in every plugin, you can use these utilities to get consistent behavior across pytest plugins.
+
+## Installation
+
+```bash
+uv add pytest-plugin-utils
+```
+
+## Usage
+
+### Configuration Options
+
+Register pytest options with automatic precedence handling (runtime > CLI > INI > defaults) and type inference.
+
+#### For Plugin Authors
+
+```python
+from pytest_plugin_utils import set_pytest_option, register_pytest_options, get_pytest_option
+
+def pytest_addoption(parser):
+    # Define your options (use __package__ for namespace)
+    set_pytest_option(
+        __package__,
+        "api_url",
+        default="http://localhost:3000",
+        help="API base URL",
+        available="all",  # Expose via CLI and INI
+        type_hint=str,
+    )
+
+    # Register them with pytest
+    register_pytest_options(__package__, parser)
+
+def pytest_configure(config):
+    # Retrieve with automatic type casting
+    api_url = get_pytest_option(__package__, config, "api_url", type_hint=str)
+```
+
+`namespace` is only used internally by this library to scope its option registry.
+It does not prefix pytest's CLI flags, `config.option` attributes, or INI keys.
+If you register `"api_url"`, the runtime override is `config.option.api_url`, not a namespaced variant like `config.option.my_plugin_api_url`.
+
+#### The `available` Parameter
+
+The `available` argument in `set_pytest_option` controls how the option is exposed to the user:
+
+| Value | Exposure | Description |
+| :--- | :--- | :--- |
+| `"all"` | CLI & INI | Adds a `--flag` and an INI entry. |
+| `"cli_option"` | CLI Only | Adds a `--flag` but no INI entry. |
+| `"ini"` | INI Only | Adds an INI entry but no CLI flag. |
+| `None` | Runtime Only | Purely programmatic. No CLI or INI exposure. |
+
+#### Advanced: Handling Complex Types (Dictionaries)
+
+For rich data structures like dictionaries that are difficult to express as strings on the command line, use `available=None`. This allows you to pass Python objects directly via hooks.
+
+**Plugin Author:**
+```python
+set_pytest_option(
+    __package__,
+    "playwright_kwargs",
+    default={},
+    available=None,  # Runtime only
+    type_hint=dict,
+)
+```
+
+**Plugin User (in `conftest.py`):**
+```python
+def pytest_configure(config):
+    # Set the dictionary directly on the raw option name
+    config.option.playwright_kwargs = {
+        "timeout": 5000,
+        "full_page": True,
+        "clip": {"x": 0, "y": 0, "width": 800, "height": 600}
+    }
+```
+
+#### For Plugin Users
+
+Once a plugin has registered options using this package, users can configure them in three ways (in order of precedence):
+
+1. **Command Line** (highest priority):
+   ```bash
+   pytest --api-url=https://prod.example.com
+   ```
+
+2. **INI Configuration** (medium priority):
+
+   In `pytest.ini`:
+   ```ini
+   [pytest]
+   api_url = https://staging.example.com
+   ```
+
+   Or in `pyproject.toml`:
+   ```toml
+   [tool.pytest.ini_options]
+   api_url = "https://staging.example.com"
+   ```
+
+3. **Runtime/Programmatic** (via conftest.py):
+   ```python
+   def pytest_configure(config):
+       # Override at runtime using the raw option name
+       config.option.api_url = "https://custom.example.com"
+   ```
+
+   `namespace` does not change the attribute name here. For example, `get_pytest_option(__package__, config, "api_url")` reads from `config.option.api_url`.
+
+The value resolution follows this precedence chain, with each level overriding the next: Runtime > CLI > INI > Default.
+
+### Artifact Directory Management
+
+Create per-test artifact directories with sanitized names:
+
+```python
+from pytest_plugin_utils import set_artifact_dir_option, get_artifact_dir
+
+def pytest_configure(config):
+    # Configure which option name to use (use __package__ for namespace)
+    set_artifact_dir_option(__package__, "my_plugin_output")
+
+def pytest_runtest_setup(item):
+    # Get a clean directory for this specific test
+    artifact_dir = get_artifact_dir(__package__, item)
+    # Returns: /output/test-file-py-test-name-param/
+```
+
+## Features
+
+* Centralized option registry with runtime, CLI, and INI support
+* Automatic INI type inference from Python type hints (bool, str, list[str], list[Path])
+* Smart value casting with fallback precedence handling
+* Filesystem-safe test name sanitization for artifact paths
+* Per-test artifact directory creation and resolution
+* Type-safe configuration retrieval with warnings on mismatches
+
+## Related Projects
+
+* [pytest-playwright-visual-snapshot](https://github.com/iloveitaly/pytest-playwright-visual-snapshot): Easy pytest visual regression testing using playwright.
+* [pytest-line-runner](https://github.com/iloveitaly/pytest-line-runner): Run pytest tests by line number instead of exact test name.
+* [pytest-celery-utils](https://github.com/iloveitaly/pytest-celery-utils): Pytest plugin for inspecting Celery task queues in Redis during tests.
+* [pytest-playwright-artifacts](https://github.com/iloveitaly/pytest-playwright-artifacts): Pytest plugin that captures HTML, screenshots, and console logs on Playwright test failures.
+
+## [MIT License](LICENSE.md)
+
+---
+
+*This project was created from [iloveitaly/python-package-template](https://github.com/iloveitaly/python-package-template)*
+

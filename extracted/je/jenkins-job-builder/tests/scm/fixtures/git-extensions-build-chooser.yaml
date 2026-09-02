@@ -1,0 +1,6 @@
+scm:
+  - git:
+      url: https://example.com/git/repo
+      choosing-strategy: ancestry
+      maximum-age: 7
+      ancestor-sha1: ancestor-sha1

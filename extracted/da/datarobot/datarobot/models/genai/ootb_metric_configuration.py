@@ -286,7 +286,7 @@ class PlaygroundOOTBMetricConfiguration(APIObject):
 
     @classmethod
     def get(cls, playground_id: str) -> PlaygroundOOTBMetricConfiguration:
-        """Get OOTB metric configurations for the playground."""
+        """Returns the OOTB metric configurations for the playground."""
         response_data = cls._client.get(f"{cls._client.domain}/{cls.path.format(playground_id=playground_id)}/")
         return cls.from_server_data(response_data.json())
 

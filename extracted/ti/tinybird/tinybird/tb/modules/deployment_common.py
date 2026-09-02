@@ -298,11 +298,20 @@ def promote_deployment(
                 click.echo(FeedbackManager.error(message="Error parsing deployment from response"))
                 sys_exit("deployment_error", "Error parsing deployment from response")
 
-            if last_deployment and last_deployment.get("status") == "deleted":
+            last_deployment_status = last_deployment.get("status")
+
+            if last_deployment_status == "deleted":
                 if not is_first_deployment:
                     click.echo(FeedbackManager.info(message="✓ Old deployment removed"))
                 click.echo(FeedbackManager.success(message=f"✓ Deployment #{candidate_deployment.get('id')} is live!"))
                 break
+
+            if last_deployment_status == "failed":
+                click.echo(FeedbackManager.error(message="Removing the old deployment failed"))
+                deploy_errors = last_deployment.get("errors", [])
+                for deploy_error in deploy_errors:
+                    click.echo(FeedbackManager.error(message=f"* {deploy_error}"))
+                sys_exit("deployment_error", "Removing the old deployment failed: " + str(deploy_errors))
 
             time.sleep(5)
     if is_first_deployment and ingest_hint and len(candidate_deployment.get("new_data_connector_ids", [])) == 0:
@@ -360,9 +369,23 @@ def discard_deployment(host: Optional[str], headers: dict, wait: bool, request_f
             result = api_fetch(TINYBIRD_API_URL, headers, request_from=request_from)
 
             deployment_to_discard = result.get("deployment")
-            if deployment_to_discard and deployment_to_discard.get("status") == "deleted":
+            if not deployment_to_discard:
+                click.echo(FeedbackManager.error(message="Error parsing deployment from response"))
+                sys_exit("deployment_error", "Error parsing deployment from response")
+
+            discard_status = deployment_to_discard.get("status")
+
+            if discard_status == "deleted":
                 click.echo(FeedbackManager.success(message="Discard process successfully completed"))
                 break
+
+            if discard_status == "failed":
+                click.echo(FeedbackManager.error(message="Discarding the deployment failed"))
+                deploy_errors = deployment_to_discard.get("errors", [])
+                for deploy_error in deploy_errors:
+                    click.echo(FeedbackManager.error(message=f"* {deploy_error}"))
+                sys_exit("deployment_error", "Discarding the deployment failed: " + str(deploy_errors))
+
             time.sleep(5)
 
 

@@ -1,0 +1,931 @@
+"""Util functions for resources in ADK
+
+Copyright PolyAI Limited
+"""
+
+import ast
+import functools
+import hashlib
+import inspect
+import json
+import logging
+import os
+import re
+import subprocess
+import sys
+import types
+import typing
+from dataclasses import fields, is_dataclass
+from difflib import unified_diff
+from enum import Enum
+from io import StringIO
+from typing import TYPE_CHECKING, Callable, Optional, Union
+
+import ruamel.yaml as yaml
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from poly.resources.flows import BaseFlowStep
+    from poly.resources.resource import ResourceMapping
+
+# Create YAML instances with block style for multiline strings
+_yaml_dumper = yaml.YAML()
+_yaml_dumper.default_flow_style = False
+_yaml_dumper.preserve_quotes = False
+_yaml_dumper.width = 100
+
+_yaml_loader = yaml.YAML(typ="safe")
+_yaml_loader.preserve_quotes = False
+
+
+def resource_to_dict(obj) -> dict:
+    """Recursively serialize a resource dataclass to a dict.
+
+    Like dataclasses.asdict() but only includes keys that match
+    the class's __init__ parameters, so extra dataclass fields
+    (e.g. computed or create-only fields) are excluded.
+    """
+    from dataclasses import fields
+
+    valid_params = set(inspect.signature(type(obj).__init__).parameters.keys()) - {"self"}
+    result = {}
+    for f in fields(obj):
+        if f.name not in valid_params:
+            continue
+        result[f.name] = _serialize_value(getattr(obj, f.name))
+    return result
+
+
+def _serialize_value(value):
+    """Recursively serialize a value for status dict storage."""
+    from dataclasses import is_dataclass
+    from enum import Enum
+
+    if is_dataclass(value) and not isinstance(value, type):
+        return resource_to_dict(value)
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, list):
+        return [_serialize_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_serialize_value(item) for item in value)
+    if isinstance(value, dict):
+        return {k: _serialize_value(v) for k, v in value.items()}
+    return value
+
+
+def _key_needs_quoting(key: str) -> bool:
+    """Return True if a YAML key should be quoted to avoid parse errors."""
+    return "&" in key or "*" in key
+
+
+def _prepare_yaml_data(data):
+    """Recursively prepare data for YAML dumping in a single pass.
+
+    - Quote dict keys containing & or * (YAML anchor/alias indicators)
+    - Set block style (|) for multiline strings
+    - Force double quotes on ambiguous scalar values
+    """
+    if isinstance(data, dict):
+        result = {}
+        for k, v in data.items():
+            new_key = (
+                yaml.scalarstring.DoubleQuotedScalarString(k)
+                if isinstance(k, str) and _key_needs_quoting(k)
+                else k
+            )
+            if isinstance(v, str) and "\n" in v:
+                result[new_key] = yaml.scalarstring.LiteralScalarString(v)
+            else:
+                result[new_key] = _prepare_yaml_data(v)
+        return result
+    elif isinstance(data, list):
+        return [_prepare_yaml_data(item) for item in data]
+    return data
+
+
+def dump_yaml(data, stream=None):
+    """Dump data to YAML format with block style for multiline strings.
+
+    Args:
+        data: Data structure to dump.
+        stream: Optional stream to write to. If None, returns a string.
+
+    Returns:
+        str: YAML string if stream is None, otherwise None.
+    """
+    data = _prepare_yaml_data(data)
+    if stream is None:
+        stream = StringIO()
+        _yaml_dumper.dump(data, stream)
+        return stream.getvalue()
+    else:
+        _yaml_dumper.dump(data, stream)
+        return None
+
+
+def load_yaml(content):
+    """Load YAML content.
+
+    Args:
+        content: YAML string or file-like object.
+
+    Returns:
+        Parsed YAML data.
+    """
+    return _yaml_loader.load(content)
+
+
+def get_diff(original: str, updated: str) -> str:
+    """Get the diff between original and updated strings."""
+
+    original_lines = original.splitlines()
+    updated_lines = updated.splitlines()
+
+    diff = unified_diff(
+        original_lines,
+        updated_lines,
+        lineterm="",
+        fromfile="original",
+        tofile="updated",
+    )
+    return "\n".join(diff)
+
+
+class MergeConflictError(ValueError):
+    """Raised when resource file(s) contain unresolved merge conflict markers.
+
+    Callers pass the offending file path(s); the message is derived from them.
+    """
+
+    def __init__(self, file_paths: "str | list[str]"):
+        # dedupe: several resources can share one conflicted multi-resource file
+        paths = [file_paths] if isinstance(file_paths, str) else list(dict.fromkeys(file_paths))
+        self.file_paths = paths
+        if len(paths) == 1:
+            message = f"{paths[0]} — resolve the conflict markers before continuing"
+        else:
+            message = "resolve the conflict markers in:\n- " + "\n- ".join(paths)
+        super().__init__(message)
+
+
+def raise_if_merge_conflicts(conflict_files: list[str]) -> None:
+    """Raise a single aggregated error if any files contain merge conflict markers."""
+    if conflict_files:
+        raise MergeConflictError(conflict_files)
+
+
+def contains_merge_conflict(string: str) -> bool:
+    """Check if the string contains merge conflict markers."""
+    has_start = False
+    has_middle = False
+    has_end = False
+    for line in string.splitlines():
+        if "<<<<<<<" in line:
+            has_start = True
+        elif "=======" in line and has_start:
+            has_middle = True
+        elif ">>>>>>>" in line and has_middle:
+            has_end = True
+    return has_start and has_middle and has_end
+
+
+REFERENCES_PREFIX_MAP = {
+    "sms": "twilio_sms",
+    "handoff": "ho",
+    "attributes": "attr",
+    "transition_functions": "ft",
+    "global_functions": "fn",
+    "entities": "entity",
+    "variables": "vrbl",
+    "translations": "tn",
+}
+REFERENCES_PREFIX_MAP_REGEX = {
+    reference: re.compile(rf"{{{{{prefix}:([\w-]+)}}}}")
+    for reference, prefix in REFERENCES_PREFIX_MAP.items()
+}
+
+PREFIX_TO_REFERENCE = {prefix: reference for reference, prefix in REFERENCES_PREFIX_MAP.items()}
+
+# Regex matching any {{prefix:value}} reference in a single pass
+_REFERENCE_PATTERN = re.compile(r"\{\{(\w+):([^}]+)\}\}")
+
+# Regex to find variable names defined in function code via conv.state.<name>
+CONV_STATE_DOT_NAME = re.compile(r"(?<![\w.])conv\.state\.([a-zA-Z_][a-zA-Z0-9_]*)\b(?!\s*\()")
+
+# Detects the header-ending colon on a def line, ignoring trailing comments
+HEADER_END_COLON_RE = re.compile(r":\s*(#.*)?\s*$")
+
+
+def remove_comments_from_code(code: str) -> str:
+    """Return code without comments"""
+    clean_code = []
+    for line in code.splitlines():
+        # remove comments from the line
+        line = line.split("#")[0].strip()
+        if line:
+            clean_code.append(line)
+
+    return "\n".join(clean_code)
+
+
+def extract_variable_names_from_code(code: str) -> set[str]:
+    """Extract variable names used in code via conv.state.<name>"""
+    if not code:
+        return set()
+
+    names = set(CONV_STATE_DOT_NAME.findall(code))
+
+    return names
+
+
+def get_references_from_prompt(
+    prompt: str, valid_references: list[str] = None, raise_on_invalid: bool = False
+) -> dict[str, dict[str, bool]]:
+    """Extract references from a prompt string."""
+    references: dict[str, dict[str, bool]] = {}
+    for reference, regex in REFERENCES_PREFIX_MAP_REGEX.items():
+        if valid_references is not None and reference not in valid_references:
+            if not raise_on_invalid:
+                continue
+
+        references[reference] = {}
+        for match in regex.findall(prompt):
+            if raise_on_invalid and reference not in valid_references:
+                raise ValueError(
+                    f"Invalid reference type: {reference} is not a valid reference type for this resource. Valid references are: {valid_references}"
+                )
+            references[reference][match] = True
+
+    return references
+
+
+def validate_references(
+    references: dict[str, dict[str, bool]],
+    resource_mappings: list["ResourceMapping"],
+    flow_name: str = None,
+) -> tuple[bool, list[str]]:
+    """Validate that all references in the prompt are valid.
+
+    Args:
+        references (dict[str, dict[str, bool]]): The references to validate.
+        resource_mappings (list["ResourceMapping"]): The resource mappings to use for validation.
+        flow_name (str): The flow name to use for validation.
+
+    Returns:
+        bool: True if all references are valid, False otherwise.
+    """
+    looking_for = {
+        reference: set(values.keys()) for reference, values in references.items() if values
+    }
+
+    if not looking_for:
+        return True, []
+
+    # Build set of available (reference_type, resource_id) for O(1) lookups
+    available = set()
+    for rm in resource_mappings:
+        if rm.flow_name not in (None, flow_name):
+            continue
+        ref_type = PREFIX_TO_REFERENCE.get(rm.resource_prefix)
+        if ref_type:
+            available.add((ref_type, rm.resource_id))
+
+    invalid_references = []
+    for reference, ids in looking_for.items():
+        for rid in ids:
+            if (reference, rid) not in available:
+                invalid_references.append(f"{reference}: {rid}")
+
+    return len(invalid_references) == 0, invalid_references
+
+
+def _build_reference_replacer(
+    resource_mappings: list["ResourceMapping"],
+    flow_folder_name: str = None,
+    *,
+    names_to_ids: bool,
+) -> "Callable[[re.Match], str]":
+    """Build a regex replacer that rewrites {{prefix:from}} references to {{prefix:to}}.
+
+    Args:
+        resource_mappings: Mappings providing the name<->id lookup.
+        flow_folder_name: Restricts flow-scoped mappings to the current flow.
+        names_to_ids: When True, map names -> ids; when False, ids -> names.
+    """
+    # Build dict for O(1) lookups: (prefix, from) -> to
+    lookup: dict[tuple[str, str], str] = {}
+    for rm in resource_mappings:
+        if rm.flow_name and clean_name(rm.flow_name) not in (None, flow_folder_name):
+            continue
+        if rm.resource_prefix:
+            if names_to_ids:
+                lookup[(rm.resource_prefix, rm.resource_name)] = rm.resource_id
+            else:
+                lookup[(rm.resource_prefix, rm.resource_id)] = rm.resource_name
+
+    def _replacer(match: re.Match) -> str:
+        key = (match.group(1), match.group(2))
+        if key in lookup:
+            return f"{{{{{key[0]}:{lookup[key]}}}}}"
+        return match.group(0)
+
+    return _replacer
+
+
+def build_reference_swapper(
+    resource_mappings: list["ResourceMapping"],
+    flow_folder_name: str = None,
+    *,
+    names_to_ids: bool,
+) -> "Callable[[str], str]":
+    """Build a reusable swapper that rewrites references in a string.
+
+    Args:
+        resource_mappings: Mappings providing the name<->id lookup.
+        flow_folder_name: Restricts flow-scoped mappings to the current flow.
+        names_to_ids: When True, map names -> ids; when False, ids -> names.
+
+    Returns:
+        Callable[[str], str]: Rewrites {{prefix:from}} references in the given string.
+    """
+    replacer = _build_reference_replacer(
+        resource_mappings, flow_folder_name, names_to_ids=names_to_ids
+    )
+    return lambda prompt: _REFERENCE_PATTERN.sub(replacer, prompt)
+
+
+def replace_resource_ids_with_names(
+    prompt: str,
+    resource_mappings: list["ResourceMapping"],
+    flow_folder_name: str = None,
+) -> str:
+    """Replace resource IDs with names in the prompt string."""
+    return build_reference_swapper(resource_mappings, flow_folder_name, names_to_ids=False)(prompt)
+
+
+def replace_resource_names_with_ids(
+    prompt: str,
+    resource_mappings: list["ResourceMapping"],
+    flow_folder_name: str = None,
+) -> str:
+    """Replace resource names with IDs in the prompt string."""
+    return build_reference_swapper(resource_mappings, flow_folder_name, names_to_ids=True)(prompt)
+
+
+def replace_resource_names_with_ids_in_data(
+    data: object,
+    resource_mappings: list["ResourceMapping"],
+    flow_folder_name: str = None,
+) -> object:
+    """Replace resource names with IDs in every scalar string leaf of a parsed structure.
+
+    Recursively walks dicts and lists, rewriting {{prefix:name}} references in string
+    values; keys and non-string values are left unchanged. Returns freshly constructed
+    dict/list containers.
+    """
+    replacer = _build_reference_replacer(resource_mappings, flow_folder_name, names_to_ids=True)
+
+    def _walk(node: object) -> object:
+        if isinstance(node, dict):
+            return {k: _walk(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [_walk(item) for item in node]
+        if isinstance(node, str):
+            return _REFERENCE_PATTERN.sub(replacer, node)
+        return node
+
+    return _walk(data)
+
+
+def get_flow_id_from_flow_name(
+    formatted_flow_name: str, resource_mappings: list["ResourceMapping"]
+) -> tuple[Optional[str], Optional[str]]:
+    """Get the flow ID corresponding to the given flow name from resource mappings."""
+    for res in resource_mappings:
+        if (
+            res.resource_type.__name__ == "FlowConfig"
+            and clean_name(res.flow_name) == formatted_flow_name
+        ):
+            return res.resource_id, res.resource_name
+    return None, None
+
+
+def get_flow_name_from_path(file_path: str) -> Optional[str]:
+    """Extract the flow name from the file path."""
+    parts = os.path.normpath(file_path).split(os.sep)
+    if "flows" in parts:
+        flow_index = parts.index("flows")
+        if flow_index < len(parts) - 1:
+            flow_name = parts[flow_index + 1]
+            return flow_name
+    return None
+
+
+def compute_hash(content: str) -> str:
+    """Compute a hash of the given content string."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _canonicalize_for_hash(obj) -> str | int | float | bool | list | dict:
+    """Convert to JSON-serializable form for deterministic hashing."""
+    if isinstance(obj, dict):
+        return {k: _canonicalize_for_hash(v) for k, v in sorted(obj.items())}
+    if isinstance(obj, list):
+        return [_canonicalize_for_hash(item) for item in obj]
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    if hasattr(obj, "isoformat"):
+        return obj.isoformat()
+    if isinstance(obj, Enum):
+        return obj.value
+    return str(obj)
+
+
+def compute_hash_from_dict(data: dict) -> str:
+    """Compute a hash of a dict without YAML serialization. Faster than compute_hash(dump_yaml(data))."""
+    canonical = _canonicalize_for_hash(data)
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+
+def _format_def_line(line: str) -> str:
+    line = line.strip()
+
+    # remove spaces just inside parentheses
+    line = re.sub(r"\(\s+", "(", line)
+    line = re.sub(r"\s+\)", ")", line)
+
+    # remove space before colon
+    line = re.sub(r"\s+:", ":", line)
+
+    # normalize multiple spaces everywhere else
+    line = re.sub(r"\s+", " ", line)
+
+    # remove comma after last parameter
+    line = re.sub(r",\):$", "):", line)
+
+    # PEP 8: two spaces before inline comment (only the comment-starting #)
+    line = re.sub(r"\)\s*:\s*#", "):  #", line)
+
+    return line + "\n"
+
+
+def restore_function_def_line(file_content: str, file_name: str) -> str:
+    """Restore the main function definition to be formatted on one line.
+
+    In AS, the main function is the same as the file name and is required
+    to be formatted on one line. This function restores the main function
+    definition to be formatted on one line.
+
+    Args:
+        file_content (str): The file content
+        file_name (str): The name of the file and main function to be formatted
+
+    Returns:
+        str: The formatted file content
+    """
+
+    try:
+        tree = ast.parse(file_content)
+    except SyntaxError:
+        return file_content
+
+    fn = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == file_name:
+            fn = node
+            break
+
+    if fn is None:
+        return file_content
+
+    lines = file_content.splitlines(keepends=True)
+    i = fn.lineno - 1
+    header_lines = []
+    end_line = None
+    for j in range(i, len(lines)):
+        header_lines.append(lines[j])
+        if HEADER_END_COLON_RE.search(lines[j]):
+            end_line = j
+            break
+
+    if end_line is None:
+        return file_content
+
+    one_line_header = " ".join(h.strip() for h in header_lines)
+    formatted_one_line_header = _format_def_line(one_line_header)
+
+    return "".join(lines[:i]) + formatted_one_line_header + "".join(lines[end_line + 1 :])
+
+
+def format_code_with_ruff(code: str, file_name: str) -> str:
+    """Format the given code string using ruff (via current Python; no PATH required).
+
+    Uses the same interpreter as the running process, so ruff must be installed
+    in that environment (e.g. as a dependency of this package).
+
+    Args:
+        code (str): The code to format.
+        file_name (str): The name of the file being formatted.
+
+    Returns:
+        str: The formatted code.
+    """
+    ruff_cmd = [sys.executable, "-m", "ruff"]
+
+    # Run ruff format
+    process = subprocess.run(
+        ruff_cmd + ["format", "-"],
+        input=code.encode(),
+        capture_output=True,
+    )
+    if process.returncode != 0:
+        logger.error(f"Ruff formatting failed for {file_name}. " + process.stderr.decode())
+        return code  # Return original code if ruff fails
+
+    output = process.stdout.decode()
+
+    # Run ruff check --fix to apply any additional fixes
+    process = subprocess.run(
+        ruff_cmd + ["check", "--fix", "-"],
+        input=output.encode(),
+        capture_output=True,
+    )
+
+    if process.returncode != 0:
+        logger.error(f"Ruff check --fix failed for {file_name}. " + process.stderr.decode())
+        return output  # Return code after format if check fails
+    output = process.stdout.decode()
+
+    return output
+
+
+def format_yaml(yaml_content: str, file_name: str) -> str:
+    """Format YAML content using ruamel.yaml (no external tools).
+
+    Args:
+        yaml_content: Raw YAML string.
+
+    Returns:
+        Formatted YAML string, or original on parse error.
+    """
+    try:
+        data = load_yaml(yaml_content)
+        if data is None:
+            return yaml_content
+        return dump_yaml(data)
+    except Exception:
+        return yaml_content
+
+
+def format_json(json_content: str) -> str:
+    """Format JSON content (no external tools).
+
+    Args:
+        json_content: Raw JSON string.
+
+    Returns:
+        Formatted JSON string (indent=2, sort_keys=True), or original on parse error.
+    """
+    try:
+        data = json.loads(json_content)
+        return json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    except Exception:
+        return json_content
+
+
+SPACES_REGEX = re.compile(r"\s+")
+NON_LETTER_REGEX = re.compile(r"[^\w\s]", re.UNICODE)
+MULTI_UNDERSCORE_REGEX = re.compile(r"_+")
+
+
+@functools.cache
+def clean_name(name: str, lowercase: bool = True) -> str:
+    """Convert a resource name to a folder-friendly format."""
+    # Convert to lowercase if requested
+    if lowercase:
+        name = name.lower()
+    # Replace all punctuation with spaces
+    name = NON_LETTER_REGEX.sub(" ", name)
+    # Replace spaces with underscores
+    name = SPACES_REGEX.sub("_", name)
+    # Replace multiple underscores with single underscore
+    name = MULTI_UNDERSCORE_REGEX.sub("_", name)
+    # Trim leading/trailing underscores
+    name = name.strip("_")
+
+    return name
+
+
+def to_camel_case(s: str) -> str:
+    """Convert a string to camelCase from snake_case"""
+    word = "".join(word.capitalize() for word in s.split("_"))
+    return word[0].lower() + word[1:]
+
+
+def to_snake_case(s: str) -> str:
+    """Convert a string to snake_case."""
+    return "".join([("_" + c.lower()) if c.isupper() else c for c in s]).lstrip("_")
+
+
+def convert_keys_to_snake_case(dict_obj: dict) -> dict:
+    """Convert config keys to snake_case for consistency."""
+    return {to_snake_case(k): v for k, v in dict_obj.items()}
+
+
+def is_valid_language_code(code: str) -> bool:
+    """Check if the given code is a valid BCP 47 language code."""
+    import langcodes
+
+    return langcodes.tag_is_valid(code)
+
+
+def _unwrap_optional(hint: type) -> type:
+    """Strip Optional[X] / X | None down to X."""
+    origin = typing.get_origin(hint)
+    if origin is Union or origin is types.UnionType:
+        args = [a for a in typing.get_args(hint) if a is not type(None)]
+        if len(args) == 1:
+            return args[0]
+    return hint
+
+
+_SCALAR_TYPES = (str, int, float, bool)
+
+
+def _matches_scalar(value: object, expected: type) -> bool:
+    """Check if a value matches a scalar type, with YAML-aware compatibility.
+
+    bool is excluded from int/float checks because YAML's yes/no auto-cast
+    should not silently pass as a number. int is accepted for float because
+    YAML parses 500 as int but 500.0 as float — both are valid numerics.
+    """
+    if expected is float:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected is int:
+        return isinstance(value, int) and not isinstance(value, bool)
+    return isinstance(value, expected)
+
+
+def check_yaml_field_types(instance: object, _path: str = "") -> None:
+    """Validate that scalar and list[scalar] fields have the correct type after YAML parsing."""
+    hints = typing.get_type_hints(type(instance))
+    for f in fields(instance):
+        value = getattr(instance, f.name)
+        if value is None:
+            continue
+        hint = _unwrap_optional(hints.get(f.name, type(None)))
+        field_path = f"{_path}.{f.name}" if _path else f.name
+
+        if hint in _SCALAR_TYPES and not _matches_scalar(value, hint):
+            raise ValueError(
+                f"'{field_path}' should be {hint.__name__} but got {type(value).__name__}."
+            )
+        list_args = typing.get_args(hint) if typing.get_origin(hint) is list else ()
+        if list_args and list_args[0] in _SCALAR_TYPES:
+            expected_item_type = list_args[0]
+            if not isinstance(value, list):
+                raise ValueError(
+                    f"'{field_path}' should be a list of {expected_item_type.__name__} "
+                    f"but got {type(value).__name__}."
+                )
+            for i, item in enumerate(value):
+                if not _matches_scalar(item, expected_item_type):
+                    raise ValueError(
+                        f"'{field_path}[{i}]' should be {expected_item_type.__name__} "
+                        f"but got {type(item).__name__}."
+                    )
+        dict_args = typing.get_args(hint) if typing.get_origin(hint) is dict else ()
+        if len(dict_args) == 2 and isinstance(value, dict):
+            key_type, val_type = dict_args
+            for k, v in value.items():
+                if key_type in _SCALAR_TYPES and not _matches_scalar(k, key_type):
+                    raise ValueError(
+                        f"'{field_path}' has key {k!r} which should be {key_type.__name__} "
+                        f"but got {type(k).__name__}."
+                    )
+                if val_type in _SCALAR_TYPES and not _matches_scalar(v, val_type):
+                    raise ValueError(
+                        f"'{field_path}[{k!r}]' should be {val_type.__name__} "
+                        f"but got {type(v).__name__}."
+                    )
+        if is_dataclass(value) and not isinstance(value, type):
+            check_yaml_field_types(value, field_path)
+
+
+def assign_flow_positions(
+    nodes: list["BaseFlowStep"],
+    start_node_id: str,
+    x_start: float = 0.0,
+    y_start: float = 0.0,
+    x_gap: float = 600.0,
+    y_gap: float = 500.0,
+) -> None:
+    """Assign positions to flow nodes in a grid layout.
+
+    Args:
+        nodes (list[dict]): List of node dictionaries to assign positions to.
+        x_start (float): Starting x position.
+        y_start (float): Starting y position.
+        x_gap (float): Gap between nodes in the x direction.
+        y_gap (float): Gap between nodes in the y direction.
+    """
+    known_positions = [node.position for node in nodes if node.position]
+
+    x_max = x_start
+    if known_positions:
+        x_max = max(pos["x"] for pos in known_positions)
+
+    # Assign start node position first
+    assigning_order: list[BaseFlowStep] = []
+    for node in nodes:
+        if node.step_id != start_node_id:
+            assigning_order.append(node)
+        else:
+            assigning_order.insert(0, node)
+
+    for node in assigning_order:
+        if node.position:
+            continue
+
+        if node.step_id == start_node_id and not known_positions:
+            node.position = {"x": x_start, "y": y_start}
+        else:
+            x_max = assign_flow_node_position(
+                node,
+                nodes,
+                visited_node_ids=set(),
+                x_start=x_max,
+                y_start=y_start,
+                x_gap=x_gap,
+                y_gap=y_gap,
+            )
+
+    # Assign conditions label positions
+    for node in nodes:
+        if not hasattr(node, "conditions"):
+            continue
+        for condition in node.conditions:
+            if condition.position:
+                continue
+            # If child_node position condition between parent and child
+            if condition.child_step:
+                child_node = next((n for n in nodes if n.step_id == condition.child_step), None)
+                if child_node and child_node.position and node.position:
+                    condition.position = {
+                        "x": (node.position["x"] + child_node.position["x"]) / 2,
+                        "y": (node.position["y"] + child_node.position["y"]) / 2,
+                    }
+            elif not condition.exit_flow_position:
+                # Collect sibling positions: child nodes and other exit_flow_positions
+                sibling_x_positions = []
+
+                # Get positions of child node siblings and other exit_flow_positions
+                for other_condition in node.conditions:
+                    if other_condition == condition:
+                        continue
+
+                    # Check for child node siblings
+                    if other_condition.child_step:
+                        sibling_node = next(
+                            (n for n in nodes if n.step_id == other_condition.child_step),
+                            None,
+                        )
+                        if sibling_node and sibling_node.position:
+                            sibling_x_positions.append(sibling_node.position["x"])
+
+                    # Check for other exit_flow_positions
+                    if other_condition.exit_flow_position:
+                        sibling_x_positions.append(other_condition.exit_flow_position["x"])
+
+                max_x_sibling = (
+                    max(sibling_x_positions + [node.position["x"]]) + x_gap
+                    if sibling_x_positions
+                    else node.position["x"]
+                )
+                condition.exit_flow_position = {
+                    "x": max_x_sibling,
+                    "y": node.position["y"] + y_gap,
+                }
+                condition.position = {
+                    "x": (node.position["x"] + condition.exit_flow_position["x"]) / 2,
+                    "y": node.position["y"] + y_gap / 2,
+                }
+
+
+def assign_flow_node_position(
+    node: "BaseFlowStep",
+    nodes: list["BaseFlowStep"],
+    visited_node_ids: set[str] = None,
+    x_start: float = 0.0,
+    y_start: float = 0.0,
+    x_gap: float = 600.0,
+    y_gap: float = 150.0,
+) -> float:
+    """Assign positions to flow nodes in a grid layout.
+
+    Args:
+        nodes (list[dict]): List of node dictionaries to assign positions to.
+        x_start (float): Starting x position.
+        y_start (float): Starting y position.
+        x_gap (float): Gap between nodes in the x direction.
+        y_gap (float): Gap between nodes in the y direction.
+
+    Returns:
+        float: The maximum x position assigned.
+    """
+    if node.position:
+        return x_start
+
+    if not visited_node_ids:
+        visited_node_ids = set()
+
+    if node.step_id in visited_node_ids:
+        # Prevent infinite recursion on cycles
+        node.position = {
+            "x": x_start + x_gap,
+            "y": y_start,
+        }
+        return node.position["x"]
+
+    # Work out if node has a parent node
+    parent_node = None
+    max_x_sibling = None
+    for potential_parent in nodes:
+        if not hasattr(potential_parent, "conditions"):
+            continue
+        for condition in potential_parent.conditions:
+            if condition.child_step == node.step_id:
+                parent_node = potential_parent
+
+                if not parent_node.position:
+                    # Parent has no position yet, assign it first
+                    x_start = assign_flow_node_position(
+                        parent_node,
+                        nodes,
+                        visited_node_ids | {node.step_id},
+                        x_start,
+                        y_start,
+                        x_gap,
+                        y_gap,
+                    )
+
+                sibling_ids = [
+                    c.child_step for c in parent_node.conditions if c.child_step != node.step_id
+                ]
+                sibling_x_positions = [
+                    n.position["x"] for n in nodes if n.step_id in sibling_ids and n.position
+                ]
+                # Add x positions for end flow conditions
+                for c in parent_node.conditions:
+                    if c.exit_flow_position and c.child_step not in sibling_ids:
+                        sibling_x_positions.append(c.exit_flow_position["x"])
+
+                max_x_sibling = (
+                    max(sibling_x_positions + [parent_node.position["x"]]) + x_gap
+                    if sibling_x_positions
+                    else parent_node.position["x"]
+                )
+                break
+
+    if parent_node:
+        # Position below parent node
+        node.position = {
+            "x": max_x_sibling,
+            "y": parent_node.position["y"] + y_gap,
+        }
+
+        return max(x_start, node.position["x"])
+
+    else:
+        # Position to the right of the last node
+        node.position = {
+            "x": x_start + x_gap,
+            "y": y_start,
+        }
+        return node.position["x"]
+
+
+_WEBCHAT_CONFIG_TYPES: list[str] = [
+    "ChatGreeting",
+    "ChatSafetyFilters",
+    "ChatStylePrompt",
+]
+
+
+def validate_webchat_siblings(
+    self_type: type, resource_mappings: list["ResourceMapping"] | None
+) -> None:
+    """Raise if some but not all webchat config resources are present."""
+    if not resource_mappings:
+        return
+    sibling_names = [n for n in _WEBCHAT_CONFIG_TYPES if n != self_type.__name__]
+    present_types = {rm.resource_type.__name__ for rm in resource_mappings}
+    missing = [n for n in sibling_names if n not in present_types]
+    if missing:
+        raise ValueError(
+            f"Webchat config resources must all be present together. Missing: {', '.join(missing)}."
+        )

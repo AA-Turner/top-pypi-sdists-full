@@ -1,0 +1,972 @@
+//! Phase 1C full-file parser with section parity.
+//!
+//! Mirrors `sase_100/src/sase/ace/patch/parser.py` and
+//! `section_parsers.py`:
+//!
+//! - Patch boundaries: canonical `## Patch` and legacy `## ChangeSpec`
+//!   headers, direct `NAME:` starts, end-on-next-header,
+//!   end-on-two-truly-empty-lines, end-on-new-NAME. Two-space-indented
+//!   blank lines inside a `DESCRIPTION` are content, not separators.
+//! - Drop incomplete records that lack either `NAME` or `STATUS`.
+//! - Scalar fields: `NAME`, `DESCRIPTION`, `PARENT`, `PR` (legacy `CL` is accepted),
+//!   `PR_ORIGIN`, `BUG`, `STATUS`.
+//! - Section bodies: `REFS`, canonical `STITCHES`, legacy `COMMITS`,
+//!   `HOOKS`, `COMMENTS`, `MENTORS`, `TIMESTAMPS`, `DELTAS`. The legacy
+//!   wire records produced here match Python parser output for the golden
+//!   corpus.
+//! - Whitespace: inline header content stripped, two-space continuation
+//!   strips the first two spaces, blank lines preserved inside
+//!   description before the final trim.
+//! - `project_basename` matches Python's `Patch.project_basename`
+//!   (basename minus extension, with a trailing `-archive` suffix removed).
+//! - `source_span.start_line` and `end_line` are inclusive 1-based. Unlike
+//!   the Python facade's placeholder, `end_line` here is the real last
+//!   non-blank line of the spec.
+
+use crate::project_spec::{
+    project_display_name_from_content, project_spec_basename,
+};
+use crate::sections::{
+    parse_comments_line, parse_deltas_line, parse_hooks_line,
+    parse_mentors_line, parse_stitches_line, parse_timestamps_line,
+};
+use crate::wire::{
+    default_pr_origin, ChangeSpecWire, CommentWire, CommitWire, DeltaWire,
+    HookWire, MentorWire, ParseErrorWire, PatchWire, SourceSpanWire,
+    TimestampWire, CHANGESPEC_WIRE_SCHEMA_VERSION,
+};
+
+/// Parse all Patches from a project file's raw bytes.
+///
+/// The Python equivalent is `parse_project_file_python`, which reads the
+/// file from disk via `f.readlines()`. This Rust entry point takes bytes
+/// directly so callers can avoid a temp-file round-trip.
+pub fn parse_project_bytes(
+    path: &str,
+    data: &[u8],
+) -> Result<Vec<ChangeSpecWire>, ParseErrorWire> {
+    let text = std::str::from_utf8(data).map_err(|e| ParseErrorWire {
+        kind: "encoding".to_string(),
+        message: format!("invalid UTF-8: {e}"),
+        file_path: path.to_string(),
+        line: None,
+        column: None,
+    })?;
+
+    let lines: Vec<&str> = text.lines().collect();
+    let project_display_name = project_display_name_from_content(text);
+    let mut specs: Vec<ChangeSpecWire> = Vec::new();
+    let mut idx = 0usize;
+
+    while idx < lines.len() {
+        let line = lines[idx];
+        if is_patch_header(line) {
+            let (spec, next_idx) = parse_one_patch(
+                &lines,
+                idx + 1,
+                path,
+                project_display_name.as_deref(),
+            );
+            if let Some(s) = spec {
+                specs.push(s);
+            }
+            idx = next_idx;
+        } else if line.starts_with("NAME: ") {
+            let (spec, next_idx) = parse_one_patch(
+                &lines,
+                idx,
+                path,
+                project_display_name.as_deref(),
+            );
+            if let Some(s) = spec {
+                specs.push(s);
+            }
+            idx = next_idx;
+        } else {
+            idx += 1;
+        }
+    }
+
+    Ok(specs)
+}
+
+/// Parse all Patches from a project file's raw bytes.
+///
+/// This canonical entry point accepts both `## Patch` / `STITCHES:` and the
+/// legacy `## ChangeSpec` / `COMMITS:` spellings. It emits `PatchWire`
+/// records with canonical `stitches` and `stitch_id` keys.
+pub fn parse_patch_project_bytes(
+    path: &str,
+    data: &[u8],
+) -> Result<Vec<PatchWire>, ParseErrorWire> {
+    parse_project_bytes(path, data)
+        .map(|specs| specs.into_iter().map(PatchWire::from).collect())
+}
+
+/// Match canonical `## Patch` and legacy `## ChangeSpec` headers.
+fn is_patch_header(line: &str) -> bool {
+    is_patch_header_named(line, "Patch")
+        // Legacy project files used `## ChangeSpec` section headers.
+        || is_patch_header_named(line, "ChangeSpec")
+}
+
+/// Match the legacy `## ChangeSpec` header spelling accepted for compatibility.
+#[cfg(test)]
+fn is_legacy_changespec_header(line: &str) -> bool {
+    is_patch_header_named(line, "ChangeSpec")
+}
+
+fn is_patch_header_named(line: &str, name: &str) -> bool {
+    let trimmed = line.trim();
+    if !trimmed.starts_with("##") {
+        return false;
+    }
+    let after = &trimmed[2..];
+    let mut chars = after.chars();
+    match chars.next() {
+        Some(c) if c.is_whitespace() => {}
+        _ => return false,
+    }
+    after.trim_start().starts_with(name)
+}
+
+#[derive(Default)]
+struct ParserState {
+    name: Option<String>,
+    description_lines: Vec<String>,
+    parent: Option<String>,
+    pr_url: Option<String>,
+    pr_origin: Option<String>,
+    bug: Option<String>,
+    status: Option<String>,
+    refs: Vec<String>,
+
+    commits: Vec<CommitWire>,
+    current_commit: Option<CommitWire>,
+    hooks: Vec<HookWire>,
+    current_hook: Option<HookWire>,
+    comments: Vec<CommentWire>,
+    mentors: Vec<MentorWire>,
+    current_mentor: Option<MentorWire>,
+    timestamps: Vec<TimestampWire>,
+    deltas: Vec<DeltaWire>,
+
+    in_description: bool,
+    in_refs: bool,
+    in_commits: bool,
+    in_hooks: bool,
+    in_comments: bool,
+    in_mentors: bool,
+    in_timestamps: bool,
+    in_deltas: bool,
+}
+
+impl ParserState {
+    fn reset_section_flags(&mut self) {
+        self.in_description = false;
+        self.in_refs = false;
+        self.in_commits = false;
+        self.in_hooks = false;
+        self.in_comments = false;
+        self.in_mentors = false;
+        self.in_timestamps = false;
+        self.in_deltas = false;
+    }
+
+    /// Mirrors Python's `_ParserState.save_pending_entries`.
+    fn save_pending_entries(&mut self) {
+        if let Some(c) = self.current_commit.take() {
+            self.commits.push(c);
+        }
+        if let Some(h) = self.current_hook.take() {
+            self.hooks.push(h);
+        }
+        if let Some(m) = self.current_mentor.take() {
+            self.mentors.push(m);
+        }
+    }
+
+    fn build(
+        mut self,
+        file_path: &str,
+        project_display_name: Option<&str>,
+        start_line: u32,
+        end_line: u32,
+    ) -> Option<ChangeSpecWire> {
+        self.save_pending_entries();
+        let name = self.name?;
+        let status = self.status?;
+        let description = trim_block(&self.description_lines);
+        Some(ChangeSpecWire {
+            schema_version: CHANGESPEC_WIRE_SCHEMA_VERSION,
+            name,
+            project_basename: project_spec_basename(file_path),
+            project_display_name: project_display_name.map(str::to_string),
+            file_path: file_path.to_string(),
+            source_span: SourceSpanWire {
+                file_path: file_path.to_string(),
+                start_line,
+                end_line,
+            },
+            status,
+            parent: self.parent,
+            pr_url: self.pr_url,
+            pr_origin: self.pr_origin.unwrap_or_else(default_pr_origin),
+            bug: self.bug,
+            description,
+            refs: self.refs,
+            commits: self.commits,
+            hooks: self.hooks,
+            comments: self.comments,
+            mentors: self.mentors,
+            timestamps: self.timestamps,
+            deltas: self.deltas,
+        })
+    }
+}
+
+/// Python: `"\n".join(lines).strip()`.
+fn trim_block(lines: &[String]) -> String {
+    let joined = lines.join("\n");
+    joined.trim().to_string()
+}
+
+enum FieldHeaderOutcome {
+    Parsed,
+    NewName,
+    None,
+}
+
+fn try_field_header(state: &mut ParserState, line: &str) -> FieldHeaderOutcome {
+    if let Some(rest) = line.strip_prefix("NAME: ") {
+        if state.name.is_some() {
+            return FieldHeaderOutcome::NewName;
+        }
+        state.name = Some(rest.trim().to_string());
+        state.reset_section_flags();
+        return FieldHeaderOutcome::Parsed;
+    }
+    if let Some(rest) = line.strip_prefix("DESCRIPTION:") {
+        state.save_pending_entries();
+        state.reset_section_flags();
+        state.in_description = true;
+        let inline = rest.trim();
+        if !inline.is_empty() {
+            state.description_lines.push(inline.to_string());
+        }
+        return FieldHeaderOutcome::Parsed;
+    }
+    if let Some(rest) = line.strip_prefix("PARENT: ") {
+        state.save_pending_entries();
+        state.parent = Some(rest.trim().to_string());
+        state.reset_section_flags();
+        return FieldHeaderOutcome::Parsed;
+    }
+    if let Some(rest) = line.strip_prefix("CL: ") {
+        state.save_pending_entries();
+        state.pr_url = Some(rest.trim().to_string());
+        state.reset_section_flags();
+        return FieldHeaderOutcome::Parsed;
+    }
+    if let Some(rest) = line.strip_prefix("PR: ") {
+        state.save_pending_entries();
+        state.pr_url = Some(rest.trim().to_string());
+        state.reset_section_flags();
+        return FieldHeaderOutcome::Parsed;
+    }
+    if let Some(rest) = line.strip_prefix("PR_ORIGIN: ") {
+        state.save_pending_entries();
+        state.pr_origin = Some(normalize_pr_origin(rest));
+        state.reset_section_flags();
+        return FieldHeaderOutcome::Parsed;
+    }
+    if let Some(rest) = line.strip_prefix("BUG: ") {
+        state.save_pending_entries();
+        state.bug = Some(rest.trim().to_string());
+        state.reset_section_flags();
+        return FieldHeaderOutcome::Parsed;
+    }
+    if let Some(rest) = line.strip_prefix("STATUS: ") {
+        state.save_pending_entries();
+        state.status = Some(rest.trim().to_string());
+        state.reset_section_flags();
+        return FieldHeaderOutcome::Parsed;
+    }
+    FieldHeaderOutcome::None
+}
+
+fn normalize_pr_origin(value: &str) -> String {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "sase" | "external" | "unknown" => normalized,
+        _ => default_pr_origin(),
+    }
+}
+
+fn try_section_header(state: &mut ParserState, line: &str) -> bool {
+    if line.starts_with("REFS:") {
+        state.save_pending_entries();
+        state.reset_section_flags();
+        state.in_refs = true;
+        return true;
+    }
+    if line.starts_with("STITCHES:") || line.starts_with("COMMITS:") {
+        state.save_pending_entries();
+        state.reset_section_flags();
+        state.in_commits = true;
+        return true;
+    }
+    if line.starts_with("HOOKS:") {
+        state.save_pending_entries();
+        state.reset_section_flags();
+        state.in_hooks = true;
+        return true;
+    }
+    if line.starts_with("COMMENTS:") {
+        state.save_pending_entries();
+        state.reset_section_flags();
+        state.in_comments = true;
+        return true;
+    }
+    if line.starts_with("MENTORS:") {
+        state.save_pending_entries();
+        state.reset_section_flags();
+        state.in_mentors = true;
+        return true;
+    }
+    if line.starts_with("TIMESTAMPS:") {
+        state.save_pending_entries();
+        state.reset_section_flags();
+        state.in_timestamps = true;
+        return true;
+    }
+    if line.starts_with("DELTAS:") {
+        state.save_pending_entries();
+        state.reset_section_flags();
+        state.in_deltas = true;
+        return true;
+    }
+    false
+}
+
+fn parse_section_content(state: &mut ParserState, line: &str) {
+    let stripped = line.trim();
+
+    // Section-specific parsing takes priority. Inside a section we never
+    // fall through to description handling, even if
+    // the line looks like a continuation.
+    if state.in_refs {
+        if !stripped.is_empty() {
+            state.refs.push(stripped.to_string());
+        }
+        return;
+    }
+    if state.in_timestamps {
+        parse_timestamps_line(line, stripped, &mut state.timestamps);
+        return;
+    }
+    if state.in_deltas {
+        parse_deltas_line(line, &mut state.deltas);
+        return;
+    }
+    if state.in_hooks {
+        parse_hooks_line(
+            line,
+            stripped,
+            &mut state.current_hook,
+            &mut state.hooks,
+        );
+        return;
+    }
+    if state.in_comments {
+        parse_comments_line(line, stripped, &mut state.comments);
+        return;
+    }
+    if state.in_mentors {
+        parse_mentors_line(
+            line,
+            stripped,
+            &mut state.current_mentor,
+            &mut state.mentors,
+        );
+        return;
+    }
+    if state.in_commits {
+        parse_stitches_line(
+            line,
+            stripped,
+            &mut state.current_commit,
+            &mut state.commits,
+        );
+        return;
+    }
+
+    if state.in_description && line.starts_with("  ") {
+        state.description_lines.push(line[2..].to_string());
+        return;
+    }
+    if stripped.is_empty() {
+        if state.in_description {
+            state.description_lines.push(String::new());
+        }
+        return;
+    }
+    if !line.starts_with('#') {
+        state.reset_section_flags();
+    }
+}
+
+fn parse_one_patch(
+    lines: &[&str],
+    start_idx: usize,
+    file_path: &str,
+    project_display_name: Option<&str>,
+) -> (Option<ChangeSpecWire>, usize) {
+    let mut state = ParserState::default();
+    let mut idx = start_idx;
+    let mut consecutive_blank = 0usize;
+    let mut last_content_idx = start_idx;
+
+    while idx < lines.len() {
+        let line = lines[idx];
+        let stripped = line.trim();
+
+        if is_patch_header(line) && idx > start_idx {
+            break;
+        }
+
+        if line.is_empty() {
+            consecutive_blank += 1;
+            if consecutive_blank >= 2 {
+                break;
+            }
+        } else {
+            consecutive_blank = 0;
+        }
+
+        match try_field_header(&mut state, line) {
+            FieldHeaderOutcome::Parsed => {
+                if !stripped.is_empty() {
+                    last_content_idx = idx;
+                }
+                idx += 1;
+                continue;
+            }
+            FieldHeaderOutcome::NewName => {
+                state.save_pending_entries();
+                break;
+            }
+            FieldHeaderOutcome::None => {}
+        }
+
+        if try_section_header(&mut state, line) {
+            if !stripped.is_empty() {
+                last_content_idx = idx;
+            }
+            idx += 1;
+            continue;
+        }
+
+        parse_section_content(&mut state, line);
+        if !stripped.is_empty() {
+            last_content_idx = idx;
+        }
+        idx += 1;
+    }
+
+    let start_line = (start_idx as u32) + 1;
+    let end_line = (last_content_idx as u32) + 1;
+    let spec =
+        state.build(file_path, project_display_name, start_line, end_line);
+    (spec, idx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(data: &str) -> Vec<ChangeSpecWire> {
+        parse_project_bytes("myproj.sase", data.as_bytes()).unwrap()
+    }
+
+    fn parse_patch(data: &str) -> Vec<PatchWire> {
+        parse_patch_project_bytes("myproj.sase", data.as_bytes()).unwrap()
+    }
+
+    #[test]
+    fn project_basename_strips_extension_and_archive_suffix() {
+        assert_eq!(project_spec_basename("/tmp/myproj.sase"), "myproj");
+        assert_eq!(project_spec_basename("/tmp/myproj.gp"), "myproj");
+        assert_eq!(project_spec_basename("myproj.sase"), "myproj");
+        assert_eq!(project_spec_basename("myproj.gp"), "myproj");
+        assert_eq!(project_spec_basename("/tmp/myproj-archive.sase"), "myproj");
+        assert_eq!(project_spec_basename("/tmp/myproj-archive.gp"), "myproj");
+        assert_eq!(project_spec_basename("/tmp/no_ext"), "no_ext");
+        assert_eq!(project_spec_basename("foo.bar.sase"), "foo.bar");
+    }
+
+    #[test]
+    fn project_name_metadata_is_stamped_on_every_patch() {
+        let specs = parse(
+            "PROJECT_NAME: Widgets\n\
+             NAME: first\nSTATUS: WIP\n\n\
+             NAME: second\nSTATUS: Ready\n",
+        );
+        assert_eq!(specs.len(), 2);
+        assert!(specs.iter().all(|spec| {
+            spec.project_display_name.as_deref() == Some("Widgets")
+        }));
+    }
+
+    #[test]
+    fn missing_or_invalid_project_name_metadata_stays_absent() {
+        let missing = parse("NAME: first\nSTATUS: WIP\n");
+        assert_eq!(missing[0].project_display_name, None);
+
+        let invalid =
+            parse("PROJECT_NAME: .hidden\nNAME: first\nSTATUS: WIP\n");
+        assert_eq!(invalid[0].project_display_name, None);
+    }
+
+    #[test]
+    fn legacy_changespec_header_detection_requires_whitespace_then_word() {
+        assert!(is_legacy_changespec_header("## ChangeSpec"));
+        assert!(is_legacy_changespec_header("##  ChangeSpec"));
+        assert!(is_legacy_changespec_header("##\tChangeSpec"));
+        assert!(is_legacy_changespec_header("   ## ChangeSpec   "));
+        assert!(!is_legacy_changespec_header("##ChangeSpec"));
+        assert!(!is_legacy_changespec_header("# ChangeSpec"));
+        assert!(!is_legacy_changespec_header("NAME: foo"));
+    }
+
+    #[test]
+    fn patch_header_detection_accepts_canonical_and_legacy_headers() {
+        assert!(is_patch_header("## Patch"));
+        assert!(is_patch_header("##  Patch"));
+        assert!(is_patch_header("## ChangeSpec"));
+        assert!(!is_patch_header("##Patch"));
+        assert!(!is_patch_header("# Patch"));
+        assert!(!is_patch_header("NAME: foo"));
+    }
+
+    #[test]
+    fn parses_headered_spec_with_inline_description() {
+        let src = "## ChangeSpec\nNAME: foo\nDESCRIPTION: A short feature.\nSTATUS: WIP\n";
+        let specs = parse(src);
+        assert_eq!(specs.len(), 1);
+        let s = &specs[0];
+        assert_eq!(s.name, "foo");
+        assert_eq!(s.status, "WIP");
+        assert_eq!(s.description, "A short feature.");
+        assert_eq!(s.source_span.start_line, 2);
+        assert_eq!(s.source_span.end_line, 4);
+        assert_eq!(s.project_basename, "myproj");
+        assert_eq!(s.file_path, "myproj.sase");
+    }
+
+    #[test]
+    fn parses_direct_name_spec_without_header() {
+        let src = "NAME: foo\nSTATUS: WIP\n";
+        let specs = parse(src);
+        assert_eq!(specs.len(), 1);
+        assert_eq!(specs[0].name, "foo");
+        assert_eq!(specs[0].source_span.start_line, 1);
+        assert_eq!(specs[0].source_span.end_line, 2);
+    }
+
+    #[test]
+    fn drops_incomplete_specs_missing_name_or_status() {
+        let only_status = "STATUS: WIP\n";
+        assert!(parse(only_status).is_empty());
+
+        let no_status = "NAME: foo\nDESCRIPTION: x\n";
+        assert!(parse(no_status).is_empty());
+
+        let header_then_name_no_status =
+            "## ChangeSpec\nNAME: foo\nDESCRIPTION: x\n";
+        assert!(parse(header_then_name_no_status).is_empty());
+    }
+
+    #[test]
+    fn multi_line_description_strips_two_space_continuation() {
+        let src = "\
+NAME: alpha
+DESCRIPTION:
+  Initial feature work.
+  Spans multiple lines.
+STATUS: Submitted
+";
+        let specs = parse(src);
+        assert_eq!(specs.len(), 1);
+        assert_eq!(
+            specs[0].description,
+            "Initial feature work.\nSpans multiple lines."
+        );
+    }
+
+    #[test]
+    fn description_preserves_internal_blank_lines_then_trims() {
+        let src = "\
+NAME: alpha
+DESCRIPTION:
+  First paragraph.
+
+  Second paragraph.
+
+STATUS: Submitted
+";
+        let specs = parse(src);
+        assert_eq!(
+            specs[0].description,
+            "First paragraph.\n\nSecond paragraph."
+        );
+    }
+
+    #[test]
+    fn indented_blank_run_in_description_does_not_end_spec() {
+        let src = "\
+NAME: release_blank_run_1
+DESCRIPTION:
+  chore(master): release 1.2.3
+  
+  :robot: Body text after an indented blank run.
+  
+  
+  ## [1.2.3](https://example.test/repo/compare/v1.2.2...v1.2.3)
+PR: https://example.test/repo/pull/123
+PR_ORIGIN: external
+STATUS: Submitted
+";
+        let specs = parse(src);
+        assert_eq!(specs.len(), 1);
+        let spec = &specs[0];
+        assert_eq!(spec.name, "release_blank_run_1");
+        assert_eq!(
+            spec.description,
+            "chore(master): release 1.2.3\n\n:robot: Body text after an indented blank run.\n\n\n## [1.2.3](https://example.test/repo/compare/v1.2.2...v1.2.3)"
+        );
+        assert_eq!(
+            spec.pr_url.as_deref(),
+            Some("https://example.test/repo/pull/123")
+        );
+        assert_eq!(spec.pr_origin, "external");
+        assert_eq!(spec.status, "Submitted");
+    }
+
+    #[test]
+    fn parent_cl_pr_bug_scalars_round_trip() {
+        let src = "\
+NAME: a
+DESCRIPTION: x
+PARENT: some_parent
+PR: https://example/pr/1
+BUG: BUG-100
+STATUS: WIP
+";
+        let s = &parse(src)[0];
+        assert_eq!(s.parent.as_deref(), Some("some_parent"));
+        assert_eq!(s.pr_url.as_deref(), Some("https://example/pr/1"));
+        assert_eq!(s.bug.as_deref(), Some("BUG-100"));
+
+        let cl_src = "NAME: a\nCL: 12345\nSTATUS: WIP\n";
+        assert_eq!(parse(cl_src)[0].pr_url.as_deref(), Some("12345"));
+    }
+
+    #[test]
+    fn pr_origin_scalars_round_trip_and_absence_defaults_unknown() {
+        let src = "\
+NAME: sase_patch
+PR_ORIGIN: sase
+STATUS: WIP
+
+NAME: external_patch
+PR_ORIGIN: external
+STATUS: WIP
+
+NAME: explicit_unknown
+PR_ORIGIN: unknown
+STATUS: WIP
+
+NAME: invalid_origin
+PR_ORIGIN: imported
+STATUS: WIP
+
+NAME: absent_origin
+STATUS: WIP
+";
+        let specs = parse(src);
+        assert_eq!(specs[0].pr_origin, "sase");
+        assert_eq!(specs[1].pr_origin, "external");
+        assert_eq!(specs[2].pr_origin, "unknown");
+        assert_eq!(specs[3].pr_origin, "unknown");
+        assert_eq!(specs[4].pr_origin, "unknown");
+    }
+
+    #[test]
+    fn empty_value_lines_become_none_or_empty_per_python_rules() {
+        let src = "NAME: a\nPARENT:\nPR:\nSTATUS: WIP\n";
+        let s = &parse(src)[0];
+        assert_eq!(s.parent, None);
+        assert_eq!(s.pr_url, None);
+
+        let src2 = "NAME: a\nPARENT: \nSTATUS: WIP\n";
+        let s2 = &parse(src2)[0];
+        assert_eq!(s2.parent.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn two_blank_lines_separate_specs() {
+        let src = "\
+NAME: alpha
+STATUS: WIP
+
+
+NAME: beta
+STATUS: Ready
+";
+        let specs = parse(src);
+        assert_eq!(specs.len(), 2);
+        assert_eq!(specs[0].name, "alpha");
+        assert_eq!(specs[1].name, "beta");
+        assert_eq!(specs[1].source_span.start_line, 5);
+        assert_eq!(specs[1].source_span.end_line, 6);
+    }
+
+    #[test]
+    fn legacy_changespec_header_separates_specs_without_blank_lines() {
+        let src = "\
+## ChangeSpec
+NAME: alpha
+STATUS: WIP
+## ChangeSpec
+NAME: beta
+STATUS: Ready
+";
+        let specs = parse(src);
+        assert_eq!(specs.len(), 2);
+        assert_eq!(specs[0].name, "alpha");
+        assert_eq!(specs[1].name, "beta");
+        assert_eq!(specs[0].source_span.start_line, 2);
+        assert_eq!(specs[0].source_span.end_line, 3);
+        assert_eq!(specs[1].source_span.start_line, 5);
+        assert_eq!(specs[1].source_span.end_line, 6);
+    }
+
+    #[test]
+    fn new_name_inside_a_spec_starts_a_new_spec() {
+        let src = "NAME: alpha\nSTATUS: WIP\nNAME: beta\nSTATUS: Ready\n";
+        let specs = parse(src);
+        assert_eq!(specs.len(), 2);
+        assert_eq!(specs[0].name, "alpha");
+        assert_eq!(specs[1].name, "beta");
+        assert_eq!(specs[0].source_span.start_line, 1);
+        assert_eq!(specs[0].source_span.end_line, 2);
+        assert_eq!(specs[1].source_span.start_line, 3);
+        assert_eq!(specs[1].source_span.end_line, 4);
+    }
+
+    #[test]
+    fn span_excludes_trailing_blank_separator() {
+        let src = "NAME: a\nSTATUS: WIP\n\n\nNAME: b\nSTATUS: WIP\n";
+        let specs = parse(src);
+        assert_eq!(specs.len(), 2);
+        assert_eq!(specs[0].source_span.end_line, 2);
+    }
+
+    #[test]
+    fn rust_end_line_is_real_not_placeholder() {
+        let src = "## ChangeSpec\nNAME: a\nDESCRIPTION:\n  multi\n  line\nSTATUS: WIP\n";
+        let s = &parse(src)[0];
+        assert!(
+            s.source_span.end_line > s.source_span.start_line,
+            "Rust must report a real end_line, got start={} end={}",
+            s.source_span.start_line,
+            s.source_span.end_line
+        );
+        assert_eq!(s.source_span.start_line, 2);
+        assert_eq!(s.source_span.end_line, 6);
+    }
+
+    // -- Phase 1C section parity ------------------------------------------
+
+    #[test]
+    fn full_section_parity_emits_structured_entries() {
+        // The Phase 1B fixture, but now with non-empty section assertions.
+        let src = "\
+## Patch
+NAME: alpha
+DESCRIPTION:
+  Initial feature work.
+PARENT:
+PR: https://example.test/repo/pull/1
+BUG: BUG-100
+STATUS: Submitted
+REFS:
+  research:202607/report.md
+  not a valid reference
+STITCHES:
+  (1) [run] Initial Commit
+      | CHAT: ~/.sase/chats/alpha.md (0s)
+HOOKS:
+  just lint
+      | (1) [260101_120000] PASSED (3s)
+COMMENTS:
+  [critique] ~/.sase/comments/alpha.json
+MENTORS:
+  (1) profileA[1/1]
+      | [260101_130000] profileA:mentor1 - PASSED - (1m0s)
+TIMESTAMPS:
+  260101_120000 STATUS WIP -> Submitted
+DELTAS:
+  + src/alpha.py
+  ~ src/util.py
+";
+        let s = &parse(src)[0];
+        assert_eq!(s.name, "alpha");
+        assert_eq!(s.status, "Submitted");
+        assert_eq!(
+            s.refs,
+            ["research:202607/report.md", "not a valid reference"]
+        );
+
+        assert_eq!(s.commits.len(), 1);
+        let c = &s.commits[0];
+        assert_eq!(c.number, 1);
+        assert_eq!(c.note, "[run] Initial Commit");
+        assert_eq!(c.chat.as_deref(), Some("~/.sase/chats/alpha.md (0s)"));
+
+        assert_eq!(s.hooks.len(), 1);
+        let h = &s.hooks[0];
+        assert_eq!(h.command, "just lint");
+        assert_eq!(h.status_lines.len(), 1);
+
+        assert_eq!(s.comments.len(), 1);
+        assert_eq!(s.comments[0].reviewer, "critique");
+
+        assert_eq!(s.mentors.len(), 1);
+        assert_eq!(s.mentors[0].profiles, vec!["profileA".to_string()]);
+        assert_eq!(s.mentors[0].status_lines.len(), 1);
+
+        assert_eq!(s.timestamps.len(), 1);
+        assert_eq!(s.timestamps[0].event_type, "STATUS");
+
+        assert_eq!(s.deltas.len(), 2);
+        assert_eq!(s.deltas[0].change_type, "A");
+        assert_eq!(s.deltas[1].change_type, "M");
+    }
+
+    #[test]
+    fn legacy_commits_section_still_parses_as_stitches() {
+        let src = "\
+## ChangeSpec
+NAME: alpha
+STATUS: WIP
+COMMITS:
+  (2a) Proposed stitch
+HOOKS:
+  just test
+      | (2a) [260101_120000] PASSED (3s)
+MENTORS:
+  (2a) profileA[1/1]
+";
+        let s = &parse(src)[0];
+        assert_eq!(s.commits.len(), 1);
+        assert_eq!(s.commits[0].proposal_letter.as_deref(), Some("a"));
+        assert_eq!(s.hooks[0].status_lines[0].commit_entry_num, "2a");
+        assert_eq!(s.mentors[0].entry_id, "2a");
+    }
+
+    #[test]
+    fn parse_patch_project_bytes_emits_canonical_patch_wire() {
+        let src = "\
+## Patch
+NAME: alpha
+STATUS: WIP
+STITCHES:
+  (2a) Proposed stitch
+HOOKS:
+  just test
+      | (2a) [260101_120000] PASSED (3s)
+MENTORS:
+  (2a) profileA[1/1]
+";
+        let patch = &parse_patch(src)[0];
+        assert_eq!(patch.name, "alpha");
+        assert_eq!(patch.stitches.len(), 1);
+        assert_eq!(patch.stitches[0].proposal_letter.as_deref(), Some("a"));
+        assert_eq!(patch.hooks[0].status_lines[0].stitch_id, "2a");
+        assert_eq!(patch.mentors[0].stitch_id, "2a");
+    }
+
+    #[test]
+    fn save_pending_entries_flushes_at_field_boundary() {
+        // STATUS comes after a section with an in-progress commit/hook/mentor;
+        // the save must persist them rather than dropping them on the floor.
+        let src = "\
+NAME: a
+COMMITS:
+  (1) one
+HOOKS:
+  just lint
+MENTORS:
+  (1) p[1/1]
+STATUS: WIP
+";
+        let s = &parse(src)[0];
+        assert_eq!(s.commits.len(), 1);
+        assert_eq!(s.hooks.len(), 1);
+        assert_eq!(s.mentors.len(), 1);
+    }
+
+    #[test]
+    fn refs_parse_in_canonical_position_and_preserve_raw_invalid_text() {
+        let src = "\
+NAME: a
+STATUS: WIP
+REFS:
+  research:202607/report.md
+  definitely not a reference
+COMMITS:
+  (1) one
+";
+        let s = &parse(src)[0];
+        assert_eq!(
+            s.refs,
+            ["research:202607/report.md", "definitely not a reference"]
+        );
+        assert_eq!(s.commits.len(), 1);
+    }
+
+    #[test]
+    fn refs_parse_at_end_of_spec() {
+        let src = "\
+NAME: a
+STATUS: WIP
+REFS:
+  bead:sase-bb
+";
+        assert_eq!(parse(src)[0].refs, ["bead:sase-bb"]);
+    }
+
+    #[test]
+    fn missing_refs_section_defaults_to_empty() {
+        let src = "NAME: a\nSTATUS: WIP\n";
+        assert!(parse(src)[0].refs.is_empty());
+    }
+
+    #[test]
+    fn invalid_utf8_returns_parse_error_wire() {
+        let bad = b"\xff\xfe\x00";
+        let err = parse_project_bytes("p.sase", bad).unwrap_err();
+        assert_eq!(err.kind, "encoding");
+        assert_eq!(err.file_path, "p.sase");
+        assert!(err.message.contains("UTF-8"));
+    }
+
+    #[test]
+    fn empty_input_yields_no_specs() {
+        assert!(parse("").is_empty());
+        assert!(parse("\n\n\n").is_empty());
+        assert!(parse("not a patch\n").is_empty());
+    }
+}

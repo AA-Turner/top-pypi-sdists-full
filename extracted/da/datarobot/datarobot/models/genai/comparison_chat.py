@@ -143,13 +143,13 @@ class ComparisonChat(APIObject):
         sort: Optional[str] = None,
     ) -> List[ComparisonChat]:
         """
-        List all comparison chats available to the user. If the playground is specified,
+        Returns a list of all comparison chats available to the user. If the playground is specified,
         results are restricted to only those comparison chats associated with the playground.
 
         Parameters
         ----------
         playground : Optional[Union[Playground, str]], optional
-            Returns only those comparison chats associated with a particular playground,
+            Limits results to comparison chats associated with a particular playground,
             specified by either the `Playground` or the playground ID.
         sort : Optional[str]
             The property to sort comparison chats by. Prefix the attribute name with a dash ( - )

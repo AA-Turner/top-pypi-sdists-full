@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mitogen
-Version: 0.3.52
+Version: 0.3.53
 Summary: Library for writing distributed self-replicating programs.
 Home-page: https://github.com/mitogen-hq/mitogen/
 Author: David Wilson
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: System :: Systems Administration

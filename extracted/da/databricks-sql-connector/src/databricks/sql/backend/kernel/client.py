@@ -22,10 +22,11 @@ Phase 1 gaps documented in the integration design:
 
 from __future__ import annotations
 
+import inspect
 import logging
 import threading
 import uuid
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING, Union
 
 from databricks.sql.backend.databricks_client import DatabricksClient
 from databricks.sql.backend.kernel._errors import (
@@ -47,11 +48,19 @@ from databricks.sql.exc import (
     NotSupportedError,
     ProgrammingError,
 )
-from databricks.sql.thrift_api.TCLIService import ttypes
+from databricks.sql.telemetry.telemetry_client import TelemetryHelper
 
 if TYPE_CHECKING:
     from databricks.sql.client import Cursor
     from databricks.sql.result_set import ResultSet
+
+    # Type-annotation-only import (deferred by ``from __future__ import
+    # annotations``). ``execute_command`` accepts the Thrift-shaped
+    # ``TSparkParameter`` for interface compatibility and forwards it to
+    # ``bind_tspark_params``, which only reads its attributes; the kernel
+    # backend never imports the Apache Thrift ``thrift`` package. See
+    # ``test_lazy_thrift_import``.
+    from databricks.sql.thrift_api.TCLIService import ttypes
 
 logger = logging.getLogger(__name__)
 
@@ -117,35 +126,9 @@ def _is_not_found(exc: BaseException) -> bool:
     )
 
 
-def _none_if_blank(value: Optional[str]) -> Optional[str]:
-    """Map an empty/whitespace-only metadata filter to ``None``
-    ("match all"), matching the Thrift backend's effective behaviour.
-
-    The kernel's ``Identifier`` / ``LikePattern`` reject ``""`` with
-    ``InvalidArgument`` (-> ``ProgrammingError``); ``None`` is the
-    kernel's canonical "match all". Applied to schema / table / column
-    *pattern* args (which otherwise keep ``%`` / ``_`` as real LIKE
-    wildcards)."""
-    if value is None:
-        return None
-    return value if value.strip() else None
-
-
 def _catalog_or_none(value: Optional[str]) -> Optional[str]:
-    """Normalise a catalog filter: ``None`` / blank / ``'%'`` / ``'*'``
-    all mean "all catalogs" -> ``None``.
-
-    This makes ``columns(catalog='%')`` behave like
-    ``tables(catalog='%')`` / ``schemas(catalog='%')`` — the kernel
-    already treats blank/``%``/``*`` as "all catalogs" for SHOW SCHEMAS
-    / SHOW TABLES (``is_null_or_wildcard``) but treats the catalog as an
-    exact identifier for SHOW COLUMNS, so the three diverged. Normalising
-    connector-side makes them symmetric. This intentionally diverges from
-    raw-Thrift literalness (Thrift treats ``%`` as a literal catalog
-    name) in favour of JDBC "catalog is exact-or-all, not a pattern" +
-    internal consistency. Catalog is the only arg normalised this way;
-    schema/table/column patterns keep ``%`` / ``*`` as LIKE wildcards."""
-    if value is None or not value.strip() or value in ("%", "*"):
+    """Map supported all-catalog wildcards to the kernel's unset filter."""
+    if value is None or value in ("%", "*"):
         return None
     return value
 
@@ -163,6 +146,64 @@ def _is_staging_statement(operation: str) -> bool:
     # First whitespace-delimited token, uppercased.
     verb = stripped.split(None, 1)[0].upper() if stripped.strip() else ""
     return verb in _STAGING_VERBS
+
+
+def _kernel_session_accepts_kwarg(name: str) -> bool:
+    """True iff the installed ``databricks_sql_kernel.Session`` constructor
+    declares keyword ``name``.
+
+    The kernel ``Session`` is a PyO3 class with a **fixed** signature (no
+    ``**kwargs`` catch-all), so forwarding a kwarg it doesn't declare raises
+    ``TypeError`` at construction, so we gate kwargs on what the installed
+    wheel supports. Falls **closed** (returns ``False``) when the signature
+    can't be introspected because omitting an accepted telemetry kwarg is safer
+    than forwarding an unsupported one.
+    """
+    try:
+        params = inspect.signature(_kernel.Session).parameters
+    except (TypeError, ValueError):
+        return False
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return True
+    return name in params
+
+
+def _kernel_telemetry_kwargs(options: Dict[str, Any]) -> Dict[str, Any]:
+    """Build phase-7 telemetry/system kwargs for ``databricks_sql_kernel.Session``.
+
+    Only kwargs the installed ``Session`` constructor actually accepts are
+    returned, preventing ``TypeError`` when the binding lacks an option.
+    """
+    system = TelemetryHelper.get_driver_system_configuration()
+    candidates: Dict[str, Any] = {
+        "driver_name": system.driver_name,
+        "driver_version": system.driver_version,
+        "runtime_name": system.runtime_name,
+        "runtime_version": system.runtime_version,
+        "runtime_vendor": system.runtime_vendor,
+        "os_name": system.os_name,
+        "os_version": system.os_version,
+        "os_arch": system.os_arch,
+        "client_app_name": system.client_app_name,
+        "locale_name": system.locale_name,
+        "char_set_encoding": system.char_set_encoding,
+        # The Python telemetry model does not currently track process
+        # name; omit it and let the kernel fill what it can derive.
+        "process_name": None,
+    }
+    if options.get("enable_telemetry") is not None:
+        candidates["telemetry_enabled"] = bool(options["enable_telemetry"])
+    if options.get("telemetry_batch_size") is not None:
+        candidates["telemetry_batch_size"] = options["telemetry_batch_size"]
+    if options.get("telemetry_circuit_breaker_enabled") is not None:
+        candidates["telemetry_circuit_breaker_enabled"] = options[
+            "telemetry_circuit_breaker_enabled"
+        ]
+    return {
+        name: value
+        for name, value in candidates.items()
+        if _kernel_session_accepts_kwarg(name)
+    }
 
 
 # ─── Client ─────────────────────────────────────────────────────────────────
@@ -206,7 +247,8 @@ class KernelDatabricksClient(DatabricksClient):
         # Forwarded to the kernel Session in ``open_session``.
         self._http_headers = http_headers or []
         # Raw auth-relevant connect() kwargs (auth_type,
-        # oauth_client_id/secret, redirect port, credentials_provider).
+        # oauth_client_id/secret, redirect port, credentials_provider,
+        # identity_federation_client_id).
         # The kernel auth bridge needs these to build OAuth kwargs — the
         # OAuth secret is consumed during ``auth_provider`` construction
         # and isn't recoverable from the built provider.
@@ -216,6 +258,11 @@ class KernelDatabricksClient(DatabricksClient):
         # to the kernel ``Session``'s ``retry_*`` kwargs in
         # ``open_session`` via ``_kernel_retry_kwargs``.
         self._retry_options = kwargs.get("retry_options") or {}
+        # The kernel binding owns type and range validation.
+        self._request_timeout_secs = kwargs.get("request_timeout_secs")
+        # Kernel telemetry phase 7 adds binding/runtime identity and
+        # telemetry config kwargs directly to ``databricks_sql_kernel.Session``.
+        self._telemetry_options = kwargs.get("telemetry_options") or {}
         self._catalog = catalog
         self._schema = schema
         # ``_use_arrow_native_complex_types`` is the connector-side
@@ -250,16 +297,27 @@ class KernelDatabricksClient(DatabricksClient):
         # concurrent cursors on the same connection don't race on submit /
         # close / close-session.
         #
-        # This is a KEEP-ALIVE registry, not a state/result lookup: the
+        # This is primarily a KEEP-ALIVE registry: the
         # submitting ``ExecutedAsyncStatement``'s ``Drop`` fires a
         # fire-and-forget ``close_statement``, which would kill the
         # still-running async query the moment the handle is dropped. We
         # retain it (and its parent ``Statement``) here so the live query
-        # survives until an explicit close. ``get_query_state`` /
-        # ``get_execution_result`` do NOT consult this map — they
-        # re-attach to the statement by id (the server is the source of
-        # truth for async state), so they work even cross-process.
+        # survives until an explicit close. ``get_query_state`` and
+        # ``get_execution_result`` use this owning handle before result
+        # streaming starts so kernel async statement telemetry is
+        # finalized on the original ``ExecuteStatementAsync`` telemetry
+        # object, then fall back to attach-by-id for re-fetch /
+        # cross-process cases.
         self._async_handles: Dict[str, Any] = {}
+        self._async_result_stream_started: Set[str] = set()
+        # Async ids whose owning-handle ``status()`` poll is currently in
+        # flight. A second concurrent poll of the same id (before result
+        # streaming is claimed) is routed to the attach-by-id fallback so
+        # it gets a fresh kernel handle instead of racing ``status()`` on
+        # the shared owning handle. Guarded by ``_async_handles_lock``;
+        # each entry is transient (added before the poll, discarded in a
+        # ``finally``).
+        self._async_status_in_flight: Set[str] = set()
         # Parent ``Statement`` objects kept alive alongside async handles.
         # On the kernel, ``Statement.close()`` flips the validity flag on
         # the produced executed handle (see kernel
@@ -308,13 +366,17 @@ class KernelDatabricksClient(DatabricksClient):
         auth_kwargs: Dict[str, Any] = {}
         tls_kwargs: Dict[str, Any] = {}
         try:
-            auth_kwargs = kernel_auth_kwargs(self._auth_provider, self._auth_options)
+            auth_kwargs = kernel_auth_kwargs(
+                self._auth_provider,
+                self._auth_options,
+            )
             # Translate the connector's SSLOptions into the kernel's
             # ``tls_*`` Session kwargs. Empty when TLS is at defaults.
             tls_kwargs = _kernel_tls_kwargs(self._ssl_options)
             # Translate the connector's ``_retry_*`` kwargs into the
             # kernel's ``retry_*`` kwargs. Empty when at defaults.
             retry_kwargs = _kernel_retry_kwargs(self._retry_options)
+            telemetry_kwargs = _kernel_telemetry_kwargs(self._telemetry_options)
             # Forward caller / connector HTTP headers. The kernel applies
             # them on every request; a caller ``User-Agent`` is appended
             # to the kernel's base UA. Only pass the kwarg when there's
@@ -354,9 +416,11 @@ class KernelDatabricksClient(DatabricksClient):
                 # backend's surface (interval columns arrive as
                 # strings).
                 intervals_as_string=True,
+                request_timeout_secs=self._request_timeout_secs,
                 **auth_kwargs,
                 **tls_kwargs,
                 **retry_kwargs,
+                **telemetry_kwargs,
                 **http_headers_kwargs,
             )
         except Exception as exc:
@@ -402,6 +466,8 @@ class KernelDatabricksClient(DatabricksClient):
             tracked_stmts = list(self._async_statements.items())
             self._async_handles.clear()
             self._async_statements.clear()
+            self._async_result_stream_started.clear()
+            self._async_status_in_flight.clear()
         for _, handle in tracked:
             # Per-handle close errors are non-fatal — PEP 249
             # discourages raising from session close — so log and
@@ -483,6 +549,7 @@ class KernelDatabricksClient(DatabricksClient):
         try:
             try:
                 stmt.set_sql(operation)
+                stmt.set_row_limit(row_limit)
                 if query_tags:
                     # Per-statement query tags. The kernel serialises the
                     # dict (None value -> bare key) into the SEA
@@ -652,6 +719,8 @@ class KernelDatabricksClient(DatabricksClient):
         with self._async_handles_lock:
             handle = self._async_handles.pop(command_id.guid, None)
             stmt = self._async_statements.pop(command_id.guid, None)
+            self._async_result_stream_started.discard(command_id.guid)
+            self._async_status_in_flight.discard(command_id.guid)
         # Closing the handle below fires the server-side CloseStatement.
         # A subsequent ``get_query_state`` re-attaches by id and reads
         # ``CLOSED`` straight from the server — no connector-side
@@ -681,18 +750,53 @@ class KernelDatabricksClient(DatabricksClient):
                     pass
 
     def get_query_state(self, command_id: CommandId) -> CommandState:
-        # Server is the source of truth for async command state. Re-attach
-        # to the statement by its id and read the state the server reports
-        # — no connector-side state to drift. SEA keys GetStatementStatus
-        # purely on the id, so a statement the connector no longer holds a
-        # handle for (or never held — a different process) is still
-        # queryable. CLOSED comes straight from the server: after a
+        # Server is the source of truth for async command state. Use the
+        # retained owning handle before result streaming starts so kernel
+        # async statement telemetry is finalized on the original
+        # ExecuteStatementAsync telemetry object. The owning-handle path
+        # is per-connection, not per-cursor: any cursor on the submitting
+        # connection (including a fresh cursor resuming the id) resolves
+        # the same owning handle until result streaming is claimed — see
+        # the concurrency note below for the limits that places on
+        # concurrent polling. Once result streaming has been claimed, or
+        # when this connector genuinely never held the handle (a
+        # cross-process / restarted-process resume), re-attach to the
+        # statement by id. SEA keys GetStatementStatus purely on the id,
+        # so a statement the connector no longer holds a handle for is
+        # still queryable. CLOSED comes straight from the server: after a
         # statement is closed (DELETE) the server still returns 200
         # state=CLOSED until the result TTL elapses.
         if self._kernel_session is None:
             raise InterfaceError("get_query_state requires an open session.")
+        # Concurrency note: the lock guards the _async_handles /
+        # _async_result_stream_started / _async_status_in_flight bookkeeping only.
+        # The retained owning handle it returns is a shared object, and
+        # handle.status() below runs OUTSIDE the lock, so it is not safe to invoke
+        # status() on one owning handle from two threads at once. Rather than leave
+        # concurrent in-process polling of a single async id "unsupported" and
+        # undefined, we reserve the owning handle for the first poller via
+        # _async_status_in_flight: a second concurrent poll of the same id (before
+        # result streaming is claimed) sees the id already in flight and falls
+        # through to the attach-by-id path, getting its own fresh kernel handle —
+        # preserving the pre-change behaviour where every caller re-attached by id
+        # and status() ran on distinct objects. The reservation is transient
+        # (discarded in the finally below), so serial polls still take the
+        # telemetry-preserving owning-handle path.
+        with self._async_handles_lock:
+            handle = (
+                None
+                if (
+                    command_id.guid in self._async_result_stream_started
+                    or command_id.guid in self._async_status_in_flight
+                )
+                else self._async_handles.get(command_id.guid)
+            )
+            reserved_owning_handle = handle is not None
+            if reserved_owning_handle:
+                self._async_status_in_flight.add(command_id.guid)
         try:
-            handle = self._kernel_session.attach_async_statement(command_id.guid)
+            if handle is None:
+                handle = self._kernel_session.attach_async_statement(command_id.guid)
             state, failure = handle.status()
         except Exception as exc:
             if _is_not_found(exc):
@@ -716,6 +820,14 @@ class KernelDatabricksClient(DatabricksClient):
                 # sync-fall-through behaviour.
                 return CommandState.SUCCEEDED
             raise _wrap_kernel_exception("get_query_state", exc) from exc
+        finally:
+            # Release the owning-handle reservation once this poll's
+            # status() has completed (or raised). Only the reserver clears
+            # it, so a concurrent poll that fell through to attach-by-id
+            # never touches another poller's reservation.
+            if reserved_owning_handle:
+                with self._async_handles_lock:
+                    self._async_status_in_flight.discard(command_id.guid)
         if state == "Failed" and failure is not None:
             # Surface server-reported failure as a database error so
             # the cursor's polling loop terminates with the right
@@ -738,28 +850,68 @@ class KernelDatabricksClient(DatabricksClient):
         command_id: CommandId,
         cursor: "Cursor",
     ) -> "ResultSet":
-        # Re-attach to the statement by id and await its result. SEA keys
-        # GetStatementResult on the id, so this works whether or not the
-        # connector still holds the submitting handle — and it's
-        # inherently re-callable (each call attaches a fresh handle and
-        # re-materialises the result stream), matching the Thrift backend
-        # where the operation handle stays re-fetchable until an explicit
-        # close. No connector-side handle lookup, so no
-        # ``unknown command_id`` failure on a second call.
+        # Prefer the original owning async handle for the first
+        # in-process result stream. The kernel attaches the real
+        # ExecuteStatementAsync telemetry to that handle; attached
+        # handles intentionally use no-op telemetry, so always
+        # re-attaching loses the SEA async statement row when the result
+        # is drained. After the owning result stream has been started,
+        # attach by id for re-fetch. This preserves the Thrift-parity
+        # behavior where results remain re-callable until explicit close.
         #
-        # ``attach_async_statement`` issues a GetStatementStatus to seed
-        # the handle; a 404 (unknown / aged-out id) surfaces as a
-        # NotFound KernelError mapped to ``ProgrammingError`` below via
-        # ``_wrap_kernel_exception``.
+        # Concurrency: the owning handle is shared, and ``await_result()``
+        # below runs OUTSIDE the lock, so it must not run on the same
+        # handle a concurrent ``get_query_state`` poll is already using
+        # for ``status()``. Mirror that method's guard here — if a status
+        # poll has the owning handle reserved (guid in
+        # ``_async_status_in_flight``), fall through to attach-by-id and
+        # get a fresh kernel handle, exactly as an in-flight peer poll
+        # does. In the normal serial flow (poll to terminal, then fetch)
+        # the reservation is already discarded, so the fetch still takes
+        # the telemetry-preserving owning-handle path.
+        #
+        # If this process does not hold the owning handle (fresh cursor,
+        # restarted process, already re-fetched, or a concurrent poll
+        # holds it), ``attach_async_statement`` issues a
+        # GetStatementStatus to seed the handle; a 404 (unknown / aged-out
+        # id) surfaces as a NotFound KernelError mapped to
+        # ``ProgrammingError`` below via ``_wrap_kernel_exception``.
         if self._kernel_session is None:
             raise InterfaceError("get_execution_result requires an open session.")
+        with self._async_handles_lock:
+            handle = (
+                None
+                if (
+                    command_id.guid in self._async_result_stream_started
+                    or command_id.guid in self._async_status_in_flight
+                )
+                else self._async_handles.get(command_id.guid)
+            )
+            uses_owning_handle = handle is not None
+            if uses_owning_handle:
+                self._async_result_stream_started.add(command_id.guid)
         try:
-            handle = self._kernel_session.attach_async_statement(command_id.guid)
+            if handle is None:
+                handle = self._kernel_session.attach_async_statement(command_id.guid)
             stream = handle.await_result()
         except Exception as exc:
+            if uses_owning_handle:
+                with self._async_handles_lock:
+                    self._async_result_stream_started.discard(command_id.guid)
             raise _wrap_kernel_exception("get_execution_result", exc) from exc
         # ``KernelResultSet.__init__`` calls ``arrow_schema()`` which
         # can raise — map that to PEP 249 too.
+        #
+        # Unlike the ``await_result()`` failure above, we deliberately do
+        # NOT discard the ``_async_result_stream_started`` marker here.
+        # By this point ``await_result()`` has already succeeded, so the
+        # owning handle's result stream has been started (and may be
+        # partially consumed); re-awaiting that same handle on a retry is
+        # not safe. Leaving the marker set routes any retry through the
+        # attach-by-id fallback, which re-materialises a fresh stream.
+        # The trade-off is that such a retry loses the async-statement
+        # telemetry — an accepted, narrow gap limited to the case where
+        # result-set construction fails after a successful await.
         try:
             return self._make_result_set(stream, cursor, command_id)
         except Exception as exc:
@@ -835,7 +987,7 @@ class KernelDatabricksClient(DatabricksClient):
         try:
             stream = self._kernel_session.metadata().list_schemas(
                 catalog=_catalog_or_none(catalog_name),
-                schema_pattern=_none_if_blank(schema_name),
+                schema_pattern=schema_name,
             )
             return self._make_result_set(stream, cursor, self._synthetic_command_id())
         except Exception as exc:
@@ -862,8 +1014,8 @@ class KernelDatabricksClient(DatabricksClient):
             # through preserves streaming for large schemas.
             stream = self._kernel_session.metadata().list_tables(
                 catalog=_catalog_or_none(catalog_name),
-                schema_pattern=_none_if_blank(schema_name),
-                table_pattern=_none_if_blank(table_name),
+                schema_pattern=schema_name,
+                table_pattern=table_name,
                 table_types=table_types if table_types else None,
             )
             return self._make_result_set(stream, cursor, self._synthetic_command_id())
@@ -892,9 +1044,9 @@ class KernelDatabricksClient(DatabricksClient):
             # the user's perspective.
             stream = self._kernel_session.metadata().list_columns(
                 catalog=_catalog_or_none(catalog_name),
-                schema_pattern=_none_if_blank(schema_name),
-                table_pattern=_none_if_blank(table_name),
-                column_pattern=_none_if_blank(column_name),
+                schema_pattern=schema_name,
+                table_pattern=table_name,
+                column_pattern=column_name,
             )
             return self._make_result_set(stream, cursor, self._synthetic_command_id())
         except Exception as exc:

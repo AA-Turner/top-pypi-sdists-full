@@ -1,3 +1,0 @@
-"""
-Hecke Algebras
-"""

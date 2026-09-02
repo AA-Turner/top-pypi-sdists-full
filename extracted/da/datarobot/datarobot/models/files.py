@@ -122,7 +122,7 @@ class File(APIObject, HumanReadable):
     ingest_errors: str
         The errors encountered during ingestion of the file.
     created_at: datetime or None
-        The datetime the file was created
+        The datetime when the file was created.
     checksum: str or None
         The checksum of the file, if available.
     """
@@ -178,15 +178,15 @@ class FilesStage(APIObject, HumanReadable):
         ----------
         overwrite: Optional[FilesOverwriteStrategy]
             How to deal with a name conflict between an existing file and an uploaded one.
-            RENAME (default): rename an uploaded file using "<filename> (n).ext" pattern.'
-            REPLACE: prefer an uploaded file.
-            SKIP: prefer an existing file.'
-            ERROR: return "HTTP 409 Conflict" response in case of a naming conflict. '
+            RENAME (default): Rename an uploaded file using the "<filename> (n).ext" pattern.
+            REPLACE: Prefer an uploaded file.
+            SKIP: Prefer an existing file.
+            ERROR: Return an "HTTP 409 Conflict" response in case of a naming conflict.
 
         Returns
         -------
         response: Files
-            A fully armed and operational Files container
+            A fully armed and operational Files container.
         """
         url = f"files/{self.catalog_id}/fromStage/"
         response = self._client.post(url, json={"stageId": self.stage_id, "overwrite": overwrite})
@@ -236,7 +236,7 @@ class FilesDetails(APIObject):
     @classmethod
     def get(cls, files_id: str) -> "FilesDetails":
         """
-        Get details about a files container.
+        Gets the details about a files container.
 
         Parameters
         ----------
@@ -315,14 +315,14 @@ class Files(APIObject):
     @classmethod
     def get(cls: Type["Files"], files_id: str) -> "Files":
         """
-        Get information about a files container.
+        Gets the information about a files container.
 
         .. versionadded:: v3.8
 
         Parameters
         ----------
         files_id: str
-            The id of the files container.
+            The ID of the files container.
 
         Returns
         -------
@@ -344,7 +344,7 @@ class Files(APIObject):
         Retrieves uploaded file contents.
         Writes it to either the file or a file-like object that can write bytes.
 
-        Only one of file_path or filelike can be provided. If a file-like object is
+        Only one of ``file_path`` or ``filelike`` can be provided. If a file-like object is
         provided, the user is responsible for closing it when they are done.
 
         The user must also have permission to download data.
@@ -506,7 +506,7 @@ class Files(APIObject):
         Raises
         ------
         AsyncTimeoutError
-            If the upload takes longer than max_wait seconds.
+            If the upload takes longer than ``max_wait`` seconds.
         """
         endpoint = f"{cls._path}fromURL/"
         payload: Dict[str, str] = {"url": url, "use_archive_contents": str(use_archive_contents)}
@@ -532,12 +532,12 @@ class Files(APIObject):
         wait_for_completion: bool = True,
     ) -> "Files":
         """
-        A blocking call that creates a new files container from a file. Returns when the file has
-        been successfully uploaded and processed.
+        A blocking call that creates a new files container from a file. Returns the files
+        container once the file has been successfully uploaded and processed.
 
         Warning: This function does not clean up its open files. If you pass a filelike, you are
-        responsible for closing it. If you pass a file_path, this will create a file object from
-        the file_path but will not close it.
+        responsible for closing it. If you pass a ``file_path``, this will create a file object from
+        the ``file_path`` but will not close it.
 
         .. versionadded:: v3.8
 
@@ -562,7 +562,7 @@ class Files(APIObject):
         Returns
         -------
         response: Files
-            A fully armed and operational Files container
+            A fully armed and operational Files container.
         """
         assert_single_parameter(("filelike", "file_path"), file_path, filelike)
 
@@ -611,7 +611,7 @@ class Files(APIObject):
     ) -> "Files":
         """
         A blocking call that creates a new Files container from data stored at a DataSource.
-        Returns when the files container has been successfully uploaded and processed.
+        Returns the files container once it has been successfully uploaded and processed.
 
         .. versionadded:: v3.8
 
@@ -634,7 +634,7 @@ class Files(APIObject):
         Returns
         -------
         response: Files
-            The Files container created from the uploaded data
+            The Files container created from the uploaded data.
         """
         base_data = {
             "data_source_id": data_source_id,
@@ -730,14 +730,14 @@ class Files(APIObject):
     @classmethod
     def delete(cls, files_id: str) -> None:
         """
-        Soft-deletes a files container. You cannot get, list, or do any actions with it, except for undeleting it.
+        Soft-deletes a files container. You cannot get, list, or do any actions with it, except to restore it.
 
         .. versionadded:: v3.8
 
         Parameters
         ----------
         files_id: str
-            The id of the files container to mark for deletion.
+            The ID of the files container to mark for deletion.
 
         Returns
         -------
@@ -748,14 +748,14 @@ class Files(APIObject):
     @classmethod
     def un_delete(cls, files_id: str) -> None:
         """
-        Undeletes a previously deleted files container. If the files container was not deleted, nothing happens.
+        Restores a previously soft-deleted files container. If the files container was not deleted, nothing happens.
 
         .. versionadded:: v3.8
 
         Parameters
         ----------
         files_id: str
-            The id of the files container to un-delete.
+            The ID of the files container to un-delete.
 
         Returns
         -------
@@ -793,10 +793,12 @@ class Files(APIObject):
         tags: Optional[List[str]]
             If provided, the results will be filtered to include only items with the specified tag.
 
-        limit: Optional[int] (default: 100), at most this many results are returned. To specify no
-            limit, use 0. The default may change and a maximum limit may be imposed without notice.
+        limit: Optional[int] (default: 100)
+            At most this many results are returned. To specify no limit, use 0.
+            The default may change and a maximum limit may be imposed without notice.
 
-        offset: Optional[int] (default: 0), this many results will be skipped.
+        offset: Optional[int] (default: 0)
+            This many results will be skipped.
 
         owner_user_id: Optional[str]
             Filter results to those owned by one or more owner identified by UID.
@@ -805,10 +807,10 @@ class Files(APIObject):
             Filter results to those owned by one or more owner identified by username.
 
         order_by: Optional[str] (default: '-created')
-            Sort order which will be applied to a catalog list, valid options are "catalogName",
-            "originalName", "description", "created", and "relevance". For all options other
+            Sort order which will be applied to a catalog list. Valid options are ``catalogName``,
+            ``originalName``, ``description``, ``created``, and ``relevance``. For all options other
             than relevance, you may prefix the attribute name with a dash to sort
-            in descending order. E.g., orderBy='-catalogName'.
+            in descending order. For example, ``orderBy='-catalogName'``.
 
         access_type: Optional[CatalogAccessType] (default: CatalogAccessType.ANY)
             Access type used to filter returned results:
@@ -823,9 +825,9 @@ class Files(APIObject):
         Raises
         ------
         datarobot.errors.ClientError
-            If the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            If the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         return FilesCatalogSearch.search_catalog(
             search=search,
@@ -939,7 +941,7 @@ class Files(APIObject):
         version_id: Optional[str] = None,
     ) -> List[File]:
         """
-        List all individual files within a Files container.
+        Returns a list of all individual files within a Files container.
 
         This method retrieves information about all individual files contained within
         a Files object. This is useful for Files objects that contain multiple files
@@ -994,7 +996,7 @@ class Files(APIObject):
         share_recipient_type: Optional[SHARING_RECIPIENT_TYPE] = None,
     ) -> List[CatalogSharedRole]:
         """
-        List roles for users, groups, and organizations who have access to this files container.
+        Lists the roles for users, groups, and organizations who have access to this files container.
 
         Parameters
         ----------
@@ -1170,7 +1172,7 @@ class Files(APIObject):
         prefix: Optional[str] = None,
     ) -> "Files":
         """
-        Load file(s) from a URL into this catalog item.
+        Loads the file(s) from a URL into this catalog item.
 
         Parameters
         ----------
@@ -1192,13 +1194,13 @@ class Files(APIObject):
         Returns
         -------
         Files
-            This catalog item. When wait_for_completion is False, the returned object has async
-            status set so callers can use wait_for_completion() to track the operation.
+            This catalog item. When ``wait_for_completion`` is False, the returned object has async
+            status set so callers can use ``wait_for_completion()`` to track the operation.
 
         Raises
         ------
         AsyncTimeoutError
-            If wait_for_completion is True and the upload takes longer than max_wait seconds.
+            If ``wait_for_completion`` is True and the upload takes longer than ``max_wait`` seconds.
         """
         endpoint = f"{self._path}{self.id}/fromURL/"
         payload = {
@@ -1228,7 +1230,7 @@ class Files(APIObject):
     ) -> "Files":
         """
         A blocking call that uploads files from a data source into the Files container.
-        Returns when files have been successfully uploaded.
+        Returns the updated files container once files have been successfully uploaded.
 
         Parameters
         ----------
@@ -1315,8 +1317,8 @@ class Files(APIObject):
         file_name: Optional[str] = None,
     ) -> "Files":
         """
-        A blocking call to upload a file into an existing file container. Returns when the file has
-        been successfully uploaded and processed.
+        A blocking call to upload a file into an existing file container. Returns the updated
+        files container once the file has been successfully uploaded and processed.
 
         Warning: This function does not clean up its open files. If you pass a file-like object, you are
         responsible for closing it. If you pass a file path, this will create a file object from
@@ -1333,10 +1335,10 @@ class Files(APIObject):
             If False, the archive file will be uploaded as-is. Defaults to True.
         overwrite:
             How to deal with a name conflict between an existing file and an uploaded one.
-            RENAME (default): rename an uploaded file using "<filename> (n).ext" pattern.'
-            REPLACE: prefer an uploaded file.
-            SKIP: prefer an existing file.'
-            ERROR: return "HTTP 409 Conflict" response in case of a naming conflict. '
+            RENAME (default): Rename an uploaded file using the "<filename> (n).ext" pattern.
+            REPLACE: Prefer an uploaded file.
+            SKIP: Prefer an existing file.
+            ERROR: Return an "HTTP 409 Conflict" response in case of a naming conflict.
         read_timeout:
             The maximum number of seconds to wait for the server to respond indicating that the
             initial upload is complete.
@@ -1453,7 +1455,7 @@ class Files(APIObject):
 
 class FilesCatalogSearch(APIObject, HumanReadable):
     """
-    An APIObject representing a file catalog entry the current user has access to
+    An ``APIObject`` representing a file catalog entry the current user has access to
     based on an optional search term and/or tags.
 
     .. versionadded:: v3.8
@@ -1548,10 +1550,12 @@ class FilesCatalogSearch(APIObject, HumanReadable):
         tags: Optional[List[str]]
             If provided, the results will be filtered to include only items with the specified tag.
 
-        limit: Optional[int] (default: 100), at most this many results are returned. To specify no
-            limit, use 0. The default may change and a maximum limit may be imposed without notice.
+        limit: Optional[int] (default: 100)
+            At most this many results are returned. To specify no limit, use 0.
+            The default may change and a maximum limit may be imposed without notice.
 
-        offset: Optional[int] (default: 0), this many results will be skipped.
+        offset: Optional[int] (default: 0)
+            This many results will be skipped.
 
         owner_user_id: Optional[str]
             Filter results to those owned by one or more owner identified by UID.
@@ -1560,10 +1564,10 @@ class FilesCatalogSearch(APIObject, HumanReadable):
             Filter results to those owned by one or more owner identified by username.
 
         order_by: Optional[str] (default: '-created')
-            Sort order which will be applied to a catalog list, valid options are "catalogName",
-            "originalName", "description", "created", and "relevance". For all options other
+            Sort order which will be applied to a catalog list. Valid options are ``catalogName``,
+            ``originalName``, ``description``, ``created``, and ``relevance``. For all options other
             than relevance, you may prefix the attribute name with a dash to sort
-            in descending order. e.g., orderBy='-catalogName'.
+            in descending order. For example, ``orderBy='-catalogName'``.
 
         access_type: Optional[CatalogAccessType] (default: CatalogAccessType.ANY)
             Access type used to filter returned results:
@@ -1578,9 +1582,9 @@ class FilesCatalogSearch(APIObject, HumanReadable):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         params = {
             "search_for": search,

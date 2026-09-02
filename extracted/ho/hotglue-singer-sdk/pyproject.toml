@@ -1,0 +1,168 @@
+[tool.poetry]
+name = "hotglue-singer-sdk"
+version = "1.0.45"
+description = "A framework for building Singer taps and targets"
+authors = ["Hotglue Team and Contributors. Original work by Meltano Team and Contributors."]
+maintainers = ["Hotglue Team and Contributors"]
+readme = "README.md"
+homepage = "https://hotglue.com"
+repository = "https://github.com/hotglue/hotgluesingersdk"
+documentation = "https://hotglue.com"
+keywords = [
+    "Hotglue",
+    "Hotglue SDK",
+    "ELT",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
+license = "Apache 2.0"
+include = [
+    "hotglue_singer_sdk/default_logging.conf",
+]
+
+[tool.poetry.dependencies]
+python = "<3.15,>=3.7.1"
+pipelinewise-singer-python = "1.2.0"
+backoff = ">=1.8.0,<2.0"
+pendulum = [
+    { version = ">=2.1.0,<3.0", python = "<3.14" },
+    { version = ">=3.2.0,<4.0", python = ">=3.14" },
+]
+click = "~=8.0"
+PyJWT = "~=2.4"
+requests = "^2.25.1"
+cryptography = ">=3.4.6,<38.0.0"
+cffi = [
+    { version = ">=1.17.0", python = ">=3.12,<3.14" },
+    { version = ">=2.0.0", python = ">=3.14" },
+]
+importlib-metadata = {version = "*", markers = "python_version < \"3.8\""}
+memoization = ">=0.3.2,<0.5.0"
+jsonpath-ng = "^1.5.3"
+joblib = [
+    { version = "^1.0.1", python = "<3.12" },
+    { version = ">=1.4.0,<2.0", python = ">=3.12" },
+]
+inflection = "^0.5.1"
+sqlalchemy = "^1.4"
+# greenlet is pulled in transitively by sqlalchemy; pin a 3.14-compatible floor
+# since older releases (<3.2.0) have no cp314 wheels and fail to compile on 3.14.
+greenlet = { version = ">=3.2.0", python = ">=3.14" }
+python-dotenv = "^0.20.0"
+typing-extensions = "^4.2.0"
+pydantic = [
+    { version = ">=2.5.3,<3.0", python = "<3.13" },
+    { version = ">=2.12,<3.0", python = ">=3.13" },
+]
+numpy = [
+    { version = ">=1.21.6,<2.0", python = "<3.10" },
+    { version = ">=1.26,<3.0", python = ">=3.10,<3.13" },
+    { version = ">=2.3.2,<3.0", python = ">=3.13" },
+]
+pandas = [
+    { version = ">=1.3.5,<2.0", python = "<3.10" },
+    { version = ">=2.2.2,<4.0", python = ">=3.10,<3.13" },
+    { version = ">=2.3.3,<4.0", python = ">=3.13" },
+]
+hotglue-etl-exceptions = "0.1.0"
+isodate = "0.7.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.2"
+xdoctest = "^1.0.2"
+mypy = "^0.971"
+cookiecutter = "^2.1.1"
+PyYAML = "^6.0"
+pyarrow = [
+    { version = ">=9.0.0,<13.0.0", python = "<3.8" },
+    { version = ">=14.0.0", python = ">=3.8" },
+]
+freezegun = "^1.2.2"
+viztracer = "^0.15.4"
+requests-mock = "^1.9.3"
+sqlalchemy2-stubs = {version = "^0.0.2a25", allow-prereleases = true}
+types-python-dateutil = "^2.8.19"
+types-requests = "^2.28.9"
+coverage = {extras = ["toml"], version = "^6.4"}
+
+# Cookiecutter tests
+black = "^22.6"
+darglint = "^1.8.0"
+flake8 = "^3.9.0"
+flake8-annotations = "^2.9.1"
+flake8-docstrings = "^1.6.0"
+
+[tool.black]
+exclude = ".*simpleeval.*"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3 # Vertical Hanging Indent
+src_paths = "hotglue_singer_sdk"
+known_first_party = ["tests", "samples"]
+
+[tool.pytest.ini_options]
+addopts = '-vvv --ignore=hotglue_singer_sdk/helpers/_simpleeval.py -m "not external"'
+markers = [
+    "external: Tests relying on external resources",
+]
+
+[tool.commitizen]
+name = "cz_version_bump"
+version = "0.9.0"
+tag_format = "v$major.$minor.$patch$prerelease"
+version_files = [
+    "docs/conf.py",
+    "pyproject.toml:^version =",
+    "cookiecutter/tap-template/{{cookiecutter.tap_id}}/pyproject.toml:hotglue-singer-sdk",
+    "cookiecutter/target-template/{{cookiecutter.target_id}}/pyproject.toml:hotglue-singer-sdk",
+    ".github/ISSUE_TEMPLATE/bug.yml:^      placeholder:",
+]
+
+[tool.coverage.paths]
+source = [
+    "hotglue_singer_sdk/",
+    "*/hotglue_singer_sdk",
+]
+tests = [
+    "tests/",
+    "*/tests",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["hotglue_singer_sdk", "tests"]
+omit = [
+    "tests/*",
+    "samples/*",
+    "hotglue_singer_sdk/helpers/_compat.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    '''class .*\bProtocol\):''',
+]
+fail_under = 82
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -10,10 +10,10 @@ import httpx
 import pytest
 
 from spec_kitty_tracker.discovery.providers.gitlab import (
-    GitLabResourceDiscovery,
-    GitLabWorkspaceDiscovery,
     _MAX_PAGES,
     _PER_PAGE,
+    GitLabResourceDiscovery,
+    GitLabWorkspaceDiscovery,
 )
 from spec_kitty_tracker.discovery.registry import (
     _resource_discoverers,
@@ -27,7 +27,6 @@ from spec_kitty_tracker.discovery.types import (
     DiscoveredWorkspace,
 )
 from spec_kitty_tracker.nango import NangoConnectionContext
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -58,9 +57,7 @@ class RoutingMockTransport(httpx.AsyncBaseTransport):
 class PageAwareMockTransport(httpx.AsyncBaseTransport):
     """Returns different responses per page number for pagination testing."""
 
-    def __init__(
-        self, path_prefix: str, pages: dict[int, list[dict[str, Any]]]
-    ) -> None:
+    def __init__(self, path_prefix: str, pages: dict[int, list[dict[str, Any]]]) -> None:
         self._path_prefix = path_prefix
         self._pages = pages
 
@@ -253,9 +250,7 @@ class TestGitLabWorkspaceDiscovery:
         assert result.truncated is False
 
     @pytest.mark.anyio
-    async def test_missing_web_url_defaults_to_empty(
-        self, _patch_transport: None
-    ) -> None:
+    async def test_missing_web_url_defaults_to_empty(self, _patch_transport: None) -> None:
         routes = {
             "/api/v4/groups": (
                 200,
@@ -277,9 +272,7 @@ class TestGitLabWorkspaceDiscovery:
         assert result.items[0].provider_context["web_url"] == ""  # type: ignore[index]
 
     @pytest.mark.anyio
-    async def test_pagination_multiple_pages(
-        self, _patch_transport: None
-    ) -> None:
+    async def test_pagination_multiple_pages(self, _patch_transport: None) -> None:
         # Page 1: full page of _PER_PAGE items, Page 2: partial page
         page1 = [
             {
@@ -298,9 +291,7 @@ class TestGitLabWorkspaceDiscovery:
                 "web_url": "https://gitlab.com/groups/last-group",
             }
         ]
-        mock = PageAwareMockTransport(
-            "/api/v4/groups", {1: page1, 2: page2}
-        )
+        mock = PageAwareMockTransport("/api/v4/groups", {1: page1, 2: page2})
         discoverer = _make_workspace_discoverer(mock)
         result = await discoverer.discover()
 
@@ -308,9 +299,7 @@ class TestGitLabWorkspaceDiscovery:
         assert result.truncated is False
 
     @pytest.mark.anyio
-    async def test_truncation_at_page_limit(
-        self, _patch_transport: None
-    ) -> None:
+    async def test_truncation_at_page_limit(self, _patch_transport: None) -> None:
         # Every page returns exactly _PER_PAGE items, forcing all _MAX_PAGES to be fetched
         full_page = [
             {
@@ -398,9 +387,7 @@ class TestGitLabResourceDiscovery:
         assert r1.display_name == "Acme / Eng / Frontend"
 
     @pytest.mark.anyio
-    async def test_discover_empty_group(
-        self, _patch_transport: None
-    ) -> None:
+    async def test_discover_empty_group(self, _patch_transport: None) -> None:
         routes = {"/api/v4/groups/42/projects": (200, [])}
         workspace = _gitlab_workspace()
         mock = RoutingMockTransport(routes)
@@ -411,9 +398,7 @@ class TestGitLabResourceDiscovery:
         assert result.truncated is False
 
     @pytest.mark.anyio
-    async def test_missing_namespace_fields(
-        self, _patch_transport: None
-    ) -> None:
+    async def test_missing_namespace_fields(self, _patch_transport: None) -> None:
         """Projects without namespace field should default gracefully."""
         routes = {
             "/api/v4/groups/42/projects": (
@@ -469,9 +454,7 @@ class TestGitLabResourceDiscovery:
         assert result.items[0].display_name == "acme/some-repo"
 
     @pytest.mark.anyio
-    async def test_pagination_multiple_pages(
-        self, _patch_transport: None
-    ) -> None:
+    async def test_pagination_multiple_pages(self, _patch_transport: None) -> None:
         page1 = [
             {
                 "id": i,
@@ -491,9 +474,7 @@ class TestGitLabResourceDiscovery:
                 "namespace": {"id": 42, "full_path": "acme"},
             }
         ]
-        mock = PageAwareMockTransport(
-            "/api/v4/groups/42/projects", {1: page1, 2: page2}
-        )
+        mock = PageAwareMockTransport("/api/v4/groups/42/projects", {1: page1, 2: page2})
         workspace = _gitlab_workspace()
         discoverer = _make_resource_discoverer(mock)
         result = await discoverer.discover(workspace)
@@ -502,9 +483,7 @@ class TestGitLabResourceDiscovery:
         assert result.truncated is False
 
     @pytest.mark.anyio
-    async def test_truncation_at_page_limit(
-        self, _patch_transport: None
-    ) -> None:
+    async def test_truncation_at_page_limit(self, _patch_transport: None) -> None:
         full_page = [
             {
                 "id": i,
@@ -516,9 +495,7 @@ class TestGitLabResourceDiscovery:
             for i in range(_PER_PAGE)
         ]
         pages = {p: full_page for p in range(1, _MAX_PAGES + 1)}
-        mock = PageAwareMockTransport(
-            "/api/v4/groups/42/projects", pages
-        )
+        mock = PageAwareMockTransport("/api/v4/groups/42/projects", pages)
         workspace = _gitlab_workspace()
         discoverer = _make_resource_discoverer(mock)
         result = await discoverer.discover(workspace)

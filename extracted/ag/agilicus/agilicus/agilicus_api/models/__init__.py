@@ -521,6 +521,7 @@ from agilicus_api.model.list_point_of_presences_response import ListPointOfPrese
 from agilicus_api.model.list_policies_response import ListPoliciesResponse
 from agilicus_api.model.list_policy_rules_response import ListPolicyRulesResponse
 from agilicus_api.model.list_policy_template_instances_response import ListPolicyTemplateInstancesResponse
+from agilicus_api.model.list_printers_response import ListPrintersResponse
 from agilicus_api.model.list_product_table_versions_response import ListProductTableVersionsResponse
 from agilicus_api.model.list_products_response import ListProductsResponse
 from agilicus_api.model.list_public_file_org_links_response import ListPublicFileOrgLinksResponse
@@ -715,6 +716,11 @@ from agilicus_api.model.policy_template import PolicyTemplate
 from agilicus_api.model.policy_template_instance import PolicyTemplateInstance
 from agilicus_api.model.policy_template_instance_spec import PolicyTemplateInstanceSpec
 from agilicus_api.model.previous_page_email import PreviousPageEmail
+from agilicus_api.model.printer import Printer
+from agilicus_api.model.printer_client_config import PrinterClientConfig
+from agilicus_api.model.printer_spec import PrinterSpec
+from agilicus_api.model.printer_status import PrinterStatus
+from agilicus_api.model.printer_windows_config import PrinterWindowsConfig
 from agilicus_api.model.product import Product
 from agilicus_api.model.product_spec import ProductSpec
 from agilicus_api.model.product_status import ProductStatus

@@ -43,23 +43,23 @@ class ShapMatrixJob(Job):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         project_id : str
-            The identifier of the project in which the job resides
+            The identifier of the project in which the job resides.
         job_id : str
-            The job identifier
+            The job identifier.
         model_id : str
-            The identifier of the model used for computing prediction explanations
+            The identifier of the model used for computing prediction explanations.
         dataset_id : str
-            The identifier of the dataset against which prediction explanations should be computed
+            The identifier of the dataset against which prediction explanations should be computed.
 
         Returns
         -------
         job : ShapMatrixJob
-            The job
+            The job.
 
         Raises
         ------
             AsyncFailureError
-                Querying this resource gave a status code other than 200 or 303
+                Querying this resource gave a status code other than 200 or 303.
         """
         url = cls._job_path(project_id, job_id)
         data, completed_url = cls._data_and_completed_url_for_job(url)
@@ -79,7 +79,7 @@ class ShapMatrixJob(Job):  # pylint: disable=missing-class-docstring
 
     def refresh(self) -> None:
         """
-        Update this object with the latest job data from the server.
+        Update the object with the latest job data from the server.
         """
         data, completed_url = self._data_and_completed_url_for_job(self._this_job_path())
         # pylint: disable-next=unnecessary-dunder-call

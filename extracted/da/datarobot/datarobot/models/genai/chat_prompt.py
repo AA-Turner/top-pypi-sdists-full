@@ -161,7 +161,7 @@ class ResultMetadata(APIObject):
     latency_milliseconds : int
         The latency of the chat prompt submission in milliseconds.
     feedback_result : FeedbackResult
-        The lists of user_ids providing positive and negative feedback.
+        The lists of ``user_ids`` providing positive and negative feedback.
     metrics : MetricMetadata
         The evaluation metrics for this prompt.
     final_prompt : Optional[Union[str, dict]], optional
@@ -215,11 +215,11 @@ class ConfidenceScores(APIObject):
     Attributes
     ----------
     rouge : float
-        The rouge score
+        The `rouge` score.
     meteor : float
-        The meteor score
+        The `meteor` score.
     bleu : float
-        The bleu score
+        The `bleu` score.
     """
 
     _converter = confidence_scores_trafaret
@@ -404,15 +404,15 @@ class ChatPrompt(APIObject):
         The LLM settings for the LLM blueprint. The specific keys allowed and the
         constraints on the values are defined in the response from `LLMDefinition.list`,
         but this typically has dict fields. Either:
-        - system_prompt - The system prompt that influences the LLM responses.
-        - max_completion_length - The maximum number of tokens in the completion.
-        - temperature - Controls the variability in the LLM response.
-        - top_p - Sets whether the model considers next tokens with top_p probability mass.
-        or
-        - system_prompt - The system prompt that influences the LLM responses.
-        - validation_id - The ID of the external model LLM validation.
-        - external_llm_context_size - The external LLM's context size, in tokens,
-        for external model-based LLM blueprints.
+        - `system_prompt` - The system prompt that influences the LLM responses.
+        - `max_completion_length` - The maximum number of tokens in the completion.
+        - `temperature` - Controls the variability in the LLM response.
+        - `top_p` - Sets whether the model considers next tokens with `top_p` probability mass.
+        Or:
+        - `system_prompt` - The system prompt that influences the LLM responses.
+        - `validation_id` - The ID of the external model LLM validation.
+        - `external_llm_context_size` - The context size of the external LLM, in tokens, for external model-based LLM
+        blueprints.
     creation_date : str
         The date the chat prompt was created.
     creation_user_id : str
@@ -428,7 +428,7 @@ class ChatPrompt(APIObject):
     confidence_scores: ConfidenceScores or None
         The confidence scores if there is a vector database associated with the chat prompt.
     citations: list[Citation]
-        List of citations from text retrieved from the vector database, if any.
+        A list of citations from text retrieved from the vector database, if any.
     execution_status: str
         The execution status of the chat prompt.
     chat_id: Optional[str]
@@ -549,14 +549,13 @@ class ChatPrompt(APIObject):
             LLM settings to use for the chat prompt. The specific keys allowed and the
             constraints on the values are defined in the response from `LLMDefinition.list`
             but this typically has dict fields:
-            - system_prompt - The system prompt that tells the LLM how to behave.
-            - max_completion_length - The maximum number of tokens in the completion.
-            - temperature - Controls the variability in the LLM response.
-            - top_p - Whether the model considers next tokens with top_p probability mass.
-            Or
-            - system_prompt - The system prompt that tells the LLM how to behave.
-            - validation_id - The ID of the custom model LLM validation
-            for custom model LLM blueprints.
+            - `system_prompt` - The system prompt that tells the LLM how to behave.
+            - `max_completion_length` - The maximum number of tokens in the completion.
+            - `temperature` - Controls the variability in the LLM response.
+            - `top_p` - Whether the model considers next tokens with `top_p` probability mass.
+            Or:
+            - `system_prompt` - The system prompt that tells the LLM how to behave.
+            - `validation_id` - The ID of the custom model LLM validation for custom model LLM blueprints.
         vector_database: VectorDatabase, str, or None, optional
             The vector database to use with this chat prompt submission, either
             `VectorDatabase` or vector database ID.
@@ -666,7 +665,7 @@ class ChatPrompt(APIObject):
         chat: Optional[Union[Chat, str]] = None,
     ) -> List[ChatPrompt]:
         """
-        List all chat prompts available to the user. If the `llm_blueprint`, `playground`, or `chat`
+        Returns a list of all chat prompts available to the user. If the `llm_blueprint`, `playground`, or `chat`
         is specified then the results are restricted to the chat prompts associated with that
         entity.
 

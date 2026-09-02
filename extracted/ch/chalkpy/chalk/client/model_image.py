@@ -23,6 +23,8 @@ _DEFAULT_PACKAGES: Dict[ModelType, List[str]] = {
     ModelType.ONNX: ["onnxruntime"],
 }
 
+_REMOTE_CALL_SHIM_DEPENDENCY = "chalk-remote-call-python>=1.9.0"
+
 
 def infer_image_from_spec(spec: Any) -> Any:
     """Construct a chalkcompute.Image from a ModelArtifactSpec's model_type and dependencies."""
@@ -49,7 +51,7 @@ def infer_image_from_spec(spec: Any) -> Any:
 
     if "numpy" not in packages:
         packages.append("numpy")
-    return image.pip_install(["chalk-remote-call-python"] + packages)
+    return image.pip_install([_REMOTE_CALL_SHIM_DEPENDENCY] + packages)
 
 
 def generate_volume_name(model_name: str, model_version: int) -> str:
@@ -876,7 +878,7 @@ def stage_chalk_model_handler_image(
     # used by the static shim; chalkpy provides `chalk.ml.model_handler` for
     # the staged user module's `from chalk.ml import model_handler` import.
     chalkpy_spec = _chalkpy_dep_spec(list(dependencies))
-    deps = ["chalk-remote-call-python", "pyarrow"]
+    deps = [_REMOTE_CALL_SHIM_DEPENDENCY, "pyarrow"]
     if chalkpy_spec is not None:
         deps.append(chalkpy_spec)
     deps.extend(dependencies)

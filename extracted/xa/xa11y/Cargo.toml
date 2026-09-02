@@ -1,0 +1,38 @@
+[workspace]
+members = [
+    "xa11y-core",
+    "xa11y-macos",
+    "xa11y-windows",
+    "xa11y-linux",
+    "xa11y",
+    "test-apps/accesskit",
+    "xa11y-fuzz",
+    "xtask",
+    "examples/rust",
+]
+exclude = [
+    "xa11y-python",
+    "xa11y-js",
+    "test-apps/tauri",  # Tauri requires platform-specific system deps (WebKit2GTK etc.)
+    # eframe pulls a large transitive tree (winit, glow, glutin, image, …)
+    # that doubles workspace-wide `cargo build` time and balloons Cargo.lock
+    # in unrelated PRs. Keep it out of the workspace and build only on the
+    # `integ`/`test-egui` jobs that actually need it. Mirrors the Tauri split.
+    "test-apps/egui",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.13.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/xa11y/xa11y"
+
+[workspace.dependencies]
+xa11y-core = { path = "xa11y-core", version = "0.13.0", default-features = false }
+xa11y-macos = { path = "xa11y-macos", version = "0.13.0" }
+xa11y-windows = { path = "xa11y-windows", version = "0.13.0" }
+xa11y-linux = { path = "xa11y-linux", version = "0.13.0" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"

@@ -111,24 +111,24 @@ class Dataset(APIObject, BrowserMixin):
     Attributes
     ----------
     id: string
-        The ID of this dataset
+        The ID of this dataset.
     name: string
-        The name of this dataset in the catalog
+        The name of this dataset in the catalog.
     is_latest_version: bool
         Whether this dataset version is the latest version
-        of this dataset
+        of this dataset.
     version_id: string
-        The object ID of the catalog_version the dataset belongs to
+        The object ID of the ``catalog_version`` the dataset belongs to.
     categories: list(string)
         An array of strings describing the intended use of the dataset. The
         supported options are "TRAINING" and "PREDICTION".
     created_at: string
-        The date when the dataset was created
+        The date when the dataset was created.
     created_by: string, optional
-        Username of the user who created the dataset
+        Username of the user who created the dataset.
     is_snapshot: bool
         Whether the dataset version is an immutable snapshot of data
-        which has previously been retrieved and saved to Data_robot
+        that was previously retrieved and saved to DataRobot.
     data_persisted: Optional[bool]
         If true, user is allowed to view extended data profile
         (which includes data statistics like min/max/median/mean, histogram, etc.) and download
@@ -139,14 +139,14 @@ class Dataset(APIObject, BrowserMixin):
         a data source of a data engine query.
     processing_state: string
         Current ingestion process state of
-        the dataset
+        the dataset.
     row_count: Optional[int]
         The number of rows in the dataset.
     size: Optional[int]
         The size of the dataset as a CSV in bytes.
     sample_size: dict, optional
         The size of data fetched during dataset registration. For example, to fetch the first 95
-        rows,  the sample_size value is {'type': 'rows', 'value': 95}.
+        rows, the ``sample_size`` value is {'type': 'rows', 'value': 95}.
         Currently only 'rows' type is supported.
     """
 
@@ -204,7 +204,7 @@ class Dataset(APIObject, BrowserMixin):
         cls: Type[TDataset],
         source: Union[str, pd.DataFrame, IOBase],
     ) -> TDataset:
-        """This method covers Dataset creation from local materials (file & DataFrame) and a URL.
+        """This method covers Dataset creation from local materials (file and DataFrame) and a URL.
 
         Parameters
         ----------
@@ -219,7 +219,7 @@ class Dataset(APIObject, BrowserMixin):
         Raises
         ------
         InvalidUsageError
-            If the source parameter cannot be determined to be a URL, filepath, file or DataFrame.
+            If the source parameter can't be determined to be a URL, filepath, file, or DataFrame.
 
         Examples
         --------
@@ -261,18 +261,18 @@ class Dataset(APIObject, BrowserMixin):
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> TDataset:
         """
-        A blocking call that creates a new Dataset from a file. Returns when the dataset has
+        A blocking call that creates a new Dataset from a file. Returns the dataset once it has
         been successfully uploaded and processed.
 
-        Warning: This function does not clean up it's open files. If you pass a filelike, you are
-        responsible for closing it. If you pass a file_path, this will create a file object from
-        the file_path but will not close it.
+        Warning: This function doesn't clean up its open files. If you pass a filelike, you are
+        responsible for closing it. If you pass a ``file_path``, this will create a file object from
+        the ``file_path`` but won't close it.
 
         Parameters
         ----------
         file_path: string, optional
-            The path to the file. This will create a file object pointing to that file but will
-            not close it.
+            The path to the file. This will create a file object pointing to that file but won't
+            close it.
         filelike: file, optional
             An open and readable file object.
         categories: list[string], optional
@@ -280,17 +280,17 @@ class Dataset(APIObject, BrowserMixin):
             current supported options are "TRAINING" and "PREDICTION".
         read_timeout: Optional[int]
             The maximum number of seconds to wait for the server to respond indicating that the
-            initial upload is complete
+            initial upload is complete.
         max_wait: Optional[int]
-            Time in seconds after which dataset creation is considered unsuccessful
+            Time in seconds after which dataset creation is considered unsuccessful.
         use_cases: list[UseCase] | UseCase | list[string] | string, optional
             A list of UseCase objects, UseCase object,
-            list of Use Case ids or a single Use Case id to add this new Dataset to. Must be a kwarg.
+            list of Use Case IDs or a single Use Case ID to add this new Dataset to. Must be a kwarg.
 
         Returns
         -------
         response: Dataset
-            A fully armed and operational Dataset
+            A fully armed and operational Dataset.
         """
         assert_single_parameter(("filelike", "file_path"), file_path, filelike)
 
@@ -333,7 +333,7 @@ class Dataset(APIObject, BrowserMixin):
         fname: Optional[str] = None,  # This line provided under MIT license copyright (c) 2021 AGEAS SA/NV
     ) -> TDataset:
         """
-        A blocking call that creates a new Dataset from in-memory data. Returns when the dataset has
+        A blocking call that creates a new Dataset from in-memory data. Returns the dataset once it has
         been successfully uploaded and processed.
 
         The data can be either a pandas DataFrame or a list of dictionaries with identical keys.
@@ -341,19 +341,19 @@ class Dataset(APIObject, BrowserMixin):
         Parameters
         ----------
         data_frame: DataFrame, optional
-            The data frame to upload
+            The data frame to upload.
         records: list[dict], optional
-            A list of dictionaries with identical keys to upload
+            A list of dictionaries with identical keys to upload.
         categories: list[string], optional
             An array of strings describing the intended use of the dataset. The
             current supported options are "TRAINING" and "PREDICTION".
         read_timeout: Optional[int]
             The maximum number of seconds to wait for the server to respond indicating that the
-            initial upload is complete
+            initial upload is complete.
         max_wait: Optional[int]
-            Time in seconds after which dataset creation is considered unsuccessful
+            Time in seconds after which dataset creation is considered unsuccessful.
         fname: string, optional
-            The file name, "data.csv" by default
+            The filename. Defaults to ``data.csv``.
         use_cases: list[UseCase] | UseCase | list[string] | string, optional
             A list of UseCase objects, UseCase object,
             list of Use Case IDs or a single Use Case ID to add this new dataset to. Must be a kwarg.
@@ -366,7 +366,7 @@ class Dataset(APIObject, BrowserMixin):
         Raises
         ------
         InvalidUsageError
-            If neither a DataFrame or list of records is passed.
+            If you don't pass a DataFrame or a list of records.
         """
         assert_single_parameter(("data_frame", "records"), data_frame, records)
         if data_frame is not None:
@@ -396,8 +396,8 @@ class Dataset(APIObject, BrowserMixin):
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> TDataset:
         """
-        A blocking call that creates a new Dataset from data stored at a url.
-        Returns when the dataset has been successfully uploaded and processed.
+        A blocking call that creates a new Dataset from data stored at a URL.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         Parameters
         ----------
@@ -413,7 +413,7 @@ class Dataset(APIObject, BrowserMixin):
             If true, will enforce saving all data
             (for download and sampling) and will allow a user to view extended data profile
             (which includes data statistics like min/max/median/mean, histogram, etc.). If false,
-            will not enforce saving data. The data schema (feature names and types) still will be
+            won't enforce saving data. The data schema (feature names and types) will still be
             available. Specifying this parameter to false and `doSnapshot` to true will result in
             an error.
         categories: list[string], optional
@@ -421,7 +421,7 @@ class Dataset(APIObject, BrowserMixin):
             current supported options are "TRAINING" and "PREDICTION".
         sample_size: dict, optional
             The size of data fetched during dataset registration.
-            For example, to fetch the first 95 rows,  the sample_size value would be:
+            For example, to fetch the first 95 rows, the ``sample_size`` value would be:
             {'type': 'rows', 'value': 95}.
             Currently only 'rows' type is supported.
         max_wait: Optional[int]
@@ -433,7 +433,7 @@ class Dataset(APIObject, BrowserMixin):
         Returns
         -------
         response: Dataset
-            The Dataset created from the uploaded data
+            The Dataset created from the uploaded data.
         """
         base_data = {
             "url": url,
@@ -459,7 +459,7 @@ class Dataset(APIObject, BrowserMixin):
     ) -> TDataset:
         """
         A blocking call that creates a new dataset from project data.
-        Returns when the dataset has been successfully created.
+        Returns the dataset once it has been successfully created.
 
         Parameters
         ----------
@@ -497,7 +497,7 @@ class Dataset(APIObject, BrowserMixin):
     ) -> TDataset:
         """
         A blocking call that creates a new Dataset from data stored as a DataStage.
-        Returns when the dataset has been successfully uploaded and processed.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         Parameters
         ----------
@@ -512,7 +512,7 @@ class Dataset(APIObject, BrowserMixin):
         Returns
         -------
         response: Dataset
-            The Dataset created from the uploaded data
+            The Dataset created from the uploaded data.
         """
         base_data = {
             "stage_id": datastage_id,
@@ -543,7 +543,7 @@ class Dataset(APIObject, BrowserMixin):
     ) -> TDataset:
         """
         A blocking call that creates a new Dataset from data stored at a DataSource.
-        Returns when the dataset has been successfully uploaded and processed.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         .. versionadded:: v2.22
 
@@ -554,8 +554,8 @@ class Dataset(APIObject, BrowserMixin):
         username: string, optional
             The username for database authentication.
         password: string, optional
-            The password (in cleartext) for database authentication. The password
-            will be encrypted on the server side in scope of HTTP request and never saved or stored.
+            The password (in cleartext) for database authentication. The server encrypts the password in the scope of
+            the HTTP request and never saves or stores it.
         do_snapshot: Optional[bool]
             If unset, uses the server default: True.
             If true, creates a snapshot dataset; if
@@ -566,7 +566,7 @@ class Dataset(APIObject, BrowserMixin):
             If true, will enforce saving all data
             (for download and sampling) and will allow a user to view extended data profile
             (which includes data statistics like min/max/median/mean, histogram, etc.). If false,
-            will not enforce saving data. The data schema (feature names and types) still will be
+            won't enforce saving data. The data schema (feature names and types) will still be
             available. Specifying this parameter to false and `doSnapshot` to true will result in
             an error.
         categories: list[string], optional
@@ -584,7 +584,7 @@ class Dataset(APIObject, BrowserMixin):
             credential ID.
         sample_size: dict, optional
             The size of data fetched during dataset registration.
-            For example, to fetch the first 95 rows,  the sample_size value would be:
+            For example, to fetch the first 95 rows, the ``sample_size`` value would be:
             {'type': 'rows', 'value': 95}.
             Currently only 'rows' type is supported.
         max_wait: Optional[int]
@@ -596,7 +596,7 @@ class Dataset(APIObject, BrowserMixin):
         Returns
         -------
         response: Dataset
-            The Dataset created from the uploaded data
+            The Dataset created from the uploaded data.
         """
         base_data = {
             "data_source_id": data_source_id,
@@ -632,21 +632,21 @@ class Dataset(APIObject, BrowserMixin):
     ) -> TDataset:
         """
         A blocking call that creates a new Dataset from the query generator.
-        Returns when the dataset has been successfully processed. If optional
-        parameters are not specified the query is applied to the dataset_id
-        and dataset_version_id stored in the query generator. If specified they
-        will override the stored dataset_id/dataset_version_id, e.g., to prep a
+        Returns the dataset once it has been successfully processed. If optional
+        parameters are not specified, the query applies to the ``dataset_id``
+        and ``dataset_version_id`` stored in the query generator. If specified, they
+        override the stored ``dataset_id``/``dataset_version_id``, for example, to prepare a
         prediction dataset.
 
         Parameters
         ----------
         generator_id: str
-            The id of the query generator to use.
+            The ID of the query generator to use.
         dataset_id: Optional[str]
-            The id of the dataset to apply the query to.
+            The ID of the dataset to apply the query to.
         dataset_version_id: Optional[str]
-            The id of the dataset version to apply the query to. If not specified the
-            latest version associated with dataset_id (if specified) is used.
+            The ID of the dataset version to apply the query to. If not specified, the
+            latest version associated with ``dataset_id`` (if specified) is used.
         max_wait : int
             Optional; the maximum number of seconds to wait before giving up.
         use_cases: list[UseCase] | UseCase | list[string] | string, optional
@@ -656,7 +656,7 @@ class Dataset(APIObject, BrowserMixin):
         Returns
         -------
         response: Dataset
-            The Dataset created from the query generator
+            The Dataset created from the query generator.
         """
         url = "dataEngineWorkspaceStates/fromDataEngineQueryGenerator/"
         base_data = {
@@ -690,14 +690,14 @@ class Dataset(APIObject, BrowserMixin):
     ) -> TDataset:
         """
         A blocking call that creates a new Dataset from the recipe.
-        Returns when the dataset has been successfully uploaded and processed.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         .. versionadded:: 3.6
 
         Returns
         -------
         response: Dataset
-            The Dataset created from the uploaded data
+            The Dataset created from the uploaded data.
         """
         base_data = {
             "recipe_id": recipe.id,
@@ -722,17 +722,17 @@ class Dataset(APIObject, BrowserMixin):
 
     @classmethod
     def get(cls: Type[TDataset], dataset_id: str) -> TDataset:
-        """Get information about a dataset.
+        """Get the information about a dataset.
 
         Parameters
         ----------
         dataset_id : string
-            the ID of the dataset
+            The ID of the dataset.
 
         Returns
         -------
         dataset : Dataset
-            the queried dataset
+            The queried dataset.
         """
 
         path = f"{cls._path}{dataset_id}/"
@@ -741,13 +741,13 @@ class Dataset(APIObject, BrowserMixin):
     @classmethod
     def delete(cls, dataset_id: str) -> None:
         """
-        Soft deletes a dataset.  You cannot get it or list it or do actions with it, except for
+        Soft deletes a dataset. You can't get it or list it or do actions with it, except for
         un-deleting it.
 
         Parameters
         ----------
         dataset_id: string
-            The id of the dataset to mark for deletion
+            The ID of the dataset to mark for deletion.
 
         Returns
         -------
@@ -759,12 +759,12 @@ class Dataset(APIObject, BrowserMixin):
     @classmethod
     def un_delete(cls, dataset_id: str) -> None:
         """
-        Un-deletes a previously deleted dataset.  If the dataset was not deleted, nothing happens.
+        Un-deletes a previously deleted dataset. If the dataset wasn't deleted, nothing happens.
 
         Parameters
         ----------
         dataset_id: string
-            The id of the dataset to un-delete
+            The ID of the dataset to un-delete.
 
         Returns
         -------
@@ -782,7 +782,7 @@ class Dataset(APIObject, BrowserMixin):
         use_cases: Optional[UseCaseLike] = None,
     ) -> List[TDataset]:
         """
-        List all datasets a user can view.
+        Returns the datasets a user can view.
 
 
         Parameters
@@ -810,7 +810,7 @@ class Dataset(APIObject, BrowserMixin):
         Returns
         -------
         list[Dataset]
-            a list of datasets the user can view
+            A list of datasets the user can view.
 
         """
         return list(
@@ -834,16 +834,16 @@ class Dataset(APIObject, BrowserMixin):
     ) -> Generator[TDataset, None, None]:
         """
         Get an iterator for the requested datasets a user can view.
-        This lazily retrieves results. It does not get the next page from the server until the
-        current page is exhausted.
+        This lazily retrieves results. It doesn't fetch the next page from the server until the
+        iterator exhausts the current page.
 
         Parameters
         ----------
         offset: Optional[int]
-            If set, this many results will be skipped
+            If set, the iterator skips this many results.
 
         limit: Optional[int]
-            Specifies the size of each page retrieved from the server.  If unset, uses the server
+            Specifies the size of each page retrieved from the server. If unset, uses the server
             default.
 
         category: string, optional
@@ -917,18 +917,18 @@ class Dataset(APIObject, BrowserMixin):
         categories: Optional[List[str]] = None,
     ) -> None:
         """
-        Modifies the Dataset name and/or categories.  Updates the object in place.
+        Modifies the Dataset name and/or categories. Updates the object in place.
 
         Parameters
         ----------
         name: string, optional
-            The new name of the dataset
+            The new name of the dataset.
 
         categories: list[string], optional
             A list of strings describing the intended use of the
-            dataset. The supported options are "TRAINING" and "PREDICTION". If any
+            dataset. The supported options are "TRAINING" and "PREDICTION." If any
             categories were previously specified for the dataset, they will be overwritten.
-            If omitted or None, keep previous categories. To clear them specify []
+            If omitted or None, keep previous categories. To clear them, specify [].
 
         Returns
         -------
@@ -959,8 +959,9 @@ class Dataset(APIObject, BrowserMixin):
         operation: str = "updateRoles",
     ) -> None:
         """
-        Grant access, remove access or update roles for users, groups and organizations who have access to this dataset.
-        Up to 100 roles may be set in a single request.
+        Grant access, remove access, or update roles for users, groups, and organizations who have access to this
+        dataset.
+        A single request can set up to 100 roles.
 
         Parameters
         ----------
@@ -970,12 +971,12 @@ class Dataset(APIObject, BrowserMixin):
             If ``true`` for any users being granted access to the entity,
             grant the user read access to any linked objects such as `DataSources`
             and `DataStores` that may be used by this entity. Ignored if no such
-            objects are relevant for the entity. This will not result in access
+            objects are relevant for the entity. This won't result in access
             being lowered for a user if the user already has higher access to
-            linked objects than read access. However, if the target user does
-            not have sharing permissions to the linked object, they will be given
+            linked objects than read access. However, if the target user doesn't
+            have sharing permissions to the linked object, they will be given
             sharing access without lowering existing permissions. May result in an
-            error if the user making the call does not have sufficient permissions
+            error if the user making the call doesn't have sufficient permissions
             to complete the grant.
         operation:
             The name of the action being taken. The only supported operation is ``updateRoles``.
@@ -1030,7 +1031,7 @@ class Dataset(APIObject, BrowserMixin):
         access_list: List[SharingAccess],
         apply_grant_to_linked_objects: bool = False,
     ) -> None:
-        """Modify the ability of users to access this dataset
+        """Changes which users can access this dataset.
 
         Parameters
         ----------
@@ -1049,7 +1050,7 @@ class Dataset(APIObject, BrowserMixin):
         Raises
         ------
         datarobot.ClientError:
-            If you do not have permission to share this dataset, if the user you're sharing with
+            If you don't have permission to share this dataset, if the user you're sharing with
             doesn't exist, if the same user appears multiple times in the access_list, or if these
             changes would leave the dataset without an owner.
 
@@ -1104,7 +1105,7 @@ class Dataset(APIObject, BrowserMixin):
         ----------
         order_by: string, optional
             If unset, uses the server default: 'name'.
-            How the features should be ordered. Can be 'name' or 'featureType'.
+            How the features should be ordered. Can be ``'name'`` or ``'featureType'``.
 
         Returns
         -------
@@ -1119,15 +1120,15 @@ class Dataset(APIObject, BrowserMixin):
         share_recipient_type: Optional[SHARING_RECIPIENT_TYPE] = None,
     ) -> List[CatalogSharedRole]:
         """
-        List roles for users, groups, and organizations who have access to this dataset.
+        Lists the roles for users, groups, and organizations who have access to this dataset.
 
         Parameters
         ----------
         id:
-            Only return the access control information for a organization, group or user with this
+            Return only the access control information for an organization, group, or user with this
             ID.
         name:
-            Only return the access control information for a organization, group or user with this
+            Return only the access control information for an organization, group, or user with this
             name.
         share_recipient_type:
             Only returns results with the given recipient type.
@@ -1153,21 +1154,21 @@ class Dataset(APIObject, BrowserMixin):
     ) -> Generator[DatasetFeature, None, None]:
         """
         Get an iterator for the requested features of a dataset.
-        This lazily retrieves results. It does not get the next page from the server until the
-        current page is exhausted.
+        This lazily retrieves results. It doesn't fetch the next page from the server until the
+        iterator exhausts the current page.
 
         Parameters
         ----------
         offset: Optional[int]
-            If set, this many results will be skipped.
+            If set, the iterator skips this many results.
 
         limit: Optional[int]
-            Specifies the size of each page retrieved from the server.  If unset, uses the server
+            Specifies the size of each page retrieved from the server. If unset, uses the server
             default.
 
         order_by: string, optional
             If unset, uses the server default: 'name'.
-            How the features should be ordered. Can be 'name' or 'featureType'.
+            How the features should be ordered. Can be ``'name'`` or ``'featureType'``.
 
         Yields
         ------
@@ -1186,7 +1187,7 @@ class Dataset(APIObject, BrowserMixin):
 
     def get_featurelists(self) -> List[DatasetFeaturelist]:
         """
-        Get DatasetFeaturelists created on this Dataset
+        Gets the DatasetFeaturelists created on this Dataset
 
         Returns
         -------
@@ -1198,21 +1199,21 @@ class Dataset(APIObject, BrowserMixin):
         return [DatasetFeaturelist.from_server_data(el) for el in result]
 
     def create_featurelist(self, name: str, features: List[str]) -> DatasetFeaturelist:
-        """Create a new dataset featurelist
+        """Creates a new dataset featurelist
 
         Parameters
         ----------
         name : str
-            the name of the modeling featurelist to create. Names must be unique within the
+            The name of the modeling featurelist to create. Names must be unique within the
             dataset, or the server will return an error.
         features : List[str]
-            the names of the features to include in the dataset featurelist. Each feature must
+            The names of the features to include in the dataset featurelist. Each feature must
             be a dataset feature.
 
         Returns
         -------
         featurelist : DatasetFeaturelist
-            the newly created featurelist
+            The newly created featurelist.
 
         Examples
         --------
@@ -1234,9 +1235,9 @@ class Dataset(APIObject, BrowserMixin):
         Retrieves all the originally uploaded data in CSV form.
         Writes it to either the file or a filelike object that can write bytes.
 
-        Only one of file_path or filelike can be provided and it must be provided as a
-        keyword argument (i.e., file_path='path-to-write-to'). If a file-like object is
-        provided, the user is responsible for closing it when they are done.
+        Provide only one of ``file_path`` or ``filelike``, and pass it as a
+        keyword argument (that is, ``file_path='path-to-write-to'``). If you provide a file-like object,
+        you must close it when you're done.
 
         The user must also have permission to download data.
 
@@ -1245,8 +1246,8 @@ class Dataset(APIObject, BrowserMixin):
         file_path: string, optional
             The destination to write the file to.
         filelike: file, optional
-            A file-like object to write to.  The object must be able to write bytes. The user is
-            responsible for closing the object
+            A file-like object to write to. The object must be able to write bytes. The user is
+            responsible for closing the object.
 
         Returns
         -------
@@ -1274,7 +1275,7 @@ class Dataset(APIObject, BrowserMixin):
 
         Returns
         -------
-        pd.DataFrame
+        pandas.DataFrame
         """
         if low_memory:
             with tempfile.NamedTemporaryFile(suffix=".csv") as csv_file:
@@ -1302,7 +1303,7 @@ class Dataset(APIObject, BrowserMixin):
 
     def get_projects(self) -> List[ProjectLocation]:
         """
-        Retrieves the Dataset's projects as ProjectLocation named tuples.
+        Retrieves projects for this dataset as ProjectLocation named tuples.
 
         Returns
         -------
@@ -1314,13 +1315,13 @@ class Dataset(APIObject, BrowserMixin):
     def get_raw_sample_data(self) -> pd.DataFrame:
         """
         Retrieves the raw sample data for the dataset as a pandas DataFrame.
-        The raw sample dataset is a subset of the full dataset.
+        The raw sample data is a subset of the full dataset.
 
         .. versionadded:: v3.10
 
         Returns
         -------
-        pd.DataFrame
+        pandas.DataFrame
             A DataFrame with the dataset's raw sample data.
         """
         url = f"{self._path}{self.id}/versions/{self.version_id}/rawSampleData/"
@@ -1366,8 +1367,8 @@ class Dataset(APIObject, BrowserMixin):
         user: string, optional
             The username for database authentication.
         password: string, optional
-            The password (in cleartext) for database authentication. The password
-            will be encrypted on the server side in scope of HTTP request and never saved or stored
+            The password (in cleartext) for database authentication. The server encrypts the password in the scope of
+            the HTTP request and never saves or stores it.
         credential_id: string, optional
             The ID of the set of credentials to use instead of user and password.
         use_kerberos: Optional[bool]
@@ -1378,7 +1379,7 @@ class Dataset(APIObject, BrowserMixin):
             credential ID.
         use_cases: list[UseCase] | UseCase | list[string] | string, optional
             A list of UseCase objects, UseCase object,
-            list of Use Case ids or a single Use Case id to add this new Dataset to. Must be a kwarg.
+            list of Use Case IDs or a single Use Case ID to add this new Dataset to. Must be a kwarg.
 
         Returns
         -------
@@ -1406,22 +1407,22 @@ class Dataset(APIObject, BrowserMixin):
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> TDataset:
         """
-        A blocking call that creates a new Dataset version from a file. Returns when the new dataset
-        version has been successfully uploaded and processed.
+        A blocking call that creates a new Dataset version from a file. Returns the new dataset
+        version once it has been successfully uploaded and processed.
 
-        Warning: This function does not clean up it's open files. If you pass a filelike, you are
-        responsible for closing it. If you pass a file_path, this will create a file object from
-        the file_path but will not close it.
+        Warning: This function doesn't clean up its open files. If you pass a filelike, you are
+        responsible for closing it. If you pass a ``file_path``, this will create a file object from
+        the ``file_path`` but won't close it.
 
         .. versionadded:: v2.23
 
         Parameters
         ----------
         dataset_id: string
-            The ID of the dataset for which new version to be created
+            The ID of the dataset for which a new version is created.
         file_path: string, optional
-            The path to the file. This will create a file object pointing to that file but will
-            not close it.
+            The path to the file. This will create a file object pointing to that file but won't
+            close it.
         filelike: file, optional
             An open and readable file object.
         categories: list[string], optional
@@ -1429,14 +1430,14 @@ class Dataset(APIObject, BrowserMixin):
             current supported options are "TRAINING" and "PREDICTION".
         read_timeout: Optional[int]
             The maximum number of seconds to wait for the server to respond indicating that the
-            initial upload is complete
+            initial upload is complete.
         max_wait: Optional[int]
-            Time in seconds after which project creation is considered unsuccessful
+            Time in seconds after which project creation is considered unsuccessful.
 
         Returns
         -------
         response: Dataset
-            A fully armed and operational Dataset version
+            A fully armed and operational Dataset version.
         """
         assert_single_parameter(("filelike", "file_path"), file_path, filelike)
 
@@ -1479,7 +1480,7 @@ class Dataset(APIObject, BrowserMixin):
     ) -> TDataset:
         """
         A blocking call that creates a new Dataset version for a dataset from in-memory data.
-        Returns when the dataset has been successfully uploaded and processed.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         The data can be either a pandas DataFrame or a list of dictionaries with identical keys.
 
@@ -1488,29 +1489,29 @@ class Dataset(APIObject, BrowserMixin):
         Parameters
         ----------
         dataset_id: string
-            The ID of the dataset for which new version to be created
+            The ID of the dataset for which a new version is created.
         data_frame: DataFrame, optional
-            The data frame to upload
+            The data frame to upload.
         records: list[dict], optional
-            A list of dictionaries with identical keys to upload
+            A list of dictionaries with identical keys to upload.
         categories: list[string], optional
             An array of strings describing the intended use of the dataset. The
             current supported options are "TRAINING" and "PREDICTION".
         read_timeout: Optional[int]
             The maximum number of seconds to wait for the server to respond indicating that the
-            initial upload is complete
+            initial upload is complete.
         max_wait: Optional[int]
-            Time in seconds after which project creation is considered unsuccessful
+            Time in seconds after which project creation is considered unsuccessful.
 
         Returns
         -------
         response: Dataset
-            The Dataset version created from the uploaded data
+            The Dataset version created from the uploaded data.
 
         Raises
         ------
         InvalidUsageError
-            If neither a DataFrame or list of records is passed.
+            If you don't pass a DataFrame or a list of records.
         """
         assert_single_parameter(("data_frame", "records"), data_frame, records)
         if data_frame is not None:
@@ -1536,27 +1537,27 @@ class Dataset(APIObject, BrowserMixin):
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> TDataset:
         """
-        A blocking call that creates a new Dataset from data stored at a url for a given dataset.
-        Returns when the dataset has been successfully uploaded and processed.
+        A blocking call that creates a new Dataset from data stored at a URL for a given dataset.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         .. versionadded:: v2.23
 
         Parameters
         ----------
         dataset_id: string
-            The ID of the dataset for which new version to be created
+            The ID of the dataset for which a new version is created.
         url: string
             The URL to use as the source of data for the dataset being created.
         categories: list[string], optional
             An array of strings describing the intended use of the dataset. The
             current supported options are "TRAINING" and "PREDICTION".
         max_wait: Optional[int]
-            Time in seconds after which project creation is considered unsuccessful
+            Time in seconds after which project creation is considered unsuccessful.
 
         Returns
         -------
         response: Dataset
-            The Dataset version created from the uploaded data
+            The Dataset version created from the uploaded data.
         """
         base_data = {
             "url": url,
@@ -1579,24 +1580,24 @@ class Dataset(APIObject, BrowserMixin):
     ) -> TDataset:
         """
         A blocking call that creates a new Dataset from data stored as a DataStage for a given dataset.
-        Returns when the dataset has been successfully uploaded and processed.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         Parameters
         ----------
         dataset_id: string
-            The ID of the dataset for which new version to be created
+            The ID of the dataset for which a new version is created.
         datastage_id: string
             The ID of the DataStage to use as the source of data for the dataset being created.
         categories: list[string], optional
             An array of strings describing the intended use of the dataset. The
             current supported options are "TRAINING" and "PREDICTION".
         max_wait: Optional[int]
-            Time in seconds after which project creation is considered unsuccessful
+            Time in seconds after which project creation is considered unsuccessful.
 
         Returns
         -------
         response: Dataset
-            The Dataset version created from the uploaded data
+            The Dataset version created from the uploaded data.
         """
         base_data = {
             "stage_id": datastage_id,
@@ -1624,21 +1625,21 @@ class Dataset(APIObject, BrowserMixin):
     ) -> TDataset:
         """
         A blocking call that creates a new Dataset from data stored at a DataSource.
-        Returns when the dataset has been successfully uploaded and processed.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         .. versionadded:: v2.23
 
         Parameters
         ----------
         dataset_id: string
-            The ID of the dataset for which new version to be created
+            The ID of the dataset for which a new version is created.
         data_source_id: string
             The ID of the DataSource to use as the source of data.
         username: string, optional
             The username for database authentication.
         password: string, optional
-            The password (in cleartext) for database authentication. The password
-            will be encrypted on the server side in scope of HTTP request and never saved or stored.
+            The password (in cleartext) for database authentication. The server encrypts the password in the scope of
+            the HTTP request and never saves or stores it.
         categories: list[string], optional
             An array of strings describing the intended use of the dataset. The
             current supported options are "TRAINING" and "PREDICTION".
@@ -1653,12 +1654,12 @@ class Dataset(APIObject, BrowserMixin):
             The credentials to authenticate with the database, to use instead of user/password or
             credential ID.
         max_wait: Optional[int]
-            Time in seconds after which project creation is considered unsuccessful
+            Time in seconds after which project creation is considered unsuccessful.
 
         Returns
         -------
         response: Dataset
-            The Dataset version created from the uploaded data
+            The Dataset version created from the uploaded data.
         """
         base_data = {
             "data_source_id": data_source_id,
@@ -1695,7 +1696,7 @@ class Dataset(APIObject, BrowserMixin):
     ) -> TDataset:
         """
         A blocking call that creates a new Dataset version from Recipe.
-        Returns when the dataset has been successfully uploaded and processed.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         .. versionadded:: v3.8
 
@@ -1718,7 +1719,7 @@ class Dataset(APIObject, BrowserMixin):
         Returns
         -------
         response: Dataset
-            The Dataset version created from the uploaded data
+            The Dataset version created from the uploaded data.
         """
         base_data = {
             "recipe_id": recipe.id,
@@ -1775,24 +1776,24 @@ class DatasetDetails(APIObject):
     Attributes
     ----------
     dataset_id: string
-        The ID of this dataset
+        The ID of this dataset.
     name: string
-        The name of this dataset in the catalog
+        The name of this dataset in the catalog.
     is_latest_version: bool
         Whether this dataset version is the latest version
-        of this dataset
+        of this dataset.
     version_id: string
-        The object ID of the catalog_version the dataset belongs to
+        The object ID of the ``catalog_version`` the dataset belongs to.
     categories: list(string)
         An array of strings describing the intended use of the dataset. The
         supported options are "TRAINING" and "PREDICTION".
     created_at: string
-        The date when the dataset was created
+        The date when the dataset was created.
     created_by: string
-        Username of the user who created the dataset
+        Username of the user who created the dataset.
     is_snapshot: bool
         Whether the dataset version is an immutable snapshot of data
-        which has previously been retrieved and saved to Data_robot
+        that was previously retrieved and saved to DataRobot.
     data_persisted: Optional[bool]
         If true, user is allowed to view extended data profile
         (which includes data statistics like min/max/median/mean, histogram, etc.) and download
@@ -1803,50 +1804,50 @@ class DatasetDetails(APIObject):
         a data source of a data engine query.
     processing_state: string
         Current ingestion process state of
-        the dataset
+        the dataset.
     row_count: Optional[int]
         The number of rows in the dataset.
     size: Optional[int]
         The size of the dataset as a CSV in bytes.
     data_engine_query_id: string, optional
-        ID of the source data engine query
+        ID of the source data engine query.
     data_source_id: string, optional
-        ID of the datasource used as the source of the dataset
+        ID of the datasource used as the source of the dataset.
     data_source_type: string
-        the type of the datasource that was used as the source of the
-        dataset
+        The type of the datasource used as the source of the
+        dataset.
     description: string, optional
-        the description of the dataset
+        The description of the dataset.
     eda1_modification_date: string, optional
-        the ISO 8601 formatted date and time when the EDA1 for
-        the dataset was updated
+        The ISO 8601 formatted date and time when the EDA1 for
+        the dataset was updated.
     eda1_modifier_full_name: string, optional
-        the user who was the last to update EDA1 for the
-        dataset
+        The user who last updated EDA1 for the
+        dataset.
     error: string
-        details of exception raised during ingestion process, if any
+        Details of the exception raised during ingestion, if any.
     feature_count: Optional[int]
-        total number of features in the dataset
+        Total number of features in the dataset.
     feature_count_by_type: list[FeatureTypeCount]
-        number of features in the dataset grouped by feature type
+        Number of features in the dataset grouped by feature type.
     last_modification_date: string
-        the ISO 8601 formatted date and time when the dataset
-        was last modified
+        The ISO 8601 formatted date and time when the dataset
+        was last modified.
     last_modifier_full_name: string
-        full name of user who was the last to modify the
-        dataset
+        Full name of the user who last modified the
+        dataset.
     tags: list[string]
-        list of tags attached to the item
+        A list of tags attached to the item.
     uri: string
-        the uri to datasource like:
-        - 'file_name.csv'
-        - 'jdbc:DATA_SOURCE_GIVEN_NAME/SCHEMA.TABLE_NAME'
-        - 'jdbc:DATA_SOURCE_GIVEN_NAME/<query>' - for `query` based datasources
-        - 'https://s3.amazonaws.com/my_data/my_dataset.csv'
+        The URI to the data source, for example:
+        - ``file_name.CSV``
+        - ``JDBC:DATA_SOURCE_GIVEN_NAME/SCHEMA.TABLE_NAME``
+        - ``JDBC:DATA_SOURCE_GIVEN_NAME/<query>`` - for ``query``-based data sources
+        - ``HTTPS://S3.amazonaws.com/my_data/my_dataset.CSV``
         - etc.
     sample_size: dict, optional
         The size of data fetched during dataset registration. For example, to fetch the first 95
-        rows,  the sample_size value is {'type': 'rows', 'value': 95}.
+        rows, the ``sample_size`` value is {'type': 'rows', 'value': 95}.
         Currently only 'rows' type is supported.
     """
 
@@ -1937,12 +1938,12 @@ class DatasetDetails(APIObject):
     @classmethod
     def get(cls: Type[TDatasetDetails], dataset_id: str) -> TDatasetDetails:
         """
-        Get details for a Dataset from the server
+        Gets the details for a Dataset from the server
 
         Parameters
         ----------
         dataset_id: str
-            The id for the Dataset from which to get details
+            The ID for the Dataset from which to get details.
 
         Returns
         -------
@@ -1984,7 +1985,7 @@ class DataStage(APIObject):
     Attributes
     ----------
     id: string
-        The ID of this dataset
+        The ID of this dataset.
     """
 
     _converter = t.Dict({
@@ -2008,7 +2009,7 @@ class DataStage(APIObject):
         Parameters
         ----------
         filename : str
-            Name of the data stage
+            Name of the data stage.
         """
         payload = {
             "filename": filename,
@@ -2023,14 +2024,14 @@ class DataStage(APIObject):
         source: Union[str, pd.DataFrame, IOBase],
         max_chunk_size: Optional[int] = 100 * MEGABYTE,
     ) -> DataStage:
-        """Create and finalize a new simple data stage from a DataFrame.
+        """Creates a new simple data stage from a DataFrame and finalizes it.
 
         To create a data stage the user will need the Data Stages feature flag enabled.
 
         Parameters
         ----------
         filename : str
-            Name of the data stage
+            Name of the data stage.
         source: str, pd.DataFrame, IOBase
             Pass a filepath, file-like object or DataFrame to create a data stage.
         max_chunk_size : Optional[int]
@@ -2070,7 +2071,7 @@ class DataStage(APIObject):
     ) -> Dataset:
         """
         A blocking call that creates a new Dataset from data stored as a DataStage.
-        Returns when the dataset has been successfully uploaded and processed.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         Parameters
         ----------
@@ -2083,7 +2084,7 @@ class DataStage(APIObject):
         Returns
         -------
         response: Dataset
-            The Dataset created from the uploaded data
+            The Dataset created from the uploaded data.
         """
         return Dataset.create_from_datastage(datastage_id=self.id, categories=categories, max_wait=max_wait)
 
@@ -2095,22 +2096,22 @@ class DataStage(APIObject):
     ) -> Dataset:
         """
         A blocking call that creates a new Dataset from data stored as a DataStage for a given dataset.
-        Returns when the dataset has been successfully uploaded and processed.
+        Returns the dataset once it has been successfully uploaded and processed.
 
         Parameters
         ----------
         dataset_id: string
-            The ID of the dataset for which new version to be created
+            The ID of the dataset for which a new version is created.
         categories: list[string], optional
             An array of strings describing the intended use of the dataset. The
             current supported options are "TRAINING" and "PREDICTION".
         max_wait: Optional[int]
-            Time in seconds after which project creation is considered unsuccessful
+            Time in seconds after which project creation is considered unsuccessful.
 
         Returns
         -------
         response: Dataset
-            The Dataset version created from the uploaded data
+            The Dataset version created from the uploaded data.
         """
         return Dataset.create_version_from_datastage(
             dataset_id=dataset_id, datastage_id=self.id, categories=categories, max_wait=max_wait
@@ -2129,7 +2130,7 @@ class DataStage(APIObject):
         Parameters
         ----------
         contents : BinaryIO, IOBase
-            File-like, readable object
+            File-like, readable object.
         max_chunk_size : Optional[int]
             Size of each chunk. Default is 100MB chunks.
         """
@@ -2152,14 +2153,14 @@ class DataStage(APIObject):
 
     def upload_from_dataframe(self, source: pd.DataFrame, max_chunk_size: Optional[int] = 100 * MEGABYTE) -> None:
         """
-        Upload all parts of a dataframe to a datastage. Parts will be automatically defined.
+        This method uploads each part of a DataFrame to a data stage. Parts are automatically defined.
 
         To upload to a data stage the user will need the Data Stages feature flag enabled.
 
         Parameters
         ----------
         source : pd.DataFrame
-            Pandas dataframe containing data
+            Pandas DataFrame containing data.
         max_chunk_size : Optional[int]
             Size of each chunk. Default is 100MB chunks.
         """
@@ -2178,14 +2179,14 @@ class DataStage(APIObject):
         max_chunk_size: Optional[int] = 100 * MEGABYTE,
     ) -> None:
         """
-        Upload all parts of a local file to a datastage. Parts will be automatically defined.
+        This method uploads each part of a local file to a data stage. Parts are automatically defined.
 
         To upload to a data stage the user will need the Data Stages feature flag enabled.
 
         Parameters
         ----------
         source : str
-            Path to local file
+            Path to local file.
         max_chunk_size : Optional[int]
             Size of each chunk. Default is 100MB chunks.
         """
@@ -2204,20 +2205,20 @@ class DataStage(APIObject):
         stream_only: Optional[bool] = False,
     ) -> None:
         """
-        This will download a file from a URL and upload it as a datastage. Parts will be automatically defined.
-        Datastages do not support directly importing from a URL at this time, but this will help to make this
-        process more simple.
+        This downloads a file from a URL and uploads it as a DataStage. Parts are automatically defined.
+        DataStages don't support directly importing from a URL at this time, but this method simplifies
+        the process.
 
         To upload to a data stage the user will need the Data Stages feature flag enabled.
 
         Parameters
         ----------
         source : str
-            URL of the file
+            URL of the file.
         max_chunk_size : Optional[int]
             Size of each chunk. Default is 100MB chunks.
         max_wait : Optional[int]
-            Time in seconds after which model import is considered unsuccessful
+            Time in seconds after which model import is considered unsuccessful.
         stream_only : Optional[bool]
             Stream the file only without using temporary local storage. This method is not recommended for larger
             files. It will keep the entire request in ram during the transfer.
@@ -2248,7 +2249,7 @@ class DataStage(APIObject):
         Returns
         -------
         response: Response
-            The Dataset version created from the uploaded data
+            The Dataset version created from the uploaded data.
         """
         url = f"{self.url}{self.id}/finalize/"
         response = self._client.post(url)

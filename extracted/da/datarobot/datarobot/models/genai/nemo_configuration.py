@@ -113,7 +113,7 @@ class NemoFileContents(APIObject):
     config_yaml_file_contents : str
         The contents of the config YAML file.
     flow_definition_file_contents : str
-        The contents of the flow definition fle.
+        The contents of the flow definition file.
     prompts_file_contents : str
         The contents of the prompts file.
     """
@@ -153,7 +153,7 @@ class NemoFileContentsResponse(APIObject):
     config_yaml_file_contents : str
         The contents of the config YAML file.
     flow_definition_file_contents : str
-        The contents of the flow definition fle.
+        The contents of the flow definition file.
     prompts_file_contents : str
         The contents of the prompts file.
     """
@@ -260,7 +260,7 @@ class NemoConfiguration(APIObject):
         Parameters
         ----------
         playground: str or Playground
-            The playground to get the configuration for
+            The playground to get the configuration for.
 
         Returns
         -------
@@ -290,12 +290,12 @@ class NemoConfiguration(APIObject):
         response_pipeline_template_id: Union[str, None] = None,
     ) -> NemoConfiguration:
         """
-        Create or update the nemo configuration for a playground.
+        Creates a new nemo configuration or updates an existing one for a playground.
 
         Parameters
         ----------
         playground: str or Playground
-            The playground for the configuration
+            The playground for the configuration.
         blocked_terms_file_contents: str
             The contents of the blocked terms file.
         prompt_pipeline_metric_name: Optional[str]

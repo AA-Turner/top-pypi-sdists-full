@@ -1,0 +1,27 @@
+from victron_ble.devices import (
+    BatteryMonitor,
+    BatterySense,
+    DcEnergyMeter,
+    SolarCharger,
+    detect_device_type,
+)
+
+
+def test_unknown_device_type() -> None:
+    assert detect_device_type(bytes.fromhex("1002000000")) == None
+
+
+def test_battery_monitor_discovery() -> None:
+    assert detect_device_type(bytes.fromhex("100289a302")) == BatteryMonitor
+
+
+def test_dc_energy_discovery() -> None:
+    assert detect_device_type(bytes.fromhex("100289a30d")) == DcEnergyMeter
+
+
+def test_battery_sense_discovery() -> None:
+    assert detect_device_type(bytes.fromhex("1002a4a302")) == BatterySense
+
+
+def test_solar_charger_discovery() -> None:
+    assert detect_device_type(bytes.fromhex("100242a001")) == SolarCharger

@@ -1,0 +1,59 @@
+Metadata-Version: 2.5
+Name: livekit-plugins-fishaudio
+Version: 1.7.1
+Summary: Agent Framework plugin for voice synthesis with Fish Audio's API.
+Project-URL: Documentation, https://docs.livekit.io
+Project-URL: Website, https://livekit.io/
+Project-URL: Source, https://github.com/livekit/agents
+Author-email: LiveKit <hello@livekit.io>
+License-Expression: Apache-2.0
+Keywords: ai,audio,fishaudio,livekit,realtime,video,voice
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Multimedia :: Sound/Audio
+Classifier: Topic :: Multimedia :: Video
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10.0
+Requires-Dist: livekit-agents[codecs]>=1.7.1
+Requires-Dist: msgpack>=1.0
+Description-Content-Type: text/markdown
+
+# Fish Audio plugin for LiveKit Agents
+
+Support for voice synthesis with [Fish Audio](https://fish.audio/).
+
+- Docs: `https://docs.fish.audio/`
+
+## Installation
+
+```bash
+pip install livekit-plugins-fishaudio
+```
+
+## Prerequisites
+
+Obtain an API key from Fish Audio.
+
+Set the API key as an environment variable:
+
+```
+FISH_API_KEY=<your_api_key>
+```
+
+## Usage
+
+```python
+from livekit.agents import AgentSession
+from livekit.plugins import fishaudio
+
+# Basic usage with env-based credentials
+tts = fishaudio.TTS()
+
+session = AgentSession(
+    tts=tts,
+    # ... stt, llm, etc.
+)
+```

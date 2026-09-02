@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-ecr-deployment
-Version: 4.2.57
+Version: 4.2.60
 Summary: CDK construct to deploy docker image to Amazon ECR
 Home-page: https://github.com/cdklabs/cdk-ecr-deployment
 Author: Amazon Web Services<aws-cdk-dev@amazon.com>
@@ -24,7 +24,7 @@ License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.80.0
 Requires-Dist: constructs<11.0.0,>=10.5.1
-Requires-Dist: jsii<2.0.0,>=1.139.0
+Requires-Dist: jsii<2.0.0,>=1.140.0
 Requires-Dist: publication>=0.0.3
 
 # cdk-ecr-deployment

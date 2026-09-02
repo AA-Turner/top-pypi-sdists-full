@@ -95,11 +95,11 @@ class CustomModelValidation(APIObject):
         The data that will be used for accessing the deployment prediction server.
         This field is only available for deployments that pass validation.
         Dict fields are as follows:
-        - prediction_api_url - The URL for the deployment prediction server.
-        - datarobot_key - The first of two auth headers for the prediction server.
-        - authorization_header - The second of two auth headers for the prediction server.
-        - input_type - The input type the model expects, either JSON or CSV.
-        - model_type - The target type of the deployed custom model.
+        - ``prediction_api_url``: The URL for the deployment prediction server.
+        - ``datarobot_key``: The first of two auth headers for the prediction server.
+        - ``authorization_header``: The second of two auth headers for the prediction server.
+        - ``input_type``: The input type the model expects, either JSON or CSV.
+        - ``model_type``: The target type of the deployed custom model.
     tenant_id : str
         The creating user's tenant ID.
     name : str
@@ -165,7 +165,7 @@ class CustomModelValidation(APIObject):
     @classmethod
     def get(cls, validation_id: str) -> CustomModelValidation:
         """
-        Get the validation record by id.
+        Get the validation record by ID.
 
         Parameters
         ----------
@@ -344,16 +344,16 @@ class NonChatAwareCustomModelValidation(CustomModelValidation):
     model_id : str
         The ID of the underlying deployed model, which can be found using `Deployment.model["id"]`.
     validation_status : str
-        Can be TESTING, FAILED and PASSED. Only PASSED allowed for use.
+        Can be TESTING, FAILED, or PASSED. Only PASSED is allowed for use.
     deployment_access_data : dict, optional
         The data that will be used for accessing the deployment prediction server.
         This field is only available for deployments that pass validation.
         Dict fields are as follows:
-        - prediction_api_url - The URL for the deployment prediction server.
-        - datarobot_key - The first of two auth headers for the prediction server.
-        - authorization_header - The second of two auth headers for the prediction server.
-        - input_type - The input type the model expects, either JSON or CSV.
-        - model_type - The target type of the deployed custom model.
+        - ``prediction_api_url``: The URL for the deployment prediction server.
+        - ``datarobot_key``: The first of two auth headers for the prediction server.
+        - ``authorization_header``: The second of two auth headers for the prediction server.
+        - ``input_type``: The input type the model expects, either JSON or CSV.
+        - ``model_type``: The target type of the deployed custom model.
     tenant_id : str
         The creating user's tenant ID.
     name : str

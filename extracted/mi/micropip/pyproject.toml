@@ -1,0 +1,99 @@
+[project]
+name = "micropip"
+authors = [
+  { name="Pyodide developers"},
+]
+description = "A lightweight Python package installer for the web"
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.13"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+  "pytest-httpserver",
+  "pytest-pyodide",
+  "pytest-cov",
+  "pytest",
+  "build",
+  "pyodide-lock",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pyodide/micropip"
+"Bug Tracker" = "https://github.com/pyodide/micropip/issues"
+
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+
+build-backend = "hatchling.build"
+
+# Versioning via hatch-vcs
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "micropip/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "micropip/_vendored/packaging/.git",
+  "micropip/_vendored/packaging/.github/**",
+  "micropip/_vendored/packaging/.gitignore",
+  "micropip/_vendored/packaging/docs/**",
+  "micropip/_vendored/packaging/tasks/**",
+  "micropip/_vendored/packaging/tests/**",
+  "micropip/_vendored/packaging/.pre-commit-config.yaml",
+  "micropip/_vendored/packaging/.readthedocs.yml",
+  "micropip/_vendored/packaging/CHANGELOG.rst",
+  "micropip/_vendored/packaging/CONTRIBUTING.rst",
+  "micropip/_vendored/packaging/noxfile.py",
+  "micropip/_vendored/packaging/pyproject.toml",
+  "micropip/_vendored/packaging/SECURITY.md",
+]
+
+[tool.ruff]
+exclude = ["micropip/_vendored/"]
+line-length = 120
+lint.select = [
+  "B",     # bugbear
+  "C4",    # flake8-comprehensions
+  "C90",   # mccabe code complexity
+  "E",     # pycodestyle errors
+  "F",     # pyflakes
+  "G",     # flake8-logging-format
+  "I",     # isort
+  "PERF",  # perflint
+  "PGH",   # pygrep-hooks
+  "UP",    # pyupgrade
+  "W",     # pycodestyle whitespace
+]
+lint.flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+lint.mccabe.max-complexity = 13
+target-version = "py312"
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "micropip"
+]
+
+[tool.mypy]
+exclude = ["micropip/_vendored/"]
+python_version = "3.13"
+show_error_codes = true
+warn_unreachable = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "micropip._vendored.*"
+warn_unreachable = false
+
+[tool.pytest.ini_options]
+addopts = "--ignore=micropip/_vendored --ignore=micropip/_compat --doctest-modules"

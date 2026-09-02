@@ -154,7 +154,7 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
         data: Dict[str, Any],  # type: ignore[override]
         keep_attrs: Optional[Iterable[str]] = None,
     ) -> Self:
-        """Override from_server_data to handle paginated responses"""
+        """Override ``from_server_data`` to handle paginated responses."""
         if all(attrib in data for attrib in ["count", "next", "previous"]):
             # If true, the data response is a paginated response from a compute command and the data
             # entity should be unwrapped. There should only be one response.
@@ -219,8 +219,8 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
         external_dataset_id: Optional[str]
             External dataset ID to use when computing the insight.
         entity_type: Optional[ENTITY_TYPES]
-            The type of the entity associated with the insight. Select one of the ENTITY_TYPE enum
-            values, or accept the default, "datarobotModel".
+            The type of the entity associated with the insight. Select one of the ``ENTITY_TYPE``
+            values, or accept the default, ``datarobotModel``.
         quick_compute: Optional[bool]
             Sets whether to use quick-compute for the insight. If `True` or unspecified, the insight
             is computed using a 2500-row data sample. If `False`, the insight is computed using all
@@ -270,8 +270,8 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
         external_dataset_id: Optional[str]
             External dataset ID to use when computing the insight.
         entity_type: Optional[ENTITY_TYPES]
-            The type of the entity associated with the insight. Select one of the ENTITY_TYPE enum
-            values, or accept the default, "datarobotModel".
+            The type of the entity associated with the insight. Select one of the ``ENTITY_TYPE``
+            values, or accept the default, ``datarobotModel``.
         quick_compute: Optional[bool]
             Sets whether to use quick-compute for the insight. If `True` or unspecified, the insight
             is computed using a 2500-row data sample. If `False`, the insight is computed using all
@@ -297,7 +297,7 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
 
     @classmethod
     def list(cls, entity_id: str) -> List[Self]:
-        """List all generated insights.
+        """Returns a list of all generated insights.
 
         Parameters
         ----------
@@ -320,7 +320,7 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
         quick_compute: Optional[bool] = None,
         **kwargs: Any,
     ) -> Self:
-        """Return the first matching insight based on the entity id and kwargs.
+        """Returns the first matching insight based on the entity ID and kwargs.
 
         Parameters
         ----------
@@ -330,7 +330,7 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
             The source type to use when retrieving the insight.
         quick_compute: Optional[bool]
             Sets whether to retrieve the insight that was computed using quick-compute. If not
-            specified, quick_compute is not used for matching.
+            specified, ``quick_compute`` is not used for matching.
 
         Returns
         -------

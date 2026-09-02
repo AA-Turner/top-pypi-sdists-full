@@ -1,0 +1,262 @@
+
+#include <pybind11/chrono.h>
+#include <pybind11/functional.h>
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <memory>
+
+#include <cstdint>
+
+#include "aligned_buffer.hpp"
+#include "bin.hpp"
+#include "daqlist.hpp"
+#include "mcobject.hpp"
+#include "eth_utils.hpp"
+#include "eth_ptp.hpp"
+
+namespace py = pybind11;
+using namespace pybind11::literals;
+
+class PyTimestampInfo : public TimestampInfo {
+   public:
+
+    using TimestampInfo::TimestampInfo;
+};
+
+py::dict mcobject_asdict(const McObject& self) {
+    py::dict d;
+    d["name"] = self.get_name();
+    d["address"] = self.get_address();
+    d["ext"] = self.get_ext();
+    d["length"] = self.get_length();
+    d["data_type"] = self.get_data_type();
+    py::list components_list;
+    for (const auto& component : self.get_components()) {
+        components_list.append(mcobject_asdict(component));
+    }
+    d["components"] = components_list;
+    return d;
+}
+
+
+PYBIND11_MODULE(cpp_ext, m) {
+    m.doc() = "C++ extensions for pyXCP.";
+
+    py::class_<TimestampingInfo>(m, "TimestampingInfo")
+        .def_readonly("interface_name", &TimestampingInfo::interface_name)
+        .def_readonly("timestamping_supported", &TimestampingInfo::timestamping_supported)
+        .def_readonly("rx_hardware", &TimestampingInfo::rx_handware)
+        .def_readonly("tx_hardware", &TimestampingInfo::tx_hardware)
+        .def("__repr__", [](const TimestampingInfo &t) {
+            return "<TimestampingInfo supported=" +
+                   std::string(t.timestamping_supported ? "True" : "False") +
+                   " rx_hw=" + (t.rx_handware ? "True" : "False") +
+                   " tx_hw=" + (t.tx_hardware ? "True" : "False") + ">";
+        })
+        .def("__str__", [](const TimestampingInfo &t) {
+            return std::string("timestamping_supported=") +
+                   (t.timestamping_supported ? "True" : "False") +
+                   ", rx_hardware=" + (t.rx_handware ? "True" : "False") +
+                   ", tx_hardware=" + (t.tx_hardware ? "True" : "False");
+        });
+
+    m.def("check_timestamping_support", &check_timestamping_support, "host_name"_a);
+    m.def("init_networking", &init_networking);
+    m.def("get_ipv4_interfaces", []() {
+        auto interfaces = get_ipv4_interfaces();
+        py::list result;
+        for (const auto& iface : interfaces) {
+            py::list entry;
+            entry.append(iface.first);
+            entry.append(iface.second);
+            result.append(entry);
+        }
+        return result;
+    });
+
+    py::class_<McObject>(m, "McObject")
+        .def(
+            py::init<
+                std::string_view, std::uint32_t, std::uint8_t, std::uint16_t, const std::string&, const std::vector<McObject>&>(),
+            "name"_a, "address"_a, "ext"_a, "length"_a, "data_type"_a = "", "components"_a = std::vector<McObject>()
+        )
+        .def_property("name", &McObject::get_name, &McObject::set_name)
+        .def_property("address", &McObject::get_address, &McObject::set_address)
+        .def_property("ext", &McObject::get_ext, &McObject::set_ext)
+        .def_property("length", &McObject::get_length, &McObject::set_length)
+        .def_property("data_type", &McObject::get_data_type, &McObject::set_data_type)
+        .def_property_readonly("components", &McObject::get_components)
+
+        .def("add_component", &McObject::add_component, "component"_a)
+        .def("asdict", &mcobject_asdict)
+        .def("__eq__", [](const McObject& self, const McObject& other) { return self == other; })
+        .def("__repr__", [](const McObject& self) { return to_string(self); })
+        .def("__hash__", [](const McObject& self) { return self.get_hash(); })
+        ;
+
+    py::class_<Bin>(m, "Bin")
+        .def(py::init<std::uint16_t>(), "size"_a)
+        .def_property("size", &Bin::get_size, &Bin::set_size)
+        .def_property("residual_capacity", &Bin::get_residual_capacity, &Bin::set_residual_capacity)
+        .def_property("entries", &Bin::get_entries, nullptr)
+        .def("append", &Bin::append)
+        .def("asdict", [](const Bin& self) {
+            py::dict d;
+            d["size"] = self.get_size();
+            d["residual_capacity"] = self.get_residual_capacity();
+            py::list entries_list;
+            for (const auto& entry : self.get_entries()) {
+                entries_list.append(mcobject_asdict(entry));
+            }
+            d["entries"] = entries_list;
+            return d;
+        })
+        .def("__repr__", [](const Bin& self) { return to_string(self); })
+        .def("__eq__", [](const Bin& self, const Bin& other) { return self == other; })
+        .def("__len__", [](const Bin& self) { return std::size(self.get_entries()); });
+
+    py::class_<DaqListBase, std::shared_ptr<DaqListBase>>(m, "DaqListBase")
+        .def_property("name", &DaqListBase::get_name, nullptr)
+        .def_property("event_num", &DaqListBase::get_event_num, &DaqListBase::set_event_num)
+        .def_property("priority", &DaqListBase::get_priority, nullptr)
+        .def_property("prescaler", &DaqListBase::get_prescaler, nullptr)
+        .def_property("stim", &DaqListBase::get_stim, nullptr)
+        .def_property("enable_timestamps", &DaqListBase::get_enable_timestamps, nullptr)
+        .def_property("measurements_opt", &DaqListBase::get_measurements_opt, &DaqListBase::set_measurements_opt)
+        .def_property("headers", &DaqListBase::get_headers, nullptr)
+        .def_property("odt_count", &DaqListBase::get_odt_count, nullptr)
+        .def_property("total_entries", &DaqListBase::get_total_entries, nullptr)
+        .def_property("total_length", &DaqListBase::get_total_length, nullptr)
+        .def_property("packed_mode", &DaqListBase::get_packed_mode, &DaqListBase::set_packed_mode)
+        .def_property("packed_ts_mode", &DaqListBase::get_packed_ts_mode, &DaqListBase::set_packed_ts_mode)
+        .def_property("packed_sample_count", &DaqListBase::get_packed_sample_count, &DaqListBase::set_packed_sample_count)
+        .def("asdict", [](const DaqListBase& self) {
+            py::dict d;
+            d["name"] = self.get_name();
+            d["event_num"] = self.get_event_num();
+            d["priority"] = self.get_priority();
+            d["prescaler"] = self.get_prescaler();
+            d["stim"] = self.get_stim();
+            d["enable_timestamps"] = self.get_enable_timestamps();
+            d["measurements_opt"] = self.get_measurements_opt();
+            d["headers"] = self.get_headers();
+            d["odt_count"] = self.get_odt_count();
+            d["total_entries"] = self.get_total_entries();
+            d["total_length"] = self.get_total_length();
+            d["packed_mode"] = self.get_packed_mode();
+            d["packed_ts_mode"] = self.get_packed_ts_mode();
+            d["packed_sample_count"] = self.get_packed_sample_count();
+            return d;
+        });
+
+    py::class_<DaqList, DaqListBase, std::shared_ptr<DaqList>>(m, "DaqList")
+        .def(
+            py::init<std::string_view, std::uint16_t, bool, bool, const std::vector<DaqList::daq_list_initialzer_t>&,
+            std::uint8_t, std::uint8_t>(), "name"_a, "event_num"_a, "stim"_a, "enable_timestamps"_a, "measurements"_a,
+            "priority"_a=0, "prescaler"_a=1
+        )
+        .def("__repr__", [](const DaqList& self) { return self.to_string(); })
+        .def_property("measurements", &DaqList::get_measurements, nullptr)
+        .def("asdict", [](const DaqList& self) {
+            py::dict d;
+            d["name"] = self.get_name();
+            d["event_num"] = self.get_event_num();
+            d["priority"] = self.get_priority();
+            d["prescaler"] = self.get_prescaler();
+            d["stim"] = self.get_stim();
+            d["enable_timestamps"] = self.get_enable_timestamps();
+            d["measurements_opt"] = self.get_measurements_opt();
+            d["headers"] = self.get_headers();
+            d["odt_count"] = self.get_odt_count();
+            d["total_entries"] = self.get_total_entries();
+            d["total_length"] = self.get_total_length();
+            d["packed_mode"] = self.get_packed_mode();
+            d["packed_ts_mode"] = self.get_packed_ts_mode();
+            d["packed_sample_count"] = self.get_packed_sample_count();
+            py::list measurements_list;
+            for (const auto& measurement : self.get_measurements()) {
+                measurements_list.append(mcobject_asdict(measurement));
+            }
+            d["measurements"] = measurements_list;
+            return d;
+        });
+
+    py::class_<PredefinedDaqList, DaqListBase, std::shared_ptr<PredefinedDaqList>>(m, "PredefinedDaqList")
+        .def(
+            py::init<std::string_view, std::uint16_t, bool, bool, const PredefinedDaqList::predefined_daq_list_initializer_t&,
+            std::uint8_t, std::uint8_t>(), "name"_a, "event_num"_a, "stim"_a, "enable_timestamps"_a, "odts"_a,
+            "priority"_a=0, "prescaler"_a=1
+        )
+        .def("__repr__", [](const PredefinedDaqList& self) {
+            try {
+                return self.to_string();
+            } catch (const std::exception& e) {
+                return std::string("PredefinedDaqList(<repr error: ") + e.what() + ">)";
+            } catch (...) {
+                return std::string("PredefinedDaqList(<repr error: unknown>)");
+            }
+        })
+        .def("asdict", [](const PredefinedDaqList& self) {
+            py::dict d;
+            d["name"] = self.get_name();
+            d["event_num"] = self.get_event_num();
+            d["priority"] = self.get_priority();
+            d["prescaler"] = self.get_prescaler();
+            d["stim"] = self.get_stim();
+            d["enable_timestamps"] = self.get_enable_timestamps();
+            d["measurements_opt"] = self.get_measurements_opt();
+            d["headers"] = self.get_headers();
+            d["odt_count"] = self.get_odt_count();
+            d["total_entries"] = self.get_total_entries();
+            d["total_length"] = self.get_total_length();
+            d["packed_mode"] = self.get_packed_mode();
+            d["packed_ts_mode"] = self.get_packed_ts_mode();
+            d["packed_sample_count"] = self.get_packed_sample_count();
+            return d;
+        })
+		;
+
+    // Aligned buffer utility
+    py::class_<AlignedBuffer>(m, "AlignedBuffer")
+        .def(py::init<std::size_t>(), py::arg("size") = 0xffff)
+        .def("reset", &AlignedBuffer::reset)
+        .def("append", &AlignedBuffer::append, py::arg("value"))
+        .def("extend", py::overload_cast<const py::bytes&>(&AlignedBuffer::extend))
+        .def("extend", py::overload_cast<const std::vector<std::uint8_t>&>(&AlignedBuffer::extend))
+        .def("__len__", [](const AlignedBuffer& self) { return self.size(); })
+        .def("__getitem__", [](const AlignedBuffer& self, py::object index) { return self.get_item(index); });
+
+
+    py::enum_<TimestampType>(m, "TimestampType")
+        .value("ABSOLUTE_TS", TimestampType::ABSOLUTE_TS)
+        .value("RELATIVE_TS", TimestampType::RELATIVE_TS);
+
+    py::class_<Timestamp>(m, "Timestamp")
+        .def(py::init<TimestampType>(), "ts_type"_a)
+        .def_property_readonly("absolute", &Timestamp::absolute)
+        .def_property_readonly("relative", &Timestamp::relative)
+        .def_property_readonly("value", &Timestamp::get_value)
+        .def_property_readonly("initial_value", &Timestamp::get_initial_value);
+
+    py::class_<TimestampInfo, PyTimestampInfo>(m, "TimestampInfo", py::dynamic_attr())
+        .def(py::init<std::uint64_t>())
+        .def(py::init<std::uint64_t, const std::string&, std::int16_t, std::int16_t>())
+
+        .def_property_readonly("timestamp_ns", &TimestampInfo::get_timestamp_ns)
+        .def_property("utc_offset", &TimestampInfo::get_utc_offset, &TimestampInfo::set_utc_offset)
+        .def_property("dst_offset", &TimestampInfo::get_dst_offset, &TimestampInfo::set_dst_offset)
+        .def_property("timezone", &TimestampInfo::get_timezone, &TimestampInfo::set_timezone);
+
+    py::class_<PtpCapabilities>(m, "PtpCapabilities")
+        .def_readonly("hw_transmit", &PtpCapabilities::hw_transmit)
+        .def_readonly("hw_receive", &PtpCapabilities::hw_receive)
+        .def_readonly("hw_raw_all", &PtpCapabilities::hw_raw_all)
+        .def_readonly("sw_transmit", &PtpCapabilities::sw_transmit)
+        .def_readonly("sw_receive", &PtpCapabilities::sw_receive);
+
+    m.def("get_ptp_capabilities", &EthPtp::get_capabilities, "interface_name"_a);
+    m.def("enable_ptp_timestamping", &EthPtp::enable_timestamping, "socket_fd"_a);
+    m.def("receive_with_timestamp", &EthPtp::receive_with_timestamp, "socket_fd"_a, "max_size"_a);
+
+}

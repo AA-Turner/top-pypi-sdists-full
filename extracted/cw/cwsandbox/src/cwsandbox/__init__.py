@@ -6,14 +6,14 @@
 
 from __future__ import annotations
 
-__version__ = "1.7.0"
+__version__ = "1.12.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 # Import cleanup module to install atexit and signal handlers
 from cwsandbox import _cleanup as _cleanup  # noqa: F401
-from cwsandbox._auth import AuthHeaders, set_auth_mode
+from cwsandbox._auth import AuthConfig, AuthHeaders, AuthProvider, AuthStrategy, set_auth_mode
 from cwsandbox._defaults import SandboxDefaults
 from cwsandbox._discovery import (
     Runner,
@@ -25,9 +25,12 @@ from cwsandbox._discovery import (
 )
 from cwsandbox._function import RemoteFunction
 from cwsandbox._loop_manager import _LoopManager
-from cwsandbox._sandbox import Sandbox, SandboxStatus
+from cwsandbox._sandbox import ContainerStatus, Sandbox, SandboxStatus
 from cwsandbox._session import Session
 from cwsandbox._types import (
+    CidrBlock,
+    Container,
+    DataPlaneMode,
     EgressRule,
     Endpoint,
     EndpointAuth,
@@ -38,24 +41,36 @@ from cwsandbox._types import (
     FileSystemSnapshotOptions,
     FileSystemSnapshotStatus,
     FileSystemSnapshotTrigger,
+    HttpsEndpointStatus,
     ImagePullCredentials,
+    IngressRule,
     NetworkOptions,
+    ObjectStorageAccess,
+    ObjectStoragePermission,
     OperationRef,
     PlacementMode,
     PlacementSpillover,
+    PortRange,
     Process,
     ProcessResult,
+    RegisteredVolumeOptions,
     ResourceOptions,
     ScratchVolumeOptions,
     Secret,
+    SecurityContext,
+    SelectorBlock,
     Service,
     ServiceProtocol,
     ServiceVisibility,
+    StorageMedium,
     StreamReader,
     StreamWriter,
+    TenantScope,
     TerminalResult,
     TerminalSession,
+    VolumeMount,
 )
+from cwsandbox._volume import PvcVolumeSource, Volume, VolumeLocality, VolumeState
 from cwsandbox.exceptions import (
     AsyncFunctionError,
     CWSandboxAuthenticationError,
@@ -92,6 +107,18 @@ from cwsandbox.exceptions import (
     SnapshotQuotaExceededError,
     SnapshotSizeExceededError,
     SnapshotWaitTimeoutError,
+    VolumeBackendNotFoundError,
+    VolumeError,
+    VolumeInUseError,
+    VolumeNotFoundError,
+    VolumeNotReadyError,
+    VolumeNotSnapshottableError,
+    VolumePlacementConflictError,
+    VolumeQuotaExceededError,
+    VolumeRunnerIneligibleError,
+    VolumeRunnerUnavailableError,
+    VolumeTypeNotSupportedError,
+    VolumeWaitTimeoutError,
 )
 
 if TYPE_CHECKING:
@@ -286,11 +313,18 @@ async def _wait_async(
 
 __all__ = [
     "__version__",
+    "AuthConfig",
     "AuthHeaders",
+    "AuthStrategy",
+    "AuthProvider",
     "AsyncFunctionError",
     "CWSandboxAuthenticationError",
     "CWSandboxError",
     "CWSandboxValidationError",
+    "CidrBlock",
+    "Container",
+    "ContainerStatus",
+    "DataPlaneMode",
     "DiscoveryError",
     "DiscoveryValidationError",
     "EgressRule",
@@ -305,14 +339,21 @@ __all__ = [
     "FileSystemSnapshotStatus",
     "FileSystemSnapshotTrigger",
     "FunctionError",
+    "HttpsEndpointStatus",
     "ImagePullCredentials",
+    "IngressRule",
     "get_runner",
     "list_runners",
     "NetworkOptions",
+    "ObjectStorageAccess",
+    "ObjectStoragePermission",
     "OperationRef",
     "PlacementMode",
     "PlacementSpillover",
+    "PortRange",
     "Process",
+    "PvcVolumeSource",
+    "RegisteredVolumeOptions",
     "ProcessResult",
     "RemoteFunction",
     "ResourceOptions",
@@ -321,9 +362,12 @@ __all__ = [
     "RunnerResources",
     "ScratchVolumeOptions",
     "Secret",
+    "SecurityContext",
+    "SelectorBlock",
     "Service",
     "ServiceProtocol",
     "ServiceVisibility",
+    "StorageMedium",
     "set_auth_mode",
     "Sandbox",
     "SandboxCommandTimeoutError",
@@ -355,10 +399,27 @@ __all__ = [
     "SnapshotSizeExceededError",
     "SnapshotWaitTimeoutError",
     "Session",
+    "TenantScope",
     "StreamReader",
     "StreamWriter",
     "TerminalResult",
     "TerminalSession",
+    "Volume",
+    "VolumeBackendNotFoundError",
+    "VolumeError",
+    "VolumeInUseError",
+    "VolumeLocality",
+    "VolumeMount",
+    "VolumeNotFoundError",
+    "VolumeNotReadyError",
+    "VolumeNotSnapshottableError",
+    "VolumePlacementConflictError",
+    "VolumeQuotaExceededError",
+    "VolumeRunnerIneligibleError",
+    "VolumeRunnerUnavailableError",
+    "VolumeState",
+    "VolumeTypeNotSupportedError",
+    "VolumeWaitTimeoutError",
     "Waitable",
     "format_bytes",
     "format_cpu",

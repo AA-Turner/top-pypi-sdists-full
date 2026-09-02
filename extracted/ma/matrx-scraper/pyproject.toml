@@ -1,0 +1,149 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "matrx-scraper"
+version = "0.2.154"
+description = "Web scraping engine, HTML parsing, and search integration for the Matrx ecosystem"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Matrx", email = "admin@aimatrx.com" }
+]
+maintainers = [
+    { name = "Matrx", email = "admin@aimatrx.com" }
+]
+keywords = [
+    "scraping",
+    "web-scraping",
+    "html",
+    "parsing",
+    "crawler",
+    "search",
+    "matrx",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    # Used package-wide for wire shapes (events, contracts, seo_audit verdicts);
+    # it had been arriving transitively, which a bare-venv install cannot rely on.
+    "pydantic>=2.12",
+    "beautifulsoup4>=4.12",
+    "selectolax>=0.3.21",
+    "markdownify>=0.13",
+    "tldextract>=5.1",
+    "tabulate>=0.9",
+    "python-dotenv>=1.0",
+    # web_crawl/schedules.py imports detached_task at module scope; detached_task
+    # and the package's utcnow imports were first exported by matrx-utils 1.1.0.
+    "matrx-utils>=2.0.29",
+    "matrx-files>=0.2.124",
+    "croniter>=2.0",
+]
+
+[project.optional-dependencies]
+browser = ["playwright>=1.45", "curl-cffi>=0.7"]
+# Enables the Cloud Browser checkpoint/crypto engine
+# (matrx_scraper.cloud_browser.checkpoint): AES-256-GCM envelope encryption over a
+# tar+zstd profile archive, KMS-wrapped per-checkpoint DEK, verification, restore,
+# and cryptographic deletion. Pure library; needs no browser and no DB. The local-dev
+# key-wrap provider additionally reads the secrets battery, which arrives with [db].
+cloud_browser = ["cryptography>=41", "zstandard>=0.22"]
+# >=1.27 (never with `pymupdfb`): PyMuPDF bundles MuPDF itself since 1.25, and
+# the separate PyMuPDFb wheel overwrites pymupdf/libmupdfcpp.so — install both
+# and the native lib that survives depends on install order. See root pyproject.
+pdf = ["pymupdf>=1.27"]
+ocr = ["pytesseract>=0.3.13", "pillow>=11.0"]
+# 0.1.25 is the first matrx-connect whose matrx-utils floor is correct; every
+# earlier release can resolve matrx-utils 2.0.0 and ImportError on AsyncSingleFlight.
+connect = ["matrx-connect>=0.1.72"]
+# Enables matrx-orm-backed persistence: the package OWNS the `scraper.*` schema
+# (models + bind seam + default ORM crawl persistence), the matrx-rag/runtime
+# "own-the-schema, bind-the-host-pool" pattern. Without this extra the engine
+# still scrapes/crawls; it just persists nothing (host injects its own seams).
+# 3.1.49 is LOAD-BEARING, not cosmetic: db/__init__.py imports
+# PLATFORM_DB_ENV_PREFIX / platform_connection_url / register_platform_db (the
+# ONE-database resolver), and 3.1.48 and earlier do not export them. The old
+# `>=3.0` floor resolved a pair that raises `ImportError: cannot import name
+# 'PLATFORM_DB_ENV_PREFIX' from 'matrx_orm'` — which is exactly how matrx-local
+# (matrx-orm 3.1.16) died on `from matrx_scraper.cache import MemoryCache`.
+# Same defect class as MXL-D-075. Do not lower it.
+db = ["matrx-orm>=3.1.124"]
+# Enables the DURABLE crawl frontier (RuntimeWorkQueueBackend over the matrx-runtime
+# work queue) so a deploy/OOM/restart mid-crawl is a non-event. Without this extra the
+# crawler runs on the in-memory frontier (fine for short runs; no resume).
+durable = ["matrx-runtime>=0.0.78"]
+# Enables the matrx_scraper.graph_nodes submodule — optional, since the
+# core scraper has no need to know about workflow orchestration.
+graph = ["matrx-graph>=0.2.122"]
+# Enables MinHash/SimHash-based near-duplicate detection in the parser.
+# Without this extra the parser still works; hashing fields are just empty.
+dedup = ["datasketch>=1.6", "simhash>=2.1", "cachetools>=5.3"]
+# Enables structured metadata extraction (schema.org, OpenGraph, etc.).
+# Without this extra the parser still works; metadata fields stay empty.
+metadata = ["extruct>=0.18"]
+server = [
+    "matrx-scraper[browser]",
+    "matrx-scraper[db]",
+    "matrx-scraper[metadata]",
+    # The server host REQUIRES the durable frontier — omitting it here is how
+    # matrx_runtime was silently absent from the EC2 image and every crawl ran
+    # (and died) on the in-memory frontier (FOUND_DEFECTS 2026-07-29).
+    "matrx-scraper[durable]",
+    "matrx-connect>=0.1.72",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "asyncpg>=0.31.0",
+    "python-dotenv>=1.0",
+    "cachetools>=5.3",
+]
+all = [
+    "matrx-scraper[browser]",
+    "matrx-scraper[pdf]",
+    "matrx-scraper[ocr]",
+    "matrx-scraper[db]",
+    "matrx-scraper[dedup]",
+    "matrx-scraper[metadata]",
+    "matrx-scraper[server]",
+    "matrx-scraper[graph]",
+    "matrx-scraper[durable]",
+]
+# The name matrx-package-template's `independence_gate.sh` installs to PROVE
+# independence by execution: a fresh venv, this package plus only its declared
+# siblings, then the whole test suite from an empty cwd. It is `all` — the gate
+# must exercise every surface the package advertises, not a convenient subset.
+# Run it from the aidream repo root:
+#   matrx-package-template/scripts/independence_gate.sh packages/matrx-scraper \
+#       packages/matrx-utils packages/matrx-orm packages/matrx-connect packages/matrx-files
+standalone = ["matrx-scraper[all]"]
+
+[project.urls]
+Homepage = "https://github.com/AI-Matrix-Engine/aidream-current"
+Repository = "https://github.com/AI-Matrix-Engine/aidream-current"
+Issues = "https://github.com/AI-Matrix-Engine/aidream-current/issues"
+
+[project.scripts]
+matrx-scraper = "matrx_scraper.server.__main__:main"
+
+[tool.uv.sources]
+matrx-utils = { workspace = true }
+matrx-files = { workspace = true }
+matrx-connect = { workspace = true }
+matrx-graph = { workspace = true }
+matrx-orm = { workspace = true }
+matrx-runtime = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["matrx_scraper"]

@@ -81,10 +81,12 @@ from .literals import (
     OperationTypeType,
     OriginIpAddressTypeEnumType,
     OriginProtocolPolicyEnumType,
+    PartnerStatusType,
     PortAccessTypeType,
     PortInfoSourceTypeType,
     PortStateType,
     PricingUnitType,
+    ProfileTypeType,
     R53HostedZoneDeletionStateCodeType,
     RecordStateType,
     RegionNameType,
@@ -96,6 +98,7 @@ from .literals import (
     SetupStatusType,
     StatusType,
     StatusTypeType,
+    TierNameType,
     TreatMissingDataType,
     ViewerMinimumTlsProtocolVersionEnumType,
 )
@@ -400,6 +403,7 @@ __all__ = (
     "GetOperationsRequestPaginateTypeDef",
     "GetOperationsRequestTypeDef",
     "GetOperationsResultTypeDef",
+    "GetProfileResultTypeDef",
     "GetRegionsRequestTypeDef",
     "GetRegionsResultTypeDef",
     "GetRelationalDatabaseBlueprintsRequestPaginateTypeDef",
@@ -478,6 +482,7 @@ __all__ = (
     "OperationTypeDef",
     "OriginTypeDef",
     "PaginatorConfigTypeDef",
+    "PartnerInfoTypeDef",
     "PasswordDataTypeDef",
     "PeerVpcResultTypeDef",
     "PendingMaintenanceActionTypeDef",
@@ -1329,6 +1334,12 @@ class GetOperationsForResourceRequestTypeDef(TypedDict):
 
 class GetOperationsRequestTypeDef(TypedDict):
     pageToken: NotRequired[str]
+
+
+class PartnerInfoTypeDef(TypedDict):
+    enrolledAt: datetime
+    status: PartnerStatusType
+    tierName: NotRequired[TierNameType]
 
 
 class GetRegionsRequestTypeDef(TypedDict):
@@ -2398,6 +2409,12 @@ class GetInstanceStateResultTypeDef(TypedDict):
 class GetLoadBalancerTlsPoliciesResultTypeDef(TypedDict):
     tlsPolicies: list[LoadBalancerTlsPolicyTypeDef]
     nextPageToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetProfileResultTypeDef(TypedDict):
+    profileType: ProfileTypeType
+    partner: PartnerInfoTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

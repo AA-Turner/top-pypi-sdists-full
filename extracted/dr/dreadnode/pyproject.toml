@@ -1,6 +1,6 @@
 [project]
 name = "dreadnode"
-version = "2.0.41"
+version = "2.0.42"
 description = "Dreadnode SDK"
 authors = [{ name = "Dreadnode Team", email = "support@dreadnode.io" }]
 readme = "README.md"
@@ -201,6 +201,7 @@ markers = [
     "rpc: tests for RPC endpoint integration",
     "deploy: live deploy validation tests for post-deploy CI checks",
     "deploy_tui: live TUI deploy validation tests",
+    "deploy_tui_write: live TUI write-journey tests (sandbox, secrets, evaluations)",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 

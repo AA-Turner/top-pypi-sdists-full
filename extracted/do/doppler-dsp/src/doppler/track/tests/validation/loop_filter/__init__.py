@@ -1,1 +1,0 @@
-"""LoopFilter certification evidence."""

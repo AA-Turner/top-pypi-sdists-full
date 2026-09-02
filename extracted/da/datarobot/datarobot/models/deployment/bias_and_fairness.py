@@ -43,19 +43,19 @@ class FairnessScoresOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     Attributes
     ----------
     buckets : List
-        fairness over time bucket for each model and bucket queried
+        Fairness over time bucket for each model and bucket queried.
     summary : dict
-        summary for the fairness score
+        Summary for the fairness score.
     protected_feature : str
-        name of protected feature
+        Name of the protected feature.
     fairnessThreshold : float
-        threshold used to compute fairness results
+        Threshold used to compute fairness results.
     modelId : str
-        model id for which fairness is computed
+        Model ID used to compute fairness.
     modelPackageId : str
-        model package (version) id for which fairness is computed
+        Model package version ID used to compute fairness.
     favorableTargetOutcome : bool
-        preferable class of the target
+        Preferable class of the target.
     """
 
     _path = "deployments/{}/fairnessScoresOverTime/"
@@ -121,31 +121,31 @@ class FairnessScoresOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         fairness_metric: Optional[str] = None,
         protected_feature: Optional[str] = None,
     ) -> FairnessScoresOverTime:
-        """Retrieve information for deployment's fairness score response over a certain time period.
+        """Retrieve information for a deployment's fairness score response over a time range.
 
         .. versionadded:: FUTURE
 
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         model_id : str
-            id of models to retrieve fairness score stats
+            ID of models to retrieve fairness score stats.
         start_time : datetime
-            start of the time period
+            Start of the time range.
         end_time : datetime
-            end of the time period
+            End of the time range.
         protected_feature : str
-            name of the protected feature
+            Name of the protected feature.
         fairness_metric : str
             A consolidation of the fairness metrics by the use case.
         bucket_size : BUCKET_SIZE
-            time duration of each bucket
+            Time duration of each bucket.
 
         Returns
         -------
         fairness_scores_over_time : FairnessScoresOverTime
-            the queried fairness score over time information
+            The queried fairness score over time information.
         """
 
         path = cls._path.format(deployment_id)

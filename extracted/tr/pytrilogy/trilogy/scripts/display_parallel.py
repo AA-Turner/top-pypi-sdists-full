@@ -1,0 +1,422 @@
+"""Display helpers for parallel execution output."""
+
+import threading
+from typing import TYPE_CHECKING, Any
+
+from typing_extensions import Self
+
+import trilogy.scripts.display_core as _core
+from trilogy.scripts.display_core import _FdStderrCapture, emit_event, is_json_mode
+
+if TYPE_CHECKING:
+    from trilogy.scripts.parallel_execution import (
+        ExecutionResult,
+        ParallelExecutionSummary,
+    )
+
+try:
+    from rich import box
+    from rich.progress import (
+        Progress,
+        SpinnerColumn,
+        TextColumn,
+        TimeElapsedColumn,
+    )
+    from rich.table import Table
+except ImportError:
+    pass
+
+
+def show_parallel_execution_start(
+    num_files: int, num_edges: int, parallelism: int, strategy: str = "eager_bfs"
+) -> None:
+    """Display parallel execution start information."""
+    if is_json_mode():
+        emit_event(
+            "parallel_start",
+            files=num_files,
+            dependencies=num_edges,
+            parallelism=parallelism,
+            strategy=strategy,
+        )
+        return
+    if _core.RICH_AVAILABLE and _core.console is not None:
+        _core.console.print("\n[bold blue]Starting parallel execution:[/bold blue]")
+        _core.console.print(f"  Files: {num_files}")
+        _core.console.print(f"  Dependencies: {num_edges}")
+        _core.console.print(f"  Max parallelism: {parallelism}")
+        _core.console.print(f"  Strategy: {strategy}")
+    else:
+        print("\nStarting parallel execution:")
+        print(f"  Files: {num_files}")
+        print(f"  Dependencies: {num_edges}")
+        print(f"  Max parallelism: {parallelism}")
+        print(f"  Strategy: {strategy}")
+
+
+def failed_script_entries(
+    summary: "ParallelExecutionSummary",
+) -> list[tuple[str, str | None]]:
+    """(label, error) for each failed result, in execution order."""
+    from trilogy.scripts.dependency import ScriptNode
+
+    return [
+        (
+            (
+                str(result.node.path)
+                if isinstance(result.node, ScriptNode)
+                else result.node.address
+            ),
+            str(result.error) if result.error else None,
+        )
+        for result in summary.results
+        if not result.success
+    ]
+
+
+def failure_report(summary: "ParallelExecutionSummary") -> str:
+    """The stderr message for a failed run.
+
+    The per-script errors are only on stdout (the summary table), so a caller
+    that keeps just stderr -- a cloud job log, a CI step -- saw that something
+    failed and nothing about what. JSON mode already carries them structured on
+    the `parallel_summary` event, so it keeps the bare sentence."""
+    headline = "Some scripts failed during execution."
+    if is_json_mode():
+        return headline
+    lines = [headline]
+    for label, error in failed_script_entries(summary):
+        lines.append(f"  ✗ {label}")
+        if error:
+            lines.append(f"    Error: {error}")
+    return "\n".join(lines)
+
+
+def _stat_row_label(noun: str, verb: str, dry_run: bool) -> str:
+    return f"{noun} That Would Be {verb}" if dry_run else f"{noun} {verb}"
+
+
+def show_parallel_execution_summary(summary: "ParallelExecutionSummary") -> None:
+    """Display parallel execution summary."""
+    from trilogy.scripts.common import ExecutionStats
+
+    total_stats = ExecutionStats()
+    for result in summary.results:
+        if result.stats:
+            total_stats = total_stats + result.stats
+
+    dry_run = total_stats.dry_run
+    title = "Execution Summary (Dry Run)" if dry_run else "Execution Summary"
+    updated_label = _stat_row_label("Datasources", "Updated", dry_run)
+    validated_label = _stat_row_label("Datasources", "Validated", dry_run)
+    persisted_label = _stat_row_label("Tables", "Persisted", dry_run)
+
+    if is_json_mode():
+        failed = [
+            {"node": node_label, "error": error}
+            for node_label, error in failed_script_entries(summary)
+        ]
+        emit_event(
+            "parallel_summary",
+            total_scripts=summary.total_scripts,
+            successful=summary.successful,
+            failed=summary.failed,
+            skipped=summary.skipped or None,
+            duration_ms=round(summary.total_duration * 1000, 3),
+            datasources_updated=total_stats.update_count or None,
+            datasources_validated=total_stats.validate_count or None,
+            tables_persisted=total_stats.persist_count or None,
+            dry_run=dry_run or None,
+            failures=failed or None,
+        )
+        return
+    if _core.RICH_AVAILABLE and _core.console is not None:
+        table = Table(title=title, show_header=False)
+        table.add_column("Metric", style=_core.COL_CYAN)
+        table.add_column("Value", style=_core.COL_WHITE)
+
+        table.add_row("Total Scripts", str(summary.total_scripts))
+        table.add_row("Successful", str(summary.successful))
+        table.add_row("Failed", str(summary.failed))
+        table.add_row("Total Duration", f"{summary.total_duration:.2f}s")
+
+        if total_stats.update_count > 0:
+            table.add_row(updated_label, str(total_stats.update_count))
+        if total_stats.validate_count > 0:
+            table.add_row(validated_label, str(total_stats.validate_count))
+        if total_stats.persist_count > 0:
+            table.add_row(persisted_label, str(total_stats.persist_count))
+
+        _core.console.print(table)
+
+        if summary.failed > 0:
+            _core.console.print("\n[bold red]Failed Scripts:[/bold red]")
+            for node_label, error in failed_script_entries(summary):
+                _core.console.print(f"  [red]\u2717[/red] {node_label}")
+                if error:
+                    _core.console.print(f"    Error: {error}")
+    else:
+        print(f"{title}:")
+        print(f"  Total Scripts: {summary.total_scripts}")
+        print(f"  Successful: {summary.successful}")
+        print(f"  Failed: {summary.failed}")
+        print(f"  Total Duration: {summary.total_duration:.2f}s")
+
+        if total_stats.update_count > 0:
+            print(f"  {updated_label}: {total_stats.update_count}")
+        if total_stats.validate_count > 0:
+            print(f"  {validated_label}: {total_stats.validate_count}")
+        if total_stats.persist_count > 0:
+            print(f"  {persisted_label}: {total_stats.persist_count}")
+
+        if summary.failed > 0:
+            print("\nFailed Scripts:")
+            for node_label, error in failed_script_entries(summary):
+                print(f"  \u2717 {node_label}")
+                if error:
+                    print(f"    Error: {error}")
+
+
+def show_script_result(
+    result: "ExecutionResult", stat_types: list[str] | None = None
+) -> None:
+    """Display result of a single script execution."""
+    from trilogy.scripts.common import format_stats
+    from trilogy.scripts.dependency import ManagedRefreshNode, ScriptNode
+
+    stats_str = ""
+    if result.stats:
+        formatted = format_stats(result.stats, stat_types)
+        if formatted:
+            stats_str = f" [{formatted}]"
+
+    if is_json_mode():
+        node_label = (
+            str(result.node.path)
+            if isinstance(result.node, ScriptNode)
+            else getattr(result.node, "address", str(result.node))
+        )
+        emit_event(
+            "script_result",
+            node=node_label,
+            success=result.success,
+            duration_ms=round(result.duration * 1000, 3),
+            error=str(result.error) if result.error else None,
+        )
+        return
+    if _core.RICH_AVAILABLE and _core.console is not None:
+        if result.success:
+            if isinstance(result.node, ScriptNode):
+                _core.console.print(
+                    f"  [green]\u2713[/green] {result.node.path.name} ({result.duration:.2f}s){stats_str}"
+                )
+            elif isinstance(result.node, ManagedRefreshNode):
+                _core.console.print(
+                    f"  [green]\u2713[/green] {result.node.address} ({result.duration:.2f}s){stats_str}"
+                )
+            else:
+                _core.console.print(str(result))
+        else:
+            if isinstance(result.node, ScriptNode):
+                _core.console.print(
+                    f"  [red]\u2717[/red] {result.node.path.name} ({result.duration:.2f}s) - {result.error}"
+                )
+            elif isinstance(result.node, ManagedRefreshNode):
+                _core.console.print(
+                    f"  [red]\u2717[/red] {result.node.address} ({result.duration:.2f}s) - {result.error}"
+                )
+            else:
+                _core.console.print(str(result))
+    else:
+        if result.success:
+            if isinstance(result.node, ScriptNode):
+                print(
+                    f"  \u2713 {result.node.path.name} ({result.duration:.2f}s){stats_str}"
+                )
+            else:
+                print(
+                    f"  \u2713 {result.node.address} ({result.duration:.2f}s){stats_str}"
+                )
+        else:
+            if isinstance(result.node, ScriptNode):
+                print(
+                    f"  \u2717 {result.node.path.name} ({result.duration:.2f}s) - {result.error}"
+                )
+            else:
+                print(
+                    f"  \u2717 {result.node.address} ({result.duration:.2f}s) - {result.error}"
+                )
+
+
+def _make_futures_context_getter(futures: dict) -> Any:
+    """Return a callable that yields labels of futures not yet done."""
+    from trilogy.scripts.dependency import ScriptNode
+
+    def get_ctx() -> str:
+        active = []
+        for f, node in futures.items():
+            if not f.done():
+                label = node.path.name if isinstance(node, ScriptNode) else str(node)
+                active.append(label)
+        return " | ".join(sorted(active))
+
+    return get_ctx
+
+
+class ParallelProgressTracker:
+    """Context manager that shows an animated spinner for each in-progress node."""
+
+    def __init__(self) -> None:
+        self._task_ids: dict[int, Any] = {}
+        self._in_progress_labels: dict[int, str] = {}
+        self._base_labels: dict[int, str] = {}
+        self._lock = threading.Lock()
+        self._progress: Any = None
+        self._stderr_cap = _FdStderrCapture(
+            get_context=lambda: " | ".join(sorted(self._in_progress_labels.values()))
+        )
+
+    def __enter__(self) -> Self:
+        if not is_json_mode() and _core.RICH_AVAILABLE and _core.console is not None:
+            self._progress = Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                TimeElapsedColumn(),
+                console=_core.console,
+                transient=True,
+                redirect_stderr=True,
+            )
+            self._progress.__enter__()
+            self._stderr_cap.__enter__()
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        if self._progress is not None:
+            self._stderr_cap.__exit__(*args)
+            self._progress.__exit__(*args)
+            self._progress = None
+
+    def on_start(self, node: Any) -> None:
+        from trilogy.scripts.dependency import ManagedRefreshNode, ScriptNode
+
+        if isinstance(node, ScriptNode):
+            label = node.path.name
+        elif isinstance(node, ManagedRefreshNode):
+            label = node.address
+        else:
+            label = str(node)
+        if self._progress is not None:
+            with self._lock:
+                task_id = self._progress.add_task(
+                    f"[{_core.COL_CYAN}]{label}[/{_core.COL_CYAN}]"
+                )
+                self._task_ids[id(node)] = task_id
+                self._in_progress_labels[id(node)] = label
+                self._base_labels[id(node)] = label
+        elif is_json_mode():
+            emit_event("script_start", node=label)
+        else:
+            print(f"  \u2192 {label}")
+
+    def update_node_label(self, node: Any, sub_label: str) -> None:
+        """Append a sub-label to the node's task description (e.g. current
+        validation target). Safe to call with a tracker that has no Rich
+        progress; in that case it's a no-op so workers don't need to branch.
+        """
+        if self._progress is None:
+            return
+        with self._lock:
+            task_id = self._task_ids.get(id(node))
+            base = self._base_labels.get(id(node))
+            if task_id is None or base is None:
+                return
+            description = f"[{_core.COL_CYAN}]{base}[/{_core.COL_CYAN}] [dim]\u2192 {sub_label}[/dim]"
+            self._progress.update(task_id, description=description)
+
+    def on_complete(self, result: Any) -> None:
+        if self._progress is not None:
+            with self._lock:
+                task_id = self._task_ids.pop(id(result.node), None)
+                self._in_progress_labels.pop(id(result.node), None)
+                self._base_labels.pop(id(result.node), None)
+                if task_id is not None:
+                    self._progress.remove_task(task_id)
+        show_script_result(result)
+
+
+def show_execution_plan(
+    nodes: list[str],
+    edges: list[tuple[str, str]],
+    execution_order: list[list[str]],
+    required_files: list | None = None,
+) -> None:
+    """Display execution plan in human-readable format."""
+    required_files = required_files or []
+    if is_json_mode():
+        emit_event(
+            "plan",
+            scripts=nodes,
+            dependencies=[{"from": a, "to": b} for a, b in edges],
+            execution_order=execution_order,
+            required_files=[str(p) for p in required_files],
+        )
+        return
+    if _core.RICH_AVAILABLE and _core.console is not None:
+        from rich.panel import Panel
+
+        info_text = (
+            f"Scripts: [cyan]{len(nodes)}[/cyan]\n"
+            f"Dependencies: [cyan]{len(edges)}[/cyan]\n"
+            f"Execution Levels: [cyan]{len(execution_order)}[/cyan]\n"
+            f"Required Files: [cyan]{len(required_files)}[/cyan]"
+        )
+        panel = Panel.fit(info_text, style="blue", title="Execution Plan")
+        _core.console.print(panel)
+
+        if execution_order:
+            table = Table(
+                title="Execution Order",
+                show_header=True,
+                header_style=_core.HEADER_BLUE,
+                box=box.MINIMAL_DOUBLE_HEAD,
+            )
+            table.add_column("Level", style=_core.COL_CYAN, no_wrap=True)
+            table.add_column("Scripts (can run in parallel)", style=_core.COL_WHITE)
+
+            for level, scripts in enumerate(execution_order):
+                table.add_row(str(level + 1), ", ".join(scripts))
+
+            _core.console.print(table)
+
+        if edges:
+            _core.console.print("\n[bold]Dependencies:[/bold]")
+            for from_node, to_node in edges:
+                _core.console.print(
+                    f"  [dim]{from_node}[/dim] -> [white]{to_node}[/white]"
+                )
+
+        if required_files:
+            _core.console.print("\n[bold]Required Files (for bundling):[/bold]")
+            for path in required_files:
+                _core.console.print(f"  [dim]{path}[/dim]")
+    else:
+        print("Execution Plan:")
+        print(f"  Scripts: {len(nodes)}")
+        print(f"  Dependencies: {len(edges)}")
+        print(f"  Execution Levels: {len(execution_order)}")
+        print(f"  Required Files: {len(required_files)}")
+
+        if execution_order:
+            print("\nExecution Order:")
+            for level, scripts in enumerate(execution_order):
+                print(f"  Level {level + 1}: {', '.join(scripts)}")
+
+        if edges:
+            print("\nDependencies:")
+            for from_node, to_node in edges:
+                print(f"  {from_node} -> {to_node}")
+
+        if required_files:
+            print("\nRequired Files (for bundling):")
+            for path in required_files:
+                print(f"  {path}")

@@ -16,10 +16,11 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, TypeVar, final
 
+from typing_extensions import assert_never
+
 from ._descriptors import DescEnum, DescExtension, DescFile, DescMessage, DescService
 from ._extension import Extension
 from ._message import Message
-from ._typing import assert_never
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -75,8 +76,8 @@ class Registry:
 
                 In case of duplicates, the last entry wins.
 
-                For DescFile, the types and descriptors from the defined files are all
-                collected into this registry.
+                For DescFile, the types and descriptors from the defined file and its
+                dependencies are all collected into this registry.
 
                 For DescMessage, the message itself and all nested types are collected
                 into this registry.
@@ -106,6 +107,8 @@ class Registry:
                         desc_or_reg.number
                     ] = desc_or_reg
                 case DescFile():
+                    for f in desc_or_reg.dependencies:
+                        self.add(f)
                     self._files[desc_or_reg.name] = desc_or_reg
                     for desc in (
                         *desc_or_reg.enums,

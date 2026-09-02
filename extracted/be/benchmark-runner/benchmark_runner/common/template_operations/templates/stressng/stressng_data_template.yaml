@@ -1,0 +1,49 @@
+metadata:
+  name: stressng
+files:
+  - name: stressng_pod.yaml
+    template: stressng_pod_template.yaml
+  - name: stressng_vm.yaml
+    template: stressng_vm_template.yaml
+template_data:
+  shared:
+    pin_node: {{ pin_node1 }}
+    test_user: user
+    run_id: NA
+    runtype: sequential
+    instances: 1
+    image: "{{ fedora }}"
+    # cpu stressor options
+    cpu_percentage: 100
+    cpu_method: all
+    # vm stressor option
+    vm_stressors: 1
+    # mem stressor options
+    mem_stressors: 1
+    resources: true
+  run_type:
+    perf_ci:
+      timeout: 120
+      stressng_timeout: 120
+      cpu_stressors: 60
+      vm_bytes: 60G
+      limits_cpu: 60
+      limits_memory: 75Gi
+      requests_cpu: 60
+      requests_memory: 75Gi
+    default:
+      timeout: 30
+      stressng_timeout: 30
+      cpu_stressors: 1
+      vm_bytes: 128M
+      limits_cpu: 2
+      limits_memory: 1Gi
+      requests_cpu: 10m
+      requests_memory: 1Gi
+  kind:
+    vm:
+      run_type:
+        perf_ci:
+          sockets: 60
+        default:
+          sockets: 2

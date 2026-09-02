@@ -86,11 +86,11 @@ class PairwiseCorrelations(PairwiseStatisticsBase):
     Attributes
     ----------
     feature_name : str
-        Name of the feature
+        Name of the feature.
     values : list(dict)
-        List of correlation values with a schema described as ``CorrelationValues``
+        A list of correlation values with a schema described as ``CorrelationValues``.
     statistic_dataframe : pandas.DataFrame
-        Correlation values for all label pairs as a DataFrame
+        Correlation values for all label pairs as a DataFrame.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -137,7 +137,7 @@ class PairwiseCorrelations(PairwiseStatisticsBase):
         ----------
         multilabel_insights_key: string
             Key for multilabel insights, unique for a project, feature and EDA stage combination.
-            The multilabel_insights_key can be retrieved via
+            The ``multilabel_insights_key`` can be retrieved via
             ``Feature.multilabel_insights_key``.
 
         Returns
@@ -148,7 +148,7 @@ class PairwiseCorrelations(PairwiseStatisticsBase):
         return cls._get(multilabel_insights_key, "correlation")
 
     def as_dataframe(self) -> pd.DataFrame:
-        """The pairwise label correlations as a (num_labels x num_labels) DataFrame.
+        """The pairwise label correlations as a (``num_labels`` x ``num_labels``) DataFrame.
 
         Returns
         -------
@@ -228,11 +228,11 @@ class PairwiseJointProbabilities(PairwiseProbabilitiesBase):
     Attributes
     ----------
     feature_name : str
-        Name of the feature
+        Name of the feature.
     values : list(dict)
-        List of joint probability values with a schema described as ``ProbabilityValues``
+        A list of joint probability values with a schema described as ``ProbabilityValues``.
     statistic_dataframes : dict(pandas.DataFrame)
-        Joint Probability values as DataFrames for different relevance combinations.
+        Joint probability values as DataFrames for different relevance combinations.
 
         E.g. The probability P(A=0,B=1) can be retrieved via:
         ``pairwise_joint_probabilities.statistic_dataframes[(0,1)].loc['A', 'B']``
@@ -251,7 +251,7 @@ class PairwiseJointProbabilities(PairwiseProbabilitiesBase):
         ----------
         multilabel_insights_key: string
             Key for multilabel insights, unique for a project, feature and EDA stage combination.
-            The multilabel_insights_key can be retrieved via
+            The ``multilabel_insights_key`` can be retrieved via
             ``Feature.multilabel_insights_key``.
 
         Returns
@@ -262,7 +262,7 @@ class PairwiseJointProbabilities(PairwiseProbabilitiesBase):
         return cls._get(multilabel_insights_key, "jointProbability")
 
     def as_dataframe(self, relevance_configuration: Tuple[int, int]) -> pd.DataFrame:
-        """Joint probabilities of label pairs as a (num_labels x num_labels) DataFrame.
+        """Joint probabilities of label pairs as a (``num_labels`` x ``num_labels``) DataFrame.
 
         Parameters
         ----------
@@ -307,11 +307,11 @@ class PairwiseConditionalProbabilities(PairwiseProbabilitiesBase):
     Attributes
     ----------
     feature_name : str
-        Name of the feature
+        Name of the feature.
     values : list(dict)
-        List of conditional probability values with a schema described as ``ProbabilityValues``
+        A list of conditional probability values with a schema described as ``ProbabilityValues``.
     statistic_dataframes : dict(pandas.DataFrame)
-        Conditional Probability values as DataFrames for different relevance combinations.
+        Conditional probability values as DataFrames for different relevance combinations.
         The label names in the columns are the events, on which we condition. The label names in the
         index are the events whose conditional probability given the indexes is in the dataframe.
 
@@ -332,7 +332,7 @@ class PairwiseConditionalProbabilities(PairwiseProbabilitiesBase):
         ----------
         multilabel_insights_key: string
             Key for multilabel insights, unique for a project, feature and EDA stage combination.
-            The multilabel_insights_key can be retrieved via
+            The ``multilabel_insights_key`` can be retrieved via
             ``Feature.multilabel_insights_key``.
 
         Returns
@@ -343,7 +343,7 @@ class PairwiseConditionalProbabilities(PairwiseProbabilitiesBase):
         return cls._get(multilabel_insights_key, "conditionalProbability")
 
     def as_dataframe(self, relevance_configuration: Tuple[int, int]) -> pd.DataFrame:
-        """Conditional probabilities of label pairs as a (num_labels x num_labels) DataFrame.
+        """Conditional probabilities of label pairs as a (``num_labels`` x ``num_labels``) DataFrame.
         The label names in the columns are the events, on which we condition. The label names in the
         index are the events whose conditional probability given the indexes is in the dataframe.
 

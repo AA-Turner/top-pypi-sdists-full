@@ -1,0 +1,8 @@
+__title__ = "imagedominantcolour"
+__description__ = "Find dominant aka most common colour of any image."
+__url__ = "https://akamhy.github.io/imagedominantcolor/"
+__version__ = "1.0.2"
+__author__ = "Akash Mahanty and Chico Demmenie"
+__author_email__ = "cdemmenie@gmail.com"
+__license__ = "MIT"
+__copyright__ = "Copyright 2024 Akash Mahanty"

@@ -84,7 +84,9 @@ ListingBadgeTypeType = Literal[
 ]
 PricingModelTypeType = Literal["BYOL", "CONTRACT", "FREE", "USAGE"]
 PricingUnitTypeType = Literal["BANDWIDTH", "DATA", "HOSTS", "REQUESTS", "TIERS", "UNITS", "USERS"]
-PurchaseOptionBadgeTypeType = Literal["FUTURE_DATED", "PRIVATE_PRICING", "REPLACEMENT_OFFER"]
+PurchaseOptionBadgeTypeType = Literal[
+    "AUTO_RENEW", "FUTURE_DATED", "PRIVATE_PRICING", "REPLACEMENT_OFFER"
+]
 PurchaseOptionFilterTypeType = Literal[
     "AVAILABILITY_STATUS",
     "PRODUCT_ID",

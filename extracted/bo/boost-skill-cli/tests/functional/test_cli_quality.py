@@ -114,7 +114,7 @@ class TestDoctor:
         r = boost("doctor", expect=1)
         assert "1 broken symlink in agent dirs — run `boost heal`" in r.out
         assert "1 skill installed · 1 tap synced · 1 broken link" in r.out
-        assert "need attention" in r.out          # verdict flips on issues
+        assert "1 issue needs attention" in r.out  # verdict flips on issues, singular verb
 
     def test_a_foreign_broken_link_is_reported_but_not_an_issue(
             self, boost, installed):
@@ -127,6 +127,20 @@ class TestDoctor:
         assert "0 broken links" in r.out          # none of boost's are broken
         assert "need attention" not in r.out
 
+    def test_a_crash_report_is_noted_but_not_an_issue(self, boost, tapped):
+        # The crash line used to wear the "!" glyph without incrementing the
+        # issue count — the report could read "!" and still verdict "healthy"
+        # with exit 0. It is history, not a current fault, so `out.info`, not
+        # `out.warn`, and it must never flip the verdict.
+        paths.logs_dir().mkdir(parents=True, exist_ok=True)
+        (paths.logs_dir() / "crash-20260101-000000.log").write_text(
+            "boom", encoding="utf-8")
+        r = boost("doctor")                       # rc 0, not 1
+        assert "1 crash report" in r.out
+        assert "see `boost log --crashes`" in r.out
+        assert "● healthy" in r.out
+        assert "! 1 crash report" not in r.out
+
     def test_missing_store_rc1(self, boost, installed):
         shutil.rmtree(paths.store_dir() / "brainstorming")
         r = boost("doctor", expect=1)
@@ -135,6 +149,44 @@ class TestDoctor:
         # the canonical store natively)
         assert "4 broken symlinks in agent dirs" in r.out
         assert "1 skill installed · 1 tap synced · 4 broken links" in r.out
+        assert "2 issues need attention" in r.out  # plural verb: two bad() calls
+
+    def test_missing_lock_over_populated_store_rc1(self, boost, installed):
+        # The store dir and its agent links from `installed` are still on
+        # disk; only the lock record is gone. Doctor used to print
+        # "lock file parses (v3)" for a file that does not exist here — the
+        # orphaned-store check below already turned the exit code red, but
+        # both lock lines lied about a state two lines away from the true
+        # diagnosis.
+        paths.lockfile_path().unlink()
+        r = boost("doctor", expect=1)
+        assert "lock file parses (v3)" not in r.out
+        assert "lock file missing — 1 store dir unrecorded, run `boost sync`" in r.out
+        assert "lock file integrity OK" not in r.out
+
+    def test_missing_lock_with_empty_store_is_not_an_issue(self, boost, sandbox):
+        # No lock file and nothing in the store either: a fresh install, not
+        # a fault. Must not claim "parses" for a file that isn't there.
+        assert not paths.lockfile_path().exists()
+        r = boost("doctor")
+        assert "lock file parses (v3)" not in r.out
+        assert "no lock file yet — nothing installed" in r.out
+        assert "lock file integrity OK" in r.out
+
+    def test_corrupt_lock_rc1(self, boost, installed):
+        paths.lockfile_path().write_text(
+            '{"version": 3, "skills": {', encoding="utf-8")
+        r = boost("doctor", expect=1)
+        assert "lock file is corrupt — restore with `boost replay`" in r.out
+        assert "lock file parses (v3)" not in r.out
+        assert "lock file integrity OK" not in r.out
+
+    def test_wrong_schema_lock_rc1(self, boost, installed):
+        paths.lockfile_path().write_text(
+            json.dumps({"version": 2, "skills": {}}), encoding="utf-8")
+        r = boost("doctor", expect=1)
+        assert "lock file schema is v2, expected v3" in r.out
+        assert "lock file parses (v3)" not in r.out
 
     def test_links_outside_the_declared_scope_rc1(self, boost, installed):
         # doctor must agree with `boost sync`, which reports this. A "healthy"
@@ -147,7 +199,7 @@ class TestDoctor:
                 "antigravity, outside its declared scope (cursor) — run "
                 "`boost sync --prune`"
                 in r.out)
-        assert "need attention" in r.out
+        assert "1 issue needs attention" in r.out
 
     def test_a_narrowed_skill_with_no_stray_links_is_healthy(self, boost, tapped):
         # A first narrow install declares AND links the same set, so the check
@@ -171,7 +223,7 @@ class TestDoctor:
         _tamper("brainstorming")
         r = boost("doctor", expect=1)
         assert "skill brainstorming modified since install — run `boost verify`" in r.out
-        assert "need attention" in r.out
+        assert "1 issue needs attention" in r.out
 
     def test_materialized_rules_and_workflows_ok_rc0(self, boost, sandbox):
         from boost_cli.core import lockfile
@@ -197,7 +249,7 @@ class TestDoctor:
         r = boost("doctor", expect=1)
         assert ("rule gone missing its cursor materialization — "
                 "run `boost reinstall gone`") in r.out
-        assert "need attention" in r.out
+        assert "1 issue needs attention" in r.out
 
     def test_missing_claude_block_rc1(self, boost, sandbox):
         from boost_cli.core import lockfile
@@ -282,7 +334,7 @@ class TestLint:
         assert "very large SKILL.md (>48KB) — consider splitting" in r.out
         assert "1 of 1 skill below 40 or with errors" in r.out
         r = boost("lint", "--min", "0")
-        assert "1 skill pass lint (min 0)" in r.out
+        assert "1 skill passes lint (min 0)" in r.out
 
     def test_missing_fields_error_rc1_and_json(self, boost, sandbox, tmp_path):
         d = tmp_path / "noname"
@@ -305,7 +357,7 @@ class TestLint:
         r = boost("lint", "--tap", "fixture-tap", "cowboy-coding")
         assert "cowboy-coding" in r.out
         assert "80/100" in r.out
-        assert "1 skill pass lint (min 40)" in r.out
+        assert "1 skill passes lint (min 40)" in r.out
 
 
     def test_tap_with_rules_lints_only_the_skills(self, boost, fixture_tap_src,
@@ -340,6 +392,86 @@ class TestLint:
         r = boost("lint", "--tap", "named-tap", "py-style")
         assert "skipped 1 rule/workflow item" in r.out
         assert "lint scores SKILL.md skills only" in r.out
+
+    def test_tap_mirrors_sharing_content_collapse_to_one_row(
+            self, boost, fixture_tap_src, tmp_path):
+        # A registry vendoring the same skill into a copy per agent used to
+        # print one indistinguishable row per mirror; the fix dedupes on the
+        # content digest, so two byte-identical copies score as one skill.
+        tap_dir = _copy_tap(fixture_tap_src, tmp_path / "mirror-tap")
+        skill_md = (
+            "---\nname: shared-skill\n"
+            "description: A shared skill vendored into two agent mirrors.\n"
+            "version: 1.0.0\n---\n\n# Shared\n\n## Steps\n\n"
+            "1. Do the thing.\n2. Verify it worked.\n" + "Body text. " * 20)
+        _add_and_commit(tap_dir, "claude/shared-skill/SKILL.md", skill_md,
+                        "add claude mirror")
+        _add_and_commit(tap_dir, "cursor/shared-skill/SKILL.md", skill_md,
+                        "add cursor mirror")
+        boost("tap", tap_dir)
+        r = boost("lint", "--tap", "mirror-tap")
+        assert r.out.count("shared-skill") == 1
+        assert "6 skills pass lint (min 40)" in r.out  # 5 base + 1 distinct
+
+    def test_tap_unknown_name_raises_instead_of_silent_success(
+            self, boost, tapped):
+        r = boost("lint", "--tap", "fixture-tap", "nosuchskill", expect=1)
+        assert "no such name" in r.err
+        assert "nosuchskill" in r.err
+
+    def test_tap_unknown_name_mixed_with_valid_still_raises_on_json(
+            self, boost, tapped):
+        # A typo mixed with a real name must not vanish behind the real
+        # name's success, on the --json path either.
+        r = boost("lint", "--tap", "fixture-tap", "brainstorming",
+                  "nosuchskill", "--json", expect=1)
+        assert "no such name" in r.err
+        assert "nosuchskill" in r.err
+
+    def test_path_target_lints_an_uninstalled_directory(
+            self, boost, sandbox, tmp_path):
+        # `lint ./my-skill` used to fail "not installed" — an author must be
+        # able to lint a skill before ever installing it.
+        d = tmp_path / "my-skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text(
+            "---\nname: my-skill\ndescription: %s\nversion: 1.0.0\n---\n\n"
+            "# My Skill\n\n## Steps\n\n1. One.\n2. Two.\n%s"
+            % ("d" * 45, "body text. " * 20), encoding="utf-8")
+        r = boost("lint", str(d))
+        assert "my-skill" in r.out
+        assert "1 skill passes lint (min 40)" in r.out
+
+    def test_path_target_accepts_a_skill_md_file_directly(
+            self, boost, sandbox, tmp_path):
+        d = tmp_path / "my-skill"
+        d.mkdir()
+        md = d / "SKILL.md"
+        md.write_text("---\nname: my-skill\ndescription: thin\n---\nhi",
+                      encoding="utf-8")
+        r = boost("lint", str(md), "--min", "0")
+        assert "my-skill" in r.out
+        assert "1 skill passes lint (min 0)" in r.out
+
+    def test_path_target_missing_directory_errors(self, boost, sandbox, tmp_path):
+        r = boost("lint", str(tmp_path / "nope"), expect=1)
+        assert "no such directory" in r.err
+
+    def test_unclosed_frontmatter_is_one_error_not_three(
+            self, boost, sandbox, tmp_path):
+        # An unclosed `---` fence used to misdiagnose as three separate
+        # missing-field errors, because `frontmatter.split` silently falls
+        # back to "no frontmatter at all" for this exact input.
+        d = tmp_path / "broken"
+        d.mkdir()
+        (d / "SKILL.md").write_text(
+            "---\nname: broken\ndescription: y\nversion: 1.0.0\n"
+            "no closing fence here\n", encoding="utf-8")
+        boost("import", d)
+        r = boost("lint", expect=1)
+        assert "error: frontmatter is not closed (no terminating ---)" in r.out
+        assert "error: missing required field: name" not in r.out
+        assert "error: missing required field: description" not in r.out
 
 
 # ── audit ────────────────────────────────────────────────────────────────
@@ -490,6 +622,34 @@ class TestVerify:
         r = boost("verify", "ghost", expect=1)
         assert "not installed: ghost" in r.err
 
+    def test_no_lock_file_but_nothing_ever_installed_rc0(self, boost, tapped):
+        # Genuinely fresh: no lock file AND an empty store is not a fault.
+        assert not paths.lockfile_path().exists()
+        r = boost("verify")
+        assert "nothing installed" in r.out
+
+    def test_lock_file_missing_over_populated_store_rc1(self, boost, installed):
+        # The store and agent links from `installed` are still on disk; only
+        # the record of them is gone — the exact state this must not read as
+        # "nothing installed".
+        paths.lockfile_path().unlink()
+        r = boost("verify", expect=1)
+        assert "lock file missing" in r.err
+        assert "boost sync" in r.err
+
+    def test_lock_file_corrupt_rc1(self, boost, installed):
+        paths.lockfile_path().write_text(
+            '{"version": 3, "skills": {', encoding="utf-8")
+        r = boost("verify", expect=1)
+        assert "lock file is corrupt" in r.err
+        assert "boost replay" in r.err
+
+    def test_lock_file_wrong_schema_rc1(self, boost, installed):
+        paths.lockfile_path().write_text(
+            json.dumps({"version": 2, "skills": {}}), encoding="utf-8")
+        r = boost("verify", expect=1)
+        assert "lock file schema is v2, expected v3" in r.err
+
 
 # ── drift ────────────────────────────────────────────────────────────────
 
@@ -521,6 +681,23 @@ class TestDrift:
         assert data == {"skills": [{"name": "brainstorming", "kind": "skill",
                                     "status": "upstream-moved",
                                     "hint": "boost update"}]}
+
+    def test_no_lock_file_but_nothing_ever_installed_rc0(self, boost, tapped):
+        r = boost("drift")
+        assert "no skills installed" in r.out
+
+    def test_lock_file_missing_over_populated_store_rc1(self, boost, installed):
+        paths.lockfile_path().unlink()
+        r = boost("drift", expect=1)
+        assert "lock file missing" in r.err
+        assert "boost sync" in r.err
+
+    def test_lock_file_corrupt_rc1(self, boost, installed):
+        paths.lockfile_path().write_text(
+            '{"version": 3, "skills": {', encoding="utf-8")
+        r = boost("drift", expect=1)
+        assert "lock file is corrupt" in r.err
+        assert "boost replay" in r.err
 
 
 # ── test ─────────────────────────────────────────────────────────────────
@@ -1037,7 +1214,7 @@ class TestDuplicateSkillDiscovery:
         assert "~/.gemini/skills/brainstorming" in r.out
         assert "~/.agents/skills/brainstorming" in r.out
         assert "boost heal --prune-duplicates" in r.out
-        assert "need attention" in r.out
+        assert "1 issue needs attention" in r.out
 
     def test_doctor_is_healthy_without_the_duplicate(self, boost, installed):
         assert "● healthy" in boost("doctor").out

@@ -1,0 +1,206 @@
+[build-system]
+requires = [
+    "hatchling>=1.21",
+    "hatch-vcs",
+    "hatch-fancy-pypi-readme"
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "ragged"
+authors = [
+  { name = "Jim Pivarski", email = "jpivarski@gmail.com" },
+]
+description = "Ragged array library, complying with Python API specification."
+readme = "README.md"
+license.file = "LICENSE"
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
+dynamic = ["version"]
+dependencies = [
+  "awkward>=2.6.7",
+  "numpy>=1.24.0",
+]
+
+
+[project.optional-dependencies]
+test = [
+  "pytest>=6",
+  "pytest-cov>=3",
+]
+dev = [
+  "pytest>=6",
+  "pytest-cov>=3",
+  "ruff",
+  "mypy",
+]
+docs = [
+  "sphinx>=7.0",
+  "myst_parser>=0.13",
+  "sphinx_copybutton",
+  "sphinx_autodoc_typehints",
+  "furo>=2023.08.17",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/scikit-hep/ragged"
+"Bug Tracker" = "https://github.com/scikit-hep/ragged/issues"
+Discussions = "https://github.com/scikit-hep/ragged/discussions"
+Changelog = "https://github.com/scikit-hep/ragged/releases"
+
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/ragged/_version.py"
+
+[tool.hatch.env.default]
+features = ["test"]
+scripts.test = "pytest {args}"
+
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+log_cli_level = "INFO"
+testpaths = ["tests"]
+
+
+[tool.coverage.run]
+source = ["ragged"]
+
+[tool.coverage.report]
+exclude_also = [
+  '\.\.\.',
+  'if typing.TYPE_CHECKING:',
+]
+
+
+[tool.mypy]
+files = ["src", "tests"]
+python_version = "3.10"
+warn_unused_configs = true
+strict = true
+enable_error_code = [
+  "ignore-without-code",
+  "redundant-expr",
+  "truthy-bool",
+]
+warn_unreachable = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = "ragged.*"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+  "numpy.*",
+  "cupy.*",
+  "awkward.*",
+]
+ignore_missing_imports = true
+
+
+[tool.ruff]
+src = ["src"]
+target-version = "py310"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.ruff.lint]
+extend-select = [
+  "B",        # bugbear
+  "I",        # isort
+  "ARG",      # unused arguments
+  "C4",       # comprehensions
+  "EM",       # error messages
+  "ICN",      # import conventions
+  "G",        # logging format
+  "PGH",      # pygrep-hooks
+  "PIE",      # flake8-pie
+  "PL",       # pylint-like
+  "PT",       # pytest style
+  "PTH",      # pathlib usage
+  "RET",      # return rules
+  "RUF",      # Ruff-specific
+  "SIM",      # simplify
+  "T20",      # no print
+  "UP",       # pyupgrade
+  "YTT",      # 2020 issues
+  "EXE",      # executable bits
+  "NPY",      # NumPy rules
+]
+
+ignore = [
+  "PLR09",    # Too many <...>
+  "PLR2004",  # Magic value in comparison
+  "ISC001",   # Formatter conflict
+  "RET505",   # allow if-return-elif-return pattern
+  "PLR5501",  # same reasoning
+  "RET506",   # allow if-raise-elif pattern
+]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["T20"]
+"noxfile.py" = ["T20"]
+
+
+[tool.pylint]
+py-version = "3.9"
+ignore-paths = [".*/_version.py"]
+reports.output-format = "colorized"
+similarities.ignore-imports = "yes"
+
+messages_control.disable = [
+  "design",
+  "fixme",
+  "line-too-long",
+  "missing-module-docstring",
+  "wrong-import-position",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "R1705",   # I like my if (return) elif (return) else (return) pattern
+  "R1720",   # I like my if (raise) elif ... else ... pattern
+  "R0801",   # Different files can have similar lines; that's okay
+  "C0302",   # I can have as many lines as I want; what's it with you?
+  "no-member",
+  "import-error",
+  "invalid-name",
+  "unsupported-binary-operation",
+  "protected-access",
+  "import-outside-toplevel",
+  "unsubscriptable-object",
+]
+
+typecheck.generated-members = [
+  "finfo.*",
+  "iinfo.*",
+  "generator.item",
+]

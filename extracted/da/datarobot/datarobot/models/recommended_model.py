@@ -29,11 +29,11 @@ class ModelRecommendation(APIObject):
     Attributes
     ----------
     project_id : str
-        the ID of the project the model belongs to
+        The ID of the project the model belongs to.
     model_id : str
-        the ID of the recommended model
+        The ID of the recommended model.
     recommendation_type : str
-        the type of model recommendation
+        The type of model recommendation.
     """
 
     _base_recommended_path_template = "projects/{}/recommendedModels/"
@@ -58,18 +58,19 @@ class ModelRecommendation(APIObject):
         recommendation_type: Optional[str] = None,
     ) -> Optional[ModelRecommendation]:
         """
-        Retrieves the default or specified by recommendation_type recommendation.
+        Retrieves the default recommendation or the recommendation for the specified type.
 
         Parameters
         ----------
         project_id : str
-            The project's id.
+            The project's ID.
         recommendation_type : enums.RECOMMENDED_MODEL_TYPE
             The type of recommendation to get. If None, returns the default recommendation.
 
         Returns
         -------
         recommended_model : ModelRecommendation
+            The requested model recommendation.
 
         """
         if recommendation_type is None:
@@ -88,11 +89,12 @@ class ModelRecommendation(APIObject):
         Parameters
         ----------
         project_id : str
-            The project's id.
+            The project's ID.
 
         Returns
         -------
         recommended_models : list of ModelRecommendation
+            A list of recommended models for the project.
         """
         url = cls._base_recommended_path_template.format(project_id)
         response = ModelRecommendation._server_data(url)
@@ -109,12 +111,14 @@ class ModelRecommendation(APIObject):
         Parameters
         ----------
         recommended_models : list of ModelRecommendation
+            A list of model recommendations to search.
         recommendation_type : enums.RECOMMENDED_MODEL_TYPE
-            the type of model to extract from the recommended_models list
+            The type of model to extract from the ``recommended_models`` list.
 
         Returns
         -------
         recommended_model : ModelRecommendation or None if no model with the requested type exists
+            The matching model recommendation, or None if no model with the requested type exists.
         """
 
         return next(
@@ -129,5 +133,6 @@ class ModelRecommendation(APIObject):
         Returns
         -------
         recommended_model : Model or DatetimeModel if the project is datetime-partitioned
+            The model associated with this recommendation.
         """
         return Model.get(self.project_id, self.model_id)

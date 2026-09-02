@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 import grpc
 from grpc import aio
 
-from .._types import OMIT, Omit
+from .._types import OMIT, Omit, is_given
 from ..exceptions import map_rpc_error
 from . import (
     DEFAULT_TIMEOUT_SECONDS,
@@ -19,11 +19,11 @@ def _build_search_request(
     query: str,
     api_key: Optional[str],
     max_results: int,
-    scope: Union[str, Omit],
-    include_domains: Union[List[str], Omit],
-    exclude_domains: Union[List[str], Omit],
-    from_date: Union[str, Omit],
-    to_date: Union[str, Omit],
+    scope: Union[str, None, Omit],
+    include_domains: Union[List[str], None, Omit],
+    exclude_domains: Union[List[str], None, Omit],
+    from_date: Union[str, None, Omit],
+    to_date: Union[str, None, Omit],
 ) -> SearchRequest:
     """Build a SearchRequest, leaving any field passed as OMIT unset.
 
@@ -67,19 +67,19 @@ def _build_search_request(
         "api_key": api_key,
     }
 
-    if not isinstance(scope, Omit):
+    if is_given(scope) and scope is not None:
         fields["scope"] = scope
 
-    if not isinstance(include_domains, Omit):
+    if is_given(include_domains) and include_domains is not None:
         fields["include_domains"] = include_domains
 
-    if not isinstance(exclude_domains, Omit):
+    if is_given(exclude_domains) and exclude_domains is not None:
         fields["exclude_domains"] = exclude_domains
 
-    if not isinstance(from_date, Omit):
+    if is_given(from_date) and from_date is not None:
         fields["from_date"] = from_date
 
-    if not isinstance(to_date, Omit):
+    if is_given(to_date) and to_date is not None:
         fields["to_date"] = to_date
 
     return SearchRequest(**fields)
@@ -106,11 +106,11 @@ class SearchService:
         query: str,
         *,
         max_results: int = 10,
-        scope: Union[str, Omit] = OMIT,
-        include_domains: Union[List[str], Omit] = OMIT,
-        exclude_domains: Union[List[str], Omit] = OMIT,
-        from_date: Union[str, Omit] = OMIT,
-        to_date: Union[str, Omit] = OMIT,
+        scope: Union[str, None, Omit] = OMIT,
+        include_domains: Union[List[str], None, Omit] = OMIT,
+        exclude_domains: Union[List[str], None, Omit] = OMIT,
+        from_date: Union[str, None, Omit] = OMIT,
+        to_date: Union[str, None, Omit] = OMIT,
     ) -> SearchResponse:
         """Perform a search query.
 
@@ -196,11 +196,11 @@ class AsyncSearchService:
         query: str,
         *,
         max_results: int = 10,
-        scope: Union[str, Omit] = OMIT,
-        include_domains: Union[List[str], Omit] = OMIT,
-        exclude_domains: Union[List[str], Omit] = OMIT,
-        from_date: Union[str, Omit] = OMIT,
-        to_date: Union[str, Omit] = OMIT,
+        scope: Union[str, None, Omit] = OMIT,
+        include_domains: Union[List[str], None, Omit] = OMIT,
+        exclude_domains: Union[List[str], None, Omit] = OMIT,
+        from_date: Union[str, None, Omit] = OMIT,
+        to_date: Union[str, None, Omit] = OMIT,
     ) -> SearchResponse:
         """Perform a search query.
 

@@ -1,0 +1,56 @@
+Metadata-Version: 2.1
+Name: listmonk-wrapper
+Version: 0.1.4
+Summary: Light Python wrapper for listmonk.app.
+Home-page: https://github.com/Lenders-Cooperative/ListmonkWrapper
+License: BSD-3-Clause
+Author: Michael McClelland
+Author-email: mmcclelland@thesummitgrp.com
+Requires-Python: >=3.6.2,<4.0
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Provides-Extra: dev
+Provides-Extra: test
+Requires-Dist: black (>=21.5b2,<22.0); extra == "test"
+Requires-Dist: flake8 (>=3.9.2,<4.0.0); extra == "test"
+Requires-Dist: isort (>=5.8.0,<6.0.0); extra == "test"
+Requires-Dist: pip (>=20.3.1,<21.0.0); extra == "dev"
+Requires-Dist: pytest (>=6.2.4,<7.0.0); extra == "test"
+Requires-Dist: requests (>=2.26.0,<3.0.0)
+Requires-Dist: toml (>=0.10.2,<0.11.0); extra == "dev"
+Requires-Dist: tox (>=3.20.1,<4.0.0); extra == "dev"
+Requires-Dist: twine (>=3.3.0,<4.0.0); extra == "dev"
+Requires-Dist: virtualenv (>=20.2.2,<21.0.0); extra == "dev"
+Description-Content-Type: text/markdown
+
+# ListmonkWrapper
+
+
+Light Python wrapper for listmonk.app
+
+
+* PyPI: <https://pypi.org/project/listmonk-wrapper/>
+* Free software: BSD-3-Clause
+
+
+## Testing
+* Must have local listmonk container running (TODO: add docker container in repo for testing purposes)
+* `poetry install -E dev -E test`
+* `poetry run pytest`
+
+## Usage
+* `pip install listmonk-wrapper`
+```
+    from listmonk_wrapper import ListMonkClient
+
+    client = ListMonkClient(host="http://localhost", port=9000, username="password", password="password")
+    my_campaigns = client.get_campaigns()
+```
+

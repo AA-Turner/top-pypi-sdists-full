@@ -458,6 +458,21 @@ def test_char_selector():  # R424
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == "(LEN = 2, KIND = 8)"
 
+    # A length that is itself an expression containing a comma (e.g. the
+    # arguments to an intrinsic) must survive the splitting of the kind and
+    # length parts of the selector. The kind-first and positional forms of
+    # the selector previously left the length expression truncated at the
+    # inner comma.
+    obj = tcls("(kind=8,len=max(2, 0))")
+    assert isinstance(obj, tcls), repr(obj)
+    assert str(obj) == "(LEN = MAX(2, 0), KIND = 8)"
+    assert "F2PY" not in repr(obj)
+
+    obj = tcls("(max(2, 0),8)")
+    assert isinstance(obj, tcls), repr(obj)
+    assert str(obj) == "(LEN = MAX(2, 0), KIND = 8)"
+    assert "F2PY" not in repr(obj)
+
 
 def test_complex_literal_constant():  # R421
     tcls = Complex_Literal_Constant
@@ -2213,6 +2228,11 @@ def test_io_implied_do():  # R917
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == "(a, i = 1, 2)"
 
+    # Minimal-length (9-character) io-implied-do.
+    obj = tcls("(i,i=1,2)")
+    assert isinstance(obj, tcls), repr(obj)
+    assert str(obj) == "(i, i = 1, 2)"
+
     obj = tcls("((i+j,j=3,4,1), i=1,2)")
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == "((i + j, j = 3, 4, 1), i = 1, 2)"
@@ -2331,9 +2351,16 @@ def test_inquire_stmt():
     assert str(obj) == "INQUIRE(UNIT = get_unit, OPENED = llopn)"
 
 
-def test_inquire_spec():
+@pytest.mark.parametrize("standard_only", [True, False])
+def test_inquire_spec(monkeypatch, standard_only):
     """Tests that we recognise the various possible forms of
     entries in an inquire list (R930)."""
+
+    if standard_only:
+        # Disable the inquire-directory extension for this test to verify
+        # that really only standard expressions are accepted
+        monkeypatch.setattr(utils, "_EXTENSIONS", [])
+
     tcls = Inquire_Spec
     obj = tcls("1")
     assert isinstance(obj, tcls), repr(obj)
@@ -2357,6 +2384,31 @@ def test_inquire_spec():
     obj = tcls("direct=a")
     assert isinstance(obj, tcls), repr(obj)
     assert str(obj) == "DIRECT = a"
+
+    if standard_only:
+        with pytest.raises(NoMatchError) as excinfo:
+            _ = tcls("directory = a")
+        assert "Inquire_Spec: 'directory = a" in str(excinfo.value)
+        with pytest.raises(NoMatchError) as excinfo:
+            _ = tcls("dirspec = a")
+        assert "Inquire_Spec: 'dirspec = a" in str(excinfo.value)
+    else:
+        obj = tcls("directory = a")
+        assert isinstance(obj, tcls), repr(obj)
+        assert str(obj) == "DIRECTORY = a"
+
+        obj = tcls("directory = 'some_dir'")
+        assert isinstance(obj, tcls), repr(obj)
+        assert str(obj) == "DIRECTORY = 'some_dir'"
+
+        obj = tcls("dirspec = some_var")
+        assert isinstance(obj, tcls), repr(obj)
+        assert str(obj) == "DIRSPEC = some_var"
+
+        # Make sure a character constant is not accepted:
+        with pytest.raises(NoMatchError) as excinfo:
+            _ = tcls("dirspec = 'a'")
+        assert "Inquire_Spec: 'dirspec = 'a'" in str(excinfo.value)
 
 
 def test_inquire_spec_list():

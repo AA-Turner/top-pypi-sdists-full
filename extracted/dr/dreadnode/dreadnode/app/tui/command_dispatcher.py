@@ -131,6 +131,8 @@ class CommandActions(t.Protocol):
 
     def set_current_profile(self, profile: Profile) -> None: ...
 
+    def active_session_summary(self) -> tuple[str | None, str | None]: ...
+
     # ------------------------------------------------------------------
     # Runtime transport
     # ------------------------------------------------------------------
@@ -401,6 +403,10 @@ class CommandDispatcher:
             self._actions.run_command(self.whoami_command)
             return
 
+        if cmd == "status":
+            self._actions.run_command(self.status_command)
+            return
+
         if cmd in {"profile", "profiles"}:
             if args:
                 self._actions.run_command(self._actions.profile_manager_switch_profile, args)
@@ -610,6 +616,28 @@ class CommandDispatcher:
             self._actions.flash("Not logged in. Use /login first.", severity="warning")
             return
         self._actions.write_whoami(name=name, profile=profile)
+
+    async def status_command(self) -> None:
+        """Show current session, model, project, workspace, and user context."""
+        profile = self._actions.current_profile()
+        session_id, session_title = self._actions.active_session_summary()
+        model = self._actions.current_model()
+
+        session_display = "none"
+        if session_id:
+            short_id = session_id[:12]
+            session_display = f"{session_title} ({short_id})" if session_title else short_id
+
+        lines: list[tuple[str, str | None]] = [
+            ("session", session_display),
+            ("model", model),
+            ("user", profile.username if profile else None),
+            ("org", profile.default_organization if profile else None),
+            ("workspace", profile.default_workspace if profile else None),
+            ("project", profile.default_project if profile else None),
+        ]
+        for label, value in lines:
+            self._actions.write_activity(f"{label:<10} {value or '—'}", style="info")
 
     async def load_skill_command(self, name: str, extra: str = "") -> None:
         """Fetch rendered skill content and send it as a user message.

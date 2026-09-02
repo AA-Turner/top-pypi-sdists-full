@@ -7,6 +7,8 @@ Covers:
 - Linear custom field skip warning                  [T014]
 - Mission seeding from canonical issues             [T015]
 - Mission egress comment format and transitions     [T016]
+- Jira transition_issue determinism (WP01 T006)
+- Jira list_transitions + update_issue independence (WP01 T007)
 """
 
 from __future__ import annotations
@@ -20,8 +22,13 @@ import httpx
 import pytest
 
 from spec_kitty_tracker.connectors.in_memory import InMemoryConnector
-from spec_kitty_tracker.connectors.jira import JiraConnector, JiraConnectorConfig
+from spec_kitty_tracker.connectors.jira import (
+    JiraConnector,
+    JiraConnectorConfig,
+    JiraTransition,
+)
 from spec_kitty_tracker.connectors.linear import LinearConnector, LinearConnectorConfig
+from spec_kitty_tracker.errors import CapabilityNotSupportedError
 from spec_kitty_tracker.mission_sync import (
     BidirectionalIssueSync,
     DecisionReference,
@@ -643,3 +650,693 @@ async def test_publish_mission_update_no_status() -> None:
     update_payload = update_events[0].payload
     patch = update_payload.get("patch", {})
     assert "status" not in patch
+
+
+# ===========================================================================
+# WP01 T006 — Jira transition_issue determinism tests
+# ===========================================================================
+
+
+def _iam42_ref() -> ExternalRef:
+    return ExternalRef(
+        system="jira",
+        workspace="https://test.atlassian.net",
+        id="10001",
+        key="IAM-42",
+        url="https://test.atlassian.net/browse/IAM-42",
+    )
+
+
+def _jira_issue_with_status(status_name: str) -> dict[str, Any]:
+    """Build a canned Jira issue payload with a given raw status name."""
+    return {
+        "id": "10001",
+        "key": "IAM-42",
+        "fields": {
+            "summary": "SCIM provisioning",
+            "description": None,
+            "status": {"name": status_name},
+            "priority": {"name": "Medium"},
+            "assignee": None,
+            "labels": [],
+            "issuetype": {"name": "Task"},
+            "parent": None,
+            "created": "2026-03-01T10:00:00.000+0000",
+            "updated": "2026-03-15T14:00:00.000+0000",
+        },
+    }
+
+
+async def test_jira_transition_issue_matches_and_posts() -> None:
+    """C1.2: an available transition's name matches the desired name -> POSTs exactly that
+    transition id and returns the refreshed issue."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(
+                200,
+                json={
+                    "transitions": [
+                        {"id": "11", "name": "Backlog"},
+                        {"id": "21", "name": "In Progress"},
+                    ]
+                },
+            )
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_PROGRESS)
+
+    assert recorded_posts == [{"transition": {"id": "21"}}]
+    assert result.ref.key == "IAM-42"
+
+
+async def test_jira_transition_issue_no_match_raises() -> None:
+    """C1.3: transitions are present but none named the desired status, and the ticket is
+    not already at target -> raises with capability='status'; no POST is issued; the message
+    names the requested status, the resolved desired name, and the available transition names."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(
+                200,
+                json={
+                    "transitions": [
+                        {"id": "11", "name": "Backlog"},
+                        {"id": "31", "name": "Blocked"},
+                    ]
+                },
+            )
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+
+    with pytest.raises(CapabilityNotSupportedError) as exc_info:
+        await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_PROGRESS)
+
+    assert exc_info.value.capability == "status"
+    message = str(exc_info.value)
+    assert "in_progress" in message
+    assert "in progress" in message
+    assert "Backlog" in message
+    assert "Blocked" in message
+    assert recorded_posts == []
+
+
+async def test_jira_transition_issue_empty_transitions_raises() -> None:
+    """C1.4: the ticket reports an empty transitions list and is not at target -> raises;
+    no POST is issued."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(200, json={"transitions": []})
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+
+    with pytest.raises(CapabilityNotSupportedError) as exc_info:
+        await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_PROGRESS)
+
+    assert exc_info.value.capability == "status"
+    assert recorded_posts == []
+
+
+async def test_jira_transition_issue_idempotent_noop() -> None:
+    """C1.1: the ticket's raw status name already equals the resolved desired name ->
+    returns the issue without ever issuing a GET transitions or POST call (idempotent no-op
+    precedes match-or-raise)."""
+    recorded_posts: list[dict[str, Any]] = []
+    transitions_get_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal transitions_get_calls
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            transitions_get_calls += 1
+            return httpx.Response(
+                200, json={"transitions": [{"id": "99", "name": "Should Not Be Used"}]}
+            )
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("In Progress"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_PROGRESS)
+
+    assert result.ref.key == "IAM-42"
+    assert recorded_posts == []
+    assert transitions_get_calls == 0
+
+
+async def test_jira_transition_issue_retry_after_partial_success_noop() -> None:
+    """C1.5: a prior transition succeeded server-side but the response was lost; a retried
+    call resolves as an idempotent no-op success (not a false refusal) even though the
+    transitions list is now empty (the ticket already moved past this status)."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(200, json={"transitions": []})
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("Done"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.transition_issue(_iam42_ref(), CanonicalStatus.DONE)
+
+    assert result.ref.key == "IAM-42"
+    assert recorded_posts == []
+
+
+async def test_jira_transition_issue_todo_guard_unrecognized_status() -> None:
+    """C1.6: an unrecognized current status (e.g. 'Triage') with target_status=TODO must NOT
+    be treated as already-at-target via the lossy canonical `_status_from_jira` round-trip
+    (which defaults unrecognized names to TODO) -> proceeds to match-or-raise instead of a
+    silent false no-op. This must fail against a naive canonical-status implementation."""
+    recorded_posts: list[dict[str, Any]] = []
+    transitions_get_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal transitions_get_calls
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            transitions_get_calls += 1
+            return httpx.Response(200, json={"transitions": [{"id": "5", "name": "Backlog"}]})
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("Triage"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+
+    with pytest.raises(CapabilityNotSupportedError) as exc_info:
+        await connector.transition_issue(_iam42_ref(), CanonicalStatus.TODO)
+
+    assert exc_info.value.capability == "status"
+    assert transitions_get_calls == 1
+    assert recorded_posts == []
+
+
+async def test_jira_transition_issue_duplicate_name_picks_first() -> None:
+    """C1.7: two available transitions share the same case-insensitive name (different ids)
+    -> the connector deterministically POSTs the first one Jira returned."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(
+                200,
+                json={
+                    "transitions": [
+                        {"id": "41", "name": "Done"},
+                        {"id": "42", "name": "DONE"},
+                    ]
+                },
+            )
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    await connector.transition_issue(_iam42_ref(), CanonicalStatus.DONE)
+
+    assert recorded_posts == [{"transition": {"id": "41"}}]
+
+
+async def test_jira_transition_issue_matches_classic_workflow_destination_status() -> None:
+    """A company-managed project on a classic workflow names transitions for the action
+    ("Start Progress"), never for the destination status. The desired name is a *status*
+    name, so the match must read each transition's destination (``to.name``) -> POSTs the
+    transition whose destination is the desired status."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(
+                200,
+                json={
+                    "transitions": [
+                        {"id": "11", "name": "Stop Progress", "to": {"name": "To Do"}},
+                        {"id": "21", "name": "Start Progress", "to": {"name": "In Progress"}},
+                        {"id": "31", "name": "Resolve Issue", "to": {"name": "Done"}},
+                    ]
+                },
+            )
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_PROGRESS)
+
+    assert recorded_posts == [{"transition": {"id": "21"}}]
+
+
+async def test_jira_transition_issue_destination_status_beats_transition_name() -> None:
+    """When one transition is *named* the desired status but lands somewhere else, and a
+    later one actually lands on the desired status, destination wins regardless of order."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(
+                200,
+                json={
+                    "transitions": [
+                        {"id": "11", "name": "Done", "to": {"name": "Awaiting Release"}},
+                        {"id": "21", "name": "Resolve Issue", "to": {"name": "Done"}},
+                    ]
+                },
+            )
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    await connector.transition_issue(_iam42_ref(), CanonicalStatus.DONE)
+
+    assert recorded_posts == [{"transition": {"id": "21"}}]
+
+
+async def test_jira_transition_issue_falls_back_to_transition_name_without_to() -> None:
+    """Backward compatibility: a payload carrying no ``to`` (and an operator whose
+    ``status_name_map`` holds transition names) still matches on the transition's own
+    name, so team-managed projects and existing configs keep working."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(
+                200,
+                json={
+                    "transitions": [
+                        {"id": "11", "name": "Backlog"},
+                        {"id": "21", "name": "In Progress"},
+                    ]
+                },
+            )
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_PROGRESS)
+
+    assert recorded_posts == [{"transition": {"id": "21"}}]
+
+
+async def test_jira_transition_issue_classic_workflow_refusal_names_both_namespaces() -> None:
+    """A genuine refusal on a classic workflow renders each candidate as
+    ``name -> destination`` so the operator can see why nothing matched."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(
+                200,
+                json={
+                    "transitions": [
+                        {"id": "11", "name": "Stop Progress", "to": {"name": "To Do"}},
+                        {"id": "31", "name": "Resolve Issue", "to": {"name": "Done"}},
+                    ]
+                },
+            )
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+
+    with pytest.raises(CapabilityNotSupportedError) as exc_info:
+        await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_REVIEW)
+
+    assert exc_info.value.capability == "status"
+    message = str(exc_info.value)
+    assert "Stop Progress -> To Do" in message
+    assert "Resolve Issue -> Done" in message
+    assert recorded_posts == []
+
+
+# ===========================================================================
+# WP01 T007 — list_transitions + update_issue independence tests
+# ===========================================================================
+
+
+async def test_jira_list_transitions_returns_items() -> None:
+    """C2.1/C2.3: list_transitions returns JiraTransition items produced by a single GET;
+    the ticket is unchanged (no mutating request)."""
+    request_log: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        request_log.append((request.method, url))
+        if request.method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(
+                200,
+                json={
+                    "transitions": [
+                        {"id": "11", "name": "Backlog"},
+                        {"id": "21", "name": "In Progress"},
+                    ]
+                },
+            )
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.list_transitions(_iam42_ref())
+
+    assert result == [
+        JiraTransition(id="11", name="Backlog"),
+        JiraTransition(id="21", name="In Progress"),
+    ]
+    assert len(request_log) == 1
+    assert request_log[0][0] == "GET"
+
+
+async def test_jira_list_transitions_empty() -> None:
+    """C2.2: a ticket with no transitions -> returns []."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if request.method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(200, json={"transitions": []})
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.list_transitions(_iam42_ref())
+
+    assert result == []
+
+
+async def test_jira_list_transitions_null_transitions_key_returns_empty() -> None:
+    """MAJOR regression: a malformed payload with `"transitions": null` (present but null,
+    unlike the merely-missing-key case covered by C2.2) must not raise a bare TypeError from
+    iterating None -- `.get("transitions", [])` only defaults on a *missing* key, so a null
+    value needs an explicit isinstance guard. Returns [] instead of crashing."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if request.method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(200, json={"transitions": None})
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.list_transitions(_iam42_ref())
+
+    assert result == []
+
+
+async def test_jira_list_transitions_skips_malformed_items() -> None:
+    """MAJOR regression: individual malformed items (non-Mapping `null`, or a Mapping missing
+    `id`) must be skipped rather than raising a bare TypeError/KeyError while indexing -- only
+    well-formed items are returned."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if request.method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(
+                200,
+                json={"transitions": [None, {"name": "NoId"}, {"id": "9", "name": "Go"}]},
+            )
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.list_transitions(_iam42_ref())
+
+    assert result == [JiraTransition(id="9", name="Go")]
+
+
+async def test_jira_update_issue_persists_non_status_before_transition_raises() -> None:
+    """C3.1: a patch with non-status fields (labels) plus a `status` with no matching
+    transition PUTs the non-status fields FIRST, then the transition raises
+    CapabilityNotSupportedError — the non-status writes are not lost. Ordering is asserted
+    from the recorded request sequence (PUT observed before the raise)."""
+    call_order: list[str] = []
+    recorded_put_bodies: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "PUT" and "/rest/api/3/issue/IAM-42" in url:
+            call_order.append("put")
+            recorded_put_bodies.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and url.endswith("/transitions"):
+            call_order.append("get_transitions")
+            return httpx.Response(200, json={"transitions": [{"id": "5", "name": "Backlog"}]})
+        if method == "POST" and url.endswith("/transitions"):
+            call_order.append("post_transition")
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            call_order.append("get_issue")
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+
+    with pytest.raises(CapabilityNotSupportedError) as exc_info:
+        await connector.update_issue(
+            _iam42_ref(),
+            patch={"labels": ["urgent"], "status": CanonicalStatus.DONE.value},
+            idempotency_key="test-key",
+        )
+
+    assert exc_info.value.capability == "status"
+    assert recorded_put_bodies == [{"fields": {"labels": ["urgent"]}}]
+    assert "put" in call_order
+    assert "post_transition" not in call_order
+    assert call_order.index("put") < call_order.index("get_transitions")
+
+
+async def test_jira_transition_issue_null_fields_refuses_not_crashes() -> None:
+    """HIGH regression: a malformed payload with `"fields": null` (e.g. a permission-scoped or
+    partially-hydrated Jira response) must not raise a bare AttributeError from the raw-status
+    parse. The idempotent no-op parse is null-safe like `_to_canonical`, so a null `fields`
+    resolves to an empty current raw name, falls through to match-or-refuse, and raises
+    CapabilityNotSupportedError when no matching transition exists -- the refuse-loudly contract
+    holds even on malformed shapes."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(200, json={"transitions": [{"id": "11", "name": "Backlog"}]})
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json={"id": "10001", "key": "IAM-42", "fields": None})
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+
+    with pytest.raises(CapabilityNotSupportedError) as exc_info:
+        await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_PROGRESS)
+
+    assert exc_info.value.capability == "status"
+    assert recorded_posts == []
+
+
+async def test_jira_transition_issue_null_fields_matches_and_posts() -> None:
+    """Same malformed `"fields": null` payload, but this time an available transition matches
+    the desired name -> the null-safe parse never mistakes the null status for a match, falls
+    through to the match step, and transitions normally."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(200, json={"transitions": [{"id": "21", "name": "In Progress"}]})
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json={"id": "10001", "key": "IAM-42", "fields": None})
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_PROGRESS)
+
+    assert recorded_posts == [{"transition": {"id": "21"}}]
+    assert result.ref.key == "IAM-42"
+
+
+async def test_jira_transition_issue_null_transitions_key_refuses_not_crashes() -> None:
+    """MAJOR regression: the GET transitions response itself has `"transitions": null`
+    (present but null). `.get("transitions", [])` only defaults on a *missing* key, so this
+    must not raise a bare TypeError from iterating None. The current status does not match
+    the desired one, so match-or-refuse must raise CapabilityNotSupportedError -- never a
+    TypeError -- and no POST is issued."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(200, json={"transitions": None})
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+
+    with pytest.raises(CapabilityNotSupportedError) as exc_info:
+        await connector.transition_issue(_iam42_ref(), CanonicalStatus.IN_PROGRESS)
+
+    assert exc_info.value.capability == "status"
+    assert recorded_posts == []
+
+
+async def test_jira_transition_issue_skips_malformed_item_matches_later_valid_one() -> None:
+    """MEDIUM regression: the available transitions list contains a malformed leading item
+    (`null`) followed by a valid matching one -- the malformed item must be skipped rather
+    than raising, and the scan must continue (no early break) so the later valid match is
+    still found and POSTed."""
+    recorded_posts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        method = request.method
+        if method == "GET" and url.endswith("/transitions"):
+            return httpx.Response(200, json={"transitions": [None, {"id": "5", "name": "Done"}]})
+        if method == "POST" and url.endswith("/transitions"):
+            recorded_posts.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            return httpx.Response(200, json=_jira_issue_with_status("To Do"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.transition_issue(_iam42_ref(), CanonicalStatus.DONE)
+
+    assert recorded_posts == [{"transition": {"id": "5"}}]
+    assert result.ref.key == "IAM-42"
+
+
+async def test_jira_update_issue_already_at_target_composes_with_field_put() -> None:
+    """C3.2: a patch bundling non-status fields (labels) with a `status` that already matches
+    the ticket's current raw status name -> the non-status fields PUT is issued, and the status
+    write takes the idempotent no-op path (no GET transitions, no POST transition), proving the
+    no-op composes correctly with the write-reordering. update_issue still returns the freshly
+    refetched issue."""
+    call_order: list[str] = []
+    recorded_put_bodies: list[dict[str, Any]] = []
+    transitions_get_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal transitions_get_calls
+        url = str(request.url)
+        method = request.method
+        if method == "PUT" and "/rest/api/3/issue/IAM-42" in url:
+            call_order.append("put")
+            recorded_put_bodies.append(json.loads(request.content))
+            return httpx.Response(204)
+        if method == "GET" and url.endswith("/transitions"):
+            transitions_get_calls += 1
+            call_order.append("get_transitions")
+            return httpx.Response(
+                200, json={"transitions": [{"id": "99", "name": "Should Not Be Used"}]}
+            )
+        if method == "POST" and url.endswith("/transitions"):
+            call_order.append("post_transition")
+            return httpx.Response(204)
+        if method == "GET" and "/rest/api/3/issue/IAM-42" in url:
+            call_order.append("get_issue")
+            return httpx.Response(200, json=_jira_issue_with_status("In Progress"))
+        return httpx.Response(404)
+
+    connector = _jira_connector(handler)
+    result = await connector.update_issue(
+        _iam42_ref(),
+        patch={"labels": ["urgent"], "status": CanonicalStatus.IN_PROGRESS.value},
+        idempotency_key="test-key",
+    )
+
+    assert recorded_put_bodies == [{"fields": {"labels": ["urgent"]}}]
+    assert "put" in call_order
+    assert transitions_get_calls == 0
+    assert "post_transition" not in call_order
+    assert call_order.count("get_issue") == 2
+    assert result.ref.key == "IAM-42"
+
+
+async def test_jira_get_issue_null_priority_does_not_crash() -> None:
+    """Regression: a Jira payload with ``fields.priority == null`` (key present,
+    value null) must not crash ``_to_canonical``. ``get_issue`` is on the
+    ``transition_issue`` idempotent-no-op path, so a raw AttributeError here would
+    abort ``SyncEngine.push`` the same way the transitions-null bugs did."""
+    payload = _jira_issue_with_status("To Do")
+    payload["fields"]["priority"] = None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    connector = _jira_connector(handler)
+    issue = await connector.get_issue(_iam42_ref())
+    assert issue.priority is None

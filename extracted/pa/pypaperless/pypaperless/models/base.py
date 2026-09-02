@@ -1,0 +1,161 @@
+"""Provide base classes."""
+
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, Self, TypeVar, final
+
+from pydantic import BaseModel, ConfigDict, PrivateAttr
+
+from pypaperless.const import EndpointPath
+
+if TYPE_CHECKING:
+    from pypaperless.runtime import PaperlessRuntime
+
+
+ResourceT = TypeVar("ResourceT", bound="PaperlessModel")
+IdentifiedT = TypeVar("IdentifiedT", bound="IdentifiedModel")
+
+
+class DraftLike(Protocol):
+    """Protocol satisfied by all draft model classes.
+
+    Any object that exposes :attr:`api_path`, :meth:`validate_draft`, and
+    :meth:`serialize` is a valid draft that can be passed to
+    :meth:`~pypaperless.client.PaperlessClient.save`.
+    """
+
+    @property
+    def api_path(self) -> str:
+        """Return the API path for this draft."""
+        ...
+
+    def validate_draft(self) -> None:
+        """Raise if required fields are missing."""
+        ...
+
+    def serialize(self) -> dict[str, Any]:
+        """Return a serialized representation suitable for the API."""
+        ...
+
+
+class _PaperlessBase(BaseModel):
+    """Internal base: binds ``_runtime`` from validation context and provides ``from_data``."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    _runtime: "PaperlessRuntime" = PrivateAttr()
+
+    def model_post_init(self, __context: Any, /) -> None:
+        """Bind ``_runtime`` from validation context."""
+        if isinstance(__context, dict) and "runtime" in __context:
+            self._runtime = __context["runtime"]
+
+    @classmethod
+    def from_data(cls, runtime: "PaperlessRuntime", data: Any, **context: Any) -> Self:
+        """Return a new instance of ``cls`` from ``data``."""
+        return cls.model_validate(data, context={"runtime": runtime, **context})
+
+
+class PaperlessModel(_PaperlessBase):
+    """Base class for all models in PyPaperless."""
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        populate_by_name=True,
+        use_enum_values=False,
+        validate_assignment=True,
+    )
+
+    _api_path: ClassVar[str] = EndpointPath.INDEX
+    _pk_field: ClassVar[str] = "id"
+    _dump_exclude: ClassVar[set[str]] = set()
+
+    _snapshot_source: ClassVar[dict[str, Any] | None] = None
+
+    _snapshot_cache: dict[str, Any] | None = PrivateAttr(default=None)
+
+    def model_post_init(self, __context: Any, /) -> None:
+        """Bind `_runtime` from validation context and resolve the instance API path."""
+        super().model_post_init(__context)
+        pk = getattr(self, self._pk_field, None)
+        if pk is not None:
+            object.__setattr__(self, "_api_path", self._api_path.format(pk=pk))
+        if not (isinstance(__context, dict) and "runtime" in __context):
+            # direct construction without an API payload - freeze the state now,
+            # since there is no raw source to derive the snapshot from later
+            self._snapshot_cache = self.api_dump()
+
+    def api_dump(self) -> dict[str, Any]:
+        """Return the JSON-safe field state as it is sent to the Paperless API.
+
+        Keys are the API field names (aliases), fields marked ``exclude=True``
+        and binary payload fields listed in ``_dump_exclude`` are omitted.
+
+        Example::
+
+            document = await paperless.documents(42)
+            payload = document.api_dump()
+            print(payload["title"])
+
+        """
+        return self.model_dump(mode="json", by_alias=True, exclude=self._dump_exclude or None)
+
+    @classmethod
+    def format_api_path(cls, **kwargs: Any) -> str:
+        """Return the formatted API path for this model class."""
+        return cls._api_path.format(**kwargs)
+
+    @final
+    @classmethod
+    def from_data(
+        cls,
+        runtime: "PaperlessRuntime",
+        data: dict[str, Any],
+        **_context: Any,
+    ) -> Self:
+        """Return a new instance of `cls` from `data`.
+
+        Primarily used by service-level factory methods. The raw payload is
+        kept as the snapshot source for lazy change tracking - it must not be
+        mutated afterwards.
+        """
+        instance = cls.model_validate(data, context={"runtime": runtime})
+        object.__setattr__(instance, "_snapshot_source", data)
+        return instance
+
+    @property
+    def api_path(self) -> str:
+        """Return the API path for this model instance."""
+        return self._api_path
+
+    @property
+    def snapshot(self) -> dict[str, Any]:
+        """Return the serialized field state as of the last API sync.
+
+        Computed lazily on first access from the raw API payload, so plain
+        reads and iteration never pay for change tracking. Both the snapshot
+        and the current state pass through :meth:`api_dump`, which keeps the
+        change detection in ``update()`` free of normalization artifacts.
+        """
+        if self._snapshot_cache is None:
+            if self._snapshot_source is not None:
+                fresh = type(self).from_data(self._runtime, self._snapshot_source)
+                self._snapshot_cache = fresh.api_dump()
+            else:
+                self._snapshot_cache = self.api_dump()
+        return self._snapshot_cache
+
+    def refresh_from(self, data: dict[str, Any]) -> None:
+        """Replace all field values and snapshot source in-place from a fresh API response."""
+        fresh = type(self).from_data(self._runtime, data)
+        for name in self.__class__.model_fields:
+            setattr(self, name, getattr(fresh, name))
+        object.__setattr__(self, "_snapshot_source", data)
+        self._snapshot_cache = None
+
+
+class IdentifiedModel(PaperlessModel):
+    """Base class for models whose API endpoint always provides an ``id``.
+
+    Subclasses expose ``id`` as a required, non-optional ``int``.
+    """
+
+    id: int

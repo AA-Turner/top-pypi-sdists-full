@@ -1,0 +1,103 @@
+Metadata-Version: 2.4
+Name: krepis
+Version: 0.59.44
+Summary: krepis (Greek κρηπίς — the foundation a structure stands on): general-purpose Python primitives for production data and LLM pipelines on AWS — logging, SSM secrets, Telegram/SNS/Web Push alerts, bounded-backoff HTTP retry, S3 writer locks, the Anthropic payload chokepoint, LLM cost telemetry, the LLM-as-judge transport core, trading-calendar/date helpers, and EC2-spot/SSM resilience.
+Author: Brian McMahon
+License: MIT
+Project-URL: Homepage, https://github.com/nousergon/krepis
+Project-URL: Repository, https://github.com/nousergon/krepis
+Project-URL: Issues, https://github.com/nousergon/krepis/issues
+Keywords: aws,ssm,telemetry,pipeline,alerts,trading-calendar
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Operating System :: OS Independent
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: boto3>=1.34
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: requests>=2.31
+Requires-Dist: eval_type_backport>=0.2.0; python_version < "3.10"
+Provides-Extra: flow-doctor
+Requires-Dist: flow-doctor>=0.16.0; extra == "flow-doctor"
+Provides-Extra: anthropic
+Requires-Dist: anthropic>=0.40; extra == "anthropic"
+Provides-Extra: openai
+Requires-Dist: openai>=1.40; extra == "openai"
+Provides-Extra: webpush
+Requires-Dist: pywebpush>=1.14; extra == "webpush"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0; extra == "dev"
+Requires-Dist: moto>=5.0; extra == "dev"
+Requires-Dist: litellm<1.97,>=1.0; python_version < "3.11" and extra == "dev"
+Requires-Dist: litellm>=1.0; python_version >= "3.11" and extra == "dev"
+Requires-Dist: jsonschema>=4.0; extra == "dev"
+Dynamic: license-file
+
+# krepis
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)]()
+[![Typed](https://img.shields.io/badge/typed-PEP_561-blue.svg)]()
+[![Tests](https://github.com/nousergon/krepis/actions/workflows/test.yml/badge.svg)](https://github.com/nousergon/krepis/actions/workflows/test.yml)
+
+**krepis** (Greek κρηπίς — the foundation course a structure stands on) is a
+small, typed library of general-purpose Python primitives for building
+production data and LLM pipelines on AWS.
+
+## Install
+
+```bash
+pip install krepis
+```
+
+## What's inside
+
+| Module | Purpose |
+|---|---|
+| `logging` | Structured logging + the flow-doctor secret-seeding chokepoint |
+| `secrets` | SSM-backed secret resolution |
+| `alerts` | Telegram / SNS alert routing with S3-marker dedup (incl. CLI) |
+| `telegram` | Telegram transport |
+| `webpush` | Web Push (VAPID) transport — reaches an installed PWA/site regardless of tab state (`webpush` extra) |
+| `email_sender` | SES / SMTP email transport |
+| `http_retry` | Bounded-backoff HTTP retry with jitter |
+| `locks` | S3 conditional-PUT writer locks |
+| `cost` | LLM cost telemetry (token counts × price card → USD) |
+| `model_metadata` | `ModelMetadata` value object (per-invocation model + token cost) |
+| `anthropic_payload` | Anthropic request-payload construction + validation |
+| `metrics` | Typed metric records |
+| `trading_calendar` | NYSE trading-day calendar (pure stdlib) |
+| `dates` | Calendar / trading-day dual-track date helpers |
+| `ec2_spot` | EC2 spot-instance resilience helpers |
+| `ssm_dispatcher` | SSM command dispatch |
+| `ssm_log_capture` | SSM run-command log capture |
+| `usage_pacing` | Linear-pace short-circuit against a rolling reset-window quota |
+
+## Development
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+Run the test suite:
+
+```bash
+python -m pytest -q
+```
+
+A healthy result is all tests passing with coverage ≥ 90%. The CI matrix
+tests Python 3.9 through 3.13 on every PR and push to `main`.
+
+## License
+
+MIT — see [LICENSE](LICENSE) and [NOTICE](NOTICE). Contributions accepted
+under the [DCO](CONTRIBUTING.md) (`git commit -s`).
+
+Part of the [Nous Ergon](https://github.com/nousergon) project.

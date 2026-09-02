@@ -1,0 +1,43 @@
+[project]
+name = "substrait-extensions"
+version = "0.103.0"
+description = "Packaged Substrait Extension Files"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Substrait Contributors", email = "substrait@googlegroups.com"}
+]
+
+dependencies = []
+
+[project.urls]
+Homepage = "https://substrait.io"
+Repository = "https://github.com/substrait-io/substrait-packaging"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+testpaths = "tests"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = true
+
+[tool.setuptools.package-data]
+"substrait_extensions.dialects" = ["*.yaml"]
+"substrait_extensions.extensions" = ["*.yaml"]
+"substrait_extensions.testcases" = ["*/*.test"]
+# The examples are nested one level deeper (examples/extensions, examples/types).
+# package-data globs are per-package and not recursive, so this is declared on the
+# top-level package rather than on each examples subpackage.
+"substrait_extensions" = ["examples/**/*.yaml"]
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"

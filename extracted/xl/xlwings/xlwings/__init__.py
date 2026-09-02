@@ -5,7 +5,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Annotated, Any, Callable, TypeVar, overload
 
-__version__ = "0.36.17"
+__version__ = "0.37.0"
 
 # TypeVar for the CachedObject[T] type alias (defined after the ObjectHandle class).
 _CachedT = TypeVar("_CachedT")

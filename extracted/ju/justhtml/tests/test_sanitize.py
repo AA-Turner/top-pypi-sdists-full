@@ -1,0 +1,4309 @@
+from __future__ import annotations
+
+import unittest
+from dataclasses import replace
+
+import justhtml
+from justhtml import JustHTML, Sanitize, SetAttrs
+from justhtml.core.types import ParseError
+from justhtml.dom import Comment, DocumentFragment, Element, Node, Template, Text
+from justhtml.sanitizer import (
+    CSS_PRESET_TEXT,
+    DEFAULT_POLICY,
+    CompiledSanitizationPolicy,
+    SanitizationPolicy,
+    UnsafeHandler,
+    UrlPolicy,
+    UrlProxy,
+    UrlRule,
+    _css_value_contains_disallowed_functions,
+    _css_value_has_disallowed_resource_functions,
+    _css_value_may_load_external_resource,
+    _effective_allow_relative,
+    _effective_proxy,
+    _effective_url_handling,
+    _is_legacy_ipv4_number,
+    _is_noncanonical_numeric_ipv4_host,
+    _is_valid_css_property_name,
+    _neutralize_rawtext_end_tag_sequences,
+    _raw_authority_host,
+    _sanitize_comma_or_space_separated_url_list,
+    _sanitize_css_url_functions,
+    _sanitize_inline_style,
+    _sanitize_rawtext_element_contents,
+    _sanitize_space_separated_url_list,
+    _sanitize_url_function_value,
+    _sanitize_url_value_with_rule,
+    _seal_url_policy,
+    sanitize_dom,
+)
+from justhtml.sanitizer import _sanitize as sanitize
+from justhtml.sanitizer import policy_defaults as sanitize_policy_defaults
+from justhtml.sanitizer.url import _url_sink_kind_for_attr
+from justhtml.serializer import to_html
+
+
+class _CoverageSentinel:
+    def __getitem__(self, key: str):
+        raise AssertionError("unreachable")
+
+
+class TestSanitizePlumbing(unittest.TestCase):
+    def test_public_api_exports_exist(self) -> None:
+        assert isinstance(DEFAULT_POLICY, SanitizationPolicy)
+        assert DEFAULT_POLICY.strip_invisible_unicode is True
+        assert "sanitize" not in justhtml.__all__
+        assert "Sanitize" in justhtml.__all__
+        assert "HTMLContext" in justhtml.__all__
+        assert callable(sanitize)
+
+    def test_default_policy_nested_state_is_immutable(self) -> None:
+        assert isinstance(DEFAULT_POLICY.allowed_attributes["a"], frozenset)
+        assert isinstance(DEFAULT_POLICY.url_policy.allow_rules[("a", "href")].allowed_schemes, frozenset)
+
+        with self.assertRaises(TypeError):
+            DEFAULT_POLICY.allowed_attributes["p"] = frozenset({"onclick"})  # type: ignore[index]
+
+        with self.assertRaises(AttributeError):
+            DEFAULT_POLICY.url_policy.allow_rules[("a", "href")].allowed_schemes.add("javascript")  # type: ignore[attr-defined]
+
+        assert JustHTML('<a href="javascript:alert(1)">x</a>', fragment=True).to_html(pretty=False) == "<a>x</a>"
+
+    def test_default_policy_compiled_sanitize_cache_is_immutable(self) -> None:
+        assert JustHTML('<a href="javascript:alert(1)">x</a>', fragment=True).to_html(pretty=False) == "<a>x</a>"
+
+        compiled = DEFAULT_POLICY._compiled_sanitize_transforms
+        assert isinstance(compiled, tuple)
+        compiled_policy = DEFAULT_POLICY.compile()
+        assert isinstance(compiled_policy, CompiledSanitizationPolicy)
+        assert compiled_policy.transforms is compiled
+
+        with self.assertRaises(AttributeError):
+            compiled.clear()  # type: ignore[union-attr]
+
+        assert JustHTML('<a href="javascript:alert(1)">x</a>', fragment=True).to_html(pretty=False) == "<a>x</a>"
+
+    def test_policy_compiled_sanitize_cache_accessors_are_none_before_compile(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["p"],
+            allowed_attributes={"p": []},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+
+        assert policy._compiled_sanitize_transforms is None
+        assert policy._compiled_sanitize_signature is None
+
+    def test_policy_compile_reuses_cached_compiled_policy(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["p"],
+            allowed_attributes={"p": []},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+
+        compiled_policy = policy.compile()
+        compiled_policy_again = policy.compile()
+
+        assert compiled_policy_again is compiled_policy
+        assert policy._compiled_sanitize_transforms is compiled_policy.transforms
+        assert policy._compiled_sanitize_signature == compiled_policy.signature
+
+    def test_policy_compile_only_hardens_rawtext_when_rawtext_tags_can_survive(self) -> None:
+        assert all(getattr(t, "kind", None) != "harden_rawtext" for t in DEFAULT_POLICY.compile().transforms)
+
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={"style": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+
+        assert any(getattr(t, "kind", None) == "harden_rawtext" for t in policy.compile().transforms)
+
+    def test_seal_url_policy_normalizes_and_freezes_allowed_hosts(self) -> None:
+        url_policy = UrlPolicy(
+            allow_rules={
+                ("A", "HREF"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"EXAMPLE.COM"}),
+            }
+        )
+
+        _seal_url_policy(url_policy)
+
+        rule = url_policy.allow_rules[("a", "href")]
+        assert rule.allowed_hosts == frozenset({"example.com"})
+        with self.assertRaises(AttributeError):
+            rule.allowed_hosts.add("evil.example")  # type: ignore[union-attr]
+
+    def test_seal_url_policy_rejects_non_policy(self) -> None:
+        with self.assertRaises(TypeError):
+            sanitize_policy_defaults._seal_url_policy(object())  # type: ignore[arg-type]
+
+    def test_seal_default_policy_rejects_non_policy(self) -> None:
+        with self.assertRaises(TypeError):
+            sanitize_policy_defaults._seal_default_policy(object())
+
+    def test_urlproxy_rejects_empty_url(self) -> None:
+        with self.assertRaises(ValueError):
+            UrlProxy(url="")
+
+    def test_urlproxy_rejects_empty_param(self) -> None:
+        with self.assertRaises(ValueError):
+            UrlProxy(url="/proxy", param="")
+
+    def test_urlproxy_rejects_fragment_or_duplicate_proxy_param(self) -> None:
+        for proxy_url in (
+            "/proxy#fragment",
+            "/proxy?url=https://evil.example/x",
+            "/proxy?next=/ok&url=",
+            "/proxy?u%72l=https://evil.example/x",
+        ):
+            with self.subTest(proxy_url=proxy_url):
+                with self.assertRaises(ValueError):
+                    UrlProxy(url=proxy_url, param="url")
+
+        assert UrlProxy(url="/proxy?next=/ok", param="url").url == "/proxy?next=/ok"
+
+    def test_urlproxy_rejects_active_or_ambiguous_proxy_urls(self) -> None:
+        for proxy_url in (
+            "javascript:alert(1)",
+            "java\nscript:alert(1)",
+            "data:text/html,<script>alert(1)</script>",
+            "vbscript:msgbox(1)",
+            "/proxy\x00path",
+            "https\\://example.com/proxy",
+            "https:proxy.example/p",
+            "https:/proxy.example/p",
+            "http:proxy.example/p",
+            "http:/proxy.example/p",
+            "//evil.example/proxy",
+            "proxy:target",
+            "1http://example.com/proxy",
+        ):
+            with self.subTest(proxy_url=proxy_url):
+                with self.assertRaises(ValueError):
+                    UrlProxy(url=proxy_url)
+
+    def test_urlproxy_allows_relative_and_http_https_proxy_urls(self) -> None:
+        assert UrlProxy(url="/proxy").url == "/proxy"
+        assert UrlProxy(url="proxy/path?x=1").url == "proxy/path?x=1"
+        assert UrlProxy(url="https://proxy.example/p").url == "https://proxy.example/p"
+        assert UrlProxy(url="http://proxy.example/p").url == "http://proxy.example/p"
+
+    def test_url_sink_registry_identifies_contextual_url_attributes(self) -> None:
+        assert _url_sink_kind_for_attr(tag="param", attr="value", attrs={"NAME": "movie"}) == "url"
+        assert _url_sink_kind_for_attr(tag="param", attr="value", attrs={"name": "quality"}) is None
+        assert _url_sink_kind_for_attr(tag="param", attr="value", attrs={"name": None}) is None
+        assert _url_sink_kind_for_attr(tag="meta", attr="content", attrs={"HTTP-EQUIV": "refresh"}) == "meta_refresh"
+        assert _url_sink_kind_for_attr(tag="meta", attr="content", attrs={"http-equiv": "content-type"}) is None
+        assert _url_sink_kind_for_attr(tag="div", attr="content", attrs={"http-equiv": "refresh"}) is None
+
+    def test_url_authority_helper_edge_cases(self) -> None:
+        assert _raw_authority_host("[2001:db8::1]:443") == "2001:db8::1"
+        assert _raw_authority_host("[2001:db8::1") == ""
+        assert _is_noncanonical_numeric_ipv4_host("1.2.3.4.5") is False
+        assert _is_noncanonical_numeric_ipv4_host("1..2.3") is False
+        assert _is_noncanonical_numeric_ipv4_host(".".join(["9" * 5000] * 4)) is True
+        assert _is_legacy_ipv4_number("") is False
+
+    def test_urlproxy_does_not_rewrite_safe_url_to_active_href(self) -> None:
+        with self.assertRaises(ValueError):
+            SanitizationPolicy(
+                allowed_tags=["a"],
+                allowed_attributes={"a": ["href"]},
+                url_policy=UrlPolicy(
+                    default_handling="proxy",
+                    proxy=UrlProxy(url="javascript:alert(1)"),
+                    allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})},
+                ),
+            )
+
+    def test_urlproxy_encodes_param_name(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"img": ["src"]},
+            url_policy=UrlPolicy(
+                proxy=UrlProxy(url="/proxy", param="url&next"),
+                allow_rules={("img", "src"): UrlRule(allowed_schemes={"https"}, handling="proxy")},
+            ),
+        )
+
+        out = JustHTML('<img src="https://example.com/x">', fragment=True, policy=policy).to_html(pretty=False)
+        assert out == '<img src="/proxy?url%26next=https%3A%2F%2Fexample.com%2Fx">'
+
+    def test_urlrule_and_policy_normalize_inputs(self) -> None:
+        rule = UrlRule(allowed_schemes=["https"], allowed_hosts=["example.com"])
+        assert isinstance(rule.allowed_schemes, set)
+        assert isinstance(rule.allowed_hosts, set)
+
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": []},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=["script", "style"],
+            force_link_rel=["noopener"],
+            allowed_css_properties=["color"],
+            strip_invisible_unicode=1,
+        )
+        assert isinstance(policy.allowed_tags, frozenset)
+        assert isinstance(policy.allowed_attributes, dict)
+        assert isinstance(policy.drop_content_tags, set)
+        assert isinstance(policy.force_link_rel, set)
+        assert isinstance(policy.allowed_css_properties, set)
+        assert policy.strip_invisible_unicode is True
+
+    def test_urlrule_rejects_non_urlproxy_instance(self) -> None:
+        with self.assertRaises(TypeError):
+            UrlRule(proxy="/proxy")  # type: ignore[arg-type]
+
+    def test_policy_rejects_invalid_unsafe_handling(self) -> None:
+        with self.assertRaises(ValueError):
+            SanitizationPolicy(
+                allowed_tags=["div"],
+                allowed_attributes={"*": [], "div": []},
+                url_policy=UrlPolicy(allow_rules={}),
+                allowed_css_properties=["color"],
+                unsafe_handling="nope",  # type: ignore[arg-type]
+            )
+
+    def test_policy_rejects_invalid_disallowed_tag_handling(self) -> None:
+        with self.assertRaises(ValueError):
+            SanitizationPolicy(
+                allowed_tags=["div"],
+                allowed_attributes={"*": [], "div": []},
+                url_policy=UrlPolicy(allow_rules={}),
+                allowed_css_properties=["color"],
+                disallowed_tag_handling="nope",  # type: ignore[arg-type]
+            )
+
+    def test_policy_rejects_invalid_selector_limits(self) -> None:
+        with self.assertRaises(TypeError):
+            SanitizationPolicy(
+                allowed_tags=["div"],
+                allowed_attributes={"*": [], "div": []},
+                selector_limits=object(),  # type: ignore[arg-type]
+            )
+
+    def test_policy_rejects_string_allowed_tags(self) -> None:
+        with self.assertRaises(TypeError):
+            SanitizationPolicy(
+                allowed_tags="div",  # type: ignore[arg-type]
+                allowed_attributes={"*": []},
+            )
+
+    def test_policy_rejects_string_allowed_attributes_value(self) -> None:
+        with self.assertRaises(TypeError):
+            SanitizationPolicy(
+                allowed_tags=["custom-element"],
+                allowed_attributes={"custom-element": "attribute"},  # type: ignore[arg-type]
+            )
+
+    def test_policy_rejects_non_mapping_allowed_attributes(self) -> None:
+        with self.assertRaises(TypeError):
+            SanitizationPolicy(
+                allowed_tags=["div"],
+                allowed_attributes=[],  # type: ignore[arg-type]
+            )
+
+    def test_policy_rejects_empty_tag_key_in_allowed_attributes(self) -> None:
+        with self.assertRaises(ValueError):
+            SanitizationPolicy(
+                allowed_tags=["div"],
+                allowed_attributes={"": ["id"]},
+            )
+
+    def test_policy_normalizes_and_merges_allowed_attributes_keys(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["DIV"],
+            allowed_attributes={"DIV": ["ID"], "div": ["class"]},
+        )
+        assert policy.allowed_tags == {"div"}
+        assert policy.allowed_attributes["div"] == {"id", "class"}
+
+    def test_policy_normalizes_drop_content_tags(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": []},
+            drop_content_tags={"SCRIPT", " Style "},
+        )
+        assert policy.drop_content_tags == {"script", "style"}
+
+    def test_url_policy_rejects_invalid_url_handling(self) -> None:
+        with self.assertRaises(ValueError):
+            UrlPolicy(default_handling="nope")  # type: ignore[arg-type]
+
+    def test_url_policy_coerces_rules_to_dict(self) -> None:
+        url_policy = UrlPolicy(
+            allow_rules=[(("a", "href"), UrlRule(allowed_schemes={"https"}))],  # type: ignore[arg-type]
+        )
+        assert isinstance(url_policy.allow_rules, dict)
+
+    def test_url_policy_rejects_non_urlproxy_instance(self) -> None:
+        with self.assertRaises(TypeError):
+            UrlPolicy(proxy="/proxy")  # type: ignore[arg-type]
+
+    def test_url_policy_proxy_mode_requires_proxy_config(self) -> None:
+        with self.assertRaises(ValueError):
+            UrlPolicy(
+                allow_rules={("a", "href"): UrlRule(handling="proxy", allowed_schemes={"https"})},
+            )
+
+    def test_urlrule_post_init_branches(self) -> None:
+        # Cover coercion paths and the proxy type-check.
+        rule = UrlRule(allowed_schemes=["https"], allowed_hosts=["example.com"], proxy=None)
+        assert rule.allowed_schemes == {"https"}
+        assert rule.allowed_hosts == {"example.com"}
+
+        with self.assertRaises(TypeError):
+            UrlRule(proxy=_CoverageSentinel())  # type: ignore[arg-type]
+
+
+class TestSanitizeDom(unittest.TestCase):
+    def test_custom_policy_preserves_content_after_closed_foreign_rawtext(self) -> None:
+        policies = (
+            replace(DEFAULT_POLICY),
+            SanitizationPolicy(
+                allowed_tags={"p"},
+                allowed_attributes={"p": set()},
+                url_policy=UrlPolicy(allow_rules={}),
+            ),
+        )
+
+        for policy in policies:
+            for foreign_tag in ("math", "svg"):
+                for rawtext_tag in ("script", "style"):
+                    html = f"<{foreign_tag}><{rawtext_tag}></{rawtext_tag}></{foreign_tag}>tail<p>end</p>"
+                    with self.subTest(policy=policy, foreign_tag=foreign_tag, rawtext_tag=rawtext_tag):
+                        assert JustHTML(html, fragment=True, policy=policy).to_html(pretty=False) == "tail<p>end</p>"
+                        assert (
+                            JustHTML(
+                                html,
+                                fragment=True,
+                                transforms=[Sanitize(policy=policy)],
+                            ).to_html(pretty=False)
+                            == "tail<p>end</p>"
+                        )
+
+    def test_custom_policy_drops_content_after_unclosed_foreign_rawtext(self) -> None:
+        policy = replace(DEFAULT_POLICY)
+
+        for foreign_tag in ("math", "svg"):
+            for rawtext_tag in ("script", "style"):
+                html = f"<{foreign_tag}><{rawtext_tag}>unsafe</{foreign_tag}>tail<p>end</p>"
+                with self.subTest(foreign_tag=foreign_tag, rawtext_tag=rawtext_tag):
+                    assert JustHTML(html, fragment=True, policy=policy).to_html(pretty=False) == ""
+
+    def test_sanitize_dom_document_fragment(self) -> None:
+        root = DocumentFragment()
+        root.append_child(Node("script"))
+        root.append_child(Node("b"))
+        policy = SanitizationPolicy(
+            allowed_tags=["b"],
+            allowed_attributes={"*": []},
+            disallowed_tag_handling="drop",
+        )
+
+        out = sanitize_dom(root, policy=policy)
+        assert out is root
+        assert [child.name for child in (root.children or [])] == ["b"]
+
+    def test_sanitize_dom_element_root(self) -> None:
+        root = Node("div")
+        root.append_child(Node("script"))
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": []},
+            disallowed_tag_handling="drop",
+        )
+
+        out = sanitize_dom(root, policy=policy)
+        assert out is root
+        assert root.children == []
+
+    def test_sanitize_dom_drops_mixed_case_drop_content_tag_subtrees(self) -> None:
+        root = DocumentFragment()
+        script = Node("ScRiPt")
+        script.append_child(Node("img", attrs={"src": "pixel", "onerror": "alert(1)"}))
+        root.append_child(script)
+
+        out = sanitize_dom(root)
+
+        assert out is root
+        assert to_html(root, pretty=False) == ""
+
+    def test_sanitize_dom_default_policy(self) -> None:
+        root = DocumentFragment()
+        root.append_child(Node("b"))
+        out = sanitize_dom(root)
+        assert out is root
+        assert [child.name for child in (root.children or [])] == ["b"]
+
+    def test_sanitize_dom_default_policy_keeps_table_caption(self) -> None:
+        root = DocumentFragment()
+        table = Node("table")
+        caption = Node("caption")
+        caption.append_child(Text("Summary"))
+        table.append_child(caption)
+        root.append_child(table)
+
+        out = sanitize_dom(root)
+        assert out is root
+        assert to_html(root, pretty=False) == "<table><caption>Summary</caption></table>"
+
+    def test_sanitize_dom_default_policy_strips_invisible_unicode(self) -> None:
+        variation_selector = "\ufe00"
+        supplementary_variation_selector = "\U000e0100"
+        zero_width = "\u200b"
+        bidi = "\u202e"
+        private_use = "\ue000"
+        root = JustHTML(
+            (
+                f'<p title="a{supplementary_variation_selector}{private_use}{bidi}b">'
+                f"a{variation_selector}{zero_width}{bidi}b"
+                f'<a href="java{zero_width}script:alert(1)">x</a></p>'
+            ),
+            fragment=True,
+            sanitize=False,
+        ).root
+
+        out = sanitize_dom(root)
+        assert out is root
+        assert root.to_html(pretty=False) == '<p title="ab">ab<a>x</a></p>'
+
+    def test_sanitize_dom_leaves_invisible_unicode_when_flag_disabled(self) -> None:
+        invisible = "\ufe00\u200b\u202e\ue000"
+        root = JustHTML(
+            f'<p title="a{invisible}b">a{invisible}b</p>',
+            fragment=True,
+            sanitize=False,
+        ).root
+        policy = SanitizationPolicy(
+            allowed_tags=["p"],
+            allowed_attributes={"p": ["title"]},
+            strip_invisible_unicode=False,
+        )
+
+        out = sanitize_dom(root, policy=policy)
+        assert out is root
+        assert root.to_html(pretty=False) == f'<p title="a{invisible}b">a{invisible}b</p>'
+
+    def test_sanitize_dom_compiled_cache_reuse(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["b"],
+            allowed_attributes={"*": []},
+            disallowed_tag_handling="drop",
+        )
+        root = DocumentFragment()
+        root.append_child(Node("b"))
+        sanitize_dom(root, policy=policy)
+
+        root2 = DocumentFragment()
+        root2.append_child(Node("b"))
+        out = sanitize_dom(root2, policy=policy)
+        assert out is root2
+
+    def test_sanitize_dom_recompiles_when_allowed_attributes_mutate(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"div": ["title"]},
+        )
+
+        first = Element("div", {"title": "ok"}, "html")
+        sanitize_dom(first, policy=policy)
+        assert first.attrs == {"title": "ok"}
+
+        policy.allowed_attributes["div"] = frozenset()
+
+        second = Element("div", {"title": "ok"}, "html")
+        sanitize_dom(second, policy=policy)
+        assert second.attrs == {}
+
+    def test_sanitize_dom_recompiles_when_url_rules_mutate(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"a": ["href"]},
+            url_policy=UrlPolicy(allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})}),
+        )
+
+        first = Element("a", {"href": "https://example.com"}, "html")
+        sanitize_dom(first, policy=policy)
+        assert first.attrs == {"href": "https://example.com"}
+
+        policy.url_policy.allow_rules[("a", "href")] = UrlRule(allowed_schemes=set())
+
+        second = Element("a", {"href": "https://example.com"}, "html")
+        sanitize_dom(second, policy=policy)
+        assert second.attrs == {}
+
+    def test_sanitize_dom_policy_signature_covers_proxy_settings(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"img": ["src"]},
+            url_policy=UrlPolicy(
+                proxy=UrlProxy(url="/proxy"),
+                allow_rules={
+                    ("img", "src"): UrlRule(
+                        allowed_schemes={"https"},
+                        handling="proxy",
+                        proxy=UrlProxy(url="/rule-proxy"),
+                    )
+                },
+            ),
+        )
+
+        node = Element("img", {"src": "https://example.com/x"}, "html")
+        sanitize_dom(node, policy=policy)
+        assert node.attrs == {"src": "/rule-proxy?url=https%3A%2F%2Fexample.com%2Fx"}
+
+    def test_justhtml_recompiles_when_allowed_attributes_mutate(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"a": ["href", "title"]},
+            url_policy=UrlPolicy(allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})}),
+        )
+
+        first = JustHTML('<a href="https://example.com" title="x">ok</a>', policy=policy, fragment=True)
+        assert first.to_html(pretty=False) == '<a href="https://example.com" title="x">ok</a>'
+
+        policy.allowed_attributes["a"] = frozenset({"title"})
+
+        second = JustHTML('<a href="https://example.com" title="x">ok</a>', policy=policy, fragment=True)
+        assert second.to_html(pretty=False) == '<a title="x">ok</a>'
+
+    def test_justhtml_recompiles_when_url_rules_mutate(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"a": ["href"]},
+            url_policy=UrlPolicy(allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})}),
+        )
+
+        first = JustHTML('<a href="https://example.com">ok</a>', policy=policy, fragment=True)
+        assert first.to_html(pretty=False) == '<a href="https://example.com">ok</a>'
+
+        policy.url_policy.allow_rules[("a", "href")] = UrlRule(allowed_schemes=set())
+
+        second = JustHTML('<a href="https://example.com">ok</a>', policy=policy, fragment=True)
+        assert second.to_html(pretty=False) == "<a>ok</a>"
+
+    def test_sanitize_dom_returns_wrapper_on_drop(self) -> None:
+        root = Node("script")
+        policy = SanitizationPolicy(
+            allowed_tags=[],
+            allowed_attributes={"*": []},
+            disallowed_tag_handling="drop",
+        )
+
+        out = sanitize_dom(root, policy=policy)
+        assert out.name == "#document-fragment"
+        assert out.children == []
+
+    def test_is_valid_css_property_name(self) -> None:
+        assert _is_valid_css_property_name("border-top") is True
+        assert _is_valid_css_property_name("") is False
+        assert _is_valid_css_property_name("co_lor") is False
+
+    def test_sanitize_inline_style_edge_cases(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            url_policy=UrlPolicy(allow_rules={}),
+            allowed_css_properties={"color"},
+        )
+
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value="",
+                tag="div",
+                url_policy=policy.url_policy,
+            )
+            is None
+        )
+
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value="margin: 0",
+                tag="div",
+                url_policy=policy.url_policy,
+            )
+            is None
+        )
+
+        value = "color; co_lor: red; margin: 0; color: ; COLOR: red"
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value=value,
+                tag="div",
+                url_policy=policy.url_policy,
+            )
+            == "color: red"
+        )
+
+    def test_sanitize_inline_style_returns_none_when_allowlist_empty(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": []},
+            url_policy=UrlPolicy(allow_rules={}),
+            allowed_css_properties=set(),
+        )
+
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value="color: red",
+                tag="div",
+                url_policy=policy.url_policy,
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_allows_relative_url_when_rule_present(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+
+        out = _sanitize_css_url_functions(
+            url_policy=url_policy,
+            tag="div",
+            prop="background-image",
+            value="linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)), url('/site_media/covers/cover.jpg')",
+        )
+        assert out is not None
+        assert "url('/site_media/covers/cover.jpg')" in out
+
+    def test_sanitize_css_url_functions_rejects_comments(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url(/x)/*comment*/",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_requires_matching_rule(self) -> None:
+        url_policy = UrlPolicy(default_handling="allow", allow_rules={})
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url('/x')",
+            )
+            is None
+        )
+
+    def test_lookup_css_url_rule_prefers_tag_specific_then_wildcard(self) -> None:
+        # Coverage for the (tag, key) branch.
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("div", "style:background-image"): UrlRule(allowed_schemes=set(), resolve_protocol_relative=None),
+                ("*", "style:background-image"): UrlRule(allowed_schemes=set(), resolve_protocol_relative=None),
+            },
+        )
+        out = _sanitize_css_url_functions(
+            url_policy=url_policy,
+            tag="div",
+            prop="background-image",
+            value="url('/x.png')",
+        )
+        assert out == "url('/x.png')"
+
+    def test_sanitize_css_url_functions_requires_closing_paren(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url('/x'",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_rejects_open_paren_only(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url(",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_rejects_only_whitespace_after_open(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url(   ",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_rejects_backslash_in_value(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url('/x\\y.png')",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_allows_whitespace_before_closing_paren(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        out = _sanitize_css_url_functions(
+            url_policy=url_policy,
+            tag="div",
+            prop="background-image",
+            value="url('/x.png'   )",
+        )
+        assert out == "url('/x.png')"
+
+    def test_sanitize_css_url_functions_rejects_unquoted_missing_closing_paren(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url(/x",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_rejects_unquoted_del_char(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value=f"url(/x{chr(0x7F)}y)",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_allows_unquoted_simple_url(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        out = _sanitize_css_url_functions(
+            url_policy=url_policy,
+            tag="div",
+            prop="background-image",
+            value="url(/x.png)",
+        )
+        assert out == "url('/x.png')"
+
+    def test_sanitize_css_url_functions_allows_trailing_whitespace(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        out = _sanitize_css_url_functions(
+            url_policy=url_policy,
+            tag="div",
+            prop="background-image",
+            value="url('/x.png') ",
+        )
+        assert out == "url('/x.png') "
+
+    def test_sanitize_css_url_functions_allows_comma_between_urls(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        out = _sanitize_css_url_functions(
+            url_policy=url_policy,
+            tag="div",
+            prop="background-image",
+            value="url('/x.png'), url('/y.png')",
+        )
+        assert out == "url('/x.png'), url('/y.png')"
+
+    def test_sanitize_css_url_functions_rejects_missing_closing_quote(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url('/x)",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_rejects_missing_closing_paren_after_quote(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url('/x')x",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_rejects_suspicious_chars_in_rewritten_url(self) -> None:
+        # Coverage for the per-character rejection path.
+        def filt(tag: str, attr: str, value: str) -> str | None:
+            if attr == "style:background-image":
+                return "/x y"
+            return value
+
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+            url_filter=filt,
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url('/x.png')",
+            )
+            is None
+        )
+
+    def test_css_value_has_disallowed_resource_functions_rejects_unterminated_comment(self) -> None:
+        assert _css_value_has_disallowed_resource_functions("/*x") is True
+
+    def test_css_value_may_load_external_resource_rejects_ambient_value_keywords(self) -> None:
+        for value in (
+            "inherit",
+            "inherit!important",
+            "revert",
+            "revert-layer",
+            "revert-layer!important",
+            "unset",
+            "background-image: inherit",
+            "background-image: re/**/vert",
+            "background-image: revert-layer",
+            "background-image: unset",
+        ):
+            assert _css_value_may_load_external_resource(value) is True
+
+    def test_css_value_has_disallowed_resource_functions_allows_closed_comment_then_url(self) -> None:
+        # Exercise the comment-skip "break" path.
+        assert _css_value_has_disallowed_resource_functions("/*x*/ url('/x.png')") is False
+        assert _css_value_may_load_external_resource("@import '/x.css'") is True
+
+    def test_sanitize_css_url_functions_rejects_url_filter_empty_string(self) -> None:
+        # Coverage for `if not sanitized:`.
+        def filt(tag: str, attr: str, value: str) -> str | None:
+            if attr == "style:background-image":
+                return ""
+            return value
+
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+            url_filter=filt,
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url('/x.png')",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_rewrites_using_url_filter(self) -> None:
+        def filt(tag: str, attr: str, value: str) -> str | None:
+            if attr == "style:background-image":
+                return f"/proxied{value}"
+            return value
+
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+            url_filter=filt,
+        )
+
+        out = _sanitize_css_url_functions(
+            url_policy=url_policy,
+            tag="div",
+            prop="background-image",
+            value="url('/x.png')",
+        )
+        assert out == "url('/proxied/x.png')"
+
+    def test_sanitize_css_url_functions_rejects_invalid_url(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url('javascript:alert(1)')",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_rejects_unquoted_whitespace(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url(/x y)",
+            )
+            is None
+        )
+
+    def test_sanitize_css_url_functions_rejects_empty_url(self) -> None:
+        url_policy = UrlPolicy(
+            default_handling="allow",
+            allow_rules={
+                ("*", "style:background-image"): UrlRule(
+                    allowed_schemes=set(),
+                    resolve_protocol_relative=None,
+                    allow_relative=True,
+                )
+            },
+        )
+        assert (
+            _sanitize_css_url_functions(
+                url_policy=url_policy,
+                tag="div",
+                prop="background-image",
+                value="url()",
+            )
+            is None
+        )
+
+    def test_sanitize_url_function_value_applies_filter_for_style_attr(self) -> None:
+        def filt(tag: str, attr: str, value: str) -> str | None:
+            assert tag == "div"
+            assert attr == "style:background-image"
+            assert value == "#grad"
+            return "#rewritten"
+
+        out = _sanitize_url_function_value(
+            rule=UrlRule(
+                allowed_schemes=set(), resolve_protocol_relative=None, allow_relative=False, allow_fragment=True
+            ),
+            value="url(#grad) red",
+            tag="div",
+            attr="style:background-image",
+            handling="allow",
+            allow_relative=False,
+            proxy=None,
+            url_filter=filt,
+            apply_filter=True,
+        )
+
+        assert out == "url('#rewritten') red"
+
+    def test_sanitize_space_separated_url_list_url_filter_can_rewrite_value(self) -> None:
+        def url_filter(tag: str, attr: str, value: str) -> str | None:
+            assert tag == "a"
+            assert attr == "ping"
+            assert value == "ignored"
+            return "https://trusted.example/p https://trusted.example/q"
+
+        url_policy = UrlPolicy(
+            allow_rules={("a", "ping"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"})},
+            url_filter=url_filter,
+        )
+        rule = url_policy.allow_rules[("a", "ping")]
+
+        assert (
+            _sanitize_space_separated_url_list(
+                url_policy=url_policy,
+                rule=rule,
+                tag="a",
+                attr="ping",
+                value="ignored",
+            )
+            == "https://trusted.example/p https://trusted.example/q"
+        )
+
+    def test_sanitize_space_separated_url_list_returns_none_for_dropped_or_empty_value(self) -> None:
+        def drop_filter(tag: str, attr: str, value: str) -> str | None:
+            assert tag == "a"
+            assert attr == "ping"
+            assert value == "https://trusted.example/p"
+            return None
+
+        url_policy = UrlPolicy(
+            allow_rules={("a", "ping"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"})},
+            url_filter=drop_filter,
+        )
+        rule = url_policy.allow_rules[("a", "ping")]
+
+        assert (
+            _sanitize_space_separated_url_list(
+                url_policy=url_policy,
+                rule=rule,
+                tag="a",
+                attr="ping",
+                value="https://trusted.example/p",
+            )
+            is None
+        )
+
+        plain_policy = UrlPolicy(
+            allow_rules={("a", "ping"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"})}
+        )
+        plain_rule = plain_policy.allow_rules[("a", "ping")]
+
+        assert (
+            _sanitize_space_separated_url_list(
+                url_policy=plain_policy,
+                rule=plain_rule,
+                tag="a",
+                attr="ping",
+                value=" \t\n ",
+            )
+            is None
+        )
+
+    def test_sanitize_comma_or_space_separated_url_list(self) -> None:
+        url_policy = UrlPolicy(
+            allow_rules={
+                ("object", "archive"): UrlRule(
+                    allowed_schemes={"https"},
+                    allowed_hosts={"trusted.example"},
+                )
+            }
+        )
+        rule = url_policy.allow_rules[("object", "archive")]
+
+        assert (
+            _sanitize_comma_or_space_separated_url_list(
+                url_policy=url_policy,
+                rule=rule,
+                tag="object",
+                attr="archive",
+                value="https://trusted.example/a.jar, https://trusted.example/b.jar",
+            )
+            == "https://trusted.example/a.jar https://trusted.example/b.jar"
+        )
+
+        assert (
+            _sanitize_comma_or_space_separated_url_list(
+                url_policy=url_policy,
+                rule=rule,
+                tag="object",
+                attr="archive",
+                value="https://trusted.example/a.jar, https://evil.example/b.jar",
+            )
+            is None
+        )
+
+        def rewrite_filter(tag: str, attr: str, value: str) -> str | None:
+            assert tag == "object"
+            assert attr == "archive"
+            assert value == "ignored"
+            return "https://trusted.example/rewrite.jar"
+
+        rewrite_policy = UrlPolicy(
+            allow_rules={
+                ("object", "archive"): UrlRule(
+                    allowed_schemes={"https"},
+                    allowed_hosts={"trusted.example"},
+                )
+            },
+            url_filter=rewrite_filter,
+        )
+        rewrite_rule = rewrite_policy.allow_rules[("object", "archive")]
+
+        assert (
+            _sanitize_comma_or_space_separated_url_list(
+                url_policy=rewrite_policy,
+                rule=rewrite_rule,
+                tag="object",
+                attr="archive",
+                value="ignored",
+            )
+            == "https://trusted.example/rewrite.jar"
+        )
+
+        drop_policy = UrlPolicy(
+            allow_rules={
+                ("object", "archive"): UrlRule(
+                    allowed_schemes={"https"},
+                    allowed_hosts={"trusted.example"},
+                )
+            },
+            url_filter=lambda tag, attr, value: None,
+        )
+        drop_rule = drop_policy.allow_rules[("object", "archive")]
+
+        assert (
+            _sanitize_comma_or_space_separated_url_list(
+                url_policy=drop_policy,
+                rule=drop_rule,
+                tag="object",
+                attr="archive",
+                value="https://trusted.example/a.jar",
+            )
+            is None
+        )
+
+        assert (
+            _sanitize_comma_or_space_separated_url_list(
+                url_policy=url_policy,
+                rule=rule,
+                tag="object",
+                attr="archive",
+                value=" \t\n ",
+            )
+            is None
+        )
+
+    def test_sanitize_inline_style_drops_url_declaration_when_url_policy_missing(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            allowed_css_properties={"background-image"},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+
+        value = "background-image: url('/x.png')"
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value=value,
+                tag="div",
+                url_policy=None,
+            )
+            is None
+        )
+
+    def test_sanitize_inline_style_drops_url_declaration_without_matching_rule(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            allowed_css_properties={"background-image"},
+            url_policy=UrlPolicy(default_handling="allow", allow_rules={}),
+        )
+
+        value = "background-image: url('/x.png')"
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value=value,
+                tag="div",
+                url_policy=policy.url_policy,
+            )
+            is None
+        )
+
+    def test_sanitize_inline_style_drops_disallowed_resource_function_even_with_rule(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            allowed_css_properties={"background-image"},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                allow_rules={
+                    ("*", "style:background-image"): UrlRule(
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                        allow_relative=True,
+                    )
+                },
+            ),
+        )
+
+        for value in (
+            "background-image: image-set(url('/x.png') 1x)",
+            "background-image: image('https://evil.example/x.png')",
+            "background-image: src('https://evil.example/x.png')",
+        ):
+            assert (
+                _sanitize_inline_style(
+                    allowed_css_properties=policy.allowed_css_properties,
+                    value=value,
+                    tag="div",
+                    url_policy=policy.url_policy,
+                )
+                is None
+            )
+
+    def test_sanitize_inline_style_can_allow_background_image_relative_url_via_url_policy(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            allowed_css_properties={"background-image"},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                allow_rules={
+                    ("*", "style:background-image"): UrlRule(
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                        allow_relative=True,
+                    )
+                },
+            ),
+        )
+
+        value = "background-image: url('/site_media/covers/cover.jpg')"
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value=value,
+                tag="div",
+                url_policy=policy.url_policy,
+            )
+            == value
+        )
+
+    def test_sanitize_transform_allows_css_url_only_when_url_policy_allows_it(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            allowed_css_properties={"background-image"},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                allow_rules={
+                    ("*", "style:background-image"): UrlRule(
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                        allow_relative=True,
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML(
+            '<div style="background-image: url(/safe.png)">x</div>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == "<div style=\"background-image: url('/safe.png')\">x</div>"
+
+    def test_sanitize_inline_style_still_blocks_background_image_with_absolute_url(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            allowed_css_properties={"background-image"},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                allow_rules={
+                    ("*", "style:background-image"): UrlRule(
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                        allow_relative=True,
+                    )
+                },
+            ),
+        )
+
+        value = "background-image: url('https://evil.example/x.png')"
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value=value,
+                tag="div",
+                url_policy=policy.url_policy,
+            )
+            is None
+        )
+
+    def test_sanitize_inline_style_drops_css_variable_indirection(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            allowed_css_properties={"background-image"},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                allow_rules={
+                    ("*", "style:background-image"): UrlRule(
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                        allow_relative=True,
+                    )
+                },
+            ),
+        )
+
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value="background-image: var(--bg)",
+                tag="div",
+                url_policy=policy.url_policy,
+            )
+            is None
+        )
+
+        out = JustHTML(
+            '<div style="background-image: var(--bg)">x</div>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+        assert out == "<div>x</div>"
+
+    def test_sanitize_inline_style_drops_css_ambient_value_keywords(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            allowed_css_properties={"background-image"},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                allow_rules={
+                    ("*", "style:background-image"): UrlRule(
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                        allow_relative=True,
+                    )
+                },
+            ),
+        )
+
+        for value in ("inherit", "revert", "revert-layer", "unset"):
+            assert (
+                _sanitize_inline_style(
+                    allowed_css_properties=policy.allowed_css_properties,
+                    value=f"background-image: {value}",
+                    tag="div",
+                    url_policy=policy.url_policy,
+                )
+                is None
+            )
+            assert (
+                JustHTML(
+                    f'<div style="background-image: {value}">x</div>',
+                    fragment=True,
+                    policy=policy,
+                ).to_html(pretty=False)
+                == "<div>x</div>"
+            )
+
+        assert (
+            _sanitize_inline_style(
+                allowed_css_properties=policy.allowed_css_properties,
+                value="background-image: initial",
+                tag="div",
+                url_policy=policy.url_policy,
+            )
+            == "background-image: initial"
+        )
+
+    def test_css_preset_text_is_conservative(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            url_policy=UrlPolicy(allow_rules={}),
+            allowed_css_properties=CSS_PRESET_TEXT,
+        )
+
+        html = '<div style="color: red; position: fixed; top: 0">x</div>'
+        out = JustHTML(html, fragment=True, policy=policy).to_html()
+        assert out == '<div style="color: red">x</div>'
+
+    def test_style_attribute_is_dropped_when_nothing_survives(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": ["style"]},
+            url_policy=UrlPolicy(allow_rules={}),
+            allowed_css_properties=CSS_PRESET_TEXT,
+        )
+
+        html = '<div style="position: fixed">x</div>'
+        out = JustHTML(html, fragment=True, policy=policy).to_html()
+        assert out == "<div>x</div>"
+
+    def test_css_value_may_load_external_resource(self) -> None:
+        assert _css_value_may_load_external_resource("url(https://evil.example/x)") is True
+        assert _css_value_may_load_external_resource("URL(https://evil.example/x)") is True
+        assert _css_value_may_load_external_resource("u r l (https://evil.example/x)") is True
+        assert _css_value_may_load_external_resource("u\\72l(https://evil.example/x)") is True
+        assert _css_value_may_load_external_resource("u/**/rl(https://evil.example/x)") is True
+        assert _css_value_may_load_external_resource("u/*x*/rl(https://evil.example/x)") is True
+        assert _css_value_may_load_external_resource("var(--bg)") is True
+        assert _css_value_may_load_external_resource("v/**/ar(--bg)") is True
+        assert _css_value_may_load_external_resource("SRC(foo)") is True
+        assert _css_value_may_load_external_resource("s/**/rc(foo)") is True
+        assert _css_value_may_load_external_resource("IMAGE(foo)") is True
+        assert _css_value_may_load_external_resource("im/**/age(foo)") is True
+        assert _css_value_may_load_external_resource("IMAGE-SET(foo)") is True
+        assert _css_value_may_load_external_resource("image/**/-set(foo)") is True
+        assert _css_value_may_load_external_resource("expression(alert(1))") is True
+        assert _css_value_may_load_external_resource("ex/**/pression(alert(1))") is True
+        assert _css_value_may_load_external_resource("progid:DXImageTransform.Microsoft.AlphaImageLoader") is True
+        assert _css_value_may_load_external_resource("AlphaImageLoader") is True
+        assert _css_value_may_load_external_resource("behavior: url(x)") is True
+        assert _css_value_may_load_external_resource("-moz-binding: url(x)") is True
+        assert _css_value_may_load_external_resource("color: red /*") is True
+        assert _css_value_may_load_external_resource("a" * 64) is False
+        assert _css_value_may_load_external_resource("red") is False
+
+    def test_css_value_contains_disallowed_functions_allow_url_flag(self) -> None:
+        assert _css_value_contains_disallowed_functions("url(/x)", allow_url=False) is True
+        assert _css_value_contains_disallowed_functions("url(/x)", allow_url=True) is False
+
+    def test_css_value_has_disallowed_resource_functions(self) -> None:
+        assert _css_value_has_disallowed_resource_functions("src(foo)") is True
+        assert _css_value_has_disallowed_resource_functions("image(foo)") is True
+        assert _css_value_has_disallowed_resource_functions("image-set(foo)") is True
+        assert _css_value_has_disallowed_resource_functions("expression(alert(1))") is True
+        assert _css_value_has_disallowed_resource_functions("behavior: url(x)") is True
+        assert _css_value_has_disallowed_resource_functions("-moz-binding: url(x)") is True
+        assert _css_value_has_disallowed_resource_functions("AlphaImageLoader") is True
+        assert _css_value_has_disallowed_resource_functions("var(--bg)") is True
+        assert (
+            _css_value_has_disallowed_resource_functions("progid:DXImageTransform.Microsoft.AlphaImageLoader") is True
+        )
+        assert _css_value_has_disallowed_resource_functions("url(/x)") is False
+        assert _css_value_has_disallowed_resource_functions("color: red") is False
+
+    def test_sanitize_url_value_keeps_non_empty_relative_url(self) -> None:
+        policy = DEFAULT_POLICY
+        rule = UrlRule(allowed_schemes=[], handling="allow")
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=rule,
+                value="/x.png",
+                tag="img",
+                attr="src",
+                handling=_effective_url_handling(url_policy=policy.url_policy, rule=rule),
+                allow_relative=_effective_allow_relative(url_policy=policy.url_policy, rule=rule),
+                proxy=_effective_proxy(url_policy=policy.url_policy, rule=rule),
+                url_filter=policy.url_policy.url_filter,
+                apply_filter=True,
+            )
+            == "/x.png"
+        )
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=rule,
+                value="\x00",
+                tag="img",
+                attr="src",
+                handling=_effective_url_handling(url_policy=policy.url_policy, rule=rule),
+                allow_relative=_effective_allow_relative(url_policy=policy.url_policy, rule=rule),
+                proxy=_effective_proxy(url_policy=policy.url_policy, rule=rule),
+                url_filter=policy.url_policy.url_filter,
+                apply_filter=True,
+            )
+            is None
+        )
+
+    def test_sanitize_url_value_rejects_control_characters_in_allowed_url(self) -> None:
+        policy = UrlPolicy(allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})})
+        rule = policy.allow_rules[("a", "href")]
+
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=rule,
+                value="https://example.com/a\nb",
+                tag="a",
+                attr="href",
+                handling=_effective_url_handling(url_policy=policy, rule=rule),
+                allow_relative=_effective_allow_relative(url_policy=policy, rule=rule),
+                proxy=_effective_proxy(url_policy=policy, rule=rule),
+                url_filter=policy.url_filter,
+                apply_filter=True,
+            )
+            is None
+        )
+
+        out = JustHTML('<a href="https://example.com/a&#10;b">x</a>', fragment=True).to_html(pretty=False)
+        assert out == "<a>x</a>"
+
+    def test_sanitize_url_value_strips_invisible_unicode_from_url_filter_rewrites(self) -> None:
+        def url_filter(tag: str, attr: str, value: str) -> str | None:
+            assert tag == "a"
+            assert attr == "href"
+            assert value == "/safe"
+            return "java\u200bscript:alert(1)"
+
+        policy = UrlPolicy(
+            allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})},
+            url_filter=url_filter,
+        )
+        rule = policy.allow_rules[("a", "href")]
+
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=rule,
+                value="/safe",
+                tag="a",
+                attr="href",
+                handling=_effective_url_handling(url_policy=policy, rule=rule),
+                allow_relative=_effective_allow_relative(url_policy=policy, rule=rule),
+                proxy=_effective_proxy(url_policy=policy, rule=rule),
+                url_filter=policy.url_filter,
+                apply_filter=True,
+            )
+            is None
+        )
+
+    def test_url_sinks_strip_invisible_unicode_even_when_general_stripping_is_disabled(self) -> None:
+        zero_width = "\u200b"
+        policy = SanitizationPolicy(
+            allowed_tags={"a"},
+            allowed_attributes={"a": {"href", "title"}},
+            url_policy=UrlPolicy(allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})}),
+            strip_invisible_unicode=False,
+        )
+
+        out = JustHTML(
+            f'<a title="a{zero_width}b" href="java{zero_width}script:alert(1)">x{zero_width}y</a>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == f'<a title="a{zero_width}b">x{zero_width}y</a>'
+
+    def test_formaction_is_treated_as_url_sink(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"form", "button", "input"},
+            allowed_attributes={
+                "button": {"formaction"},
+                "input": {"formaction", "type", "value"},
+            },
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("button", "formaction"): UrlRule(allowed_schemes={"https"}),
+                    ("input", "formaction"): UrlRule(allowed_schemes={"https"}),
+                },
+            ),
+        )
+
+        out = JustHTML(
+            (
+                '<form><button formaction="javascript:alert(1)">go</button>'
+                '<input type="submit" formaction="javascript:alert(1)" value="go">'
+                '<button formaction="https://example.com/submit">safe</button></form>'
+            ),
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == (
+            '<form><button>go</button><input type="submit" value="go">'
+            '<button formaction="https://example.com/submit">safe</button></form>'
+        )
+
+    def test_sanitize_url_value_proxy_rejects_invalid_scheme_like_prefix_without_backslash(self) -> None:
+        policy = UrlPolicy(proxy=UrlProxy(url="/proxy"), allow_rules={("img", "src"): UrlRule(handling="proxy")})
+        rule = policy.allow_rules[("img", "src")]
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=rule,
+                value="1http:foo",
+                tag="img",
+                attr="src",
+                handling=_effective_url_handling(url_policy=policy, rule=rule),
+                allow_relative=_effective_allow_relative(url_policy=policy, rule=rule),
+                proxy=_effective_proxy(url_policy=policy, rule=rule),
+                url_filter=policy.url_filter,
+                apply_filter=True,
+            )
+            is None
+        )
+
+    def test_sanitize_url_value_rejects_malformed_bracket_hosts_when_host_allowlist_is_enabled(self) -> None:
+        policy = UrlPolicy(
+            allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"})}
+        )
+        rule = policy.allow_rules[("a", "href")]
+
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=rule,
+                value="//[evil.example]/x",
+                tag="a",
+                attr="href",
+                handling=_effective_url_handling(url_policy=policy, rule=rule),
+                allow_relative=_effective_allow_relative(url_policy=policy, rule=rule),
+                proxy=_effective_proxy(url_policy=policy, rule=rule),
+                url_filter=policy.url_filter,
+                apply_filter=True,
+            )
+            is None
+        )
+
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=rule,
+                value="https://[evil.example]/x",
+                tag="a",
+                attr="href",
+                handling=_effective_url_handling(url_policy=policy, rule=rule),
+                allow_relative=_effective_allow_relative(url_policy=policy, rule=rule),
+                proxy=_effective_proxy(url_policy=policy, rule=rule),
+                url_filter=policy.url_filter,
+                apply_filter=True,
+            )
+            is None
+        )
+
+    def test_sanitize_url_value_rejects_base_dependent_special_scheme_when_relative_disallowed(self) -> None:
+        policy = UrlPolicy(allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"}, allow_relative=False)})
+        rule = policy.allow_rules[("a", "href")]
+
+        for value in ("https:evil.example/x", "https:/evil.example/x"):
+            assert (
+                _sanitize_url_value_with_rule(
+                    rule=rule,
+                    value=value,
+                    tag="a",
+                    attr="href",
+                    handling=_effective_url_handling(url_policy=policy, rule=rule),
+                    allow_relative=_effective_allow_relative(url_policy=policy, rule=rule),
+                    proxy=_effective_proxy(url_policy=policy, rule=rule),
+                    url_filter=policy.url_filter,
+                    apply_filter=True,
+                )
+                is None
+            )
+
+    def test_sanitize_url_value_rejects_base_dependent_special_scheme_with_host_allowlist(self) -> None:
+        policy = UrlPolicy(
+            allow_rules={
+                ("a", "href"): UrlRule(
+                    allowed_schemes={"https"},
+                    allowed_hosts={"trusted.example"},
+                    allow_relative=True,
+                )
+            }
+        )
+        rule = policy.allow_rules[("a", "href")]
+
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=rule,
+                value="https:trusted.example/x",
+                tag="a",
+                attr="href",
+                handling=_effective_url_handling(url_policy=policy, rule=rule),
+                allow_relative=_effective_allow_relative(url_policy=policy, rule=rule),
+                proxy=_effective_proxy(url_policy=policy, rule=rule),
+                url_filter=policy.url_filter,
+                apply_filter=True,
+            )
+            is None
+        )
+
+    def test_sanitize_url_value_handles_base_dependent_special_scheme_as_relative_when_allowed(self) -> None:
+        allow_policy = UrlPolicy(allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})})
+        allow_rule = allow_policy.allow_rules[("a", "href")]
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=allow_rule,
+                value="https:trusted.example/x",
+                tag="a",
+                attr="href",
+                handling=_effective_url_handling(url_policy=allow_policy, rule=allow_rule),
+                allow_relative=_effective_allow_relative(url_policy=allow_policy, rule=allow_rule),
+                proxy=_effective_proxy(url_policy=allow_policy, rule=allow_rule),
+                url_filter=allow_policy.url_filter,
+                apply_filter=True,
+            )
+            == "https:trusted.example/x"
+        )
+
+        strip_policy = UrlPolicy(allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"}, handling="strip")})
+        strip_rule = strip_policy.allow_rules[("a", "href")]
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=strip_rule,
+                value="https:trusted.example/x",
+                tag="a",
+                attr="href",
+                handling=_effective_url_handling(url_policy=strip_policy, rule=strip_rule),
+                allow_relative=_effective_allow_relative(url_policy=strip_policy, rule=strip_rule),
+                proxy=_effective_proxy(url_policy=strip_policy, rule=strip_rule),
+                url_filter=strip_policy.url_filter,
+                apply_filter=True,
+            )
+            is None
+        )
+
+        proxy_policy = UrlPolicy(
+            proxy=UrlProxy(url="/proxy"),
+            allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"}, handling="proxy")},
+        )
+        proxy_rule = proxy_policy.allow_rules[("a", "href")]
+        assert (
+            _sanitize_url_value_with_rule(
+                rule=proxy_rule,
+                value="https:trusted.example/x",
+                tag="a",
+                attr="href",
+                handling=_effective_url_handling(url_policy=proxy_policy, rule=proxy_rule),
+                allow_relative=_effective_allow_relative(url_policy=proxy_policy, rule=proxy_rule),
+                proxy=_effective_proxy(url_policy=proxy_policy, rule=proxy_rule),
+                url_filter=proxy_policy.url_filter,
+                apply_filter=True,
+            )
+            == "/proxy?url=https%3Atrusted.example%2Fx"
+        )
+
+    def test_url_like_attributes_require_explicit_rules(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+        out = JustHTML('<img src="/x">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+    def test_url_rule_handling_allow_overrides_policy_strip(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(
+                default_handling="strip",
+                default_allow_relative=True,
+                allow_rules={("img", "src"): UrlRule(handling="allow", allowed_schemes={"https"})},
+            ),
+        )
+
+        out = JustHTML('<img src="https://example.com/x">', fragment=True, policy=policy).to_html()
+        assert out == '<img src="https://example.com/x">'
+
+        out = JustHTML('<img src="/x">', fragment=True, policy=policy).to_html()
+        assert out == '<img src="/x">'
+
+    def test_url_rule_allow_relative_false_drops_base_dependent_special_scheme_urls(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("a", "href"): UrlRule(
+                        allowed_schemes={"https"},
+                        allow_relative=False,
+                    )
+                },
+            ),
+        )
+
+        for value in ("https:evil.example/x", "https:/evil.example/x"):
+            out = JustHTML(f'<a href="{value}">x</a>', fragment=True, policy=policy).to_html()
+            assert out == "<a>x</a>"
+
+    def test_url_rule_handling_strip_drops_absolute_url(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("img", "src"): UrlRule(
+                        handling="strip",
+                        allowed_schemes={"https"},
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<img src="https://example.com/x">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+    def test_url_rule_handling_strip_drops_relative_url(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                allow_rules={
+                    ("img", "src"): UrlRule(
+                        handling="strip",
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<img src="/x">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+    def test_url_rule_relative_only_blocks_remote_but_keeps_relative(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                default_allow_relative=True,
+                allow_rules={
+                    ("img", "src"): UrlRule(
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<img src="https://example.com/x">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+        out = JustHTML('<img src="/x">', fragment=True, policy=policy).to_html()
+        assert out == '<img src="/x">'
+
+    def test_url_rule_relative_only_rejects_backslash_urls_that_browsers_treat_as_remote(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                default_allow_relative=True,
+                allow_rules={
+                    ("img", "src"): UrlRule(
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML(r'<img src="\\evil.example/x">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+        out = JustHTML(r'<img src="/\evil.example/x">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+    def test_url_rule_can_override_global_strip(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=False,
+                allow_rules={
+                    ("img", "src"): UrlRule(
+                        allow_relative=True,
+                        allowed_schemes=set(),
+                        resolve_protocol_relative=None,
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<img src="/x">', fragment=True, policy=policy).to_html()
+        assert out == '<img src="/x">'
+
+        out = JustHTML('<img src="https://example.com/x">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+    def test_url_policy_remote_strip_blocks_protocol_relative(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                allow_rules={
+                    ("img", "src"): UrlRule(
+                        handling="strip",
+                        allowed_schemes={"https"},
+                        resolve_protocol_relative="https",
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<img src="//example.com/x">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+    def test_url_policy_remote_proxy_rewrites_protocol_relative(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                proxy=UrlProxy(url="/proxy"),
+                allow_rules={
+                    ("img", "src"): UrlRule(
+                        handling="proxy",
+                        allowed_schemes={"https"},
+                        resolve_protocol_relative="https",
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<img src="//example.com/x">', fragment=True, policy=policy).to_html()
+        assert out == '<img src="/proxy?url=https%3A%2F%2Fexample.com%2Fx">'
+
+    def test_url_rule_allowed_hosts_rejects_malformed_bracket_host_without_raising(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("a", "href"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<a href="https://[evil.example]/x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == "<a>x</a>"
+
+        out = JustHTML('<a href="https://ex[ample].com/x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == "<a>x</a>"
+
+    def test_url_rule_allowed_hosts_rejects_invalid_ports(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("a", "href"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                },
+            ),
+        )
+
+        for value in (
+            "https://trusted.example:bad/x",
+            "https://trusted.example:99999/x",
+            "//trusted.example:bad/x",
+            "//trusted.example:99999/x",
+        ):
+            out = JustHTML(f'<a href="{value}">x</a>', fragment=True, policy=policy).to_html()
+            assert out == "<a>x</a>"
+
+    def test_url_rule_allowed_hosts_rejects_whitespace_in_authority(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("a", "href"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                },
+            ),
+        )
+
+        for value in (
+            "https://tru sted.example/x",
+            "https://trusted.example :443/x",
+            "https://trusted.example: 443/x",
+            "//tru sted.example/x",
+            "//trusted.example :443/x",
+            "//trusted.example: 443/x",
+        ):
+            out = JustHTML(f'<a href="{value}">x</a>', fragment=True, policy=policy).to_html()
+            assert out == "<a>x</a>"
+
+        out = JustHTML('<a href="https://trusted.example/a b">x</a>', fragment=True, policy=policy).to_html()
+        assert out == '<a href="https://trusted.example/a b">x</a>'
+
+    def test_url_rule_allowed_hosts_rejects_noncanonical_authority_hosts(self) -> None:
+        cases = (
+            ("example.com", "https://%65xample.com/x"),
+            ("trusted.example", "https://trusted%2eexample/x"),
+            ("trusted.example", "https://trusted。example/x"),
+            ("xn--n3h.example", "https://☃.example/x"),
+            ("127.0.0.1", "https://2130706433/x"),
+            ("127.0.0.1", "https://0177.0.0.1/x"),
+            ("127.0.0.1", "https://0x7f.1/x"),
+            ("127.0.0.1", "https://127.1/x"),
+        )
+
+        for allowed_host, value in cases:
+            policy = SanitizationPolicy(
+                allowed_tags=["a"],
+                allowed_attributes={"*": [], "a": ["href"]},
+                url_policy=UrlPolicy(
+                    allow_rules={
+                        ("a", "href"): UrlRule(
+                            allowed_schemes={"https"},
+                            allowed_hosts={allowed_host},
+                        )
+                    },
+                ),
+            )
+            out = JustHTML(f'<a href="{value}">x</a>', fragment=True, policy=policy).to_html()
+            assert out == "<a>x</a>"
+
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("a", "href"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"127.0.0.1"},
+                    )
+                },
+            ),
+        )
+        out = JustHTML('<a href="https://127.0.0.1/x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == '<a href="https://127.0.0.1/x">x</a>'
+
+        overlong_host = ".".join(["9" * 5000] * 4)
+        out = JustHTML(f'<a href="https://{overlong_host}/x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == "<a>x</a>"
+
+    def test_url_policy_remote_proxy_global_and_img_override(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a", "img"],
+            allowed_attributes={"*": [], "a": ["href"], "img": ["src"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                proxy=UrlProxy(url="/proxy", param="url"),
+                allow_rules={
+                    ("a", "href"): UrlRule(handling="proxy", allowed_schemes={"https"}),
+                    ("img", "src"): UrlRule(
+                        handling="proxy",
+                        allowed_schemes={"https"},
+                        proxy=UrlProxy(url="/image-proxy", param="url"),
+                    ),
+                },
+            ),
+        )
+
+        out = JustHTML('<a href="https://example.com/x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == '<a href="/proxy?url=https%3A%2F%2Fexample.com%2Fx">x</a>'
+
+        out = JustHTML('<img src="https://example.com/x">', fragment=True, policy=policy).to_html()
+        assert out == '<img src="/image-proxy?url=https%3A%2F%2Fexample.com%2Fx">'
+
+    def test_url_policy_default_strip_applies_to_rules_without_handling(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                default_handling="strip",
+                allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})},
+            ),
+        )
+
+        out = JustHTML('<a href="https://example.com/x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == "<a>x</a>"
+
+    def test_url_policy_default_proxy_applies_to_rules_without_handling(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                default_handling="proxy",
+                proxy=UrlProxy(url="/proxy", param="url"),
+                allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})},
+            ),
+        )
+
+        out = JustHTML('<a href="https://example.com/x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == '<a href="/proxy?url=https%3A%2F%2Fexample.com%2Fx">x</a>'
+
+    def test_builtin_policy_url_rules_still_keep_valid_urls(self) -> None:
+        out = JustHTML('<a href="https://example.com/x">x</a><img src="/x.png">', fragment=True).to_html(pretty=False)
+        assert out == '<a href="https://example.com/x">x</a><img src="/x.png">'
+
+    def test_constructor_sanitize_applies_explicit_custom_attribute_url_rules(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"el-custom"},
+            allowed_attributes={"el-custom": {"data-url"}},
+            url_policy=UrlPolicy(allow_rules={("el-custom", "data-url"): UrlRule(allowed_schemes={"https"})}),
+        )
+
+        out = JustHTML(
+            '<el-custom data-url="mailto:foo"></el-custom><el-custom data-url="https://example.com"></el-custom>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == '<el-custom></el-custom><el-custom data-url="https://example.com"></el-custom>'
+
+    def test_constructor_sanitize_applies_wildcard_custom_attribute_url_rules(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"el-custom"},
+            allowed_attributes={"el-custom": {"data-url"}},
+            url_policy=UrlPolicy(allow_rules={("*", "data-url"): UrlRule(allowed_schemes={"https"})}),
+        )
+
+        out = JustHTML(
+            '<el-custom data-url="mailto:foo"></el-custom><el-custom data-url="https://example.com"></el-custom>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == '<el-custom></el-custom><el-custom data-url="https://example.com"></el-custom>'
+
+    def test_url_policy_proxy_does_not_bypass_scheme_checks(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                proxy=UrlProxy(url="/proxy"),
+                allow_rules={
+                    ("a", "href"): UrlRule(
+                        handling="proxy",
+                        allowed_schemes=set(),
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<a href="https://example.com/x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == "<a>x</a>"
+
+    def test_url_policy_proxy_rewrites_fragment_urls(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                proxy=UrlProxy(url="/proxy"),
+                allow_rules={
+                    ("a", "href"): UrlRule(
+                        handling="proxy",
+                        allowed_schemes={"https"},
+                        allow_fragment=True,
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<a href="#x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == '<a href="/proxy?url=%23x">x</a>'
+
+    def test_url_policy_strip_drops_fragment_urls(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                allow_rules={
+                    ("a", "href"): UrlRule(
+                        handling="strip",
+                        allowed_schemes={"https"},
+                        allow_fragment=True,
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML('<a href="#x">x</a>', fragment=True, policy=policy).to_html()
+        assert out == "<a>x</a>"
+
+    def test_url_policy_proxy_rewrites_remote_srcset_candidates(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                proxy=UrlProxy(url="/proxy"),
+                allow_rules={("img", "srcset"): UrlRule(handling="proxy", allowed_schemes={"https"})},
+            ),
+        )
+
+        out = JustHTML(
+            '<img srcset="https://example.com/a 1x, /b 2x">',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert out == '<img srcset="/proxy?url=https%3A%2F%2Fexample.com%2Fa 1x, /proxy?url=%2Fb 2x">'
+
+    def test_srcset_is_dropped_if_url_filter_drops_value(self) -> None:
+        def url_filter(tag: str, attr: str, value: str) -> str | None:
+            assert tag == "img"
+            assert attr == "srcset"
+            assert value
+            return None
+
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                default_allow_relative=True,
+                allow_rules={("img", "srcset"): UrlRule(allowed_schemes={"https"})},
+                url_filter=url_filter,
+            ),
+        )
+
+        out = JustHTML('<img srcset="https://example.com/a 1x">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+    def test_srcset_is_dropped_if_empty(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                allow_rules={("img", "srcset"): UrlRule(allowed_schemes={"https"})},
+            ),
+        )
+
+        out = JustHTML('<img srcset="  \t\n  ">', fragment=True, policy=policy).to_html()
+        assert out == "<img>"
+
+    def test_srcset_is_dropped_if_descriptor_contains_extra_tokens(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=False,
+                allow_rules={
+                    ("img", "srcset"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                },
+            ),
+        )
+
+        out = JustHTML(
+            '<img srcset="https://trusted.example/a 1x https://evil.example/b 2x">',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert out == "<img>"
+
+    def test_srcset_is_dropped_if_descriptor_is_invalid(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                allow_rules={("img", "srcset"): UrlRule(allowed_schemes={"https"})},
+            ),
+        )
+
+        for descriptor in ("0w", "0x", "-1x", "1.5w", "1e3x", "nanx", "infx", "bad"):
+            out = JustHTML(
+                f'<img srcset="https://example.com/a {descriptor}">',
+                fragment=True,
+                policy=policy,
+            ).to_html()
+            assert out == "<img>"
+
+    def test_srcset_accepts_large_positive_width_descriptors_without_integer_conversion(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                allow_rules={("img", "srcset"): UrlRule(allowed_schemes={"https"})},
+            ),
+        )
+        width = "9" * 5000
+
+        out = JustHTML(f'<img srcset="https://example.com/a {width}w">', fragment=True, policy=policy).to_html()
+
+        assert out == f'<img srcset="https://example.com/a {width}w">'
+
+    def test_srcset_preserves_valid_width_and_density_descriptors(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                allow_rules={("img", "srcset"): UrlRule(allowed_schemes={"https"})},
+            ),
+        )
+
+        out = JustHTML(
+            '<img srcset="https://example.com/a 640w, https://example.com/b 1.5x">',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert out == '<img srcset="https://example.com/a 640w, https://example.com/b 1.5x">'
+
+        out = JustHTML(
+            '<img srcset="https://example.com/a, https://example.com/b 320h">',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert out == '<img srcset="https://example.com/a, https://example.com/b 320h">'
+
+    def test_srcset_url_filter_can_rewrite_value(self) -> None:
+        def url_filter(tag: str, attr: str, value: str) -> str | None:
+            assert tag == "img"
+            assert attr == "srcset"
+            assert value == "ignored"
+            return "https://example.com/a 1x"
+
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                default_allow_relative=True,
+                allow_rules={("img", "srcset"): UrlRule(allowed_schemes={"https"})},
+                url_filter=url_filter,
+            ),
+        )
+
+        out = JustHTML('<img srcset="ignored">', fragment=True, policy=policy).to_html()
+        assert out == '<img srcset="https://example.com/a 1x">'
+
+    def test_srcset_skips_empty_candidates(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                proxy=UrlProxy(url="/proxy"),
+                allow_rules={("img", "srcset"): UrlRule(handling="proxy", allowed_schemes={"https"})},
+            ),
+        )
+
+        out = JustHTML('<img srcset=", https://example.com/a 1x">', fragment=True, policy=policy).to_html()
+        assert out == '<img srcset="/proxy?url=https%3A%2F%2Fexample.com%2Fa 1x">'
+
+    def test_srcset_is_dropped_if_any_candidate_is_invalid(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["srcset"]},
+            url_policy=UrlPolicy(
+                default_allow_relative=True,
+                proxy=UrlProxy(url="/proxy"),
+                allow_rules={("img", "srcset"): UrlRule(handling="proxy", allowed_schemes={"https"})},
+            ),
+        )
+
+        out = JustHTML(
+            '<img srcset="http://example.com/a 1x, https://example.com/b 2x">',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert out == "<img>"
+
+    def test_link_imagesrcset_is_dropped_if_any_candidate_is_invalid(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["link"],
+            allowed_attributes={"*": [], "link": ["rel", "as", "imagesrcset"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("link", "imagesrcset"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                },
+            ),
+            drop_content_tags=set(),
+        )
+
+        out = JustHTML(
+            '<link rel="preload" as="image" imagesrcset="https://trusted.example/a 1x, https://evil.example/b 2x">',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert out == '<link rel="preload" as="image">'
+
+    def test_link_imagesrcset_preserves_allowed_candidates(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["link"],
+            allowed_attributes={"*": [], "link": ["rel", "as", "imagesrcset"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("link", "imagesrcset"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                },
+            ),
+            drop_content_tags=set(),
+        )
+
+        out = JustHTML(
+            '<link rel="preload" as="image" imagesrcset="https://trusted.example/a 1x, https://trusted.example/b 2x">',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert (
+            out
+            == '<link rel="preload" as="image" imagesrcset="https://trusted.example/a 1x, https://trusted.example/b 2x">'
+        )
+
+    def test_ping_is_dropped_if_any_url_is_invalid(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href", "ping"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("a", "href"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}),
+                    ("a", "ping"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}),
+                },
+            ),
+        )
+
+        out = JustHTML(
+            '<a href="https://trusted.example/x" ping="https://trusted.example/p https://evil.example/p">x</a>',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert out == '<a href="https://trusted.example/x">x</a>'
+
+    def test_img_attributionsrc_is_dropped_if_any_url_is_invalid(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src", "attributionsrc"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("img", "src"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}),
+                    ("img", "attributionsrc"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    ),
+                },
+            ),
+        )
+
+        out = JustHTML(
+            '<img src="https://trusted.example/x.png" attributionsrc="https://trusted.example/register https://evil.example/register">',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert out == '<img src="https://trusted.example/x.png">'
+
+    def test_img_attributionsrc_preserves_all_urls_when_each_is_allowed(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["img"],
+            allowed_attributes={"*": [], "img": ["src", "attributionsrc"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("img", "src"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}),
+                    ("img", "attributionsrc"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    ),
+                },
+            ),
+        )
+
+        out = JustHTML(
+            '<img src="https://trusted.example/x.png" attributionsrc="https://trusted.example/register https://trusted.example/measure">',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert (
+            out
+            == '<img src="https://trusted.example/x.png" attributionsrc="https://trusted.example/register https://trusted.example/measure">'
+        )
+
+    def test_ping_preserves_all_urls_when_each_is_allowed(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href", "ping"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("a", "href"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}),
+                    ("a", "ping"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}),
+                },
+            ),
+        )
+
+        out = JustHTML(
+            '<a href="https://trusted.example/x" ping="https://trusted.example/p https://trusted.example/q">x</a>',
+            fragment=True,
+            policy=policy,
+        ).to_html()
+        assert (
+            out
+            == '<a href="https://trusted.example/x" ping="https://trusted.example/p https://trusted.example/q">x</a>'
+        )
+
+    def test_legacy_url_attrs_require_explicit_url_rules(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["object", "img", "command", "menuitem"],
+            allowed_attributes={
+                "*": [],
+                "object": ["archive", "classid", "code", "codebase", "data", "object"],
+                "img": ["dynsrc", "longdesc", "lowsrc", "usemap"],
+                "command": ["icon"],
+                "menuitem": ["icon"],
+            },
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+
+        out = JustHTML(
+            (
+                '<object archive="https://evil.example/a.jar" classid="https://evil.example/c" '
+                'code="https://evil.example/code.class" codebase="https://evil.example/" '
+                'data="https://evil.example/object" object="https://evil.example/serialized"></object>'
+                '<img dynsrc="https://evil.example/movie" longdesc="https://evil.example/desc" '
+                'lowsrc="https://evil.example/low" usemap="https://evil.example/map">'
+                '<command icon="https://evil.example/command">'
+                '<menuitem icon="https://evil.example/menuitem">'
+            ),
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == "<object></object><img><command><menuitem></menuitem></command>"
+
+    def test_param_value_is_url_checked_for_url_bearing_param_names(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["object", "param"],
+            allowed_attributes={
+                "*": [],
+                "object": ["data"],
+                "param": ["name", "value"],
+            },
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("object", "data"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                }
+            ),
+        )
+
+        out = JustHTML(
+            (
+                '<object data="https://trusted.example/player">'
+                '<param name="movie" value="https://evil.example/movie.swf">'
+                '<param name="quality" value="high">'
+                "</object>"
+            ),
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert (
+            out
+            == '<object data="https://trusted.example/player"><param name="movie"><param name="quality" value="high"></object>'
+        )
+
+    def test_param_value_preserves_allowed_url_bearing_param_urls(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["object", "param"],
+            allowed_attributes={
+                "*": [],
+                "object": ["data"],
+                "param": ["name", "value"],
+            },
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("object", "data"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    ),
+                    ("param", "value"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    ),
+                }
+            ),
+        )
+
+        out = JustHTML(
+            (
+                '<object data="https://trusted.example/player">'
+                '<param name="SRC" value="https://trusted.example/movie.swf">'
+                "</object>"
+            ),
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert (
+            out
+            == '<object data="https://trusted.example/player"><param name="SRC" value="https://trusted.example/movie.swf"></object>'
+        )
+
+    def test_document_manifest_and_profile_require_explicit_url_rules(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["html", "head", "body"],
+            allowed_attributes={"*": [], "html": ["manifest"], "head": ["profile"]},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_doctype=False,
+        )
+
+        out = JustHTML(
+            '<!DOCTYPE html><html manifest="https://evil.example/app.appcache">'
+            '<head profile="https://evil.example/profile"></head><body></body></html>',
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == "<!DOCTYPE html><html><head></head><body></body></html>"
+
+    def test_archive_drops_when_any_comma_or_space_separated_url_is_invalid(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["object"],
+            allowed_attributes={"*": [], "object": ["archive"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("object", "archive"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    ),
+                },
+            ),
+        )
+
+        out = JustHTML(
+            '<object archive="https://trusted.example/a.jar, https://evil.example/b.jar"></object>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == "<object></object>"
+
+    def test_archive_preserves_allowed_comma_or_space_separated_urls(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["object"],
+            allowed_attributes={"*": [], "object": ["archive"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("object", "archive"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    ),
+                },
+            ),
+        )
+
+        out = JustHTML(
+            '<object archive="https://trusted.example/a.jar, https://trusted.example/b.jar"></object>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == '<object archive="https://trusted.example/a.jar https://trusted.example/b.jar"></object>'
+
+    def test_policy_accepts_pre_normalized_sets(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"div"},
+            allowed_attributes={"*": set(), "div": {"id"}},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags={"script"},
+            force_link_rel={"noopener"},
+        )
+        assert policy.allowed_tags == {"div"}
+        assert policy.allowed_attributes["div"] == {"id"}
+
+        rule = UrlRule(allowed_schemes={"https"}, allowed_hosts=None)
+        assert rule.allowed_schemes == {"https"}
+
+    def test_url_rule_rejects_invalid_url_handling_override(self) -> None:
+        with self.assertRaises(ValueError):
+            UrlRule(handling="nope")  # type: ignore[arg-type]
+
+    def test_url_policy_rejects_non_urlrule_values(self) -> None:
+        with self.assertRaises(TypeError):
+            UrlPolicy(allow_rules={("a", "href"): "not-a-rule"})  # type: ignore[arg-type]
+
+    def test_sanitize_handles_nested_document_containers(self) -> None:
+        # This is intentionally a "plumbing" test: these container nodes are not
+        # produced by the parser as nested children, but the sanitizer supports
+        # them for manually constructed DOMs.
+        policy = SanitizationPolicy(
+            allowed_tags=[],
+            allowed_attributes={"*": []},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+        root = DocumentFragment()
+        nested = DocumentFragment()
+        nested.append_child(Text("t"))
+        root.append_child(nested)
+
+        out = sanitize(root, policy=policy)
+        assert to_html(out, pretty=False) == "t"
+
+    def test_sanitize_template_subtree_without_template_content_branch(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["template"],
+            allowed_attributes={"*": [], "template": []},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+        root = DocumentFragment()
+        root.append_child(Template("template", namespace=None))
+        out = sanitize(root, policy=policy)
+        assert to_html(out, pretty=False) == "<template></template>"
+
+    def test_sanitize_attribute_edge_cases_do_not_crash(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": ["id"], "div": ["disabled"]},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+        n = Node("div", attrs={"": "x", "   ": "y", "id": None, "disabled": None})
+        out = sanitize(n, policy=policy)
+        html = to_html(out, pretty=False)
+        assert html in {"<div disabled id></div>", "<div id disabled></div>"}
+
+    def test_sanitize_drops_disallowed_attribute_and_reports(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["p"],
+            allowed_attributes={"*": [], "p": []},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="collect",
+        )
+        policy.reset_collected_security_errors()
+
+        n = Node("p", attrs={"foo": "1"})
+        out = sanitize(n, policy=policy)
+        assert to_html(out, pretty=False) == "<p></p>"
+        assert len(policy.collected_security_errors()) == 1
+
+    def test_sanitize_drops_style_attribute_with_no_value(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["span"],
+            allowed_attributes={"*": ["style"], "span": ["style"]},
+            url_policy=UrlPolicy(allow_rules={}),
+            allowed_css_properties={"color"},
+            unsafe_handling="collect",
+        )
+        policy.reset_collected_security_errors()
+
+        n = Node("span", attrs={"style": None})
+        out = sanitize(n, policy=policy)
+        assert to_html(out, pretty=False) == "<span></span>"
+        assert len(policy.collected_security_errors()) == 1
+
+    def test_sanitize_force_link_rel_inserts_rel_when_missing(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                allow_rules={
+                    ("a", "href"): UrlRule(allowed_schemes={"https"}),
+                },
+            ),
+            force_link_rel={"noopener"},
+            unsafe_handling="collect",
+        )
+        policy.reset_collected_security_errors()
+
+        n = Node("a", attrs={"href": "https://example.com"})
+        out = sanitize(n, policy=policy)
+        html = to_html(out, pretty=False)
+        assert 'rel="noopener"' in html
+        assert len(policy.collected_security_errors()) == 0
+
+    def test_sanitize_reports_url_attr_with_none_value(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href"]},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                allow_rules={
+                    ("a", "href"): UrlRule(allowed_schemes={"https"}),
+                },
+            ),
+            unsafe_handling="collect",
+        )
+        policy.reset_collected_security_errors()
+
+        n = Node("a", attrs={"href": None})
+        out = sanitize(n, policy=policy)
+        assert to_html(out, pretty=False) == "<a></a>"
+        assert len(policy.collected_security_errors()) == 1
+
+    def test_sanitize_force_link_rel_does_not_rewrite_when_already_normalized(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["a"],
+            allowed_attributes={"*": [], "a": ["href", "rel"]},
+            url_policy=UrlPolicy(
+                default_handling="allow",
+                allow_rules={
+                    ("a", "href"): UrlRule(allowed_schemes={"https"}),
+                },
+            ),
+            force_link_rel={"noopener"},
+            unsafe_handling="collect",
+        )
+        policy.reset_collected_security_errors()
+
+        n = Node("a", attrs={"href": "https://example.com", "rel": "noopener"})
+        out = sanitize(n, policy=policy)
+        html = to_html(out, pretty=False)
+        assert 'rel="noopener"' in html
+        assert len(policy.collected_security_errors()) == 0
+
+    def test_sanitize_lowercases_attribute_names(self) -> None:
+        # The parser already lowercases attribute names; build a manual node to
+        # ensure sanitize() is robust to unexpected input.
+        n = Node("a", attrs={"HREF": "https://example.com"})
+        out = sanitize(n)
+        html = to_html(out, pretty=False)
+        assert 'href="https://example.com"' in html
+
+    def test_sanitize_text_root_is_cloned(self) -> None:
+        out = sanitize(Text("x"))
+        assert to_html(out, pretty=False) == "x"
+
+    def test_sanitize_root_comment_and_doctype_nodes_do_not_crash(self) -> None:
+        # Another plumbing-only test: root comment/doctype nodes aren't typical
+        # parser outputs, but sanitize() accepts any node.
+        policy_keep = SanitizationPolicy(
+            allowed_tags=[],
+            allowed_attributes={"*": []},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_comments=False,
+            drop_doctype=False,
+        )
+
+        c = Comment(data="x")
+        d = Node("!doctype", data="html")
+
+        assert to_html(sanitize(c, policy=policy_keep), pretty=False) == "<!--x-->"
+        assert to_html(sanitize(d, policy=policy_keep), pretty=False) == "<!DOCTYPE html>"
+
+        # Default policy drops these root nodes (turned into empty fragments).
+        assert to_html(sanitize(c), pretty=False) == ""
+        assert to_html(sanitize(d), pretty=False) == ""
+
+    def test_default_document_policy_keeps_doctype(self) -> None:
+        doc = JustHTML("<!DOCTYPE html><html><head></head><body><p>Hi</p></body></html>", sanitize=False)
+        out = sanitize(doc.root)
+        assert to_html(out, pretty=False) == "<!DOCTYPE html><html><head></head><body><p>Hi</p></body></html>"
+
+        def test_sanitize_default_policy_differs_for_document_vs_fragment(self) -> None:
+            root = JustHTML("<p>Hi</p>").root
+            out = sanitize(root)
+            assert to_html(out, pretty=False) == "<html><head></head><body><p>Hi</p></body></html>"
+
+    def test_sanitize_root_element_edge_cases(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": []},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+
+        foreign = Node("div", namespace="svg")
+        assert to_html(sanitize(foreign, policy=policy), pretty=False) == ""
+
+        disallowed_subtree_drop = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": []},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+        span = Node("span")
+        span.append_child(Text("x"))
+        assert to_html(sanitize(span, policy=disallowed_subtree_drop), pretty=False) == "x"
+
+        drop_content = SanitizationPolicy(
+            allowed_tags=["div"],
+            allowed_attributes={"*": [], "div": []},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags={"script"},
+        )
+        script = Node("script")
+        script.append_child(Text("alert(1)"))
+        assert to_html(sanitize(script, policy=drop_content), pretty=False) == ""
+
+        mixed_case_script = Node("ScRiPt")
+        mixed_case_script.append_child(Node("img", attrs={"src": "pixel", "onerror": "alert(1)"}))
+        assert to_html(sanitize(mixed_case_script, policy=drop_content), pretty=False) == ""
+
+        upper_drop_content = SanitizationPolicy(
+            allowed_tags=["div", "img"],
+            allowed_attributes={"*": [], "img": ["src"]},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags={"SCRIPT"},
+            disallowed_tag_handling="unwrap",
+        )
+        script_with_child = Node("script")
+        script_with_child.append_child(Node("img", attrs={"src": "pixel", "onerror": "alert(1)"}))
+        assert to_html(sanitize(script_with_child, policy=upper_drop_content), pretty=False) == ""
+
+        template_policy = SanitizationPolicy(
+            allowed_tags=["template"],
+            allowed_attributes={"*": [], "template": []},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+        tpl = Template("template", namespace="html")
+        assert tpl.template_content is not None
+        tpl.template_content.append_child(Text("T"))
+        assert to_html(sanitize(tpl, policy=template_policy), pretty=False) == "<template>T</template>"
+
+        tpl_no_content = Template("template", namespace=None)
+        assert to_html(sanitize(tpl_no_content, policy=template_policy), pretty=False) == "<template></template>"
+
+    def test_sanitize_dom_neutralizes_style_end_tag_sequences(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style", "img"],
+            allowed_attributes={"img": ["src", "alt"]},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        frag = DocumentFragment()
+        style = Node("style")
+        style.append_child(Text("</style><img src=x onerror=1>"))
+        frag.append_child(style)
+
+        sanitize_dom(frag, policy=policy)
+
+        out = to_html(frag, pretty=False)
+        assert out == "<style>&lt;/style><img src=x onerror=1></style>"
+        reparsed = JustHTML(out, fragment=True, sanitize=False)
+        assert reparsed.query("img") == []
+
+    def test_sanitize_dom_neutralizes_split_style_end_tag_sequences(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style", "img"],
+            allowed_attributes={"img": ["src", "alt"]},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        frag = DocumentFragment()
+        style = Node("style")
+        style.append_child(Text("</sty"))
+        style.append_child(Text("le><img src=x onerror=1>"))
+        frag.append_child(style)
+
+        sanitize_dom(frag, policy=policy)
+
+        out = to_html(frag, pretty=False)
+        assert out == "<style>&lt;/style><img src=x onerror=1></style>"
+        reparsed = JustHTML(out, fragment=True, sanitize=False)
+        assert reparsed.query("img") == []
+
+    def test_parser_differential_payloads_do_not_preserve_unsafe_img_attributes(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=[
+                "br",
+                "div",
+                "iframe",
+                "img",
+                "math",
+                "noembed",
+                "noframes",
+                "noscript",
+                "p",
+                "script",
+                "style",
+                "svg",
+                "textarea",
+                "title",
+                "xmp",
+            ],
+            allowed_attributes={"img": {"src"}, "script": set(), "style": set()},
+            url_policy=UrlPolicy(allow_rules={("img", "src"): UrlRule(allowed_schemes=set())}),
+            drop_comments=False,
+            drop_content_tags=set(),
+        )
+
+        for html in (
+            "<noscript><style></noscript><img src=x onerror=alert(1)></style></noscript>",
+            "<svg><p><style><!--</style><img src=x onerror=alert(1)>--></p></svg>",
+            "<math><mtext><table><mglyph><style><!--</style><img src=x onerror=alert(1)>--></mglyph></table></mtext></math>",
+            "<svg><foreignObject><style></style><img src=x onerror=alert(1)></foreignObject></svg>",
+            "<xmp></xmp><img src=x onerror=alert(1)>",
+            "<iframe></iframe><img src=x onerror=alert(1)>",
+        ):
+            with self.subTest(html=html):
+                out = JustHTML(html, fragment=True, policy=policy).to_html(pretty=False)
+                reparsed = JustHTML(out, fragment=True, sanitize=False)
+                for img in reparsed.query("img"):
+                    assert "onerror" not in img.attrs
+
+    def test_sanitize_dom_drops_style_content_with_resource_loading_css(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        frag = DocumentFragment()
+        style = Node("style")
+        style.append_child(Text('@import "https://evil.example/x.css"; body{background-image:url(/x.png)}'))
+        frag.append_child(style)
+
+        sanitize_dom(frag, policy=policy)
+
+        assert to_html(frag, pretty=False) == "<style></style>"
+
+    def test_constructor_sanitize_drops_style_content_with_resource_loading_css(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={"style": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+
+        doc = JustHTML(
+            '<style>@import "https://evil.example/x.css"; body{background-image:url(/x.png)}</style>',
+            fragment=True,
+            sanitize=True,
+            policy=policy,
+        )
+
+        assert doc.to_html(pretty=False) == "<style></style>"
+
+    def test_constructor_sanitize_drops_style_content_with_css_variable_indirection(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={"style": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+
+        doc = JustHTML(
+            "<style>:root{--bg:url(https://evil.example/x)} body{background-image:var(--bg)}</style>",
+            fragment=True,
+            sanitize=True,
+            policy=policy,
+        )
+
+        assert doc.to_html(pretty=False) == "<style></style>"
+
+    def test_constructor_terminal_sanitize_transform_drops_style_content_with_resource_loading_css(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={"style": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+
+        doc = JustHTML(
+            '<style>@import "https://evil.example/x.css"; body{background-image:url(/x.png)}</style>',
+            fragment=True,
+            sanitize=False,
+            transforms=[Sanitize(policy=policy)],
+        )
+
+        assert doc.to_html(pretty=False) == "<style></style>"
+
+    def test_constructor_nonterminal_sanitize_transform_still_sanitizes_rawtext_at_sanitize_point(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={"style": {"data-ok"}},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+
+        doc = JustHTML(
+            '<style>@import "https://evil.example/x.css"; body{background-image:url(/x.png)}</style>',
+            fragment=True,
+            sanitize=False,
+            transforms=[Sanitize(policy=policy), SetAttrs("style", **{"data-ok": "1"})],
+        )
+
+        assert doc.to_html(pretty=False) == '<style data-ok="1"></style>'
+
+    def test_sanitize_dom_preserves_style_content_without_resource_loading_css(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        frag = DocumentFragment()
+        style = Node("style")
+        style.append_child(Text("body{color:red}"))
+        frag.append_child(style)
+
+        sanitize_dom(frag, policy=policy)
+
+        assert to_html(frag, pretty=False) == "<style>body{color:red}</style>"
+
+    def test_sanitize_dom_neutralizes_script_end_tag_sequences(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["script"],
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        frag = DocumentFragment()
+        script = Node("script")
+        script.append_child(Text("</script><img src=x onerror=1>"))
+        frag.append_child(script)
+
+        sanitize_dom(frag, policy=policy)
+
+        out = to_html(frag, pretty=False)
+        assert out == "<script>&lt;/script><img src=x onerror=1></script>"
+        reparsed = JustHTML(out, fragment=True, sanitize=False)
+        assert reparsed.query("img") == []
+
+    def test_sanitize_dom_drops_non_text_children_inside_rawtext_elements(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style", "span"],
+            allowed_attributes={"span": []},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        frag = DocumentFragment()
+        style = Node("style")
+        child = Node("span")
+        child.append_child(Text("x"))
+        style.append_child(child)
+        frag.append_child(style)
+
+        sanitize_dom(frag, policy=policy)
+
+        assert to_html(frag, pretty=False) == "<style></style>"
+
+    def test_neutralize_rawtext_end_tag_sequences_edge_cases(self) -> None:
+        assert _neutralize_rawtext_end_tag_sequences("", "style") == ("", False)
+        assert _neutralize_rawtext_end_tag_sequences("</stylex>", "style") == ("</stylex>", False)
+        assert _neutralize_rawtext_end_tag_sequences("</style", "style") == ("&lt;/style", True)
+
+    def test_sanitize_rawtext_element_contents_handles_no_text_children(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style", "span"],
+            allowed_attributes={"span": []},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        style = Node("style")
+        child = Node("span")
+        style.append_child(child)
+
+        _sanitize_rawtext_element_contents(style, policy=policy, errors=[])
+
+        assert style.children == []
+        assert child.parent is None
+
+    def test_sanitize_rawtext_element_contents_handles_empty_rawtext_element(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        style = Node("style")
+
+        _sanitize_rawtext_element_contents(style, policy=policy, errors=[])
+
+        assert style.children == []
+
+    def test_sanitize_rawtext_element_contents_preserves_safe_text_children(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        style = Node("style")
+        first = Text("body {")
+        second = Text(" color: red; }")
+        style.append_child(first)
+        style.append_child(second)
+
+        _sanitize_rawtext_element_contents(style, policy=policy, errors=[])
+
+        assert style.children == [first, second]
+        assert first.parent is style
+        assert second.parent is style
+
+    def test_sanitize_rawtext_element_contents_handles_mixed_case_style(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        style = Node("StYlE")
+        text = Text("@import 'https://evil.example/x.css';")
+        style.append_child(text)
+
+        _sanitize_rawtext_element_contents(style, policy=policy, errors=[])
+
+        assert style.children == []
+        assert text.parent is None
+
+    def test_sanitize_rawtext_element_contents_traverses_template_content(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["template", "style"],
+            allowed_attributes={"template": []},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        template = Template("template", namespace="html")
+        assert template.template_content is not None
+        style = Node("style")
+        style.append_child(Text("</style><img src=x>"))
+        template.template_content.append_child(style)
+
+        _sanitize_rawtext_element_contents(template, policy=policy, errors=[])
+
+        assert to_html(template, pretty=False) == "<template><style>&lt;/style><img src=x></style></template>"
+
+
+class TestSanitizeUnsafe(unittest.TestCase):
+    def test_unsafe_handler_collect_initializes_on_first_use(self) -> None:
+        # Cover the centralized handler's fast path when used standalone
+        # (without an explicit reset call).
+        h = UnsafeHandler("collect")
+        h.handle("Unsafe tag 'x'", node=None)
+        errs = h.collected()
+        assert len(errs) == 1
+        assert errs[0].category == "security"
+
+    def test_unsafe_handler_collected_filters_shared_sink(self) -> None:
+        h = UnsafeHandler("collect")
+        sink = [
+            ParseError("unexpected-null-character", category="tokenizer"),
+            ParseError("unsafe-html", category="security"),
+        ]
+        h.sink = sink
+        errs = h.collected()
+        assert len(errs) == 1
+        assert errs[0].category == "security"
+
+    def test_collect_mode_can_run_with_no_security_findings(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=set(DEFAULT_POLICY.allowed_tags),
+            allowed_attributes=DEFAULT_POLICY.allowed_attributes,
+            url_policy=DEFAULT_POLICY.url_policy,
+            allowed_css_properties=DEFAULT_POLICY.allowed_css_properties,
+            force_link_rel=DEFAULT_POLICY.force_link_rel,
+            unsafe_handling="collect",
+        )
+
+        doc = JustHTML("<p>ok</p>", fragment=True, policy=policy)
+        _ = doc.to_html(pretty=False)
+        assert doc.errors == []
+
+    def test_policy_collect_helpers_cover_empty_paths(self) -> None:
+        # Non-collect policy: collection helpers are no-ops.
+        policy_strip = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="strip",
+        )
+        policy_strip.reset_collected_security_errors()
+        assert policy_strip.collected_security_errors() == []
+
+        # Collect policy: calling handle_unsafe directly records a security finding.
+        policy_collect = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="collect",
+        )
+        policy_collect.reset_collected_security_errors()
+        policy_collect.handle_unsafe("Unsafe tag 'x'", node=None)
+        errs = policy_collect.collected_security_errors()
+        assert len(errs) == 1
+
+    def test_unsafe_handler_reset_removes_security_errors_from_shared_sink(self) -> None:
+        sink: list[ParseError] = [
+            ParseError("x", category="security", message="s"),
+            ParseError("y", category="tokenizer", message="t"),
+            ParseError("z", category="security", message="s2"),
+        ]
+
+        handler = UnsafeHandler("collect", sink=sink)
+        handler.reset()
+
+        assert [e.category for e in sink] == ["tokenizer"]
+
+    def test_unsafe_handler_collected_filters_security_from_shared_sink(self) -> None:
+        sink: list[ParseError] = [
+            ParseError("x", category="security", message="a", line=2, column=2),
+            ParseError("y", category="tokenizer", message="t", line=1, column=1),
+            ParseError("z", category="security", message="b", line=1, column=2),
+        ]
+
+        handler = UnsafeHandler("collect", sink=sink)
+        out = handler.collected()
+
+        assert [e.category for e in out] == ["security", "security"]
+        assert [e.message for e in out] == ["b", "a"]
+
+    def test_unsafe_handler_handle_writes_to_shared_sink(self) -> None:
+        sink: list[ParseError] = []
+
+        handler = UnsafeHandler("collect", sink=sink)
+        handler.handle("Unsafe tag 'x'", node=None)
+
+        assert len(sink) == 1
+        assert sink[0].category == "security"
+        assert sink[0].line is None
+        assert sink[0].column is None
+
+    def test_sanitize_unsafe_collects_security_errors(self) -> None:
+        html = "<script>alert(1)</script>"
+        node = JustHTML(html, fragment=True, track_node_locations=True, sanitize=False).root
+
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="collect",
+        )
+
+        out = sanitize(node, policy=policy)
+        assert to_html(out) == ""
+
+        errors = policy.collected_security_errors()
+        assert len(errors) == 1
+        assert errors[0].category == "security"
+        assert errors[0].code == "unsafe-html"
+        assert "Unsafe tag 'script'" in errors[0].message
+
+    def test_sanitize_collect_policy_does_not_leak_stale_errors(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="collect",
+        )
+
+        unsafe_node = JustHTML("<script>alert(1)</script>", fragment=True, sanitize=False).root
+        out = sanitize(unsafe_node, policy=policy)
+        assert to_html(out) == ""
+        assert [e.message for e in policy.collected_security_errors()] == ["Unsafe tag 'script' (dropped content)"]
+
+        clean_node = JustHTML("<p>ok</p>", fragment=True, sanitize=False).root
+        out = sanitize(clean_node, policy=policy)
+        assert to_html(out, pretty=False) == "<p>ok</p>"
+        assert policy.collected_security_errors() == []
+
+    def test_sanitize_dom_collect_policy_does_not_leak_stale_errors(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="collect",
+        )
+
+        unsafe_node = JustHTML("<script>alert(1)</script>", fragment=True, sanitize=False).root
+        out = sanitize_dom(unsafe_node, policy=policy)
+        assert to_html(out) == ""
+        assert [e.message for e in policy.collected_security_errors()] == ["Unsafe tag 'script' (dropped content)"]
+
+        clean_node = JustHTML("<p>ok</p>", fragment=True, sanitize=False).root
+        out = sanitize_dom(clean_node, policy=policy)
+        assert to_html(out, pretty=False) == "<p>ok</p>"
+        assert policy.collected_security_errors() == []
+
+    def test_sanitize_dom_collects_rawtext_invariant_violations(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style"],
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+            unsafe_handling="collect",
+        )
+        policy.reset_collected_security_errors()
+        frag = DocumentFragment()
+        style = Node("style")
+        style.append_child(Text("</style><b>x</b>"))
+        frag.append_child(style)
+
+        sanitize_dom(frag, policy=policy)
+
+        errors = policy.collected_security_errors()
+        assert len(errors) == 1
+        assert errors[0].category == "security"
+        assert errors[0].code == "unsafe-html"
+        assert "Unsafe raw text inside <style>" in errors[0].message
+
+    def test_justhtml_node_input_sanitize_true_hardens_rawtext_before_parse(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style", "p"],
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        frag = DocumentFragment()
+        style = Node("style")
+        style.append_child(Text("</style><p>x</p>"))
+        frag.append_child(style)
+
+        doc = JustHTML(frag, fragment=True, policy=policy)
+
+        assert doc.query("p") == []
+        assert "&lt;/style><p>x</p>" in doc.to_html(pretty=False)
+
+    def test_justhtml_node_input_sanitize_true_hardens_split_rawtext_before_parse(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["style", "p"],
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        frag = DocumentFragment()
+        style = Node("style")
+        style.append_child(Text("</sty"))
+        style.append_child(Text("le><p>x</p>"))
+        frag.append_child(style)
+
+        doc = JustHTML(frag, fragment=True, policy=policy)
+
+        assert doc.query("p") == []
+        assert "&lt;/style><p>x</p>" in doc.to_html(pretty=False)
+
+    def test_sanitized_textarea_markdown_passthrough_does_not_break_out(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["textarea", "img"],
+            allowed_attributes={"*": [], "img": ["src", "alt"]},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        doc = JustHTML(
+            "<textarea>&lt;/textarea&gt;&lt;img src=x onerror=alert(1)&gt;</textarea>",
+            fragment=True,
+            policy=policy,
+        )
+
+        markdown = doc.to_markdown(html_passthrough=True)
+        reparsed = JustHTML(markdown, fragment=True, sanitize=False)
+
+        assert "&lt;/textarea&gt;" in markdown
+        assert reparsed.query("img") == []
+
+    def test_collect_mode_merges_into_doc_errors(self) -> None:
+        html = "<p>\x00</p><script>alert(1)</script>"
+        policy = SanitizationPolicy(
+            allowed_tags=set(DEFAULT_POLICY.allowed_tags),
+            allowed_attributes=DEFAULT_POLICY.allowed_attributes,
+            url_policy=DEFAULT_POLICY.url_policy,
+            allowed_css_properties=DEFAULT_POLICY.allowed_css_properties,
+            force_link_rel=DEFAULT_POLICY.force_link_rel,
+            unsafe_handling="collect",
+        )
+
+        doc = JustHTML(
+            html,
+            fragment=True,
+            collect_errors=True,
+            track_node_locations=True,
+            policy=policy,
+        )
+        assert any(e.category == "tokenizer" for e in doc.errors)
+        assert any(e.category == "security" for e in doc.errors)
+
+        # Repeated serialization should not accumulate duplicates.
+        before = len([e for e in doc.errors if e.category == "security"])
+        _ = doc.to_html(pretty=False)
+        _ = doc.to_html(pretty=False)
+        after = len([e for e in doc.errors if e.category == "security"])
+        assert before == after
+
+    def test_collect_mode_merges_into_doc_errors_text_and_markdown(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=set(DEFAULT_POLICY.allowed_tags),
+            allowed_attributes=DEFAULT_POLICY.allowed_attributes,
+            url_policy=DEFAULT_POLICY.url_policy,
+            allowed_css_properties=DEFAULT_POLICY.allowed_css_properties,
+            force_link_rel=DEFAULT_POLICY.force_link_rel,
+            unsafe_handling="collect",
+        )
+
+        doc = JustHTML(
+            "<p>ok</p><script>alert(1)</script>",
+            fragment=True,
+            track_node_locations=True,
+            policy=policy,
+        )
+
+        _ = doc.to_text()
+        assert any(e.category == "security" for e in doc.errors)
+
+        _ = doc.to_markdown()
+        assert any(e.category == "security" for e in doc.errors)
+
+    def test_justhtml_serialization_clears_stale_security_errors_and_sanitize_false_paths(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=set(DEFAULT_POLICY.allowed_tags),
+            allowed_attributes=DEFAULT_POLICY.allowed_attributes,
+            url_policy=DEFAULT_POLICY.url_policy,
+            allowed_css_properties=DEFAULT_POLICY.allowed_css_properties,
+            force_link_rel=DEFAULT_POLICY.force_link_rel,
+            unsafe_handling="collect",
+        )
+
+        doc_collect = JustHTML(
+            "<p>ok</p><script>alert(1)</script>",
+            fragment=True,
+            track_node_locations=True,
+            policy=policy,
+        )
+        assert any(e.category == "security" for e in doc_collect.errors)
+
+        doc_default = JustHTML(
+            "<p>ok</p><script>alert(1)</script>",
+            fragment=True,
+            track_node_locations=True,
+        )
+        assert not any(e.category == "security" for e in doc_default.errors)
+
+        # sanitize=False documents should still serialize without crashing.
+        doc_unsafe = JustHTML(
+            "<p>ok</p><script>alert(1)</script>",
+            fragment=True,
+            track_node_locations=True,
+            sanitize=False,
+        )
+        _ = doc_unsafe.to_html(pretty=False)
+        _ = doc_unsafe.to_text()
+        _ = doc_unsafe.to_markdown()
+
+    def test_sanitize_unsafe_raises(self) -> None:
+        html = "<script>alert(1)</script>"
+        node = JustHTML(html, fragment=True, sanitize=False).root
+
+        # Default behavior: script is removed
+        sanitized = sanitize(node)
+        assert to_html(sanitized) == ""
+
+        # New behavior: raise exception
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+
+        with self.assertRaisesRegex(ValueError, "Unsafe tag"):
+            sanitize(node, policy=policy)
+
+    def test_sanitize_unsafe_attribute_raises(self) -> None:
+        html = '<p onclick="alert(1)">Hello</p>'
+        node = JustHTML(html, fragment=True, sanitize=False).root
+
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"p": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+
+        with self.assertRaisesRegex(ValueError, "Unsafe attribute.*not allowed"):
+            sanitize(node, policy=policy)
+
+    def test_sanitize_unsafe_url_raises(self) -> None:
+        html = '<a href="javascript:alert(1)">Link</a>'
+        node = JustHTML(html, fragment=True, sanitize=False).root
+
+        policy = SanitizationPolicy(
+            allowed_tags={"a"},
+            allowed_attributes={"a": {"href"}},
+            url_policy=UrlPolicy(allow_rules={("a", "href"): UrlRule(allowed_schemes={"https"})}),
+            unsafe_handling="raise",
+        )
+
+        with self.assertRaisesRegex(ValueError, "Unsafe URL"):
+            sanitize(node, policy=policy)
+
+    def test_sanitize_unsafe_namespaced_attribute_raises(self) -> None:
+        html = '<p xlink:href="foo">Hello</p>'
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"p": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe attribute.*xlink:href.*not allowed"):
+            sanitize(node, policy=policy)
+
+    def test_sanitize_explicitly_allowlisted_attributes_are_preserved(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"iframe", "meta", "p"},
+            allowed_attributes={
+                "iframe": {"srcdoc"},
+                "meta": {"http-equiv", "content"},
+                "p": {"is"},
+            },
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+
+        out = JustHTML(
+            '<iframe srcdoc="<script>"></iframe>'
+            '<meta http-equiv="refresh" content="0;url=javascript:alert(1)">'
+            '<p is="x-note">x</p>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == ('<iframe srcdoc="&lt;script&gt;"></iframe><meta http-equiv="refresh"><p is="x-note">x</p>')
+
+    def test_sanitize_meta_refresh_content_requires_url_rule(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"meta"},
+            allowed_attributes={"meta": {"http-equiv", "content"}},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+
+        out = JustHTML(
+            '<meta http-equiv="refresh" content="0;url=https://example.com/x">',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert out == '<meta http-equiv="refresh">'
+
+    def test_sanitize_meta_refresh_content_uses_url_policy_when_rule_present(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"meta"},
+            allowed_attributes={"meta": {"http-equiv", "content"}},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("meta", "content"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                }
+            ),
+        )
+
+        trusted = JustHTML(
+            '<meta http-equiv="refresh" content="0;url=https://trusted.example/x">',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+        untrusted = JustHTML(
+            '<meta http-equiv="refresh" content="0;url=https://evil.example/x">',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+        quoted_trusted = JustHTML(
+            '<meta http-equiv="refresh" content=\'0;url="https://trusted.example/x"\'>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+        quoted_untrusted = JustHTML(
+            '<meta http-equiv="refresh" content=\'0;url="https://evil.example/x"\'>',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+        script = JustHTML(
+            '<meta http-equiv="refresh" content="0;url=javascript:alert(1)">',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert trusted == '<meta http-equiv="refresh" content="0;url=https://trusted.example/x">'
+        assert untrusted == '<meta http-equiv="refresh">'
+        assert quoted_trusted == '<meta http-equiv="refresh" content="0;url=https://trusted.example/x">'
+        assert quoted_untrusted == '<meta http-equiv="refresh">'
+        assert script == '<meta http-equiv="refresh">'
+
+    def test_sanitize_meta_refresh_content_drops_ambiguous_url_delimiters(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"meta"},
+            allowed_attributes={"meta": {"http-equiv", "content"}},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("meta", "content"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                }
+            ),
+        )
+
+        semicolon = JustHTML(
+            '<meta http-equiv="refresh" content="0;url=https://trusted.example/x;url=javascript:alert(1)">',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+        comma = JustHTML(
+            '<meta http-equiv="refresh" content="0;url=https://trusted.example/x,javascript:alert(1)">',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+
+        assert semicolon == '<meta http-equiv="refresh">'
+        assert comma == '<meta http-equiv="refresh">'
+
+    def test_sanitize_base_href_is_preserved_with_rule(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags=["base", "img"],
+            allowed_attributes={"*": [], "base": ["href"], "img": ["src"]},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("base", "href"): UrlRule(allowed_schemes={"https"}),
+                    ("img", "src"): UrlRule(allow_relative=True, allowed_schemes=set()),
+                }
+            ),
+            drop_content_tags=set(),
+        )
+
+        out = JustHTML(
+            '<base href="https://evil.example/assets/"><img src="pixel">',
+            fragment=True,
+            policy=policy,
+        ).to_html(pretty=False)
+        assert out == '<base href="https://evil.example/assets/"><img src="pixel">'
+
+    def test_sanitize_link_imagesrcset_raises(self) -> None:
+        html = '<link rel="preload" as="image" imagesrcset="https://evil.example/a 1x">'
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        policy = SanitizationPolicy(
+            allowed_tags={"link"},
+            allowed_attributes={"link": {"rel", "as", "imagesrcset"}},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("link", "imagesrcset"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    )
+                }
+            ),
+            unsafe_handling="raise",
+            drop_content_tags=set(),
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe URL in attribute 'imagesrcset'"):
+            sanitize(node, policy=policy)
+
+    def test_sanitize_base_href_still_uses_url_policy(self) -> None:
+        html = '<base href="https://evil.example/assets/">'
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        policy = SanitizationPolicy(
+            allowed_tags={"base"},
+            allowed_attributes={"base": {"href"}},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("base", "href"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}),
+                }
+            ),
+            unsafe_handling="raise",
+            drop_content_tags=set(),
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe URL in attribute 'href'"):
+            sanitize(node, policy=policy)
+
+    def test_sanitize_img_attributionsrc_raises(self) -> None:
+        html = '<img src="https://trusted.example/x.png" attributionsrc="https://evil.example/register">'
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        policy = SanitizationPolicy(
+            allowed_tags={"img"},
+            allowed_attributes={"img": {"src", "attributionsrc"}},
+            url_policy=UrlPolicy(
+                allow_rules={
+                    ("img", "src"): UrlRule(allowed_schemes={"https"}, allowed_hosts={"trusted.example"}),
+                    ("img", "attributionsrc"): UrlRule(
+                        allowed_schemes={"https"},
+                        allowed_hosts={"trusted.example"},
+                    ),
+                }
+            ),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe URL in attribute 'attributionsrc'"):
+            sanitize(node, policy=policy)
+
+    def test_sanitize_unsafe_disallowed_attribute_raises(self) -> None:
+        html = '<p foo="bar">Hello</p>'
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"p": set()},  # No attributes allowed
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe attribute.*not allowed"):
+            sanitize(node, policy=policy)
+
+    def test_sanitize_unsafe_inline_style_raises(self) -> None:
+        html = '<p style="background: url(javascript:alert(1))">Hello</p>'
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"p": {"style"}},
+            allowed_css_properties={"background"},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe inline style"):
+            sanitize(node, policy=policy)
+
+    def test_sanitize_unsafe_root_tag_raises(self) -> None:
+        # Test disallowed tag as root
+        html = "<div>Content</div>"
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        # node is a div (because fragment=True parses into a list of nodes, but JustHTML.root wraps them?
+        # Wait, JustHTML(fragment=True).root is a DocumentFragment containing the nodes.
+        # sanitize() on a DocumentFragment iterates children.
+        # To test root handling, we need to pass the element directly.
+
+        assert node.children is not None
+        div = node.children[0]
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe tag.*not allowed"):
+            sanitize(div, policy=policy)
+
+    def test_sanitize_unsafe_root_dropped_content_raises(self) -> None:
+        html = "<script>alert(1)</script>"
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        assert node.children is not None
+        script = node.children[0]
+
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe tag.*dropped content"):
+            sanitize(script, policy=policy)
+
+    def test_sanitize_unsafe_child_dropped_content_raises(self) -> None:
+        html = "<div><script>alert(1)</script></div>"
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        assert node.children is not None
+        div = node.children[0]
+
+        policy = SanitizationPolicy(
+            allowed_tags={"div"},
+            allowed_attributes={"div": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe tag.*dropped content"):
+            sanitize(div, policy=policy)
+
+    def test_sanitize_unsafe_child_disallowed_tag_raises(self) -> None:
+        html = "<div><foo></foo></div>"
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        assert node.children is not None
+        div = node.children[0]
+
+        policy = SanitizationPolicy(
+            allowed_tags={"div"},
+            allowed_attributes={"div": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe tag.*not allowed"):
+            sanitize(div, policy=policy)
+
+    def test_sanitize_unsafe_root_foreign_namespace_raises(self) -> None:
+        # <svg> puts elements in SVG namespace
+        html = "<svg><title>foo</title></svg>"
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        assert node.children is not None
+        svg = node.children[0]
+
+        policy = SanitizationPolicy(
+            allowed_tags={"svg"},  # Even if allowed, foreign namespaces might be dropped
+            allowed_attributes={"svg": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe tag.*foreign namespace"):
+            sanitize(svg, policy=policy)
+
+    def test_sanitize_unsafe_child_foreign_namespace_raises(self) -> None:
+        html = "<div><svg></svg></div>"
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        assert node.children is not None
+        div = node.children[0]
+
+        policy = SanitizationPolicy(
+            allowed_tags={"div"},
+            allowed_attributes={"div": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe tag.*foreign namespace"):
+            sanitize(div, policy=policy)
+
+    def test_sanitize_allowlisted_foreign_content_is_always_dropped(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"svg", "title"},
+            allowed_attributes={"svg": set(), "title": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+
+        out = JustHTML("<svg><title>x</title></svg>", fragment=True, policy=policy).to_html(pretty=False)
+
+        assert out == ""
+
+    def test_sanitize_disallowed_svg_preserves_html_breakout_content(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"img", "p"},
+            allowed_attributes={"img": {"src"}, "p": set()},
+            url_policy=UrlPolicy(allow_rules={("img", "src"): UrlRule(allowed_schemes=set())}),
+            drop_content_tags=set(),
+        )
+
+        out = JustHTML("<svg><p><img src=x onerror=1></p></svg>", fragment=True, policy=policy).to_html(pretty=False)
+
+        assert out == '<p><img src="x"></p>'
+
+    def test_sanitize_disallowed_template_preserves_colgroup_mode_content(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"col", "colgroup", "table"},
+            allowed_attributes={"col": set(), "colgroup": set(), "table": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+
+        out = JustHTML("<template><table><colgroup><col></template>", fragment=True, policy=policy).to_html(
+            pretty=False
+        )
+
+        assert out == "<table><colgroup><col></colgroup></table>"
+
+    def test_sanitize_disallowed_template_leaves_colgroup_mode_for_body_content(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"colgroup", "div", "table"},
+            allowed_attributes={"colgroup": set(), "div": set(), "table": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+
+        out = JustHTML("<template><table><colgroup><div>x</template>", fragment=True, policy=policy).to_html(
+            pretty=False
+        )
+
+        assert out == "<div>x</div><table><colgroup></colgroup></table>"
+
+    def test_sanitize_disallowed_template_base_resumes_body_mode(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"base", "tbody"},
+            allowed_attributes={"base": set(), "tbody": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+
+        out = JustHTML("<template><base><tbody></template>", fragment=True, policy=policy).to_html(pretty=False)
+
+        assert out == "<base>"
+
+    def test_sanitize_template_without_foreign_content_preserves_template_content(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"template", "p"},
+            allowed_attributes={"template": set(), "p": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+        )
+        template = Template("template", namespace="html")
+        assert template.template_content is not None
+        paragraph = Element("p", {}, "html")
+        paragraph.append_child(Text("x"))
+        template.template_content.append_child(paragraph)
+
+        out = sanitize(template, policy=policy)
+
+        assert to_html(out, pretty=False) == "<template><p>x</p></template>"
+
+    def test_sanitize_dom_drops_mixed_case_style_resource_loads(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"style"},
+            allowed_attributes={"style": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            drop_content_tags=set(),
+        )
+        style = Element("StYlE", {}, "html")
+        style.append_child(Text("@import 'https://evil.example/x.css';"))
+
+        out = sanitize_dom(style, policy=policy)
+
+        assert out.to_html(pretty=False) == "<StYlE></StYlE>"
+
+    def test_sanitize_unsafe_root_disallowed_raises(self) -> None:
+        html = "<x-foo></x-foo>"
+        node = JustHTML(html, fragment=True, sanitize=False).root
+        assert node.children is not None
+        xfoo = node.children[0]
+
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={},
+            url_policy=UrlPolicy(allow_rules={}),
+            unsafe_handling="raise",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsafe tag.*not allowed"):
+            sanitize(xfoo, policy=policy)
+
+    def test_sanitize_escape_disallowed_template_preserves_children(self) -> None:
+        html = "<template><b>x</b></template>"
+        policy = SanitizationPolicy(
+            allowed_tags={"b"},
+            allowed_attributes={"*": set(), "b": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            disallowed_tag_handling="escape",
+        )
+        out = JustHTML(html, fragment=True, policy=policy).to_html(pretty=False)
+        assert out == "&lt;template&gt;<b>x</b>&lt;/template&gt;"
+
+    def test_sanitize_escape_disallowed_without_source_html(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"*": set(), "p": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            disallowed_tag_handling="escape",
+        )
+        node = Element("x", {}, "html")
+        node._start_tag_start = 0
+        node._start_tag_end = 2
+        node.append_child(Text("ok"))
+        sanitized = sanitize(node, policy=policy)
+        assert to_html(sanitized, pretty=False) == "&lt;x&gt;ok"
+
+    def test_sanitize_escape_disallowed_reconstructs_end_tag_without_source_html(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"*": set(), "p": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            disallowed_tag_handling="escape",
+        )
+        node = Element("x", {}, "html")
+        node._start_tag_start = 0
+        node._start_tag_end = 3
+        node._end_tag_start = 5
+        node._end_tag_end = 9
+        node._end_tag_present = True
+        node.append_child(Text("ok"))
+        sanitized = sanitize(node, policy=policy)
+        assert to_html(sanitized, pretty=False) == "&lt;x&gt;ok&lt;/x&gt;"
+
+    def test_sanitize_escape_disallowed_reconstructs_self_closing_without_source_html(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"*": set(), "p": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            disallowed_tag_handling="escape",
+        )
+        node = Element("x", {"a": "b"}, "html")
+        node._start_tag_start = 0
+        node._start_tag_end = 3
+        node._self_closing = True
+        sanitized = sanitize(node, policy=policy)
+        out = to_html(sanitized, pretty=False)
+        assert out.startswith("&lt;x")
+        assert 'a="b"' in out
+        assert out.endswith("/&gt;")
+
+    def test_sanitize_escape_disallowed_can_inherit_source_html_from_parent(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"*": set(), "p": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            disallowed_tag_handling="escape",
+        )
+
+        root = DocumentFragment()
+        root._source_html = "<x>hi</x>"
+
+        node = Element("x", {}, "html")
+        node._start_tag_start = 0
+        node._start_tag_end = 3
+        node._end_tag_start = 5
+        node._end_tag_end = 9
+        node._end_tag_present = True
+        node.append_child(Text("hi"))
+
+        # Ensure tag extraction has to walk up to the parent.
+        node._source_html = None
+        root.append_child(node)
+
+        sanitized = sanitize(root, policy=policy)
+        assert to_html(sanitized, pretty=False) == "&lt;x&gt;hi&lt;/x&gt;"
+        assert node._source_html == root._source_html
+
+    def test_sanitize_escape_disallowed_inherits_source_html_for_template_content(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"*": set(), "p": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            disallowed_tag_handling="escape",
+        )
+
+        root = DocumentFragment()
+        root._source_html = "<template>x</template>"
+
+        # Template has a template_content container in the HTML namespace.
+        template = Template("template", namespace="html")
+        assert template.template_content is not None
+
+        # Ensure inheritance has to walk up (both template and template_content
+        # start without source html).
+        template._source_html = None
+        template.template_content._source_html = None
+        root.append_child(template)
+
+        sanitize(root, policy=policy)
+        assert template.template_content._source_html == root._source_html
+
+    def test_sanitize_escape_disallowed_does_not_override_existing_template_content_source_html(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"p"},
+            allowed_attributes={"*": set(), "p": set()},
+            url_policy=UrlPolicy(allow_rules={}),
+            disallowed_tag_handling="escape",
+        )
+
+        root = DocumentFragment()
+        root._source_html = "<template>x</template>"
+
+        template = Template("template", namespace="html")
+        assert template.template_content is not None
+
+        # Cover the branch where the child already has source html (no overwrite).
+        template._source_html = "<template>own</template>"
+        template.template_content._source_html = "tc"
+        root.append_child(template)
+
+        sanitize(root, policy=policy)
+        assert template._source_html == "<template>own</template>"
+        assert template.template_content._source_html == "tc"
+
+
+if __name__ == "__main__":
+    unittest.main()

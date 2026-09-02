@@ -55,24 +55,24 @@ class SharingAccess(APIObject):
     Attributes
     ----------
     username : str
-        a particular user
+        A particular user.
     role : str or None
-        if a string, represents a particular level of access and should be one of
-        ``datarobot.enums.SHARING_ROLE``.  For more information on the specific access levels, see
-        the :ref:`sharing <sharing>` documentation.  If None, can be passed to a `share`
+        If a string, represents a particular level of access and should be one of
+        ``datarobot.enums.SHARING_ROLE``. For more information on the specific access levels, see
+        the :ref:`sharing <sharing>` documentation. If None, can be passed to a ``share``
         function to revoke access for a specific user.
     can_share : bool or None
-        if a bool, indicates whether this user is permitted to further share.  When False, the
+        If a ``bool``, indicates whether this user is permitted to further share. When False, the
         user has access to the entity, but can only revoke their own access but not modify any
-        user's access role.  When True, the user can share with any other user at a access role up
-        to their own.  May be None if the SharingAccess was not retrieved from the DataRobot server
-        but intended to be passed into a `share` function; this will be equivalent to passing True.
+        user's access role. When True, the user can share with any other user at an access role up
+        to their own. May be None if the SharingAccess was not retrieved from the DataRobot server
+        but intended to be passed into a ``share`` function; this will be equivalent to passing True.
     can_use_data : bool or None
-        if a bool, indicates whether this user should be able to view, download and process data
-        (use to create projects, predictions, etc). For OWNER can_use_data is always True. If role
-        is empty canUseData is ignored.
+        If a ``bool``, indicates whether this user should be able to view, download, and process data
+        (use to create projects, predictions, etc.). For OWNER ``can_use_data`` is always True. If role
+        is empty ``canUseData`` is ignored.
     user_id : str or None
-        the ID of the user
+        The ID of the user.
     """
 
     _converter = t.Dict({
@@ -209,9 +209,9 @@ class CatalogSharedRole(APIObject, HumanReadable):
         True if the user can view, download and process data
         (use to create projects, predictions, etc).
     id : str
-        The ID of the recipient organization, group or user.
+        The ID of the recipient organization, group, or user.
     name : str
-        The name of the recipient organization, group or user.
+        The name of the recipient organization, group, or user.
     role : str
         The role of the org/group/user on this catalog entry or ``NO_ROLE``
         or removing access when used with route to modify access. One of

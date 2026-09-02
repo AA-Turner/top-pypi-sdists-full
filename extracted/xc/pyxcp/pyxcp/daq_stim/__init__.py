@@ -1,0 +1,553 @@
+#!/usr/bin/env python
+
+import logging
+from contextlib import suppress
+from fractions import Fraction
+from time import time_ns
+from typing import Any, Dict, List, Optional, TextIO, Tuple, Union
+
+from pyxcp import types
+from pyxcp.config import get_application
+from pyxcp.cpp_ext.cpp_ext import DaqList, PredefinedDaqList
+from pyxcp.daq_stim.optimize import make_continuous_blocks
+from pyxcp.daq_stim.optimize.binpacking import first_fit_decreasing
+from pyxcp.recorder import DaqOnlinePolicy as _DaqOnlinePolicy
+from pyxcp.recorder import DaqRecorderPolicy as _DaqRecorderPolicy
+from pyxcp.recorder import EventInfo, MeasurementParameters
+from pyxcp.utils import CurrentDatetime
+
+DAQ_ID_FIELD_SIZE = {
+    "IDF_ABS_ODT_NUMBER": 1,
+    "IDF_REL_ODT_NUMBER_ABS_DAQ_LIST_NUMBER_BYTE": 2,
+    "IDF_REL_ODT_NUMBER_ABS_DAQ_LIST_NUMBER_WORD": 3,
+    "IDF_REL_ODT_NUMBER_ABS_DAQ_LIST_NUMBER_WORD_ALIGNED": 4,
+}
+
+DAQ_TIMESTAMP_SIZE = {
+    "S1": 1,
+    "S2": 2,
+    "S4": 4,
+}
+
+EVENT_CHANNEL_TIME_UNIT_TO_NS = {
+    0: Fraction(1, 1),  # 1 ns
+    1: Fraction(10, 1),  # 10 ns
+    2: Fraction(100, 1),  # 100 ns
+    3: Fraction(1_000, 1),  # 1 us
+    4: Fraction(10_000, 1),  # 10 us
+    5: Fraction(100_000, 1),  # 100 us
+    6: Fraction(1_000_000, 1),  # 1 ms
+    7: Fraction(10_000_000, 1),  # 10 ms
+    8: Fraction(100_000_000, 1),  # 100 ms
+    9: Fraction(1_000_000_000, 1),  # 1 s
+    10: Fraction(1, 1_000),  # 1 ps
+    11: Fraction(1, 100),  # 10 ps
+    12: Fraction(1, 10),  # 100 ps
+}
+
+
+def event_channel_cycle_to_ns(cycle: int, unit: int) -> int:
+    """Convert XCP event channel time cycle/unit to nanoseconds."""
+    unit_value = int(unit)
+    if unit_value not in EVENT_CHANNEL_TIME_UNIT_TO_NS:
+        raise ValueError(f"Unsupported event channel time unit: {unit}")
+    value = Fraction(int(cycle), 1) * EVENT_CHANNEL_TIME_UNIT_TO_NS[unit_value]
+    return max(1, (value.numerator + value.denominator - 1) // value.denominator) if value else 0
+
+
+def load_daq_lists_from_json(config: list[dict]) -> list[DaqList]:
+    if not isinstance(config, list):
+        raise ValueError("DAQ configuration must be a JSON array (list)")
+
+    daq_lists: list[DaqList] = []
+    for idx, entry in enumerate(config):
+        if not isinstance(entry, dict):
+            raise TypeError(f"Entry {idx} must be an object/dict")
+
+        required = {"name", "event_num", "stim", "enable_timestamps", "measurements", "priority", "prescaler"}
+        missing = required - set(entry.keys())
+        if missing:
+            raise ValueError(f"Entry {idx} missing required keys: {missing}")
+
+        # Basic type conversions / checks
+        name = entry["name"]
+        if not isinstance(name, str):
+            raise TypeError(f"Entry {idx} 'name' must be a string")
+
+        try:
+            event_num = int(entry["event_num"])
+        except Exception as e:
+            raise TypeError(f"Entry {idx} 'event_num' must be an integer") from e
+
+        stim = bool(entry["stim"])
+        enable_timestamps = bool(entry["enable_timestamps"])
+
+        try:
+            priority = int(entry["priority"])
+            prescaler = int(entry["prescaler"])
+        except Exception as e:
+            raise TypeError(f"Entry {idx} 'priority' and 'prescaler' must be integers") from e
+
+        measurements_raw = entry["measurements"]
+        if not isinstance(measurements_raw, list):
+            raise TypeError(f"Entry {idx} 'measurements' must be a list")
+
+        measurements: list[tuple[str, int, int, str]] = []
+        for m_idx, m in enumerate(measurements_raw):
+            if not (isinstance(m, (list, tuple)) and len(m) == 4):
+                raise ValueError(f"Entry {idx} measurement {m_idx} must be a 4-element list/tuple")
+            m_name, m_addr, m_addr_ext, m_type = m
+
+            if not isinstance(m_name, str):
+                raise TypeError(f"Entry {idx} measurement {m_idx} name must be a string")
+            try:
+                m_addr = int(m_addr)
+            except Exception as e:
+                raise TypeError(f"Entry {idx} measurement {m_idx} address must be an integer") from e
+            try:
+                m_addr_ext = int(m_addr_ext)
+            except Exception as e:
+                raise TypeError(f"Entry {idx} measurement {m_idx} address extension must be an integer") from e
+            if not isinstance(m_type, str):
+                raise TypeError(f"Entry {idx} measurement {m_idx} type must be a string")
+
+            measurements.append((m_name, m_addr, m_addr_ext, m_type))
+
+        daq_kwargs: dict[str, Any] = {
+            "name": name,
+            "event_num": event_num,
+            "stim": stim,
+            "enable_timestamps": enable_timestamps,
+            "measurements": measurements,
+            "priority": priority,
+            "prescaler": prescaler,
+        }
+
+        daq_lists.append(DaqList(**daq_kwargs))
+
+    return daq_lists
+
+
+class DaqProcessor:
+    def __init__(self, daq_lists: list[DaqList | PredefinedDaqList], logger: logging.Logger | None = None):
+        """Initialize DAQ Processor.
+
+        Parameters
+        ----------
+        daq_lists : List[Union[DaqList, PredefinedDaqList]]
+            List of DAQ lists to process
+        logger : Optional[logging.Logger]
+            Logger instance to use. If None, attempts to get logger from application.
+            If application is not available, creates a fallback logger.
+        """
+        self.daq_lists = daq_lists
+        self.is_predefined = [isinstance(d, PredefinedDaqList) for d in daq_lists]
+
+        # Get logger: explicit parameter > application > fallback
+        if logger is not None:
+            self.log = logger
+        else:
+            try:
+                application = get_application()
+                self.config = application.config
+                self.log = application.log
+                # daq_identifier = self.config.Transport.Can.daq_identifier
+                self.transport_layer = self.config.Transport.layer
+                self.pid_off = (
+                    self.config.Transport.Can.pid_off
+                ) and self.transport_layer == "CAN"  # PID_OFF is only available on CAN.
+            except (FileNotFoundError, Exception) as e:
+                # Fallback: Create logger when running without config file
+                # This is common in test frameworks like Robot Framework or pytest
+                self.log = logging.getLogger("pyxcp.daq_stim")
+                if not self.log.handlers:
+                    self.log.addHandler(logging.NullHandler())
+                self.log.debug(f"Using fallback logger (application config not available: {e})")
+                self.pid_off = False
+
+        # Flag indicating a fatal OS-level error occurred during DAQ (e.g., disk full, out-of-memory)
+        self._fatal_os_error: bool = False
+
+    def setup(
+        self,
+        start_datetime: CurrentDatetime | None = None,
+        write_multiple: bool = True,
+        daq_info_override: dict[str, Any] | None = None,
+    ):
+        if not self.xcp_master.slaveProperties.supportsDaq:
+            raise RuntimeError("DAQ functionality is not supported.")
+
+        self.daq_info = self.xcp_master.getDaqInfo(include_event_lists=False)
+        validity = self.daq_info.get("valid", {})
+        processor_valid = validity.get("processor", True)
+        resolution_valid = validity.get("resolution", True)
+        if not (processor_valid and resolution_valid):
+            if daq_info_override is None:
+                raise RuntimeError(
+                    "DAQ info from slave is incomplete; provide daq_info_override with processor and resolution data."
+                )
+            override = dict(daq_info_override)
+            missing = [k for k in ("processor", "resolution") if k not in override]
+            if missing:
+                raise ValueError(f"daq_info_override missing required sections: {missing}")
+            valid_override = dict(override.get("valid", {}))
+            valid_override["processor"] = True
+            valid_override["resolution"] = True
+            valid_override.setdefault("events", True)
+            override["valid"] = valid_override
+            self.log.warning("Using provided DAQ info override because slave returned incomplete data.")
+            self.daq_info = override
+
+        if start_datetime is None:
+            start_datetime = CurrentDatetime(time_ns())
+        self.start_datetime = start_datetime
+
+        try:
+            processor = self.daq_info.get("processor")
+            properties = processor.get("properties")
+            resolution = self.daq_info.get("resolution")
+            if properties["configType"] == "STATIC" and not all(self.is_predefined):
+                raise TypeError(
+                    "DAQ configuration is static, but in your configuration are only dynamic DAQ lists -- cannot proceed."
+                )
+            self.supports_timestampes = properties["timestampSupported"]
+            self.supports_prescaler = properties["prescalerSupported"]
+            self.supports_pid_off = properties["pidOffSupported"]
+            if self.supports_timestampes:
+                mode = resolution.get("timestampMode")
+                self.ts_fixed = mode.get("fixed")
+                self.ts_size = DAQ_TIMESTAMP_SIZE[mode.get("size")]
+                ts_factor = types.DAQ_TIMESTAMP_UNIT_TO_NS[mode.get("unit")]
+                ts_ticks = resolution.get("timestampTicks")
+                self.ts_scale_factor = ts_factor * ts_ticks
+            else:
+                self.ts_size = 0
+                self.ts_fixed = False
+                self.ts_scale_factor = 0.0
+            key_byte = processor.get("keyByte")
+            header_len = DAQ_ID_FIELD_SIZE[key_byte["identificationField"]]
+            max_dto = self.xcp_master.slaveProperties.maxDto
+            self.min_daq = processor.get("minDaq")
+            max_odt_entry_size = resolution.get("maxOdtEntrySizeDaq")
+
+            # Calculate overhead: header + sequence counter (if interleavedMode)
+            # Issue #210: interleavedMode adds 1 byte sequence counter to DAQ frames
+            # Frame structure:
+            #   interleavedMode=False: [PID:1] [DAQ_ID:header_len] [Payload:N]
+            #   interleavedMode=True:  [PID:1] [Seq:1] [DAQ_ID:header_len] [Payload:N]
+            overhead = header_len
+            interleaved_mode = False
+            slave_props = self.xcp_master.slaveProperties
+            # slaveProperties may be a SimpleNamespace in tests; support both dict-like and attribute access.
+            if hasattr(slave_props, "get"):
+                interleaved_mode = slave_props.get("interleavedMode", False)
+            else:
+                interleaved_mode = getattr(slave_props, "interleavedMode", False)
+            if interleaved_mode:
+                overhead += 1  # Add 1 byte for sequence counter
+                self.log.debug(f"InterleavedMode enabled: overhead = {overhead} (header={header_len} + seq=1)")
+            else:
+                self.log.debug(f"InterleavedMode disabled: overhead = {overhead} (header={header_len})")
+
+            # Two independent limits:
+            #   * max_odt_container_size: the total payload capacity of a single ODT (across all
+            #     its entries), bounded by MAX_DTO minus framing overhead.
+            #   * max_entry_size: the maximum size of a single (possibly merged) ODT *entry*
+            #     element, bounded by MAX_ODT_ENTRY_SIZE_DAQ (GET_DAQ_RESOLUTION_INFO). An entry
+            #     can never be larger than what fits in one ODT.
+            max_odt_container_size = max_dto - overhead
+            max_entry_size = min(max_odt_entry_size, max_odt_container_size)
+            switch_pid_off: bool = False
+            if self.pid_off:
+                if self.supports_pid_off:
+                    id_field = key_byte["identificationField"]
+                    if id_field != "IDF_ABS_ODT_NUMBER":
+                        self.log.error(
+                            f"Slave supports PID_OFF and identificationField is {id_field!r}. This is a configuration error."
+                        )
+                    else:
+                        self.log.info("PID_OFF requested and supported.")
+                        max_odt_container_size += 1
+                        switch_pid_off = True
+                else:
+                    self.log.info("PID_OFF requested but NOT supported.")
+
+            # First ODT may contain a timestamp, reducing only its container capacity.
+            self.selectable_timestamps = False
+            max_odt_container_size_first = max_odt_container_size
+            if not self.supports_timestampes:
+                self.log.info("No timestamp support")
+            else:
+                if self.ts_fixed:
+                    self.log.debug("Fixed timestamps")
+                    max_odt_container_size_first = max_odt_container_size - self.ts_size
+                else:
+                    self.log.debug("Variable timestamps.")
+                    self.selectable_timestamps = True
+        except Exception as e:
+            raise TypeError(f"DAQ_INFO corrupted: {e}") from e
+
+        # DAQ optimization.
+        # For dynamic DaqList instances, compute physical layout; skip for PredefinedDaqList.
+        for idx, daq_list in enumerate(self.daq_lists):
+            if isinstance(daq_list, PredefinedDaqList):
+                continue
+            container_first = max_odt_container_size_first
+            if self.selectable_timestamps:
+                if daq_list.enable_timestamps:
+                    container_first = max_odt_container_size - self.ts_size
+                else:
+                    container_first = max_odt_container_size
+            # Per-entry merge cap uses max_entry_size (unaffected by timestamp/PID_OFF); the ODT
+            # bin capacity uses the container size.
+            ttt = make_continuous_blocks(daq_list.measurements, max_entry_size, max_entry_size)
+            daq_list.measurements_opt = first_fit_decreasing(ttt, max_odt_container_size, container_first)
+        byte_order = 0 if self.xcp_master.slaveProperties.byteOrder == "INTEL" else 1
+        self._first_pids = []
+        daq_count = len(self.daq_lists)
+
+        # Decide whether DAQ allocation must be performed.
+        config_static = self.daq_info.get("processor", {}).get("properties", {}).get("configType") == "STATIC"
+
+        if not config_static:
+            # For dynamic configuration, program only dynamic (non-predefined) DAQ lists.
+            self.xcp_master.freeDaq()
+            # Allocate the number of DAQ lists required.
+            self.xcp_master.allocDaq(daq_count)
+            measurement_list = []
+            for i, daq_list in enumerate(self.daq_lists, self.min_daq):
+                if isinstance(daq_list, PredefinedDaqList):
+                    # Skip allocation for predefined DAQ lists.
+                    continue
+                measurements = daq_list.measurements_opt
+                measurement_list.append((i, measurements))
+                odt_count = len(measurements)
+                self.xcp_master.allocOdt(i, odt_count)
+            # Iterate again over ODT entries -- we need to respect sequencing requirements.
+            for i, measurements in measurement_list:
+                for j, measurement in enumerate(measurements):
+                    entry_count = len(measurement.entries)
+                    self.xcp_master.allocOdtEntry(i, j, entry_count)
+            # Write DAQs (only for dynamic lists)
+            for i, daq_list in enumerate(self.daq_lists, self.min_daq):
+                if isinstance(daq_list, PredefinedDaqList):
+                    continue
+                measurements = daq_list.measurements_opt
+                for j, measurement in enumerate(measurements):
+                    if len(measurement.entries) == 0:
+                        continue  # CAN special case: No room for data in first ODT.
+                    self.xcp_master.setDaqPtr(i, j, 0)
+                    for entry in measurement.entries:
+                        self.xcp_master.writeDaq(0xFF, entry.length, entry.ext, entry.address)
+        else:
+            # STATIC configuration on the slave: skip allocation and programming; lists/ODTs are predefined.
+            pass
+
+        # arm DAQ lists -- this is technically a function on its own.
+        first_daq_list = 0 if config_static else self.min_daq
+        event_cycle_ns = 0
+        for i, daq_list in enumerate(self.daq_lists, first_daq_list):
+            mode = 0x00
+            if self.supports_timestampes and (self.ts_fixed or (self.selectable_timestamps and daq_list.enable_timestamps)):
+                mode = 0x10
+            if daq_list.stim:
+                mode |= 0x02
+            if switch_pid_off:
+                mode |= 0x20
+            self.xcp_master.setDaqListMode(
+                daq_list_number=i,
+                mode=mode,
+                event_channel_number=daq_list.event_num,
+                prescaler=daq_list.prescaler,
+                priority=daq_list.priority,
+            )
+
+            # Packed DAQ support
+            if hasattr(daq_list, "packed_mode") and daq_list.packed_mode != types.DaqPackedModeType.NOT_PACKED:
+                self.log.debug("Packed DAQ support enabled for DAQ list %s", i)
+                self.xcp_master.setDaqPackedMode(
+                    daq_list_number=i,
+                    daq_packed_mode=daq_list.packed_mode,
+                    dpm_timestamp_mode=daq_list.packed_ts_mode,
+                    dpm_sample_count=daq_list.packed_sample_count,
+                )
+                # Fetch event cycle for timestamp reconstruction if not already done
+                if event_cycle_ns == 0:
+                    ev_info = self.xcp_master.getEventChannelInfo(daq_list.event_num)
+                    # Convert to ns. XCP 1.4 spec says unit is in 'eventChannelTimeCycleUnit'
+                    # For simplicity, we assume the master knows how to convert or we use a default.
+                    # In pyXCP, we might need to parse the unit.
+                    # For now, let's assume it's in the unit specified in ASAM.
+                    # TODO: Implement proper unit conversion.
+                    event_cycle_ns = ev_info.eventChannelTimeCycle * (
+                        10 ** (ev_info.eventChannelTimeUnit + 6)
+                    )  # Rough estimate: unit 6 = ms? No.
+                    # Actually, let's just use 1ms as default if we can't determine it, or let user specify.
+            res = self.xcp_master.startStopDaqList(0x02, i)
+            self._first_pids.append(res.firstPid)
+
+        self.measurement_params = MeasurementParameters(
+            byte_order,
+            header_len,
+            self.supports_timestampes,
+            self.ts_fixed,
+            self.supports_prescaler,
+            self.selectable_timestamps,
+            self.ts_scale_factor,
+            self.ts_size,
+            self.min_daq,
+            self.start_datetime,
+            EventInfo(event_cycle_ns),
+            self.daq_lists,
+            self._first_pids,
+        )
+        self.set_parameters(self.measurement_params)
+
+    def start(self):
+        self.xcp_master.startStopSynch(0x01)
+
+    def stop(self):
+        # If a fatal OS error occurred during acquisition, skip sending stop to the slave to avoid
+        # cascading timeouts/unrecoverable errors and shut down transport gracefully instead.
+        if getattr(self, "_fatal_os_error", False):
+            with suppress(Exception):
+                self.log.error(
+                    "DAQ stop skipped due to previous fatal OS error (e.g., disk full or out-of-memory). Closing transport."
+                )
+            try:
+                # Best-effort: stop listener and close transport so threads finish cleanly.
+                if hasattr(self.xcp_master, "transport") and self.xcp_master.transport is not None:
+                    # Signal listeners to stop
+                    with suppress(Exception):
+                        if hasattr(self.xcp_master.transport, "closeEvent"):
+                            self.xcp_master.transport.closeEvent.set()
+
+                    # Close transport connection
+                    with suppress(Exception):
+                        self.xcp_master.transport.close()
+            finally:
+                pass
+            return
+        self.xcp_master.startStopSynch(0x00)
+
+    def first_pids(self):
+        return self._first_pids
+
+
+class DaqRecorder(DaqProcessor, _DaqRecorderPolicy):
+    def __init__(
+        self,
+        daq_lists: list[DaqList],
+        file_name: str,
+        prealloc: int = 200,
+        chunk_size: int = 1,
+        logger: logging.Logger | None = None,
+    ):
+        """Initialize DAQ Recorder.
+
+        Parameters
+        ----------
+        daq_lists : List[DaqList]
+            List of DAQ lists to record
+        file_name : str
+            Output file name for recording
+        prealloc : int, optional
+            Pre-allocation size (default: 200)
+        chunk_size : int, optional
+            Chunk size for writing (default: 1)
+        logger : Optional[logging.Logger], optional
+            Logger instance to use. If None, uses application logger or fallback.
+        """
+        DaqProcessor.__init__(self, daq_lists, logger=logger)
+        _DaqRecorderPolicy.__init__(self)
+        self.file_name = file_name
+        self.prealloc = prealloc
+        self.chunk_size = chunk_size
+
+    def initialize(self):
+        metadata = self.measurement_params.dumps()
+        _DaqRecorderPolicy.create_writer(self, self.file_name, self.prealloc, self.chunk_size, metadata)
+        _DaqRecorderPolicy.initialize(self)
+
+    def finalize(self):
+        _DaqRecorderPolicy.finalize(self)
+
+    def start(self):
+        DaqProcessor.start(self)
+
+
+class DaqOnlinePolicy(DaqProcessor, _DaqOnlinePolicy):
+    """Base class for on-line measurements.
+    Handles multiple inheritence.
+    """
+
+    def __init__(self, daq_lists: list[DaqList], logger: logging.Logger | None = None):
+        """Initialize DAQ Online Policy.
+
+        Parameters
+        ----------
+        daq_lists : List[DaqList]
+            List of DAQ lists to process
+        logger : Optional[logging.Logger], optional
+            Logger instance to use. If None, uses application logger or fallback.
+        """
+        DaqProcessor.__init__(self, daq_lists, logger=logger)
+        _DaqOnlinePolicy.__init__(self)
+
+    def start(self):
+        DaqProcessor.start(self)
+
+
+class DaqToCsv(DaqOnlinePolicy):
+    """Save a measurement as CSV files (one per DAQ-list)."""
+
+    def initialize(self):
+        self.log.debug("DaqCsv::Initialize()")
+        if hasattr(self, "files"):
+            self.finalize()
+        self.files: dict[int, TextIO] = {}
+        for num, daq_list in enumerate(self.daq_lists):
+            if daq_list.stim:
+                continue
+            out_file = open(f"{daq_list.name}.csv", "w")
+            self.files[num] = out_file
+            hdr = ",".join(["timestamp0", "timestamp1"] + [h[0] for h in daq_list.headers])
+            out_file.write(f"{hdr}\n")
+
+    def on_daq_list(self, daq_list: int, timestamp0: int, timestamp1: int, payload: list):
+        # Guard against hard OS errors (e.g., disk full) during file writes.
+        if getattr(self, "_fatal_os_error", False):
+            return
+        try:
+            self.files[daq_list].write(f"{timestamp0},{timestamp1},{', '.join([str(x) for x in payload])}\n")
+        except (OSError, MemoryError) as ex:
+            # Mark fatal condition to alter shutdown path and avoid further writes/commands.
+            self._fatal_os_error = True
+            with suppress(Exception):
+                self.log.critical(f"DAQ file write failed: {ex.__class__.__name__}: {ex}. Initiating graceful shutdown.")
+
+            # Stop listener to prevent more DAQ traffic and avoid thread crashes.
+            with suppress(Exception):
+                if hasattr(self.xcp_master, "transport") and self.xcp_master.transport is not None:
+                    if hasattr(self.xcp_master.transport, "closeEvent"):
+                        self.xcp_master.transport.closeEvent.set()
+            # Best-effort: close any opened files to flush buffers and release resources.
+            with suppress(Exception):
+                for f in getattr(self, "files", {}).values():
+                    with suppress(Exception):
+                        f.flush()
+                    with suppress(Exception):
+                        f.close()
+            # Do not re-raise; allow the system to continue to a controlled shutdown.
+            return
+
+    def finalize(self):
+        self.log.debug("DaqCsv::finalize()")
+        ##
+        ## NOTE: `finalize` is guaranteed to be called, but `Initialize` may fail for reasons.
+        ##       So if you allocate resources in `Initialize` check if this really happened.
+        ##
+        if hasattr(self, "files"):
+            for f in self.files.values():
+                f.close()
+            del self.files

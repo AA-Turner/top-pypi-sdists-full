@@ -1,9 +1,13 @@
+# Copyright (C) 2026 Meltano.
+
 """Snowflake target sink class, which handles writing streams."""
 
 from __future__ import annotations
 
 import os
+import tempfile
 import typing as t
+from shutil import rmtree
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -16,9 +20,8 @@ from singer_sdk.helpers._batch import (
 from singer_sdk.helpers._typing import conform_record_data_types
 from singer_sdk.helpers.conform import TypeConformanceLevel
 from singer_sdk.sql.sink import SQLSink
-from snowflake.sqlalchemy.base import SnowflakeIdentifierPreparer
-from snowflake.sqlalchemy.snowdialect import SnowflakeDialect
 
+from target_snowflake.arrow_batch import ARROW_ENCODING_FORMAT, convert_arrow_manifest_to_parquet
 from target_snowflake.connector import SnowflakeConnector
 
 if t.TYPE_CHECKING:
@@ -46,6 +49,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
     ) -> None:
         """Initialize Snowflake Sink."""
         self.target = target
+        self._file_formats: dict[str, str] = {}
         super().__init__(
             target=target,
             stream_name=stream_name,
@@ -66,6 +70,9 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
 
     @property
     def table_name(self) -> str:
+        if self.config.get("use_raw_stream_names", False):
+            return self.conform_name(self.stream_name, "table").upper()
+
         return super().table_name.upper()
 
     def setup(self) -> None:
@@ -79,6 +86,9 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
             self.connector.prepare_schema(
                 self.conform_name(self.schema_name, object_type="schema"),
             )
+
+        self.connector.invalidate_table_cache(self.full_table_name)
+
         try:
             self.connector.prepare_table(
                 full_table_name=self.full_table_name,
@@ -90,6 +100,47 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
             self.logger.exception("Error creating %s %s", self.full_table_name, self.conform_schema(self.schema))
             raise
 
+        self.connector.invalidate_table_cache(self.full_table_name)
+
+        if self.config.get("load_method", "upsert") == "overwrite":
+            self.logger.info("load_method=overwrite: truncating %s", self.full_table_name)
+            self.connector.truncate_table(self.full_table_name)
+
+    def _get_file_format_name(self, file_type: str) -> str:
+        """Get (creating on first use) the file format name for a given file type.
+
+        Args:
+            file_type: The Snowflake file format type, e.g. ``"JSON"`` or ``"PARQUET"``.
+
+        Returns:
+            The name of the file format, unique to this sink instance and file type.
+        """
+        if file_type not in self._file_formats:
+            # Use a unique name per sink instance. A static, stream-derived name is
+            # shared across overlapping sinks (e.g. when a SCHEMA message archives
+            # the old sink and creates a new one) and across concurrent target
+            # processes loading the same stream into the same schema. In those
+            # cases one owner's CREATE OR REPLACE / DROP FILE FORMAT clobbers a
+            # file format another sink is actively using, causing "File format
+            # ... does not exist" during COPY/MERGE. The uuid keeps each sink's
+            # file format isolated while still creating/dropping it only once per
+            # sink (not per batch) -- and only for file types actually used
+            # during this sync, since a stream's batches are all of one encoding.
+            file_format = f'{self.database_name}.{self.schema_name}."tf-{self.stream_name}-{uuid4()}"'
+            self.connector.create_file_format(file_format=file_format, file_type=file_type)
+            self._file_formats[file_type] = file_format
+
+        return self._file_formats[file_type]
+
+    def clean_up(self) -> None:
+        # The base Sink.clean_up() calls this too, but overriding here (rather than
+        # super().clean_up()) drops it entirely -- force-flushing whatever record_count
+        # hasn't been logged yet (the Counter only auto-logs periodically, see
+        # singer_sdk.metrics.Counter) so it isn't silently lost when the sink shuts down.
+        self.record_counter_metric.exit()
+        for file_format in self._file_formats.values():
+            self.connector.drop_file_format(file_format=file_format)
+
     def conform_name(
         self,
         name: str,
@@ -97,10 +148,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
     ) -> str:
         if object_type and object_type != "column":
             return super().conform_name(name=name, object_type=object_type)
-        formatter = SnowflakeIdentifierPreparer(SnowflakeDialect())
-        if '"' not in formatter.format_collation(name.lower()):
-            name = name.lower()
-        return name
+        return self.connector.format_identifier(name)
 
     def bulk_insert_records(
         self,
@@ -171,25 +219,23 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         self,
         full_table_name: str | FullyQualifiedName,
         files: t.Sequence[str],
+        file_type: str = "JSON",
     ) -> int:
         """Process a batch file with the given batch context.
 
         Args:
-            encoding: The batch file encoding.
+            full_table_name: The target table name.
             files: The batch files to process.
+            file_type: The Snowflake file format type to stage/load with, e.g.
+                ``"JSON"`` or ``"PARQUET"``. The underlying file format is
+                created lazily and reused for the rest of this sink's sync.
         """
+        file_format = self._get_file_format_name(file_type)
         self.logger.info("Processing batch of files.")
+        sync_id = f"{self.stream_name}-{uuid4()}"
         try:
-            sync_id = f"{self.stream_name}-{uuid4()}"
-            file_format = f'{self.database_name}.{self.schema_name}."{sync_id}"'
             self.connector.put_batches_to_stage(sync_id=sync_id, files=files)
-            if self.schema_name:
-                self.connector.prepare_schema(
-                    self.conform_name(self.schema_name, object_type="schema"),  # type: ignore[arg-type]
-                )
-            self.connector.create_file_format(file_format=file_format)
-
-            if self.key_properties:
+            if self.key_properties and self.config.get("load_method", "upsert") == "upsert":
                 # merge into destination table
                 record_count = self.connector.merge_from_stage(
                     full_table_name=full_table_name,
@@ -209,7 +255,6 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
 
         finally:
             self.logger.debug("Cleaning up after batch processing")
-            self.connector.drop_file_format(file_format=file_format)
             self.connector.remove_staged_files(sync_id=sync_id)
             # clean up local files
             if self.config.get("clean_up_batch_files"):
@@ -219,6 +264,33 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                         os.remove(file_path)  # noqa: PTH107
 
         return record_count
+
+    def _process_arrow_batch_files(self, files: t.Sequence[str]) -> int:
+        """Convert an Arrow BATCH manifest to Parquet, then load it via the internal stage.
+
+        Args:
+            files: The Arrow IPC manifest files (``file://`` URIs) to process.
+
+        Returns:
+            The number of rows loaded.
+        """
+        output_dir = tempfile.mkdtemp(prefix=f"target-snowflake-arrow-{self.stream_name}-")
+        try:
+            parquet_files = convert_arrow_manifest_to_parquet(
+                manifest=files,
+                output_dir=output_dir,
+                clean_up_source_files=bool(self.config.get("clean_up_batch_files")),
+            )
+            return self.insert_batch_files_via_internal_stage(
+                full_table_name=self.full_table_name,
+                files=parquet_files,
+                file_type="PARQUET",
+            )
+        finally:
+            # These Parquet files are purely internal artifacts (never part of
+            # any external manifest contract), so they're always cleaned up
+            # regardless of `clean_up_batch_files`.
+            rmtree(output_dir, ignore_errors=True)
 
     def process_batch_files(
         self,
@@ -239,6 +311,8 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                 full_table_name=self.full_table_name,
                 files=files,
             )
+        elif encoding.format == ARROW_ENCODING_FORMAT:
+            record_count = self._process_arrow_batch_files(files)
         else:
             msg = f"Unsupported batch file encoding: {encoding.format}"
             raise NotImplementedError(

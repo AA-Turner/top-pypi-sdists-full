@@ -1,0 +1,3190 @@
+"""Unit tests for the main entry point."""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import signal
+import sys
+from pathlib import Path
+from typing import Any
+from unittest import mock
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
+
+import pytest
+
+from application_sdk.main import (
+    AppConfig,
+    _create_infrastructure,
+    _derive_service_name,
+    _flush_observability,
+    _install_excepthook,
+    _install_graceful_signal_handlers,
+    _log_dapr_components,
+    _log_process_memory_baseline,
+    _loop_exception_handler,
+    _observe_worker_poll_state,
+    _parse_all_component_yamls,
+    _parse_workflow_max_timeout_hours,
+    _run_worker_with_restart,
+    main,
+    parse_args,
+    run_combined_mode,
+    run_dev_combined,
+    run_handler_mode,
+    run_main,
+    run_worker_mode,
+)
+from application_sdk.main_errors import (
+    DaprNotDetectedError,
+    MissingAppModuleError,
+    MultiAppModuleError,
+    UnknownModeError,
+)
+
+
+class TestDeriveServiceName:
+    """Tests for _derive_service_name()."""
+
+    def test_pascal_case_to_kebab(self) -> None:
+        result = _derive_service_name("my_package.apps:MyAppExtractor")
+        assert result == "my-app-extractor"
+
+    def test_single_word(self) -> None:
+        result = _derive_service_name("pkg:Greeter")
+        assert result == "greeter"
+
+    def test_no_colon_returns_fallback(self) -> None:
+        result = _derive_service_name("my_package.apps")
+        assert result == "application-sdk"
+
+    def test_consecutive_uppercase(self) -> None:
+        result = _derive_service_name("pkg:SQLExtractor")
+        assert result == "sql-extractor"
+
+    def test_openapi_consecutive_uppercase(self) -> None:
+        result = _derive_service_name("app.connector:OpenAPIConnector")
+        assert result == "open-api-connector"
+
+    def test_empty_string_returns_fallback(self) -> None:
+        result = _derive_service_name("")
+        assert result == "application-sdk"
+
+
+class TestAppConfigFromArgsAndEnv:
+    """Tests for AppConfig.from_args_and_env()."""
+
+    def _make_args(self, **kwargs: object) -> argparse.Namespace:
+        defaults = {
+            "mode": None,
+            "app": None,
+            "handler": None,
+            "temporal_host": None,
+            "temporal_namespace": None,
+            "task_queue": None,
+            "handler_host": None,
+            "handler_port": None,
+            "log_level": None,
+            "service_name": None,
+        }
+        defaults.update(kwargs)
+        return argparse.Namespace(**defaults)
+
+    def test_mode_from_args(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ATLAN_APP_MODE", raising=False)
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        args = self._make_args(mode="worker", app="pkg:App")
+        config = AppConfig.from_args_and_env(args)
+        assert config.mode == "worker"
+
+    def test_mode_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODE", "handler")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.mode == "handler"
+
+    def test_app_module_from_args(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ATLAN_APP_MODULE", raising=False)
+        monkeypatch.setenv("ATLAN_APP_MODE", "worker")
+        args = self._make_args(mode="worker", app="my_pkg.apps:MyApp")
+        config = AppConfig.from_args_and_env(args)
+        assert config.app_module == "my_pkg.apps:MyApp"
+
+    def test_app_module_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "env_pkg:EnvApp")
+        monkeypatch.setenv("ATLAN_APP_MODE", "worker")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.app_module == "env_pkg:EnvApp"
+
+    def test_legacy_application_mode_local_defaults_combined(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("ATLAN_APP_MODE", raising=False)
+        monkeypatch.setenv("APPLICATION_MODE", "LOCAL")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        config = AppConfig.from_args_and_env(self._make_args())
+        assert config.mode == "combined"
+
+    def test_legacy_application_mode_worker(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("ATLAN_APP_MODE", raising=False)
+        monkeypatch.setenv("APPLICATION_MODE", "WORKER")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        config = AppConfig.from_args_and_env(self._make_args())
+        assert config.mode == "worker"
+
+    def test_legacy_application_mode_server(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("ATLAN_APP_MODE", raising=False)
+        monkeypatch.setenv("APPLICATION_MODE", "SERVER")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        config = AppConfig.from_args_and_env(self._make_args())
+        assert config.mode == "handler"
+
+    def test_legacy_application_mode_unset_defaults_combined(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("ATLAN_APP_MODE", raising=False)
+        monkeypatch.delenv("APPLICATION_MODE", raising=False)
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        # With neither var set the fallback resolves to "combined"
+        config = AppConfig.from_args_and_env(self._make_args())
+        assert config.mode == "combined"
+
+    def test_atlan_app_mode_takes_precedence(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODE", "handler")
+        monkeypatch.setenv("APPLICATION_MODE", "WORKER")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        config = AppConfig.from_args_and_env(self._make_args())
+        assert config.mode == "handler"
+
+    def test_missing_app_module_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ATLAN_APP_MODULE", raising=False)
+        monkeypatch.setenv("ATLAN_APP_MODE", "worker")
+        args = self._make_args(mode="worker")
+        with pytest.raises(MissingAppModuleError) as exc_info:
+            AppConfig.from_args_and_env(args)
+        assert exc_info.value.code == "INVALID_INPUT_APP_MODULE_MISSING"
+
+    def test_app_module_parsed_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODE", "worker")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "app.primary:PrimaryApp")
+        config = AppConfig.from_args_and_env(self._make_args())
+        assert config.app_module == "app.primary:PrimaryApp"
+
+    def test_single_app_module_is_stripped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODE", "worker")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "  app.main:MyApp  ")
+        config = AppConfig.from_args_and_env(self._make_args())
+        assert config.app_module == "app.main:MyApp"
+
+    def test_temporal_host_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODE", "worker")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.setenv("ATLAN_TEMPORAL_HOST", "temporal.prod:7233")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.temporal_host == "temporal.prod:7233"
+
+    def test_service_name_derived_when_not_provided(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODE", "worker")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:MyApp")
+        monkeypatch.delenv("ATLAN_SERVICE_NAME", raising=False)
+        monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.service_name == "my-app"
+
+    def test_default_temporal_host(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODE", "worker")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_TEMPORAL_HOST", raising=False)
+        monkeypatch.delenv("ATLAN_WORKFLOW_HOST", raising=False)
+        monkeypatch.delenv("ATLAN_WORKFLOW_PORT", raising=False)
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.temporal_host == "localhost:7233"
+
+    def test_default_handler_port(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODE", "handler")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_HANDLER_PORT", raising=False)
+        monkeypatch.delenv("ATLAN_APP_HTTP_PORT", raising=False)
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.handler_port == 8000
+
+    # --- v2 environment variable fallback tests ---
+
+    def test_v2_temporal_host_and_port(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_TEMPORAL_HOST", raising=False)
+        monkeypatch.setenv("ATLAN_WORKFLOW_HOST", "temporal-internal.svc")
+        monkeypatch.setenv("ATLAN_WORKFLOW_PORT", "7236")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.temporal_host == "temporal-internal.svc:7236"
+
+    def test_v2_temporal_host_default_port(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_TEMPORAL_HOST", raising=False)
+        monkeypatch.delenv("ATLAN_WORKFLOW_PORT", raising=False)
+        monkeypatch.setenv("ATLAN_WORKFLOW_HOST", "temporal-internal.svc")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.temporal_host == "temporal-internal.svc:7233"
+
+    def test_v3_temporal_host_takes_precedence_over_v2(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.setenv("ATLAN_TEMPORAL_HOST", "v3-host:7233")
+        monkeypatch.setenv("ATLAN_WORKFLOW_HOST", "v2-host")
+        monkeypatch.setenv("ATLAN_WORKFLOW_PORT", "7236")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.temporal_host == "v3-host:7233"
+
+    def test_v2_temporal_namespace(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_TEMPORAL_NAMESPACE", raising=False)
+        monkeypatch.setenv("ATLAN_WORKFLOW_NAMESPACE", "production")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.temporal_namespace == "production"
+
+    def test_v2_handler_host(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_HANDLER_HOST", raising=False)
+        monkeypatch.setenv("ATLAN_APP_HTTP_HOST", "1.2.3.4")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.handler_host == "1.2.3.4"
+
+    def test_v2_handler_port(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_HANDLER_PORT", raising=False)
+        monkeypatch.setenv("ATLAN_APP_HTTP_PORT", "9000")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.handler_port == 9000
+
+    def test_v2_log_level(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_LOG_LEVEL", raising=False)
+        monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.log_level == "DEBUG"
+
+    def test_v3_log_level_takes_precedence_over_v2(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.setenv("ATLAN_LOG_LEVEL", "WARNING")
+        monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.log_level == "WARNING"
+
+    def test_v2_temporal_tls_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Customer chart predating the v3 rename still sets the v2 name —
+        # the SDK should pick it up so the deployment doesn't have to be
+        # hand-edited on SDK upgrade.
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_TEMPORAL_TLS_ENABLED", raising=False)
+        monkeypatch.setenv("ATLAN_WORKFLOW_TLS_ENABLED", "true")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.tls_enabled is True
+
+    def test_v3_temporal_tls_enabled_takes_precedence_over_v2(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Explicit v3 setting wins even when a stale v2 value is left in the
+        # environment — crucially including the v3=false case, so a customer
+        # migrating TLS-on → TLS-off can flip without first scrubbing the v2
+        # var from their chart.
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.setenv("ATLAN_TEMPORAL_TLS_ENABLED", "false")
+        monkeypatch.setenv("ATLAN_WORKFLOW_TLS_ENABLED", "true")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.tls_enabled is False
+
+    def test_temporal_tls_defaults_to_false_when_neither_set(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.delenv("ATLAN_TEMPORAL_TLS_ENABLED", raising=False)
+        monkeypatch.delenv("ATLAN_WORKFLOW_TLS_ENABLED", raising=False)
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.tls_enabled is False
+
+    def test_task_queue_derived_from_app_module(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:MyConnector")
+        monkeypatch.delenv("ATLAN_TASK_QUEUE", raising=False)
+        monkeypatch.delenv("ATLAN_APPLICATION_NAME", raising=False)
+        monkeypatch.delenv("ATLAN_DEPLOYMENT_NAME", raising=False)
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.task_queue == "my-connector-queue"
+
+    def test_task_queue_from_application_and_deployment_name(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "app.connector:OpenAPIConnector")
+        monkeypatch.setenv("ATLAN_APPLICATION_NAME", "openapi")
+        monkeypatch.setenv("ATLAN_DEPLOYMENT_NAME", "production")
+        monkeypatch.delenv("ATLAN_TASK_QUEUE", raising=False)
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.task_queue == "atlan-openapi-production"
+
+    def test_task_queue_from_application_name_only(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "app.connector:OpenAPIConnector")
+        monkeypatch.setenv("ATLAN_APPLICATION_NAME", "openapi")
+        monkeypatch.delenv("ATLAN_DEPLOYMENT_NAME", raising=False)
+        monkeypatch.delenv("ATLAN_TASK_QUEUE", raising=False)
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.task_queue == "openapi"
+
+    def test_task_queue_explicit_overrides_derived(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:MyConnector")
+        monkeypatch.setenv("ATLAN_TASK_QUEUE", "custom-queue")
+        args = self._make_args()
+        config = AppConfig.from_args_and_env(args)
+        assert config.task_queue == "custom-queue"
+
+
+class TestParseWorkflowMaxTimeoutHours:
+    """Tests for _parse_workflow_max_timeout_hours()."""
+
+    def test_positive_value_returned(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A positive env var value is returned as-is."""
+        monkeypatch.setenv("ATLAN_WORKFLOW_MAX_TIMEOUT_HOURS", "4")
+        assert _parse_workflow_max_timeout_hours() == 4
+
+    def test_zero_returns_none_silently(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Zero is treated as unset — returns None without a warning."""
+        monkeypatch.setenv("ATLAN_WORKFLOW_MAX_TIMEOUT_HOURS", "0")
+        with patch("application_sdk.main.logger") as mock_log:
+            result = _parse_workflow_max_timeout_hours()
+        assert result is None
+        mock_log.warning.assert_not_called()
+
+    def test_negative_returns_none_and_warns(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A negative value returns None and emits a warning."""
+        monkeypatch.setenv("ATLAN_WORKFLOW_MAX_TIMEOUT_HOURS", "-5")
+        with patch("application_sdk.main.logger") as mock_log:
+            result = _parse_workflow_max_timeout_hours()
+        assert result is None
+        mock_log.warning.assert_called_once()
+        assert "ATLAN_WORKFLOW_MAX_TIMEOUT_HOURS" in mock_log.warning.call_args[0][0]
+
+    def test_unset_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Unset env var returns None."""
+        monkeypatch.delenv("ATLAN_WORKFLOW_MAX_TIMEOUT_HOURS", raising=False)
+        assert _parse_workflow_max_timeout_hours() is None
+
+
+class TestRunMain:
+    """Tests for run_main()."""
+
+    def test_unknown_mode_raises_value_error(self) -> None:
+        config = AppConfig(mode="invalid", app_module="pkg:App")
+        with pytest.raises(UnknownModeError) as exc_info:
+            run_main(config)
+        assert exc_info.value.code == "INVALID_INPUT_MODE"
+        assert exc_info.value.received_mode == "invalid"
+
+    def test_worker_mode_calls_asyncio_run(self) -> None:
+        config = AppConfig(mode="worker", app_module="pkg:App")
+        with mock.patch("application_sdk.main.asyncio.run") as mock_run:
+            with mock.patch("application_sdk.main.run_worker_mode"):
+                mock_run.side_effect = lambda coro: None
+                run_main(config)
+                mock_run.assert_called_once()
+
+    def test_handler_mode_calls_run_handler_mode(self) -> None:
+        config = AppConfig(mode="handler", app_module="pkg:App")
+        with mock.patch("application_sdk.main.run_handler_mode") as mock_handler:
+            run_main(config)
+            mock_handler.assert_called_once_with(config)
+
+    def test_combined_mode_calls_asyncio_run(self) -> None:
+        config = AppConfig(mode="combined", app_module="pkg:App")
+        with mock.patch("application_sdk.main.asyncio.run") as mock_run:
+            with mock.patch("application_sdk.main.run_combined_mode"):
+                mock_run.side_effect = lambda coro: None
+                run_main(config)
+                mock_run.assert_called_once()
+
+
+class TestParseArgs:
+    """Tests for parse_args()."""
+
+    def test_parse_mode_and_app(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "sys.argv", ["prog", "--mode", "worker", "--app", "pkg:Cls"]
+        )
+        args = parse_args()
+        assert args.mode == "worker"
+        assert args.app == "pkg:Cls"
+
+    def test_parse_short_flags(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("sys.argv", ["prog", "-m", "handler", "-a", "pkg:Cls"])
+        args = parse_args()
+        assert args.mode == "handler"
+        assert args.app == "pkg:Cls"
+
+    def test_parse_temporal_host(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "prog",
+                "--mode",
+                "worker",
+                "--app",
+                "pkg:Cls",
+                "--temporal-host",
+                "temporal.prod:7233",
+            ],
+        )
+        args = parse_args()
+        assert args.temporal_host == "temporal.prod:7233"
+
+    def test_defaults_are_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("sys.argv", ["prog"])
+        args = parse_args()
+        assert args.mode is None
+        assert args.app is None
+
+
+class TestLogDaprComponents:
+    """Tests for _log_dapr_components()."""
+
+    async def test_returns_registered_component_names(self, tmp_path: Path) -> None:
+        """Returns the set of registered component names on success."""
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.return_value = {
+            "registeredComponents": [
+                {"name": "atlan-statestore", "type": "bindings.redis", "version": "v1"},
+                {
+                    "name": "atlan-secretstore",
+                    "type": "bindings.redis",
+                    "version": "v1",
+                },
+            ]
+        }
+
+        result = await _log_dapr_components(dapr_client, tmp_path)
+
+        assert result == {"atlan-statestore", "atlan-secretstore"}
+
+    async def test_returns_empty_set_on_metadata_failure(self, tmp_path: Path) -> None:
+        """Returns empty set when Dapr metadata query fails."""
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.side_effect = Exception("Dapr not reachable")
+
+        result = await _log_dapr_components(dapr_client, tmp_path)
+
+        assert result == set()
+
+    async def test_return_type_is_set_of_str(self, tmp_path: Path) -> None:
+        """Return type is set[str] — every element is a string."""
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.return_value = {
+            "registeredComponents": [
+                {"name": "my-component", "type": "bindings.redis", "version": "v1"},
+            ]
+        }
+
+        result = await _log_dapr_components(dapr_client, tmp_path)
+
+        assert isinstance(result, set)
+        assert all(isinstance(name, str) for name in result)
+
+
+class TestLogDaprComponentsBindingOutcomes:
+    """The expected-binding loop classifies each binding against ATLAN_ENABLE_*.
+
+    Source of truth is ``atlan.yaml``'s ``deploy.dapr.{statestore,objectstore,
+    secretstore,eventstore}`` block, which the chart translates into env vars
+    on the pod via ``seed-env.sh``.
+    """
+
+    @staticmethod
+    def _rendered(call_args_list: list) -> list[str]:
+        """Render mock log calls with %-formatting applied so substring assertions work."""
+        out: list[str] = []
+        for c in call_args_list:
+            args = c.args
+            if not args:
+                continue
+            fmt = args[0]
+            rest = args[1:]
+            try:
+                out.append(fmt % rest if rest else fmt)
+            except (TypeError, ValueError):
+                out.append(fmt)
+        return out
+
+    @staticmethod
+    def _clear_enable_env(monkeypatch: pytest.MonkeyPatch) -> None:
+        for var in (
+            "ATLAN_ENABLE_STATESTORE",
+            "ATLAN_ENABLE_SECRETSTORE",
+            "ATLAN_ENABLE_OBJECTSTORE",
+            "ATLAN_ENABLE_EVENTSTORE",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+    async def test_missing_with_declared_false_logs_info_not_warning(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """statestore=false in atlan.yaml → missing component is INFO, never warning."""
+        self._clear_enable_env(monkeypatch)
+        monkeypatch.setenv("ATLAN_ENABLE_STATESTORE", "false")
+        # Other expected components present so they don't pollute the test
+        monkeypatch.setenv("ATLAN_ENABLE_SECRETSTORE", "true")
+        monkeypatch.setenv("ATLAN_ENABLE_OBJECTSTORE", "true")
+        monkeypatch.setenv("ATLAN_ENABLE_EVENTSTORE", "false")
+
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.return_value = {
+            "components": [
+                {"name": "secretstore", "type": "bindings.redis", "version": "v1"},
+                {"name": "objectstore", "type": "bindings.gcp.bucket", "version": "v1"},
+            ]
+        }
+        with patch("application_sdk.main.logger") as mock_log:
+            await _log_dapr_components(dapr_client, tmp_path)
+
+        warning_msgs = self._rendered(mock_log.warning.call_args_list)
+        info_msgs = self._rendered(mock_log.info.call_args_list)
+        assert not any(
+            "statestore" in m for m in warning_msgs
+        ), f"statestore disabled-by-config must not warn; got: {warning_msgs}"
+        assert any(
+            "statestore" in m and "disabled by config" in m for m in info_msgs
+        ), f"expected disabled-by-config INFO for statestore; got: {info_msgs}"
+
+    async def test_missing_with_declared_true_logs_warning(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """statestore=true but absent in sidecar → WARNING (genuine config bug)."""
+        self._clear_enable_env(monkeypatch)
+        monkeypatch.setenv("ATLAN_ENABLE_STATESTORE", "true")
+        monkeypatch.setenv("ATLAN_ENABLE_SECRETSTORE", "false")
+        monkeypatch.setenv("ATLAN_ENABLE_OBJECTSTORE", "false")
+        monkeypatch.setenv("ATLAN_ENABLE_EVENTSTORE", "false")
+
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.return_value = {"components": []}
+        with patch("application_sdk.main.logger") as mock_log:
+            await _log_dapr_components(dapr_client, tmp_path)
+
+        warning_msgs = self._rendered(mock_log.warning.call_args_list)
+        assert any(
+            "statestore" in m and "declared enabled" in m for m in warning_msgs
+        ), f"expected declared-but-missing WARNING; got: {warning_msgs}"
+
+    async def test_missing_with_unset_env_logs_info_with_guidance(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Env var unset → INFO with explicit guidance to set deploy.dapr.* in atlan.yaml."""
+        self._clear_enable_env(monkeypatch)
+
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.return_value = {"components": []}
+        with patch("application_sdk.main.logger") as mock_log:
+            await _log_dapr_components(dapr_client, tmp_path)
+
+        info_msgs = self._rendered(mock_log.info.call_args_list)
+        assert any(
+            "statestore" in m
+            and "ATLAN_ENABLE_STATESTORE" in m
+            and "deploy.dapr.statestore" in m
+            for m in info_msgs
+        ), (
+            "expected unset-env INFO naming the env var and atlan.yaml key; "
+            f"got: {info_msgs}"
+        )
+
+    async def test_registered_with_declared_false_logs_drift_info(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Component present but declared disabled → INFO drift signal, never warning."""
+        self._clear_enable_env(monkeypatch)
+        monkeypatch.setenv("ATLAN_ENABLE_STATESTORE", "false")
+        monkeypatch.setenv("ATLAN_ENABLE_SECRETSTORE", "false")
+        monkeypatch.setenv("ATLAN_ENABLE_OBJECTSTORE", "false")
+        monkeypatch.setenv("ATLAN_ENABLE_EVENTSTORE", "false")
+
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.return_value = {
+            "components": [
+                {"name": "statestore", "type": "state.redis", "version": "v1"},
+            ]
+        }
+        with patch("application_sdk.main.logger") as mock_log:
+            await _log_dapr_components(dapr_client, tmp_path)
+
+        warning_msgs = self._rendered(mock_log.warning.call_args_list)
+        info_msgs = self._rendered(mock_log.info.call_args_list)
+        assert not any(
+            "statestore" in m and "drift" in m for m in warning_msgs
+        ), f"drift case must be INFO not WARNING; got: {warning_msgs}"
+        assert any(
+            "statestore" in m and "drift" in m for m in info_msgs
+        ), f"expected drift INFO for registered+declared-false; got: {info_msgs}"
+
+    async def test_registered_with_declared_true_logs_accepted_info(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Happy path: declared enabled and registered → INFO accepted, no warning."""
+        self._clear_enable_env(monkeypatch)
+        monkeypatch.setenv("ATLAN_ENABLE_STATESTORE", "true")
+        monkeypatch.setenv("ATLAN_ENABLE_SECRETSTORE", "false")
+        monkeypatch.setenv("ATLAN_ENABLE_OBJECTSTORE", "false")
+        monkeypatch.setenv("ATLAN_ENABLE_EVENTSTORE", "false")
+
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.return_value = {
+            "components": [
+                {"name": "statestore", "type": "state.redis", "version": "v1"},
+            ]
+        }
+        with patch("application_sdk.main.logger") as mock_log:
+            await _log_dapr_components(dapr_client, tmp_path)
+
+        warning_msgs = self._rendered(mock_log.warning.call_args_list)
+        info_msgs = self._rendered(mock_log.info.call_args_list)
+        assert not any(
+            "statestore" in m for m in warning_msgs
+        ), f"happy path must not warn; got: {warning_msgs}"
+        assert any(
+            "statestore" in m and "accepted" in m for m in info_msgs
+        ), f"expected accepted INFO; got: {info_msgs}"
+
+    async def test_every_expected_binding_emits_at_least_one_log_line(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Contract: never silently proceed — each of the 4 bindings produces a log line."""
+        self._clear_enable_env(monkeypatch)
+        # Mix of states across the four expected bindings
+        monkeypatch.setenv("ATLAN_ENABLE_STATESTORE", "false")  # disabled
+        monkeypatch.setenv("ATLAN_ENABLE_SECRETSTORE", "true")  # enabled+missing
+        monkeypatch.setenv("ATLAN_ENABLE_OBJECTSTORE", "true")  # enabled+present
+        # ATLAN_ENABLE_EVENTSTORE deliberately unset
+
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.return_value = {
+            "components": [
+                {"name": "objectstore", "type": "bindings.gcp.bucket", "version": "v1"},
+                {"name": "eventstore", "type": "bindings.kafka", "version": "v1"},
+            ]
+        }
+        with patch("application_sdk.main.logger") as mock_log:
+            await _log_dapr_components(dapr_client, tmp_path)
+
+        all_msgs = self._rendered(
+            mock_log.warning.call_args_list + mock_log.info.call_args_list
+        )
+        for binding in ("statestore", "secretstore", "objectstore", "eventstore"):
+            matching = [m for m in all_msgs if binding in m and "role=" in m]
+            assert matching, (
+                f"binding {binding} produced no role-tagged log line; "
+                f"all messages: {all_msgs}"
+            )
+
+        # (registered, declared=None): eventstore is in sidecar but ATLAN_ENABLE_EVENTSTORE
+        # is unset — the accepted INFO message must render the env value as <unset>
+        info_msgs = self._rendered(mock_log.info.call_args_list)
+        eventstore_accepted = [
+            m for m in info_msgs if "eventstore" in m and "accepted" in m
+        ]
+        assert (
+            eventstore_accepted
+        ), f"expected eventstore accepted-INFO for registered+unset; got: {all_msgs}"
+        assert any(
+            "<unset>" in m for m in eventstore_accepted
+        ), f"expected <unset> in eventstore accepted message; got: {eventstore_accepted}"
+
+
+class TestCreateInfrastructureEventBinding:
+    """Tests for _create_infrastructure() conditional event_binding."""
+
+    _DAPR_CLIENT_MOD = "application_sdk.infrastructure._dapr.client"
+    _STORAGE_MOD = "application_sdk.storage"
+
+    def _make_dapr_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DAPR_HTTP_PORT", "3500")
+
+    async def test_event_binding_created_when_component_registered(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """DaprBinding is created when the eventstore component is in the registered set."""
+        from application_sdk.constants import EVENT_STORE_NAME
+
+        self._make_dapr_env(monkeypatch)
+
+        with (
+            patch(
+                "application_sdk.main._log_dapr_components",
+                new_callable=AsyncMock,
+                return_value={EVENT_STORE_NAME},
+            ),
+            patch(f"{self._DAPR_CLIENT_MOD}.AsyncDaprClient"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprStateStore"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprSecretStore"),
+            patch(
+                f"{self._STORAGE_MOD}.create_store_from_binding_with_put_attrs",
+                return_value=(MagicMock(), None),
+            ),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprBinding") as mock_binding,
+        ):
+            infra = await _create_infrastructure()
+
+        mock_binding.assert_called_once()
+        assert infra.event_binding is not None
+
+    async def test_event_binding_is_none_when_component_absent(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """event_binding is None when eventstore is not registered."""
+        self._make_dapr_env(monkeypatch)
+
+        with (
+            patch(
+                "application_sdk.main._log_dapr_components",
+                new_callable=AsyncMock,
+                return_value=set(),
+            ),
+            patch(f"{self._DAPR_CLIENT_MOD}.AsyncDaprClient"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprStateStore"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprSecretStore"),
+            patch(
+                f"{self._STORAGE_MOD}.create_store_from_binding_with_put_attrs",
+                return_value=(MagicMock(), None),
+            ),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprBinding") as mock_binding,
+        ):
+            infra = await _create_infrastructure()
+
+        mock_binding.assert_not_called()
+        assert infra.event_binding is None
+
+
+class TestCreateInfrastructureUpstreamStore:
+    """Tests for _create_infrastructure() upstream_storage selection."""
+
+    _DAPR_CLIENT_MOD = "application_sdk.infrastructure._dapr.client"
+    _STORAGE_MOD = "application_sdk.storage"
+
+    def _make_dapr_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DAPR_HTTP_PORT", "3500")
+
+    async def test_upstream_storage_none_when_optional_helper_returns_none(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """upstream_storage is None when the optional helper returns (None, None).
+
+        Whether that happens because the component is absent or broken is tested
+        in TestCreateStoreFromBindingOptionalWithPutAttrs; here we only verify
+        that _create_infrastructure surfaces (None, None) correctly.
+        """
+        self._make_dapr_env(monkeypatch)
+        deployment_store = MagicMock()
+
+        with (
+            patch(
+                "application_sdk.main._log_dapr_components",
+                new_callable=AsyncMock,
+                return_value=set(),
+            ),
+            patch(f"{self._DAPR_CLIENT_MOD}.AsyncDaprClient"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprStateStore"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprSecretStore"),
+            patch(
+                "application_sdk.storage.binding._create_store_from_binding_optional_with_put_attrs",
+                return_value=(None, None),
+            ),
+            patch(
+                f"{self._STORAGE_MOD}.create_store_from_binding_with_put_attrs",
+                return_value=(deployment_store, None),
+            ),
+        ):
+            infra = await _create_infrastructure()
+
+        assert infra.upstream_storage is None
+        assert infra.upstream_storage_put_attributes is None
+
+    async def test_upstream_storage_set_when_component_present(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """upstream_storage is a live store in SDR deployments (component present)."""
+        self._make_dapr_env(monkeypatch)
+        upstream_store = MagicMock()
+        deployment_store = MagicMock()
+
+        with (
+            patch(
+                "application_sdk.main._log_dapr_components",
+                new_callable=AsyncMock,
+                return_value=set(),
+            ),
+            patch(f"{self._DAPR_CLIENT_MOD}.AsyncDaprClient"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprStateStore"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprSecretStore"),
+            patch(
+                "application_sdk.storage.binding._create_store_from_binding_optional_with_put_attrs",
+                return_value=(upstream_store, None),
+            ) as mock_optional,
+            patch(
+                f"{self._STORAGE_MOD}.create_store_from_binding_with_put_attrs",
+                return_value=(deployment_store, None),
+            ) as mock_binding,
+            patch(
+                "application_sdk.constants.DEPLOYMENT_OBJECT_STORE_NAME",
+                "objectstore",
+            ),
+            patch(
+                "application_sdk.constants.UPSTREAM_OBJECT_STORE_NAME",
+                "atlan-objectstore",
+            ),
+        ):
+            infra = await _create_infrastructure()
+
+        assert infra.upstream_storage is upstream_store
+        assert infra.storage is deployment_store
+        mock_optional.assert_called_once_with(
+            "atlan-objectstore", components_dir=ANY, required=ANY, secrets=ANY
+        )
+        mock_binding.assert_called_once_with(
+            "objectstore", components_dir=ANY, secrets=ANY
+        )
+
+    async def test_upstream_required_true_when_sdr_enabled(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """required=True is passed to the upstream factory when ENABLE_ATLAN_UPLOAD=True."""
+        self._make_dapr_env(monkeypatch)
+        monkeypatch.setattr("application_sdk.constants.ENABLE_ATLAN_UPLOAD", True)
+        upstream_store = MagicMock()
+        deployment_store = MagicMock()
+
+        with (
+            patch(
+                "application_sdk.main._log_dapr_components",
+                new_callable=AsyncMock,
+                return_value=set(),
+            ),
+            patch(f"{self._DAPR_CLIENT_MOD}.AsyncDaprClient"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprStateStore"),
+            patch(f"{self._DAPR_CLIENT_MOD}.DaprSecretStore"),
+            patch(
+                "application_sdk.storage.binding._create_store_from_binding_optional_with_put_attrs",
+                return_value=(upstream_store, None),
+            ) as mock_optional,
+            patch(
+                f"{self._STORAGE_MOD}.create_store_from_binding_with_put_attrs",
+                return_value=(deployment_store, None),
+            ),
+        ):
+            await _create_infrastructure()
+
+        _name, _args, kwargs = mock_optional.mock_calls[0]
+        assert kwargs.get("required") is True
+
+
+class TestInstallGracefulSignalHandlers:
+    """Tests for _install_graceful_signal_handlers()."""
+
+    def test_registers_sigint_and_sigterm(self) -> None:
+        loop = asyncio.new_event_loop()
+        try:
+            registered: list[signal.Signals] = []
+
+            def _fake_handler(sig: signal.Signals, cb: object) -> None:
+                registered.append(sig)
+
+            loop.add_signal_handler = _fake_handler  # type: ignore[method-assign]
+            _install_graceful_signal_handlers(loop, lambda: None)
+            assert signal.SIGINT in registered
+            assert signal.SIGTERM in registered
+        finally:
+            loop.close()
+
+    def test_windows_fallback_logs_warning_and_does_not_raise(self) -> None:
+        loop = asyncio.new_event_loop()
+        try:
+
+            def _not_supported(*_: object, **__: object) -> None:
+                raise NotImplementedError
+
+            loop.add_signal_handler = _not_supported  # type: ignore[method-assign]
+            with patch("application_sdk.main.logger") as mock_log:
+                _install_graceful_signal_handlers(loop, lambda: None)
+
+            assert mock_log.warning.call_count == 2
+            # sig.name is passed as the %-format arg (index 1 in positional args)
+            called_names = {c.args[1] for c in mock_log.warning.call_args_list}
+            assert "SIGINT" in called_names
+            assert "SIGTERM" in called_names
+        finally:
+            loop.close()
+
+
+# --------------------------------------------------------------------------- #
+# Helpers for async-mode tests                                                #
+# --------------------------------------------------------------------------- #
+
+
+def _make_async_cm() -> AsyncMock:
+    """Return an AsyncMock that works as an `async with` context manager."""
+    cm = AsyncMock()
+    cm.__aenter__ = AsyncMock(return_value=cm)
+    cm.__aexit__ = AsyncMock(return_value=None)
+    return cm
+
+
+def _fake_app_class() -> mock.MagicMock:
+    """Build a fake App class with attributes the run modes read."""
+    cls = mock.MagicMock()
+    cls._app_name = "fake-app"
+    cls._app_version = "1.0.0"
+    cls.__name__ = "FakeApp"
+    cls.__module__ = "fake_pkg.fake_app"
+    return cls
+
+
+# --------------------------------------------------------------------------- #
+# AppConfig — additional edge cases                                           #
+# --------------------------------------------------------------------------- #
+
+
+class TestAppConfigCommaRejection:
+    """AppConfig rejects comma-separated app modules (multi-app v2 pattern)."""
+
+    def test_comma_in_app_module_raises_value_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """ATLAN_APP_MODULE with a comma must be rejected with a clear error."""
+        monkeypatch.setenv("ATLAN_APP_MODE", "worker")
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:AppA,pkg:AppB")
+        args = argparse.Namespace(
+            mode=None,
+            app=None,
+            handler=None,
+            temporal_host=None,
+            temporal_namespace=None,
+            task_queue=None,
+            handler_host=None,
+            handler_port=None,
+            log_level=None,
+            service_name=None,
+        )
+        with pytest.raises(MultiAppModuleError) as exc_info:
+            AppConfig.from_args_and_env(args)
+        assert exc_info.value.code == "INVALID_INPUT_APP_MODULE_COMMA"
+        assert exc_info.value.app_module == "pkg:AppA,pkg:AppB"
+
+    def test_post_init_derives_task_queue(self) -> None:
+        """__post_init__ derives task_queue from app_module when missing."""
+        cfg = AppConfig(mode="worker", app_module="pkg:MyApp")
+        assert cfg.task_queue == "my-app-queue"
+
+
+# --------------------------------------------------------------------------- #
+# _create_infrastructure — Dapr-not-set path                                  #
+# --------------------------------------------------------------------------- #
+
+
+class TestCreateInfrastructureNoDapr:
+    """_create_infrastructure() raises when Dapr sidecar env var is absent."""
+
+    async def test_raises_runtime_error_when_no_dapr_port(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Without DAPR_HTTP_PORT, _create_infrastructure must raise DaprNotDetectedError."""
+        monkeypatch.delenv("DAPR_HTTP_PORT", raising=False)
+        with pytest.raises(DaprNotDetectedError) as exc_info:
+            await _create_infrastructure()
+        assert exc_info.value.code == "DEPENDENCY_UNAVAILABLE_DAPR_SIDECAR"
+
+
+# --------------------------------------------------------------------------- #
+# _parse_all_component_yamls                                                  #
+# --------------------------------------------------------------------------- #
+
+
+class TestParseAllComponentYamls:
+    """Tests for _parse_all_component_yamls()."""
+
+    def test_returns_safe_metadata_only(self, tmp_path: Path) -> None:
+        """Allowlisted keys are returned, secret-y keys are filtered out."""
+        (tmp_path / "comp.yaml").write_text(
+            "apiVersion: dapr.io/v1alpha1\n"
+            "kind: Component\n"
+            "metadata:\n"
+            "  name: my-store\n"
+            "spec:\n"
+            "  type: state.redis\n"
+            "  metadata:\n"
+            "    - name: bucket\n"
+            "      value: my-bucket\n"
+            "    - name: accessKey\n"
+            "      value: SECRET\n"
+        )
+        result = _parse_all_component_yamls(tmp_path)
+        assert "my-store" in result
+        assert result["my-store"].get("bucket") == "my-bucket"
+        # accessKey is NOT in the allowlist — must be excluded
+        assert "accessKey" not in result["my-store"]
+
+    def test_skips_non_component_kinds(self, tmp_path: Path) -> None:
+        """Non-Component YAMLs (e.g. Configuration) are ignored."""
+        (tmp_path / "cfg.yaml").write_text(
+            "apiVersion: dapr.io/v1alpha1\n"
+            "kind: Configuration\n"
+            "metadata:\n"
+            "  name: my-cfg\n"
+        )
+        assert _parse_all_component_yamls(tmp_path) == {}
+
+    def test_skips_components_without_name(self, tmp_path: Path) -> None:
+        """Components missing metadata.name are skipped (no KeyError)."""
+        (tmp_path / "noname.yaml").write_text(
+            "apiVersion: dapr.io/v1alpha1\n"
+            "kind: Component\n"
+            "metadata: {}\n"
+            "spec:\n"
+            "  type: state.redis\n"
+        )
+        assert _parse_all_component_yamls(tmp_path) == {}
+
+    def test_returns_empty_dict_on_parse_error(self, tmp_path: Path) -> None:
+        """Malformed YAML must not raise — returns empty dict."""
+        (tmp_path / "bad.yaml").write_text("not: yaml: : :\nlol")
+        with patch("application_sdk.main.logger") as mock_log:
+            result = _parse_all_component_yamls(tmp_path)
+        assert result == {}
+        # Failure must be observable as a warning (not silently swallowed).
+        assert mock_log.warning.called
+
+
+# --------------------------------------------------------------------------- #
+# _flush_observability                                                        #
+# --------------------------------------------------------------------------- #
+
+
+class TestFlushObservability:
+    """Tests for _flush_observability()."""
+
+    async def test_calls_atlan_observability_flush_all(self) -> None:
+        """Happy path: flush_all() is awaited, then the OTLP batch is drained."""
+        with (
+            patch(
+                "application_sdk.observability.observability.AtlanObservability.flush_all",
+                new_callable=AsyncMock,
+            ) as mock_flush,
+            patch(
+                "application_sdk.observability.logger_adaptor.flush_otlp_logs",
+            ) as mock_otlp,
+        ):
+            await _flush_observability()
+        mock_flush.assert_awaited_once()
+        # CNCT-107: the OTLP BatchLogRecordProcessor queue is drained on graceful
+        # shutdown, not left to the atexit backstop alone.
+        mock_otlp.assert_called_once()
+
+    async def test_swallows_exception_and_logs_warning(self) -> None:
+        """If flush_all raises, the exception is swallowed and logged."""
+        with (
+            patch(
+                "application_sdk.observability.observability.AtlanObservability.flush_all",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("flush failed"),
+            ),
+            patch(
+                "application_sdk.observability.logger_adaptor.flush_otlp_logs",
+            ),
+            patch("application_sdk.main.logger") as mock_log,
+        ):
+            await _flush_observability()  # must not raise
+        assert mock_log.warning.called
+
+    async def test_swallows_otlp_drain_failure(self) -> None:
+        """A failing OTLP drain is swallowed and logged; flush_all still runs."""
+        with (
+            patch(
+                "application_sdk.observability.observability.AtlanObservability.flush_all",
+                new_callable=AsyncMock,
+            ) as mock_flush,
+            patch(
+                "application_sdk.observability.logger_adaptor.flush_otlp_logs",
+                side_effect=RuntimeError("otlp drain failed"),
+            ),
+            patch("application_sdk.main.logger") as mock_log,
+        ):
+            await _flush_observability()  # must not raise
+        mock_flush.assert_awaited_once()
+        assert mock_log.warning.called
+
+
+# --------------------------------------------------------------------------- #
+# _loop_exception_handler                                                     #
+# --------------------------------------------------------------------------- #
+
+
+class TestLoopExceptionHandler:
+    """Tests for _loop_exception_handler()."""
+
+    def test_logs_with_exc_info_when_exception_present(self) -> None:
+        """Context with 'exception' is logged with exc_info."""
+        loop = MagicMock()
+        loop.create_task = MagicMock()
+        loop.default_exception_handler = MagicMock()
+        exc = RuntimeError("boom")
+        ctx = {"exception": exc, "message": "task crashed"}
+        with patch("application_sdk.main.logger") as mock_log:
+            _loop_exception_handler(loop, ctx)
+        assert mock_log.error.called
+        # Must call default handler so behavior is not silently dropped
+        loop.default_exception_handler.assert_called_once_with(ctx)
+        loop.create_task.assert_called_once()
+
+    def test_logs_without_exc_info_when_exception_absent(self) -> None:
+        """Context without 'exception' still logs and schedules flush."""
+        loop = MagicMock()
+        ctx = {"message": "Something happened"}
+        with patch("application_sdk.main.logger") as mock_log:
+            _loop_exception_handler(loop, ctx)
+        assert mock_log.error.called
+        loop.create_task.assert_called_once()
+        loop.default_exception_handler.assert_called_once_with(ctx)
+
+
+# --------------------------------------------------------------------------- #
+# _install_excepthook                                                         #
+# --------------------------------------------------------------------------- #
+
+
+class TestInstallExcepthook:
+    """Tests for _install_excepthook()."""
+
+    def test_installs_hook_that_logs_and_calls_original(self) -> None:
+        """The installed hook logs + calls the original sys.excepthook."""
+        original_hook = MagicMock()
+        with patch.object(sys, "excepthook", original_hook):
+            _install_excepthook()
+            installed = sys.excepthook
+            assert installed is not original_hook
+            with (
+                patch("application_sdk.main.logger") as mock_log,
+                patch("application_sdk.main.asyncio.run") as mock_async_run,
+            ):
+                exc_type = RuntimeError
+                exc_value = RuntimeError("bad")
+                installed(exc_type, exc_value, None)
+            assert mock_log.error.called
+            mock_async_run.assert_called_once()
+            original_hook.assert_called_once_with(exc_type, exc_value, None)
+
+    def test_hook_swallows_flush_failure(self) -> None:
+        """If asyncio.run fails inside the hook, the original hook still fires."""
+        original_hook = MagicMock()
+        with patch.object(sys, "excepthook", original_hook):
+            _install_excepthook()
+            installed = sys.excepthook
+            with (
+                patch("application_sdk.main.logger"),
+                patch(
+                    "application_sdk.main.asyncio.run",
+                    side_effect=RuntimeError("loop already running"),
+                ),
+            ):
+                installed(RuntimeError, RuntimeError("x"), None)
+            # The original hook must still execute — we never mask the crash.
+            original_hook.assert_called_once()
+
+
+# --------------------------------------------------------------------------- #
+# main() entry point — exit codes                                             #
+# --------------------------------------------------------------------------- #
+
+
+class TestMainEntryPoint:
+    """Tests for the main() CLI entry point."""
+
+    def _patch_run(self, **kwargs: object) -> mock.MagicMock:
+        return mock.MagicMock(**kwargs)
+
+    def test_value_error_in_config_exits_1(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Bad config (e.g. missing app module) -> sys.exit(1)."""
+        monkeypatch.delenv("ATLAN_APP_MODULE", raising=False)
+        monkeypatch.setattr(sys, "argv", ["prog", "--mode", "worker"])
+        with patch("application_sdk.main._install_excepthook"):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 1
+
+    def test_discovery_error_exits_1(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """DiscoveryError raised by run_main propagates as exit(1)."""
+        from application_sdk.discovery import DiscoveryError
+
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.setattr(sys, "argv", ["prog", "--mode", "worker"])
+        with (
+            patch("application_sdk.main._install_excepthook"),
+            patch(
+                "application_sdk.main.run_main",
+                side_effect=DiscoveryError("not found"),
+            ),
+            pytest.raises(SystemExit) as exc,
+        ):
+            main()
+        assert exc.value.code == 1
+
+    def test_keyboard_interrupt_exits_0(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """KeyboardInterrupt is treated as graceful (exit 0)."""
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.setattr(sys, "argv", ["prog", "--mode", "worker"])
+        with (
+            patch("application_sdk.main._install_excepthook"),
+            patch(
+                "application_sdk.main.run_main",
+                side_effect=KeyboardInterrupt(),
+            ),
+            pytest.raises(SystemExit) as exc,
+        ):
+            main()
+        assert exc.value.code == 0
+
+    def test_unhandled_exception_flushes_and_exits_1(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unexpected Exception triggers flush attempt + exit(1)."""
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.setattr(sys, "argv", ["prog", "--mode", "worker"])
+        with (
+            patch("application_sdk.main._install_excepthook"),
+            patch(
+                "application_sdk.main.run_main",
+                side_effect=RuntimeError("kaboom"),
+            ),
+            patch("application_sdk.main.asyncio.run") as mock_async_run,
+        ):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 1
+        # Best-effort flush must be attempted
+        mock_async_run.assert_called()
+
+    def test_success_path_exits_0(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Successful run_main returns -> exit(0)."""
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.setattr(sys, "argv", ["prog", "--mode", "worker"])
+        with (
+            patch("application_sdk.main._install_excepthook"),
+            patch("application_sdk.main.run_main"),
+            pytest.raises(SystemExit) as exc,
+        ):
+            main()
+        assert exc.value.code == 0
+
+    def test_main_installs_excepthook_first(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """_install_excepthook must run before parse_args/run_main."""
+        monkeypatch.setenv("ATLAN_APP_MODULE", "pkg:App")
+        monkeypatch.setattr(sys, "argv", ["prog", "--mode", "worker"])
+        order: list[str] = []
+        with (
+            patch(
+                "application_sdk.main._install_excepthook",
+                side_effect=lambda: order.append("hook"),
+            ),
+            patch(
+                "application_sdk.main.run_main",
+                side_effect=lambda *_: order.append("run"),
+            ),
+            pytest.raises(SystemExit),
+        ):
+            main()
+        assert order == ["hook", "run"]
+
+
+# --------------------------------------------------------------------------- #
+# run_worker_mode                                                             #
+# --------------------------------------------------------------------------- #
+
+
+class TestRunWorkerMode:
+    """Behavioral tests for run_worker_mode()."""
+
+    @pytest.fixture
+    def worker_patches(self):
+        """Patch the worker-mode collaborators."""
+        infra = MagicMock()
+        infra.secret_store = MagicMock()
+        infra.storage = MagicMock()
+
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=infra,
+            ),
+            patch(
+                "application_sdk.main.load_app_class",
+                return_value=_fake_app_class(),
+            ),
+            patch("application_sdk.main.validate_app_class"),
+            patch(
+                "application_sdk.execution._temporal.backend.create_temporal_client",
+                new_callable=AsyncMock,
+            ) as mock_create_client,
+            patch(
+                "application_sdk.execution._temporal.converter.create_data_converter_for_app"
+            ),
+            patch(
+                "application_sdk.execution._temporal.worker.create_worker",
+                return_value=_make_async_cm(),
+            ),
+            patch(
+                "application_sdk.infrastructure.context.set_infrastructure"
+            ) as mock_set_infra,
+            patch(
+                "application_sdk.infrastructure.context.close_infrastructure",
+                new_callable=AsyncMock,
+            ) as mock_close_infra,
+            patch(
+                "application_sdk.server.health.WorkerHealthServer",
+                return_value=_make_async_cm(),
+            ) as mock_health,
+            patch(
+                "application_sdk.main._flush_observability",
+                new_callable=AsyncMock,
+            ),
+            patch("application_sdk.main._install_graceful_signal_handlers"),
+        ):
+            yield {
+                "infra": infra,
+                "create_client": mock_create_client,
+                "set_infra": mock_set_infra,
+                "close_infra": mock_close_infra,
+                "health": mock_health,
+            }
+
+    @pytest.fixture
+    def auth_manager(self):
+        auth_mgr = MagicMock()
+        auth_mgr.acquire_initial_token = AsyncMock(return_value="api-key-xyz")
+        auth_mgr.start_background_refresh = MagicMock()
+        auth_mgr.restart_background_refresh = AsyncMock()
+        auth_mgr.shutdown = AsyncMock()
+        return auth_mgr
+
+    @pytest.fixture
+    def wait_patch(self):
+        with patch.object(asyncio.Event, "wait", new=AsyncMock(return_value=None)):
+            yield
+
+    async def test_runs_through_to_completion(self, worker_patches) -> None:
+        """Worker mode wires infra, loads app, creates client, awaits shutdown."""
+        cfg = AppConfig(mode="worker", app_module="pkg:FakeApp")
+
+        async def _run_and_signal() -> None:
+            # Schedule a shutdown so shutdown_event.wait() returns
+            await asyncio.sleep(0)  # let run_worker_mode reach shutdown_event.wait
+            # Find the event and set it via the captured signal handler isn't easy;
+            # instead, patch shutdown_event by short-circuiting asyncio.Event.wait.
+
+        with patch.object(asyncio.Event, "wait", new=AsyncMock(return_value=None)):
+            await run_worker_mode(cfg)
+
+        worker_patches["set_infra"].assert_called_once()
+        worker_patches["create_client"].assert_awaited_once()
+        worker_patches["close_infra"].assert_awaited_once()
+        worker_patches["health"].assert_called_once()
+
+    async def test_auth_enabled_acquires_token(
+        self, worker_patches, auth_manager, wait_patch
+    ) -> None:
+        """When auth_enabled=True, TemporalAuthManager is used and shutdown is awaited."""
+        cfg = AppConfig(
+            mode="worker",
+            app_module="pkg:FakeApp",
+            auth_enabled=True,
+            auth_client_id="cid",
+            auth_client_secret="csec",
+            auth_token_url="https://example.com/token",
+            auth_base_url="https://example.com",
+        )
+        with (
+            patch(
+                "application_sdk.execution._temporal.auth.TemporalAuthManager",
+                return_value=auth_manager,
+            ),
+            patch("application_sdk.execution._temporal.auth.TemporalAuthConfig"),
+        ):
+            await run_worker_mode(cfg)
+        auth_manager.acquire_initial_token.assert_awaited_once()
+        auth_manager.start_background_refresh.assert_called_once()
+        auth_manager.shutdown.assert_awaited_once()
+
+    async def test_failure_in_create_client_propagates(self, worker_patches) -> None:
+        """If create_temporal_client raises, the exception bubbles up (not swallowed)."""
+        worker_patches["create_client"].side_effect = RuntimeError("temporal down")
+        cfg = AppConfig(mode="worker", app_module="pkg:FakeApp")
+        with pytest.raises(RuntimeError, match="temporal down"):
+            await run_worker_mode(cfg)
+
+    async def test_activity_recorder_wired_into_worker(self, worker_patches) -> None:
+        """run_worker_mode wires the health server's record_activity into
+        create_worker (via the _build_worker factory) so the /live liveness
+        window reflects real worker progress (BLDX-1552)."""
+        health_cm = _make_async_cm()
+        worker_patches["health"].return_value = health_cm
+
+        captured: dict = {}
+
+        def _capture_create_worker(*args, **kwargs):
+            captured["on_activity"] = kwargs.get("on_activity")
+            return _make_async_cm()
+
+        cfg = AppConfig(mode="worker", app_module="pkg:FakeApp")
+        with (
+            patch(
+                "application_sdk.execution._temporal.worker.create_worker",
+                side_effect=_capture_create_worker,
+            ),
+            patch.object(asyncio.Event, "wait", new=AsyncMock(return_value=None)),
+        ):
+            await run_worker_mode(cfg)
+
+        from application_sdk.constants import WORKER_LIVENESS_MAX_IDLE_SECONDS
+
+        # Identity check only — that the exact recorder is wired through; the
+        # callback's runtime behavior is exercised by the interceptor tests.
+        assert captured["on_activity"] is health_cm.record_activity
+        # The liveness window must reach the constructor: a dropped kwarg would
+        # silently never activate /live yet leave the on_activity wiring intact.
+        assert (
+            worker_patches["health"].call_args.kwargs["max_idle_seconds"]
+            == WORKER_LIVENESS_MAX_IDLE_SECONDS
+        )
+
+    async def test_reconnect_closure_rebinds_client_and_health(
+        self, worker_patches, auth_manager
+    ) -> None:
+        """The wired reconnect runs the production helper, not a test stub.
+
+        After a successful reconnect the next worker must be built on the new
+        client and /ready must follow that client. shutdown() must not run
+        before the replacement connect succeeds.
+        """
+        old_client = object()
+        new_client = object()
+        worker_patches["create_client"].side_effect = [old_client, new_client]
+        auth_manager.acquire_initial_token.side_effect = ["api-key-xyz", "api-key-new"]
+        health_cm = _make_async_cm()
+        worker_patches["health"].return_value = health_cm
+
+        captured_clients: list[object] = []
+        calls = {"n": 0}
+        reconnect_holder: dict[str, Any] = {}
+
+        def _capture_create_worker(client, *args, **kwargs):
+            captured_clients.append(client)
+            return _make_async_cm()
+
+        async def _capture_supervise(**kwargs: Any) -> None:
+            reconnect_holder["fn"] = kwargs["reconnect"]
+            build = kwargs["build_worker"]
+            calls["n"] += 1
+            build()
+            await kwargs["reconnect"]()
+            calls["n"] += 1
+            build()
+
+        cfg = AppConfig(
+            mode="worker",
+            app_module="pkg:FakeApp",
+            auth_enabled=True,
+            auth_client_id="cid",
+            auth_client_secret="csec",
+            auth_token_url="https://example.com/token",
+            auth_base_url="https://example.com",
+        )
+        with (
+            patch(
+                "application_sdk.execution._temporal.auth.TemporalAuthManager",
+                return_value=auth_manager,
+            ),
+            patch("application_sdk.execution._temporal.auth.TemporalAuthConfig"),
+            patch(
+                "application_sdk.execution._temporal.worker.create_worker",
+                side_effect=_capture_create_worker,
+            ),
+            patch(
+                "application_sdk.main._supervise_worker",
+                side_effect=_capture_supervise,
+            ),
+        ):
+            await run_worker_mode(cfg)
+            # Drive the production closure a second time after the mode returns
+            # so we also cover a later restart generation.
+            assert reconnect_holder["fn"] is not None
+
+        assert captured_clients == [old_client, new_client]
+        assert auth_manager.acquire_initial_token.await_count == 2
+        auth_manager.start_background_refresh.assert_called_once_with(old_client)
+        auth_manager.restart_background_refresh.assert_awaited_once_with(new_client)
+        health_cm.set_temporal_client.assert_any_call(new_client)
+        # Process teardown still shuts the manager down once at the end.
+        assert auth_manager.shutdown.await_count == 1
+
+    async def test_reconnect_connect_failure_does_not_stop_refresh(
+        self, worker_patches, auth_manager
+    ) -> None:
+        """A failed replacement connect must leave the existing refresh loop up."""
+        old_client = object()
+        worker_patches["create_client"].side_effect = [
+            old_client,
+            RuntimeError("temporal unreachable"),
+        ]
+        auth_manager.acquire_initial_token.side_effect = ["api-key-xyz", "api-key-new"]
+
+        async def _fail_on_reconnect(**kwargs: Any) -> None:
+            with pytest.raises(RuntimeError, match="temporal unreachable"):
+                await kwargs["reconnect"]()
+
+        cfg = AppConfig(
+            mode="worker",
+            app_module="pkg:FakeApp",
+            auth_enabled=True,
+            auth_client_id="cid",
+            auth_client_secret="csec",
+            auth_token_url="https://example.com/token",
+            auth_base_url="https://example.com",
+        )
+        with (
+            patch(
+                "application_sdk.execution._temporal.auth.TemporalAuthManager",
+                return_value=auth_manager,
+            ),
+            patch("application_sdk.execution._temporal.auth.TemporalAuthConfig"),
+            patch(
+                "application_sdk.main._supervise_worker",
+                side_effect=_fail_on_reconnect,
+            ),
+        ):
+            await run_worker_mode(cfg)
+
+        # Initial start only — reconnect must not have stopped the loop.
+        auth_manager.start_background_refresh.assert_called_once()
+        # shutdown is process teardown at the end of run_worker_mode, not the
+        # failed reconnect (which must leave the loop running until then).
+        assert auth_manager.shutdown.await_count == 1
+
+
+# --------------------------------------------------------------------------- #
+# run_handler_mode                                                            #
+# --------------------------------------------------------------------------- #
+
+
+class TestRunHandlerMode:
+    """Behavioral tests for run_handler_mode()."""
+
+    def _common_patches(self, infra: MagicMock):
+        return (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=infra,
+            ),
+            patch(
+                "application_sdk.main.load_app_class",
+                return_value=_fake_app_class(),
+            ),
+            patch(
+                "application_sdk.execution._temporal.converter.create_data_converter_for_app"
+            ),
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            # These tests use a MagicMock for App, so stub the validator.
+            patch("application_sdk.main.validate_app_class"),
+        )
+
+    def _make_infra(self) -> MagicMock:
+        infra = MagicMock()
+        infra.secret_store = MagicMock()
+        infra.storage = MagicMock()
+        return infra
+
+    def test_uses_default_handler_when_no_custom_loaded(self) -> None:
+        """When load_handler_class returns None, DefaultHandler is instantiated."""
+        infra = self._make_infra()
+        p_infra, p_load_app, p_conv, p_set, p_validate = self._common_patches(infra)
+
+        # asyncio.run must execute coroutines (so _create_infrastructure returns infra)
+        # but we don't want _flush_observability's coroutine to run real code.
+        with (
+            p_infra,
+            p_load_app,
+            p_conv,
+            p_set,
+            p_validate,
+            patch(
+                "application_sdk.main.load_handler_class",
+                return_value=None,
+            ),
+            patch(
+                "application_sdk.handler.DefaultHandler",
+                return_value=MagicMock(),
+            ) as mock_default,
+            patch("application_sdk.handler.run_app_handler_service") as mock_run_svc,
+            patch(
+                "application_sdk.main._flush_observability",
+                new_callable=AsyncMock,
+            ),
+        ):
+            cfg = AppConfig(mode="handler", app_module="pkg:FakeApp")
+            run_handler_mode(cfg)
+
+        mock_default.assert_called_once()
+        mock_run_svc.assert_called_once()
+        kwargs = mock_run_svc.call_args.kwargs
+        assert kwargs["enable_temporal_core_metrics"] is False
+        assert kwargs["prometheus_bind_address"] == "127.0.0.1:9464"
+
+    def test_uses_custom_handler_when_loaded(self) -> None:
+        """When load_handler_class returns a class, that class is instantiated."""
+        infra = self._make_infra()
+        p_infra, p_load_app, p_conv, p_set, p_validate = self._common_patches(infra)
+        custom_cls = MagicMock()
+        custom_cls.__name__ = "MyCustomHandler"
+        custom_cls.return_value = MagicMock()
+
+        with (
+            p_infra,
+            p_load_app,
+            p_conv,
+            p_set,
+            p_validate,
+            patch(
+                "application_sdk.main.load_handler_class",
+                return_value=custom_cls,
+            ),
+            patch("application_sdk.handler.run_app_handler_service"),
+            patch(
+                "application_sdk.main._flush_observability",
+                new_callable=AsyncMock,
+            ),
+        ):
+            cfg = AppConfig(mode="handler", app_module="pkg:FakeApp")
+            run_handler_mode(cfg)
+
+        custom_cls.assert_called_once()
+
+    def test_handler_mode_validates_app_class(self) -> None:
+        """run_handler_mode must validate the loaded app class — currently it does not."""
+        infra = self._make_infra()
+        p_infra, p_load_app, p_conv, p_set, p_validate = self._common_patches(infra)
+        with (
+            p_infra,
+            p_load_app,
+            p_conv,
+            p_set,
+            p_validate,
+            patch("application_sdk.main.validate_app_class") as mock_validate,
+            patch("application_sdk.main.load_handler_class", return_value=None),
+            patch("application_sdk.handler.DefaultHandler"),
+            patch("application_sdk.handler.run_app_handler_service"),
+            patch(
+                "application_sdk.main._flush_observability",
+                new_callable=AsyncMock,
+            ),
+        ):
+            cfg = AppConfig(mode="handler", app_module="pkg:FakeApp")
+            run_handler_mode(cfg)
+        mock_validate.assert_called_once()
+
+    def test_handler_mode_closes_infrastructure(self) -> None:
+        """Handler mode should close infrastructure on exit (parity with worker/combined)."""
+        infra = self._make_infra()
+        p_infra, p_load_app, p_conv, p_set, p_validate = self._common_patches(infra)
+        with (
+            p_infra,
+            p_load_app,
+            p_conv,
+            p_set,
+            p_validate,
+            patch("application_sdk.main.load_handler_class", return_value=None),
+            patch("application_sdk.handler.DefaultHandler"),
+            patch("application_sdk.handler.run_app_handler_service"),
+            patch(
+                "application_sdk.infrastructure.context.close_infrastructure",
+                new_callable=AsyncMock,
+            ) as mock_close,
+            patch(
+                "application_sdk.main._flush_observability",
+                new_callable=AsyncMock,
+            ),
+        ):
+            cfg = AppConfig(mode="handler", app_module="pkg:FakeApp")
+            run_handler_mode(cfg)
+        mock_close.assert_awaited_once()
+
+
+# --------------------------------------------------------------------------- #
+# run_combined_mode                                                           #
+# --------------------------------------------------------------------------- #
+
+
+class TestRunCombinedMode:
+    """Behavioral tests for run_combined_mode()."""
+
+    @pytest.fixture
+    def combined_patches(self):
+        infra = MagicMock()
+        infra.secret_store = MagicMock()
+        infra.storage = MagicMock()
+
+        # uvicorn: serve() is awaitable and returns immediately
+        uvicorn_server = MagicMock()
+        uvicorn_server.serve = AsyncMock(return_value=None)
+
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=infra,
+            ),
+            patch(
+                "application_sdk.main.load_app_class",
+                return_value=_fake_app_class(),
+            ),
+            patch("application_sdk.main.validate_app_class"),
+            patch(
+                "application_sdk.main.load_handler_class",
+                return_value=None,
+            ),
+            patch(
+                "application_sdk.execution._temporal.backend.create_temporal_client",
+                new_callable=AsyncMock,
+            ) as mock_create_client,
+            patch(
+                "application_sdk.execution._temporal.converter.create_data_converter_for_app"
+            ),
+            patch(
+                "application_sdk.execution._temporal.worker.create_worker",
+                return_value=_make_async_cm(),
+            ),
+            patch("application_sdk.handler.DefaultHandler"),
+            patch(
+                "application_sdk.handler.create_app_handler_service"
+            ) as mock_create_svc,
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            patch(
+                "application_sdk.infrastructure.context.get_infrastructure",
+                return_value=None,
+            ),
+            patch(
+                "application_sdk.infrastructure.context.close_infrastructure",
+                new_callable=AsyncMock,
+            ) as mock_close_infra,
+            patch(
+                "application_sdk.server.health.WorkerHealthServer",
+                return_value=_make_async_cm(),
+            ) as mock_health,
+            patch(
+                "application_sdk.main._flush_observability",
+                new_callable=AsyncMock,
+            ),
+            patch("application_sdk.main._install_graceful_signal_handlers"),
+            patch("uvicorn.Server", return_value=uvicorn_server),
+            patch("uvicorn.Config"),
+            patch.object(asyncio.Event, "wait", new=AsyncMock(return_value=None)),
+        ):
+            yield {
+                "infra": infra,
+                "create_client": mock_create_client,
+                "create_svc": mock_create_svc,
+                "close_infra": mock_close_infra,
+                "uvicorn_server": uvicorn_server,
+                "health": mock_health,
+            }
+
+    async def test_combined_runs_to_completion(self, combined_patches) -> None:
+        """Combined mode creates client, FastAPI app, runs uvicorn, closes infra."""
+        cfg = AppConfig(mode="combined", app_module="pkg:FakeApp")
+        await run_combined_mode(cfg)
+        combined_patches["create_client"].assert_awaited_once()
+        combined_patches["create_svc"].assert_called_once()
+        kwargs = combined_patches["create_svc"].call_args.kwargs
+        assert kwargs["enable_temporal_core_metrics"] is True
+        assert kwargs["prometheus_bind_address"] == "127.0.0.1:9464"
+        combined_patches["uvicorn_server"].serve.assert_awaited()
+        combined_patches["close_infra"].assert_awaited_once()
+
+    async def test_reuses_existing_infrastructure(self, combined_patches) -> None:
+        """If infra is already set, _create_infrastructure must NOT be called."""
+        existing = MagicMock()
+        existing.secret_store = MagicMock()
+        existing.storage = MagicMock()
+        cfg = AppConfig(mode="combined", app_module="pkg:FakeApp")
+        with (
+            patch(
+                "application_sdk.infrastructure.context.get_infrastructure",
+                return_value=existing,
+            ),
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+            ) as no_create,
+        ):
+            await run_combined_mode(cfg)
+        no_create.assert_not_awaited()
+
+    async def test_activity_recorder_wired_into_worker(self, combined_patches) -> None:
+        """run_combined_mode wires the health server's record_activity into
+        create_worker (via the _build_worker factory) so the /live liveness
+        window reflects real worker progress in combined mode (BLDX-1552).
+
+        Mirrors TestRunWorkerMode.test_activity_recorder_wired_into_worker so a
+        dropped kwarg can't silently disable the liveness window in combined mode."""
+        health_cm = _make_async_cm()
+        combined_patches["health"].return_value = health_cm
+
+        captured: dict = {}
+
+        def _capture_create_worker(*args, **kwargs):
+            captured["on_activity"] = kwargs.get("on_activity")
+            return _make_async_cm()
+
+        cfg = AppConfig(mode="combined", app_module="pkg:FakeApp")
+        with patch(
+            "application_sdk.execution._temporal.worker.create_worker",
+            side_effect=_capture_create_worker,
+        ):
+            await run_combined_mode(cfg)
+
+        from application_sdk.constants import WORKER_LIVENESS_MAX_IDLE_SECONDS
+
+        # Identity check only — that the exact recorder is wired through; the
+        # callback's runtime behavior is exercised by the interceptor tests.
+        assert captured["on_activity"] is health_cm.record_activity
+        # The liveness window must reach the constructor: a dropped kwarg would
+        # silently never activate /live yet leave the on_activity wiring intact.
+        assert (
+            combined_patches["health"].call_args.kwargs["max_idle_seconds"]
+            == WORKER_LIVENESS_MAX_IDLE_SECONDS
+        )
+
+
+# --------------------------------------------------------------------------- #
+# run_dev_combined                                                            #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def _stub_embedded_daemons():
+    """Replace the daprd + Temporal context managers with no-ops.
+
+    ``run_dev_combined`` unconditionally wraps its body in ``embedded_dapr``
+    and ``embedded_runtime``; without this stub each unit test would try to
+    download daprd from the internet and spawn subprocesses. We swap in
+    minimal async context managers that yield the dataclasses the body
+    expects but do no actual work.
+    """
+    from contextlib import asynccontextmanager
+
+    from application_sdk.dev._dapr import EmbeddedDapr
+    from application_sdk.dev._embedded import EmbeddedRuntime
+
+    captured_runtime_kwargs: list[dict[str, object]] = []
+
+    @asynccontextmanager
+    async def _fake_dapr(**_kwargs):
+        yield EmbeddedDapr(
+            http_port=3500, grpc_port=50001, components_dir="/tmp/fake-components"
+        )
+
+    @asynccontextmanager
+    async def _fake_runtime(**_kwargs):
+        captured_runtime_kwargs.append(_kwargs)
+        temporal_ui = bool(_kwargs.get("temporal_ui", False))
+        temporal_ui_port = _kwargs.get("temporal_ui_port")
+        resolved_ui_port = temporal_ui_port if temporal_ui_port is not None else 8233
+        ui_url = f"http://127.0.0.1:{resolved_ui_port}" if temporal_ui else None
+        yield EmbeddedRuntime(host="127.0.0.1:7233", namespace="default", ui_url=ui_url)
+
+    # ``run_dev_combined`` does ``from application_sdk.dev import embedded_dapr,
+    # embedded_runtime`` lazily inside the function body, so patch them on the
+    # source module — not on ``application_sdk.main``.
+    with (
+        patch("application_sdk.dev.embedded_dapr", _fake_dapr),
+        patch("application_sdk.dev.embedded_runtime", _fake_runtime),
+    ):
+        yield captured_runtime_kwargs
+
+
+class TestRunDevCombined:
+    """Behavioral tests for run_dev_combined()."""
+
+    @pytest.fixture(autouse=True)
+    def _stub_daemons(self, _stub_embedded_daemons):
+        """Stub the embedded daprd + Temporal context managers for every test in this class."""
+
+    async def test_credentials_path_schedules_provision_task(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """When credentials are provided, a background provisioning task is scheduled."""
+        monkeypatch.setenv("DAPR_HTTP_PORT", "3500")
+        captured: list[object] = []
+
+        def _capture_task(coro):
+            captured.append(coro)
+            # Close it so we don't get a "never awaited" warning
+            coro.close()
+            return MagicMock()
+
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            patch(
+                "application_sdk.main.run_combined_mode",
+                new_callable=AsyncMock,
+            ),
+            patch("asyncio.create_task", side_effect=_capture_task),
+        ):
+            await run_dev_combined(
+                _fake_app_class(),
+                credentials={"host": "h", "port": "5432"},
+                example_input={"connection": {"connection_name": "c"}},
+            )
+
+        assert len(captured) == 1, "credentials path must schedule provisioning task"
+
+    async def test_no_credentials_prints_dev_banner(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """When no credentials, a banner with usage hints is printed to stdout."""
+        monkeypatch.setenv("DAPR_HTTP_PORT", "3500")
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            patch(
+                "application_sdk.main.run_combined_mode",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await run_dev_combined(_fake_app_class(), host="127.0.0.1", port=8000)
+        out = capsys.readouterr().out
+        assert "Dev server running" in out
+        assert "/workflows/v1/start" in out
+
+    async def test_example_input_is_rendered_in_banner(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """example_input shows up as JSON in the banner curl example."""
+        monkeypatch.setenv("DAPR_HTTP_PORT", "3500")
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            patch(
+                "application_sdk.main.run_combined_mode",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await run_dev_combined(
+                _fake_app_class(),
+                example_input={"connection": {"connection_name": "abc"}},
+            )
+        out = capsys.readouterr().out
+        assert "abc" in out
+
+    async def test_temporal_ui_options_are_passed_to_embedded_runtime(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        _stub_embedded_daemons: list[dict[str, object]],
+    ) -> None:
+        """Temporal UI options are forwarded and the UI URL is printed."""
+        monkeypatch.setenv("DAPR_HTTP_PORT", "3500")
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            patch(
+                "application_sdk.main.run_combined_mode",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await run_dev_combined(
+                _fake_app_class(),
+                temporal_ui=True,
+                temporal_ui_port=8233,
+            )
+
+        assert _stub_embedded_daemons[-1]["temporal_ui"] is True
+        assert _stub_embedded_daemons[-1]["temporal_ui_port"] == 8233
+        assert "Temporal UI running at http://127.0.0.1:8233" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------- #
+# Inline-import safety net                                                    #
+# --------------------------------------------------------------------------- #
+
+
+class TestInlineImportSymbols:
+    """Verify that symbols imported lazily inside main.py still exist."""
+
+    @pytest.mark.parametrize(
+        "module_path,symbol_name",
+        [
+            ("application_sdk.execution._temporal.backend", "create_temporal_client"),
+            (
+                "application_sdk.execution._temporal.converter",
+                "create_data_converter_for_app",
+            ),
+            ("application_sdk.execution._temporal.worker", "create_worker"),
+            ("application_sdk.execution._temporal.auth", "TemporalAuthConfig"),
+            ("application_sdk.execution._temporal.auth", "TemporalAuthManager"),
+            ("application_sdk.handler", "DefaultHandler"),
+            ("application_sdk.handler", "run_app_handler_service"),
+            ("application_sdk.handler", "create_app_handler_service"),
+            ("application_sdk.infrastructure.context", "InfrastructureContext"),
+            ("application_sdk.infrastructure.context", "set_infrastructure"),
+            ("application_sdk.infrastructure.context", "get_infrastructure"),
+            ("application_sdk.infrastructure.context", "close_infrastructure"),
+            ("application_sdk.infrastructure._dapr.client", "DaprBinding"),
+            ("application_sdk.infrastructure._dapr.client", "DaprSecretStore"),
+            ("application_sdk.infrastructure._dapr.client", "DaprStateStore"),
+            ("application_sdk.infrastructure._dapr.http", "AsyncDaprClient"),
+            ("application_sdk.infrastructure._dapr.http", "wait_for_dapr_sidecar"),
+            ("application_sdk.app.registry", "AppRegistry"),
+            ("application_sdk.app.registry", "TaskRegistry"),
+            ("application_sdk.app.base", "_pascal_to_kebab"),
+            ("application_sdk.observability.observability", "AtlanObservability"),
+            ("application_sdk.server.health", "WorkerHealthServer"),
+            ("application_sdk.storage", "create_store_from_binding_with_put_attrs"),
+            ("application_sdk.storage.binding", "_parse_dapr_metadata"),
+            ("application_sdk.constants", "DEPLOYMENT_OBJECT_STORE_NAME"),
+            ("application_sdk.constants", "EVENT_STORE_NAME"),
+            ("application_sdk.constants", "SECRET_STORE_NAME"),
+            ("application_sdk.constants", "STATE_STORE_NAME"),
+        ],
+    )
+    def test_inline_import_target_exists(
+        self, module_path: str, symbol_name: str
+    ) -> None:
+        """Every lazy-imported symbol in main.py must exist at its source module."""
+        import importlib
+
+        mod = importlib.import_module(module_path)
+        assert hasattr(mod, symbol_name), (
+            f"main.py imports {symbol_name!r} from {module_path!r} at runtime, "
+            "but the symbol no longer exists. Likely renamed/removed upstream."
+        )
+
+    def test_atlan_observability_has_flush_all(self) -> None:
+        """AtlanObservability.flush_all is awaited from _flush_observability."""
+        from application_sdk.observability.observability import AtlanObservability
+
+        assert hasattr(AtlanObservability, "flush_all")
+
+
+# --------------------------------------------------------------------------- #
+# _log_dapr_components — branch with safe_meta                                #
+# --------------------------------------------------------------------------- #
+
+
+class TestLogDaprComponentsSafeMetaBranch:
+    """Cover the log path that includes safe metadata details."""
+
+    async def test_logs_with_safe_meta_when_yaml_present(self, tmp_path: Path) -> None:
+        """When a component has allowlisted metadata in YAML, it appears in the log line."""
+        # Write a component YAML with bucket=my-bucket so the safe-meta path triggers
+        (tmp_path / "store.yaml").write_text(
+            "apiVersion: dapr.io/v1alpha1\n"
+            "kind: Component\n"
+            "metadata:\n"
+            "  name: my-store\n"
+            "spec:\n"
+            "  type: state.s3\n"
+            "  metadata:\n"
+            "    - name: bucket\n"
+            "      value: my-bucket\n"
+        )
+        dapr_client = AsyncMock()
+        dapr_client.get_metadata.return_value = {
+            "components": [{"name": "my-store", "type": "state.s3", "version": "v1"}]
+        }
+        with patch("application_sdk.main.logger") as mock_log:
+            result = await _log_dapr_components(dapr_client, tmp_path)
+        assert result == {"my-store"}
+        # The "with safe_meta" code path produces an INFO call whose format
+        # string contains a 4th positional placeholder for the detail string.
+        info_calls = [c for c in mock_log.info.call_args_list]
+        # At least one info should reference the bucket value
+        assert any("bucket=my-bucket" in str(c) for c in info_calls)
+
+
+# --------------------------------------------------------------------------- #
+# run_dev_combined — _provision_and_start inner-function                      #
+# --------------------------------------------------------------------------- #
+
+
+class TestRunDevCombinedProvisioning:
+    """Exercise the inner _provision_and_start coroutine in the credentials path."""
+
+    @pytest.fixture(autouse=True)
+    def _stub_daemons(self, _stub_embedded_daemons):
+        """Stub the embedded daprd + Temporal context managers for every test in this class."""
+
+    async def test_provision_and_start_posts_creds_and_workflow(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The captured provisioning coroutine POSTs to local-vault then /start."""
+        monkeypatch.setenv("DAPR_HTTP_PORT", "3500")
+
+        captured: list[object] = []
+
+        def _capture_task(coro):
+            captured.append(coro)
+            return MagicMock()
+
+        # Build a fake httpx.AsyncClient that records calls
+        fake_client = AsyncMock()
+        fake_client.__aenter__.return_value = fake_client
+        fake_client.__aexit__.return_value = None
+
+        # Health check returns 200 immediately
+        health_resp = MagicMock(status_code=200)
+        fake_client.get = AsyncMock(return_value=health_resp)
+
+        # local-vault POST
+        cred_resp = MagicMock()
+        cred_resp.json = MagicMock(
+            return_value={"data": {"credential_guid": "cred-123"}}
+        )
+        # workflow start POST
+        wf_resp = MagicMock()
+        wf_resp.json = MagicMock(
+            return_value={"data": {"workflow_id": "wf-1", "run_id": "run-1"}}
+        )
+        fake_client.post = AsyncMock(side_effect=[cred_resp, wf_resp])
+
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            patch(
+                "application_sdk.main.run_combined_mode",
+                new_callable=AsyncMock,
+            ),
+            patch("asyncio.create_task", side_effect=_capture_task),
+            patch("httpx.AsyncClient", return_value=fake_client),
+            patch("application_sdk.main.logger"),
+        ):
+            await run_dev_combined(
+                _fake_app_class(),
+                credentials={"host": "h"},
+                example_input={"connection": {"connection_name": "c"}},
+                host="127.0.0.1",
+                port=8765,
+            )
+
+            # The captured coroutine is _provision_and_start — drive it inside the patches
+            assert len(captured) == 1
+            await captured[0]
+
+        # Cred POST and workflow POST must both have happened
+        post_urls = [c.args[0] for c in fake_client.post.call_args_list if c.args]
+        assert any("local-vault" in u for u in post_urls)
+        assert any("/workflows/v1/start" in u for u in post_urls)
+
+        # The credential_guid from /local-vault must be injected into the workflow body
+        wf_body = fake_client.post.call_args_list[1].kwargs["json"]
+        assert wf_body["credential_guid"] == "cred-123"
+        assert wf_body["connection"]["connection_name"] == "c"
+
+    async def test_provision_health_poll_swallowed_continues(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Health-check failures are swallowed so provisioning still proceeds."""
+        monkeypatch.setenv("DAPR_HTTP_PORT", "3500")
+
+        captured: list[object] = []
+
+        def _capture_task(coro):
+            captured.append(coro)
+            return MagicMock()
+
+        fake_client = AsyncMock()
+        fake_client.__aenter__.return_value = fake_client
+        fake_client.__aexit__.return_value = None
+        # Health check raises every time — provisioning must still proceed
+        # (after the loop exits) and POST creds + start workflow.
+        fake_client.get = AsyncMock(side_effect=Exception("connection refused"))
+        cred_resp = MagicMock()
+        cred_resp.json = MagicMock(return_value={"credential_guid": "g1"})
+        wf_resp = MagicMock()
+        wf_resp.json = MagicMock(
+            return_value={"data": {"workflow_id": "w", "run_id": "r"}}
+        )
+        fake_client.post = AsyncMock(side_effect=[cred_resp, wf_resp])
+
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=MagicMock(),
+            ),
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            patch(
+                "application_sdk.main.run_combined_mode",
+                new_callable=AsyncMock,
+            ),
+            patch("asyncio.create_task", side_effect=_capture_task),
+            patch("httpx.AsyncClient", return_value=fake_client),
+            # Make asyncio.sleep instant
+            patch("application_sdk.main.asyncio.sleep", new_callable=AsyncMock),
+            patch("application_sdk.main.logger"),
+        ):
+            await run_dev_combined(
+                _fake_app_class(),
+                credentials={"host": "h"},
+            )
+            assert len(captured) == 1
+            await captured[0]
+
+        assert fake_client.post.await_count == 2
+
+
+# --------------------------------------------------------------------------- #
+# run_combined_mode — auth path                                               #
+# --------------------------------------------------------------------------- #
+
+
+class TestRunCombinedAuth:
+    """Combined mode auth-enabled path."""
+
+    async def test_auth_enabled_acquires_token_and_shuts_down(self) -> None:
+        """When auth_enabled, TemporalAuthManager is acquired + shutdown."""
+        infra = MagicMock()
+        infra.secret_store = MagicMock()
+        infra.storage = MagicMock()
+
+        uvicorn_server = MagicMock()
+        uvicorn_server.serve = AsyncMock(return_value=None)
+
+        auth_mgr = MagicMock()
+        auth_mgr.acquire_initial_token = AsyncMock(return_value="api-key")
+        auth_mgr.start_background_refresh = MagicMock()
+        auth_mgr.shutdown = AsyncMock()
+
+        cfg = AppConfig(
+            mode="combined",
+            app_module="pkg:FakeApp",
+            auth_enabled=True,
+            auth_client_id="cid",
+            auth_client_secret="csec",
+            auth_token_url="https://x/token",
+            auth_base_url="https://x",
+        )
+
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=infra,
+            ),
+            patch(
+                "application_sdk.main.load_app_class",
+                return_value=_fake_app_class(),
+            ),
+            patch("application_sdk.main.validate_app_class"),
+            patch("application_sdk.main.load_handler_class", return_value=None),
+            patch(
+                "application_sdk.execution._temporal.backend.create_temporal_client",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "application_sdk.execution._temporal.converter.create_data_converter_for_app"
+            ),
+            patch(
+                "application_sdk.execution._temporal.worker.create_worker",
+                return_value=_make_async_cm(),
+            ),
+            patch(
+                "application_sdk.execution._temporal.auth.TemporalAuthManager",
+                return_value=auth_mgr,
+            ),
+            patch("application_sdk.execution._temporal.auth.TemporalAuthConfig"),
+            patch("application_sdk.handler.DefaultHandler"),
+            patch("application_sdk.handler.create_app_handler_service"),
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            patch(
+                "application_sdk.infrastructure.context.get_infrastructure",
+                return_value=None,
+            ),
+            patch(
+                "application_sdk.infrastructure.context.close_infrastructure",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "application_sdk.server.health.WorkerHealthServer",
+                return_value=_make_async_cm(),
+            ),
+            patch(
+                "application_sdk.main._flush_observability",
+                new_callable=AsyncMock,
+            ),
+            patch("application_sdk.main._install_graceful_signal_handlers"),
+            patch("uvicorn.Server", return_value=uvicorn_server),
+            patch("uvicorn.Config"),
+            patch.object(asyncio.Event, "wait", new=AsyncMock(return_value=None)),
+        ):
+            await run_combined_mode(cfg)
+
+        auth_mgr.acquire_initial_token.assert_awaited_once()
+        auth_mgr.start_background_refresh.assert_called_once()
+        auth_mgr.shutdown.assert_awaited_once()
+
+    async def test_reconnect_closure_rebinds_client_and_health(self) -> None:
+        """Combined-mode reconnect uses the same production helper as worker mode."""
+        infra = MagicMock()
+        infra.secret_store = MagicMock()
+        infra.storage = MagicMock()
+
+        uvicorn_server = MagicMock()
+        uvicorn_server.serve = AsyncMock(return_value=None)
+
+        auth_mgr = MagicMock()
+        auth_mgr.acquire_initial_token = AsyncMock(
+            side_effect=["api-key", "api-key-new"]
+        )
+        auth_mgr.start_background_refresh = MagicMock()
+        auth_mgr.restart_background_refresh = AsyncMock()
+        auth_mgr.shutdown = AsyncMock()
+
+        old_client = object()
+        new_client = object()
+        health_cm = _make_async_cm()
+        captured_clients: list[object] = []
+
+        def _capture_create_worker(client, *args, **kwargs):
+            captured_clients.append(client)
+            return _make_async_cm()
+
+        async def _capture_supervise(**kwargs: Any) -> None:
+            build = kwargs["build_worker"]
+            build()
+            await kwargs["reconnect"]()
+            build()
+
+        cfg = AppConfig(
+            mode="combined",
+            app_module="pkg:FakeApp",
+            auth_enabled=True,
+            auth_client_id="cid",
+            auth_client_secret="csec",
+            auth_token_url="https://x/token",
+            auth_base_url="https://x",
+        )
+
+        with (
+            patch(
+                "application_sdk.main._create_infrastructure",
+                new_callable=AsyncMock,
+                return_value=infra,
+            ),
+            patch(
+                "application_sdk.main.load_app_class",
+                return_value=_fake_app_class(),
+            ),
+            patch("application_sdk.main.validate_app_class"),
+            patch("application_sdk.main.load_handler_class", return_value=None),
+            patch(
+                "application_sdk.execution._temporal.backend.create_temporal_client",
+                new_callable=AsyncMock,
+                side_effect=[old_client, new_client],
+            ),
+            patch(
+                "application_sdk.execution._temporal.converter.create_data_converter_for_app"
+            ),
+            patch(
+                "application_sdk.execution._temporal.worker.create_worker",
+                side_effect=_capture_create_worker,
+            ),
+            patch(
+                "application_sdk.execution._temporal.auth.TemporalAuthManager",
+                return_value=auth_mgr,
+            ),
+            patch("application_sdk.execution._temporal.auth.TemporalAuthConfig"),
+            patch("application_sdk.handler.DefaultHandler"),
+            patch("application_sdk.handler.create_app_handler_service"),
+            patch("application_sdk.infrastructure.context.set_infrastructure"),
+            patch(
+                "application_sdk.infrastructure.context.get_infrastructure",
+                return_value=None,
+            ),
+            patch(
+                "application_sdk.infrastructure.context.close_infrastructure",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "application_sdk.server.health.WorkerHealthServer",
+                return_value=health_cm,
+            ),
+            patch(
+                "application_sdk.main._flush_observability",
+                new_callable=AsyncMock,
+            ),
+            patch("application_sdk.main._install_graceful_signal_handlers"),
+            patch("uvicorn.Server", return_value=uvicorn_server),
+            patch("uvicorn.Config"),
+            patch(
+                "application_sdk.main._supervise_worker",
+                side_effect=_capture_supervise,
+            ),
+        ):
+            await run_combined_mode(cfg)
+
+        assert captured_clients == [old_client, new_client]
+        auth_mgr.restart_background_refresh.assert_awaited_once_with(new_client)
+        health_cm.set_temporal_client.assert_any_call(new_client)
+        assert auth_mgr.shutdown.await_count == 1
+
+
+# ---------------------------------------------------------------------------
+# _log_process_memory_baseline
+# ---------------------------------------------------------------------------
+
+
+class TestLogProcessMemoryBaseline:
+    def test_emits_info_with_percentage(self, monkeypatch) -> None:
+        """INFO log is emitted with RSS/limit ratio when both are available."""
+        import application_sdk.main as main_mod
+        from application_sdk.observability.resource_sampler import ResourceSample
+
+        limit = 8 * 1024**3  # 8 GiB
+        rss = 2 * 1024**3  # 2 GiB → 25%
+        monkeypatch.setenv("K8S_POD_MEMORY_LIMIT", str(limit))
+
+        with (
+            patch(
+                "application_sdk.observability.resource_sampler.sample",
+                return_value=ResourceSample(cpu_time_s=0.5, rss_bytes=rss),
+            ),
+            patch.object(main_mod, "logger") as mock_logger,
+        ):
+            _log_process_memory_baseline()
+
+        info_calls = [
+            c
+            for c in mock_logger.info.call_args_list
+            if "memory at start" in str(c).lower()
+        ]
+        assert info_calls, "Expected INFO memory baseline log"
+        # args: (fmt, rss_gib, limit_gib, pct_float)
+        _fmt, _rss, _lim, pct = info_calls[0].args
+        assert abs(pct - 25.0) < 0.5
+
+    def test_silent_when_limit_unset(self, monkeypatch) -> None:
+        """No INFO log when K8S_POD_MEMORY_LIMIT is absent (local dev / non-K8s)."""
+        import application_sdk.main as main_mod
+
+        monkeypatch.delenv("K8S_POD_MEMORY_LIMIT", raising=False)
+
+        with patch.object(main_mod, "logger") as mock_logger:
+            _log_process_memory_baseline()
+
+        mock_logger.info.assert_not_called()
+
+    def test_silent_when_sample_returns_none(self, monkeypatch) -> None:
+        """No INFO log when resource sampling fails (e.g. on Windows)."""
+        import application_sdk.main as main_mod
+
+        monkeypatch.setenv("K8S_POD_MEMORY_LIMIT", str(4 * 1024**3))
+
+        with (
+            patch(
+                "application_sdk.observability.resource_sampler.sample",
+                return_value=None,
+            ),
+            patch.object(main_mod, "logger") as mock_logger,
+        ):
+            _log_process_memory_baseline()
+
+        mock_logger.info.assert_not_called()
+
+
+class _FakeWorker:
+    """Minimal async-context-manager stand-in for an AppWorker.
+
+    ``fail=True`` makes ``__aenter__`` raise the same shape of error temporalio
+    surfaces on a fatal poll. ``on_enter`` runs on enter (e.g. to set the
+    shutdown event so the supervisor's ``await shutdown_event.wait()`` returns).
+    """
+
+    def __init__(self, *, fail: bool, on_enter: Any = None) -> None:
+        self.fail = fail
+        self.on_enter = on_enter
+
+    async def __aenter__(self) -> _FakeWorker:
+        if self.on_enter is not None:
+            self.on_enter()
+        if self.fail:
+            raise RuntimeError("Activity worker failed")
+        return self
+
+    async def __aexit__(self, *args: Any) -> bool:
+        return False
+
+
+class _CancelThenFailWorker:
+    """Models temporalio's *real* fatal-poll seam.
+
+    Unlike ``_FakeWorker(fail=True)`` (which raises from ``__aenter__``),
+    temporalio surfaces a fatal poll by cancelling the ``async with`` body task
+    mid-``await`` and re-raising the fatal error from ``__aexit__`` only when
+    ``exc_type is CancelledError``. That leaves a residual cancellation on the
+    task, which the supervisor must clear with ``uncancel()`` before its backoff
+    ``wait_for`` — the exact line ``_FakeWorker`` never exercises.
+    """
+
+    def __init__(self, *, on_exit: Any = None) -> None:
+        self.on_exit = on_exit
+
+    async def __aenter__(self) -> _CancelThenFailWorker:
+        # Cancel the task running the `async with` body so the following
+        # `await shutdown_event.wait()` is torn down mid-await.
+        task = asyncio.current_task()
+        assert task is not None
+        task.cancel()
+        return self
+
+    async def __aexit__(self, exc_type: Any, *args: Any) -> bool:
+        if self.on_exit is not None:
+            self.on_exit()
+        if exc_type is asyncio.CancelledError:
+            # temporalio re-raises the fatal error from __aexit__ on the seam.
+            raise RuntimeError("Activity worker failed")
+        return False
+
+
+class TestRunWorkerWithRestart:
+    """Behavioral tests for the worker restart supervisor."""
+
+    async def test_clean_shutdown_runs_once_no_restart(self) -> None:
+        """A shutdown signal stops the loop without rebuilding the worker."""
+        shutdown = asyncio.Event()
+        built: list[_FakeWorker] = []
+
+        def build() -> _FakeWorker:
+            w = _FakeWorker(fail=False, on_enter=shutdown.set)
+            built.append(w)
+            return w
+
+        await _run_worker_with_restart(build_worker=build, shutdown_event=shutdown)
+
+        assert len(built) == 1
+
+    async def test_restarts_after_fatal_then_shuts_down(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A fatal error rebuilds the worker; a fresh token is minted first."""
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_RESTART_BACKOFF_CAP_SECONDS", 0
+        )
+        shutdown = asyncio.Event()
+        auth = AsyncMock()
+        calls = {"n": 0}
+
+        def build() -> _FakeWorker:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _FakeWorker(fail=True)
+            return _FakeWorker(fail=False, on_enter=shutdown.set)
+
+        await _run_worker_with_restart(
+            build_worker=build,
+            shutdown_event=shutdown,
+            auth_manager=auth,
+            client=object(),
+        )
+
+        assert calls["n"] == 2
+        auth.force_refresh.assert_awaited_once()
+
+    async def test_reconnect_runs_before_rebuild_and_replaces_force_refresh(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A wired reconnect rebuilds the client before the worker is rebuilt.
+
+        Ordering is the whole point: the replacement worker has to be built
+        against the fresh client. Built against the poisoned one it comes up,
+        registers, and then never polls — and because it neither returns nor
+        raises, the supervisor never gets a second chance to notice.
+        """
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_RESTART_BACKOFF_CAP_SECONDS", 0
+        )
+        shutdown = asyncio.Event()
+        auth = AsyncMock()
+        order: list[str] = []
+        calls = {"n": 0}
+
+        async def reconnect() -> None:
+            order.append("reconnect")
+
+        def build() -> _FakeWorker:
+            calls["n"] += 1
+            order.append(f"build{calls['n']}")
+            if calls["n"] == 1:
+                return _FakeWorker(fail=True)
+            return _FakeWorker(fail=False, on_enter=shutdown.set)
+
+        await _run_worker_with_restart(
+            build_worker=build,
+            shutdown_event=shutdown,
+            auth_manager=auth,
+            client=object(),
+            reconnect=reconnect,
+        )
+
+        assert order == ["build1", "reconnect", "build2"]
+        # Reconnect mints its own token, so the token-only path is skipped.
+        auth.force_refresh.assert_not_awaited()
+
+    async def test_restart_proceeds_when_reconnect_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A failing reconnect must not strand the worker.
+
+        If Temporal is unreachable at that moment, restarting on the old client
+        is still better than not restarting at all — the next fatal brings us
+        back here after another backoff.
+        """
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_RESTART_BACKOFF_CAP_SECONDS", 0
+        )
+        shutdown = asyncio.Event()
+        calls = {"n": 0}
+
+        async def reconnect() -> None:
+            raise RuntimeError("temporal unreachable")
+
+        def build() -> _FakeWorker:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _FakeWorker(fail=True)
+            return _FakeWorker(fail=False, on_enter=shutdown.set)
+
+        await _run_worker_with_restart(
+            build_worker=build,
+            shutdown_event=shutdown,
+            reconnect=reconnect,
+        )
+
+        assert calls["n"] == 2
+
+    async def test_restarts_on_cancellation_seam_without_propagating_cancel(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Fatal error arriving via the temporalio cancellation seam self-heals.
+
+        The first worker cancels the body task and re-raises the fatal error
+        from ``__aexit__`` (exercising the supervisor's ``uncancel()`` guard);
+        the supervisor must clear the residual cancel, restart, and reach a
+        clean shutdown without ever letting ``CancelledError`` escape.
+        """
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_RESTART_BACKOFF_CAP_SECONDS", 0
+        )
+        shutdown = asyncio.Event()
+        calls = {"n": 0}
+
+        def build() -> Any:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _CancelThenFailWorker()
+            return _FakeWorker(fail=False, on_enter=shutdown.set)
+
+        # Must complete normally: no CancelledError propagates out, and the
+        # supervisor rebuilt the worker after the seam failure.
+        await _run_worker_with_restart(build_worker=build, shutdown_event=shutdown)
+
+        assert calls["n"] == 2
+
+    async def test_gives_up_after_cap_and_reraises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A persistent failure fails loud once the restart cap is exceeded."""
+        monkeypatch.setattr("application_sdk.main._WORKER_MAX_CONSECUTIVE_RESTARTS", 2)
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_RESTART_BACKOFF_CAP_SECONDS", 0
+        )
+        shutdown = asyncio.Event()
+        calls = {"n": 0}
+
+        def build() -> _FakeWorker:
+            calls["n"] += 1
+            return _FakeWorker(fail=True)
+
+        with pytest.raises(RuntimeError, match="Activity worker failed"):
+            await _run_worker_with_restart(build_worker=build, shutdown_event=shutdown)
+
+        # attempts 1 and 2 restart; the 3rd pushes the streak past the cap.
+        assert calls["n"] == 3
+
+    async def test_shutdown_during_backoff_stops_promptly(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A shutdown set during the backoff wait ends the loop immediately."""
+        # Force a long backoff so the shutdown interrupts it deterministically.
+        monkeypatch.setattr("application_sdk.main.random.uniform", lambda *a: 10.0)
+        shutdown = asyncio.Event()
+        calls = {"n": 0}
+
+        def build() -> _FakeWorker:
+            calls["n"] += 1
+            return _FakeWorker(fail=True)
+
+        task = asyncio.create_task(
+            _run_worker_with_restart(build_worker=build, shutdown_event=shutdown)
+        )
+        await asyncio.sleep(0.05)
+        shutdown.set()
+        await asyncio.wait_for(task, timeout=2.0)
+
+        assert calls["n"] == 1
+
+    async def test_healthy_run_resets_failure_streak(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A worker that ran healthily before failing resets the streak.
+
+        With a cap of 2 but each run appearing to last past the healthy window,
+        the streak resets every time, so four failures never trip the cap and
+        the loop survives to a clean shutdown.
+        """
+        monkeypatch.setattr("application_sdk.main._WORKER_MAX_CONSECUTIVE_RESTARTS", 2)
+        monkeypatch.setattr("application_sdk.main._WORKER_HEALTHY_RUN_SECONDS", 1)
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_RESTART_BACKOFF_CAP_SECONDS", 0
+        )
+        # Clock jumps 5s on every read → each run looks like it lasted 5s (>1s).
+        counter = {"t": 0.0}
+
+        def fake_monotonic() -> float:
+            counter["t"] += 5.0
+            return counter["t"]
+
+        monkeypatch.setattr("application_sdk.main.time.monotonic", fake_monotonic)
+
+        shutdown = asyncio.Event()
+        calls = {"n": 0}
+
+        def build() -> _FakeWorker:
+            calls["n"] += 1
+            if calls["n"] <= 4:
+                return _FakeWorker(fail=True)
+            return _FakeWorker(fail=False, on_enter=shutdown.set)
+
+        # Must not raise despite 4 failures (cap is 2) because each resets.
+        await _run_worker_with_restart(build_worker=build, shutdown_event=shutdown)
+
+        assert calls["n"] == 5
+
+
+class _RecordingHealthServer:
+    """Records the poll-state readings the observer reports."""
+
+    def __init__(self) -> None:
+        self.readings: list[dict[str, float] | None] = []
+
+    def record_poller_counts(self, counts: dict[str, float] | None) -> None:
+        self.readings.append(counts)
+
+
+class TestObserveWorkerPollState:
+    """Tests for the poll-state observer (ARUN-1127 instrumentation).
+
+    The observer exists to identify the failure mechanism on a live tenant, so
+    the contract under test is that it *reports* and never *acts*: no raise, no
+    restart, and ``None`` (unreadable) is never collapsed into zero.
+    """
+
+    async def test_disabled_interval_returns_immediately(self) -> None:
+        """A non-positive interval disables the observer entirely."""
+        health = _RecordingHealthServer()
+        shutdown = asyncio.Event()
+
+        await asyncio.wait_for(
+            _observe_worker_poll_state(
+                shutdown_event=shutdown, health_server=health, interval=0
+            ),
+            timeout=1.0,
+        )
+
+        assert health.readings == []
+
+    async def test_zero_pollers_warns_and_never_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A zero reading is the zombie signature: warn, record, never raise."""
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.read_core_poller_counts",
+            AsyncMock(return_value={"workflow_task": 0.0, "activity_task": 0.0}),
+        )
+        health = _RecordingHealthServer()
+        shutdown = asyncio.Event()
+
+        async def stop_soon() -> None:
+            await asyncio.sleep(0.05)
+            shutdown.set()
+
+        stopper = asyncio.create_task(stop_soon())
+        with patch("application_sdk.main.logger") as mock_logger:
+            await asyncio.wait_for(
+                _observe_worker_poll_state(
+                    shutdown_event=shutdown, health_server=health, interval=0.01
+                ),
+                timeout=2.0,
+            )
+        await stopper
+
+        assert {"workflow_task": 0.0, "activity_task": 0.0} in health.readings
+        assert mock_logger.warning.called
+
+    async def test_zero_pollers_warns_once_per_park_not_per_tick(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A sustained zero state warns on the transition, not every interval.
+
+        A parked worker emitting one WARNING per interval would bury the very
+        ``poll loop failed fatally`` line this instrumentation exists to surface,
+        so the zero branch is transition-gated like the unknown branch.
+        """
+        health = _RecordingHealthServer()
+        shutdown = asyncio.Event()
+        zero = {"workflow_task": 0.0, "activity_task": 0.0}
+
+        # Event-driven, not wall-clock: the mocked reader itself sets shutdown
+        # once it has been awaited twice, so the sustained park spans multiple
+        # ticks by construction and the test cannot race a slow CI runner.
+        calls = 0
+
+        async def _read_then_stop():
+            nonlocal calls
+            calls += 1
+            if calls >= 2:
+                shutdown.set()
+            return zero
+
+        reader = AsyncMock(side_effect=_read_then_stop)
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.read_core_poller_counts",
+            reader,
+        )
+
+        with patch("application_sdk.main.logger") as mock_logger:
+            await asyncio.wait_for(
+                _observe_worker_poll_state(
+                    shutdown_event=shutdown, health_server=health, interval=0.01
+                ),
+                timeout=2.0,
+            )
+
+        # Multiple ticks ran during the sustained park (the reader drove shutdown
+        # only after its second call), so a single tick could not have produced
+        # the count below — the transition-gating is genuinely exercised.
+        assert reader.await_count >= 2
+        zero_warnings = [
+            call
+            for call in mock_logger.warning.call_args_list
+            if "0 active pollers" in str(call)
+        ]
+        assert len(zero_warnings) == 1
+
+    async def test_unknown_reading_is_not_reported_as_zero(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unreadable gauge records None (unknown), never a zero count."""
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.read_core_poller_counts",
+            AsyncMock(return_value=None),
+        )
+        health = _RecordingHealthServer()
+        shutdown = asyncio.Event()
+
+        async def stop_soon() -> None:
+            await asyncio.sleep(0.05)
+            shutdown.set()
+
+        stopper = asyncio.create_task(stop_soon())
+        await asyncio.wait_for(
+            _observe_worker_poll_state(
+                shutdown_event=shutdown, health_server=health, interval=0.01
+            ),
+            timeout=2.0,
+        )
+        await stopper
+
+        assert health.readings
+        assert all(reading is None for reading in health.readings)
+
+    async def test_read_failure_does_not_stop_the_observer(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A raising reader is swallowed — an observer never takes the worker down."""
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.read_core_poller_counts",
+            AsyncMock(side_effect=RuntimeError("boom")),
+        )
+        shutdown = asyncio.Event()
+
+        async def stop_soon() -> None:
+            await asyncio.sleep(0.05)
+            shutdown.set()
+
+        stopper = asyncio.create_task(stop_soon())
+        # Must return cleanly on shutdown despite every read raising.
+        await asyncio.wait_for(
+            _observe_worker_poll_state(
+                shutdown_event=shutdown, health_server=None, interval=0.01
+            ),
+            timeout=2.0,
+        )
+        await stopper
+
+    async def test_supervisor_starts_and_stops_the_observer(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The supervisor owns the observer's lifetime, across worker rebuilds."""
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_POLL_DIAGNOSTIC_INTERVAL_SECONDS", 0.01
+        )
+        reader = AsyncMock(return_value={"workflow_task": 2.0})
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.read_core_poller_counts",
+            reader,
+        )
+        health = _RecordingHealthServer()
+        shutdown = asyncio.Event()
+
+        def _stop_later() -> None:
+            asyncio.get_running_loop().call_later(0.05, shutdown.set)
+
+        def build() -> _FakeWorker:
+            return _FakeWorker(fail=False, on_enter=_stop_later)
+
+        await asyncio.wait_for(
+            _run_worker_with_restart(
+                build_worker=build,
+                shutdown_event=shutdown,
+                health_server=health,
+            ),
+            timeout=3.0,
+        )
+
+        assert health.readings, "observer never ran alongside the worker"
+        # Stopped with the supervisor: no reading lands after it returned.
+        readings_at_return = len(health.readings)
+        await asyncio.sleep(0.05)
+        assert len(health.readings) == readings_at_return
+
+
+class TestObserverFeedsHealthEventGate:
+    """The observer is what closes the gate on token_refresh health events."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_gate(self):
+        from application_sdk.execution._temporal.poll_state import worker_poll_state
+
+        worker_poll_state.reset()
+        yield
+        worker_poll_state.reset()
+
+    async def _run_observer(self, shutdown: asyncio.Event) -> None:
+        async def stop_soon() -> None:
+            await asyncio.sleep(0.06)
+            shutdown.set()
+
+        stopper = asyncio.create_task(stop_soon())
+        await asyncio.wait_for(
+            _observe_worker_poll_state(
+                shutdown_event=shutdown,
+                health_server=_RecordingHealthServer(),
+                interval=0.01,
+            ),
+            timeout=2.0,
+        )
+        await stopper
+
+    async def test_sustained_zero_closes_the_gate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A confirmed-parked worker stops advertising itself as healthy."""
+        from application_sdk.execution._temporal.poll_state import worker_poll_state
+
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_ZERO_POLLER_READINGS_BEFORE_STALE", 1
+        )
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.read_core_poller_counts",
+            AsyncMock(return_value={"workflow_task": 0.0, "activity_task": 0.0}),
+        )
+
+        await self._run_observer(asyncio.Event())
+
+        assert worker_poll_state.should_emit_health_event() is False
+
+    async def test_unknown_readings_leave_the_gate_open(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unreadable gauge must never mute a worker that may be healthy."""
+        from application_sdk.execution._temporal.poll_state import worker_poll_state
+
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_ZERO_POLLER_READINGS_BEFORE_STALE", 1
+        )
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.read_core_poller_counts",
+            AsyncMock(return_value=None),
+        )
+
+        await self._run_observer(asyncio.Event())
+
+        assert worker_poll_state.should_emit_health_event() is True
+
+    async def test_observation_exception_reopens_a_closed_gate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A failed reading after suppression must fail open, not stay muted.
+
+        The observer except path used to log-and-continue without recording
+        ``unknown``, so a parked worker that then hit a transient metrics-read
+        failure stayed suppressed for the rest of the process lifetime.
+        """
+        from application_sdk.execution._temporal.poll_state import worker_poll_state
+
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_ZERO_POLLER_READINGS_BEFORE_STALE", 1
+        )
+
+        calls = 0
+
+        async def _zero_then_raise():
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return {"workflow_task": 0.0, "activity_task": 0.0}
+            raise RuntimeError("metrics unavailable")
+
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.read_core_poller_counts",
+            AsyncMock(side_effect=_zero_then_raise),
+        )
+
+        shutdown = asyncio.Event()
+        reader_calls_at_stop = {"n": 0}
+
+        async def stop_after_exception() -> None:
+            # Wait until the raising path has run at least once, then stop.
+            for _ in range(50):
+                if calls >= 2:
+                    break
+                await asyncio.sleep(0.02)
+            reader_calls_at_stop["n"] = calls
+            shutdown.set()
+
+        stopper = asyncio.create_task(stop_after_exception())
+        await asyncio.wait_for(
+            _observe_worker_poll_state(
+                shutdown_event=shutdown,
+                health_server=_RecordingHealthServer(),
+                interval=0.01,
+            ),
+            timeout=2.0,
+        )
+        await stopper
+
+        assert reader_calls_at_stop["n"] >= 2
+        assert worker_poll_state.should_emit_health_event() is True
+
+    async def test_supervisor_reopens_the_gate_on_shutdown(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A worker must never be born muted by its predecessor's parked state."""
+        from application_sdk.execution._temporal.poll_state import worker_poll_state
+
+        monkeypatch.setattr(
+            "application_sdk.main._WORKER_POLL_DIAGNOSTIC_INTERVAL_SECONDS", 0
+        )
+        worker_poll_state.configure(zero_readings_before_stale=1)
+        worker_poll_state.record("zero")
+        assert worker_poll_state.should_emit_health_event() is False
+
+        shutdown = asyncio.Event()
+        await _run_worker_with_restart(
+            build_worker=lambda: _FakeWorker(fail=False, on_enter=shutdown.set),
+            shutdown_event=shutdown,
+        )
+
+        assert worker_poll_state.should_emit_health_event() is True

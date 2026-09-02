@@ -1,0 +1,636 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+
+[dependency-groups]
+dev = ["fhlmi[dev]", "ldp[dev]"]
+
+[project]
+authors = [
+    {email = "hello@futurehouse.org", name = "FutureHouse technical staff"},
+]
+# Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "aiofiles",
+    "fhaviary>=0.34.0",  # For type(action)=Message
+    "fhlmi",  # For new LLM client interface
+    "httpx-aiohttp",
+    "numpy>=1.20",  # For numpy.typing
+    "pydantic~=2.0",
+    "tenacity",
+    "tqdm",
+    "typing-extensions; python_version <= '3.11'",  # for typing.override
+]
+description = "Agent framework for constructing language model agents and training on constructive tasks."
+dynamic = ["version"]
+license = {file = "LICENSE"}
+name = "ldp"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+dev = [
+    "aiohttp<3.14.0",  # Downpin for https://github.com/kevin1024/vcrpy/issues/995
+    "deptry",
+    "fhaviary[xml]>=0.19",  # For not line-wrapping tool descriptions
+    "fhlmi[dev]",
+    "httpx",
+    "ipython>=8",  # Pin to keep recent
+    "ldp[monitor,nn,rich,server,typing,visualization]",
+    "mypy>=1.19",  # Pin for zip default detection
+    "prek",
+    "pydantic~=2.9",  # Pydantic 2.9 changed JSON schema exports 'allOf', so ensure tests match
+    "pylint-pydantic",
+    "pylint>=3.2",  # Pin to keep recent
+    "pytest-asyncio",
+    "pytest-mock",
+    "pytest-recording",
+    "pytest-rerunfailures",
+    "pytest-sugar",
+    "pytest-timeout",
+    "pytest-timer[colorama]",
+    "pytest-xdist",
+    "pytest>=9",  # For pytest-subtests upstreaming
+    "refurb>=2",  # Pin to keep recent
+    "usearch>=2.13",  # For py.typed
+    "vcrpy>=8",  # Pin for dropping unused requests support
+]
+monitor = [
+    "wandb",
+]
+nn = [
+    "accelerate",
+    "dask-cuda>=24.8.2,<25.10.0",  # Downpin for requiring cuda-core, which breaks macOS installs
+    "dask-jobqueue",
+    "dask[distributed]",
+    "distributed",
+    "ldp[scg]",
+    "torch>=2.13,==2.13.0",  # Pin lower for 3.14 support in https://github.com/pytorch/pytorch/issues/156856, exact pin for stability
+    "transformers>=4.51,<5",  # Pin for py.typed, TODO: handle v5's breaking changes
+    "wandb",
+]
+rich = [
+    "rich",
+    "tqdm>=4.56",  # When tqdm.rich was created
+]
+scg = [
+    "dm-tree; python_version < '3.14'",
+    "dm-tree>=0.1.10; python_version >= '3.14'",  # Lower pin for 3.14 support: https://github.com/google-deepmind/tree/pull/138
+    "networkx[default]~=3.4",  # Pin for pydot fix
+]
+server = [
+    "fastapi>=0.109",  # For Python 3.12 support
+]
+typing = [
+    "httpx",
+    "types-aiofiles",
+    "types-tqdm",
+]
+visualization = [
+    "pydot>=3.0.1",  # Matching networkx[extra]==3.4 version, SEE: https://github.com/networkx/networkx/blob/networkx-3.4/pyproject.toml#L92C6-L92C18
+]
+
+[project.urls]
+issues = "https://github.com/Future-House/ldp/issues"
+repository = "https://github.com/Future-House/ldp"
+
+[tool.black]
+preview = true
+
+[tool.codespell]
+check-filenames = true
+check-hidden = true
+ignore-words-list = "astroid,ser"
+skip = "**tests/cassettes/*,**/tests/cassettes/*"
+
+[tool.deptry]
+extend_exclude = ["packages/lmi"]
+optional_dependencies_dev_groups = ["dev", "typing"]
+
+[tool.deptry.per_rule_ignores]
+DEP002 = [
+    "pydot",  # Used indirectly via nx.drawing.nx_pydot
+]
+DEP004 = [
+    "usearch",  # Didn't want to make an extra for this
+]
+
+[tool.markdown_toc_creator]
+horizontal-rule-style = "prettier"
+proactive = false
+
+[tool.mypy]
+# Type-checks the interior of functions without type annotations.
+check_untyped_defs = true
+# Allows enabling one or multiple error codes globally. Note: This option will
+# override disabled error codes from the disable_error_code option.
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-cast",
+    "redundant-expr",
+    "redundant-self",
+    "truthy-bool",
+    "truthy-iterable",
+    "unimported-reveal",
+    "unreachable",
+    "unused-awaitable",
+    "unused-ignore",
+]
+# Shows a short summary line after error messages.
+error_summary = false
+# A regular expression that matches file names, directory names and paths which mypy
+# should ignore while recursively discovering files to check. Use forward slashes (/) as
+# directory separators on all platforms.
+exclude = [
+    "^\\.?venv",  # SEE: https://regex101.com/r/0rp5Br/1
+]
+# This flag tells mypy that top-level packages will be based in either the current
+# directory, or a member of the MYPYPATH environment variable or mypy_path config
+# option. This option is only useful in the absence of __init__.py. See Mapping file
+# paths to modules for details.
+explicit_package_bases = true
+# Specifies the paths to use, after trying the paths from MYPYPATH environment variable.
+# Useful if you'd like to keep stubs in your repo, along with the config file.
+# Multiple paths are always separated with a : or , regardless of the platform.
+# User home directory and environment variables will be expanded.
+mypy_path = "$MYPY_CONFIG_FILE_DIR/src,$MYPY_CONFIG_FILE_DIR/packages/lmi/src"
+# Specifies the OS platform for the target program, for example darwin or win32
+# (meaning OS X or Windows, respectively). The default is the current platform
+# as revealed by Python’s sys.platform variable.
+platform = "linux"
+# Comma-separated list of mypy plugins.
+plugins = ["pydantic.mypy"]
+# Use visually nicer output in error messages: use soft word wrap, show source
+# code snippets, and show error location markers.
+pretty = true
+# Shows column numbers in error messages.
+show_column_numbers = true
+# Shows error codes in error messages.
+# SEE: https://mypy.readthedocs.io/en/stable/error_codes.html#error-codes
+show_error_codes = true
+# Prefixes each error with the relevant context.
+show_error_context = true
+# Warns about casting an expression to its inferred type.
+warn_redundant_casts = true
+# Shows a warning when encountering any code inferred to be unreachable or
+# redundant after performing type analysis.
+warn_unreachable = true
+# Warns about per-module sections in the config file that do not match any
+# files processed when invoking mypy.
+warn_unused_configs = true
+# Warns about unneeded `# type: ignore` comments.
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+# Suppresses error messages about imports that cannot be resolved.
+ignore_missing_imports = true
+# Per-module configuration options
+module = [
+    "accelerate.*",  # SEE: https://github.com/huggingface/accelerate/issues/2396
+    "dask_cuda",
+    "google.cloud.storage",  # SEE: https://github.com/googleapis/python-storage/issues/393
+    "networkx",  # SEE: https://github.com/networkx/networkx/issues/3988
+    "pydot",
+    "transformers.*",  # SEE: https://github.com/huggingface/transformers/pull/18485
+    "tree",  # SEE: https://github.com/google-deepmind/tree/issues/84
+    "vcr.*",  # SEE: https://github.com/kevin1024/vcrpy/issues/780
+]
+
+[tool.pylint]
+
+[tool.pylint.design]
+# Maximum number of attributes for a class (see R0902).
+max-attributes = 12
+
+[tool.pylint.format]
+# Maximum number of characters on a single line.
+max-line-length = 88  # Match ruff line-length
+
+[tool.pylint.main]
+# Files or directories matching the regular expression patterns are skipped.
+# The regex matches against base names, not paths. The default value ignores
+# Emacs file locks
+ignore-patterns = [
+    "^version\\.py$",  # Version files made by setuptools_scm
+]
+# Use multiple processes to speed up Pylint. Specifying 0 will auto-detect the
+# number of processors available to use, and will cap the count on Windows to
+# avoid hangs.
+jobs = 0
+# List of plugins (as comma separated values of python module names) to load,
+# usually to register additional checkers.
+load-plugins = [
+    "pylint_pydantic",
+]
+
+[tool.pylint.messages_control]
+# Disable the message, report, category or checker with the given id(s).
+disable = [
+    "arguments-differ",  # Ops intentionally differ arguments
+    "attribute-defined-outside-init",  # Disagrees with reset pattern
+    "bare-except",  # Rely on ruff E722 for this
+    "broad-exception-caught",  # Rely on ruff BLE001 for this
+    "broad-exception-raised",  # Rely on ruff TRY002 for this
+    "consider-using-in",  # Rely on ruff PLR1714 for this
+    "cyclic-import",  # Let Python blow up
+    "dangerous-default-value",  # Rely on ruff W0102 for this
+    "empty-docstring",  # Let pep257 take care of docstrings
+    "expression-not-assigned",  # Rely on mypy func-returns-value for this
+    "fixme",  # codetags are useful
+    "function-redefined",  # Rely on mypy no-redef for this
+    "global-statement",  # Rely on ruff PLW0603 for this
+    "global-variable-not-assigned",  # Rely on ruff PLW0602 for this
+    "import-outside-toplevel",  # Rely on ruff PLC0415 for this
+    "invalid-name",  # Don't care to enforce this
+    "keyword-arg-before-vararg",  # Rely on ruff B026 for this
+    "line-too-long",  # Rely on ruff E501 for this
+    "logging-fstring-interpolation",  # f-strings are convenient
+    "logging-too-many-args",  # Rely on ruff PLE1205 for this
+    "missing-docstring",  # Let docformatter and ruff take care of docstrings
+    "missing-final-newline",  # Rely on ruff W292 for this
+    "no-else-return",  # Rely on ruff RET506 for this
+    "no-member",  # Buggy, SEE: https://github.com/pylint-dev/pylint/issues/8138
+    "no-value-for-parameter",  # Rely on mypy call-arg for this
+    "non-parent-init-called",  # Don't care to enforce this
+    "not-callable",  # Don't care to enforce this
+    "protected-access",  # Don't care to enforce this
+    "raise-missing-from",  # Rely on ruff B904 for this
+    "redefined-builtin",  # Rely on ruff A002 for this
+    "redefined-outer-name",  # Don't care to enforce this
+    "stop-iteration-return",  # Rely on ruff PLR1708 for this
+    "super-init-not-called",  # Don't care to enforce this
+    "too-few-public-methods",  # Don't care to enforce this
+    "too-many-ancestors",  # Don't care to enforce this
+    "too-many-arguments",  # Don't care to enforce this
+    "too-many-boolean-expressions",  # Rely on ruff PLR0916 for this
+    "too-many-branches",  # Rely on ruff PLR0912 for this
+    "too-many-instance-attributes",  # Don't care to enforce this
+    "too-many-lines",  # Don't care to enforce this
+    "too-many-locals",  # Rely on ruff PLR0914 for this
+    "too-many-nested-blocks",  # Rely on ruff PLR1702 for this
+    "too-many-positional-arguments",  # Rely on ruff PLR0917 for this
+    "too-many-public-methods",  # Rely on ruff PLR0904 for this
+    "too-many-return-statements",  # Rely on ruff PLR0911 for this
+    "too-many-statements",  # Rely on ruff PLR0915 for this
+    "undefined-loop-variable",  # Don't care to enforce this
+    "ungrouped-imports",  # Rely on ruff I001 for this
+    "unidiomatic-typecheck",  # Rely on ruff E721 for this
+    "unnecessary-dict-index-lookup",  # Rely on ruff PLR1733 for this
+    "unreachable",  # Rely on mypy unreachable for this
+    "unspecified-encoding",  # Rely on ruff PLW1514 for this
+    "unsubscriptable-object",  # Buggy, SEE: https://github.com/pylint-dev/pylint/issues/3637
+    "unsupported-membership-test",  # Buggy, SEE: https://github.com/pylint-dev/pylint/issues/3045
+    "unused-argument",  # Rely on ruff ARG002 for this
+    "unused-import",  # Rely on ruff F401 for this
+    "unused-variable",  # Rely on ruff F841 for this
+    "use-sequence-for-iteration",  # Rely on ruff C0208 for this
+    "wrong-import-order",  # Rely on ruff I001 for this
+    "wrong-import-position",  # Rely on ruff E402 for this
+]
+# Enable the message, report, category or checker with the given id(s).
+enable = [
+    "useless-suppression",  # Print unused `pylint: disable` comments
+]
+
+[tool.pylint.reports]
+# Set true to activate the evaluation score.
+score = false
+
+[tool.pylint.similarities]
+# Minimum lines number of a similarity.
+min-similarity-lines = 12
+
+[tool.pymarkdown]
+plugins.line-length.code_block_line_length = 88  # Match ruff line-length
+plugins.line-length.enabled = true
+plugins.line-length.line_length = 120  # Match ruff max-doc-length
+plugins.line-length.stern = true
+plugins.line-length.tables = false
+plugins.no-duplicate-heading.siblings_only = true  # GitHub appends -X for duplicated headings
+plugins.no-emphasis-as-heading.enabled = false
+plugins.no-inline-html.enabled = false
+
+[tool.pytest]
+# Add the specified OPTS to the set of command line arguments as if they had been
+# specified by the user.
+addopts = ["--doctest-modules"]
+# Set to avoid https://github.com/BerriAI/litellm/issues/5854
+asyncio_default_fixture_loop_scope = "session"
+# Sets a list of filters and actions that should be taken for matched warnings.
+# By default all warnings emitted during the test session will be displayed in
+# a summary at the end of the test session.
+filterwarnings = [
+    "ignore:The `dict` method is deprecated; use `model_dump` instead",  # SEE: https://github.com/BerriAI/litellm/issues/5987
+    "ignore:Use 'content=<...>' to upload raw bytes/text content:DeprecationWarning",  # SEE: https://github.com/BerriAI/litellm/issues/5986
+]
+# Timeout in seconds for entire session. Default is None which means no timeout.
+# Timeout is checked between tests, and will not interrupt a test in progress.
+session_timeout = "600"
+# List of directories that should be searched for tests when no specific directories,
+# files or test ids are given in the command line when executing pytest from the rootdir
+# directory. File system paths may use shell-style wildcards, including the recursive **
+# pattern.
+testpaths = ["packages/lmi", "src", "tests"]
+# Timeout in seconds before dumping the stacks. Default is 0 which means no timeout.
+timeout = "120"
+
+[tool.refurb]
+enable_all = true
+ignore = [
+    "FURB101",  # Rely on ruff FURB101 for this
+    "FURB103",  # Rely on ruff FURB103 for this
+    "FURB108",  # Rely on ruff PLR1714 for this
+    "FURB118",  # We often use inspect.signature in FxnOp. In 3.11, this doesn't work on operator.itemgetter.
+    "FURB141",  # Rely on ruff PTH110 for this
+    "FURB144",  # Rely on ruff PTH107 for this
+    "FURB146",  # Rely on ruff PTH113 for this
+    "FURB147",  # Rely on ruff PTH118 for this
+    "FURB150",  # Rely on ruff PTH102 for this
+    "FURB155",  # Rely on ruff PTH202 for this
+]
+
+[tool.ruff]
+# Line length to use when enforcing long-lines violations (like `E501`).
+line-length = 88
+# Enable application of unsafe fixes.
+unsafe-fixes = true
+
+[tool.ruff.format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true
+# Enable preview style formatting.
+preview = true
+
+[tool.ruff.lint]
+explicit-preview-rules = true
+extend-select = [
+    "AIR003",
+    "AIR303",
+    "AIR304",
+    "AIR321",
+    "B043",
+    "B901",
+    "B903",
+    "B909",
+    "CPY001",
+    "D420",
+    "DOC102",
+    "DOC201",
+    "DOC202",
+    "DOC402",
+    "DOC403",
+    "DOC501",
+    "DOC502",
+    "E111",
+    "E112",
+    "E113",
+    "E114",
+    "E115",
+    "E116",
+    "E117",
+    "E201",
+    "E202",
+    "E203",
+    "E204",
+    "E211",
+    "E221",
+    "E222",
+    "E223",
+    "E224",
+    "E225",
+    "E226",
+    "E227",
+    "E228",
+    "E231",
+    "E241",
+    "E242",
+    "E251",
+    "E252",
+    "E261",
+    "E262",
+    "E265",
+    "E266",
+    "E271",
+    "E272",
+    "E273",
+    "E274",
+    "E275",
+    "E301",
+    "E302",
+    "E303",
+    "E304",
+    "E305",
+    "E306",
+    "E502",
+    "FURB101",
+    "FURB103",
+    "FURB113",
+    "FURB118",
+    "FURB131",
+    "FURB140",
+    "FURB142",
+    "FURB145",
+    "FURB148",
+    "FURB152",
+    "FURB154",
+    "FURB156",
+    "FURB164",
+    "FURB180",
+    "FURB189",
+    "FURB192",
+    "ISC004",
+    "LOG004",
+    "PLC1901",
+    "PLC2701",
+    "PLC2801",
+    "PLE0304",
+    "PLE1141",
+    "PLE4703",
+    "PLR0202",
+    "PLR0203",
+    "PLR0904",
+    "PLR0914",
+    "PLR0916",
+    "PLR0917",
+    "PLR1702",
+    "PLR1708",
+    "PLR1712",
+    "PLR6104",
+    "PLR6201",
+    "PLR6301",
+    "PLW0244",
+    "PLW1514",
+    "PLW3201",
+    "PT029",
+    "RUF027",
+    "RUF029",
+    "RUF031",
+    "RUF036",
+    "RUF038",
+    "RUF039",
+    "RUF045",
+    "RUF047",
+    "RUF052",
+    "RUF054",
+    "RUF055",
+    "RUF056",
+    "RUF063",
+    "RUF065",
+    "RUF066",
+    "RUF067",
+    "RUF068",
+    "RUF069",
+    "RUF070",
+    "RUF071",
+    "TC008",
+    "TID254",
+    "W391",
+]
+external = [
+    "FURB",  # refurb
+]
+# List of rule codes that are unsupported by Ruff, but should be preserved when
+# (e.g.) validating # noqa directives. Useful for retaining # noqa directives
+# that cover plugins not yet implemented by Ruff.
+ignore = [
+    "A005",  # Overly pedantic
+    "ANN",  # Don't care to enforce typing
+    "ARG002",  # Thrown all the time when we are subclassing
+    "ARG003",  # Thrown all the time when we are subclassing
+    "ASYNC109",  # Buggy, SEE: https://github.com/astral-sh/ruff/issues/12353
+    "ASYNC2",  # It's ok to mix async and sync ops (like opening a file)
+    "B027",  # Very common to have an empty method in a base class
+    "BLE001",  # Don't care to enforce blind exception catching
+    "COM812",  # Trailing comma with black leads to wasting lines
+    "CPY001",  # Don't care to require copyright notices in every file
+    "D100",  # D100, D101, D102, D103, D104, D105, D106, D107: don't always need docstrings
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    "D203",  # Keep docstring next to the class definition (covered by D211)
+    "D212",  # Summary should be on second line (opposite of D213)
+    "D402",  # It's nice to reuse the method name
+    "D406",  # Google style requires ":" at end
+    "D407",  # We aren't using numpy style
+    "D413",  # Blank line after last section. -> No blank line
+    "DOC201",  # Don't care to require Returns in docstrings
+    "DOC402",  # Don't care to require Yields in docstrings
+    "DOC501",  # Don't care to require Raises in docstrings
+    "DTZ",  # Don't care to have timezone safety
+    "EM",  # Overly pedantic
+    "ERA001",  # Don't care to prevent commented code
+    "FBT001",  # FBT001, FBT002: overly pedantic
+    "FBT002",
+    "FIX",  # Don't care to prevent TODO, FIXME, etc.
+    "FLY002",  # Can be less readable
+    "G004",  # f-strings are convenient
+    "INP001",  # Can use namespace packages
+    "ISC001",  # For ruff format compatibility
+    "N803",  # Allow matching math formula names/conventions
+    "N806",  # Allow matching math formula names/conventions
+    "PLC0415",  # Don't care to prevent imports outside of top-level
+    "PLR0912",  # Allow us to have lots of branches
+    "PLR0913",
+    "PLR0914",  # Don't care to enforce this
+    "PLR0917",  # Don't care to enforce this
+    "PLR6104",  # Moving to __iadd__ risks ldp graph manipulation
+    "PLR6301",  # Don't care to enforce this
+    "PLW2901",  # Allow modifying loop variables
+    "PTH",  # Overly pedantic
+    "RUF027",  # Prompt templates may not be f-strings
+    "RUF067",  # Don't care to prevent code in __init__.py
+    "RUF069",  # We are okay with floating point equality
+    "S101",  # Don't care to prevent asserts
+    "S105",  # Duplicates Yelp/detect-secrets in pre-commit
+    "S311",  # Ok to use python random
+    "SLF001",  # Overly pedantic
+    "T201",  # Overly pedantic
+    "TC001",  # TC001, TC002, TC003: don't care to enforce type checking blocks
+    "TC002",
+    "TC003",
+    "TC006",  # Strings in cast don't work with PyCharm CE 2024.3.4's jump-to-definition
+    "TD002",  # Don't care for TODO author
+    "TD003",  # Don't care for TODO links
+    "TRY003",  # Overly pedantic
+]
+preview = true
+select = ["ALL"]
+unfixable = [
+    "B007",  # While debugging, unused loop variables can be useful
+    "B905",  # Default fix is zip(strict=False), but that can hide bugs
+    "ERA001",  # While debugging, temporarily commenting code can be useful
+    "F401",  # While debugging, unused imports can be useful
+    "F841",  # While debugging, unused locals can be useful
+    "PIE794",  # Autoremoving the latter of two fields is dangerous
+    "RUF059",  # While debugging, unused locals can be useful
+    "TC004",  # While debugging, it can be nice to keep TYPE_CHECKING in-tact
+]
+
+[tool.ruff.lint.flake8-annotations]
+mypy-init-return = true
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*.py" = [
+    "E501",  # Tests can have long strings
+    "F841",  # Tests can have unused locals
+    "N802",  # Tests function names can match class names
+    "PLC2701",  # Test can import private names if needed
+    "PLR0904",  # Test classes can have many cases
+    "PLR2004",  # Tests can have magic values
+    "PLR6301",  # Test classes can ignore self
+    "S101",  # Tests can have assertions
+    "S301",  # Tests can have pickle
+]
+"docs/**.ipynb" = [
+    "PLE1142",  # allow async
+    "PLR2004",  # allow magic values
+]
+
+[tool.ruff.lint.pycodestyle]
+# The maximum line length to allow for line-length violations within
+# documentation (W505), including standalone comments.
+max-doc-length = 120
+# The maximum line length to allow for line-too-long violations. By default,
+# this is set to the value of the line-length option.
+max-line-length = 120
+
+[tool.ruff.lint.pydocstyle]
+# Whether to use Google-style or NumPy-style conventions or the PEP257
+# defaults when analyzing docstring sections.
+convention = "google"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+version_file = "src/ldp/version.py"
+
+[tool.tomlsort]
+all = true
+in_place = true
+spaces_before_inline_comment = 2  # Match Python PEP 8
+spaces_indent_inline_array = 4  # Match Python PEP 8
+trailing_comma_inline_array = true
+
+[tool.uv.sources]
+fhlmi = {workspace = true}
+ldp = {workspace = true}
+
+[tool.uv.workspace]
+members = ["packages/*"]

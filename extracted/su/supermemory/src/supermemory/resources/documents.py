@@ -14,6 +14,7 @@ from ..types import (
     document_batch_add_params,
     document_delete_bulk_params,
     document_upload_file_params,
+    document_list_processing_params,
 )
 from .._files import deepcopy_with_paths
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, FileTypes, SequenceNotStr, omit, not_given
@@ -538,6 +539,10 @@ class DocumentsResource(SyncAPIResource):
     def list_processing(
         self,
         *,
+        container_tags: str | Omit = omit,
+        limit: Union[str, float] | Omit = omit,
+        page: Union[str, float] | Omit = omit,
+        view: Literal["active", "all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -545,11 +550,45 @@ class DocumentsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DocumentListProcessingResponse:
-        """Get documents that are currently being processed"""
+        """Get documents that are currently being processed.
+
+        Default `view=active` is the
+        live in-flight queue. `view=all` also includes failed and stuck documents.
+
+        Args:
+          container_tags: Comma-separated container tags to filter by
+
+          limit: Number of items per page. Used with `view=all`.
+
+          page: Page number to fetch. Used with `view=all`.
+
+          view: `active` returns in-flight documents updated in the last 4 hours. `all` also
+              includes failed and stuck documents.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
         return self._get(
             "/v3/documents/processing",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "container_tags": container_tags,
+                        "limit": limit,
+                        "page": page,
+                        "view": view,
+                    },
+                    document_list_processing_params.DocumentListProcessingParams,
+                ),
             ),
             cast_to=DocumentListProcessingResponse,
         )
@@ -1167,6 +1206,10 @@ class AsyncDocumentsResource(AsyncAPIResource):
     async def list_processing(
         self,
         *,
+        container_tags: str | Omit = omit,
+        limit: Union[str, float] | Omit = omit,
+        page: Union[str, float] | Omit = omit,
+        view: Literal["active", "all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1174,11 +1217,45 @@ class AsyncDocumentsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DocumentListProcessingResponse:
-        """Get documents that are currently being processed"""
+        """Get documents that are currently being processed.
+
+        Default `view=active` is the
+        live in-flight queue. `view=all` also includes failed and stuck documents.
+
+        Args:
+          container_tags: Comma-separated container tags to filter by
+
+          limit: Number of items per page. Used with `view=all`.
+
+          page: Page number to fetch. Used with `view=all`.
+
+          view: `active` returns in-flight documents updated in the last 4 hours. `all` also
+              includes failed and stuck documents.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
         return await self._get(
             "/v3/documents/processing",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {
+                        "container_tags": container_tags,
+                        "limit": limit,
+                        "page": page,
+                        "view": view,
+                    },
+                    document_list_processing_params.DocumentListProcessingParams,
+                ),
             ),
             cast_to=DocumentListProcessingResponse,
         )

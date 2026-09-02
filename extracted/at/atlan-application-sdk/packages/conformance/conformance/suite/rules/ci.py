@@ -1,0 +1,200 @@
+"""CI/workflow supply-chain rule definitions (C-series)."""
+
+from __future__ import annotations
+
+from conformance.suite.schema.catalog import RuleDefinition
+from conformance.suite.schema.disposition import (
+    EnforcementTier,
+    RuleMechanism,
+    RuleScope,
+)
+
+RULES: tuple[RuleDefinition, ...] = (
+    RuleDefinition(
+        id="C001",
+        scope=RuleScope.BOTH,
+        name="UnpinnedActionReference",
+        tier=EnforcementTier.BLOCK,
+        mechanism=RuleMechanism.STATIC,
+        category="supply-chain",
+        autofixable=True,
+        orthogonal_gate="skip",
+        forces_external_influence=True,
+        since="0.2.0",
+        rationale=(
+            "A mutable tag (@v4) can be silently re-pointed to any commit after review — "
+            "including malicious code — with no notification to the consumer. Pinning to a "
+            "full commit SHA makes the action content immutable: the code reviewed is the "
+            "code that runs. "
+            "Customer impact: the CI these actions run builds and publishes the images "
+            "deployed into customer tenants — a re-pointed tag is a supply-chain path for "
+            "unreviewed code to reach every customer environment, or to exfiltrate the "
+            "publishing credentials that sign what customers run."
+        ),
+        short_description="External GitHub Action not pinned to a full commit digest",
+        full_description=(
+            "External actions reused via `uses:` must be pinned to a full-length "
+            "commit SHA (digest), never a mutable tag (@v4) or branch (@main). A "
+            "tag can be re-pointed to malicious code after review. Actions in the "
+            "`atlanhq/` org are exempt (they intentionally track @main); local "
+            "`./` composite-action refs are exempt (no version to pin)."
+        ),
+        help_uri="https://github.com/atlanhq/application-sdk/blob/main/conformance/docs/rules/ci.md#c001",
+    ),
+    RuleDefinition(
+        id="C002",
+        scope=RuleScope.APP,
+        name="BootstrapWorkflowDrift",
+        tier=EnforcementTier.WARN,
+        mechanism=RuleMechanism.STATIC,
+        category="ci-consistency",
+        autofixable=True,
+        orthogonal_gate="skip",
+        since="0.3.0",
+        rationale=(
+            "Managed CI workflows enforce fleet-wide guarantees: uniform security scanning, "
+            "consistent release gating, current conformance checks. Drift means an app runs "
+            "an older workflow that may lack a recently-added security gate or use a "
+            "deprecated step — invisible until exploited or until the step fails."
+        ),
+        short_description="Managed CI workflow is absent or has drifted from the bootstrap canonical",
+        full_description=(
+            "The `atlan-application-sdk-conformance bootstrap` command installs a "
+            "standard set of CI workflow shims into `.github/workflows/`. This rule "
+            "flags any managed file that is missing or whose content has diverged "
+            "from what `bootstrap` would write, plus any *retired* shim still "
+            "present — one `bootstrap` once installed fleet-wide and now deletes, "
+            "which until it does keeps firing on every PR with nothing behind it. "
+            "Re-run `bootstrap` to re-sync (the same bare re-run removes a retired "
+            "file); structural drift is flagged while intentional per-repo value "
+            "choices (e.g. `unit_tests_workflow_file`) are preserved. "
+            "The exceptions are `tests.yaml` and `renovate.json`, write-if-absent "
+            "scaffolds a bare re-run never rewrites — pass `--resync` to pull their "
+            "structure forward, which likewise preserves each file's recognized "
+            "per-repo values (tests.yaml's app-name, app-image-name, enable-e2e, "
+            "services-script, unit-coverage-fail-under, force-external-runtime "
+            "and any explicit `secrets:` mapping; renovate.json's "
+            "auto-merge mode).\n\n"
+            "`--resync` refuses rather than downgrading. A re-render replaces the "
+            "whole file, so anything the canonical template has no place for would "
+            "be deleted; when a `tests.yaml` declares such a thing (an extra job "
+            "whose name branch protection requires, say), `--resync` leaves the "
+            "file untouched and names what it would have lost, and this rule's "
+            "finding says the same so the recommended remediation cannot silently "
+            "decline. The two values that made this necessary were a "
+            "`force-external-runtime: true` (its loss makes the app boot into "
+            "`DaprNotDetectedError`) and an explicit `secrets:` mapping silently "
+            "downgraded to `secrets: inherit` (which can neither compose nor rename, "
+            "so it cannot populate the per-connector `E2E_SOURCE_ENV_JSON` the "
+            "integration and e2e tiers read) — both now preserved, and neither "
+            "failed anywhere near the resync: CI reddened two tiers later with what "
+            "read as a source-system credential error.\n\n"
+            "Two recognized values are app-owned opt-*ups*, allowed so an app doing "
+            "the better thing does not report as drifted. `tests.yaml`'s "
+            "`unit-coverage-fail-under` may raise the app's unit-test coverage floor "
+            "above the floor `tests-reusable.yaml` applies by default, on the "
+            "scaffold and across `--resync` alike; a value *below* the SDK floor is "
+            "still drift (an app may not use its own workflow to duck under a "
+            "fleet-wide bar), the finding names the line, and `--resync` removes it "
+            "so the app inherits the SDK floor. Whether the resulting floor is high "
+            "enough to ever fail a run is T014's question, not this rule's. "
+            "`build-and-publish.yaml`'s `use_ghcr_base` may self-select the GHCR "
+            "base-image redirect ahead of the SDK-side default flipping; because "
+            "that shim IS always-overwrite, `bootstrap` also reads the opt-in back "
+            "off the file and re-renders it rather than silently reverting the app "
+            "to Harbor. Set it with `--use-ghcr-base` or by hand; pass "
+            "`--use-ghcr-base false` to remove it."
+        ),
+        help_uri="https://github.com/atlanhq/application-sdk/blob/main/conformance/docs/rules/ci.md#c002",
+    ),
+    RuleDefinition(
+        id="C003",
+        scope=RuleScope.BOTH,
+        name="GitignoreMissingEntry",
+        tier=EnforcementTier.WARN,
+        mechanism=RuleMechanism.STATIC,
+        category="ci-consistency",
+        # False rather than a per-finding-shape split: this ID covers two
+        # cases with different remediability (see full_description) — the
+        # absent-file case is mechanically fixed by `bootstrap`, but the
+        # far more common missing-entry case is judgment-only and routes to
+        # residue. `autofixable` is a single per-rule bool (no schema
+        # support for "some findings under this ID are, some aren't"), so
+        # it's set to the conservative/majority-case value rather than a
+        # value that would overstate what most C003 findings actually get.
+        autofixable=False,
+        orthogonal_gate="skip",
+        since="0.4.0",
+        rationale=(
+            "A .gitignore that is missing standard entries risks accidentally committing "
+            "secrets, virtual environments, build artefacts, or IDE noise — each of which "
+            "has caused incidents or review friction. The standard set is the minimal "
+            "baseline every app repo should carry."
+        ),
+        short_description=".gitignore is absent or missing a standard required entry",
+        full_description=(
+            "The `atlan-application-sdk-conformance bootstrap` command scaffolds a "
+            "standard .gitignore when the file is absent. This rule flags any required "
+            "entry that is missing from the file. One finding is emitted per missing "
+            "entry so each can be triaged or suppressed independently. "
+            "Equivalences are respected: `.venv` covers `.venv/`, and "
+            "`**/node_modules/**` covers `node_modules/`. "
+            "Both absent-file and missing-entry findings are WARN only — the file is "
+            "app-editable and must never block CI. "
+            "Note on autofixable: only the absent-`.gitignore` case is mechanically "
+            "fixed (via the same `bootstrap` re-sync as C002); a missing-entry finding "
+            "on an existing `.gitignore` always requires human judgment and is not "
+            "autofixed, which is why this rule's `autofixable` is false overall."
+        ),
+        help_uri="https://github.com/atlanhq/application-sdk/blob/main/conformance/docs/rules/ci.md#c003",
+    ),
+    RuleDefinition(
+        id="C004",
+        scope=RuleScope.BOTH,
+        name="UnretriedToolDownload",
+        tier=EnforcementTier.WARN,
+        mechanism=RuleMechanism.STATIC,
+        category="ci-reliability",
+        # Not autofixable: the right remediation differs per site — wrap in
+        # with-retry.sh, add curl/wget retry flags, or (best) stop downloading
+        # and take the tool from the runner cache. Picking between those is a
+        # judgment call, so findings route to residue rather than a mechanical fix.
+        autofixable=False,
+        orthogonal_gate="skip",
+        since="0.18.0",
+        rationale=(
+            "CI that installs its toolchain at job time takes a live dependency on a "
+            "third-party CDN every run, and those CDNs serve 5xx bursts lasting minutes. "
+            "A one-shot fetch turns a transient upstream blip into a failed build — and "
+            "on a merge-queue-gating job, into an ejected PR that costs a full re-queue. "
+            "The remediation is almost always a single flag."
+        ),
+        short_description="CI downloads a tool over the network with no retry",
+        full_description=(
+            "Flags a `curl`/`wget` that installs something — it writes the response to "
+            "a file or pipes it into a shell or `tar` — and carries no retry, plus "
+            "`uv python install`, which fetches a python-build-standalone tarball from "
+            "GitHub releases with no retry of its own.\n\n"
+            "Recognised as retried: the `with-retry.sh` wrapper (including via a shell "
+            "variable holding its path), `curl --retry`, and `wget --tries` / "
+            "`--retry-on-http-error`. A `curl --retry` WITHOUT `--retry-all-errors` is "
+            "still flagged: plain `--retry` covers transport errors but not an HTTP 503, "
+            "which is the failure this rule exists for. Tuning-only companion flags "
+            "(`curl --retry-delay` / `--retry-max-time`, `wget --waitretry`) never count "
+            "on their own: they pace a retry but do not enable one — "
+            "`wget --waitretry=10` without `--tries` still makes exactly one attempt. Flags "
+            "are evaluated per command segment (split on `&&` / `||` / `;`; a pipe does "
+            "not split), so one curl's complete retry does not excuse a sibling curl's "
+            "incomplete one.\n\n"
+            "Not flagged: fetches whose body is read rather than installed (a version "
+            "lookup, a `-o /dev/null` health probe — those sit in their own poll loops), "
+            "and localhost URLs.\n\n"
+            "WARN, not BLOCK: existing repos carry these throughout, and a one-shot "
+            "fetch is a reliability defect rather than a security or correctness one. "
+            "The best fix is often not a retry at all but removing the download — "
+            "taking the tool from the runner tool cache, or from "
+            "`atlanhq/application-sdk/.github/actions/setup-deps@main`."
+        ),
+        help_uri="https://github.com/atlanhq/application-sdk/blob/main/conformance/docs/rules/ci.md#c004",
+    ),
+)

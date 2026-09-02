@@ -1,5 +1,17 @@
+from __future__ import annotations
+
 import time
-from typing import Dict, Tuple, List, Optional, Any, Union, Sequence, BinaryIO
+from typing import (
+    Dict,
+    Tuple,
+    List,
+    Optional,
+    Any,
+    Union,
+    Sequence,
+    BinaryIO,
+    TYPE_CHECKING,
+)
 import pandas
 
 try:
@@ -25,8 +37,6 @@ from databricks.sql.exc import (
     DatabaseError,
 )
 
-from databricks.sql.thrift_api.TCLIService import ttypes
-from databricks.sql.backend.thrift_backend import ThriftDatabricksClient
 from databricks.sql.backend.databricks_client import DatabricksClient
 from databricks.sql.utils import (
     ParamEscaper,
@@ -49,7 +59,7 @@ from databricks.sql.parameters.native import (
     ParameterApproach,
 )
 
-from databricks.sql.result_set import ResultSet, ThriftResultSet
+from databricks.sql.result_set import ResultSet
 from databricks.sql.types import Row, SSLOptions
 from databricks.sql.auth.auth import get_python_sql_connector_auth_provider
 from databricks.sql.experimental.oauth_persistence import OAuthPersistence
@@ -60,11 +70,18 @@ from databricks.sql.auth.common import ClientContext
 from databricks.sql.common.unified_http_client import UnifiedHttpClient
 from databricks.sql.common.http import HttpMethod
 
-from databricks.sql.thrift_api.TCLIService.ttypes import (
-    TOpenSessionResp,
-    TSparkParameter,
-    TOperationState,
-)
+if TYPE_CHECKING:
+    # Type-annotation-only imports (deferred by ``from __future__ import
+    # annotations``). ``get_protocol_version`` and ``_prepare_native_parameters``
+    # are typed with these Thrift-generated types, but the Thrift backend and
+    # its result set are imported lazily (only on the Thrift connect path), so
+    # importing this module -- and connecting with the SEA or kernel backend --
+    # never imports the Apache Thrift ``thrift`` package. See
+    # ``test_lazy_thrift_import``.
+    from databricks.sql.thrift_api.TCLIService.ttypes import (
+        TOpenSessionResp,
+        TSparkParameter,
+    )
 from databricks.sql.telemetry.telemetry_client import (
     TelemetryHelper,
     TelemetryClientFactory,
@@ -95,6 +112,33 @@ NO_NATIVE_PARAMS: List = []
 TRANSACTION_ISOLATION_LEVEL_REPEATABLE_READ = "REPEATABLE_READ"
 
 
+def __getattr__(name: str) -> Any:
+    """Lazily resolve Thrift-related names that ``client.py`` used to expose as
+    real top-level imports.
+
+    ``client.py`` itself never instantiates these (the backend is chosen in
+    ``Session.open``), but they are resolved here as module attributes so
+    ``from databricks.sql.client import <name>`` keeps working for any existing
+    caller -- and the ``patch("databricks.sql.client.ThriftDatabricksClient")``
+    test seam is preserved -- without importing the Apache Thrift ``thrift``
+    package at module load, which is what keeps the SEA/kernel connect path
+    Thrift-free (see ``test_lazy_thrift_import``).
+    """
+    if name == "ThriftDatabricksClient":
+        from databricks.sql.backend.thrift_backend import ThriftDatabricksClient
+
+        return ThriftDatabricksClient
+    if name == "ThriftResultSet":
+        from databricks.sql.result_set import ThriftResultSet
+
+        return ThriftResultSet
+    if name in ("TOpenSessionResp", "TSparkParameter", "TOperationState"):
+        from databricks.sql.thrift_api.TCLIService import ttypes
+
+        return getattr(ttypes, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 class Connection:
     def __init__(
         self,
@@ -117,19 +161,33 @@ class Connection:
             :param use_sea: `bool`, optional (default is False)
                 Use the native pure-Python SEA backend instead of
                 the Thrift backend.
+
+                Deprecated and incomplete — this backend has feature
+                gaps (e.g. it does not support positional ``?``
+                parameter binding) and is slated for removal. For a
+                SEA-native connection use ``use_kernel=True`` instead,
+                which is the supported path.
             :param use_kernel: `bool`, optional (default is False)
                 Route the connection through the Rust kernel
-                (``databricks-sql-kernel`` via PyO3). Requires the
-                kernel extension to be installed separately — the
-                wheel is not yet published on PyPI, so today the
-                only supported install path is a local
-                ``maturin develop --release`` build from the
-                ``databricks-sql-kernel`` repo into the same venv.
-                Raises ``ImportError`` if the extension is not
-                available. In active development — PAT auth only
-                today; OAuth / federation / external credentials
-                and native parameter binding land in follow-ups.
-                Mutually exclusive with ``use_sea``.
+                (``databricks-sql-kernel`` via PyO3), a SEA-native
+                client. Requires the kernel extension, installed via
+                the ``[kernel]`` extra:
+                ``pip install 'databricks-sql-connector[kernel]'``.
+                Needs Python >= 3.10; on older interpreters the extra
+                is a no-op and ``use_kernel=True`` raises a clear
+                ``ImportError``. Supports PAT, OAuth M2M, and OAuth
+                U2M auth, and native (positional and named) parameter
+                binding. Mutually exclusive with ``use_sea``.
+
+                Telemetry note: on the kernel path telemetry is
+                strictly opt-in. An explicit ``enable_telemetry=True``
+                turns telemetry on unconditionally; it is NOT gated by
+                the server-side ``enableTelemetryForPythonDriver``
+                feature flag that applies on the Thrift/SEA paths. When
+                ``enable_telemetry`` is unset the kernel owns the enable
+                decision. This is an intentional divergence from the
+                Thrift/SEA paths, where an explicit ``True`` can still
+                be suppressed by the feature flag.
             :param use_hybrid_disposition: `bool`, optional (default is False)
                 Use the hybrid disposition instead of the inline disposition.
             :param server_hostname: Databricks instance host name.
@@ -169,6 +227,10 @@ class Connection:
             oauth_redirect_port: `int`, optional
                 port of the oauth redirect uri (localhost). This is required when custom oauth client_id
                 `oauth_client_id` is set
+
+            identity_federation_client_id: `str`, optional
+                Service-principal client ID for mandatory SP-wide workload identity
+                token exchange. Supported by both the default and kernel backends.
 
             user_agent_entry: `str`, optional
                 A custom tag to append to the User-Agent header. This is typically used by partners to identify their applications.. If not specified, it will use the default user agent PyDatabricksSqlConnector
@@ -217,6 +279,23 @@ class Connection:
                             experimental_oauth_persistence=DevOnlyFilePersistence("~/dev-oauth.json")
                         )
                 ```
+            :param oauth_token_cache_enabled: `bool | None`, optional (default is None)
+                **Kernel-only, U2M-only.** Controls whether the kernel persists OAuth U2M
+                refresh tokens to disk (AES-256 encrypted). The cache lives in the
+                OS config directory: `~/Library/Application Support/databricks-sql-kernel/oauth/`
+                on macOS, `~/.config/databricks-sql-kernel/oauth/` on Linux.
+                When unset (None, the default), the connector treats this as False and
+                forwards `token_cache_enabled=False` to the kernel, so on-disk caching is
+                disabled by default — matching the Thrift posture and avoiding silently
+                writing tokens to disk. Callers must opt in explicitly to enable persistence.
+                When True, enables persistent on-disk token cache; when False (or unset),
+                tokens are held in memory only and the user must re-authenticate when the
+                process restarts.
+                Has no effect on the Thrift backend, which maintains its own token
+                lifecycle via `experimental_oauth_persistence`. This parameter is distinct
+                from the Thrift-only `experimental_oauth_persistence` — this controls the
+                kernel's built-in encrypted storage, whereas `experimental_oauth_persistence`
+                is a pluggable callback interface for Thrift-path custom storage.
             :param _use_arrow_native_complex_types: `bool`, optional
                 Controls whether a complex type field value is returned as a string or as a native Arrow type. Defaults to True.
                 When True:
@@ -265,8 +344,10 @@ class Connection:
         # _retry_stop_after_attempts_count
         #  The maximum number of attempts during a request retry sequence (defaults to 24)
         # _socket_timeout
-        #  The timeout in seconds for socket send, recv and connect operations. Defaults to None for
-        #  no timeout. Should be a positive float or integer.
+        #  On Thrift, the timeout in seconds for socket send, recv and connect
+        #  operations. On the kernel path, a positive value is the total HTTP
+        #  request deadline. Kernel values of None or 0 select its 120-second
+        #  default; 0 is neither unlimited nor an immediate timeout.
         # _disable_pandas
         #  In case the deserialisation through pandas causes any issues, it can be disabled with
         #  this flag.
@@ -331,8 +412,12 @@ class Connection:
             )
             self.session.open()
         except Exception as e:
-            # Respect user's telemetry preference even during connection failure
-            enable_telemetry = kwargs.get("enable_telemetry", True)
+            # Respect user's telemetry preference even during connection failure.
+            # For use_kernel connections the kernel owns telemetry, so suppress
+            # the wrapper-side failure log to avoid wrapper-vs-kernel duplication.
+            enable_telemetry = kwargs.get("enable_telemetry", True) and not kwargs.get(
+                "use_kernel", False
+            )
             TelemetryClientFactory.connection_failure_log(
                 error_name="Exception",
                 error_message=str(e),

@@ -8,6 +8,29 @@ from typing import Any, AsyncGenerator, Dict, Generator, Literal, Optional, Unio
 
 import httpx
 
+# Signed on POST /file presigns until BlockPublicAcls is enabled. Prefer
+# upload_headers from the JSON when a newer file-access build sends them.
+_DEFAULT_UPLOAD_PUT_HEADERS = {
+    "Content-Type": "application/octet-stream",
+    "x-amz-acl": "public-read",
+}
+
+
+def put_headers_for_upload(upload_info: dict) -> dict[str, str]:
+    """Headers for the presigned PUT.
+
+    Uses ``upload_headers`` from POST /file when present so the client
+    stays aligned with whatever the server signed. Otherwise keep the
+    legacy Content-Type + public-read ACL pair.
+    """
+    raw = upload_info.get("upload_headers")
+    if isinstance(raw, dict) and raw:
+        headers = {str(k): str(v) for k, v in raw.items() if v is not None}
+        if not any(k.lower() == "content-type" for k in headers):
+            headers["Content-Type"] = "application/octet-stream"
+        return headers
+    return dict(_DEFAULT_UPLOAD_PUT_HEADERS)
+
 ###############################################################################
 #                          RESPONSE WRAPPER CLASSES
 ###############################################################################
@@ -516,15 +539,11 @@ class AsyncCodewordsClient:
         upload_uri = upload_info["upload_uri"]
         download_uri = upload_info["download_uri"]
 
-        # Upload the file to the provided URI
         async with httpx.AsyncClient(timeout=600) as client:
             response = await client.put(
                 upload_uri,
                 content=file_content,
-                headers={
-                    "Content-Type": "application/octet-stream",
-                    "x-amz-acl": "public-read"
-                }
+                headers=put_headers_for_upload(upload_info),
             )
             response.raise_for_status()
 
@@ -1073,15 +1092,11 @@ class CodewordsClient:
         upload_uri = upload_info["upload_uri"]
         download_uri = upload_info["download_uri"]
 
-        # Upload the file to the provided URI
         with httpx.Client() as client:
             response = client.put(
                 upload_uri,
                 content=file_content,
-                headers={
-                    "Content-Type": "application/octet-stream",
-                    "x-amz-acl": "public-read"
-                }
+                headers=put_headers_for_upload(upload_info),
             )
             response.raise_for_status()
 

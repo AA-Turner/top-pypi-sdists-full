@@ -1,0 +1,100 @@
+import importlib.metadata
+import importlib.resources
+import subprocess
+import sys
+from pathlib import Path
+
+import packaging.requirements
+from sphinx.domains.python import PythonDomain
+
+# needs_sphinx = '1.6'
+
+
+def _generate_env_vars_table():
+    """Run list_env_setting.py and capture RST output."""
+    docs_dir = Path(__file__).parent
+    generated_env_vars_file = docs_dir / '_generated_env_vars.md'
+    result = subprocess.run(
+        [sys.executable, str(docs_dir / 'list_env_settings.py'),
+         str(docs_dir.parent)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    generated_env_vars_file.write_text(result.stdout)
+
+
+_generate_env_vars_table()
+
+# Get package imports and version
+_girder_package = importlib.metadata.distribution('girder')
+_girder_client_package = importlib.metadata.distribution('girder_client')
+_girder_version = _girder_package.version
+_girder_imports = {
+    packaging.requirements.Requirement(_requirement).name.lower()
+    for _package in [_girder_package, _girder_client_package]
+    for _requirement in _package.requires
+}
+_girder_imports |= {
+    'botocore',
+    'bson',
+    'dateutil',
+    'dogpile',
+    'requests_toolbelt',
+    'yaml'
+}
+
+# Set Sphinx variables
+master_doc = 'index'
+
+project = 'Girder'
+copyright = '2014-2026, Kitware, Inc.'
+release = _girder_version
+version = '.'.join(release.split('.')[:2])
+
+html_static_path = ['static']
+html_theme = 'sphinx_rtd_theme'
+html_css_files = ['custom.css']
+html_favicon = 'favicon.ico'
+
+latex_documents = [
+    ('index', 'Girder.tex', 'Girder Documentation', 'Kitware, Inc.', 'manual'),
+]
+
+# Setup Sphinx extensions (and associated variables)
+extensions = [
+    'myst_parser',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.viewcode',
+    'sphinxcontrib.jquery',
+    'sphinx_llm.txt',
+]
+
+autodoc_mock_imports = list(_girder_imports)
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+}
+
+myst_enable_extensions = ['deflist']
+
+# Override the resolution of some targets
+
+
+class PatchedPythonDomain(PythonDomain):
+    def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
+        # References to "list" may ambiguously resolve to several Girder methods named "list",
+        # instead of just the built-in Python 'list' (due to the mechanism described at
+        # http://www.sphinx-doc.org/en/stable/domains.html#role-py:obj ). This results in incorrect
+        # xrefs and causes Sphinx to emit warnings. So, rather than require all references to
+        # explicitly name ":py:obj:`list`", override this method to do the right thing.
+        if target == 'list':
+            # References to built-in symbols natively return None
+            return None
+        return super().resolve_xref(
+            env, fromdocname, builder, typ, target, node, contnode)
+
+
+def setup(sphinx):
+    sphinx.add_domain(PatchedPythonDomain, override=True)

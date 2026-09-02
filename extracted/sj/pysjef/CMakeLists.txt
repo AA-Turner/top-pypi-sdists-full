@@ -1,0 +1,131 @@
+cmake_minimum_required(VERSION 3.15)
+project(sjef LANGUAGES CXX C)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+include(FetchContent)
+FetchContent_Declare(
+        LibraryManager
+        GIT_REPOSITORY https://github.com/molpro/library-manager.git
+        GIT_TAG 71c0165d48924610b65edbfbd99e336bfc7909df
+)
+FetchContent_MakeAvailable(LibraryManager)
+
+LibraryManager_Project(DEFAULT_VERSION "$Format:%(describe:tags)$")
+message(VERBOSE "PROJECT_VERSION=${PROJECT_VERSION}")
+message(VERBOSE "PROJECT_VERSION_FULL=${PROJECT_VERSION_FULL}")
+
+option(BUILD_TESTS "Whether to build tests or not" OFF)
+option(BUILD_PROGRAM "Whether to build sjef command-line program or not" ON)
+
+project(sjef LANGUAGES CXX C VERSION ${PROJECT_VERSION})
+set(SJEF_VERSION ${PROJECT_VERSION_FULL})
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS deployment target")
+
+set(PROGRAM_FILENAME "sjef")
+set(PROGRAM_NAME "sjef-program")
+
+if (MSVC)
+    add_compile_options(/EHsc /permissive-)
+
+    # Define Windows target architecture
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        add_compile_options(/D_WIN64)
+    else()
+        add_compile_options(/D_WIN32)
+    endif()
+
+    # Define minimum Windows version
+    add_compile_definitions(_WIN32_WINNT=0x0601)
+endif ()
+
+option(BUILD_PYTHON "Whether to build the Python bindings or not" ON)
+set(CMAKE_POLICY_DEFAULT_CMP0048 NEW)
+if (BUILD_PYTHON)
+    set (BUILD_SHARED_LIBS OFF)
+endif()
+
+
+set(BOOST_BUILD_HINTS "")
+foreach(prefix IN LISTS CMAKE_PREFIX_PATH)
+    if(IS_DIRECTORY "${prefix}/libboost_headers/include/boost")
+        set(BOOST_BUILD_HINTS "${prefix}/libboost_headers/include")
+        break()
+    endif()
+endforeach()
+
+if(BOOST_BUILD_HINTS)
+    message(STATUS "Using libboost-headers from: ${BOOST_BUILD_HINTS}")
+    add_library(Boost::boost INTERFACE IMPORTED)
+    target_include_directories(Boost::boost INTERFACE "${BOOST_BUILD_HINTS}")
+else()
+    if(POLICY CMP0167)
+        cmake_policy(SET CMP0167 NEW)
+    endif()
+    find_package(Boost REQUIRED headers)
+endif()
+
+
+add_subdirectory(src)
+
+if (BUILD_PYTHON)
+    set (BUILD_SHARED_LIBS OFF)
+    find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+    find_program(CYTHON_EXECUTABLE cython REQUIRED)
+
+    set(CYTHON_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/pysjef/project_wrapper.pyx)
+    set(CYTHON_CPP ${CMAKE_CURRENT_SOURCE_DIR}/src/pysjef/project_wrapper.cpp)
+
+    add_custom_command(OUTPUT ${CYTHON_CPP}
+            COMMAND ${CYTHON_EXECUTABLE} --cplus -3 -I ${CMAKE_CURRENT_SOURCE_DIR}/src ${CYTHON_SRC} -o ${CYTHON_CPP}
+            DEPENDS ${CYTHON_SRC}
+            COMMENT "Generating C++ code from Cython"
+    )
+    python_add_library(project_wrapper MODULE ${CYTHON_CPP} WITH_SOABI)
+    target_link_libraries(project_wrapper PRIVATE sjef)
+    target_include_directories(project_wrapper PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    install(TARGETS project_wrapper DESTINATION pysjef)
+
+endif()
+
+if (BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif ()
+
+if (BUILD_PROGRAM)
+    add_subdirectory(program)
+endif ()
+
+option(BUILD_DOCUMENTATION "Generate documentation" ON)
+if (BUILD_DOCUMENTATION)
+    find_package(Doxygen)
+    if (DOXYGEN_FOUND)
+        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+        add_custom_target(${PROJECT_NAME}-doc ALL
+                DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/html/index.html
+        )
+        file(GLOB_RECURSE headers src/*.h */*.md *.md src/*.cpp)
+        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/html/index.html
+                COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+                DEPENDS ${headers} ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                COMMENT "Generating API documentation with Doxygen" VERBATIM
+        )
+    endif (DOXYGEN_FOUND)
+endif ()
+
+add_custom_target(_version.py
+        COMMAND echo "__version__ = \"${CMAKE_PROJECT_VERSION}\"" > _version.py
+)
+
+
+if (WIN32)
+    FetchContent_Declare(rsync
+            GIT_REPOSITORY https://github.com/molpro/cwrsync
+            GIT_TAG main
+    )
+    FetchContent_MakeAvailable(rsync)
+    install(DIRECTORY ${rsync_SOURCE_DIR}/ DESTINATION ./rsync PATTERN .git EXCLUDE)
+endif ()

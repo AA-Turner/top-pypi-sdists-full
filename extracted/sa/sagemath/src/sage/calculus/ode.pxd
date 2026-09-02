@@ -1,4 +1,0 @@
-cdef class ode_system:
-    cdef int  c_j(self, double , const double *, double *, double *) noexcept
-
-    cdef int c_f(self, double t, const double* , double*) noexcept

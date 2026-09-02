@@ -39,10 +39,10 @@ if TYPE_CHECKING:
 class SegmentationTask(APIObject):
     """A Segmentation Task is used for segmenting an existing project into multiple child
     projects. Each child project (or segment) will be a separate autopilot run. Currently
-    only user defined segmentation is supported.
+    only user-defined segmentation is supported.
 
     Example for creating a new SegmentationTask for Time Series segmentation with a
-    user defined id column:
+    user-defined ID column:
 
     .. highlight:: python
     .. code-block:: python
@@ -65,11 +65,11 @@ class SegmentationTask(APIObject):
     Attributes
     ----------
     id : bson.ObjectId
-        The id of the segmentation task.
+        The ID of the segmentation task.
     project_id : bson.ObjectId
-        The associated id of the parent project.
+        The associated ID of the parent project.
     type : str
-        What type of job the segmentation task is associated with, e.g., auto_ml or auto_ts.
+        The type of job the segmentation task is associated with, for example, ``auto_ml`` or ``auto_ts``.
     created  : datetime.datetime
         The date this segmentation task was created.
     segments_count : int
@@ -77,7 +77,7 @@ class SegmentationTask(APIObject):
     segments : list[str]
         The segment names that the segmentation task generated.
     metadata : dict
-        List of features that help to identify the parameters used by the segmentation task.
+        A list of features that help to identify the parameters used by the segmentation task.
     data : dict
         Optional parameters that are associated with enabled metadata for the segmentation task.
     """
@@ -168,12 +168,12 @@ class SegmentationTask(APIObject):
         model_package_id: Optional[str] = None,
     ) -> SegmentationTaskCreatedResponse:
         """
-        Creates segmentation tasks for the project based on the defined parameters.
+        Creates the segmentation tasks for the project based on the defined parameters.
 
         Parameters
         ----------
         project_id : str
-            The associated id of the parent project.
+            The associated ID of the parent project.
         target : str
             The column that represents the target in the dataset.
         use_time_series : bool
@@ -184,25 +184,25 @@ class SegmentationTask(APIObject):
             to a particular partition.
         multiseries_id_columns : List[str] or null
             Required for Time Series.
-            A list of the names of multiseries id columns to define series within the training
-            data. Currently only one multiseries id column is supported.
+            A list of the names of multiseries ID columns to define series within the training
+            data. Currently only one multiseries ID column is supported.
         user_defined_segment_id_columns : List[str] or null
             Required when using a column for segmentation.
-            A list of the segment id columns to use to define what columns are used to manually
-            segment data. Currently only one user defined segment id column is supported.
+            A list of the segment ID columns to use to define what columns are used to manually
+            segment data. Currently only one user-defined segment ID column is supported.
         model_package_id : str
             Required when using automated segmentation.
-            The associated id of the model in the DataRobot Model Registry that will be used to
+            The associated ID of the model in the DataRobot Model Registry that will be used to
             perform automated segmentation on a dataset.
         max_wait : integer
-            The number of seconds to wait
+            The number of seconds to wait.
 
         Returns
         -------
         segmentation_tasks : dict
-            Dictionary containing the numberOfJobs, completedJobs, and failedJobs. completedJobs
-            is a list of SegmentationTask objects, while failed jobs is a list of dictionaries
-            indicating problems with submitted tasks.
+            A dictionary containing ``numberOfJobs``, ``completedJobs``, and ``failedJobs``.
+            ``completedJobs`` is a list of SegmentationTask objects, while ``failedJobs`` is a
+            list of dictionaries indicating problems with submitted tasks.
         """
         payload = {
             "target": target,
@@ -257,17 +257,17 @@ class SegmentationTask(APIObject):
     @classmethod
     def list(cls, project_id: str) -> List[SegmentationTask]:
         """
-        List all of the segmentation tasks that have been created for a specific project_id.
+        Returns a list of all segmentation tasks that have been created for a specific ``project_id``.
 
         Parameters
         ----------
         project_id : str
-            The id of the parent project
+            The ID of the parent project.
 
         Returns
         -------
         segmentation_tasks : list of SegmentationTask
-            List of instances with initialized data.
+            A list of instances with initialized data.
         """
 
         return [
@@ -282,19 +282,19 @@ class SegmentationTask(APIObject):
     @classmethod
     def get(cls, project_id: str, segmentation_task_id: str) -> SegmentationTask:
         """
-        Retrieve information for a single segmentation task associated with a project_id.
+        Retrieve information for a single segmentation task associated with a ``project_id``.
 
         Parameters
         ----------
         project_id : str
-            The id of the parent project
+            The ID of the parent project.
         segmentation_task_id : str
-            The id of the segmentation task
+            The ID of the segmentation task.
 
         Returns
         -------
         segmentation_task : SegmentationTask
-            Instance with initialized data.
+            An instance with initialized data.
         """
 
         return cls.from_location(cls._get_url.format(project_id, segmentation_task_id))
@@ -302,24 +302,24 @@ class SegmentationTask(APIObject):
 
 class SegmentInfo(APIObject):
     """
-    A SegmentInfo is an object containing information about the combined model segments
+    A SegmentInfo is an object containing information about the combined model segments.
 
     Attributes
     ----------
     project_id : str
-        The associated id of the child project.
+        The associated ID of the child project.
     segment : str
-        the name of the segment
+        The name of the segment.
     project_stage : str
-        A description of the current stage of the project
+        A description of the current stage of the project.
     project_status_error : str
-        Project status error message.
+        The project status error message.
     autopilot_done : bool
-        Is autopilot done for the project.
+        Whether autopilot is done for the project.
     model_count : int
-        Count of trained models in project.
+        The count of trained models in the project.
     model_id : str
-        ID of segment champion model.
+        The ID of the segment champion model.
     """
 
     _base_url = "projects/{}/combinedModels/{}/segments/"
@@ -360,17 +360,17 @@ class SegmentInfo(APIObject):
     @classmethod
     def list(cls, project_id: str, model_id: str) -> List[SegmentInfo]:
         """
-        List all of the segments that have been created for a specific project_id.
+        Returns a list of all segments that have been created for a specific ``project_id``.
 
         Parameters
         ----------
         project_id : str
-            The id of the parent project
+            The ID of the parent project.
 
         Returns
         -------
         segments : list of datarobot.models.segmentation.SegmentInfo
-            List of instances with initialized data.
+            A list of instances with initialized data.
         """
 
         return [

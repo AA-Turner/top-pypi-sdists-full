@@ -1,0 +1,2020 @@
+from unittest import main, TestCase
+from unittest.mock import patch, Mock
+from macaddress import EUI48
+from ipaddress import IPv4Address, IPv6Address
+from json import loads
+from urllib.parse import parse_qsl
+from tplinkrouterc6u import (
+    TplinkRouter,
+    Connection,
+    Status,
+    Firmware,
+    IPv4Status,
+    IPv6Status,
+    Device,
+    ClientException,
+    VPN,
+    WifiStatus,
+    VpnClientStatus,
+    VpnClientServer,
+    VpnClientDevice,
+)
+from tplinkrouterc6u.common.exception import ClientError
+
+
+class TestTPLinkClient(TestCase):
+    router_class = TplinkRouter
+    firmware_path = 'admin/firmware?form=upgrade'
+    game_accelerator_path = 'admin/smart_network?form=game_accelerator'
+    easymesh_device_list_path = 'admin/easymesh_network?form=get_mesh_device_list_all&operation=read'
+    openvpn_config_path = 'admin/openvpn?form=config'
+    pptpd_config_path = 'admin/pptpd?form=config'
+    vpn_uses_data_param = True
+
+    def test_get_firmware(self) -> None:
+        response = '''
+        {
+            "success": true,
+            "data": {
+                "hardware_version": "h_version 3.2",
+                "model": "TP-Link C6U",
+                "firmware_version": "f_version 1"
+            }
+        }
+'''
+        firmware_path = self.firmware_path
+
+        class TPLinkRouterTest(self.router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == firmware_path:
+                    return loads(response)['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        firmware = client.get_firmware()
+
+        self.assertIsInstance(firmware, Firmware)
+        self.assertEqual(firmware.firmware_version, 'f_version 1')
+        self.assertEqual(firmware.hardware_version, 'h_version 3.2')
+        self.assertEqual(firmware.model, 'TP-Link C6U')
+
+    def test_get_status(self) -> None:
+        response_status = '''
+{
+    "success": true,
+    "data": {
+        "wireless_2g_wep_format3": "hex",
+        "wireless_5g_disabled": "off",
+        "wireless_5g_wep_type2": "64",
+        "storage_available_unit": "B",
+        "storage_vendor": "",
+        "usb_storages": {},
+        "storage_available": 0,
+        "printer_count": 0,
+        "printer_name": "None",
+        "wan_ipv4_netmask": "255.255.255.0",
+        "storage_capacity": 0,
+        "access_devices_wired": [
+            {
+                "wire_type": "wired",
+                "macaddr": "3d:24:25:24:30:79",
+                "ipaddr": "192.168.1.228",
+                "hostname": "SERVER"
+            },
+            {
+                "wire_type": "wired",
+                "macaddr": "ac:04:d6:25:2a:96",
+                "ipaddr": "192.168.1.254",
+                "hostname": "UNKNOWN"
+            }
+        ],
+        "wireless_2g_wds_status": "disable",
+        "wireless_2g_wep_type3": "64",
+        "wireless_2g_wep_format2": "hex",
+        "wan_ipv6_conntype": "none",
+        "mem_usage": 0.43,
+        "access_devices_wireless_host": [
+            {
+                "wire_type": "2.4G",
+                "macaddr": "06:82:9d:2b:8f:c6",
+                "ipaddr": "192.168.1.186",
+                "hostname": "UNKNOWN"
+            },
+            {
+                "wire_type": "2.4G",
+                "macaddr": "06:55:9d:2b:8f:a7",
+                "ipaddr": "Unknown",
+                "hostname": "Unknown"
+            }
+        ],
+        "guest_5g_psk_key": "",
+        "cpu_usage": 0.28,
+        "conn_type": "1",
+        "guest_2g_encryption": "none",
+        "wireless_5g_encryption": "psk",
+        "guest_5g_ssid": "TP-Link_Guest_21CC_5G",
+        "guest_5g_hidden": "off",
+        "guest_access": "off",
+        "wireless_2g_txpower": "high",
+        "guest_5g_enable": "off",
+        "wireless_2g_macaddr": "macaddr",
+        "wireless_5g_disabled_all": "off",
+        "guest_5g_extinfo": {
+            "support_wds_show": "no",
+            "support_band": "both"
+        },
+        "wireless_5g_current_channel": "48",
+        "wireless_2g_port": "1812",
+        "wireless_2g_wpa_cipher": "auto",
+        "wireless_5g_wep_key4": "",
+        "wireless_2g_htmode": "40",
+        "guest_5g_encryption": "none",
+        "wireless_2g_wep_key3": "",
+        "wireless_5g_psk_cipher": "auto",
+        "guest_2g_psk_cipher": "aes",
+        "wireless_5g_wep_format1": "hex",
+        "wireless_2g_wep_select": "1",
+        "wireless_2g_wep_type2": "64",
+        "wireless_5g_wep_select": "1",
+        "wireless_2g_psk_key": "password",
+        "wireless_2g_wep_type1": "64",
+        "wireless_5g_ssid": "ssid_5Ghz",
+        "wireless_2g_wep_key1": "",
+        "wireless_2g_current_channel": "1",
+        "wan_ipv4_snddns": "8.8.8.8",
+        "wan_ipv6_ip6addr": "::",
+        "wireless_5g_extinfo": {
+            "support_wds_show": "no",
+            "support_band": "both"
+        },
+        "guest_2g_hidden": "off",
+        "wireless_2g_channel": "1",
+        "wireless_2g_enable": "on",
+        "wireless_2g_extinfo": {
+            "support_wds_show": "no",
+            "support_band": "both"
+        },
+        "wireless_2g_wpa_version": "auto",
+        "wireless_5g_psk_key": "password",
+        "wireless_2g_wep_format4": "hex",
+        "lan_ipv4_netmask": "255.255.255.0",
+        "wireless_5g_wep_key2": "",
+        "wireless_5g_enable": "on",
+        "wireless_5g_wep_type1": "64",
+        "wireless_5g_wep_key1": "",
+        "lan_macaddr": "06:e6:97:9e:23:f5",
+        "wireless_2g_encryption": "psk",
+        "wireless_2g_psk_cipher": "auto",
+        "wireless_5g_port": "1812",
+        "guest_2g_psk_version": "rsn",
+        "wireless_5g_wpa_cipher": "auto",
+        "guest_5g_disabled": "off",
+        "wireless_5g_hwmode": "anac_5",
+        "wan_ipv6_gateway": "::",
+        "lan_ipv6_link_local_addr": "FE80::1E3B:F3FF:FE30:21CC/64",
+        "wireless_5g_wep_type4": "64",
+        "wireless_5g_wep_format4": "hex",
+        "wan_ipv6_snddns": "::",
+        "wireless_2g_disabled": "off",
+        "wireless_5g_wep_format3": "hex",
+        "wan_ipv6_pridns": "::",
+        "wireless_2g_hidden": "off",
+        "wireless_2g_psk_version": "auto",
+        "guest_isolate": "off",
+        "wan_macaddr": "d6:0b:40:57:da:60",
+        "wireless_5g_wps_state": "configured",
+        "wireless_2g_wps_state": "configured",
+        "wireless_5g_hidden": "off",
+        "wireless_5g_psk_version": "auto",
+        "wireless_5g_wep_format2": "hex",
+        "wireless_2g_ssid": "ssid_2.4Ghz",
+        "wireless_2g_wep_key4": "",
+        "wireless_5g_wep_mode": "auto",
+        "wan_ipv4_ipaddr": "192.168.1.100",
+        "guest_2g_extinfo": {
+            "support_wds_show": "no",
+            "support_band": "both"
+        },
+        "lan_ipv6_assign_type": "slaac",
+        "wireless_2g_wep_format1": "hex",
+        "wireless_2g_wep_key2": "",
+        "lan_ipv6_ipaddr": "FE80::1E3B:F3FF:FE30:21CC/64",
+        "wireless_2g_server": "",
+        "wireless_5g_htmode": "80",
+        "guest_5g_psk_cipher": "aes",
+        "guest_2g_disabled": "off",
+        "wan_ipv4_gateway": "192.168.1.254",
+        "wireless_2g_disabled_all": "off",
+        "guest_2g_psk_key": "",
+        "wireless_5g_wpa_key": "",
+        "guest_5g_psk_version": "rsn",
+        "guest_2g_ssid": "TP-Link_Guest_21CC",
+        "wireless_2g_wpa_key": "",
+        "wireless_5g_server": "",
+        "wireless_5g_macaddr": "macaddr",
+        "lan_ipv4_dhcp_enable": "Off",
+        "wireless_5g_txpower": "high",
+        "wireless_2g_wep_type4": "64",
+        "wireless_2g_hwmode": "bgn",
+        "wireless_5g_channel": "48",
+        "wan_ipv6_enable": "on",
+        "wan_ipv4_pridns": "192.168.1.254",
+        "guest_2g_enable": "off",
+        "wireless_5g_wep_key3": "",
+        "wireless_2g_wep_mode": "auto",
+        "wireless_5g_wpa_version": "auto",
+        "wireless_5g_wep_type3": "64",
+        "storage_capacity_unit": "B",
+        "wan_ipv4_conntype": "static",
+        "lan_ipv4_ipaddr": "192.168.1.100",
+        "wireless_5g_wds_status": "disable"
+    }
+}
+        '''
+        response_stats = '''
+  {
+      "data": [
+          {
+              "mac": "06:82:9d:2b:8f:c6",
+              "type": "2.4GHz",
+              "encryption": "wpa/wpa2-psk",
+              "rxpkts": 4867482,
+              "txpkts": 450333
+          },
+          {
+              "mac": "1f:7a:bd:f7:20:0d",
+              "type": "5GHz",
+              "encryption": "wpa/wpa2-psk",
+              "rxpkts": 2953078,
+              "txpkts": 134815
+          }
+      ],
+      "timeout": false,
+      "success": true,
+      "operator": "load"
+  }
+                '''
+
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        status = client.get_status()
+
+        self.assertIsInstance(status, Status)
+        self.assertEqual(status.wan_macaddr, 'D6-0B-40-57-DA-60')
+        self.assertIsInstance(status.wan_macaddress, EUI48)
+        self.assertEqual(status.lan_macaddr, '06-E6-97-9E-23-F5')
+        self.assertIsInstance(status.lan_macaddress, EUI48)
+        self.assertEqual(status.wan_ipv4_addr, '192.168.1.100')
+        self.assertIsInstance(status.lan_ipv4_address, IPv4Address)
+        self.assertEqual(status.lan_ipv4_addr, '192.168.1.100')
+        self.assertEqual(status.wan_ipv4_gateway, '192.168.1.254')
+        self.assertIsInstance(status.wan_ipv4_address, IPv4Address)
+        self.assertTrue(status.wan_ipv6_enabled)
+        self.assertEqual(status.wan_ipv6_addr, '::')
+        self.assertEqual(status.lan_ipv4_dhcp_enable, False)
+        self.assertEqual(status.wired_total, 2)
+        self.assertEqual(status.wifi_clients_total, 3)
+        self.assertEqual(status.guest_clients_total, 0)
+        self.assertEqual(status.clients_total, 5)
+        self.assertEqual(status.iot_clients_total, None)
+        self.assertEqual(status.guest_2g_enable, False)
+        self.assertEqual(status.guest_5g_enable, False)
+        self.assertEqual(status.iot_2g_enable, None)
+        self.assertEqual(status.iot_5g_enable, None)
+        self.assertEqual(status.wifi_2g_enable, True)
+        self.assertEqual(status.wifi_5g_enable, True)
+        self.assertEqual(status.wan_ipv4_uptime, None)
+        self.assertEqual(status.mem_usage, 0.43)
+        self.assertEqual(status.conn_type, '1')
+        self.assertEqual(status.cpu_usage, 0.28)
+        self.assertEqual(len(status.devices), 5)
+        self.assertIsInstance(status.devices[0], Device)
+        self.assertEqual(status.devices[0].type, Connection.WIRED)
+        self.assertEqual(status.devices[0].macaddr, '3D-24-25-24-30-79')
+        self.assertIsInstance(status.devices[0].macaddress, EUI48)
+        self.assertEqual(status.devices[0].ipaddr, '192.168.1.228')
+        self.assertIsInstance(status.devices[0].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[0].hostname, 'SERVER')
+        self.assertEqual(status.devices[0].packets_sent, None)
+        self.assertEqual(status.devices[0].packets_received, None)
+        self.assertEqual(status.devices[0].active, True)
+        self.assertIsInstance(status.devices[0], Device)
+        self.assertEqual(status.devices[1].type, Connection.WIRED)
+        self.assertEqual(status.devices[1].macaddr, 'AC-04-D6-25-2A-96')
+        self.assertIsInstance(status.devices[1].macaddress, EUI48)
+        self.assertEqual(status.devices[1].ipaddr, '192.168.1.254')
+        self.assertIsInstance(status.devices[1].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[1].hostname, 'UNKNOWN')
+        self.assertEqual(status.devices[1].packets_sent, None)
+        self.assertEqual(status.devices[1].packets_received, None)
+        self.assertEqual(status.devices[1].active, True)
+        self.assertIsInstance(status.devices[2], Device)
+        self.assertEqual(status.devices[2].type, Connection.HOST_2G)
+        self.assertEqual(status.devices[2].macaddr, '06-82-9D-2B-8F-C6')
+        self.assertEqual(status.devices[2].ipaddr, '192.168.1.186')
+        self.assertEqual(status.devices[2].hostname, 'UNKNOWN')
+        self.assertEqual(status.devices[2].packets_sent, 450333)
+        self.assertEqual(status.devices[2].packets_received, 4867482)
+        self.assertEqual(status.devices[2].active, True)
+        self.assertIsInstance(status.devices[3], Device)
+        self.assertEqual(status.devices[3].type, Connection.HOST_2G)
+        self.assertEqual(status.devices[3].macaddr, '06-55-9D-2B-8F-A7')
+        self.assertEqual(status.devices[3].ipaddr, '0.0.0.0')
+        self.assertEqual(status.devices[3].hostname, 'Unknown')
+        self.assertEqual(status.devices[3].packets_sent, None)
+        self.assertEqual(status.devices[3].packets_received, None)
+        self.assertEqual(status.devices[3].active, True)
+        self.assertIsInstance(status.devices[4], Device)
+        self.assertEqual(status.devices[4].type, Connection.HOST_5G)
+        self.assertEqual(status.devices[4].macaddr, '1F-7A-BD-F7-20-0D')
+        self.assertEqual(status.devices[4].ipaddr, '0.0.0.0')
+        self.assertEqual(status.devices[4].hostname, '')
+        self.assertEqual(status.devices[4].packets_sent, 134815)
+        self.assertEqual(status.devices[4].packets_received, 2953078)
+        self.assertEqual(status.devices[4].active, True)
+        self.assertFalse(client._easymesh)
+        for device in status.devices:
+            self.assertIsNone(device.ap_name)
+
+    def test_get_status_ax_55(self) -> None:
+        response_status = '''
+{
+    "success": true,
+    "data": {
+        "lan_macaddr": "06:e6:97:9e:23:f5",
+        "access_devices_wired": [
+            {
+                "wire_type": "wired",
+                "macaddr": "3d:24:25:24:30:79",
+                "ipaddr": "192.168.1.228",
+                "hostname": "SERVER"
+            },
+            {
+                "wire_type": "wired",
+                "macaddr": "ac:04:d6:25:2a:96",
+                "ipaddr": "192.168.1.254",
+                "hostname": "UNKNOWN"
+            }
+        ],
+        "access_devices_wireless_host": [
+            {
+                "wire_type": "2.4G",
+                "macaddr": "06:82:9d:2b:8f:c6",
+                "ipaddr": "192.168.1.186",
+                "hostname": "UNKNOWN"
+            }
+        ],
+        "guest_2g_enable": "on",
+        "wireless_2g_enable": "on"
+    }
+}
+        '''
+        response_stats = '''
+  {
+      "data": [
+          {"mac": "06:82:9d:2b:8f:c6"},
+          {"mac": "1f:7a:bd:f7:20:0d"}
+      ],
+      "timeout": false,
+      "success": true,
+      "operator": "load"
+  }
+                '''
+
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        status = client.get_status()
+
+        self.assertIsInstance(status, Status)
+        self.assertEqual(status.wan_macaddr, None)
+        self.assertEqual(status.lan_macaddr, '06-E6-97-9E-23-F5')
+        self.assertIsInstance(status.lan_macaddress, EUI48)
+        self.assertEqual(status.wan_ipv4_addr, None)
+        self.assertEqual(status.lan_ipv4_addr, None)
+        self.assertEqual(status.wan_ipv4_gateway, None)
+        self.assertEqual(status.wired_total, 2)
+        self.assertEqual(status.wifi_clients_total, 2)
+        self.assertEqual(status.guest_clients_total, 0)
+        self.assertEqual(status.clients_total, 4)
+        self.assertEqual(status.iot_clients_total, None)
+        self.assertEqual(status.guest_2g_enable, True)
+        self.assertEqual(status.guest_5g_enable, None)
+        self.assertEqual(status.guest_6g_enable, None)
+        self.assertEqual(status.iot_2g_enable, None)
+        self.assertEqual(status.iot_5g_enable, None)
+        self.assertEqual(status.iot_6g_enable, None)
+        self.assertEqual(status.wifi_2g_enable, True)
+        self.assertEqual(status.wifi_5g_enable, None)
+        self.assertEqual(status.wifi_6g_enable, None)
+        self.assertEqual(status.wan_ipv4_uptime, None)
+        self.assertEqual(status.mem_usage, None)
+        self.assertEqual(status.cpu_usage, None)
+        self.assertEqual(len(status.devices), 4)
+        self.assertIsInstance(status.devices[0], Device)
+        self.assertEqual(status.devices[0].type, Connection.WIRED)
+        self.assertEqual(status.devices[0].macaddr, '3D-24-25-24-30-79')
+        self.assertIsInstance(status.devices[0].macaddress, EUI48)
+        self.assertEqual(status.devices[0].ipaddr, '192.168.1.228')
+        self.assertIsInstance(status.devices[0].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[0].hostname, 'SERVER')
+        self.assertEqual(status.devices[0].packets_sent, None)
+        self.assertEqual(status.devices[0].packets_received, None)
+        self.assertIsInstance(status.devices[1], Device)
+        self.assertEqual(status.devices[1].type, Connection.WIRED)
+        self.assertEqual(status.devices[1].macaddr, 'AC-04-D6-25-2A-96')
+        self.assertIsInstance(status.devices[1].macaddress, EUI48)
+        self.assertEqual(status.devices[1].ipaddr, '192.168.1.254')
+        self.assertIsInstance(status.devices[1].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[1].hostname, 'UNKNOWN')
+        self.assertEqual(status.devices[1].packets_sent, None)
+        self.assertEqual(status.devices[1].packets_received, None)
+        self.assertIsInstance(status.devices[2], Device)
+        self.assertEqual(status.devices[2].type, Connection.HOST_2G)
+        self.assertEqual(status.devices[2].macaddr, '06-82-9D-2B-8F-C6')
+        self.assertIsInstance(status.devices[2].macaddress, EUI48)
+        self.assertEqual(status.devices[2].ipaddr, '192.168.1.186')
+        self.assertIsInstance(status.devices[2].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[2].hostname, 'UNKNOWN')
+        self.assertEqual(status.devices[2].packets_sent, None)
+        self.assertEqual(status.devices[2].packets_received, None)
+        self.assertIsInstance(status.devices[3], Device)
+        self.assertEqual(status.devices[3].type, Connection.UNKNOWN)
+        self.assertEqual(status.devices[3].macaddr, '1F-7A-BD-F7-20-0D')
+        self.assertEqual(status.devices[3].ipaddr, '0.0.0.0')
+        self.assertEqual(status.devices[3].hostname, '')
+        self.assertEqual(status.devices[3].packets_sent, None)
+        self.assertEqual(status.devices[3].packets_received, None)
+        self.assertFalse(client._easymesh)
+        for device in status.devices:
+            self.assertIsNone(device.ap_name)
+
+    def test_get_status_with_game_accelerator(self) -> None:
+        response_status = '''
+{
+    "success": true,
+    "data": {
+        "lan_macaddr": "06:e6:97:9e:23:f5",
+        "access_devices_wired": [
+            {
+                "wire_type": "wired",
+                "macaddr": "3d:24:25:24:30:79",
+                "ipaddr": "192.168.1.228",
+                "hostname": "SERVER"
+            },
+            {
+                "wire_type": "wired",
+                "macaddr": "ac:04:d6:25:2a:96",
+                "ipaddr": "192.168.1.254",
+                "hostname": "UNKNOWN"
+            }
+        ],
+        "access_devices_wireless_host": [
+            {
+                "wire_type": "2.4G",
+                "macaddr": "06:82:9d:2b:8f:c6",
+                "ipaddr": "192.168.1.186",
+                "hostname": "UNKNOWN"
+            }
+        ],
+        "guest_2g_enable": "on",
+        "wireless_2g_enable": "on"
+    }
+}
+'''
+        response_game_accelerator = '''
+  {
+      "data": [
+          {"mac": "06:82:9d:2b:8f:c6", "deviceTag":"2.4G", "isGuest":false, "ip":"192.168.1.186",
+          "deviceName":"name1", "uploadSpeed":12, "downloadSpeed":77},
+          {"mac": "fb:90:b8:2a:8a:b1", "deviceTag":"iot_2.4G", "isGuest":false, "ip":"192.168.1.187",
+          "deviceName":"name2"},
+          {"mac": "54:b3:a2:f7:be:ea", "deviceTag":"iot_5G", "isGuest":false, "ip":"192.168.1.188",
+          "deviceName":"name3"},
+          {"mac": "3c:ae:e1:83:94:9d", "deviceTag":"iot_6G", "isGuest":false, "ip":"192.168.1.189",
+          "deviceName":"name4", "signal": -52}
+      ],
+      "timeout": false,
+      "success": true
+  }
+'''
+        response_stats = '''
+  {
+      "data": [
+          {
+              "mac": "06:82:9d:2b:8f:c6",
+              "type": "2.4GHz",
+              "encryption": "wpa/wpa2-psk",
+              "rxpkts": 4867482,
+              "txpkts": 450333
+          },
+          {
+              "mac": "1f:7a:bd:f7:20:0d",
+              "type": "5GHz",
+              "encryption": "wpa/wpa2-psk",
+              "rxpkts": 2953078,
+              "txpkts": 134815
+          }
+      ],
+      "timeout": false,
+      "success": true,
+      "operator": "load"
+  }
+'''
+
+        router_class = self.router_class
+        game_accelerator_path = self.game_accelerator_path
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == game_accelerator_path:
+                    return loads(response_game_accelerator)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        status = client.get_status()
+
+        self.assertIsInstance(status, Status)
+        self.assertEqual(status.wan_macaddr, None)
+        self.assertEqual(status.lan_macaddr, '06-E6-97-9E-23-F5')
+        self.assertIsInstance(status.lan_macaddress, EUI48)
+        self.assertEqual(status.wan_ipv4_addr, None)
+        self.assertEqual(status.lan_ipv4_addr, None)
+        self.assertEqual(status.wan_ipv4_gateway, None)
+        self.assertEqual(status.wired_total, 2)
+        self.assertEqual(status.wifi_clients_total, 2)
+        self.assertEqual(status.guest_clients_total, 0)
+        self.assertEqual(status.clients_total, 7)
+        self.assertEqual(status.iot_clients_total, 3)
+        self.assertEqual(status.guest_2g_enable, True)
+        self.assertEqual(status.guest_5g_enable, None)
+        self.assertEqual(status.guest_6g_enable, None)
+        self.assertEqual(status.iot_2g_enable, None)
+        self.assertEqual(status.iot_5g_enable, None)
+        self.assertEqual(status.iot_6g_enable, None)
+        self.assertEqual(status.wifi_2g_enable, True)
+        self.assertEqual(status.wifi_5g_enable, None)
+        self.assertEqual(status.wifi_6g_enable, None)
+        self.assertEqual(status.wan_ipv4_uptime, None)
+        self.assertEqual(status.mem_usage, None)
+        self.assertEqual(status.cpu_usage, None)
+        self.assertEqual(len(status.devices), 7)
+        self.assertIsInstance(status.devices[0], Device)
+        self.assertEqual(status.devices[0].type, Connection.WIRED)
+        self.assertEqual(status.devices[0].macaddr, '3D-24-25-24-30-79')
+        self.assertIsInstance(status.devices[0].macaddress, EUI48)
+        self.assertEqual(status.devices[0].ipaddr, '192.168.1.228')
+        self.assertIsInstance(status.devices[0].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[0].hostname, 'SERVER')
+        self.assertEqual(status.devices[0].packets_sent, None)
+        self.assertEqual(status.devices[0].packets_received, None)
+        self.assertIsInstance(status.devices[1], Device)
+        self.assertEqual(status.devices[1].type, Connection.WIRED)
+        self.assertEqual(status.devices[1].macaddr, 'AC-04-D6-25-2A-96')
+        self.assertIsInstance(status.devices[1].macaddress, EUI48)
+        self.assertEqual(status.devices[1].ipaddr, '192.168.1.254')
+        self.assertIsInstance(status.devices[1].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[1].hostname, 'UNKNOWN')
+        self.assertEqual(status.devices[1].packets_sent, None)
+        self.assertEqual(status.devices[1].packets_received, None)
+        self.assertIsInstance(status.devices[2], Device)
+        self.assertEqual(status.devices[2].type, Connection.HOST_2G)
+        self.assertEqual(status.devices[2].macaddr, '06-82-9D-2B-8F-C6')
+        self.assertIsInstance(status.devices[2].macaddress, EUI48)
+        self.assertEqual(status.devices[2].ipaddr, '192.168.1.186')
+        self.assertIsInstance(status.devices[2].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[2].hostname, 'UNKNOWN')
+        self.assertEqual(status.devices[2].packets_sent, 450333)
+        self.assertEqual(status.devices[2].packets_received, 4867482)
+        self.assertEqual(status.devices[2].up_speed, 12)
+        self.assertEqual(status.devices[2].down_speed, 77)
+        self.assertIsInstance(status.devices[3], Device)
+        self.assertEqual(status.devices[3].type, Connection.IOT_2G)
+        self.assertEqual(status.devices[3].macaddr, 'FB-90-B8-2A-8A-B1')
+        self.assertIsInstance(status.devices[3].macaddress, EUI48)
+        self.assertEqual(status.devices[3].ipaddr, '192.168.1.187')
+        self.assertIsInstance(status.devices[3].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[3].hostname, 'name2')
+        self.assertEqual(status.devices[3].packets_sent, None)
+        self.assertEqual(status.devices[3].packets_received, None)
+        self.assertIsInstance(status.devices[4], Device)
+        self.assertEqual(status.devices[4].type, Connection.IOT_5G)
+        self.assertEqual(status.devices[4].macaddr, '54-B3-A2-F7-BE-EA')
+        self.assertIsInstance(status.devices[4].macaddress, EUI48)
+        self.assertEqual(status.devices[4].ipaddr, '192.168.1.188')
+        self.assertIsInstance(status.devices[4].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[4].hostname, 'name3')
+        self.assertEqual(status.devices[4].packets_sent, None)
+        self.assertEqual(status.devices[4].packets_received, None)
+        self.assertIsInstance(status.devices[5], Device)
+        self.assertEqual(status.devices[5].type, Connection.IOT_6G)
+        self.assertEqual(status.devices[5].macaddr, '3C-AE-E1-83-94-9D')
+        self.assertIsInstance(status.devices[5].macaddress, EUI48)
+        self.assertEqual(status.devices[5].ipaddr, '192.168.1.189')
+        self.assertIsInstance(status.devices[5].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[5].hostname, 'name4')
+        self.assertEqual(status.devices[5].packets_sent, None)
+        self.assertEqual(status.devices[5].packets_received, None)
+        self.assertEqual(status.devices[5].signal, -52)
+        self.assertIsInstance(status.devices[6], Device)
+        self.assertEqual(status.devices[6].type, Connection.HOST_5G)
+        self.assertEqual(status.devices[6].macaddr, '1F-7A-BD-F7-20-0D')
+        self.assertIsInstance(status.devices[6].macaddress, EUI48)
+        self.assertEqual(status.devices[6].ipaddr, '0.0.0.0')
+        self.assertIsInstance(status.devices[6].ipaddress, IPv4Address)
+        self.assertEqual(status.devices[6].hostname, '')
+        self.assertEqual(status.devices[6].packets_sent, 134815)
+        self.assertEqual(status.devices[6].packets_received, 2953078)
+        self.assertFalse(client._easymesh)
+        for device in status.devices:
+            self.assertIsNone(device.ap_name)
+
+    def test_get_status_with_game_accelerator_fallback_values(self) -> None:
+        response_status = '''
+    {
+        "success": true,
+        "data": {
+            "lan_macaddr": "06:e6:97:9e:23:f5",
+            "access_devices_wireless_host": [
+                {
+                    "wire_type": "5G",
+                    "macaddr": "f4:aa:bb:cc:dd:ee",
+                    "ipaddr": "192.168.1.110",
+                    "hostname": "CLIENT1"
+                }
+            ]
+        }
+    }
+'''
+        response_game_accelerator = '''
+  {
+      "data": [
+          {"mac": "f4:aa:bb:cc:dd:ee", "deviceTag":"5G", "isGuest":false, "ip":"192.168.1.110",
+          "deviceName":"CLIENT1", "downSpeed":112458738, "upSpeed":704111,
+          "txRate":1441170, "rxRate":1080880, "online_time":34990.64,
+          "trafficUsed":19594852347, "signal": -60},
+          {"deviceName":"no-mac-device"}
+      ],
+      "timeout": false,
+      "success": true
+  }
+'''
+        response_stats = '''
+  {
+      "data": [],
+      "timeout": false,
+      "success": true,
+      "operator": "load"
+  }
+'''
+
+        router_class = self.router_class
+        game_accelerator_path = self.game_accelerator_path
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == game_accelerator_path:
+                    return loads(response_game_accelerator)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        status = client.get_status()
+
+        self.assertEqual(len(status.devices), 1)
+        device = status.devices[0]
+        self.assertEqual(device.macaddr, 'F4-AA-BB-CC-DD-EE')
+        self.assertEqual(device.ipaddr, '192.168.1.110')
+        self.assertEqual(device.hostname, 'CLIENT1')
+        self.assertEqual(device.down_speed, 112458738)
+        self.assertEqual(device.up_speed, 704111)
+        self.assertEqual(device.tx_rate, 1441170)
+        self.assertEqual(device.rx_rate, 1080880)
+        self.assertEqual(device.online_time, 34990.64)
+        self.assertEqual(device.traffic_usage, 19594852347)
+        self.assertEqual(device.signal, -60)
+        self.assertFalse(client._easymesh)
+        self.assertIsNone(device.ap_name)
+
+    def test_get_status_with_game_accelerator_alt_keys(self) -> None:
+        response_status = '''
+    {
+        "success": true,
+        "data": {
+            "lan_macaddr": "06:e6:97:9e:23:f5",
+            "access_devices_wireless_host": [
+                {
+                    "wire_type": "5G",
+                    "macaddr": "aa:bb:cc:dd:ee:ff",
+                    "ipaddr": "192.168.1.120",
+                    "hostname": "CLIENT2"
+                }
+            ]
+        }
+    }
+'''
+        response_game_accelerator = '''
+  {
+      "data": [
+          {"mac": "aa:bb:cc:dd:ee:ff", "deviceTag":"5G", "isGuest":false, "ip":"192.168.1.120",
+          "deviceName":"CLIENT2", "downloadSpeed":12345, "uploadSpeed":2345,
+          "txrate":300, "rxrate":400, "onlineTime":123.45,
+          "trafficUsage":987654321, "signal": -55}
+      ],
+      "timeout": false,
+      "success": true
+  }
+'''
+        response_stats = '''
+  {
+      "data": [],
+      "timeout": false,
+      "success": true,
+      "operator": "load"
+  }
+'''
+
+        router_class = self.router_class
+        game_accelerator_path = self.game_accelerator_path
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == game_accelerator_path:
+                    return loads(response_game_accelerator)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        status = client.get_status()
+
+        self.assertEqual(len(status.devices), 1)
+        device = status.devices[0]
+        self.assertEqual(device.macaddr, 'AA-BB-CC-DD-EE-FF')
+        self.assertEqual(device.ipaddr, '192.168.1.120')
+        self.assertEqual(device.hostname, 'CLIENT2')
+        self.assertEqual(device.down_speed, 12345)
+        self.assertEqual(device.up_speed, 2345)
+        self.assertEqual(device.tx_rate, 300)
+        self.assertEqual(device.rx_rate, 400)
+        self.assertEqual(device.online_time, 123.45)
+        self.assertEqual(device.traffic_usage, 987654321)
+        self.assertEqual(device.signal, -55)
+        self.assertFalse(client._easymesh)
+        self.assertIsNone(device.ap_name)
+
+    def test_get_status_with_easymesh(self) -> None:
+        """EasyMesh AX55 sample: main node gets '*name', satellites set ap_name + signal."""
+        # Status uses colon-lowercase MACs; EasyMesh responses use dash-uppercase —
+        # enrichment must still match via normalized Device.macaddr.
+        response_status = '''
+{
+    "success": true,
+    "data": {
+        "lan_macaddr": "24:00:00:00:00:18",
+        "access_devices_wired": [
+            {
+                "wire_type": "wired",
+                "macaddr": "34:00:00:00:00:a8",
+                "ipaddr": "10.1.1.27",
+                "hostname": "Aircon_Bedroom"
+            },
+            {
+                "wire_type": "wired",
+                "macaddr": "60:00:00:00:00:2b",
+                "ipaddr": "10.1.1.12",
+                "hostname": "C110"
+            }
+        ],
+        "access_devices_wireless_host": [
+            {
+                "wire_type": "2.4G",
+                "macaddr": "34:00:00:00:00:0a",
+                "ipaddr": "10.1.1.21",
+                "hostname": "Aircon_LivingRoom"
+            },
+            {
+                "wire_type": "2.4G",
+                "macaddr": "dc:00:00:00:00:e6",
+                "ipaddr": "10.1.1.27",
+                "hostname": "L530"
+            },
+            {
+                "wire_type": "2.4G",
+                "macaddr": "e8:00:00:00:00:be",
+                "ipaddr": "10.1.1.2",
+                "hostname": "Solarman"
+            }
+        ],
+        "wireless_2g_enable": "on"
+    }
+}
+'''
+        response_stats = '''
+{
+    "data": [],
+    "timeout": false,
+    "success": true,
+    "operator": "load"
+}
+'''
+        # From res/EasyMesh-device-list-responses.txt (AX55)
+        response_easymesh_list = '''
+{
+    "success": true,
+    "data": [
+        {
+            "mac": "24-00-00-00-00-18",
+            "client_num": 28,
+            "ip": "10.1.1.251",
+            "role": "main_router",
+            "name": "AX55 main",
+            "model": "Archer AX55",
+            "status": "connected",
+            "location": "meals",
+            "vendor": "TP-Link",
+            "device_type": "WirelessRouter"
+        },
+        {
+            "mac": "60-00-00-00-00-F5",
+            "connect_type": "wire",
+            "client_num": 3,
+            "parent_mac": "24-00-00-00-00-18",
+            "ip": "10.1.1.5",
+            "mesh_type": "easymesh",
+            "name": "Archer AX23",
+            "model": "Archer AX23",
+            "status": "connected",
+            "role": "satellite_router",
+            "device_type": "WirelessRouter"
+        },
+        {
+            "mac": "A8-00-00-00-00-EE",
+            "connect_type": "wireless",
+            "client_num": 1,
+            "parent_mac": "24-00-00-00-00-18",
+            "name": "RE200",
+            "model": "RE200",
+            "status": "connected",
+            "ip": "10.1.1.36",
+            "role": "satellite_router",
+            "device_type": "RangeExtender"
+        }
+    ]
+}
+'''
+        # From res/EasyMesh-sclient-detail-responses.txt
+        response_sclient_main = '''
+{
+    "success": true,
+    "data": {
+        "mac": "24-00-00-00-00-18",
+        "mesh_nclient_list": [
+            {"mac": "34-00-00-00-00-A8", "name": "Aircon_Bedroom", "is_wired": false,
+             "bind": false, "ip": "10.1.1.27"},
+            {"mac": "34-00-00-00-00-0A", "name": "Aircon_LivingRoom", "is_wired": false,
+             "bind": false, "ip": "10.1.1.21"},
+            {"mac": "AA-BB-CC-DD-EE-FF", "name": "OnlyInMesh", "is_wired": false,
+             "bind": false, "ip": "10.1.1.99"}
+        ],
+        "role": "main_router",
+        "name": "AX55 main",
+        "model": "Archer AX55"
+    }
+}
+'''
+        response_sclient_ax23 = '''
+{
+    "success": true,
+    "data": {
+        "mac": "60-00-00-00-00-F5",
+        "role": "satellite_router",
+        "name": "Archer AX23",
+        "model": "Archer AX23",
+        "connect_type": "wire",
+        "mesh_nclient_list": [
+            {"mac": "DC-00-00-00-00-E6", "signal_strength": -67, "connection_type": "2.4G",
+             "ip": "10.1.1.27", "guest": "NON_GUEST", "name": "L530", "rxrate": 26,
+             "is_wired": false, "bind": false, "txrate": 43},
+            {"mac": "E8-00-00-00-00-BE", "signal_strength": -47, "connection_type": "2.4G",
+             "ip": "10.1.1.2", "guest": "NON_GUEST", "name": "Solarman", "rxrate": 72,
+             "is_wired": false, "bind": false, "txrate": 14},
+            {"mac": "60-00-00-00-00-2B", "signal_strength": -23, "connection_type": "2.4G",
+             "ip": "10.1.1.12", "guest": "NON_GUEST", "name": "C110", "rxrate": 72,
+             "is_wired": false, "bind": false, "txrate": 72}
+        ]
+    }
+}
+'''
+        response_sclient_re200 = '''
+{
+    "success": true,
+    "data": {
+        "mac": "A8-00-00-00-00-EE",
+        "role": "satellite_router",
+        "name": "RE200",
+        "model": "RE200",
+        "connect_type": "wireless",
+        "mesh_nclient_list": [
+            {"mac": "DC-00-00-00-00-E6", "signal_strength": -47, "connection_type": "2.4G",
+             "ip": "10.1.1.13", "guest": "NON_GUEST", "name": "L530-BR1", "rxrate": 65,
+             "is_wired": false, "bind": false, "txrate": 72}
+        ]
+    }
+}
+'''
+        sclient_by_mac = {
+            '24-00-00-00-00-18': response_sclient_main,
+            '60-00-00-00-00-F5': response_sclient_ax23,
+            'A8-00-00-00-00-EE': response_sclient_re200,
+        }
+
+        router_class = self.router_class
+        easymesh_device_list_path = self.easymesh_device_list_path
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                elif path == easymesh_device_list_path:
+                    return loads(response_easymesh_list)['data']
+                elif path.startswith('admin/easymesh_network?form=mesh_sclient_detail'):
+                    mac = path.rsplit('mac=', 1)[-1]
+                    return loads(sclient_by_mac[mac])['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        status = client.get_status()
+
+        self.assertTrue(client._easymesh)
+        # Mesh-only AA-BB-CC-DD-EE-FF is skipped (not in status devices)
+        self.assertEqual(len(status.devices), 5)
+        by_mac = {device.macaddr: device for device in status.devices}
+
+        # Main-router clients: '*' prefix, no signal from mesh_nclient_list
+        self.assertEqual(by_mac['34-00-00-00-00-A8'].ap_name, '*AX55 main')
+        self.assertIsNone(by_mac['34-00-00-00-00-A8'].signal)
+        self.assertEqual(by_mac['34-00-00-00-00-0A'].ap_name, '*AX55 main')
+        self.assertIsNone(by_mac['34-00-00-00-00-0A'].signal)
+
+        # Wired satellite clients
+        self.assertEqual(by_mac['E8-00-00-00-00-BE'].ap_name, 'Archer AX23')
+        self.assertEqual(by_mac['E8-00-00-00-00-BE'].signal, -47)
+        self.assertEqual(by_mac['60-00-00-00-00-2B'].ap_name, 'Archer AX23')
+        self.assertEqual(by_mac['60-00-00-00-00-2B'].signal, -23)
+
+        # Same MAC on AX23 then RE200 — last satellite wins
+        self.assertEqual(by_mac['DC-00-00-00-00-E6'].ap_name, 'RE200')
+        self.assertEqual(by_mac['DC-00-00-00-00-E6'].signal, -47)
+
+    def test_get_status_easymesh_detail_errors_are_skipped(self) -> None:
+        """A failing mesh_sclient_detail must not abort get_status or disable EasyMesh."""
+        response_status = '''
+{
+    "success": true,
+    "data": {
+        "lan_macaddr": "24:00:00:00:00:18",
+        "access_devices_wireless_host": [
+            {
+                "wire_type": "2.4G",
+                "macaddr": "e8:00:00:00:00:be",
+                "ipaddr": "10.1.1.2",
+                "hostname": "Solarman"
+            }
+        ],
+        "wireless_2g_enable": "on"
+    }
+}
+'''
+        response_stats = '{"data": [], "timeout": false, "success": true, "operator": "load"}'
+        response_easymesh_list = '''
+{
+    "success": true,
+    "data": [
+        {"mac": "24-00-00-00-00-18", "role": "main_router", "name": "AX55 main"},
+        {"mac": "60-00-00-00-00-F5", "role": "satellite_router", "name": "Archer AX23"}
+    ]
+}
+'''
+        response_sclient_ax23 = '''
+{
+    "success": true,
+    "data": {
+        "mac": "60-00-00-00-00-F5",
+        "role": "satellite_router",
+        "name": "Archer AX23",
+        "mesh_nclient_list": [
+            {"mac": "E8-00-00-00-00-BE", "signal_strength": -47, "name": "Solarman"}
+        ]
+    }
+}
+'''
+        router_class = self.router_class
+        easymesh_device_list_path = self.easymesh_device_list_path
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                if path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                if path == easymesh_device_list_path:
+                    return loads(response_easymesh_list)['data']
+                if path.endswith('mac=24-00-00-00-00-18'):
+                    raise ClientException('detail failed')
+                if path.endswith('mac=60-00-00-00-00-F5'):
+                    return loads(response_sclient_ax23)['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        status = client.get_status()
+
+        self.assertTrue(client._easymesh)
+        self.assertEqual(len(status.devices), 1)
+        self.assertEqual(status.devices[0].ap_name, 'Archer AX23')
+        self.assertEqual(status.devices[0].signal, -47)
+
+    def test_get_status_easymesh_unsupported_disables_flag(self) -> None:
+        response_status = '''
+{
+    "success": true,
+    "data": {
+        "lan_macaddr": "06:e6:97:9e:23:f5",
+        "access_devices_wired": [],
+        "access_devices_wireless_host": [],
+        "wireless_2g_enable": "on"
+    }
+}
+'''
+        response_stats = '''
+{"data": [], "timeout": false, "success": true, "operator": "load"}
+'''
+        router_class = self.router_class
+        easymesh_device_list_path = self.easymesh_device_list_path
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                elif path == easymesh_device_list_path:
+                    raise ClientException('EasyMesh not supported')
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        self.assertTrue(client._easymesh)
+        status = client.get_status()
+        self.assertFalse(client._easymesh)
+        self.assertEqual(len(status.devices), 0)
+
+        # Second call must not attempt easymesh again
+        requested = []
+
+        def tracking_request(path, data, ignore_response=False, ignore_errors=False):
+            requested.append(path)
+            if path == 'admin/status?form=all&operation=read':
+                return loads(response_status)['data']
+            if path == 'admin/wireless?form=statistics':
+                return loads(response_stats)['data']
+            raise ClientException()
+
+        client.request = tracking_request
+        client.get_status()
+        self.assertFalse(any('easymesh_network' in path for path in requested))
+
+    def test_get_status_with_perf_request(self) -> None:
+        response_status = '''
+    {
+        "success": true,
+        "data": {
+            "lan_macaddr": "06:e6:97:9e:23:f5",
+            "guest_2g_enable": "on",
+            "wireless_2g_enable": "on"
+        }
+    }
+    '''
+        perf_stats = '''
+      {
+          "data": {"mem_usage":0.47, "cpu_usage":0.25},
+          "timeout": false,
+          "success": true,
+          "operator": "load"
+      }
+    '''
+        response_stats = '''
+      {
+          "data": [],
+          "timeout": false,
+          "success": true,
+          "operator": "load"
+      }
+    '''
+
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == 'admin/status?form=perf&operation=read':
+                    return loads(perf_stats)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        status = client.get_status()
+
+        self.assertIsInstance(status, Status)
+        self.assertEqual(status.wan_macaddr, None)
+        self.assertEqual(status.lan_macaddr, '06-E6-97-9E-23-F5')
+        self.assertIsInstance(status.lan_macaddress, EUI48)
+        self.assertEqual(status.wan_ipv4_addr, None)
+        self.assertEqual(status.lan_ipv4_addr, None)
+        self.assertEqual(status.wan_ipv4_gateway, None)
+        self.assertEqual(status.wired_total, 0)
+        self.assertEqual(status.wifi_clients_total, 0)
+        self.assertEqual(status.guest_clients_total, 0)
+        self.assertEqual(status.clients_total, 0)
+        self.assertEqual(status.iot_clients_total, None)
+        self.assertEqual(status.guest_2g_enable, True)
+        self.assertEqual(status.guest_5g_enable, None)
+        self.assertEqual(status.guest_6g_enable, None)
+        self.assertEqual(status.iot_2g_enable, None)
+        self.assertEqual(status.iot_5g_enable, None)
+        self.assertEqual(status.iot_6g_enable, None)
+        self.assertEqual(status.wifi_2g_enable, True)
+        self.assertEqual(status.wifi_5g_enable, None)
+        self.assertEqual(status.wifi_6g_enable, None)
+        self.assertEqual(status.wan_ipv4_uptime, None)
+        self.assertEqual(status.mem_usage, 0.47)
+        self.assertEqual(status.cpu_usage, 0.25)
+        self.assertEqual(len(status.devices), 0)
+        self.assertFalse(client._easymesh)
+
+    def test_set_wifi(self) -> None:
+        check_url = ''
+        check_data = ''
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                nonlocal check_url, check_data
+                check_url = path
+                check_data = data
+                return None
+
+        client = TPLinkRouterTest('', '')
+        result = client.set_wifi(Connection.HOST_2G, False)
+        self.assertIsNone(result)
+        self.assertEqual(check_url, 'admin/wireless?form=wireless_2g')
+        self.assertEqual(check_data, 'operation=write&enable=off')
+        client.set_wifi(Connection.HOST_2G, True)
+        self.assertEqual(check_url, 'admin/wireless?form=wireless_2g')
+        self.assertEqual(check_data, 'operation=write&enable=on')
+        client.set_wifi(Connection.HOST_5G, False)
+        self.assertEqual(check_url, 'admin/wireless?form=wireless_5g')
+        self.assertEqual(check_data, 'operation=write&enable=off')
+        client.set_wifi(Connection.HOST_6G, True)
+        self.assertEqual(check_url, 'admin/wireless?form=wireless_6g')
+        self.assertEqual(check_data, 'operation=write&enable=on')
+        client.set_wifi(Connection.GUEST_2G, True)
+        self.assertEqual(check_url, 'admin/wireless?form=guest_2g')
+        self.assertEqual(check_data, 'operation=write&enable=on')
+        client.set_wifi(Connection.GUEST_5G, False)
+        self.assertEqual(check_url, 'admin/wireless?form=guest_5g')
+        self.assertEqual(check_data, 'operation=write&enable=off')
+        client.set_wifi(Connection.GUEST_6G, True)
+        self.assertEqual(check_url, 'admin/wireless?form=guest_6g')
+        self.assertEqual(check_data, 'operation=write&enable=on')
+        client.set_wifi(Connection.IOT_2G, True)
+        self.assertEqual(check_url, 'admin/wireless?form=iot_2g')
+        self.assertEqual(check_data, 'operation=write&enable=on')
+        client.set_wifi(Connection.IOT_5G, False)
+        self.assertEqual(check_url, 'admin/wireless?form=iot_5g')
+        self.assertEqual(check_data, 'operation=write&enable=off')
+        client.set_wifi(Connection.IOT_6G, True)
+        self.assertEqual(check_url, 'admin/wireless?form=iot_6g')
+        self.assertEqual(check_data, 'operation=write&enable=on')
+
+    def test_add_ipv4_reservation(self) -> None:
+        check_url = ''
+        check_data = ''
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                nonlocal check_url, check_data
+                check_url = path
+                check_data = data
+                return None
+
+        client = TPLinkRouterTest('', '')
+        result = client.add_ipv4_reservation('02:00:00:00:00:16', '10.0.0.116', 'auto')
+        self.assertIsNone(result)
+        self.assertEqual(check_url, 'admin/dhcps?form=reservation')
+        body = dict(parse_qsl(check_data))
+        self.assertEqual(body['operation'], 'insert')
+        self.assertEqual(
+            loads(body['new']),
+            {'mac': '02-00-00-00-00-16', 'ip': '10.0.0.116', 'comment': 'auto', 'enable': 'on'})
+
+        # MAC is normalised to dash-uppercase and a disabled entry sends enable=off
+        client.add_ipv4_reservation('aa-bb-cc-dd-ee-ff', '10.0.0.50', enable=False)
+        body = dict(parse_qsl(check_data))
+        self.assertEqual(
+            loads(body['new']),
+            {'mac': 'AA-BB-CC-DD-EE-FF', 'ip': '10.0.0.50', 'comment': '', 'enable': 'off'})
+
+    def test_set_ipv4_dhcps(self) -> None:
+        """Read-modify-write of admin/dhcps?form=setting (AX55 capture from PR #199)."""
+        setting = {
+            'enable': 'on',
+            'leasetime': '120',
+            'pri_dns': '',
+            'snd_dns': '',
+            'gateway': '192.168.0.1',
+            'ipaddr_start': '192.168.0.2',
+            'domain': '',
+            'ipaddr_end': '192.168.0.253',
+        }
+        check_url = ''
+        check_data = ''
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                nonlocal check_url, check_data
+                check_url = path
+                check_data = data
+                if 'operation=read' in data:
+                    return dict(setting)
+                return None
+
+        client = TPLinkRouterTest('', '')
+        result = client.set_ipv4_dhcps(False)
+        self.assertIsNone(result)
+        self.assertEqual(check_url, 'admin/dhcps?form=setting')
+        body = dict(parse_qsl(check_data, keep_blank_values=True))
+        self.assertEqual(body['operation'], 'write')
+        self.assertEqual(body['enable'], 'off')
+        self.assertEqual(body['leasetime'], '120')
+        self.assertEqual(body['pri_dns'], '')
+        self.assertEqual(body['snd_dns'], '')
+        self.assertEqual(body['gateway'], '192.168.0.1')
+        self.assertEqual(body['ipaddr_start'], '192.168.0.2')
+        self.assertEqual(body['ipaddr_end'], '192.168.0.253')
+        self.assertEqual(body['domain'], '')
+
+        client.set_ipv4_dhcps(True)
+        body = dict(parse_qsl(check_data, keep_blank_values=True))
+        self.assertEqual(body['enable'], 'on')
+        self.assertEqual(body['domain'], '')
+
+    def test_get_ipv4_status_empty(self) -> None:
+        response_network = '{"result": {}, "error_code": 0}'
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/network?form=status_ipv4&operation=read':
+                    return loads(response_network)['result']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        result = client.get_ipv4_status()
+
+        self.assertIsInstance(result, IPv4Status)
+        self.assertEqual(result.wan_macaddr, '00-00-00-00-00-00')
+        self.assertEqual(result.wan_ipv4_ipaddr, '0.0.0.0')
+        self.assertEqual(result.wan_ipv4_gateway, '0.0.0.0')
+        self.assertEqual(result.wan_ipv4_conntype, '')
+        self.assertEqual(result.wan_ipv4_netmask, '0.0.0.0')
+        self.assertEqual(result.wan_ipv4_pridns, '0.0.0.0')
+        self.assertEqual(result.wan_ipv4_snddns, '0.0.0.0')
+        self.assertEqual(result.lan_macaddr, '00-00-00-00-00-00')
+        self.assertEqual(result.lan_ipv4_ipaddr, '0.0.0.0')
+        self.assertEqual(result.lan_ipv4_netmask, '0.0.0.0')
+        self.assertEqual(result.lan_ipv4_dhcp_enable, False)
+        self.assertEqual(result.remote, None)
+
+    def test_get_ipv6_status(self) -> None:
+        response_status_ipv6 = {
+            'wan_ipv6_pridns': '2401:380:1::61',
+            'wan_ipv6_enable': 'on',
+            'wan_ipv6_gateway': 'fe80::e803:feff:fee5:3040',
+            'wan_ipv6_conntype': 'dhcp6c',
+            'wan_ipv6_snddns': '2401:380:1::62',
+            'wan_ipv6_ip6addr': '2401:0005:1000::548/64',
+            'lan_ipv6_assign_type': 'slaac',
+        }
+        response_wan_ipv6_dynamic = {
+            'nonaddress_support': 1,
+            'prefix': '2401:0005:0005:4800::',
+            'pri_dns': '2401:380:1::61',
+            'dyn_pridns': '2401:380:1::61',
+            'link_status': 'plugged',
+            'conn_status': 'connected',
+            'conntype': 'dhcp6c',
+            'ip_mode': 'prefix',
+            'static_snddns': '',
+            'static_pridns': '',
+            'ip_config': 'auto',
+            'ip6addr': '2401:0005:1000::548/64',
+            'dns_mode': 'dynamic',
+            'dyn_snddns': '2401:380:1::62',
+            'snd_dns': '2401:380:1::62',
+            'pppshare': 3,
+        }
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/network?form=status_ipv6&operation=read':
+                    return response_status_ipv6
+                if path == 'admin/network?form=wan_ipv6_dynamic&operation=read':
+                    return response_wan_ipv6_dynamic
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        result = client.get_ipv6_status()
+
+        self.assertIsInstance(result, IPv6Status)
+        self.assertEqual(result.wan_ipv6_enabled, True)
+        self.assertEqual(result.wan_ipv6_conntype, 'dhcp6c')
+        self.assertEqual(result.wan_ipv6_addr, '2401:5:1000::548')
+        self.assertEqual(result.wan_ipv6_gateway, 'fe80::e803:feff:fee5:3040')
+        self.assertEqual(result.wan_ipv6_pridns, IPv6Address('2401:380:1::61'))
+        self.assertEqual(result.wan_ipv6_snddns, IPv6Address('2401:380:1::62'))
+        self.assertEqual(result.wan_ipv6_conn_status, 'connected')
+        self.assertEqual(result.ipv6_site_prefix, '2401:5:5:4800::')
+        self.assertEqual(result.wan_ipv6_addr_type, None)
+        self.assertEqual(result.ipv6_site_prefix_length, None)
+
+    def test_get_status_wan_macaddr_empty(self) -> None:
+        response_status = '''
+    {
+        "success": true,
+        "data": {
+            "lan_macaddr": "06:e6:97:9e:23:f5",
+            "wan_macaddr": "",
+            "wan_ipv4_ipaddr": "0.0.0.0",
+            "wan_ipv4_gateway": "0.0.0.0"
+        }
+    }
+    '''
+        response_stats = '''
+      {
+          "data": [],
+          "timeout": false,
+          "success": true,
+          "operator": "load"
+      }
+    '''
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    return loads(response_stats)['data']
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        result = client.get_status()
+
+        self.assertIsInstance(result, Status)
+        self.assertEqual(result.wan_macaddr, None)
+        self.assertEqual(result.wan_ipv4_addr, '0.0.0.0')
+        self.assertEqual(result.wan_ipv4_gateway, '0.0.0.0')
+        self.assertEqual(result.lan_macaddr, '06-E6-97-9E-23-F5')
+        self.assertFalse(client._easymesh)
+
+    def test_get_status_wifi_disabled(self) -> None:
+        """Test that get_status gracefully handles when WiFi is disabled and wireless statistics fail."""
+        response_status = '''
+    {
+        "success": true,
+        "data": {
+            "lan_macaddr": "06:e6:97:9e:23:f5",
+            "wan_macaddr": "06:e6:97:9e:23:f6",
+            "wan_ipv4_ipaddr": "192.168.1.1",
+            "wan_ipv4_gateway": "192.168.1.254",
+            "lan_ipv4_ipaddr": "192.168.0.1",
+            "mem_usage": 0.43,
+            "cpu_usage": 0.28,
+            "conn_type": "1",
+            "access_devices_wired": [
+                {
+                    "wire_type": "wired",
+                    "macaddr": "3d:24:25:24:30:79",
+                    "ipaddr": "192.168.1.228",
+                    "hostname": "SERVER"
+                }
+            ],
+            "access_devices_wireless_host": [],
+            "access_devices_wireless_guest": [],
+            "wireless_2g_enable": "off",
+            "wireless_5g_enable": "off",
+            "guest_2g_enable": "off",
+            "guest_5g_enable": "off"
+        }
+    }
+    '''
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path: str, data: str,
+                        ignore_response: bool = False, ignore_errors: bool = False) -> dict | None:
+                if path == 'admin/status?form=all&operation=read':
+                    return loads(response_status)['data']
+                elif path == 'admin/wireless?form=statistics':
+                    # Simulate the error that occurs when WiFi is disabled
+                    from tplinkrouterc6u.common.exception import ClientError
+                    raise ClientError('TplinkRouter - An unknown response - Expecting value: line 1 column 1 (char 0)')
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        result = client.get_status()
+
+        # Should complete successfully without crashing
+        self.assertIsInstance(result, Status)
+        self.assertEqual(result.wan_macaddr, '06-E6-97-9E-23-F6')
+        self.assertEqual(result.lan_macaddr, '06-E6-97-9E-23-F5')
+        self.assertEqual(result.wan_ipv4_addr, '192.168.1.1')
+        self.assertEqual(result.wan_ipv4_gateway, '192.168.1.254')
+        self.assertEqual(result.lan_ipv4_addr, '192.168.0.1')
+        self.assertEqual(result.wired_total, 1)
+        self.assertEqual(result.wifi_clients_total, 0)
+        self.assertEqual(result.guest_clients_total, 0)
+        self.assertEqual(result.clients_total, 1)
+        self.assertEqual(result.wifi_2g_enable, False)
+        self.assertEqual(result.wifi_5g_enable, False)
+        # Devices list should only contain wired devices
+        self.assertEqual(len(result.devices), 1)
+        self.assertEqual(result.devices[0].type, Connection.WIRED)
+        self.assertFalse(client._easymesh)
+        self.assertIsNone(result.devices[0].ap_name)
+
+    def test_vpn_status(self) -> None:
+        response_openvpn_read = """
+        {
+            "enabled": "on",
+            "proto": "udp",
+            "access": "home",
+            "cert_exist": true,
+            "mask": "255.255.255.0",
+            "port": "1194",
+            "serverip": "10.8.0.0"
+        }
+        """
+
+        response_pptp_read = """
+        {
+            "enabled": "off",
+            "unencrypted_access": "on",
+            "samba_access": "on",
+            "netbios_pass": "on",
+            "remoteip": "10.0.0.11-20"
+        }
+        """
+
+        respone_vpnconn_openvpn = """[
+            {"username": "admin", "remote_ip": "192.168.0.200", "ipaddr": "10.0.0.11",
+             "extra": "7450", "vpntype": "openvpn", "key": "7450"},
+            {"username": "admin", "remote_ip": "192.168.0.200", "ipaddr": "10.0.0.11",
+             "extra": "7450", "vpntype": "openvpn", "key": "7450"}
+        ]"""
+
+        respone_vpnconn_pptpvpn = """[
+            {"username": "admin", "remote_ip": "192.168.0.200", "ipaddr": "10.0.0.11",
+             "extra": "7450", "vpntype": "pptp", "key": "7450"},
+            {"username": "admin", "remote_ip": "192.168.0.200", "ipaddr": "10.0.0.11",
+             "extra": "7450", "vpntype": "pptp", "key": "7450"},
+            {"username": "admin", "remote_ip": "192.168.0.200", "ipaddr": "10.0.0.11",
+             "extra": "7450", "vpntype": "pptp", "key": "7450"}
+        ]"""
+
+        router_class = self.router_class
+        openvpn_config_path = self.openvpn_config_path
+        pptpd_config_path = self.pptpd_config_path
+        vpn_uses_data_param = self.vpn_uses_data_param
+
+        class TPLinkRouterTest(router_class):
+            def request(
+                self,
+                path: str,
+                data: str,
+                ignore_response: bool = False,
+                ignore_errors: bool = False,
+            ) -> dict | None:
+                if path == openvpn_config_path:
+                    return loads(response_openvpn_read)
+                if path == pptpd_config_path:
+                    return loads(response_pptp_read)
+                if vpn_uses_data_param:
+                    if path == "admin/vpnconn?form=config" and data == "operation=list&vpntype=openvpn":
+                        return loads(respone_vpnconn_openvpn)
+                    if path == "admin/vpnconn?form=config" and data == "operation=list&vpntype=pptp":
+                        return loads(respone_vpnconn_pptpvpn)
+                else:
+                    if path == "admin/vpnconn?form=config&operation=list&vpntype=openvpn":
+                        return loads(respone_vpnconn_openvpn)
+                    if path == "admin/vpnconn?form=config&operation=list&vpntype=pptp":
+                        return loads(respone_vpnconn_pptpvpn)
+                raise ClientException()
+
+        client = TPLinkRouterTest("", "")
+
+        vpn_status = client.get_vpn_status()
+        self.assertTrue(vpn_status.openvpn_enable)
+        self.assertFalse(vpn_status.pptpvpn_enable)
+        self.assertEqual(vpn_status.openvpn_clients_total, 2)
+        self.assertEqual(vpn_status.pptpvpn_clients_total, 3)
+
+    def test_set_vpn(self) -> None:
+        response_openvpn_read = """
+        {
+            "enabled": "on",
+            "proto": "udp",
+            "access": "home",
+            "cert_exist": true,
+            "mask": "255.255.255.0",
+            "port": "1194",
+            "serverip": "10.8.0.0"
+        }
+        """
+
+        router_class = self.router_class
+        openvpn_config_path = self.openvpn_config_path
+
+        class TPLinkRouterTest(router_class):
+            def request(
+                self,
+                path: str,
+                data: str,
+                ignore_response: bool = False,
+                ignore_errors: bool = False,
+            ) -> dict | None:
+                if path == openvpn_config_path and data == "operation=read":
+                    return loads(response_openvpn_read)
+                self.captured_path = path
+                self.captured_data = data
+
+        client = TPLinkRouterTest("", "")
+        client.set_vpn(VPN.OPEN_VPN, True)
+
+        expected_data = (
+            "operation=write&enabled=on"
+            "&proto=udp&access=home&cert_exist=True&mask=255.255.255.0&port=1194&serverip=10.8.0.0"
+        )
+        self.assertEqual(client.captured_path, self.openvpn_config_path)
+        self.assertEqual(client.captured_data, expected_data)
+
+    def test_get_vpn_client_status(self) -> None:
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                if 'admin/vpn?form=enable' in path:
+                    return {'enable': 'on', 'type': '0', 'ipsec': '1'}
+                if 'admin/vpn?form=server' in path:
+                    return [
+                        {'.name': 'cfg02769c', 'key': 'key-aaa', 'type': 'openvpn',
+                         'enable': 'on', 'des': 'Server A', 'status': 'connected'},
+                    ]
+                if 'admin/vpn?form=vpn_user_list' in path:
+                    return [
+                        {'mac': 'AA:BB:CC:DD:EE:FF', 'name': 'DeviceA',
+                         'client_type': 'other', 'access': 'on'},
+                    ]
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        result = client.get_vpn_client_status()
+
+        self.assertIsInstance(result, VpnClientStatus)
+        self.assertTrue(result.enabled)
+        self.assertEqual(len(result.servers), 1)
+        self.assertIsInstance(result.servers[0], VpnClientServer)
+        self.assertEqual(result.servers[0].id, 'key-aaa')
+        self.assertEqual(len(result.devices), 1)
+        self.assertIsInstance(result.devices[0], VpnClientDevice)
+        self.assertEqual(result.devices[0].macaddr, 'AA-BB-CC-DD-EE-FF')
+        self.assertIsInstance(result.devices[0].macaddress, EUI48)
+        self.assertEqual(result.devices[0].name, 'DeviceA')
+        self.assertTrue(result.devices[0].enabled)
+
+    def test_set_vpn_client(self) -> None:
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            captured_path = None
+            captured_data = None
+
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                self.captured_path = path
+                self.captured_data = data
+
+        client = TPLinkRouterTest('', '')
+        client.set_vpn_client(False)
+
+        self.assertIn('form=enable', client.captured_path)
+        self.assertIn('enable=off', client.captured_data)
+        self.assertIn('operation=write', client.captured_data)
+
+    def test_set_vpn_client_server_enable(self) -> None:
+        server_list = [
+            {'.name': 'cfg02769c', 'key': 'key-aaa', 'type': 'openvpn', 'enable': 'off', 'des': 'Server A'},
+            {'.name': 'cfg04769c', 'key': 'key-bbb', 'type': 'openvpn', 'enable': 'on', 'des': 'Server B'},
+        ]
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            captured_data = None
+
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                if 'admin/vpn?form=server' in path and 'operation=update' not in data:
+                    return server_list
+                self.captured_data = data
+
+        client = TPLinkRouterTest('', '')
+        client.set_vpn_client_server('key-aaa', True)
+
+        parsed = dict(parse_qsl(client.captured_data))
+        self.assertEqual(parsed.get('operation'), 'update')
+        self.assertEqual(parsed.get('key'), 'key-aaa')
+        new_obj = loads(parsed['new'])
+        old_obj = loads(parsed['old'])
+        self.assertEqual(new_obj['enable'], 'on')
+        self.assertEqual(old_obj['enable'], 'off')
+
+    def test_set_vpn_client_server_disable(self) -> None:
+        server_list = [
+            {'.name': 'cfg02769c', 'key': 'key-aaa', 'type': 'openvpn', 'enable': 'on', 'des': 'Server A'},
+        ]
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            captured_data = None
+
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                if 'admin/vpn?form=server' in path and 'operation=update' not in data:
+                    return server_list
+                self.captured_data = data
+
+        client = TPLinkRouterTest('', '')
+        client.set_vpn_client_server('key-aaa', False)
+
+        parsed = dict(parse_qsl(client.captured_data))
+        new_obj = loads(parsed['new'])
+        self.assertEqual(new_obj['enable'], 'off')
+
+    def test_set_vpn_client_server_disable_already_inactive_is_noop(self) -> None:
+        server_list = [
+            {'.name': 'cfg02769c', 'key': 'key-aaa', 'type': 'openvpn', 'enable': 'off', 'des': 'Server A'},
+        ]
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            request_count = 0
+
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                self.request_count += 1
+                if 'admin/vpn?form=server' in path:
+                    return server_list
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        client.set_vpn_client_server('key-aaa', False)
+
+        self.assertEqual(client.request_count, 1)  # only the read, no write
+
+    def test_set_vpn_client_device(self) -> None:
+        device_list = [
+            {'mac': 'AA:BB:CC:DD:EE:FF', 'name': 'DeviceA', 'client_type': 'other', 'access': 'on'},
+            {'mac': '11:22:33:44:55:66', 'name': 'DeviceB', 'client_type': 'other', 'access': 'off'},
+        ]
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            captured_data = None
+
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                if 'admin/vpn?form=vpn_user_list' in path and 'operation=update' not in data:
+                    return device_list
+                self.captured_data = data
+
+        client = TPLinkRouterTest('', '')
+        client.set_vpn_client_device('AA-BB-CC-DD-EE-FF', False)
+
+        parsed = dict(parse_qsl(client.captured_data))
+        self.assertEqual(parsed.get('operation'), 'update')
+        self.assertEqual(parsed.get('key'), 'AA:BB:CC:DD:EE:FF')  # raw API format
+        new_obj = loads(parsed['new'])
+        old_obj = loads(parsed['old'])
+        self.assertEqual(new_obj['access'], 'off')
+        self.assertEqual(old_obj['access'], 'on')
+
+    def test_set_vpn_client_device_not_found_raises(self) -> None:
+        device_list = [
+            {'mac': 'AA:BB:CC:DD:EE:FF', 'name': 'DeviceA', 'client_type': 'other', 'access': 'on'},
+        ]
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                if 'admin/vpn?form=vpn_user_list' in path:
+                    return device_list
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        with self.assertRaises(ClientException):
+            client.set_vpn_client_device('00:00:00:00:00:00', True)
+
+    def test_set_vpn_client_server_not_found_raises(self) -> None:
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                if 'admin/vpn?form=server' in path:
+                    return [
+                        {'.name': 'cfg02769c', 'key': 'key-aaa', 'type': 'openvpn', 'enable': 'off', 'des': 'Server A'},
+                    ]
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        with self.assertRaises(ClientException):
+            client.set_vpn_client_server('key-nonexistent', True)
+
+    def test_set_vpn_client_server_enable_already_active_is_noop(self) -> None:
+        server_list = [
+            {'.name': 'cfg02769c', 'key': 'key-aaa', 'type': 'openvpn', 'enable': 'on', 'des': 'Server A'},
+        ]
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            request_count = 0
+
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                self.request_count += 1
+                if 'admin/vpn?form=server' in path:
+                    return server_list
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        client.set_vpn_client_server('key-aaa', True)
+
+        self.assertEqual(client.request_count, 1)  # only the read, no write
+
+    def test_get_vpn_client_status_unknown_protocol_raises(self) -> None:
+        router_class = self.router_class
+
+        class TPLinkRouterTest(router_class):
+            def request(self, path, data, ignore_response=False, ignore_errors=False):
+                if 'admin/vpn?form=enable' in path:
+                    return {'enable': 'on', 'type': '0', 'ipsec': '1'}
+                if 'admin/vpn?form=server' in path:
+                    return [
+                        {'.name': 'cfg02769c', 'key': 'key-aaa', 'type': 'unknownproto',
+                         'enable': 'off', 'des': 'Server A'},
+                    ]
+                raise ClientException()
+
+        client = TPLinkRouterTest('', '')
+        with self.assertRaises(ClientException):
+            client.get_vpn_client_status()
+
+    def test_decrypt_response_empty_data_returns_empty_dict(self) -> None:
+        """Some firmwares (e.g. newer Deco) return {'data': ''} for endpoints they
+        do not implement. _decrypt_response must not raise on those — return {} so the
+        caller falls through to its standard 'invalid response' handling instead of
+        bubbling up an opaque ord()/JSON error."""
+        from tplinkrouterc6u.client.c6u import TplinkEncryption
+
+        class _Stub(TplinkEncryption):
+            def __init__(self):
+                pass
+
+        self.assertEqual(_Stub()._decrypt_response({'data': ''}), {})
+        self.assertEqual(_Stub()._decrypt_response({}), {})
+
+    @patch('tplinkrouterc6u.client.c6u.post')
+    def test_request_error_includes_decrypted_body(self, mock_post) -> None:
+        """A non-JSON body that is still AES-encrypted (e.g. an HTTP 500 from a
+        Deco/BE-series Lua dispatcher) must surface the decrypted error instead
+        of a generic 'An unknown response' (see #158)."""
+        client = TplinkRouter('http://192.168.0.1', 'password')
+        client._logged = True
+        client._stok = 'stok'
+        client._sysauth = 'sysauth'
+
+        response = Mock()
+        response.text = 'raw_ciphertext'
+        response.json.side_effect = ValueError('Expecting value: line 1 column 1')
+        mock_post.return_value = response
+
+        with patch.object(client, '_prepare_data', return_value='prepared'), \
+                patch.object(
+                    client._encryption, 'aes_decrypt',
+                    return_value='Failed to execute call dispatcher target: attempt to index global mode',
+                ):
+            with self.assertRaises(ClientError) as ctx:
+                client.request('admin/wireless?form=wlan', 'operation=write')
+
+        self.assertIn('Decrypted response', str(ctx.exception))
+        self.assertIn('attempt to index global mode', str(ctx.exception))
+
+
+class TestAuthMinimal(TestCase):
+    def setUp(self):
+        self.client = TplinkRouter('http://192.168.0.1', 'test_password')
+        self.client._seq = '100'
+        self.client.nn = '00'
+        self.client.ee = '010001'
+
+    def test_prepare_data_signature_state(self):
+        # Verify conditional signature logic (True for login, False for active session)
+        with patch.object(self.client._encryption, 'aes_encrypt', return_value='enc'), \
+             patch.object(self.client._encryption, 'get_signature', return_value='sign') as mock_sign:
+
+            self.client._logged = False
+            self.client._prepare_data('data')
+            self.assertTrue(mock_sign.call_args[0][1], "Should pass True when not logged")
+
+            self.client._logged = True
+            self.client._prepare_data('data')
+            self.assertFalse(mock_sign.call_args[0][1], "Should pass False when logged")
+
+
+class TestWifiGeneric(TestCase):
+    def setUp(self):
+        self.host = 'http://192.168.0.1'
+        self.password = 'test_password'
+        self.client = TplinkRouter(self.host, self.password)
+        self.client._logged = True
+        self.client._stok = 'mock_stok'
+
+    @patch('tplinkrouterc6u.client.c6u.post')
+    def test_get_wifi(self, mock_post):
+        # Test generic Wi-Fi info retrieval for Guest 2G
+        mock_data = {
+            'enable': 'on',
+            'ssid': 'Generic_Guest',
+            'encryption': 'portal',
+            'portal_password': 'password123'
+        }
+
+        with patch.object(self.client, 'request', return_value=mock_data):
+            info = self.client.get_wifi(Connection.GUEST_2G)
+
+        self.assertIsInstance(info, WifiStatus)
+        self.assertTrue(info.enable)
+        self.assertEqual(info.ssid, 'Generic_Guest')
+        self.assertEqual(info.portal_password, 'password123')
+
+    @patch('tplinkrouterc6u.client.c6u.post')
+    def test_get_wifi_prefixed(self, mock_post):
+        # Test handling of prefixed keys (e.g. from 'all' form)
+        mock_data = {
+            'wireless_2g_enable': 'on',
+            'wireless_2g_ssid': 'Host_2G'
+        }
+
+        with patch.object(self.client, 'request', return_value=mock_data):
+            info = self.client.get_wifi(Connection.HOST_2G)
+
+        self.assertTrue(info.enable)
+        self.assertEqual(info.ssid, 'Host_2G')
+
+    @patch('tplinkrouterc6u.client.c6u.post')
+    def test_get_wifi_channel_auto(self, mock_post):
+        # Firmware returns channel 'auto' for auto-selected channels; must map to None
+        mock_data = {
+            'wireless_2g_enable': 'on',
+            'wireless_2g_ssid': 'Host_2G',
+            'wireless_2g_channel': 'auto'
+        }
+
+        with patch.object(self.client, 'request', return_value=mock_data):
+            info = self.client.get_wifi(Connection.HOST_2G)
+
+        self.assertTrue(info.enable)
+        self.assertEqual(info.ssid, 'Host_2G')
+        self.assertIsNone(info.channel)
+
+    @patch('tplinkrouterc6u.client.c6u.post')
+    def test_set_wifi_enhanced(self, mock_post):
+        # Verify set_wifi still builds correct data strings
+        with patch.object(self.client, 'request') as mock_request:
+            self.client.set_wifi(
+                wifi=Connection.GUEST_2G,
+                ssid='New_SSID',
+                portal_password='new_pw'
+            )
+
+        args, data = mock_request.call_args[0]
+        self.assertIn('guest_2g_ssid=New_SSID', data)
+        self.assertIn('guest_2g_portal_password=new_pw', data)
+        self.assertIn('form=guest_2g', args)
+
+
+if __name__ == '__main__':
+    main()
+
+
+class TestIPv4ListEnvelope(TestCase):
+    """Both response shapes must work: firmware differs, so neither may be assumed.
+
+    An Archer BE805 v1.20 on 1.5.1 Build 20260523 rel.11659(5347) answers the
+    reservation load with {"list": [...]}, while other models answer with a bare
+    array. Iterating the response directly walks dict KEYS on the former, so the
+    first item['mac'] raises TypeError.
+    """
+
+    @patch('tplinkrouterc6u.client.c6u.TplinkBaseRouter.request')
+    def test_reservations_accept_bare_list(self, mock_request: Mock) -> None:
+        mock_request.return_value = [
+            {'mac': '02-00-00-00-00-01', 'ip': '10.0.0.1', 'comment': 'a', 'enable': 'on'},
+        ]
+        client = TplinkRouter('http://192.168.0.1', 'password')
+        result = client.get_ipv4_reservations()
+        self.assertEqual(len(result), 1)
+        self.assertEqual(str(result[0].macaddr), '02-00-00-00-00-01')
+
+    @patch('tplinkrouterc6u.client.c6u.TplinkBaseRouter.request')
+    def test_reservations_accept_list_envelope(self, mock_request: Mock) -> None:
+        mock_request.return_value = {'list': [
+            {'mac': '02-00-00-00-00-02', 'ip': '10.0.0.2', 'comment': 'b', 'enable': 'on',
+             'hostname': 'host', 'key': 'k'},
+        ]}
+        client = TplinkRouter('http://192.168.0.1', 'password')
+        result = client.get_ipv4_reservations()
+        self.assertEqual(len(result), 1)
+        self.assertEqual(str(result[0].macaddr), '02-00-00-00-00-02')
+
+    @patch('tplinkrouterc6u.client.c6u.TplinkBaseRouter.request')
+    def test_reservations_reject_unknown_shape(self, mock_request: Mock) -> None:
+        # A clear error beats TypeError from three frames deeper: the message
+        # names the keys actually received, which is what a bug report needs.
+        mock_request.return_value = {'unexpected': []}
+        client = TplinkRouter('http://192.168.0.1', 'password')
+        with self.assertRaises(ClientError) as ctx:
+            client.get_ipv4_reservations()
+        self.assertIn('unexpected', str(ctx.exception))
+
+    @patch('tplinkrouterc6u.client.c6u.TplinkBaseRouter.request')
+    def test_leases_accept_both_shapes(self, mock_request: Mock) -> None:
+        lease = {'macaddr': '02-00-00-00-00-03', 'ipaddr': '10.0.0.3',
+                 'name': 'n', 'leasetime': '1:00:00'}
+        client = TplinkRouter('http://192.168.0.1', 'password')
+        mock_request.return_value = [lease]
+        self.assertEqual(len(client.get_ipv4_dhcp_leases()), 1)
+        mock_request.return_value = {'dhcp_clients': [lease]}
+        self.assertEqual(len(client.get_ipv4_dhcp_leases()), 1)

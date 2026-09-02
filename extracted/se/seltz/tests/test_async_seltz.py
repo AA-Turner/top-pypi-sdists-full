@@ -18,6 +18,7 @@ from seltz import (
 from seltz._types import Omit
 from seltz.exceptions import SeltzAuthenticationError, SeltzConfigurationError
 from seltz.services.answer_service import AsyncAnswerService
+from seltz.services.monitor_service import AsyncMonitorService
 from seltz.services.search_service import AsyncSearchService
 
 
@@ -115,6 +116,17 @@ async def test_answer_service_initialized():
     client = AsyncSeltz(api_key="test-key")
     try:
         assert client._answer is not None
+    finally:
+        await client.close()
+
+
+async def test_monitor_service_initialized():
+    """Initialize the monitor service on construction and expose it."""
+    client = AsyncSeltz(api_key="test-key")
+    try:
+        assert client._monitor is not None
+        assert client.monitor is client._monitor
+        assert isinstance(client.monitor, AsyncMonitorService)
     finally:
         await client.close()
 

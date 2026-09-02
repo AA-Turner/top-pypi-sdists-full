@@ -1,0 +1,162 @@
+# Capability Manifest Drift Check
+#
+# Runs on every PR push. Regenerates docs/agents/sdk-capabilities.md via
+# `uv run poe regen-capabilities` and fails if the committed file differs.
+#
+# This is an informational check — it is NOT a required status check. Reviewers
+# should ensure the manifest is up to date before approval so any SDK-surface
+# changes are visible in the PR's Files Changed tab.
+#
+# On drift: a sticky comment tells the contributor how to resolve:
+#   - Comment `/regen-manifest` on the PR — the bot pushes the fix.
+#   - Run `uv run poe regen-capabilities` locally and push.
+#   - Run the `/capability-manifest` Claude Code skill locally and push.
+#
+# source-sha / source-date header lines are excluded from the diff.
+# These fields reflect the last commit that touched application_sdk/ and are
+# squash-merge-incompatible during a PR (the final squash SHA doesn't exist yet).
+# They are updated whenever the manifest is regenerated post-merge.
+#
+# Noop for: bump-version-* branches (they only touch version/lockfile artefacts).
+# No comment posted for: fork PRs (no ORG_PAT_GITHUB access anyway).
+#
+# NOTE: the job has NO job-level `if` condition even though release PRs skip all
+# the real work.  A job-level skip is reported as "skipped" by GitHub Actions,
+# and GitHub branch protection does NOT treat "skipped" as "success" for required
+# status checks — leaving the check permanently pending and blocking the merge.
+# Running the job unconditionally ensures the conclusion is always "success" or
+# "failure", never the ambiguous "skipped".
+#
+# WHY labeled/unlabeled are NOT in the trigger types:
+# On bot PRs (Renovate, Dependabot), the auto-approve workflow adds labels
+# within milliseconds of the synchronize event from the commit push.  That
+# fires two pull_request events for the same SHA simultaneously, creating two
+# check runs with the same name.  cancel-in-progress then cancels one of them,
+# leaving a CANCELLED check run on the commit.  GitHub branch protection treats
+# ALL check runs for the required check name as part of the gate — a single
+# CANCELLED run blocks the merge permanently even though a SUCCESS run for the
+# same SHA also exists.  Labels have no bearing on whether the manifest has
+# drifted, so there is no value in re-running on label changes.
+
+name: Capability Manifest Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  merge_group:
+
+# Cancel in-flight runs when the PR receives a new push, so we don't
+# post duplicate sticky comments or waste runner time on stale SHAs.
+# IMPORTANT: because GitHub branch protection evaluates ALL check runs for a
+# required check name on a given SHA (not just the latest), cancel-in-progress
+# must only fire when there is exactly one in-flight run (i.e. only one event
+# can trigger a run at a time).  The labeled/unlabeled types are excluded above
+# precisely to guarantee this — each push creates exactly one pull_request event.
+concurrency:
+  group: capability-manifest-check-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  drift-check:
+    name: Capability Manifest Drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # Detect release PRs up-front so subsequent steps can gate on this flag.
+      # Release PRs only touch version/lockfile artefacts — no manifest check needed.
+      - name: Detect release PR
+        id: ctx
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [[ "$HEAD_REF" == bump-version* ]]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "Release PR — capability manifest check is a noop."
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.ctx.outputs.release == 'false'
+        with:
+          # Check out the PR branch HEAD, not the synthetic merge commit.
+          # The default pull_request checkout is the GitHub-created test merge of
+          # the PR into the base, so `git log -1 -- application_sdk/` can return a
+          # commit from main that is newer than this branch — making an up-to-date
+          # manifest look stale. Pinning to the PR head SHA gives a deterministic
+          # view of exactly what the contributor pushed.
+          ref: ${{ github.event.pull_request.head.sha }}
+          # Full history required: extractor.py resolves source-sha via
+          # `git log -1 --format=%H -- application_sdk/`, which fails on shallow clones
+          # when the most recent SDK commit is below the shallow boundary.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        if: steps.ctx.outputs.release == 'false'
+        with:
+          version: "0.12.7"
+
+      - name: Regenerate capability manifest
+        if: steps.ctx.outputs.release == 'false'
+        run: uv run poe regen-capabilities
+
+      - name: Check for drift
+        id: drift
+        if: steps.ctx.outputs.release == 'false'
+        run: |
+          # source-sha / source-date / sdk-version are excluded: with squash
+          # merges the final SHA doesn't exist during the PR, so source-sha/
+          # source-date are always stale until post-merge regeneration.
+          # sdk-version is excluded for the same reason: release PRs (bump-
+          # version-* branches) bump application_sdk/version.py, which the
+          # extractor reads to produce this header. In the merge queue the
+          # synthetic commit already has the new version, so the header would
+          # differ from the committed manifest even though no API surface changed.
+          # Excluding these three metadata-only header fields avoids false drift
+          # failures without hiding real API-surface changes.
+          # || true: grep exits 1 on no matches; with pipefail that would kill the
+          # script before the [ -z ] check, producing a false drift failure.
+          SEMANTIC=$(git diff -- docs/agents/sdk-capabilities.md \
+            | grep '^[+-]' \
+            | grep -v '^+++\|^---' \
+            | grep -v '^[+-]source-sha:\|^[+-]source-date:\|^[+-]sdk-version:' \
+            || true)
+          if [ -z "$SEMANTIC" ]; then
+            echo "status=clean" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=drift" >> "$GITHUB_OUTPUT"
+            echo "Manifest is stale. Lines changed:"
+            git diff --stat -- docs/agents/sdk-capabilities.md
+            exit 1
+          fi
+
+      - name: Post sticky comment on drift
+        if: failure() && steps.drift.outputs.status == 'drift' && github.event.pull_request.head.repo.fork == false
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          header: capability-manifest-drift
+          message: |
+            ### 📚 Capability manifest drift detected
+
+            `docs/agents/sdk-capabilities.md` is stale relative to the SDK source on this branch.
+
+            **To resolve, pick one:**
+            - Comment `/regen-manifest` on this PR — a bot will regenerate and push the update.
+            - Run `uv run poe regen-capabilities` locally and push the result.
+            - Run the `/capability-manifest` Claude Code skill locally and push.
+
+            This check is informational, not blocking. Reviewers should ensure the manifest is
+            current before approval so the SDK-surface diff is visible in **Files changed**.
+
+      - name: Clear sticky comment when manifest is current
+        if: success() && steps.ctx.outputs.release == 'false' && github.event.pull_request.head.repo.fork == false
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          header: capability-manifest-drift
+          delete: true

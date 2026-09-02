@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import io
 import os
+import warnings
 from abc import ABC
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import ClassVar
 from unittest.mock import patch
 from urllib.parse import urlencode
 
 import responses
+from requests import Response
+from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
 from wlc import (
@@ -78,6 +83,65 @@ class WeblateTest(APITest):
             Weblate().get_object("acl")
         obj = Weblate(key="KEY").get_object("acl")
         self.assertEqual(obj.name, "ACL")
+
+    def assert_netrc_authentication_is_ignored(self) -> None:
+        """Assert netrc credentials are not added or used over an API token."""
+        for key, expected in (("", None), ("KEY", "Token KEY")):
+            with self.subTest(key=key):
+                Weblate(key=key).get_object("hello")
+
+                self.assertEqual(
+                    responses.calls[-1].request.headers.get("Authorization"),
+                    expected,
+                )
+
+    def test_netrc_environment_authentication_is_ignored(self) -> None:
+        """Credentials from the NETRC environment file should be ignored."""
+        with TemporaryDirectory() as tmpdirname:
+            netrc_path = Path(tmpdirname) / "credentials"
+            netrc_path.write_text(
+                "machine 127.0.0.1 login NETRC password SECRET\n",  # kingfisher:ignore
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {"NETRC": str(netrc_path)}, clear=True):
+                self.assert_netrc_authentication_is_ignored()
+
+    def test_user_netrc_authentication_is_ignored(self) -> None:
+        """Credentials from the user's default netrc file should be ignored."""
+        with TemporaryDirectory() as tmpdirname:
+            netrc_path = Path(tmpdirname) / ".netrc"
+            netrc_path.write_text(
+                "machine 127.0.0.1 login NETRC password SECRET\n",  # kingfisher:ignore
+                encoding="utf-8",
+            )
+            netrc_path.chmod(0o600)
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch(
+                    "requests.utils.os.path.expanduser", return_value=str(netrc_path)
+                ),
+            ):
+                self.assert_netrc_authentication_is_ignored()
+
+    def test_request_environment_settings_are_preserved(self) -> None:
+        """Proxy and CA bundle environment settings should remain enabled."""
+        with TemporaryDirectory() as tmpdirname:
+            ca_bundle = Path(tmpdirname) / "ca-bundle.pem"
+            ca_bundle.touch()
+            with patch.dict(
+                os.environ,
+                {
+                    "HTTPS_PROXY": "http://proxy.example.com:8080",
+                    "REQUESTS_CA_BUNDLE": str(ca_bundle),
+                },
+                clear=True,
+            ):
+                settings = Weblate().session.merge_environment_settings(
+                    "https://example.com/api/", {}, False, True, None
+                )
+
+        self.assertEqual(settings["proxies"]["https"], "http://proxy.example.com:8080")
+        self.assertEqual(settings["verify"], str(ca_bundle))
 
     def test_ensure_loaded(self) -> None:
         """Test lazy loading of attributes."""
@@ -240,13 +304,32 @@ class WeblateTest(APITest):
                     filemask="po/*.po",
                 )
 
-    def test_should_verify_ssl(self) -> None:
-        self.assertEqual(Weblate.should_verify_ssl("http://localhost/api/"), False)
-        self.assertEqual(Weblate.should_verify_ssl("invalid/api/"), True)
+    def test_insecure_warning_is_not_suppressed(self) -> None:
+        response = Response()
+        response.status_code = 200
+        weblate = Weblate(url="https://localhost/api/", allow_insecure_ssl=True)
+
+        def request(*_args: object, **_kwargs: object) -> Response:
+            warnings.warn("insecure", InsecureRequestWarning, stacklevel=2)
+            warnings.warn("unrelated", UserWarning, stacklevel=2)
+            return response
+
+        with (
+            patch.object(weblate.session, "request", side_effect=request),
+            warnings.catch_warnings(record=True) as caught,
+        ):
+            warnings.simplefilter("always")
+            weblate.invoke_request("GET", weblate.url)
+            warnings.warn("insecure afterward", InsecureRequestWarning, stacklevel=1)
+
         self.assertEqual(
-            Weblate.should_verify_ssl("https://localhost.example.com/api/"), True
+            [(warning.category, str(warning.message)) for warning in caught],
+            [
+                (InsecureRequestWarning, "insecure"),
+                (UserWarning, "unrelated"),
+                (InsecureRequestWarning, "insecure afterward"),
+            ],
         )
-        self.assertEqual(Weblate.should_verify_ssl("http://example.com/api/"), True)
 
     def test_paginated_listing_uses_params_only_for_first_request(self) -> None:
         """The API-provided next URL already includes query parameters."""

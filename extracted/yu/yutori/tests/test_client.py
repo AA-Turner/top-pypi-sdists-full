@@ -1,0 +1,512 @@
+"""Tests for the sync YutoriClient."""
+
+from unittest.mock import patch
+
+import httpx
+import pytest
+
+from yutori import APIError, AuthenticationError, YutoriClient
+from yutori.navigator import NAVIGATOR_N1_5_MODEL, NAVIGATOR_N1_MODEL
+
+from ._client_fixtures import (
+    make_json_response,
+    make_mock_chat_completion,
+    make_mock_usage_response,
+    make_status_response,
+    make_trimmable_messages,
+    mocked_sync_openai_client,
+)
+
+
+class TestYutoriClientInit:
+    def test_init_with_api_key(self):
+        client = YutoriClient(api_key="yt-test-key")
+        assert client._api_key == "yt-test-key"
+        assert client._base_url == "https://api.yutori.com/v1"
+        client.close()
+
+    def test_init_without_api_key_raises(self, monkeypatch):
+        monkeypatch.delenv("YUTORI_API_KEY", raising=False)
+        monkeypatch.setattr("yutori.auth.credentials.load_config", lambda: None)
+        with pytest.raises(AuthenticationError):
+            YutoriClient(api_key="")
+
+    def test_init_with_none_api_key_raises(self, monkeypatch):
+        monkeypatch.delenv("YUTORI_API_KEY", raising=False)
+        monkeypatch.setattr("yutori.auth.credentials.load_config", lambda: None)
+        with pytest.raises(AuthenticationError):
+            YutoriClient(api_key=None)
+
+    def test_init_from_env_var(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "yt-env-key")
+        client = YutoriClient()
+        assert client._api_key == "yt-env-key"
+        client.close()
+
+    def test_init_with_custom_base_url(self):
+        client = YutoriClient(api_key="yt-test", base_url="https://custom.api.com/v1/")
+        assert client._base_url == "https://custom.api.com/v1"
+        client.close()
+
+    def test_context_manager(self):
+        with YutoriClient(api_key="yt-test") as client:
+            assert client._api_key == "yt-test"
+
+
+class TestYutoriClientGetUsage:
+    def test_get_usage_success(self, client):
+        with patch.object(httpx.Client, "get", return_value=make_mock_usage_response()):
+            result = client.get_usage()
+            assert result["num_active_scouts"] == 2
+            assert result["activity"]["period"] == "24h"
+            assert result["rate_limits"]["status"] == "available"
+
+    def test_get_usage_with_period(self, client):
+        with patch.object(httpx.Client, "get", return_value=make_mock_usage_response("7d")) as mock_get:
+            result = client.get_usage(period="7d")
+            assert result["activity"]["period"] == "7d"
+            # Verify period is passed as query param
+            call_kwargs = mock_get.call_args[1]
+            assert call_kwargs["params"] == {"period": "7d"}
+
+    def test_get_usage_no_period_sends_no_params(self, client):
+        with patch.object(httpx.Client, "get", return_value=make_mock_usage_response()) as mock_get:
+            client.get_usage()
+            call_kwargs = mock_get.call_args[1]
+            assert call_kwargs["params"] == {}
+
+    @pytest.mark.parametrize(
+        ("status_code", "reason"),
+        [(401, "Unauthorized"), (403, "Forbidden")],
+    )
+    def test_get_usage_auth_error(self, status_code, reason):
+        mock_response = make_status_response(status_code, reason)
+
+        with patch.object(httpx.Client, "get", return_value=mock_response):
+            client = YutoriClient(api_key="yt-invalid")
+            with pytest.raises(AuthenticationError):
+                client.get_usage()
+            client.close()
+
+
+class TestScoutsNamespace:
+    def test_scouts_list(self, client):
+        mock_response = make_json_response({"scouts": []})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response) as mock_get:
+            result = client.scouts.list(limit=10, status="active")
+            assert result == {"scouts": []}
+            mock_get.assert_called_once()
+            params = mock_get.call_args[1]["params"]
+            assert params["page_size"] == 10
+            assert "limit" not in params
+            assert params["status"] == "active"
+
+    def test_scouts_list_forwards_cursor(self, client):
+        mock_response = make_json_response({"scouts": []})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response) as mock_get:
+            client.scouts.list(cursor="next-page")
+            params = mock_get.call_args[1]["params"]
+            assert params["cursor"] == "next-page"
+            assert "page_size" not in params
+
+    def test_scouts_get(self, client):
+        mock_response = make_json_response({"id": "scout-123", "query": "test"})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response) as mock_get:
+            result = client.scouts.get("scout-123")
+            assert result["id"] == "scout-123"
+            mock_get.assert_called_once()
+
+    def test_scouts_create(self, client):
+        mock_response = make_json_response({"id": "new-scout", "query": "Monitor site"})
+
+        with patch.object(httpx.Client, "post", return_value=mock_response) as mock_post:
+            result = client.scouts.create(
+                query="Monitor site",
+                output_interval=3600,
+                webhook_url="https://webhook.test",
+            )
+            assert result["id"] == "new-scout"
+            mock_post.assert_called_once()
+            call_kwargs = mock_post.call_args
+            payload = call_kwargs[1]["json"]
+            assert payload["query"] == "Monitor site"
+            assert payload["output_interval"] == 3600
+            assert payload["webhook_url"] == "https://webhook.test"
+
+    def test_scouts_update_status(self, client):
+        mock_response = make_json_response({"id": "scout-123", "status": "paused"})
+
+        with patch.object(httpx.Client, "post", return_value=mock_response) as mock_post:
+            result = client.scouts.update("scout-123", status="paused")
+            assert result["status"] == "paused"
+            mock_post.assert_called_once()
+            assert "/pause" in mock_post.call_args[0][0]
+
+    def test_scouts_update_fields(self, client):
+        mock_response = make_json_response({"id": "scout-123", "query": "new query"})
+
+        with patch.object(httpx.Client, "patch", return_value=mock_response) as mock_patch:
+            result = client.scouts.update("scout-123", query="new query")
+            assert result["query"] == "new query"
+            mock_patch.assert_called_once()
+
+    def test_scouts_update_is_public(self, client):
+        mock_response = make_json_response({"id": "scout-123", "is_public": False})
+
+        with patch.object(httpx.Client, "patch", return_value=mock_response) as mock_patch:
+            client.scouts.update("scout-123", is_public=False)
+            payload = mock_patch.call_args[1]["json"]
+            assert payload["is_public"] is False
+
+    def test_scouts_update_status_and_fields_raises(self, client):
+        with pytest.raises(ValueError, match="Cannot update status and other fields simultaneously"):
+            client.scouts.update("scout-123", status="paused", query="new query")
+
+    def test_scouts_update_status_and_is_public_raises(self, client):
+        with pytest.raises(ValueError, match="Cannot update status and other fields simultaneously"):
+            client.scouts.update("scout-123", status="paused", is_public=False)
+
+    def test_scouts_delete(self, client):
+        mock_response = make_status_response(200)
+
+        with patch.object(httpx.Client, "delete", return_value=mock_response) as mock_delete:
+            result = client.scouts.delete("scout-123")
+            assert result == {}
+            mock_delete.assert_called_once()
+
+    def test_scouts_get_updates(self, client):
+        mock_response = make_json_response({"updates": [], "cursor": None})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response):
+            result = client.scouts.get_updates("scout-123", limit=5)
+            assert "updates" in result
+
+
+class TestBrowsingNamespace:
+    def test_browsing_list(self, client):
+        mock_response = make_json_response({"tasks": [], "total": 0})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response) as mock_get:
+            result = client.browsing.list(limit=20, status="succeeded", cursor="cur-1")
+            assert result == {"tasks": [], "total": 0}
+            mock_get.assert_called_once()
+            assert mock_get.call_args[0][0].endswith("/browsing/tasks")
+            params = mock_get.call_args[1]["params"]
+            assert params["page_size"] == 20
+            assert "limit" not in params
+            assert params["status"] == "succeeded"
+            assert params["cursor"] == "cur-1"
+
+    def test_browsing_list_no_args_sends_empty_params(self, client):
+        mock_response = make_json_response({"tasks": []})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response) as mock_get:
+            client.browsing.list()
+            assert mock_get.call_args[1]["params"] == {}
+
+    def test_browsing_create(self, client):
+        mock_response = make_json_response({"task_id": "task-123", "status": "queued"})
+
+        with patch.object(httpx.Client, "post", return_value=mock_response) as mock_post:
+            result = client.browsing.create(
+                task="Click the login button",
+                start_url="https://example.com",
+                max_steps=10,
+            )
+            assert result["task_id"] == "task-123"
+            payload = mock_post.call_args[1]["json"]
+            assert payload["task"] == "Click the login button"
+            assert payload["start_url"] == "https://example.com"
+            assert payload["max_steps"] == 10
+
+    def test_browsing_create_with_local_browser_and_auth(self, client):
+        mock_response = make_json_response({"task_id": "task-456", "status": "queued"})
+
+        with patch.object(httpx.Client, "post", return_value=mock_response) as mock_post:
+            result = client.browsing.create(
+                task="Log in and download the invoice",
+                start_url="https://example.com/login",
+                require_auth=True,
+                browser="local",
+                webhook_format="zapier",
+            )
+            assert result["task_id"] == "task-456"
+            payload = mock_post.call_args[1]["json"]
+            assert payload["require_auth"] is True
+            assert payload["browser"] == "local"
+            assert payload["webhook_format"] == "zapier"
+
+    def test_browsing_get(self, client):
+        mock_response = make_json_response({"task_id": "task-123", "status": "succeeded"})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response):
+            result = client.browsing.get("task-123")
+            assert result["status"] == "succeeded"
+
+    def test_browsing_get_with_rejection_reason(self, client):
+        mock_response = make_json_response(
+            {
+                "task_id": "task-123",
+                "status": "failed",
+                "rejection_reason": "billing_limit_reached",
+            }
+        )
+
+        with patch.object(httpx.Client, "get", return_value=mock_response):
+            result = client.browsing.get("task-123")
+            assert result["status"] == "failed"
+            assert result["rejection_reason"] == "billing_limit_reached"
+
+
+class TestResearchNamespace:
+    def test_research_list(self, client):
+        mock_response = make_json_response({"tasks": [], "total": 0})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response) as mock_get:
+            result = client.research.list(limit=20, status="succeeded", cursor="cur-1")
+            assert result == {"tasks": [], "total": 0}
+            mock_get.assert_called_once()
+            assert mock_get.call_args[0][0].endswith("/research/tasks")
+            params = mock_get.call_args[1]["params"]
+            assert params["page_size"] == 20
+            assert "limit" not in params
+            assert params["status"] == "succeeded"
+            assert params["cursor"] == "cur-1"
+
+    def test_research_list_no_args_sends_empty_params(self, client):
+        mock_response = make_json_response({"tasks": []})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response) as mock_get:
+            client.research.list()
+            assert mock_get.call_args[1]["params"] == {}
+
+    def test_research_create(self, client):
+        mock_response = make_json_response({"task_id": "research-123", "status": "queued"})
+
+        with patch.object(httpx.Client, "post", return_value=mock_response) as mock_post:
+            result = client.research.create(
+                query="Find AI startup funding",
+                user_timezone="America/Los_Angeles",
+            )
+            assert result["task_id"] == "research-123"
+            payload = mock_post.call_args[1]["json"]
+            assert payload["query"] == "Find AI startup funding"
+
+    def test_research_get(self, client):
+        mock_response = make_json_response({"task_id": "research-123", "status": "succeeded"})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response):
+            result = client.research.get("research-123")
+            assert result["status"] == "succeeded"
+
+    def test_research_get_with_rejection_reason(self, client):
+        mock_response = make_json_response(
+            {
+                "task_id": "research-123",
+                "status": "failed",
+                "rejection_reason": "rate_limit_exceeded",
+            }
+        )
+
+        with patch.object(httpx.Client, "get", return_value=mock_response):
+            result = client.research.get("research-123")
+            assert result["status"] == "failed"
+            assert result["rejection_reason"] == "rate_limit_exceeded"
+
+
+class TestPydanticSchemaIntegration:
+    """Test that Pydantic models are resolved to JSON schema dicts in payloads."""
+
+    def _make_mock_response(self):
+        return make_json_response({"task_id": "t-1"})
+
+    class _FakeModel:
+        @classmethod
+        def model_json_schema(cls):
+            return {"type": "object", "properties": {"name": {"type": "string"}}}
+
+    def test_browsing_create_with_model_class(self, client):
+        with patch.object(httpx.Client, "post", return_value=self._make_mock_response()) as mock_post:
+            client.browsing.create(task="t", start_url="https://x.com", output_schema=self._FakeModel)
+            payload = mock_post.call_args[1]["json"]
+            assert payload["output_schema"] == {"type": "object", "properties": {"name": {"type": "string"}}}
+
+    def test_browsing_create_with_model_instance(self, client):
+        with patch.object(httpx.Client, "post", return_value=self._make_mock_response()) as mock_post:
+            client.browsing.create(task="t", start_url="https://x.com", output_schema=self._FakeModel())
+            payload = mock_post.call_args[1]["json"]
+            assert payload["output_schema"] == {"type": "object", "properties": {"name": {"type": "string"}}}
+
+    def test_research_create_with_model_class(self, client):
+        with patch.object(httpx.Client, "post", return_value=self._make_mock_response()) as mock_post:
+            client.research.create(query="q", output_schema=self._FakeModel)
+            payload = mock_post.call_args[1]["json"]
+            assert payload["output_schema"] == {"type": "object", "properties": {"name": {"type": "string"}}}
+
+    def test_scouts_create_with_model_class(self, client):
+        mock = make_json_response({"id": "s-1"})
+        with patch.object(httpx.Client, "post", return_value=mock) as mock_post:
+            client.scouts.create(query="q", output_schema=self._FakeModel)
+            payload = mock_post.call_args[1]["json"]
+            assert payload["output_schema"] == {"type": "object", "properties": {"name": {"type": "string"}}}
+
+    def test_scouts_update_with_model_class(self, client):
+        mock = make_json_response({"id": "s-1"})
+        with patch.object(httpx.Client, "patch", return_value=mock) as mock_patch:
+            client.scouts.update("s-1", output_schema=self._FakeModel)
+            payload = mock_patch.call_args[1]["json"]
+            assert payload["output_schema"] == {"type": "object", "properties": {"name": {"type": "string"}}}
+
+    def test_scouts_update_with_model_instance(self, client):
+        mock = make_json_response({"id": "s-1"})
+        with patch.object(httpx.Client, "patch", return_value=mock) as mock_patch:
+            client.scouts.update("s-1", output_schema=self._FakeModel())
+            payload = mock_patch.call_args[1]["json"]
+            assert payload["output_schema"] == {"type": "object", "properties": {"name": {"type": "string"}}}
+
+
+class TestChatNamespace:
+    def test_chat_completions_default_model_is_canonical_n1_5_constant(self, client):
+        mock_completion = make_mock_chat_completion(content="click", model=NAVIGATOR_N1_5_MODEL)
+
+        with mocked_sync_openai_client(mock_completion) as mock_openai_client:
+            client.chat.completions.create(messages=[{"role": "user", "content": "Click login"}])
+            call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+            assert call_kwargs["model"] == NAVIGATOR_N1_5_MODEL
+
+    def test_chat_completions(self, client):
+        mock_completion = make_mock_chat_completion(content="click", model=NAVIGATOR_N1_MODEL)
+
+        with mocked_sync_openai_client(mock_completion) as mock_openai_client:
+            result = client.chat.completions.create(
+                messages=[{"role": "user", "content": "Click login"}],
+                model=NAVIGATOR_N1_MODEL,
+            )
+            assert result.choices[0].message.content == "click"
+            mock_openai_client.chat.completions.create.assert_called_once()
+            call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+            assert call_kwargs["model"] == NAVIGATOR_N1_MODEL
+
+    def test_chat_completions_n1_5_forwards_extra_body_options(self, client):
+        from yutori.navigator import TOOL_SET_CORE
+
+        json_schema = {
+            "type": "object",
+            "properties": {"status": {"type": "string"}},
+            "required": ["status"],
+            "additionalProperties": False,
+        }
+        mock_completion = make_mock_chat_completion(content='{"status":"ok"}', model=NAVIGATOR_N1_5_MODEL)
+
+        with mocked_sync_openai_client(mock_completion) as mock_openai_client:
+            result = client.chat.completions.create(
+                messages=[{"role": "user", "content": "Reply with JSON."}],
+                model=NAVIGATOR_N1_5_MODEL,
+                tool_set=TOOL_SET_CORE,
+                disable_tools=["hold_key"],
+                json_schema=json_schema,
+                extra_body={"trace_id": "trace-123"},
+            )
+            assert result.choices[0].message.content == '{"status":"ok"}'
+            call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+            assert call_kwargs["model"] == NAVIGATOR_N1_5_MODEL
+            assert call_kwargs["extra_body"] == {
+                "trace_id": "trace-123",
+                "tool_set": TOOL_SET_CORE,
+                "disable_tools": ["hold_key"],
+                "json_schema": json_schema,
+            }
+
+    def test_n1_helper_create_trimmed_public_helper_uses_trimmed_copy(self, client):
+        from copy import deepcopy
+
+        from yutori.navigator import create_trimmed
+        from yutori.navigator.payload import trimmed_messages_to_fit
+
+        mock_completion = make_mock_chat_completion(content="click", model=NAVIGATOR_N1_MODEL)
+        original_messages = make_trimmable_messages()
+        original_snapshot = deepcopy(original_messages)
+
+        with mocked_sync_openai_client(mock_completion) as mock_openai_client:
+            result = create_trimmed(
+                client.chat.completions,
+                original_messages,
+                max_bytes=100,
+                keep_recent=1,
+            )
+            assert result.choices[0].message.content == "click"
+
+        call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+        sent_messages = call_kwargs["messages"]
+        assert sent_messages is not original_messages
+        assert sent_messages == trimmed_messages_to_fit(original_messages, max_bytes=100, keep_recent=1)[0]
+        assert original_messages == original_snapshot
+
+    def test_n1_payload_helper_supports_standard_create_pattern(self, client):
+        from copy import deepcopy
+
+        from yutori.navigator import trimmed_messages_to_fit
+
+        mock_completion = make_mock_chat_completion(content="click", model=NAVIGATOR_N1_MODEL)
+        original_messages = make_trimmable_messages()
+        original_snapshot = deepcopy(original_messages)
+        trimmed_messages, _, _ = trimmed_messages_to_fit(original_messages, max_bytes=100, keep_recent=1)
+
+        with mocked_sync_openai_client(mock_completion) as mock_openai_client:
+            result = client.chat.completions.create(
+                model=NAVIGATOR_N1_MODEL,
+                messages=trimmed_messages,
+            )
+            assert result.choices[0].message.content == "click"
+
+        call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+        assert call_kwargs["messages"] == trimmed_messages
+        assert original_messages == original_snapshot
+
+
+class TestErrorHandling:
+    @pytest.mark.parametrize(
+        ("status_code", "reason"),
+        [(400, "Bad request"), (500, "Internal server error")],
+    )
+    def test_api_error(self, status_code, reason, client):
+        mock_response = make_status_response(status_code, reason)
+
+        with patch.object(httpx.Client, "get", return_value=mock_response):
+            with pytest.raises(APIError) as exc_info:
+                client.get_usage()
+            assert exc_info.value.status_code == status_code
+
+
+class TestTransportErrorWrapping:
+    """httpx transport errors are wrapped in APIConnectionError with a
+    never-blank message (some httpx errors stringify to "")."""
+
+    def test_connect_error_wrapped(self, client):
+        from yutori.exceptions import APIConnectionError
+
+        with patch.object(httpx.Client, "get", side_effect=httpx.ConnectError("refused")):
+            with pytest.raises(APIConnectionError, match="ConnectError.*refused"):
+                client.scouts.list()
+
+    def test_blank_timeout_still_has_message(self, client):
+        from yutori.exceptions import APIConnectionError
+
+        with patch.object(httpx.Client, "get", side_effect=httpx.ReadTimeout("")):
+            with pytest.raises(APIConnectionError, match="ReadTimeout"):
+                client.scouts.list()
+
+
+class TestLazyChatNamespace:
+    """The chat namespace (and its OpenAI client) is only built on first use."""
+
+    def test_chat_not_built_at_init(self, client):
+        assert client._chat is None
+
+    def test_close_without_chat_use(self, client):
+        with patch.object(httpx.Client, "close"):
+            client.close()
+        assert client._chat is None

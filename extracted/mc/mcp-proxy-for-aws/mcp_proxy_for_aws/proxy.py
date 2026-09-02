@@ -38,7 +38,7 @@ class AWSMCPProxyClient(StatefulProxyClient):
         """Enter as normal && initialize only once."""
         logger.debug('Connecting %s', self)
         try:
-            result = await super(AWSMCPProxyClient, self)._connect()
+            result = await super()._connect()
             logger.debug('Connected %s', self)
             return result
         except httpx.HTTPStatusError as http_error:
@@ -60,6 +60,13 @@ class AWSMCPProxyClient(StatefulProxyClient):
         except RuntimeError as e:
             if isinstance(e.__cause__, McpError):
                 raise e.__cause__
+
+            if isinstance(e.__cause__, ValueError) and 'credentials' in str(e.__cause__).lower():
+                from mcp.types import INTERNAL_ERROR, ErrorData
+
+                raise McpError(
+                    error=ErrorData(code=INTERNAL_ERROR, message=str(e.__cause__)),
+                ) from e
 
             if retry > self._max_connect_retry:
                 raise e

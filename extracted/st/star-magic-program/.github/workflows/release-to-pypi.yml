@@ -1,0 +1,70 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write   # Required for PyPI Trusted Publisher (OIDC)
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools and package dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          pip install .
+
+      - name: Run fidelity gate before publishing
+        run: |
+          python uqff_fidelity_tests.py
+
+      - name: Verify version matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          PYPROJECT_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          CALC_VERSION=$(python -c "import uqff_calculator; print(uqff_calculator.VERSION)")
+          echo "TAG=$TAG_VERSION  PYPROJECT=$PYPROJECT_VERSION  CALC=$CALC_VERSION"
+          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
+            echo "ERROR: tag ($TAG_VERSION) does not match pyproject.toml version ($PYPROJECT_VERSION)"
+            exit 1
+          fi
+          if [ "$TAG_VERSION" != "$CALC_VERSION" ]; then
+            echo "ERROR: tag ($TAG_VERSION) does not match uqff_calculator.VERSION ($CALC_VERSION)"
+            exit 1
+          fi
+
+      - name: Build sdist and wheel
+        run: |
+          python -m build
+
+      - name: Twine check (metadata sanity)
+        run: |
+          twine check dist/*
+
+      - name: Publish to PyPI (Trusted Publisher, OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Idempotent: if this version is already on PyPI (e.g. a tag was moved /
+          # re-pushed after a history cleanup), skip instead of failing on 409.
+          skip-existing: true
+        # No 'password' — Trusted Publisher / OIDC authentication.
+        # Configure at: https://pypi.org/manage/account/publishing/
+        #   PyPI Project Name : star-magic-program
+        #   Owner             : Daniel8Murphy0007
+        #   Repository name   : Star-Magic-Program
+        #   Workflow name     : release-to-pypi.yml
+        #   Environment name  : pypi

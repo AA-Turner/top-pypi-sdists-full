@@ -1,0 +1,56 @@
+Metadata-Version: 1.1
+Name: julian
+Version: 0.14
+Summary: Simple library for converting between Julian calendar dates and datetime objects
+Home-page: https://github.com/dannyzed/julian
+Author: Daniel Zawada
+Author-email: zawadadaniel@gmail.com
+License: UNKNOWN
+Download-URL: https://github.com/dannyzed/julian/tarball/0.14
+Description: |Build Status|
+        
+        julian
+        ======
+        
+        julian is a simple Python library for converting between Julian dates
+        and Python datetime objects.
+        
+        Examples
+        --------
+        
+        .. code:: python
+        
+            import julian
+            import datetime
+        
+            mjd = 54372.78
+            dt = julian.from_jd(mjd, fmt='mjd')
+            print(dt)
+        
+        ::
+        
+            2007-09-29 18:43:11.999982
+        
+        .. code:: python
+        
+            jd = julian.to_jd(dt + datetime.timedelta(hours=12), fmt='jd')
+            print(jd)
+        
+        ::
+        
+            2454373.78
+        
+        Installation
+        ------------
+        
+        julian is tested on python versions >= 3.2
+        
+        ::
+        
+            pip install julian
+        
+        .. |Build Status| image:: https://travis-ci.org/dannyzed/julian.svg?branch=master
+           :target: https://travis-ci.org/dannyzed/julian
+        
+Keywords: julian,calendar,datetime
+Platform: UNKNOWN

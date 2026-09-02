@@ -1,0 +1,179 @@
+"""Scouts namespace for the Yutori SDK (sync)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from .._http import (
+    _SyncBaseNamespace,
+    build_payload_with_schema,
+    build_query_params,
+    prepare_scout_update,
+)
+
+
+class ScoutsNamespace(_SyncBaseNamespace):
+    """Namespace for scout-related operations (continuous web monitoring)."""
+
+    def list(
+        self,
+        *,
+        limit: int | None = None,
+        status: str | None = None,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        """List scouts for the authenticated user.
+
+        Args:
+            limit: Maximum number of scouts to return.
+            status: Filter by status ("active", "paused", "done").
+            cursor: Pagination cursor from a previous response's ``next_cursor``
+                or ``prev_cursor``.
+
+        Returns:
+            Dictionary containing list of scouts and pagination info.
+        """
+        # API pagination parameter is `page_size`; keep `limit` for SDK ergonomics.
+        params = build_query_params(page_size=limit, status=status, cursor=cursor)
+        return self._request("get", "/scouting/tasks", params=params)
+
+    def get(self, scout_id: str) -> dict[str, Any]:
+        """Get details of a specific scout.
+
+        Args:
+            scout_id: The unique identifier of the scout.
+
+        Returns:
+            Dictionary containing scout details.
+        """
+        return self._request("get", f"/scouting/tasks/{scout_id}")
+
+    def create(
+        self,
+        query: str,
+        *,
+        output_interval: int = 86400,
+        start_timestamp: int | None = None,
+        user_timezone: str | None = None,
+        user_location: str | None = None,
+        output_schema: object | None = None,
+        skip_email: bool | None = None,
+        webhook_url: str | None = None,
+        webhook_format: str | None = None,
+        is_public: bool | None = None,
+    ) -> dict[str, Any]:
+        """Create a new monitoring scout.
+
+        Args:
+            query: Natural language description of what to monitor.
+            output_interval: Seconds between runs (min: 1800, default: 86400 = daily).
+            start_timestamp: Unix timestamp to start (0 = immediately).
+            user_timezone: e.g., "America/Los_Angeles".
+            user_location: e.g., "San Francisco, CA, US".
+            output_schema: JSON schema dict, a Pydantic BaseModel class, or a BaseModel instance.
+            skip_email: Disable email notifications.
+            webhook_url: URL for completion notifications.
+            webhook_format: "scout" (default), "slack", or "zapier".
+            is_public: Whether the scout is publicly visible.
+
+        Returns:
+            Dictionary containing created scout details.
+        """
+        payload = build_payload_with_schema(
+            query=query,
+            output_interval=output_interval,
+            start_timestamp=start_timestamp,
+            user_timezone=user_timezone,
+            user_location=user_location,
+            output_schema=output_schema,
+            skip_email=skip_email,
+            webhook_url=webhook_url,
+            webhook_format=webhook_format,
+            is_public=is_public,
+        )
+
+        return self._request("post", "/scouting/tasks", json=payload)
+
+    def update(
+        self,
+        scout_id: str,
+        *,
+        query: str | None = None,
+        status: str | None = None,
+        output_interval: int | None = None,
+        user_timezone: str | None = None,
+        user_location: str | None = None,
+        output_schema: object | None = None,
+        skip_email: bool | None = None,
+        webhook_url: str | None = None,
+        webhook_format: str | None = None,
+        is_public: bool | None = None,
+    ) -> dict[str, Any]:
+        """Update an existing scout.
+
+        Use status="paused" to pause, status="active" to resume, status="done" to archive.
+
+        Args:
+            scout_id: The unique identifier of the scout.
+            query: Updated monitoring query.
+            status: New status ("active", "paused", "done").
+            output_interval: Updated interval between runs.
+            user_timezone: Updated timezone.
+            user_location: Updated location.
+            output_schema: JSON schema dict, a Pydantic BaseModel class, or a BaseModel instance.
+            skip_email: Updated email notification setting.
+            webhook_url: Updated webhook URL.
+            webhook_format: Updated webhook format.
+            is_public: Updated public visibility setting.
+
+        Returns:
+            Dictionary containing updated scout details.
+
+        Raises:
+            ValueError: If status is provided along with other fields (API limitation).
+        """
+        payload = build_payload_with_schema(
+            query=query,
+            output_interval=output_interval,
+            user_timezone=user_timezone,
+            user_location=user_location,
+            output_schema=output_schema,
+            skip_email=skip_email,
+            webhook_url=webhook_url,
+            webhook_format=webhook_format,
+            is_public=is_public,
+        )
+
+        method, path, json = prepare_scout_update(scout_id, status, payload)
+        return self._request(method, path, json=json)
+
+    def delete(self, scout_id: str) -> dict[str, Any]:
+        """Delete a scout.
+
+        Args:
+            scout_id: The unique identifier of the scout.
+
+        Returns:
+            Empty dictionary on success.
+        """
+        return self._request("delete", f"/scouting/tasks/{scout_id}")
+
+    def get_updates(
+        self,
+        scout_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        """Get updates (reports) for a scout.
+
+        Args:
+            scout_id: The unique identifier of the scout.
+            limit: Maximum number of updates to return.
+            cursor: Pagination cursor for fetching more results.
+
+        Returns:
+            Dictionary containing list of updates and pagination info.
+        """
+        params = build_query_params(limit=limit, cursor=cursor)
+        return self._request("get", f"/scouting/tasks/{scout_id}/updates", params=params)

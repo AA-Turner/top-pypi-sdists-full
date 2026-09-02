@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Check tag matches package version
+        run: |
+          version=$(uv version --short)
+          if [ "v$version" != "${{ github.ref_name }}" ]; then
+            echo "Tag ${{ github.ref_name }} does not match pyproject version $version"
+            exit 1
+          fi
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

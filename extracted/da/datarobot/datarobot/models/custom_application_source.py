@@ -85,7 +85,7 @@ class CustomApplicationSource(APIObject):
     org_id : str
         The organization ID.
     permissions : List[str]
-        List of permissions for the current user.
+        A list of permissions for the current user.
     created_at : str
         Timestamp when the source was created.
     updated_at : str
@@ -217,7 +217,7 @@ class CustomApplicationSource(APIObject):
 
     def update(self, name: Optional[str] = None) -> CustomApplicationSource:
         """
-        Update this custom application source.
+        Updates the custom application source.
 
         Parameters
         ----------
@@ -241,7 +241,7 @@ class CustomApplicationSource(APIObject):
 
     def delete(self, hard_delete: bool = False) -> None:
         """
-        Delete this custom application source.
+        Deletes the custom application source.
 
         Parameters
         ----------
@@ -269,7 +269,7 @@ class CustomApplicationSource(APIObject):
 
     def get_resources(self) -> Optional[Dict[str, Any]]:
         """
-        Get resource configuration for applications created from this source.
+        Returns the resource configuration for applications created from this source.
 
         Returns
         -------
@@ -347,7 +347,7 @@ class CustomApplicationSource(APIObject):
 
     def get_details(self) -> Dict[str, Any]:
         """
-        Get comprehensive details about this custom application source.
+        Returns the comprehensive details about this custom application source.
 
         Returns
         -------
@@ -419,7 +419,7 @@ class CustomApplicationSource(APIObject):
         external_access_enabled : bool
             Whether to enable external access. Default is False.
         external_access_recipients : Optional[List[str]]
-            List of email addresses for external access recipients.
+            A list of email addresses for external access recipients.
 
         Returns
         -------
@@ -476,12 +476,12 @@ class CustomApplicationSource(APIObject):
 
     def get_versions(self) -> List[Dict[str, Any]]:
         """
-        Get all versions of this custom application source.
+        Returns a list of all versions of this custom application source.
 
         Returns
         -------
         versions : List[Dict[str, Any]]
-            List of version information for this source.
+            A list of version information for this source.
         """
         r_data = self._client.get(f"{self._path}{self.id}/versions/")
         data = r_data.json().get("data", [])
@@ -489,7 +489,7 @@ class CustomApplicationSource(APIObject):
 
     def get_version(self, version_id: str) -> Dict[str, Any]:
         """
-        Get details of a specific version of this source.
+        Returns the details of a specific version of this source.
 
         Parameters
         ----------
@@ -513,12 +513,12 @@ class CustomApplicationSource(APIObject):
         service_web_requests_on_root_path: Optional[bool] = None,
     ) -> CustomApplicationSource:
         """
-        Update resource configuration for this source.
+        Updates the resource configuration for this source.
 
         Parameters
         ----------
         resource_label : Optional[str]
-            Resource bundle ID (e.g., 'cpu.small', 'cpu.large').
+            Resource bundle ID, for example ``'cpu.small'``, ``'cpu.large'``.
         replicas : Optional[int]
             Number of replicas (1-4).
         session_affinity : Optional[bool]

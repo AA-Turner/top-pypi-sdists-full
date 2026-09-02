@@ -1,133 +1,125 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = [
-  "setuptools>=77",
-]
+build-backend = "uv_build"
+requires = ["uv-build>=0.12.1,<0.13"]
 
 [project]
 name = "pytest-randomly"
-version = "4.1.0"
+version = "5.0.0"
 description = "Pytest plugin to randomly order tests and control random.seed."
 readme = "README.rst"
 keywords = [
-  "pytest",
-  "random",
-  "randomise",
-  "randomize",
-  "randomly",
+    "pytest",
+    "random",
+    "randomise",
+    "randomize",
+    "randomly",
 ]
 license = "MIT"
-license-files = [ "LICENSE" ]
-authors = [
-  { name = "Adam Johnson", email = "me@adamj.eu" },
-]
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 classifiers = [
-  "Development Status :: 5 - Production/Stable",
-  "Framework :: Pytest",
-  "Intended Audience :: Developers",
-  "Natural Language :: English",
-  "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Typing :: Typed",
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Typing :: Typed",
 ]
-dependencies = [
-  "pytest",
-]
-urls.Changelog = "https://github.com/pytest-dev/pytest-randomly/blob/main/CHANGELOG.rst"
-urls.Funding = "https://adamj.eu/books/"
-urls.Repository = "https://github.com/pytest-dev/pytest-randomly"
-entry-points.pytest11.randomly = "pytest_randomly"
+dependencies = ["pytest>=8"]
+
+[[project.authors]]
+name = "Adam Johnson"
+email = "me@adamj.eu"
+
+[project.urls]
+Changelog = "https://github.com/pytest-dev/pytest-randomly/blob/main/CHANGELOG.rst"
+Funding = "https://adamj.eu/books/"
+Repository = "https://github.com/pytest-dev/pytest-randomly"
+
+[project.entry-points.pytest11]
+randomly = "pytest_randomly"
 
 [dependency-groups]
 test = [
-  "coverage[toml]",
-  "factory-boy",
-  "faker",
-  "model-bakery>=1.13",
-  "numpy",
-  "pytest",
-  "pytest-xdist",
+    "coverage[toml]",
+    "factory-boy",
+    "faker",
+    "model-bakery>=1.13",
+    "numpy",
+    "polyfactory",
+    "pytest>=9",
+    "pytest-xdist",
 ]
 
-[tool.ruff]
-lint.select = [
-  # flake8-bugbear
-  "B",
-  # flake8-comprehensions
-  "C4",
-  # pycodestyle
-  "E",
-  # Pyflakes errors
-  "F",
-  # isort
-  "I",
-  # flake8-simplify
-  "SIM",
-  # flake8-tidy-imports
-  "TID",
-  # pyupgrade
-  "UP",
-  # Pyflakes warnings
-  "W",
+[tool.ruff.lint]
+select = [
+    "B",
+    "C4",
+    "E",
+    "F",
+    "I",
+    "SIM",
+    "TID",
+    "UP",
+    "W",
 ]
-lint.ignore = [
-  # flake8-bugbear opinionated rules
-  "B9",
-  # line-too-long
-  "E501",
-  # suppressible-exception
-  "SIM105",
-  # if-else-block-instead-of-if-exp
-  "SIM108",
+ignore = [
+    "B9",
+    "E501",
+    "SIM105",
+    "SIM108",
 ]
-lint.extend-safe-fixes = [
-  # non-pep585-annotation
-  "UP006",
-]
-lint.isort.required-imports = [ "from __future__ import annotations" ]
+extend-safe-fixes = ["UP006"]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
 
 [tool.pyproject-fmt]
-max_supported_python = "3.14"
+max_supported_python = "3.15"
 
 [tool.mypy]
-enable_error_code = [
-  "ignore-without-code",
-  "redundant-expr",
-  "truthy-bool",
-]
 mypy_path = "src/"
 namespace_packages = false
-strict = true
 warn_unreachable = true
-overrides = [ { module = "tests.*", allow_untyped_defs = true } ]
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+]
+strict = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+allow_untyped_defs = true
 
 [tool.pytest]
-ini_options.addopts = """\
-    --strict-config
-    --strict-markers
-    """
-ini_options.xfail_strict = true
+strict = true
 
-[tool.coverage]
-run.branch = true
-run.data_file = ".coverage/cov"
-run.parallel = true
-run.source = [
-  "pytest_randomly",
-  "tests",
+[tool.coverage.run]
+branch = true
+data_file = ".coverage/cov"
+parallel = true
+source = [
+    "pytest_randomly",
+    "tests",
 ]
-paths.source = [
-  "src",
-  ".tox/**/site-packages",
+
+[tool.coverage.paths]
+source = [
+    "src",
+    ".tox/**/site-packages",
 ]
-report.show_missing = true
-report.skip_covered = true
-report.skip_empty = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+skip_empty = true
 
 [tool.rstcheck]
 report_level = "ERROR"

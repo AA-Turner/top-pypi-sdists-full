@@ -1,0 +1,26 @@
+metadata:
+  name: windows
+template_data:
+  shared:
+    pin_node: {{ pin_node1 }}
+    odf_pvc: {{ odf_pvc }}
+    uuid: {{ uuid }}
+    url: {{ windows_url }}
+    cdi_source_type: {{ cdi_source_type }}
+    cdi_source_s3_cred: {{ cdi_source_s3_cred }}
+    vm_storage_class: {{ vm_storage_class }}
+  run_type:
+    perf_ci:
+      requests_memory: 2G
+      requests_cpu: 1
+      limit_memory: 4G
+      limit_cpu: 2
+      cores: 1
+      storage: 76Gi
+    default:
+      requests_memory: 2G
+      requests_cpu: 1
+      limit_memory: 4G
+      limit_cpu: 2
+      cores: 1
+      storage: 76Gi

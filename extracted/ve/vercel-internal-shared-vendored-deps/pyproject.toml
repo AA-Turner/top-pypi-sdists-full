@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling>=1.27.0,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vercel-internal-shared-vendored-deps"
+dynamic = ["version"]
+description = "Shared vendored dependencies for Vercel Python packages"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+license = "MIT"
+license-files = [
+    "LICENSE",
+    "LICENSE.*",
+    "vercel/internal/_vendor/LICEN[CS]E*",
+]
+
+[tool.vercel.release.dependencies]
+dependencies = []
+
+[tool.hatch.version]
+path = "vercel/internal/_vendor/version.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/vercel/internal/_vendor/**/*.py",
+    "/vercel/internal/_vendor/certifi/cacert.pem",
+    "/vercel/internal/_vendor/_shared_deps.json",
+    "/vercel/internal/_vendor/py.typed",
+    "/README.md",
+    "/pyproject.toml",
+    "/LICENSE",
+    "/vercel/internal/_vendor/LICEN[CS]E*",
+]
+exclude = [
+    "/**/__pycache__",
+]
+
+[tool.hatch.build.targets.wheel]
+dev-mode-dirs = ["."]
+only-include = [
+    "/vercel/internal/_vendor",
+]
+exclude = [
+    "/**/__pycache__",
+]
+
+[tool.vendoring]
+destination = "vercel/internal/_vendor/"
+requirements = "vercel/internal/_vendor/vendor.txt"
+namespace = "vercel.internal._vendor"
+protected-files = [
+    "__init__.py",
+    "py.typed",
+    "vendor.txt",
+    "version.py",
+    "_shared_deps.json",
+]
+
+[tool.vendoring.transformations]
+substitute = [
+    { match = "import h2\\.config", replace = "from vercel.internal._vendor import h2\nfrom vercel.internal._vendor.h2 import config" },
+    { match = "import h2\\.connection", replace = "from vercel.internal._vendor import h2\nfrom vercel.internal._vendor.h2 import connection" },
+    { match = "import h2\\.events", replace = "from vercel.internal._vendor import h2\nfrom vercel.internal._vendor.h2 import events" },
+    { match = "import h2\\.exceptions", replace = "from vercel.internal._vendor import h2\nfrom vercel.internal._vendor.h2 import exceptions" },
+    { match = "import h2\\.settings", replace = "from vercel.internal._vendor import h2\nfrom vercel.internal._vendor.h2 import settings" },
+    { match = "(files|get_path|read_text)\\(\"certifi\"", replace = "\\1(\"vercel.internal._vendor.certifi\"" },
+]
+drop = [
+    "*.so",
+    "*/tests/",
+    "*/__pycache__/",
+]

@@ -129,6 +129,7 @@ from ..local_supply_chain import (
 from ..managed_controls_policy_fields import ParsedManagedControlsPolicy
 from ..models import DECISION_SCOPE_VALUES, DecisionScope, PolicyDecision, format_local_http_origin
 from ..native_mode import native_mode_requires_rust as _native_mode_requires_rust
+from ..native_mode import python_oracle_surface_enabled
 from ..package_firewall_action_rate_limit import PackageFirewallActionRateLimiter
 from ..package_firewall_entitlement import (
     package_firewall_action_states,
@@ -5962,6 +5963,20 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 "reason_code": reason_code,
                 "observed_review_failure": True,
             }
+        from .hook_availability_policy import availability_harness_response, lifecycle_event_is_observe_only
+
+        if event == "PreToolUse" or lifecycle_event_is_observe_only(event):
+            payload_dict = dict(payload) if isinstance(payload, Mapping) else {}
+            workspace_path, home_path = self._validated_fail_safe_hook_paths(params)
+            return availability_harness_response(
+                payload_dict,
+                harness=harness,
+                event_name=event,
+                reason_code=reason_code,
+                reason=reason,
+                workspace=workspace_path,
+                home_dir=home_path,
+            )
         if harness in {"pi", "omp"}:
             return {
                 "decision": "deny",
@@ -5981,21 +5996,41 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     },
                 },
             }
-        if event == "PreToolUse":
-            return {
-                "reason_code": reason_code,
-                "hookSpecificOutput": {
-                    "hookEventName": event,
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": reason,
-                },
-            }
         return {
             "continue": False,
             "stopReason": reason,
             "systemMessage": reason,
             "reason_code": reason_code,
         }
+
+    def _validated_fail_safe_hook_paths(
+        self,
+        params: Mapping[str, list[str]],
+    ) -> tuple[Path | None, Path | None]:
+        """Return workspace and home directories that passed hook path validation."""
+
+        return (
+            self._validated_fail_safe_directory(params, "workspace"),
+            self._validated_fail_safe_directory(params, "home"),
+        )
+
+    def _validated_fail_safe_directory(
+        self,
+        params: Mapping[str, list[str]],
+        parameter: str,
+    ) -> Path | None:
+        value = self._optional_string(params.get(parameter, [None])[-1])
+        if not value:
+            return None
+        try:
+            validated = self._validated_hook_directory_string(
+                parameter,
+                value,
+                roots=self._hook_safe_roots(),
+            )
+        except _HookPathValidationError:
+            return None
+        return Path(validated) if validated else None
 
     def _execute_runtime_hook(
         self,
@@ -6010,7 +6045,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         payload_hydrated: bool = False,
         deadline: float | None = None,
     ) -> None:
-        if self._hook_fast_path_enabled() or _native_mode_requires_rust():
+        if self._hook_fast_path_enabled() or _native_mode_requires_rust() or not python_oracle_surface_enabled():
             result = self._handle_runtime_hook_fast(
                 payload,
                 params,
@@ -6100,8 +6135,17 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     reason_code="native_hook_worker_unsupported",
                     native_authoritative=True,
                 )
-            # Explicit off/shadow compatibility keeps the existing CLI path.
-            return None
+            if python_oracle_surface_enabled():
+                # The test-only oracle may exercise the compatibility seam.
+                return None
+            return self._runtime_hook_fail_safe_response(
+                payload,
+                params,
+                default_harness=default_harness,
+                reason="HOL Guard could not complete the native hook decision safely.",
+                reason_code="native_hook_compatibility_disabled",
+                native_authoritative=True,
+            )
         except Exception as error:
             # Fail safe: deny/block. Do not fall back to compatibility CLI for
             # requests that omitted full output and supplied only guard_source_ref.
@@ -6182,6 +6226,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             queued=scheduler_stats["queued"],
         )
         if review.payload is not None and time.monotonic() < process_deadline:
+            if review.receipt is not None:
+                with suppress(Exception):
+                    _ = daemon_server.runtime_hook_evidence_writer.submit_native_decision_receipt(review.receipt)
             self._write_json(review.payload)
             return
         reason_code = (

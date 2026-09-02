@@ -13,7 +13,6 @@ from spec_kitty_tracker.discovery.types import (
     DiscoveryResult,
 )
 
-
 # ---------------------------------------------------------------------------
 # DiscoveredWorkspace
 # ---------------------------------------------------------------------------
@@ -161,9 +160,7 @@ class TestDiscoveryResult:
         assert result.truncated is False
 
     def test_truncated_flag(self) -> None:
-        result: DiscoveryResult[DiscoveredWorkspace] = DiscoveryResult(
-            items=[], truncated=True
-        )
+        result: DiscoveryResult[DiscoveredWorkspace] = DiscoveryResult(items=[], truncated=True)
         assert result.truncated is True
 
     def test_frozen(self) -> None:
@@ -181,9 +178,7 @@ class TestDiscoveryResult:
             connector_params={"group_id": "10"},
             routing_metadata={},
         )
-        result: DiscoveryResult[DiscoveredResource] = DiscoveryResult(
-            items=[res], truncated=False
-        )
+        result: DiscoveryResult[DiscoveredResource] = DiscoveryResult(items=[res], truncated=False)
         assert len(result.items) == 1
         assert result.items[0].stable_ref == "42"
 

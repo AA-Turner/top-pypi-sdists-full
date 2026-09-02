@@ -1,0 +1,915 @@
+import json
+import os
+from collections.abc import Iterator
+from typing import cast
+from urllib.parse import parse_qs, urlparse
+
+
+import bluesky.plan_stubs as bps
+import bluesky.plans as bp
+import h5py
+import numpy as np
+import ophyd.sim
+import pytest
+import tifffile as tf
+from bluesky.protocols import (
+    Collectable,
+    HasName,
+    Readable,
+    Reading,
+    StreamAsset,
+    WritesStreamAssets,
+)
+from event_model.documents.event_descriptor import DataKey
+from event_model.documents.stream_datum import StreamDatum
+from event_model.documents.stream_resource import StreamResource
+from tiled.client import record_history
+from tiled.utils import safe_json_dump
+from examples.render import render_templated_documents
+
+from bluesky_tiled_plugins import TiledWriter
+from bluesky_tiled_plugins.writing.validator import ValidationException
+
+
+# Many fixtures in this module do not set join_method explicitly and thus rely on the
+# default, which currently triggers a DeprecationWarning announcing the upcoming change
+# of the default to "stack". Silence it at the module level so the strict
+# filterwarnings=["error"] policy does not turn expected usage into errors.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*default value of join_method will change.*:DeprecationWarning"
+)
+
+
+class Named(HasName):
+    name: str = ""
+    root: str = "/root"
+    parent = None
+
+    def __init__(self, name: str, root: str) -> None:
+        self.name = name
+        self.root = root
+        self.counter = 0
+
+
+class StreamDatumReadableCollectable(Named, Readable, Collectable, WritesStreamAssets):
+    """Produces no events, but only StreamResources/StreamDatums and can be read or collected"""
+
+    def _get_hdf5_stream(
+        self, data_key: str, index: int
+    ) -> tuple[StreamResource | None, StreamDatum]:
+        file_path = os.path.join(self.root, "dataset.h5")
+        uid = f"{data_key}-uid"
+        data_desc = self.describe()[
+            data_key
+        ]  # Descriptor dictionary for the current data key
+        data_shape = cast("tuple[int, ...]", tuple(data_desc["shape"]))
+        hdf5_dataset = f"/{data_key}/VALUE"
+
+        stream_resource = None
+        if self.counter == 0:
+            # Backward compatibility test, ignore typing errors
+            stream_resource = StreamResource(  # type: ignore[typeddict-unknown-key]
+                parameters={
+                    "dataset": hdf5_dataset,
+                    "chunk_shape": (100, *data_shape[1:]),
+                },
+                data_key=data_key,
+                root=self.root,
+                resource_path="/dataset.h5",
+                uri="file://localhost/" + file_path,
+                spec="AD_HDF5_SWMR_STREAM",
+                mimetype="application/x-hdf5",
+                uid=uid,
+            )
+            # Initialize an empty HDF5 dataset (3D: var 1 dim, fixed 2 and 3 dims)
+            with h5py.File(file_path, "a") as f:
+                dset = f.require_dataset(
+                    hdf5_dataset,
+                    data_shape,
+                    maxshape=(None, *data_shape[1:]),
+                    dtype=np.dtype("float64"),
+                    chunks=(100, *data_shape[1:]),
+                )
+
+        indx_min, indx_max = self.counter, self.counter + index
+        stream_datum = StreamDatum(
+            stream_resource=uid,
+            descriptor="",
+            uid=f"{uid}/{self.counter}",
+            indices={"start": indx_min, "stop": indx_max},
+            seq_nums={
+                "start": 0,
+                "stop": 0,
+            },  # seq_nums will be overwritten by RunBundler
+        )
+
+        # Write (append to) the hdf5 dataset
+        with h5py.File(file_path, "a") as f:
+            dset = f[hdf5_dataset]
+            dset.resize([indx_max * data_shape[0], *data_shape[1:]])
+            dset[indx_min * data_shape[0] : indx_max * data_shape[0], ...] = (
+                np.random.randn((indx_max - indx_min) * data_shape[0], *data_shape[1:])
+            )
+
+        return stream_resource, stream_datum
+
+    def _get_tiff_stream(
+        self, data_key: str, index: int
+    ) -> tuple[StreamResource | None, StreamDatum]:
+        file_path = self.root
+        for data_key in [f"{self.name}-sd3"]:
+            uid = f"{data_key}-uid"
+            data_desc = self.describe()[
+                data_key
+            ]  # Descriptor dictionary for the current data key
+            data_shape = cast("tuple[int, ...]", tuple(data_desc["shape"]))
+            stream_resource = None
+            if self.counter == 0:
+                # Backward compatibility test, ignore typing errors
+                stream_resource = StreamResource(  # type: ignore[typeddict-unknown-key]
+                    parameters={
+                        "chunk_shape": (1, *data_shape),
+                        "template": "{:05d}.tif",
+                        "join_method": "stack",
+                    },
+                    data_key=data_key,
+                    root=self.root,
+                    uri="file://localhost/" + self.root + "/",
+                    spec="AD_TIFF",
+                    mimetype="multipart/related;type=image/tiff",
+                    uid=uid,
+                )
+
+            indx_min, indx_max = self.counter, self.counter + index
+            stream_datum = StreamDatum(
+                stream_resource=uid,
+                descriptor="",
+                uid=f"{uid}/{self.counter}",
+                indices={"start": indx_min, "stop": indx_max},
+                seq_nums={
+                    "start": 0,
+                    "stop": 0,
+                },  # seq_nums will be overwritten by RunBundler
+            )
+
+            # Write a tiff file
+            data = np.random.randint(0, 255, data_shape, dtype="uint8")
+            tf.imwrite(os.path.join(file_path, f"{self.counter:05}.tif"), data)
+
+        return stream_resource, stream_datum
+
+    def describe(self) -> dict[str, DataKey]:
+        """Describe datasets which will be backed by StreamResources"""
+        return {
+            # Numerical data with 1 number per event in hdf5 format
+            f"{self.name}-sd1": DataKey(
+                source="file",
+                dtype="number",
+                dtype_numpy=np.dtype("float64").str,
+                shape=[
+                    1,
+                ],
+                external="STREAM:",
+            ),
+            # 2-D data with 5 frames per event in hdf5 format
+            f"{self.name}-sd2": DataKey(
+                source="file",
+                dtype="array",
+                dtype_numpy=np.dtype("float64").str,
+                shape=[5, 10, 15],
+                external="STREAM:",
+            ),
+            # 3-D data with 10 frames per event in tiff format
+            f"{self.name}-sd3": DataKey(
+                source="file",
+                dtype="array",
+                dtype_numpy=np.dtype("uint8").str,
+                shape=[10, 5, 7, 4],
+                external="STREAM:",
+            ),
+        }
+
+    def describe_collect(self) -> dict[str, DataKey] | dict[str, dict[str, DataKey]]:
+        return self.describe()
+
+    def collect_asset_docs(self, index: int | None = None) -> Iterator[StreamAsset]:
+        """Produce a StreamResource and StreamDatum for all data keys for 0:index"""
+        index = index or 1
+        data_keys_methods = {
+            f"{self.name}-sd1": self._get_hdf5_stream,
+            f"{self.name}-sd2": self._get_hdf5_stream,
+            f"{self.name}-sd3": self._get_tiff_stream,
+        }
+
+        for data_key, method in data_keys_methods.items():
+            stream_resource, stream_datum = method(data_key, index)
+            if stream_resource is not None:
+                yield "stream_resource", stream_resource
+            yield "stream_datum", stream_datum
+
+        self.counter += index
+
+    def get_index(self) -> int:
+        """Report how many frames were written"""
+        return self.counter
+
+    def read(self) -> dict[str, Reading]:
+        """Produce an empty event"""
+        return {}
+
+
+class SynSignalWithRegistry(ophyd.sim.SynSignalWithRegistry):
+    """A readable image detector that writes a sequence of files and generates relevant Bluesky documents.
+
+    Subclassed from ophyd.sim to match the updated schema of Resource documents.
+    """
+
+    def __init__(self, *args, dtype_numpy="uint8", **kwargs):
+        self.dtype_numpy = dtype_numpy
+        super().__init__(*args, **kwargs)
+
+    def stage(self):
+        super().stage()
+        parameters = {
+            "chunk_shape": (1,),
+            "template": "_{:d}." + self.save_ext,
+            "join_method": "stack",
+        }
+        self._asset_docs_cache[-1][1]["resource_kwargs"].update(parameters)
+
+    def describe(self):
+        res = super().describe()
+        for key in res:
+            res[key]["external"] = "FILESTORE"
+            res[key]["dtype_numpy"] = self.dtype_numpy
+        return res
+
+
+def test_stream_datum_readable_counts(RE, client, tmp_path):
+    tw = TiledWriter(client)
+    det = StreamDatumReadableCollectable(name="det", root=str(tmp_path))
+    RE(bp.count([det], 3), tw)
+    stream = client.values().last()["primary"]
+    keys = sorted(set(stream.base.keys()).difference({"internal"}))
+
+    assert stream[keys[0]].shape == (3,)
+    assert stream[keys[1]].shape == (15, 10, 15)
+    assert stream[keys[2]].shape == (3, 10, 5, 7, 4)
+    assert stream[keys[0]].read() is not None
+    assert stream[keys[1]].read() is not None
+    assert stream[keys[2]].read() is not None
+
+
+def test_stream_datum_readable_with_two_detectors(RE, client, tmp_path):
+    det1 = StreamDatumReadableCollectable(name="det1", root=str(tmp_path))
+    det2 = StreamDatumReadableCollectable(name="det2", root=str(tmp_path))
+    tw = TiledWriter(client)
+    RE(bp.count([det1, det2], 3), tw)
+    stream = client.values().last()["primary"]
+    keys = sorted(set(stream.base.keys()).difference({"internal"}))
+
+    assert stream[keys[0]].shape == (3,)
+    assert stream[keys[1]].shape == (15, 10, 15)
+    assert stream[keys[2]].shape == (3, 10, 5, 7, 4)
+    assert stream[keys[3]].shape == (3,)
+    assert stream[keys[4]].shape == (15, 10, 15)
+    assert stream[keys[5]].shape == (3, 10, 5, 7, 4)
+    assert stream[keys[0]].read() is not None
+    assert stream[keys[1]].read() is not None
+    assert stream[keys[2]].read() is not None
+    assert stream[keys[3]].read() is not None
+    assert stream[keys[4]].read() is not None
+    assert stream[keys[5]].read() is not None
+
+
+def test_stream_datum_collectable(RE, client, tmp_path):
+    det = StreamDatumReadableCollectable(name="det", root=str(tmp_path))
+    tw = TiledWriter(client)
+    RE(collect_plan(det, name="primary"), tw)
+    stream = client.values().last()["primary"]
+    keys = sorted(set(stream.base.keys()).difference({"internal"}))
+
+    assert stream[keys[0]].read() is not None
+    assert stream[keys[1]].read() is not None
+    assert stream[keys[2]].read() is not None
+
+
+@pytest.mark.parametrize("frames_per_event", [1, 5, 10])
+def test_handling_non_stream_resource(RE, client, tmp_path, frames_per_event):
+    det = SynSignalWithRegistry(
+        func=lambda: np.random.randint(
+            0, 255, (frames_per_event, 10, 15), dtype="uint8"
+        ),
+        dtype_numpy=np.dtype("uint8").str,
+        name="img",
+        labels={"detectors"},
+        save_func=tf.imwrite,
+        save_path=str(tmp_path),
+        save_spec="AD_TIFF",
+        save_ext="tif",
+    )
+    tw = TiledWriter(client)
+    RE(bp.count([det], 3), tw)
+    extr = client.values().last()["primary"].base["img"]
+    intr = client.values().last()["primary"].base["internal"]
+    assert extr.shape == (3, frames_per_event, 10, 15)
+    assert extr.read() is not None
+    assert set(intr.columns) == {"seq_num", "time"}
+    assert len(intr.read()) == 3
+    assert (intr["seq_num"].read() == [1, 2, 3]).all()
+
+
+def collect_plan(*objs, name="primary"):
+    yield from bps.open_run()
+    yield from bps.declare_stream(*objs, collect=True, name=name)
+    yield from bps.collect(*objs, return_payload=False, name=name)
+    yield from bps.close_run()
+
+
+@pytest.mark.parametrize(
+    "fname",
+    [
+        "internal_events",
+        "external_assets",
+        "external_assets_legacy",
+        "external_assets_multipart_hdf5",
+    ],
+)
+@pytest.mark.parametrize("batch_size", [0, 1, 1000, None])
+@pytest.mark.filterwarnings(
+    "ignore:Failed to convert ragged array to numpy:UserWarning:"
+)
+def test_with_correct_sample_runs(client, batch_size, external_assets_folder, fname):
+    if batch_size is None:
+        tw = TiledWriter(client)
+    else:
+        tw = TiledWriter(client, batch_size=batch_size)
+    for item in render_templated_documents(fname + ".json", external_assets_folder):
+        if item["name"] == "start":
+            uid = item["doc"]["uid"]
+        tw(**item)
+
+    run = client[uid]
+
+    for stream in run.values():
+        assert stream.read() is not None
+
+
+def test_dims_names(client, external_assets_folder):
+    tw = TiledWriter(client)
+
+    for item in render_templated_documents(
+        "external_assets.json", external_assets_folder
+    ):
+        if item["name"] == "start":
+            uid = item["doc"]["uid"]
+        tw(**item)
+
+    run = client[uid]
+
+    assert run["primary"]["det-key1"].structure().dims is None
+    assert run["primary"]["det-key2"].structure().dims == ("time", "dim_x", "dim_y")
+
+
+@pytest.mark.parametrize(
+    "batch_size, expected_patch_shapes, expected_patch_offsets",
+    [(1, (1, 1, 1), (0, 1, 2)), (2, (2, 1), (0, 2)), (5, (3,), (0,))],
+)
+def test_data_source_patching(
+    client,
+    batch_size,
+    expected_patch_shapes,
+    expected_patch_offsets,
+    external_assets_folder,
+):
+    tw = TiledWriter(client, batch_size=batch_size)
+
+    with record_history() as history:
+        for item in render_templated_documents(
+            "external_assets.json", external_assets_folder
+        ):
+            tw(**item)
+
+    def parse_data_source_uri(uri: str):
+        """Given a full data_source URL, extract:
+            - data_key (e.g. "det-key1")
+            - decoded query parameters as tuples of ints
+
+        Returns:
+            (data_key, params_dict)
+        """
+
+        # data_key is the last component of the path
+        data_key = urlparse(uri).path.rstrip("/").split("/")[-1]
+
+        # parse query parameters and convert comma-separated values to tuples of ints
+        params = {}
+        for k, v in parse_qs(urlparse(uri).query).items():
+            params[k] = tuple(map(int, v[0].split(",")))  # parse_qs gives lists
+
+        return data_key, params
+
+    put_uri_params = [
+        parse_data_source_uri(str(req.url))
+        for req in history.requests
+        if req.method == "PUT" and "/data_source" in req.url.path
+    ]
+
+    # Check that each data key received the expected number of updates
+    assert len(put_uri_params) == 3 * len(
+        expected_patch_shapes
+    )  # 3 data keys in the example
+    for data_key in ("det-key1", "det-key2", "det-key3"):
+        assert len([uri for dk, uri in put_uri_params if dk == data_key]) == len(
+            expected_patch_shapes
+        )
+
+        # Check that the patch sizes and offsets (leftmost dimensions) match expectations
+        actual_patch_sizes = tuple(
+            params["patch_shape"][0] for dk, params in put_uri_params if dk == data_key
+        )
+        actual_patch_offsets = tuple(
+            params["patch_offset"][0] for dk, params in put_uri_params if dk == data_key
+        )
+        assert actual_patch_sizes == expected_patch_shapes
+        assert actual_patch_offsets == expected_patch_offsets
+
+
+@pytest.mark.parametrize("error_type", ["shape", "chunks", "dtype", "dims"])
+@pytest.mark.parametrize("validate", [True, False])
+def test_validate_external_data(client, external_assets_folder, error_type, validate):
+    tw = TiledWriter(client, validate=validate)
+
+    documents = render_templated_documents(
+        "external_assets_single_key.json", external_assets_folder
+    )
+    for item in documents:
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+
+        # Modify the document to introduce an error
+        if (error_type == "shape") and (name == "descriptor"):
+            doc["data_keys"]["det-key2"]["shape"] = [1, 2, 3]  # should be [1, 13, 17]
+        elif (error_type == "chunks") and name in {"resource", "stream_resource"}:
+            doc["parameters"]["chunk_shape"] = [1, 2, 3]  # should be [3, 13, 17]
+        elif (error_type == "dtype") and (name == "descriptor"):
+            doc["data_keys"]["det-key2"]["dtype_numpy"] = np.dtype(
+                "int32"
+            ).str  # should be "int64"
+        elif (error_type == "dims") and (name == "descriptor"):
+            item["doc"]["data_keys"]["det-key2"]["dims"] = [
+                "dim_2",
+                "dim_3",
+            ]  # Missing time dim
+
+        # Check that the warning is issued when data changes during the validation
+        if name == "stop" and validate:
+            with pytest.warns(UserWarning):
+                tw(name, doc)
+        else:
+            tw(name, doc)
+
+    # Try reading the imported data
+    run = client[uid]
+    if not validate and not error_type == "chunks":
+        with pytest.raises(ValueError):
+            assert run["primary"].read() is not None
+    else:
+        assert run["primary"].read() is not None
+        assert run["primary"]["det-key2"].read().shape == (3, 13, 17)
+        assert run["primary"]["det-key2"].structure().dims == ("time", "dim_2", "dim_3")
+
+
+@pytest.mark.parametrize(
+    "ignore_errors",
+    (
+        None,
+        [],
+        ["FileNotFoundError", "No such file or directory"],
+        [r"(?i)Could not determine size of asset", r"(?i)Unable to synchronously open"],
+    ),
+)
+@pytest.mark.filterwarnings("ignore::UserWarning")
+def test_ignore_validation_errors(client, external_assets_folder, ignore_errors):
+    tw = TiledWriter(client, validate=True, ignore_errors=ignore_errors)
+
+    documents = render_templated_documents(
+        "external_assets_single_key.json", external_assets_folder
+    )
+    for item in documents:
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+
+        # Corrupt the URI to trigger a validation error
+        if name == "stream_resource":
+            doc["uri"] += "_"
+
+        if name == "stop":
+            if ignore_errors:
+                tw(name, doc)  # Should not raise due to ignored error
+            else:
+                with pytest.raises(ValidationException):
+                    tw(name, doc)
+        else:
+            tw(name, doc)
+
+    # Check that the data has been written
+    assert uid in client
+
+    # The run should have a stop document
+    assert client[uid].stop is not None
+
+    # The data would not be readable due to the wrong URI
+    with pytest.raises(Exception):
+        client[uid]["primary"].read()
+
+
+@pytest.mark.parametrize("ignore_errors", (None, ["FileNotFoundError"]))
+@pytest.mark.parametrize("fname", ["internal_events", "external_assets"])
+def test_validate_reading(client, external_assets_folder, fname, ignore_errors):
+    # NOTE: This is mainly just a smoke test
+    tw = TiledWriter(client, validate=False, ignore_errors=ignore_errors)
+
+    documents = render_templated_documents(fname + ".json", external_assets_folder)
+    for item in documents:
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+
+        tw(name, doc)
+
+    # Check that the data has been written
+    assert uid in client
+    run_client = client[uid]
+    assert run_client.stop is not None
+
+    # Trigger the reading validation via the GET API
+    response = run_client.context.http_client.get(
+        run_client.uri.replace("/metadata/", "/validate/", 1),
+        params={"fix": True, "read": True},
+    )
+    assert response is not None
+
+    # Trigger the reading validation via the POST API with ignore_errors parameter
+    response = run_client.context.http_client.post(
+        run_client.uri.replace("/metadata/", "/validate/", 1),
+        params={"fix": True, "read": True},
+        content=safe_json_dump({"ignore_errors": ignore_errors}),
+    )
+    assert response is not None
+
+
+@pytest.mark.parametrize("squeeze", [True, False])
+def test_slice_and_squeeze(client, external_assets_folder, squeeze):
+    tw = TiledWriter(client)
+
+    documents = render_templated_documents(
+        "external_assets_single_key_two_files.json", external_assets_folder
+    )
+    for item in documents:
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+
+        # Modify the documents to add slice and squeeze parameters
+        if name == "descriptor":
+            doc["data_keys"]["det-key2"]["shape"] = [1, 17] if squeeze else [1, 5, 17]
+        elif name in {"resource", "stream_resource"}:
+            doc["parameters"]["slice"] = ":,5,:" if squeeze else ":,:5,:"
+            doc["parameters"]["squeeze"] = squeeze
+            doc["parameters"]["chunk_shape"] = [1]
+
+        tw(name, doc)
+
+    # Try reading the imported data
+    assert client[uid]["primary"].read() is not None
+
+
+@pytest.mark.parametrize("multiplier_key", ["multiplier", "frame_per_point"])
+@pytest.mark.parametrize("validate", [True, False])
+def test_legacy_with_multiplier_parameter(
+    client, multiplier_key, validate, external_assets_folder
+):
+    tw = TiledWriter(client, validate=validate)
+
+    documents = render_templated_documents(
+        "external_assets_legacy.json", external_assets_folder
+    )
+    for item in documents:
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+
+        # Modify the documents to add the multiplier parameter
+        if name == "descriptor":
+            doc["data_keys"]["det-key2"]["shape"] = [13, 17]
+        elif name in {"resource", "stream_resource"}:
+            doc["resource_kwargs"].pop("frame_per_point", None)  # Remove if exists
+            doc["resource_kwargs"][multiplier_key] = 1
+
+        # Check that the warning is issued when data changes during the validation
+        if name == "stop" and validate:
+            with pytest.warns(UserWarning):
+                tw(name, doc)
+        else:
+            tw(name, doc)
+
+    # Try reading the imported data
+    assert client[uid]["primary"].read() is not None
+
+    # Check the metadata and structure of the array
+    arr = client[uid]["primary/det-key2"]
+    assert arr.metadata["frame_per_point"] == 1  # always called "frame_per_point"
+    if validate:
+        assert arr.shape == (3, 1, 13, 17)
+        assert arr.chunks == ((3,), (1,), (13,), (17,))
+        assert arr.data_sources()[0].properties["chunks"] == [[3], [13], [17]]
+    else:
+        assert arr.shape == (3, 13, 17)
+        assert arr.chunks == ((3,), (13,), (17,))
+        assert not arr.data_sources()[0].properties
+
+
+def test_shared_resource_multi_stream(client, external_assets_folder):
+    """Two descriptors share one Resource; each must land on its own Tiled node.
+
+    Mirrors the real-world case of an area detector triggered per stream,
+    writing successive frames as a TIFF stack shared by all streams. Both
+    descriptors use the same `data_key`; each Datum picks a specific file
+    in the stack via a spec-specific `point_number` kwarg. Stream shapes
+    differ (one image vs. two) to exercise per-stream frame counts.
+
+    `point_number` is not a concept the writer understands; the caller
+    normalizes it to the standard `indices` field via a `patches["datum"]`
+    hook. With the fix, the writer emits a distinct StreamResource per
+    (resource, descriptor, data_key), so each stream gets its own node
+    instead of colliding onto the first descriptor's node.
+    """
+
+    def patch_datum(doc):
+        kwargs = doc.get("datum_kwargs", {})
+
+        # Override indices with the point_number if present:
+        # Necessary to correctly apply the filename template to tiff files
+        # when a single Resource is referenced by multiple descriptors.
+        point_number = kwargs.pop("point_number", None)
+        if point_number is not None:
+            kwargs["indices"] = {"start": point_number, "stop": point_number + 1}
+        return doc
+
+    tw = TiledWriter(client, patches={"datum": patch_datum})
+
+    for item in render_templated_documents(
+        "external_assets_shared_resource.json", external_assets_folder
+    ):
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+        tw(name, doc)
+
+    # Stream `s0` holds a single frame (point 0); stream `s1` holds two
+    # frames (points 1 and 2) from the same TIFF stack.
+    expected_frames = {"s0": [0], "s1": [1, 2]}
+    for stream_name, points in expected_frames.items():
+        arr = client[uid][f"{stream_name}/det_image"]
+        assert arr.shape == (len(points), 1, 10, 15), (
+            f"{stream_name}: expected shape ({len(points)}, 1, 10, 15), got {arr.shape}"
+        )
+        data = np.asarray(arr.read())
+        for row, point_number in enumerate(points):
+            expected = tf.imread(
+                os.path.join(
+                    external_assets_folder, "tiff_files", f"img_{point_number:05}.tif"
+                )
+            )
+            np.testing.assert_array_equal(data[row], expected)
+
+
+def test_streams_with_no_events(client, external_assets_folder):
+    tw = TiledWriter(client)
+
+    for item in render_templated_documents(
+        "external_assets_single_key_two_files.json", external_assets_folder
+    ):
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+
+        # Skip the resource and datum documents
+        if name in {"resource", "stream_resource", "datum", "stream_datum", "event"}:
+            continue
+
+        tw(name, doc)
+
+    # Try reading the data -- should return an empty dataset
+    assert client[uid]["primary"].read() is not None
+    assert client[uid]["primary"].read().data_vars == {}
+    assert client[uid]["primary"].metadata is not None
+
+
+@pytest.mark.parametrize("include_data_sources", [True, False])
+@pytest.mark.parametrize(
+    "fname", ["internal_events", "external_assets", "external_assets_legacy"]
+)
+def test_zero_gets(client, external_assets_folder, fname, include_data_sources):
+    client = client.new_variation(include_data_sources=include_data_sources)
+    assert client._include_data_sources == include_data_sources
+    tw = TiledWriter(client)
+    assert bool(tw.client._include_data_sources)
+
+    with record_history() as history:
+        for item in render_templated_documents(fname + ".json", external_assets_folder):
+            tw(**item)
+
+    # Count the number of GET requests
+    num_gets = sum(1 for req in history.requests if req.method == "GET")
+    assert num_gets == 0
+
+
+def test_bad_document_order(client, external_assets_folder):
+    """Test that the TiledWriter can handle documents in a different order than expected
+
+    Emit datum documents in the end, before the Stop document, but after corresponding Event documents.
+    """
+    tw = TiledWriter(client)
+
+    document_cache = []
+    for item in render_templated_documents(
+        "external_assets_legacy.json", external_assets_folder
+    ):
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+
+        if name == "datum":
+            document_cache.append({"name": name, "doc": doc})
+            continue
+
+        if name == "stop":
+            for cached_item in document_cache:
+                tw(**cached_item)
+
+        tw(**item)
+
+    run = client[uid]
+
+    for stream in run.values():
+        assert stream.read() is not None
+        assert "time" in stream.keys()
+        assert "seq_num" in stream.keys()
+        assert (
+            len(stream.keys()) > 2
+        )  # There's at least one data key in addition to time and seq_num
+
+
+def test_json_backup(client, tmpdir, monkeypatch):
+    def patched_event(name, doc):
+        raise RuntimeError("This is a test error to check the backup functionality")
+
+    monkeypatch.setattr(
+        "bluesky_tiled_plugins.writing.tiled_writer._RunWriter.event", patched_event
+    )
+
+    tw = TiledWriter(client, backup_directory=str(tmpdir))
+
+    for item in render_templated_documents("internal_events.json", ""):
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+        tw(**item)
+
+    run = client[uid]
+
+    assert (
+        "primary" in run
+    )  # The Descriptor was processed and the primary stream was created
+    assert run["primary"].read() is not None  # The stream can be read
+    assert len(run["primary"].read()) == 0  # No events were processed due to the error
+    assert "stop" in run.metadata  # The TiledWriter did not crash
+
+    # Check that the backup file was created
+    filepath = tmpdir / f"{uid[:8]}.jsonl"
+    assert filepath.exists()
+    with open(filepath) as f:
+        lines = [json.loads(line) for line in f if line.strip()]
+    assert len(lines) == 7
+    assert lines[0]["name"] == "start"
+    assert lines[1]["name"] == "descriptor"
+    assert lines[2]["name"].startswith("event")
+    assert lines[6]["name"] == "stop"
+
+
+@pytest.mark.parametrize(
+    "max_array_size, expected_scheme",
+    [
+        pytest.param(
+            0,
+            "file",
+            marks=pytest.mark.xfail(
+                reason=(
+                    "internal_events.json has a data_key with a zero-length dimension; "
+                    "most zarr versions reject chunk edges of 0. Passes on zarr <3.2 "
+                    "and >=3.1; fails on zarr 2.x and zarr >=3.2."
+                ),
+                raises=(ZeroDivisionError, ValueError),
+                strict=False,
+            ),
+        ),
+        (4, "file"),
+        (16, "duckdb"),
+        (-1, "duckdb"),
+    ],
+)
+def test_internal_arrays_written_as_zarr(client, max_array_size, expected_scheme):
+    tw = TiledWriter(client, max_array_size=max_array_size)
+
+    for item in render_templated_documents("internal_events.json", ""):
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+        tw(**item)
+
+    run = client[uid]
+
+    assert run["primary"]["long"].shape == (3, 8)
+    assert run["primary"]["long"].read() is not None
+
+    # There's a table and it is stored in the SQL database
+    internal_table = run["primary"].base["internal"]
+    assert internal_table.read() is not None
+    assert (
+        urlparse(internal_table.data_sources()[0].assets[0].data_uri).scheme == "duckdb"
+    )
+
+    if expected_scheme == "file":
+        assert (
+            "long" in run["primary"].base
+        )  # There's a separate node for the array data
+        assert (
+            "long" not in internal_table.columns
+        )  # The internal table does not have a column for it
+        assert (
+            urlparse(run["primary"]["long"].data_sources()[0].assets[0].data_uri).scheme
+            == "file"
+        )
+    else:
+        assert "long" not in run["primary"].base
+        assert "long" in internal_table.columns
+        assert run["primary"]["long"].data_sources() is None
+
+
+@pytest.mark.parametrize("corrupt_uri", [False, True])
+@pytest.mark.filterwarnings("ignore::UserWarning")
+def test_bytes_roundtrip(client, external_assets_folder, corrupt_uri):
+    """End-to-end registration of `bytes` data sources via `TiledWriter`.
+
+    Covers both a single-file stream resource and a multi-file (templated)
+    stream resource in one run. When `corrupt_uri` is set, the URIs are
+    munged so the files do not exist -- validation must raise
+    `ValidationException` (surfaced from `AssetValidationException`) rather
+    than silently accepting the missing assets.
+    """
+    tw = TiledWriter(client, validate=True)
+    uid = None
+    documents = list(
+        render_templated_documents("external_assets_bytes.json", external_assets_folder)
+    )
+    for item in documents:
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+        if corrupt_uri and name == "stream_resource":
+            doc["uri"] += "_missing"
+        if corrupt_uri and name == "stop":
+            with pytest.raises(ValidationException):
+                tw(name, doc)
+        else:
+            tw(name, doc)
+
+    if corrupt_uri:
+        # The run was created but validation on stop raised;
+        # nothing further to assert about the (unwritten) sizes.
+        assert uid in client
+        return
+
+    run = client[uid]
+
+    single = run["primary"]["det-blob-single"].data_sources()[0]
+    multi = run["primary"]["det-blob-multi"].data_sources()[0]
+
+    assert single.structure_family == "bytes"
+    assert single.mimetype == "application/octet-stream"
+    assert len(single.assets) == 1
+    assert single.assets[0].data_uri.endswith("/blob.bin")
+
+    assert multi.structure_family == "bytes"
+    assert len(multi.assets) == 3
+    for i, asset in enumerate(multi.assets):
+        assert asset.data_uri.endswith(f"blob_{i:05d}.bin")
+
+    # With the remote validator router (app1) sizes are populated;
+    # with the local fallback (app0) they remain unset.
+    assert single.assets[0].size in (None, 15)
+    assert all(a.size in (None, 10) for a in multi.assets)

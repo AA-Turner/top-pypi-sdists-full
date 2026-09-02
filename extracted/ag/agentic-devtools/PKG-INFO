@@ -1,0 +1,1073 @@
+Metadata-Version: 2.5
+Name: agentic-devtools
+Version: 0.2.470
+Summary: Agentic devtools integrate Jira, DevOps & more
+Author: ayaiayorg
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: >=3.11
+Requires-Dist: atlassian-python-api<5,>=4.0
+Requires-Dist: azure-identity>=1.0.0
+Requires-Dist: azure-monitor-query>=1.0.0
+Requires-Dist: build>=1.2.2
+Requires-Dist: github-copilot-sdk<2.0.0,>=1.0.0
+Requires-Dist: jinja2>=3.0.0
+Requires-Dist: jsonschema>=4.20.0
+Requires-Dist: langchain-core<2,>=1.4.7
+Requires-Dist: langgraph-checkpoint-sqlite>=3.0.1
+Requires-Dist: langgraph<2,>=0.2.0
+Requires-Dist: mcp<2.0.0,>=1.0.0
+Requires-Dist: openai<2,>=1.30.0
+Requires-Dist: packaging>=21.0
+Requires-Dist: pydantic<3,>=2.0
+Requires-Dist: pyyaml>=6.0.0
+Requires-Dist: requests>=2.28.0
+Requires-Dist: specify-cli==1.0.1
+Requires-Dist: tiktoken<1,>=0.7.0
+Requires-Dist: tomli>=1.1.0; python_version < '3.11'
+Requires-Dist: twine>=5.0.0
+Requires-Dist: typing-extensions>=4.0
+Provides-Extra: browser
+Requires-Dist: playwright>=1.40.0; extra == 'browser'
+Requires-Dist: pyotp>=2.9.0; extra == 'browser'
+Provides-Extra: dev
+Requires-Dist: black>=24.0.0; extra == 'dev'
+Requires-Dist: isort>=5.12.0; extra == 'dev'
+Requires-Dist: mypy>=1.8.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23.0; extra == 'dev'
+Requires-Dist: pytest-cov>=4.0.0; extra == 'dev'
+Requires-Dist: pytest-recording>=0.13.0; extra == 'dev'
+Requires-Dist: pytest>=7.0.0; extra == 'dev'
+Requires-Dist: ruff>=0.4.0; extra == 'dev'
+Requires-Dist: types-pyyaml>=6.0.0; extra == 'dev'
+Requires-Dist: types-requests>=2.28.0; extra == 'dev'
+Requires-Dist: vcrpy>=6.0.0; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# agentic-devtools
+
+Agentic devtools integrate Jira, DevOps & more. This package provides
+simple CLI commands that can be easily auto-approved by VS Code AI assistants.
+
+**Audience**: End users of the AGDT CLI. This README focuses on installation
+and
+usage.
+
+## Installation
+
+### Option 1: Using pipx (Recommended)
+
+A pip-installable Python package that provides CLI commands for AI agents
+to interact with Git, Azure DevOps, Jira, and other services.
+
+```bash
+# Install pipx if you don't have it
+pip install pipx
+pipx ensurepath
+
+# ⚠️ IMPORTANT: Restart your terminal for PATH changes to take effect
+# Or refresh PATH in current PowerShell session:
+Workflow steps can be started from VS Code Copilot Chat using
+`/agdt.<workflow>.<step>` commands.
+
+# Install agentic-devtools
+cd agentic_devtools
+pipx install .
+
+# For development (editable install)
+pipx install -e .
+```
+
+### Option 2: Global pip install
+
+Install directly into your system Python. May require administrator privileges
+on Windows.
+
+```bash
+cd agentic_devtools
+
+# Global install (may need admin/sudo)
+pip install .
+
+# For development (editable)
+pip install -e .
+
+# With dev dependencies
+pip install -e ".[dev]"
+```
+
+> **Note:** Avoid `pip install --user` as it places scripts in a directory that
+may not be on your PATH (`%APPDATA%\Python\PythonXXX\Scripts` on Windows).
+
+### Verify Installation
+
+After installation, verify the commands are available:
+
+```bash
+agdt-set --help
+agdt-show
+```
+
+If commands are not found after installation:
+
+- **pipx:** Run `pipx ensurepath` and restart your terminal
+- **pip global:** Ensure `C:\PythonXXX\Scripts` (or equivalent) is on your PATH
+
+## Setup
+
+### One-Command Setup Flow
+
+`agdt-setup` generates a `setup-dev-tools.py` script tailored to the current
+repository and optionally auto-runs it in the same invocation so that a single
+command completes the full developer-environment setup.
+
+**First-run vs re-run.** Whether `setup-dev-tools.py` already exists in the
+worktree (re-run) or not (first-run), `agdt-setup` always regenerates the
+script and then decides whether to auto-run it. The common local-interactive
+path auto-runs, but if setup creates a dedicated branch/PR for generated repo
+changes, auto-run is skipped until you review and merge that setup PR, then run
+`python setup-dev-tools.py`. Either path may report `UPGRADED_RERUN_NEEDED` if
+the package was upgraded during the invocation.
+
+#### Auto-Run Decision Table
+
+| Context | Default behavior | Override |
+|---------|-----------------|----------|
+| Local interactive (first run) | Auto-run enabled; deferred if setup branch is created | `--no-run` |
+| Local interactive (re-run) | Auto-runs | `--no-run` |
+| CI / non-TTY | No auto-run | `--run` or `AGDT_SETUP_RUN=1` |
+
+**PR-workflow exception:** If setup generates repository changes and creates a
+setup branch, auto-run is skipped even in a local interactive session. Review
+and merge the setup PR, then run `python setup-dev-tools.py`.
+
+**Workflow-step exception:** Auto-run is also skipped while a workflow is still
+scaffolding the workspace — `work-on-jira-issue` at the `setup` step, or
+`pull-request-review` at the `initiate` step. Both this and the PR-workflow
+exception can be overridden by passing `--run` explicitly, which proceeds with
+auto-run and prints a warning instead of skipping.
+
+#### `--run` / `--no-run` Flags
+
+The two flags are mutually exclusive; passing both raises an error. Either flag
+overrides all environment variables and TTY detection.
+
+**Full precedence chain** (highest priority first):
+
+1. `--run` CLI flag → enable auto-run
+2. `--no-run` CLI flag → disable auto-run
+3. `AGDT_SETUP_NO_AUTORUN` env var (truthy) → disable auto-run
+4. `AGDT_SETUP_RUN` env var (truthy) → enable auto-run
+5. CI detected or non-TTY → disable auto-run
+6. Interactive terminal (fallback) → enable auto-run
+
+#### CI Default-Off Rationale
+
+In CI and non-TTY environments auto-run is disabled by default because
+generated scripts should be reviewed before execution in non-interactive
+contexts. To opt in, pass `--run` explicitly or set `AGDT_SETUP_RUN=1`.
+
+#### `UPGRADED_RERUN_NEEDED` (Exit Code 4)
+
+When auto-run upgrades the `agentic-devtools` package during execution, the
+command exits with code **4** (`UPGRADED_RERUN_NEEDED`). This signals that the
+running CLI is now outdated and a re-run of `agdt-setup` is required to pick up
+the new version.
+
+#### `AUTORUN_FAILED` (Exit Code 6)
+
+When the auto-run of `setup-dev-tools.py` fails, `agdt-setup` exits with code
+**6** (`AUTORUN_FAILED`) and prints the path of the setup report containing the
+recorded failure. A detected package upgrade takes precedence: if the version
+changed during the run, exit code **4** is reported instead.
+
+#### Phase Markers
+
+Setup prints `AGDT_SETUP_PHASE:` markers to stdout so that log consumers can
+tell generation output apart from the auto-run child's output:
+`generation:start`, `generation:end`, `execution:start`, and `execution:end`.
+The `execution:*` pair is only printed when auto-run actually invokes the
+generated script.
+
+## Design Principles
+
+1. **Auto-approvable commands**: Commands are designed to be auto-approved by
+   VS Code
+2. **JSON state file**: Single `agdt-state.json` file stores all parameters
+3. **Generic set/get pattern**: One `agdt-set` command works for all keys
+   (approve once, use for everything)
+4. **Native special character support**: Python CLI handles `()[]{}` and
+   multiline content directly!
+5. **Test-driven development**: Tests first with strict coverage expectations
+6. **UX consistency**: Predictable command patterns and actionable output
+7. **Performance responsiveness**: Long-running operations use background tasks
+
+## Quick Start
+
+```bash
+# Set state values (approve agdt-set once, use for any key)
+agdt-set pr_id 23046
+agdt-set thread_id 139474
+agdt-set content "Thanks for the feedback!
+
+I've made the changes you suggested."
+
+# Execute action (parameterless - approve once)
+agdt-reply-to-pr-thread
+```
+
+## Copilot Commands
+
+Agents are available in two contexts:
+
+**VS Code Copilot Chat** — type `/` to browse all commands:
+
+```text
+/speckit.agdt:specify Add a dark mode toggle    ← SDD: create spec
+/speckit.agdt:plan                              ← SDD: generate plan
+/speckit.agdt:implement                         ← SDD: execute tasks
+/agdt.work-on-jira-issue.initiate PROJECT-1  ← Jira workflow (11 steps)
+/agdt.pull-request-review.initiate        ← PR review (5 steps)
+/agdt.git-save-work                       ← individual CLI command agent
+/agdt.squash-commits                      ← standalone utility agent
+```
+
+**Terminal Copilot CLI** — ask naturally or use shell commands:
+
+```bash
+agdt-speckit-analyze      # renders + prints the speckit.agdt:analyze prompt
+agdt-speckit-specify "add dark mode"
+```
+
+Every `agdt-*` CLI command has a corresponding agent (`.agent.md`) and prompt
+stub (`.prompt.md`) in `.github/agents/` and `.github/prompts/`.
+
+📖 **Full reference**: [docs/copilot-commands.md](docs/copilot-commands.md)
+
+## State Management Commands
+
+```bash
+# Set any key-value pair
+agdt-set <key> <value>
+
+# Get a value
+agdt-get <key>
+
+# Delete a key
+agdt-delete <key>
+
+# Clear all state
+agdt-clear
+
+# Show all state
+agdt-show
+```
+
+### Examples
+
+```bash
+# Simple values
+agdt-set pr_id 23046
+agdt-set thread_id 139474
+agdt-set dry_run true
+
+# Content with special characters (works directly!)
+agdt-set content "Fix: handle (optional) [array] parameters"
+
+# Multiline content (works directly!)
+agdt-set content "Thanks for the feedback!
+
+I've addressed your concerns:
+- Fixed the null check
+- Added unit tests
+- Updated documentation"
+
+# View current state
+agdt-show
+```
+
+## Pull-request and Azure DevOps Commands
+
+Azure DevOps commands support both CLI parameters and state-based execution, and parameters passed
+via CLI are automatically persisted to state for reuse. The provider-neutral
+`agdt-reply-to-pull-request-thread` command snapshots CLI overrides for its background task but
+does not persist them.
+
+### Reply to PR Thread
+
+```bash
+# Option A: With CLI parameters (explicit, self-documenting)
+agdt-reply-to-pull-request-thread --provider azure_devops --pull-request-id 23046 --thread-id 139474 --content "Your reply"
+agdt-reply-to-pull-request-thread --provider github --repository owner/repo -p 23046 -t 139474 -c "Thanks!"
+
+# Option B: Parameterless (uses current state)
+agdt-set platform.code_hosting azure_devops  # or github
+agdt-set repository owner/repo              # required for GitHub
+agdt-set pull_request_id 23046
+agdt-set discussion_id 139474
+agdt-set content "Your reply message"
+agdt-reply-to-pull-request-thread
+agdt-task-wait
+
+# Optionally resolve the thread after replying
+# Azure DevOps: no extra keys required
+agdt-set resolve_thread true
+agdt-reply-to-pull-request-thread
+agdt-task-wait
+
+# GitHub: also set the GraphQL review-thread node ID (required for resolution)
+agdt-set review_thread_id "PRRT_opaque_node_id"  # must match discussion_id
+agdt-set resolve_thread true
+agdt-reply-to-pull-request-thread
+agdt-task-wait
+```
+
+### Add New PR Comment
+
+```bash
+# Option A: With CLI parameters (explicit)
+agdt-set platform.code_hosting azure_devops
+agdt-add-pull-request-comment --pull-request-id 23046 --content "LGTM!"
+agdt-add-pull-request-comment -p 23046 -c "Looks good"
+
+# Option B: Parameterless (uses current state)
+agdt-set platform.code_hosting azure_devops
+agdt-set pull_request_id 23046
+agdt-set content "Your comment"
+agdt-add-pull-request-comment
+
+# For file-level comment
+agdt-set path "src/example.py"
+agdt-set line 42
+agdt-add-pull-request-comment
+```
+
+### Approve Pull Request
+
+```bash
+# Option A: With CLI parameters
+agdt-approve-pull-request --pull-request-id 23046 --content "Approved!"
+agdt-approve-pull-request -p 23046
+
+# Option B: Parameterless (uses current state)
+agdt-set pull_request_id 23046
+agdt-approve-pull-request
+```
+
+### Get PR Threads
+
+```bash
+# Option A: With CLI parameter
+agdt-get-pull-request-threads --pull-request-id 23046
+agdt-get-pull-request-threads -p 23046
+
+# Option B: Parameterless (uses current state)
+agdt-set pull_request_id 23046
+agdt-get-pull-request-threads
+```
+
+### Resolve Thread
+
+```bash
+# Option A: With CLI parameters
+agdt-set platform.code_hosting azure_devops
+agdt-resolve-thread --pull-request-id 23046 --thread-id 139474
+
+# Option B: Parameterless (uses current state)
+agdt-set platform.code_hosting github
+agdt-set github.repo owner/repo
+agdt-set pull_request_id 23046
+agdt-set github.thread_node_id PRRT_opaque
+agdt-resolve-thread
+```
+
+The command is provider-neutral: Azure DevOps accepts numeric PR thread IDs, while
+GitHub accepts opaque `PRRT_...` review-thread node IDs (or a numeric `github.comment_id`
+that is looked up before resolution). It returns a background task ID; use
+`agdt-task-wait` to wait for completion and `agdt-task-log` to inspect the verified structured result.
+
+### Dry Run Mode
+
+```bash
+agdt-set dry_run true
+agdt-reply-to-pull-request-thread  # Previews without making API calls
+```
+
+## Azure Context Management
+
+Manage multiple Azure CLI accounts (e.g., corporate account for Azure DevOps and AZA account for App Insights) without repeated `az login` / `az logout` cycles.
+
+### Overview
+
+The Azure context system uses separate `AZURE_CONFIG_DIR` directories per account context. Both accounts can stay authenticated simultaneously and can be switched instantly via environment variable.
+
+**Available Contexts:**
+
+- `devops` - Corporate account for Azure DevOps, Service Bus, etc.
+- `resources` - AZA account for App Insights, Azure resources, Terraform, etc.
+
+### Setup
+
+1. **Switch to a context** (one-time setup per context):
+
+    ```bash
+    # Switch to DevOps context
+    agdt-azure-context-use devops
+
+    # Switch to resources context
+    agdt-azure-context-use resources
+    ```
+
+2. **Log in to each context** (one-time per context):
+
+    ```bash
+    # After switching to a context, log in using Azure CLI
+    az login
+    # This login is stored in the context's isolated config directory
+    ```
+
+### Usage
+
+**Show all contexts with login status:**
+
+```bash
+agdt-azure-context-status
+```
+
+Output:
+
+```text
+Azure CLI Contexts:
+================================================================================
+
+devops [ACTIVE]
+  Description: Corporate account for Azure DevOps, Service Bus, etc.
+  Config Dir:  ~/.azure-contexts/devops
+  Status:      ✓ Logged in as user@company.com
+
+resources
+  Description: AZA account for App Insights, Azure resources, Terraform, etc.
+  Config Dir:  ~/.azure-contexts/resources
+  Status:      ✓ Logged in as user@company.com
+
+================================================================================
+```
+
+**Check current active context:**
+
+```bash
+agdt-azure-context-current
+```
+
+**Switch contexts:**
+
+```bash
+# Switch to DevOps context
+agdt-azure-context-use devops
+
+# Switch to resources context
+agdt-azure-context-use resources
+```
+
+**Ensure logged in (prompts if needed):**
+
+```bash
+# Ensure current context is logged in
+agdt-azure-context-ensure-login
+
+# Ensure specific context is logged in
+agdt-azure-context-ensure-login devops
+```
+
+### How It Works
+
+Each context uses its own isolated Azure CLI configuration directory:
+
+- `~/.azure-contexts/devops/` - DevOps context config and tokens
+- `~/.azure-contexts/resources/` - Resources context config and tokens
+
+When you run `az` commands, the active context's `AZURE_CONFIG_DIR` is used, so both accounts stay authenticated simultaneously. Switching contexts is instant (no browser login flow).
+
+### Integration
+
+**With VPN toggle:**
+Contexts work seamlessly with the VPN toggle system. When certain contexts require VPN, the system coordinates VPN state automatically.
+
+**With Azure CLI:**
+All `az` commands respect the active context automatically via the `AZURE_CONFIG_DIR` environment variable.
+
+## Git Commands
+
+The package provides streamlined Git workflow commands that support the
+single-commit policy.
+
+### Initial Commit & Publish
+
+```bash
+# Option A: With CLI parameter (explicit)
+| `agdt-get-pull-request-threads` | Get all PR comment threads |
+
+- Change 1
+- Change 2
+
+[PROJECT-1234](https://jira.swica.ch/browse/PROJECT-1234)"
+
+# Option B: Parameterless (uses current state)
+# Current commit_message: run `agdt-get commit_message` to check
+agdt-git-save-work
+```
+
+### Smart Commit (Auto-detects Amend)
+
+The `agdt-git-save-work` command automatically detects if you're updating an
+existing commit:
+
+```bash
+# First commit - creates new commit and publishes branch
+agdt-git-save-work --commit-message "feature(PROJECT-1234): initial implementation"
+
+# Subsequent commits on same issue - automatically amends and force pushes
+agdt-git-save-work --commit-message "feature(PROJECT-1234): refined implementation
+
+- Original changes
+- Additional updates"
+# Auto-detects and amends!
+```
+
+**Detection logic:**
+
+1. If branch has commits ahead of `origin/main` AND
+2. Last commit message contains the current Jira issue key (from
+   `jira.issue_key` state)
+3. Then: amend existing commit and force push
+4. Otherwise: create new commit and publish
+
+### Individual Git Operations
+
+```bash
+agdt-git-stage       # Stage all changes (git add .)
+agdt-git-push        # Push changes (git push)
+agdt-git-force-push  # Force push with lease
+agdt-git-publish     # Push with upstream tracking
+```
+
+### Git State Options
+
+| Key              | Purpose                                          |
+| ---------------- | ------------------------------------------------ |
+| `commit_message` | The commit message (multiline supported)         |
+| `dry_run`        | If true, preview commands without executing      |
+| `skip_stage`     | If true, skip staging step                       |
+| `skip_push`      | If true, skip push step (for agdt-git-save-work) |
+
+## Workflow Commands
+
+The package provides workflow commands for managing structured work processes.
+
+When a workflow creates a new worktree and opens it in VS Code, a Copilot CLI
+session can auto-start in the VS Code **integrated terminal** via a
+`.vscode/tasks.json` entry with `"runOn": "folderOpen"`. This makes the session
+immediately visible to the user as soon as the window opens. The task is
+one-shot: it marks the current run ID in the workflow state
+(`copilot.auto_start_triggered_runs`) before execution and, **on success**,
+removes itself from `tasks.json`. When
+`tasks.json` was created solely for auto-start and no other tasks remain, the
+file is deleted (along with the `.vscode/` directory if empty) so no untracked
+files are left behind. When `tasks.json` was pre-existing, it is rewritten
+without the injected task (preserving other tasks and top-level keys). On
+failure the task stays in `tasks.json` so the next `folderOpen` retries the
+command.
+
+When the session is requested in interactive mode but there is no TTY attached
+(background task context) and VS Code is not available, a notice is printed:
+
+```text
+NOTE: VS Code integrated terminal auto-start not available. Copilot session
+will run in the background. Run agdt-task-log to view output.
+```
+
+### Automated Copilot Session Launch
+
+All `agdt-initiate-*-workflow` commands automatically launch a Copilot CLI session after
+workflow initiation (and auto-setup when needed). The rendered prompt is saved to the
+workflow state directory; the normal **bootstrap prompt** names the exact rendered prompt
+file and tells the agent to read it before doing any work. When the workflow is unknown,
+or when the nested auto-execute step fails while preparing a worktree, the bootstrap
+prompt instead tells the agent to run `agdt-get-next-workflow-prompt` so the current step
+is regenerated from state. In the PR review workflow, once the initiate prompt has been
+read, the agent advances with `agdt-advance-workflow pr-synthesis`. See
+[`docs/workflow-prompts.md`](docs/workflow-prompts.md) for the prompt file inventory and
+full lifecycle.
+
+Two session modes exist depending on context. When a new worktree is opened in VS Code, a
+`folderOpen` auto-start task starts an interactive session in the integrated terminal
+regardless of `--interactive`. For direct invocations from the CLI, pass
+`--interactive true` to attach to the terminal (requires a TTY and VS Code), or omit it
+(default: non-interactive) to run the Copilot session as a detached background process
+(not an agdt background task — use the `copilot.*` state keys to locate the session log
+file):
+
+```bash
+agdt-initiate-work-on-jira-issue-workflow --issue-key PROJECT-1234
+agdt-initiate-pull-request-review-workflow --pull-request-id 12345 --interactive true
+```
+
+If auto-session launch fails (no `gh copilot`, no TTY, or VS Code unavailable), the
+rendered prompt is printed to the console and saved to the workflow state directory so you
+can paste it manually into Copilot Chat as a fallback.
+
+### Work on Jira Issue Workflow
+
+```bash
+# Start work on a Jira issue
+agdt-set jira.issue_key "PROJECT-1234"
+agdt-initiate-work-on-jira-issue-workflow
+```
+
+**Workflow Steps:**
+
+1. **setup** - Create worktree and branch (if pre-flight fails)
+2. **retrieve** - Auto-fetches Jira issue details
+3. **planning** - Analyze issue and post plan comment to Jira
+4. **checklist-creation** - Create implementation checklist from plan
+5. **implementation** - Code changes, tests, documentation
+6. **implementation-review** - Review completed checklist items
+7. **verification** - Run tests and quality gates
+8. **commit** - Stage and commit changes
+9. **pull-request** - Create PR
+10. **completion** - Post final Jira comment
+
+### Checklist Management
+
+```bash
+# Create implementation checklist
+agdt-create-checklist "item1" "item2" "item3"
+
+# Update checklist (mark items complete)
+agdt-update-checklist --completed 1 3  # Mark items 1 and 3 as complete
+
+# View current checklist
+agdt-show-checklist
+
+# Update during commit (auto-marks items and advances workflow)
+agdt-git-save-work --completed 1 2  # Marks items complete before committing
+```
+
+### Workflow Navigation
+
+```bash
+# View current workflow state
+agdt-get-workflow
+
+# Advance to next step
+agdt-advance-workflow
+
+# Clear workflow
+agdt-clear-workflow
+```
+
+## PyPI Release Commands
+
+Verwende die `pypi.*` Namespace-Keys für Release-Parameter. Setze deine PyPI
+Tokens via Umgebungsvariablen:
+
+- `TWINE_USERNAME=__token__`
+- `TWINE_PASSWORD=<pypi-token>`
+
+### PyPI Release starten
+
+```bash
+# Parameter setzen
+agdt-set pypi.package_name agentic-devtools
+agdt-set pypi.version 0.1.0
+agdt-set pypi.repository pypi  # oder testpypi
+agdt-set pypi.dry_run false
+
+# Release starten (parameterlos)
+agdt-release-pypi
+```
+
+### Status prüfen
+
+```bash
+agdt-task-status
+agdt-task-log
+agdt-task-wait
+```
+
+## Jira Commands
+
+All Jira commands use the `jira.*` namespace for state values. Set
+`JIRA_COPILOT_PAT` environment variable with your Jira API token.
+
+### Get Issue Details
+
+```bash
+agdt-set jira.issue_key "PROJECT-1234"
+agdt-get-jira-issue
+```
+
+### Add Comment to Issue
+
+Commands with optional CLI parameters support two usage patterns:
+
+```bash
+# Option A: With CLI parameters (explicit)
+agdt-add-jira-comment --jira-comment "Your comment text"
+
+# Option B: Parameterless (uses current state)
+# Current jira.issue_key: run `agdt-get jira.issue_key` to check
+# Current jira.comment: run `agdt-get jira.comment` to check
+agdt-add-jira-comment
+```
+
+### Create Epic
+
+```bash
+agdt-set jira.project_key "PROJECT"
+agdt-set jira.summary "Epic Title"
+agdt-set jira.epic_name "EPIC-KEY"
+agdt-set jira.role "developer"
+agdt-set jira.desired_outcome "implement feature"
+agdt-set jira.benefit "improved UX"
+agdt-create-epic
+
+# Optional: Add acceptance criteria
+agdt-set jira.acceptance_criteria "- Criterion 1
+- Criterion 2"
+agdt-create-epic
+```
+
+### Create Issue (Task/Bug/Story)
+
+```bash
+agdt-set jira.project_key "PROJECT"
+agdt-set jira.summary "Issue Title"
+agdt-set jira.description "Issue description"
+agdt-create-issue
+
+# Or use user story format
+agdt-set jira.role "developer"
+agdt-set jira.desired_outcome "complete task"
+agdt-set jira.benefit "value delivered"
+agdt-create-issue
+```
+
+### Create Subtask
+
+```bash
+agdt-set jira.parent_key "PROJECT-1234"
+agdt-set jira.summary "Subtask Title"
+agdt-set jira.description "Subtask description"
+agdt-create-subtask
+```
+
+### Dry Run Mode for Jira
+
+```bash
+agdt-set jira.dry_run true
+agdt-create-issue  # Previews payload without API call
+```
+
+## VPN & Network Management
+
+The corporate VPN (Pulse Secure/Ivanti) creates a full tunnel that blocks public registries (npm, PyPI) while being required for internal resources
+(Jira, ESB). These commands provide intelligent VPN management so you don't need to manually connect/disconnect VPN when switching between tasks.
+
+### Network Status
+
+Check your current network context:
+
+```bash
+agdt-network-status
+```
+
+Output shows:
+
+- 🏢 Corporate network (in office) - VPN operations skipped automatically
+- 🔌 Remote with VPN - Can access internal resources, external blocked
+- 📡 Remote without VPN - Can access external resources, internal blocked
+
+### Run Command with VPN Context
+
+Automatically manage VPN based on command requirements:
+
+```bash
+# Ensure VPN is connected before running (for Jira, ESB, etc.)
+agdt-vpn-run --require-vpn "curl https://jira.swica.ch/rest/api/2/issue/DP-123"
+
+# Temporarily disconnect VPN for public access (npm, pip, etc.)
+agdt-vpn-run --require-public "npm install"
+
+# Auto-detect requirement from command content (default)
+agdt-vpn-run --smart "az devops ..."
+agdt-vpn-run "npm install express"  # --smart is the default
+```
+
+The command will:
+
+- Detect if you're on corporate network (in office) and skip VPN operations
+- Connect VPN if needed for internal resources
+- Disconnect VPN temporarily for public registry access
+- Restore VPN state after command completes
+
+### Manual VPN Control
+
+Direct VPN control commands (run in background):
+
+```bash
+# Connect VPN (skipped if on corporate network)
+agdt-vpn-on
+agdt-task-wait
+
+# Disconnect VPN
+agdt-vpn-off
+agdt-task-wait
+
+# Check VPN status
+agdt-vpn-status
+agdt-task-wait
+```
+
+### Common Workflows
+
+**Install npm packages (needs public access):**
+
+```bash
+agdt-vpn-run --require-public "npm install"
+```
+
+**Access Jira API (needs VPN):**
+
+```bash
+agdt-vpn-run --require-vpn "curl https://jira.swica.ch/rest/api/2/serverInfo"
+```
+
+**Smart detection (recommended):**
+
+```bash
+# Auto-detects that npm install needs public access
+agdt-vpn-run "npm install express lodash"
+
+# Auto-detects that Jira URL needs VPN
+agdt-vpn-run "curl https://jira.swica.ch/rest/api/2/issue/DP-123"
+```
+
+### In-Office Behavior
+
+When on the corporate network (physically in the office), VPN operations are
+automatically skipped since internal resources are already accessible. However,
+note that the corporate network may still block external registries (npm, PyPI) -
+in that case, consider connecting to a different network (e.g., mobile hotspot)
+for external access.
+
+## For Developers: Test Organization
+
+All new unit tests follow the **1:1:1 policy** — one test file per symbol (function or class), mirroring the
+source structure under `tests/unit/`. See [tests/README.md](tests/README.md) for the full
+policy, rationale, and step-by-step guide.
+
+**Quick reference:**
+
+```text
+tests/unit/{module_path}/{source_file_name}/test_{symbol_name}.py
+```
+
+Examples:
+
+| Source | Test file |
+|--------|-----------|
+| `agentic_devtools/state.py` → `get_value()` | `tests/unit/state/test_get_value.py` |
+| `agentic_devtools/cli/git/core.py` → `get_current_branch()` | `tests/unit/cli/git/core/test_get_current_branch.py` |
+
+Run the structure validator before pushing:
+
+```bash
+python scripts/validate_test_structure.py
+```
+
+## Environment Variables
+
+| Variable                         | Purpose                                                                             |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `AZURE_DEV_OPS_COPILOT_PAT`      | Azure DevOps PAT for API calls                                                      |
+| `JIRA_COPILOT_PAT`               | Jira API token for authentication                                                   |
+| `JIRA_BASE_URL`                  | Override default Jira URL (default: `https://jira.swica.ch`)                       |
+| `JIRA_SSL_VERIFY`                | Set to `0` to disable SSL verification                                              |
+| `JIRA_CA_BUNDLE`                 | Path to custom CA bundle PEM file for Jira SSL                                      |
+| `REQUESTS_CA_BUNDLE`             | Standard requests library CA bundle path (fallback)                                 |
+| `AGENTIC_DEVTOOLS_STATE_DIR`     | Override default state directory (e.g., `.agdt/workflows/_unscoped`)                 |
+
+## State File Location
+
+By default, state is stored in `.agdt/workflows/{identity}/{worktree_key}/state.json` (relative to the
+repo root).
+
+## Why This Design?
+
+### Auto-Approval Friendly
+
+VS Code's auto-approval matches exact command strings. By using:
+
+- Generic `agdt-set key value` - approve once, use for any key
+- Parameterless action commands like `agdt-reply-to-pr-thread`
+
+...you only need to approve a few commands once, then they work for all future
+operations.
+
+### No Replacement Tokens Needed
+
+Unlike PowerShell, Python's CLI parsing handles special characters natively:
+
+```bash
+# This just works!
+agdt-set content "Code with (parentheses) and [brackets]"
+```
+
+### No Multi-line Builder Needed
+
+Python preserves multiline strings from the shell:
+
+```bash
+agdt-set content "Line 1
+Line 2
+Line 3"
+```
+
+## GitHub Actions: SpecKit Issue Trigger
+
+The repository includes GitHub Actions that automatically trigger the SpecKit
+specification process when a `speckit` label is added to an issue. The pipeline
+creates a separate PR per phase, enabling incremental review.
+
+### Visual Documentation
+
+For an overview of the original SpecKit workflow design, see the
+[SpecKit Workflow Sequence
+Diagram](specs/002-github-action-speckit-trigger/workflow-sequence-diagram.md).
+
+> **Note**: The diagram documents the initial monolithic pipeline design. The
+> current per-phase PR progression described below supersedes parts of that flow.
+
+### How It Works
+
+1. Create a GitHub issue describing your feature
+2. Add the `speckit` label to the issue
+3. **Phase 1 (Specify)**: The action generates `spec.md` and creates a PR labeled `speckit:phase-1`
+4. Review and merge the Phase 1 PR
+5. **Phase 2 (Clarify)**: Automatically triggered — clarifies spec and generates checklist in a new PR
+6. **Phase 3 (Plan)**: Automatically triggered — generates the applicable planning
+   artifacts in a single PR: feature runs produce `plan.md`, `tasks.md`, and
+   `generated/analysis-report.md`; epic runs omit `tasks.md`; task runs produce
+   only `tasks.md` using parent feature context
+7. After Phase 3 merges, `speckit:completed` and `speckit:needs-implementation` labels are applied
+
+Each phase creates its own focused PR for independent review. Reviewers can edit
+artifacts before merging, steering subsequent phases.
+
+### Configuration
+
+Configure the action using repository variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPECKIT_TRIGGER_LABEL` | `speckit` | The label that triggers the SDD workflow |
+| `SPECKIT_COPILOT_MODEL` | `claude-opus-4.6` | Model for Copilot SDK spec generation |
+| `SPECKIT_COMMENT_ON_ISSUE` | `true` | Post status comments to the issue |
+| `SPECKIT_CREATE_BRANCH` | `true` | Create a feature branch |
+| `SPECKIT_CREATE_PR` | `true` | Create a pull request |
+| `SPECKIT_AUTO_MERGE_PHASES` | _(empty)_ | Comma-separated phase names to auto-merge (e.g., `plan`) |
+
+### Required Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `COPILOT_APP_ID` | App ID of the `agentic-devtools-copilot-reviewer` GitHub App |
+| `COPILOT_APP_PRIVATE_KEY` | PEM private key for the `agentic-devtools-copilot-reviewer` GitHub App. Required permissions: `Pull requests: Read & Write`, `Contents: Read`, `Copilot: Read` |
+
+### Usage
+
+1. Create a GitHub issue with a descriptive title and body
+2. Add the `speckit` label (or your configured trigger label)
+3. Review each phase PR as it is created
+4. Merge each phase PR to trigger the next phase
+
+### Manual Trigger
+
+You can also trigger the workflow manually for testing:
+
+```bash
+gh workflow run speckit-issue-trigger.yml -f issue_number=123
+```
+
+### Labels
+
+The workflow uses labels to manage state:
+
+- `speckit` - **Trigger label**: Add this to an issue to start specification generation
+- `speckit:processing` - Specification generation in progress
+- `speckit:phase-N` - Applied to each phase's PR (N = 1–3)
+- `speckit:phase-N-complete` - Applied to the issue when phase N's PR is merged
+- `speckit:completed` - All phases completed successfully
+- `speckit:needs-implementation` - Ready for implementation (applied after Phase 3)
+- `speckit:failed` - Generation failed (check workflow logs)
+
+## GitHub Actions: Security Scanning on Main Merge
+
+The repository includes an automated security scanning workflow that runs whenever
+code is merged to the main branch. This ensures continuous security monitoring and
+helps identify vulnerabilities early.
+
+### How It Works
+
+1. Workflow triggers automatically on push to main branch (typically after PR merge)
+2. Installs security scanning tools: `bandit`, `pip-audit`, `safety`
+3. Runs comprehensive security scans:
+   - **pip-audit**: Scans dependencies for known vulnerabilities (CVEs)
+   - **bandit**: Static analysis for common security issues in Python code
+   - **safety**: Checks dependencies against a database of known security issues
+4. Creates a GitHub issue with the security scan report
+5. Attaches scan reports as artifacts for detailed review
+
+### Security Scan Report
+
+After each merge to main, an issue is automatically created with:
+
+- **Summary**: Quick overview of security status
+- **Scan Results**: Findings from each security tool
+- **Severity Breakdown**: Critical, high, medium, low issues
+- **Next Steps**: Recommended actions to address findings
+- **Artifacts**: Detailed JSON reports attached to the workflow run
+
+### Labels
+
+The workflow uses labels to categorize scan results:
+
+- `security` - All security scan reports
+- `security-scan` - Identifies automated scan issues
+- `needs-review` - Findings detected, review required
+- `all-clear` - No security issues detected
+
+### Responding to Security Findings
+
+When a security scan detects issues:
+
+1. Review the created issue for summary of findings
+2. Check workflow logs for detailed information
+3. Download scan report artifacts for in-depth analysis
+4. Address critical and high-severity issues immediately
+5. Tag @copilot in the issue for assistance with remediation
+
+### Manual Security Scan
+
+You can manually trigger a security scan by running:
+
+```bash
+# Install security tools
+pip install bandit safety pip-audit
+
+# Run scans
+pip-audit
+bandit -r agentic_devtools -c .bandit
+safety scan
+```

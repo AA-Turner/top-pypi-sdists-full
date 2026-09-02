@@ -15,7 +15,9 @@ def require_datasets() -> None:
     if importlib.util.find_spec("datasets") is None:
         raise ModuleNotFoundError(
             "The 'datasets' package is required for HuggingFace integration. "
-            "Install it with: pip install dreadnode"
+            "It is part of the base dreadnode install, so this environment has an "
+            "incomplete one — reinstall the dreadnode package from wherever you "
+            "installed it."
         )
 
 

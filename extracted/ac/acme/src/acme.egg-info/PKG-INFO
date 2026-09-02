@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acme
-Version: 5.7.0
+Version: 5.8.0
 Summary: ACME protocol implementation in Python
 Author: Certbot Project
 License-Expression: Apache-2.0
@@ -19,7 +19,7 @@ Classifier: Topic :: Security
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: cryptography>=43.0.0
+Requires-Dist: cryptography>=47.0.0
 Requires-Dist: josepy>=2.0.0
 Requires-Dist: PyOpenSSL>=25.0.0
 Requires-Dist: pyrfc3339

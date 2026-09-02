@@ -1,0 +1,444 @@
+[project]
+name = "atlan-application-sdk"
+version = "3.31.0"
+description = "Atlan Application SDK is a Python library for developing applications on the Atlan Platform"
+license = "Apache-2.0"
+authors = [
+    {name = "Atlan App Team", email = "connect@atlan.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+]
+keywords = ["atlan", "sdk", "platform", "app", "development"]
+dependencies = [
+    "aiohttp>=3.10.0,<4.0.0",
+    "opentelemetry-exporter-otlp>=1.41.1,<2.0.0",
+    "opentelemetry-exporter-prometheus>=0.62b1,<0.63",
+    "opentelemetry-instrumentation-fastapi>=0.62b1,<0.63",
+    "prometheus-client>=0.20.0,<1.0",
+    "fastapi[standard]>=0.141.1,<0.142.0",
+    "pyatlan>=11,<12",
+    "httpx-retries>=0.6.0,<0.7.0",
+    "pydantic>=2.10.6,<3.0.0",
+    "packaging>=24.0",
+    "loguru>=0.7.3,<0.8.0",
+    "uvloop>=0.21.0,<0.23.0; sys_platform != 'win32'",
+    "python-dotenv>=1.1.0,<2.0.0",
+    "pyyaml>=6.0.2,<7.0.0",
+    "obstore>=0.11.0,<0.12.0",
+    # Cloud credential libraries — required at runtime for any storage auth mode;
+    # connectors don't know which auth mechanism a deployment will choose, so
+    # these cannot be optional extras. google-auth powers GCS Application Default
+    # Credentials / Workload Identity Federation (via obstore.auth.google) — the
+    # GKE WI / customer-infra path obstore's built-in GCS file decoder can't do.
+    "boto3>=1.38.6,<2.0.0",
+    "azure-identity>=1.15.0",
+    "google-auth>=2.0.0,<3.0.0",
+    # Temporal runtime (httpx-retries at L29 is the Dapr HTTP client replacement)
+    "temporalio>=1.25.0,<2.0.0",
+    "orjson>=3.11.6,<4.0.0",
+]
+
+[project.scripts]
+application-sdk = "application_sdk.main:main"
+
+[project.urls]
+Repository = "https://github.com/atlanhq/application-sdk"
+Documentation = "https://github.com/atlanhq/application-sdk/README.md"
+"Changelog" = "https://github.com/atlanhq/application-sdk/blob/main/CHANGELOG.md"
+
+# Optional dependencies for specific functionality
+[project.optional-dependencies]
+# Backwards-compatibility shims (dapr/temporalio/orjson promoted to core in v3.1)
+workflows = [
+    "temporalio>=1.25.0,<2.0.0",
+    "orjson>=3.11.6,<4.0.0",
+]
+# SQL connectors: SqlMetadataExtractor, SqlQueryExtractor, and any SQL-based connector
+sql = [
+    "pandas>=2.2.3,<3.0.0",
+    "pyarrow>=23.0.1,<24.0.0",
+    "sqlalchemy[asyncio]>=2.0.36,<3.0.0",
+    "duckdb>=1.1.3,<1.6.0",
+    "duckdb-engine>=0.17.0,<0.18.0",
+]
+# Deprecated alias for [sql] — removed in v4.0.0. Install [sql] (or
+# [incremental]) instead; the daft transformer engine itself is gone.
+#
+# This aliases rather than resolving empty. Before v3.22 the extra pulled duckdb
+# transitively; emptying it turned every app pinned to
+# atlan-application-sdk[daft] into a latent "duckdb is required for
+# DuckDBConnectionManager" ImportError on the first real transform — imports
+# still succeed and mocked unit tests still pass, so the break only surfaces
+# end-to-end, which is how it reached main on a connector after an automated
+# upgrade crossed the 3.22 line. An emptied compat extra is not a shim; it is a
+# silent removal wearing a shim's name. Policy here is compat shim + named
+# removal version, and a true alias satisfies it: every affected app is fixed by
+# a version bump with no per-repo remediation.
+#
+# There is no runtime deprecation signal available at this layer — an extra is
+# resolved by the installer, not imported — so the removal version is carried
+# here, in docs/upgrade-guide-v3.md, and by the D010 conformance rule.
+daft = ["atlan-application-sdk[sql]"]
+# Disk-backed RocksDB storage utilities (SpillableDict, rocksdb_utils).
+# Standalone extra — non-incremental connectors that want disk-backed
+# scratch state pull this in directly without needing the full
+# incremental analytics stack.
+storage = [
+    "rocksdict>=0.3.0",
+]
+# Incremental extraction: sql + RocksDB state store.
+# Includes ``storage`` because the incremental TableScope pattern uses
+# RocksDB for state — keep one source of truth for the rocksdict pin.
+incremental = [
+    "atlan-application-sdk[storage]",
+    "pandas>=2.2.3,<3.0.0",
+    "pyarrow>=23.0.1,<24.0.0",
+    "sqlalchemy[asyncio]>=2.0.36,<3.0.0",
+    "duckdb>=1.1.3,<1.6.0",
+    "duckdb-engine>=0.17.0,<0.18.0",
+]
+# Backwards-compatibility shim — boto3 promoted to core in v3.14; keeping this
+# extra means existing connector pyproject.toml files that specify [iam_auth]
+# continue to install without error.
+iam_auth = [
+    "boto3>=1.38.6,<2.0.0",
+]
+azure = [
+    # azure-identity promoted to core in v3.14 (same reason as iam_auth above).
+    "azure-identity>=1.15.0",
+    # azure-storage-{blob,file-datalake} remain optional: only needed by connectors
+    # that use the Azure SDK directly (outside of obstore).
+    "azure-storage-blob>=12.19.0",
+    "azure-storage-file-datalake>=12.19.0",
+]
+distributed_lock = [
+    "redis[hiredis]>=5.2.0,<9.0.0",
+]
+mcp = [
+    "fastmcp>=3.2.0,<4.0.0",
+]
+tests = [
+    "pytest-order>=1.3.0,<2.0.0",
+    "pandera[io]>=0.32.0,<0.33.0",
+    "httpx>=0.27.0,<0.29.0",
+]
+# Typed Kubernetes backend for application_sdk.testing.harness.cluster — the
+# in-process client that replaces the `kubectl`-shelling reads in
+# testing/e2e/{pods,logs}.py (FND-241).
+#
+# Deliberately NOT folded into [tests]: a connector installing test extras
+# should not pull a Kubernetes client. Verified safe to keep separate —
+# connectors pin atlan-application-sdk[iam-auth,sql,workflows,pandas] and carry
+# their own `test` extra, so no connector's production closure changes either
+# way. Keeping it apart is what keeps the reason legible.
+#
+# Only the harness imports this, and only under the e2e/scenario markers, so it
+# is never on a production code path.
+harness = [
+    "kubernetes>=36.0.3,<37.0.0",
+]
+scale_data_generator = [
+    "faker>=40.37.0,<40.38.0",
+    "numpy>=1.23.5,<3.0.0",
+]
+# Removed in v3.1 — use sql extra instead
+sqlalchemy = [
+    "sqlalchemy[asyncio]>=2.0.36,<3.0.0",
+]
+# Removed in v3.1 — use sql extra instead
+pandas = [
+    "pandas>=2.2.3,<3.0.0",
+    "pyarrow>=23.0.1,<24.0.0",
+]
+
+# Development dependencies - Install using: uv sync --group dev
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0,<5.0.0",
+    "isort>=9.0.1,<9.1.0",
+    "boto3-stubs>=1.38.6,<2.0.0",
+    "poethepoet>=0.48.0,<0.49.0",
+    "libcst>=1.4.0,<2.0.0",
+    "atlan-application-sdk-conformance",
+]
+test = [
+    "mock>=5.1.0,<6.0.0",
+    "pytest>=8.3.3,<10.0.0",
+    "semver>=3.0.2,<4.0.0",
+    "coverage>=7.6.1,<8.0.0",
+    "pytest-asyncio>=1.4.0,<2.0.0",
+    "pytest-timeout>=2.3.0,<3.0.0",
+    "pytest-rerunfailures>=16.6,<16.7",
+    "pytest-socket>=0.7.0,<1.0.0",
+    "pytest-xdist>=3.8.0,<4.0.0",
+    # pytest-cov, not bare `coverage run -m pytest`: `coverage run` only traces
+    # the parent process, so every xdist worker's coverage is lost and the
+    # --fail-under gate reads a number less than half the real one (measured on
+    # tests/unit/observability: 28.24% serial, 13.87% under `coverage run -n 4`,
+    # 28.24% under `pytest -n 4 --cov`). See FND-961.
+    "pytest-cov>=7.1.0,<8.0.0",
+    "hypothesis>=6.114.0,<7.0.0",
+    "trustme>=1.2.1,<2.0.0",
+    "pyjwt[crypto]>=2.12.0",
+    # Test-only. The SDK ships psycopg3; psycopg2 reaches production through
+    # connector apps. It is here so tests/unit/clients/test_sql_typecasters.py
+    # can pin the psycopg2 facts the tolerant-decoder fix depends on (that
+    # `extensions.encodings` is the dict the C layer reads, and that UNICODE
+    # resolves to a utf-8 codec) against the real driver rather than a mock —
+    # a driver upgrade that moves that seam must fail loudly in CI. See
+    # CONAT-767. Never add this to [project.dependencies].
+    "psycopg2-binary>=2.9.12,<3.0.0",
+]
+examples = [
+    "snowflake-sqlalchemy>=1.7.0,<2.0.0",
+    "psycopg[binary]>=3.2.7,<4.0.0",
+]
+docs = [
+    "mkdocs>=1.6.1,<2.0.0",
+    "mkdocs-material>=9.6.4,<10.0.0",
+    "pymdown-extensions>=11.0,<11.1.0",
+    "pydoctor>=24.11.2,<26.0.0",
+    "mike>=2.1.3,<3.0.0",
+]
+# Conformance suite — now a separate published package: atlan-application-sdk-conformance
+# Install via: uv add --dev atlan-application-sdk-conformance
+
+[tool.poe.tasks]
+download-components.shell = "ls -l components/*.yaml"
+# Dapr and Temporal service tasks
+start-dapr = "dapr run --enable-api-logging --log-level debug --app-id app --app-port 8000 --dapr-http-port 3500 --dapr-grpc-port 50001 --scheduler-host-address '' --placement-host-address '' --max-body-size 1024Mi --config components/configuration.yaml --resources-path components"
+
+# if you need to test dapr with environment values for an app
+#start-dapr.shell = "set -a && source .env && set +a && dapr run --enable-api-logging --log-level debug --app-id app --app-port 8000 --dapr-http-port 3500 --dapr-grpc-port 50001 --scheduler-host-address '' --placement-host-address '' --max-body-size 1024Mi --config components/configuration.yaml --resources-path components"
+
+start-temporal = "temporal server start-dev --db-filename ./temporal.db"
+# Export Dapr ports before backgrounding so `uv run main.py` (run separately)
+# sees them. Without this, devs must manually `export DAPR_HTTP_PORT=3500`.
+start-deps.shell = "export DAPR_HTTP_PORT=3500 DAPR_GRPC_PORT=50001 && poe start-dapr & poe start-temporal &"
+stop-deps.shell = "lsof -ti:3000,3500,7233,8233,50001 | xargs kill -9 2>/dev/null || true"
+# Temporal and Dapr are provisioned in-process by the integration suite's
+# embedded dev helpers (see tests/integration/conftest.py) — no external
+# `temporal server start-dev` or daprd needed. Set TEMPORAL_HOST to point at
+# an already-running server instead.
+test-integration = "pytest tests/integration/ -m integration -v --timeout=120"
+# Opt-in large-file storage load tests (real bytes, LocalStore, no CI).
+# Size via ATLAN_LOAD_TEST_SIZE_MIB (default 1024; 51200 = 50 GiB). See tests/load/README.md.
+load-test-storage = "pytest tests/load -m load -v -s --timeout=0"
+test-scripts = "bats .github/scripts/tests"  # requires: bats-core (apt-get install -y bats)
+
+# API docs — must be before any sub-table header ([tool.poe.tasks.*])
+# or TOML nests it inside the sub-table rather than the parent tasks namespace
+generate-apidocs.shell = "mkdocs build && pydoctor --html-output=site/api application_sdk --docformat=google"
+
+# Local credential provisioning
+[tool.poe.tasks.provision-credentials]
+help = "Provision credentials for local development"
+cmd = "python -m application_sdk.tools.provision_credentials"
+
+# Capability manifest — regenerate docs/agents/sdk-capabilities.md from application_sdk/
+# Used by the /capability-manifest skill, devs, and CI. Idempotent and deterministic;
+# the cmp gate exits non-zero if rendering is non-deterministic.
+# interpreter = "bash" is required: poe defaults to /usr/bin/sh (dash on Ubuntu),
+# which does not support `set -o pipefail`.
+#
+# GRIFFE IS PINNED, and the pin is the whole point. griffe renders the field
+# defaults this manifest records, so an unpinned `--with griffe` makes the
+# committed artifact a function of whichever griffe the machine last cached
+# rather than of application_sdk/. That is not theoretical: griffe 2.2.0 shipped
+# on 2026-08-16 and dropped the redundant parentheses around a call in a Field
+# default, so #3169 regenerated on it and rewrote ten committed lines with no
+# source change, after which every PR whose runner still had an older griffe
+# cached reported drift. The cmp gate above cannot catch this — it proves one
+# machine agrees with itself, not that two machines agree with each other.
+#
+# 2.1.0 rather than 2.2.0 deliberately: the org §5 release-age cooldown applies
+# to a tool that rewrites a committed artifact exactly as it applies to anything
+# else, and 2.2.0 was a day old when it was first used here. Bump this
+# deliberately, and regenerate in the same commit.
+#
+# Renovate cannot see this pin — its uv manager reads dependency tables, not an
+# inline `--with` inside a poe shell string — so it will not be bumped for you
+# and will not be cooled down for you either. That is the trade for keeping the
+# tool out of the project environment; revisit if the pin starts rotting.
+[tool.poe.tasks.regen-capabilities]
+interpreter = "bash"
+shell = """
+set -euo pipefail
+mkdir -p /tmp/capability-manifest
+EXTRACTOR=.claude/skills/capability-manifest/references/extractor.py
+PURPOSES=.claude/skills/capability-manifest/references/subpackage-purposes.yaml
+GRIFFE=griffe==2.1.0
+uv run --with "$GRIFFE" python "$EXTRACTOR" dump > /tmp/capability-manifest/raw.json
+uv run --with "$GRIFFE" python "$EXTRACTOR" normalize /tmp/capability-manifest/raw.json > /tmp/capability-manifest/normalized.json
+uv run --with "$GRIFFE" python "$EXTRACTOR" render /tmp/capability-manifest/normalized.json "$PURPOSES" > /tmp/capability-manifest/fresh1.md
+uv run --with "$GRIFFE" python "$EXTRACTOR" render /tmp/capability-manifest/normalized.json "$PURPOSES" > /tmp/capability-manifest/fresh2.md
+cmp /tmp/capability-manifest/fresh1.md /tmp/capability-manifest/fresh2.md
+cp /tmp/capability-manifest/fresh1.md docs/agents/sdk-capabilities.md
+uv run pre-commit run --files docs/agents/sdk-capabilities.md || true
+"""
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["application_sdk"]
+
+# Ship the Dapr component YAMLs inside the wheel so consumer apps get them
+# for free from their existing application-sdk dependency instead of
+# downloading them over the network (see docs/standards/build-security.md).
+[tool.hatch.build.targets.wheel.force-include]
+"components" = "application_sdk/components"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
+extraPaths = []
+exclude = [
+    "application_sdk/test_utils/**",
+    "application_sdk/testing/scale_data_generator/**",
+    ".github/**",
+    "tests",
+]
+reportUnknownMemberType = "warning"
+reportAttributeAccessIssue = "warning"
+reportPossiblyUnboundVariable = "information"
+reportFunctionMemberAccess = "warning"
+reportArgumentType = "warning"
+reportGeneralTypeIssues = "warning"
+reportMissingImports = "warning"
+reportInvalidTypeForm = "warning"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-m 'not integration and not e2e and not s3_integration and not azure_integration and not gcs_integration and not storage_emulator and not load'"
+markers = [
+    "load: opt-in large-file storage load tests — real bytes at ATLAN_LOAD_TEST_SIZE_MIB (50 GiB-class); run via `poe load-test-storage`, never in CI",
+    "integration: tests requiring local Temporal server",
+    "e2e: tests requiring a live K8s cluster",
+    "s3_integration: tests requiring keyless AWS access (S3_BUCKET + ambient AWS credentials, e.g. OIDC role)",
+    "azure_integration: tests requiring keyless Azure Workload Identity Federation (AZURE_STORAGE_ACCOUNT, AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE)",
+    "gcs_integration: tests requiring keyless GCS access (GCS_BUCKET, GCS_PROJECT_ID + ambient ADC, e.g. Workload Identity Federation)",
+    "storage_emulator: hermetic object-store tests against local emulators (MinIO/Azurite/storage-testbench); run in CI with emulator sidecars",
+]
+
+[tool.coverage.run]
+# `application_sdk/testing/**` ships test infrastructure for downstream apps
+# (mocks, fixtures) and internal test runners (integration, e2e, hypothesis,
+# parity, scale generation) that are exercised under different markers, not
+# under unit tests. Including them in unit coverage drags the percentage down
+# without representing product-code quality. Keep `mocks.py` and `fixtures.py`
+# in scope since downstream apps consume them as a public testing API.
+#
+# `application_sdk/testing/harness/**` is deliberately ABSENT from this list.
+# It is new code with a tenant-free unit surface — bounded waits, outcome
+# vocabulary, budgets, pure evaluators, the sync bridge — so it counts toward
+# the 85% gate like any other module. The `testing/e2e/**` exemption below is
+# about code that only runs against a live tenant; inheriting it here by
+# proximity would exempt the one part of this surface that is unit-testable.
+omit = [
+    "tests/**",
+    "application_sdk/test_utils/**",
+    "application_sdk/testing/scale_data_generator/**",
+    "application_sdk/testing/integration/**",
+    "application_sdk/testing/e2e/**",
+    "application_sdk/testing/hypothesis/**",
+    "application_sdk/testing/parity/**",
+]
+source = ["application_sdk"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+    # An ellipsis-only body is a Protocol method or a typing stub: a signature
+    # declaration, never a statement that runs. Anchored to a line that is
+    # nothing but `...` so it cannot swallow a real statement.
+    "^\\s*\\.\\.\\.$",
+]
+fail_under = 85
+show_missing = true
+precision = 2
+
+[tool.ruff.lint]
+# explicit-preview-rules: only the preview rules listed in extend-select are
+# enabled — other preview rules remain off. This lets us opt into PLC0415
+# without inheriting every other preview rule's churn.
+preview = true
+explicit-preview-rules = true
+extend-select = [
+    "G001",    # % operator inline in log call (not lazy)
+    "G003",    # string concatenation in log call
+    "G004",    # f-string in log call
+    "T201",    # print() in production code
+    "PLC0415", # imports must be at top of module — prevents broken-import-at-runtime bugs (e.g. PR #1543)
+    "S110",    # try-except-pass detected
+    "S112",    # try-except-continue detected
+    "LOG009",  # logger.warn() is deprecated — use .warning()
+]
+
+[tool.ruff.lint.per-file-ignores]
+"application_sdk/main.py" = ["T201"]
+".github/**" = ["G004", "T201"]
+# tests and tools exempted from PLC0415: production runtime risk does
+# not apply, and tests sometimes use inline imports for fixture isolation.
+# F841 is also exempted in tests because enabling `preview = true` (required
+# for PLC0415) made F841 stricter on tuple unpacking and codemod tests
+# routinely capture-and-discard return values for assertion staging.
+"tests/**" = ["G004", "PLC0415", "F841"]
+"tools/**" = ["T201", "PLC0415"]
+"application_sdk/tools/**" = ["T201", "PLC0415"]
+"contract-toolkit/scripts/**" = ["T201", "PLC0415"]
+"local/**" = ["T201", "PLC0415"]
+"contract-toolkit/examples/**/generated/_input.py" = ["F401"]
+# Mid-file import required to break circular dependency between models.py and assertions.py
+"application_sdk/testing/integration/models.py" = ["E402"]
+# Post-importorskip imports required so the test module skips cleanly when rocksdict is absent.
+"tests/unit/common/test_spillable_dict.py" = ["E402"]
+# sys.path bootstrap required so the test module can import the sibling script it tests.
+".github/scripts/tests/test_fetch_dataforge_source.py" = ["E402"]
+".github/scripts/tests/test_resolve_e2e_source.py" = ["E402"]
+
+[tool.uv]
+default-groups = ["dev", "test"]
+constraint-dependencies = [
+    "python-multipart>=0.0.26",  # CVE-2026-24486, CVE-2026-40347
+    "protobuf>=6.33.5",          # CVE-2026-0994
+    "authlib>=1.6.11",           # CVE-2026-28802, GHSA-jj8c-mmj3-mmgv (CSRF via cache)
+    "black>=26.3.1",             # CVE-2026-32274
+    "pyjwt>=2.12.0",             # CVE-2026-32597
+    "simpleeval>=1.0.5",         # CVE-2026-32640
+    "python-dotenv>=1.2.2",      # CVE-2026-28684 (symlink file overwrite)
+]
+
+[tool.uv.sources]
+# Source-pinned, not version-pinned: the conformance package's source lives
+# in this same repo (packages/conformance) and is published from it. Using
+# the local path means a packages/conformance change is picked up here
+# immediately, with no separate release-then-bump-the-pin cycle.
+atlan-application-sdk-conformance = { path = "packages/conformance" }
+
+# Uncomment the following section in case you want to publish to testpypi
+# [[tool.uv.index]]
+# name = "testpypi"
+# url = "https://test.pypi.org/simple/"
+# publish-url = "https://test.pypi.org/legacy/"
+# explicit = true

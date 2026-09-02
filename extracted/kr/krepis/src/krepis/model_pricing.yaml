@@ -1,0 +1,228 @@
+# LLM cost rate card — default pricing shipped with alpha_engine_lib.
+#
+# Loaded by ``alpha_engine_lib.cost.load_default_pricing``. Consumers that
+# need their own operator-managed rate card (e.g. alpha-engine-research)
+# should keep using ``load_pricing(path)`` with an external YAML; this
+# file is the sensible default for new consumers (morning-signal and
+# anything else outside the alpha-engine repos) so they don't have to
+# author a pricing table just to wire cost telemetry.
+#
+# Schema (per card):
+#   model_name:           Anthropic model identifier (matches ModelMetadata.model_name).
+#   effective_from:       ISO date when this rate became active (inclusive).
+#   input_per_1m:         USD per 1,000,000 input tokens.
+#   output_per_1m:        USD per 1,000,000 output tokens.
+#   cache_read_per_1m:    USD per 1,000,000 cached-prompt-read tokens (0.10× input).
+#   cache_create_per_1m:  USD per 1,000,000 5-MIN-TTL cache-write tokens (1.25× input).
+#   cache_create_1h_per_1m: USD per 1,000,000 1-HOUR-TTL cache-write tokens (2.0× input).
+#                         Optional — when omitted, 1-hour cache writes fall back to
+#                         ``cache_create_per_1m`` (the 5-min rate). The Anthropic SDK
+#                         splits cache-write tokens by TTL on
+#                         ``usage.cache_creation`` (ephemeral_5m / ephemeral_1h), and
+#                         the cost pipeline prices each slice at its own rate.
+#
+# **Cards for the same model MUST be sorted ascending by effective_from.**
+# When pricing CHANGES, append a new card with the new effective_from rather
+# than editing an existing one — historical artifacts remain repriceable
+# against the rate that was active at their capture time.
+#
+# An ERRONEOUS card is different and IS corrected in place: no artifact was
+# ever correctly priced at a wrong rate, so appending would preserve the
+# error rather than any real history.  Corrections carry a comment saying so.
+#
+# **Prices are per (model, ROUTE), not per model.**  The same model can cost
+# different amounts direct vs. through an aggregator — deepseek-v4-flash
+# cache-read is $0.0028/M direct but $0.028/M via OpenRouter.  Never copy a
+# rate between a bare `model` card and a `provider/model` slug card.
+#
+# Sources:
+#   Anthropic — https://platform.claude.com/docs/en/about-claude/pricing
+#   OpenRouter slugs — https://openrouter.ai/api/v1/models (`pricing` block)
+#   Direct open-weight providers — litellm's
+#     model_prices_and_context_window.json
+#
+# These cards are HAND-MAINTAINED and therefore drift.  A 2026-07-27 audit
+# found five wrong cards at once, including a 10x error on deepseek-v4-flash
+# cache-read and a 4x error on deepseek-v4-pro input.  The alpha-engine
+# registry now derives the same facts automatically
+# (alpha-engine-config/scripts/reconcile_llm_model_registry.py); unifying
+# this file under that reconciler is tracked as alpha-engine-config-I4501.
+#
+# version: 1
+cards:
+  - model_name: claude-haiku-4-5
+    effective_from: 2026-01-01
+    input_per_1m: 1.00
+    output_per_1m: 5.00
+    cache_read_per_1m: 0.10
+    cache_create_per_1m: 1.25
+    cache_create_1h_per_1m: 2.00
+  - model_name: claude-sonnet-4-6
+    effective_from: 2026-01-01
+    input_per_1m: 3.00
+    output_per_1m: 15.00
+    cache_read_per_1m: 0.30
+    cache_create_per_1m: 3.75
+    cache_create_1h_per_1m: 6.00
+  - model_name: claude-opus-4-7
+    effective_from: 2026-01-01
+    input_per_1m: 5.00
+    output_per_1m: 25.00
+    cache_read_per_1m: 0.50
+    cache_create_per_1m: 6.25
+    cache_create_1h_per_1m: 10.00
+
+  # ── Open-weight models served via OpenRouter ──────────────────────────
+  # Prices are OpenRouter LIST rates, RECONCILED against the live
+  # /api/v1/models API 2026-07-27.  The canonical cost source remains the
+  # provider-reported `usage.cost` captured by `record_llm_call`
+  # (cost_source: provider_reported); these cards are the repricing fallback
+  # when a response carried no reported cost.  With `:floor` variant routing
+  # the actually-billed backend price can differ in either direction.
+  #
+  # Cache rates: the OpenAI-compatible wire format has no cache-WRITE token
+  # class, so cache_create_per_1m is set to the input rate throughout.
+  # cache_read_per_1m now carries OpenRouter's PUBLISHED `input_cache_read`
+  # rather than the input rate.  The former convention (cache_read = input,
+  # "so the fallback never UNDERSTATES spend") was well-intentioned but
+  # overstated by up to 120x — deepseek-v4-pro's real OpenRouter cache-read
+  # is $0.003625/M, not $0.435/M.  At our workload shape (~98.5% cache reads)
+  # that is not conservatism, it is a wrong number in the other direction.
+  - model_name: moonshotai/kimi-k2.6
+    effective_from: 2026-07-03
+    input_per_1m: 0.646
+    output_per_1m: 2.72
+    cache_read_per_1m: 0.1088
+    cache_create_per_1m: 0.646
+  - model_name: deepseek/deepseek-v4-flash
+    effective_from: 2026-07-03
+    input_per_1m: 0.14
+    output_per_1m: 0.28
+    cache_read_per_1m: 0.028     # 10x the DIRECT rate — OpenRouter margin
+    cache_create_per_1m: 0.14
+  # OpenRouter pinned the 2026-07-31 0731 revision as its own dated slug
+  # (deepseek/deepseek-v4-flash stays on the original snapshot). The registry
+  # routes to the dated slug, and the OpenRouter completion echoes it back as
+  # model_name, so this card keys on the dated form. The bare-slug card above
+  # is NOT a price change on the same string — it remains the price of the
+  # original snapshot the bare slug still serves.
+  - model_name: deepseek/deepseek-v4-flash-0731
+    effective_from: 2026-07-31
+    input_per_1m: 0.09
+    output_per_1m: 0.18
+    cache_read_per_1m: 0.018     # 20% of input, same discount shape as bare slug
+    cache_create_per_1m: 0.09
+  - model_name: deepseek/deepseek-v4-pro
+    effective_from: 2026-07-03
+    input_per_1m: 0.435
+    output_per_1m: 0.87
+    cache_read_per_1m: 0.003625  # same as direct — no margin on this model
+    cache_create_per_1m: 0.435
+  - model_name: openai/gpt-oss-120b
+    effective_from: 2026-07-03
+    input_per_1m: 0.037
+    output_per_1m: 0.17
+    cache_read_per_1m: 0.037     # OpenRouter publishes no cache rate — = input
+    cache_create_per_1m: 0.037
+  - model_name: qwen/qwen3.7-plus
+    effective_from: 2026-07-03
+    input_per_1m: 0.32
+    output_per_1m: 1.28
+    cache_read_per_1m: 0.064
+    cache_create_per_1m: 0.32
+  - model_name: qwen/qwen3-max
+    effective_from: 2026-07-27
+    input_per_1m: 0.78
+    output_per_1m: 3.90
+    cache_read_per_1m: 0.156
+    cache_create_per_1m: 0.78
+  - model_name: moonshotai/kimi-k3
+    effective_from: 2026-07-27
+    input_per_1m: 3.00
+    output_per_1m: 15.00
+    cache_read_per_1m: 0.30
+    cache_create_per_1m: 3.00
+  - model_name: x-ai/grok-4.5
+    effective_from: 2026-07-27
+    input_per_1m: 2.00
+    output_per_1m: 6.00
+    cache_read_per_1m: 0.30      # cheaper than DIRECT xAI (0.50) — see below
+    cache_create_per_1m: 2.00
+
+  # ── DeepSeek direct API (via the egress proxy) ────────────────────────────
+  # Reconciled 2026-07-27 against litellm's model_prices_and_context_window
+  # database.  Automatic prefix caching has no cache-write upcharge — the
+  # server caches transparently; cache_create_per_1m is set to the input rate.
+  #
+  # NOTE the route asymmetry, which is why these cards are separate from the
+  # `deepseek/...` OpenRouter cards above and must never be copied between
+  # them: v4-flash cache-read is $0.0028/M direct vs $0.028/M via OpenRouter
+  # (10x), while v4-pro is $0.003625/M on both.
+  - model_name: deepseek-v4-flash
+    effective_from: 2026-07-26
+    input_per_1m: 0.14
+    output_per_1m: 0.28
+    cache_read_per_1m: 0.0028    # 98% cache discount (0.14 → 0.0028)
+    cache_create_per_1m: 0.14    # no write-upcharge for auto prefix caching
+  - model_name: deepseek-v4-pro
+    effective_from: 2026-07-26
+    input_per_1m: 0.435
+    output_per_1m: 0.87
+    cache_read_per_1m: 0.003625  # 99% cache discount (0.435 → 0.003625)
+    cache_create_per_1m: 0.435   # no write-upcharge for auto prefix caching
+  # ── xAI / Grok direct API (via the egress proxy) ─────────────────────────
+  - model_name: grok-4.5
+    effective_from: 2026-07-27
+    input_per_1m: 2.00
+    output_per_1m: 6.00
+    cache_read_per_1m: 0.50
+    cache_create_per_1m: 2.00
+  # ── Moonshot / Kimi K3 direct API (via the egress proxy) ─────────────────
+  # Automatic prefix-based prompt caching — 90% cache discount.
+  - model_name: kimi-k3
+    effective_from: 2026-07-26
+    input_per_1m: 3.00
+    output_per_1m: 15.00
+    cache_read_per_1m: 0.30      # 90% cache discount (3.00 → 0.30)
+    cache_create_per_1m: 3.00    # automatic prefix caching — no write upcharge
+  # ── Zhipu / GLM 5.2 direct API (via egress proxy :8976) ──────────────────
+  # Automatic prefix-based prompt caching — ~81% cache discount.
+  - model_name: glm-5.2
+    effective_from: 2026-07-26
+    input_per_1m: 1.40
+    output_per_1m: 4.40
+    cache_read_per_1m: 0.26      # ~81% cache discount (1.40 → 0.26)
+    cache_create_per_1m: 1.40    # automatic prefix caching — no write upcharge
+
+# Server-side tool fees (Anthropic ``Message.usage.server_tool_use``).
+# Billed as flat per-request fees, independent of which model invoked
+# the tool. Rates published by Anthropic as USD per 1,000 requests.
+#
+# Schema (per fee):
+#   tool_name:              Server-tool identifier (matches the field name
+#                           in ``anthropic.types.ServerToolUsage``).
+#   effective_from:         ISO date when this rate became active.
+#   per_1k_requests_usd:    USD per 1,000 requests.
+#
+# **Fees for the same tool MUST be sorted ascending by effective_from.**
+#
+# web_fetch is currently free per Anthropic's pricing page (no separate
+# per-request fee) — kept in the table at 0.00 so request counts still
+# flow through the pricing pipeline; bump the rate here if/when Anthropic
+# introduces a fee.
+tool_fees:
+  - tool_name: web_search
+    effective_from: 2026-01-01
+    per_1k_requests_usd: 10.00
+  - tool_name: web_fetch
+    effective_from: 2026-01-01
+    per_1k_requests_usd: 0.00
+  # OpenRouter `openrouter:web_search` server tool (any model). Base rate
+  # $0.005/request = $5/1k (Exa/Parallel engines, verified 2026-07-03);
+  # the additional $0.001/result beyond 10 results per request is NOT
+  # modeled — the provider-reported `usage.cost` is the canonical number,
+  # this fee is the repricing fallback. Provider-scoped name per
+  # `_tool_request_counts` (Anthropic's bare `web_search` bills at $10/1k).
+  - tool_name: "openrouter:web_search"
+    effective_from: 2026-07-03
+    per_1k_requests_usd: 5.00

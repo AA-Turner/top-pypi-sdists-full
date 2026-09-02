@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot
-Version: 3.18.0
+Version: 3.19.0
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.7
 License-File: LICENSE.txt
 Requires-Dist: pandas>=0.15
@@ -38,14 +39,17 @@ Requires-Dist: pytz>=2020.1
 Requires-Dist: python-dateutil>=2.8.2
 Provides-Extra: dev
 Requires-Dist: pytest<8.0.0,>=7.3.0; python_version < "3.8" and extra == "dev"
-Requires-Dist: pytest<8.4.0,>=8.3.0; python_version >= "3.8" and extra == "dev"
+Requires-Dist: pytest<8.4.0,>=8.3.0; (python_version >= "3.8" and python_version < "3.14") and extra == "dev"
+Requires-Dist: pytest>=8.4.0; python_version >= "3.14" and extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: responses==0.21; extra == "dev"
-Requires-Dist: pytest-asyncio==0.21.1; extra == "dev"
+Requires-Dist: pytest-asyncio==0.21.1; python_version < "3.14" and extra == "dev"
+Requires-Dist: pytest-asyncio==1.0.0; python_version >= "3.14" and extra == "dev"
 Requires-Dist: pyarrow; extra == "dev"
 Requires-Dist: pymarkdownlnt; extra == "dev"
-Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "dev"
+Requires-Dist: Pillow==10.4.0; (python_version >= "3.8" and python_version < "3.14") and extra == "dev"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "dev"
+Requires-Dist: Pillow>=11.3.0; python_version >= "3.14" and extra == "dev"
 Requires-Dist: databricks-connect>=13.0; extra == "dev"
 Requires-Dist: authlib>=1.6.0; extra == "dev"
 Requires-Dist: pydantic>=2.11.3; extra == "dev"
@@ -54,7 +58,10 @@ Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "dev"
 Requires-Dist: respx; extra == "dev"
 Requires-Dist: fsspec>=2025.5.0; extra == "dev"
 Requires-Dist: sqlalchemy>=2.0.0; extra == "dev"
-Requires-Dist: ruff==0.15.22; extra == "dev"
+Requires-Dist: httpx>=0.28.1; python_version >= "3.11" and extra == "dev"
+Requires-Dist: pydantic>=2.6.1; python_version >= "3.11" and extra == "dev"
+Requires-Dist: ag-ui-protocol~=0.1.15; python_version >= "3.11" and extra == "dev"
+Requires-Dist: ruff==0.16.0; extra == "dev"
 Requires-Dist: vermin>=1.8.0; extra == "dev"
 Requires-Dist: mypy==1.16.0; extra == "dev"
 Requires-Dist: types-PyYAML==6.0.12; extra == "dev"
@@ -63,8 +70,9 @@ Requires-Dist: types-pytz==2022.2.1.0; extra == "dev"
 Requires-Dist: types-requests==2.28.11; extra == "dev"
 Requires-Dist: types-urllib3==1.26.25; extra == "dev"
 Requires-Dist: types-decorator==5.1.8; extra == "dev"
-Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "dev"
+Requires-Dist: Pillow==10.4.0; (python_version >= "3.8" and python_version < "3.14") and extra == "dev"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "dev"
+Requires-Dist: Pillow>=11.3.0; python_version >= "3.14" and extra == "dev"
 Requires-Dist: databricks-connect>=13.0; extra == "dev"
 Requires-Dist: authlib>=1.6.0; extra == "dev"
 Requires-Dist: pydantic>=2.11.3; extra == "dev"
@@ -76,8 +84,12 @@ Requires-Dist: pydantic>=2.2.0; extra == "dev"
 Requires-Dist: psutil>=7.2.1; extra == "dev"
 Requires-Dist: fsspec>=2025.5.0; extra == "dev"
 Requires-Dist: sqlalchemy>=2.0.0; extra == "dev"
-Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "dev"
+Requires-Dist: httpx>=0.28.1; extra == "dev"
+Requires-Dist: pydantic>=2.6.1; extra == "dev"
+Requires-Dist: ag-ui-protocol~=0.1.15; extra == "dev"
+Requires-Dist: Pillow==10.4.0; (python_version >= "3.8" and python_version < "3.14") and extra == "dev"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "dev"
+Requires-Dist: Pillow>=11.3.0; python_version >= "3.14" and extra == "dev"
 Requires-Dist: Sphinx>=8.1.3; python_version >= "3.11" and extra == "dev"
 Requires-Dist: sphinx_rtd_theme>=3.0; extra == "dev"
 Requires-Dist: sphinx-external-toc; extra == "dev"
@@ -105,7 +117,7 @@ Requires-Dist: colour<=0.1.4; extra == "examples"
 Provides-Extra: release
 Requires-Dist: zest.releaser[recommended]==6.22.0; extra == "release"
 Provides-Extra: lint
-Requires-Dist: ruff==0.15.22; extra == "lint"
+Requires-Dist: ruff==0.16.0; extra == "lint"
 Requires-Dist: vermin>=1.8.0; extra == "lint"
 Requires-Dist: mypy==1.16.0; extra == "lint"
 Requires-Dist: types-PyYAML==6.0.12; extra == "lint"
@@ -114,8 +126,9 @@ Requires-Dist: types-pytz==2022.2.1.0; extra == "lint"
 Requires-Dist: types-requests==2.28.11; extra == "lint"
 Requires-Dist: types-urllib3==1.26.25; extra == "lint"
 Requires-Dist: types-decorator==5.1.8; extra == "lint"
-Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "lint"
+Requires-Dist: Pillow==10.4.0; (python_version >= "3.8" and python_version < "3.14") and extra == "lint"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "lint"
+Requires-Dist: Pillow>=11.3.0; python_version >= "3.14" and extra == "lint"
 Requires-Dist: databricks-connect>=13.0; extra == "lint"
 Requires-Dist: authlib>=1.6.0; extra == "lint"
 Requires-Dist: pydantic>=2.11.3; extra == "lint"
@@ -127,6 +140,9 @@ Requires-Dist: pydantic>=2.2.0; extra == "lint"
 Requires-Dist: psutil>=7.2.1; extra == "lint"
 Requires-Dist: fsspec>=2025.5.0; extra == "lint"
 Requires-Dist: sqlalchemy>=2.0.0; extra == "lint"
+Requires-Dist: httpx>=0.28.1; extra == "lint"
+Requires-Dist: pydantic>=2.6.1; extra == "lint"
+Requires-Dist: ag-ui-protocol~=0.1.15; extra == "lint"
 Provides-Extra: docs
 Requires-Dist: Sphinx>=8.1.3; python_version >= "3.11" and extra == "docs"
 Requires-Dist: sphinx_rtd_theme>=3.0; extra == "docs"
@@ -140,18 +156,22 @@ Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: sphinx-markdown-builder; extra == "docs"
 Requires-Dist: myst-parser==4.0.0; extra == "docs"
 Provides-Extra: images
-Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "images"
+Requires-Dist: Pillow==10.4.0; (python_version >= "3.8" and python_version < "3.14") and extra == "images"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "images"
+Requires-Dist: Pillow>=11.3.0; python_version >= "3.14" and extra == "images"
 Provides-Extra: test
 Requires-Dist: pytest<8.0.0,>=7.3.0; python_version < "3.8" and extra == "test"
-Requires-Dist: pytest<8.4.0,>=8.3.0; python_version >= "3.8" and extra == "test"
+Requires-Dist: pytest<8.4.0,>=8.3.0; (python_version >= "3.8" and python_version < "3.14") and extra == "test"
+Requires-Dist: pytest>=8.4.0; python_version >= "3.14" and extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: responses==0.21; extra == "test"
-Requires-Dist: pytest-asyncio==0.21.1; extra == "test"
+Requires-Dist: pytest-asyncio==0.21.1; python_version < "3.14" and extra == "test"
+Requires-Dist: pytest-asyncio==1.0.0; python_version >= "3.14" and extra == "test"
 Requires-Dist: pyarrow; extra == "test"
 Requires-Dist: pymarkdownlnt; extra == "test"
-Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "test"
+Requires-Dist: Pillow==10.4.0; (python_version >= "3.8" and python_version < "3.14") and extra == "test"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "test"
+Requires-Dist: Pillow>=11.3.0; python_version >= "3.14" and extra == "test"
 Requires-Dist: databricks-connect>=13.0; extra == "test"
 Requires-Dist: authlib>=1.6.0; extra == "test"
 Requires-Dist: pydantic>=2.11.3; extra == "test"
@@ -160,6 +180,9 @@ Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "test"
 Requires-Dist: respx; extra == "test"
 Requires-Dist: fsspec>=2025.5.0; extra == "test"
 Requires-Dist: sqlalchemy>=2.0.0; extra == "test"
+Requires-Dist: httpx>=0.28.1; python_version >= "3.11" and extra == "test"
+Requires-Dist: pydantic>=2.6.1; python_version >= "3.11" and extra == "test"
+Requires-Dist: ag-ui-protocol~=0.1.15; python_version >= "3.11" and extra == "test"
 Provides-Extra: databricks
 Requires-Dist: databricks-connect>=13.0; extra == "databricks"
 Provides-Extra: auth
@@ -181,6 +204,10 @@ Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.33.0; extra == "otel"
 Provides-Extra: query-engine
 Requires-Dist: sqlalchemy>=2.0.0; extra == "query-engine"
+Provides-Extra: application-utils
+Requires-Dist: httpx>=0.28.1; python_version >= "3.11" and extra == "application-utils"
+Requires-Dist: pydantic>=2.6.1; python_version >= "3.11" and extra == "application-utils"
+Requires-Dist: ag-ui-protocol~=0.1.15; python_version >= "3.11" and extra == "application-utils"
 Provides-Extra: pipelines
 Requires-Dist: aiofiles>=0.8.0; extra == "pipelines"
 Requires-Dist: aiohttp>=3.8.1; extra == "pipelines"
@@ -262,6 +289,9 @@ Extra
 
 datarobot has the following optional groups:
 
+- `application-utils` (requires Python 3.11+): Light async ORM over the
+    DataRobot Agentic Memory Service, plus an AG-UI chat-history layer (models, repositories, and AG-UI event storage).
+    This can be used in DataRobot Custom Applications and Agent Workflows.
 - `auth` (requires Python 3.9+): Provides an abstraction to handle OAuth2 authentication with DataRobot API (11.1+).
     This can be used in DataRobot Custom Applications and on its own.
 - `auth-authlib` (requires Python 3.9+): OAuth2 authentication handling via Authlib.

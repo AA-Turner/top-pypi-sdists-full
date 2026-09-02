@@ -1,0 +1,147 @@
+Metadata-Version: 2.4
+Name: onedrive-personal-sdk
+Version: 0.1.7
+Summary: A package to interact with the Microsoft Graph API for personal OneDrives.
+Author-email: Josef Zweck <josef@zweck.dev>
+Maintainer-email: Josef Zweck <josef@zweck.dev>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/zweckj/onedrive-personal-sdk
+Project-URL: Repository, https://github.com/zweckj/onedrive-personal-sdk
+Project-URL: Documentation, https://github.com/zweckj/onedrive-personal-sdk
+Keywords: OneDrive,Graph,api,async,client
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.1
+Requires-Dist: mashumaro>=3.9.1
+Requires-Dist: numpy>=1.24.0
+Provides-Extra: dev
+Requires-Dist: covdefaults==2.3.0; extra == "dev"
+Requires-Dist: coverage==7.6.7; extra == "dev"
+Requires-Dist: syrupy==4.7.2; extra == "dev"
+Requires-Dist: pytest==8.3.3; extra == "dev"
+Requires-Dist: pytest-asyncio==0.24.0; extra == "dev"
+Requires-Dist: pytest-cov==6.0.0; extra == "dev"
+Requires-Dist: aioresponses==0.7.7; extra == "dev"
+Dynamic: license-file
+
+# OneDrive Personal SDK
+
+OneDrive Personal SDK is a Python library for interacting with a personal OneDrive through the Graph API.
+
+# Usage
+
+## Getting an authentication token
+
+The library is built to support different token providers. To add authentication to the library you need to define a `get_access_token` method and pass that to the library.
+
+To use `msal` as a token provider you can create that function like the following:
+
+```python
+from msal import PublicClientApplication
+
+app = PublicClientApplication(
+    "Client ID",
+    authority="https://login.microsoftonline.com/consumers",
+)
+
+
+async def get_access_token(self) -> str:
+    result = app.acquire_token_interactive(
+        scopes=[
+            "Files.ReadWrite.All",
+        ]
+    )
+    return result["access_token"]
+```
+
+## Creating a client
+
+To create a client you need to provide a function to retrieve an access token.
+
+```python
+from onedrive_personal_sdk import OneDriveClient
+
+client = OneDriveClient(get_access_token)
+
+# can also be created with a custom aiohttp session
+client = OneDriveClient(get_access_token, session=session)
+```
+
+# Calling the API
+
+The client provides methods to interact with the OneDrive API. The methods are async and return the response from the API. Most methods accept item ids or paths as arguments.
+
+```python
+
+
+root = await client.get_drive_item("root") # Get the root folder
+item = await client.get_drive_item("root:/path/to/item:") # Get an item by path
+item = await client.get_drive_item(item.id) # Get an item by id
+
+folder = await client.get_drive_item("root:/path/to/folder:") # Get a folder
+
+# List children of a folder
+children = await client.list_children("root:/path/to/folder:")
+children = await client.list_children(folder.id)
+
+```
+
+# Uploading files
+
+Smaller files (<250MB) can be uploaded with the `upload` method. All files need to be provided as AsyncIterators. Such a generator can be created from `aiofiles`.
+
+```python
+import aiofiles
+from collections.abc import AsyncIterator
+
+async def file_reader(file_path: str) -> AsyncIterator[bytes]:
+    async with aiofiles.open(file_path, "rb") as f:
+        while True:
+            chunk = await f.read(1024)  # Read in chunks of 1024 bytes
+            if not chunk:
+                break
+            yield chunk
+```
+
+```python
+await client.upload_file("root:/TestFolder", "test.txt", file_reader("test.txt"))
+```
+
+Larger files (and small files as well) can be uploaded with a `LargeFileUploadClient`. The client will handle the upload in chunks.
+
+```python
+import os
+from onedrive_personal_sdk import LargeFileUploadClient
+from onedrive_personal_sdk.models.upload import FileInfo
+
+filename = "testfile.txt"
+size = os.path.getsize(filename)
+
+file = FileInfo(
+    name=filename,
+    size=size,
+    folder_path_id="root",
+    content_stream=file_reader(filename),
+)
+file = await LargeFileUploadClient.upload(get_access_token, file)
+```
+
+## Adaptive Chunk Size
+
+The `LargeFileUploadClient` supports adaptive chunk sizing to optimize upload performance based on your connection speed. When enabled, the client dynamically adjusts the chunk size to target approximately 5 seconds per chunk upload.
+
+```python
+file = await LargeFileUploadClient.upload(
+    get_access_token,
+    file,
+    smart_chunk_size=True,  # Enable adaptive chunk sizing
+    upload_chunk_size=320 * 1024,  # Initial chunk size (optional, default: 5.2MB)
+)
+```

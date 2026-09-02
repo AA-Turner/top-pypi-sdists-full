@@ -1,0 +1,63 @@
+# Standalone streaming plane for the WS-4 proof and local operator testing.
+# Authority: contracts/S4-stream-tickets.md §10, PLAN.md §WebRTC streaming.
+#
+# This composes the three moving parts against ANY headed Chromium — no Browser
+# Manager, no profile persistence. The `gateway` runs the stub mint endpoint +
+# the REAL gateway (matrx_scraper.cloud_browser.streaming.app). Production splits
+# these: mint lives in the Browser Manager routers on the app host; the gateway
+# lives on its own stream.aimatrx.com subdomain (OPEN(gateway-host)).
+#
+# 🚨 Selkies is MPL-2.0 — see LICENSE-NOTE-selkies.md.
+
+version: "3.8"
+
+networks:
+  # The worker's Selkies signalling is reachable ONLY on this private network,
+  # never published. The gateway connects outbound to it (S4 §4.1).
+  streamnet:
+    driver: bridge
+
+services:
+  coturn:
+    image: coturn/coturn:4.6
+    # Real ports are host-network in production; here we expose only what ICE
+    # needs for local testing.
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
+    volumes:
+      - ./coturn/turnserver.conf:/etc/turnserver.conf:ro
+    command: ["-c", "/etc/turnserver.conf"]
+    networks: [streamnet]
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.selkies
+    # Selkies signalling port (8080) is intentionally NOT published — private
+    # network only. The gateway reaches it via the compose DNS name `worker`.
+    expose:
+      - "8080"
+    networks: [streamnet]
+
+  gateway:
+    # The gateway process runs matrx_scraper.cloud_browser.streaming.app.
+    # It holds the ES256 signing key and the coTURN shared secret; neither ever
+    # leaves it. Point it at the private `worker` host.
+    build:
+      context: ../../../../..   # matrx-scraper package root
+      dockerfile: Dockerfile
+    command: >-
+      uvicorn matrx_scraper.cloud_browser.streaming.app:app --host 0.0.0.0 --port 8443
+    environment:
+      # These are VALUES injected by the operator; the app reads them via the
+      # host wiring, NOT via a second connection name. Kept here for local
+      # testing only.
+      - BROWSER_STREAM_TOKEN_SIGNING_KEY   # EC P-256 PEM
+      - BROWSER_STREAM_TURN_SHARED_SECRET
+      - BROWSER_STREAM_ALLOWED_ORIGINS     # comma-separated exact origins
+    ports:
+      - "8443:8443"
+    depends_on: [coturn, worker]
+    networks: [streamnet]

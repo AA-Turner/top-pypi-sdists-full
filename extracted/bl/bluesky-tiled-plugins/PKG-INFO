@@ -1,0 +1,59 @@
+Metadata-Version: 2.4
+Name: bluesky-tiled-plugins
+Version: 2.0.10
+Summary: Integrations for using Tiled with Bluesky
+Project-URL: Homepage, https://github.com/bluesky/bluesky-tiled-plugins
+Project-URL: Bug Tracker, https://github.com/bluesky/bluesky-tiled-plugins/issues
+Project-URL: Discussions, https://github.com/bluesky/bluesky-tiled-plugins/discussions
+Project-URL: Changelog, https://github.com/bluesky/bluesky-tiled-plugins/releases
+Author-email: Bluesky Project Contributors <dallan@bnl.gov>
+Maintainer-email: Brookhaven National Laboratory <dallan@bnl.gov>
+License-Expression: BSD-3-Clause
+Classifier: Development Status :: 1 - Planning
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: dask
+Requires-Dist: event-model
+Requires-Dist: mongoquery
+Requires-Dist: pytz
+Requires-Dist: tiled[client]>=0.2.15
+Requires-Dist: tzlocal
+Description-Content-Type: text/markdown
+
+# bluesky-tiled-plugins
+
+[![Actions Status][actions-badge]][actions-link]
+
+[![PyPI version][pypi-version]][pypi-link]
+[![Conda-Forge][conda-badge]][conda-link]
+[![PyPI platforms][pypi-platforms]][pypi-link]
+
+<!-- SPHINX-START -->
+
+<!-- prettier-ignore-start -->
+[actions-badge]:            https://github.com/bluesky/bluesky-tiled-plugins/workflows/CI/badge.svg
+[actions-link]:             https://github.com/bluesky/bluesky-tiled-plugins/actions
+[conda-badge]:              https://img.shields.io/conda/vn/conda-forge/bluesky-tiled-plugins
+[conda-link]:               https://github.com/conda-forge/bluesky-tiled-plugins-feedstock
+[pypi-link]:                https://pypi.org/project/bluesky-tiled-plugins/
+[pypi-platforms]:           https://img.shields.io/pypi/pyversions/bluesky-tiled-plugins
+[pypi-version]:             https://img.shields.io/pypi/v/bluesky-tiled-plugins
+
+<!-- prettier-ignore-end -->
+
+<!-- README only content. Anything below this line won't be included in index.md -->
+
+See https://blueskyproject.io/bluesky-tiled-plugins for more detailed
+documentation.

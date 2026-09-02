@@ -26,29 +26,29 @@ jobs:
       matrix:
         include:
           - session: test
-            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13"
+            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
             force-python: ""
             other-args: ""
             codecov: true
             packages: ""
 
           - session: lint
-            python-versions: "3.13"
-            force-python: "3.13"
+            python-versions: "3.14"
+            force-python: "3.14"
             other-args: ""
             codecov: false
             packages: ""
 
           - session: create_vectors
-            python-versions: "3.13"
-            force-python: "3.13"
+            python-versions: "3.14"
+            force-python: "3.14"
             other-args: ""
             codecov: false
             packages: ""
     name: "Run nox ${{ matrix.session }} session"
     steps:
       - name: Check out antsibull-docs-parser
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           path: antsibull-docs-parser
           persist-credentials: false
@@ -57,7 +57,7 @@ jobs:
         run: |
           sudo apt-get install -y ${{ matrix.packages }}
       - name: Setup nox
-        uses: wntrblm/nox@2025.05.01
+        uses: wntrblm/nox@a976d7ee04ab7a13634adc1016d4755a1348225f  # 2026.08.17
         with:
           python-versions: "${{ matrix.python-versions }}"
       - name: Run nox

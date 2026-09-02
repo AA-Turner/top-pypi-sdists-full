@@ -1,0 +1,186 @@
+name: GH Actions
+
+on:
+  release:
+    types: [published]
+  push:
+  pull_request:
+
+env:
+  PYSIDE_VERSION: 6.11.1
+  QT_VERSION: 6.11.1
+  #PIP_EXTRA_INDEX_URL: "https://download.qt.io/official_releases/QtForPython/"
+
+jobs:
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Cache Qt
+        id: cache-qt-sdist
+        uses: actions/cache@v6
+        with:
+          path: Qt
+          key: qt-linux-${{ env.QT_VERSION }}
+      - name: Build sdist
+        run: |
+          sudo apt update && sudo apt install -y libgl-dev ccache
+          pip install "aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@master"
+          [ -d "$GITHUB_WORKSPACE/Qt/${{ env.QT_VERSION }}" ] || aqt install-qt -O "$GITHUB_WORKSPACE/Qt" linux desktop ${{ env.QT_VERSION }} -m qtshadertools
+          export CC="ccache gcc" CXX="ccache g++"
+          PATH="$GITHUB_WORKSPACE/Qt/${{ env.QT_VERSION }}/gcc_64/bin:$PATH" LD_LIBRARY_PATH="$GITHUB_WORKSPACE/Qt/${{ env.QT_VERSION }}/gcc_64/lib:$LD_LIBRARY_PATH" pipx run build --sdist
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+            qt_host: linux
+            platform: manylinux_2_34_x86_64
+            qt_dir: gcc_64
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+            qt_host: linux_arm64
+            platform: manylinux_2_39_aarch64
+            qt_dir: gcc_arm64
+          - os: windows-latest
+            arch: x86_64
+            qt_host: windows
+          - os: macos-15-intel  # Intel
+            arch: x86_64
+            qt_host: mac
+          - os: macos-15 # Apple Silicon
+            arch: arm64
+            qt_host: mac
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: amd64
+      - name: Cache Qt
+        uses: actions/cache@v6
+        with:
+          path: Qt
+          key: qt-${{ matrix.qt_host }}-${{ matrix.arch }}-${{ env.QT_VERSION }}
+      - name: Install ccache (macOS)
+        if: runner.os == 'macOS'
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ccache-wheels-${{ matrix.os }}-${{ matrix.arch }}
+      - name: Install sccache (Windows)
+        if: runner.os == 'Windows'
+        uses: mozilla-actions/sccache-action@v0.0.11
+      - name: Cache ccache (Linux container)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v6
+        with:
+          path: .ccache
+          key: ccache-wheels-${{ matrix.os }}-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: ccache-wheels-${{ matrix.os }}-${{ matrix.arch }}-
+      - name: Forward GITHUB_WORKSPACE env var
+        shell: bash
+        run: |
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v4.1.1
+        env:
+          PYSIDE_VERSION: ${{ env.PYSIDE_VERSION }}
+          QT_VERSION: ${{ env.QT_VERSION }}
+          PIP_EXTRA_INDEX_URL: ${{ env.PIP_EXTRA_INDEX_URL }}
+          CIBW_ENVIRONMENT_WINDOWS: PYSIDE_VERSION=${{ env.PYSIDE_VERSION }} PIP_EXTRA_INDEX_URL=${{ env.PIP_EXTRA_INDEX_URL }} PATH="${GITHUB_WORKSPACE}\\Qt\\${{ env.QT_VERSION }}\\msvc2022_64\\bin;$PATH" CC="sccache cl" CXX="sccache cl"
+          CIBW_ENVIRONMENT_MACOS: PYSIDE_VERSION=${{ env.PYSIDE_VERSION }} MACOSX_DEPLOYMENT_TARGET='13.3' PATH=/usr/lib/ccache:${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/macos/bin:$PATH
+          CIBW_ENVIRONMENT_LINUX: PYSIDE_VERSION=${{ env.PYSIDE_VERSION }} PIP_EXTRA_INDEX_URL=${{ env.PIP_EXTRA_INDEX_URL }} CC="ccache gcc" CXX="ccache g++" CCACHE_DIR=${{ env.GITHUB_WORKSPACE }}/.ccache PATH=${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/${{ matrix.qt_dir }}/bin:$PATH LD_LIBRARY_PATH=${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/${{ matrix.qt_dir }}/lib:$LD_LIBRARY_PATH
+          CIBW_BEFORE_BUILD_WINDOWS: >
+            pip install delvewheel "aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@master"
+            && if not exist "${{ env.GITHUB_WORKSPACE }}\\Qt\\${{ env.QT_VERSION }}" aqt install-qt -O ${{ env.GITHUB_WORKSPACE }}\\Qt windows desktop ${{ env.QT_VERSION }} win64_msvc2022_64 -m qtshadertools
+          CIBW_BEFORE_BUILD_MACOS: >
+            pip install "aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@master"
+            && [ -d "${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}" ] || aqt install-qt -O "${{ env.GITHUB_WORKSPACE }}/Qt" mac desktop ${{ env.QT_VERSION }} -m qtshadertools
+          CIBW_BEFORE_BUILD_LINUX: >
+            dnf install -y /usr/lib64/libxkbcommon.so.0 /usr/lib64/libxslt.so.1 llvm15-devel clang15 ccache
+            && alternatives --install /usr/bin/llvm-config llvm-config /usr/lib64/llvm15/bin/llvm-config-15-64 100
+            && alternatives --set llvm-config /usr/lib64/llvm15/bin/llvm-config-15-64
+            && pip install "aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@master" && [ -d "${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}" ] || aqt install-qt -O "${{ env.GITHUB_WORKSPACE }}/Qt" ${{ matrix.qt_host }} desktop ${{ env.QT_VERSION }} -m qtshadertools
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            auditwheel repair -w {dest_dir} --exclude libpyside6.abi3.so.6.11 --exclude libshiboken6.abi3.so.6.11 --exclude libQt6Core.so.6 --exclude libQt6Widgets.so.6 --exclude libQt6Gui.so.6 --exclude libpyside6qml.abi3.so.6.11 --exclude libGLX.so.0 --exclude libOpenGL.so.0 --exclude libxcb.so.1 --only-plat --plat ${{ matrix.platform }} {wheel}
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS:
+          # Windows has no default repair command, so the wheel was never repaired and
+          # the MSVC runtime was never bundled -> "DLL load failed" on machines without the
+          # VC++ redistributable. delvewheel (installed in before-build) vendors the runtime;
+          # exclude the Qt/PySide stack so we don't ship a private Qt that conflicts with the
+          # one PySide6 loads in-process (mirrors the Linux auditwheel excludes).
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
+            delvewheel repair -w {dest_dir}
+            --add-path "${{ env.GITHUB_WORKSPACE }}\\Qt\\${{ env.QT_VERSION }}\\msvc2022_64\\bin"
+            --include "msvcp140.dll;msvcp140_1.dll;msvcp140_2.dll;vcruntime140.dll;vcruntime140_1.dll;concrt140.dll"
+            --exclude "Qt6Core.dll;Qt6Gui.dll;Qt6Widgets.dll;Qt6Svg.dll;Qt6PrintSupport.dll;Qt6OpenGL.dll;Qt6OpenGLWidgets.dll;pyside6.abi3.dll;shiboken6.abi3.dll;pyside6qml.abi3.dll"
+            {wheel}
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_34
+          CIBW_MANYLINUX_AARCH64_IMAGE: quay.io/pypa/manylinux_2_39_aarch64
+          # No '*38-*' (3.8 is past EOL, cibuildwheel no longer knows the
+          # identifier) and no 'pp*' (PyPy is behind the `enable` option, so it
+          # is never built unless asked for). Both were dead selectors that
+          # cibuildwheel warned about on every run.
+          CIBW_SKIP: "*-win32 *i686 *39-* *musllinux* *314t*"
+          CIBW_BUILD_VERBOSITY: 3
+          CIBW_ARCH: ${{ matrix.arch }}
+          # Smoke test: install the freshly-repaired wheel and import it. This
+          # catches "DLL load failed" / missing-runtime / broken-bundle classes
+          # of regressions that the build step itself can't see (since it
+          # links against the build-machine Qt, not the bundled one). Three
+          # consecutive Windows-wheel fixes shipped in May 2026 would have
+          # been blocked by this. Headless import only — no QApplication.
+          # Command string contains no GitHub event data so it's not exposed
+          # to expression-injection.
+          CIBW_TEST_COMMAND: python -c "import SciQLopPlots; print('SciQLopPlots', SciQLopPlots.__version__, 'imports OK')"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
+
+  upload_pypi:
+    needs: [build_sdist, build_wheels]
+    runs-on: ubuntu-latest
+    # upload to PyPI only on github releases
+    if: github.event_name == 'release' && github.event.action == 'published' && github.repository_owner == 'SciQLop'
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_PASSWORD }}
+          skip-existing: true
+
+  upload_test_pypi:
+    needs: [build_sdist, build_wheels]
+    runs-on: ubuntu-latest
+    # upload to test PyPI on github pushes
+    if: github.event_name == 'push' && github.repository_owner == 'SciQLop'
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_TEST_PASSWORD }}
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true

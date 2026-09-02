@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-jwcrypto"
-version = "1.5.8.20260720"
+version = "1.5.9.20260901"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for jwcrypto"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`jwcrypto`](https://github.com/latchset/jwcrypto) package. It can be used by type checkers
 to check code that uses `jwcrypto`. This version of
 `types-jwcrypto` aims to provide accurate annotations for
-`jwcrypto==1.5.8`.
+`jwcrypto==1.5.9`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.3.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [mypy](https://www.mypy-lang.org/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
+* [pyright](https://microsoft.github.io/pyright/) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`e4e0f7e3faccda1ea2be38c00fc43ba4a77249d0`](https://github.com/python/typeshed/commit/e4e0f7e3faccda1ea2be38c00fc43ba4a77249d0).
+[`cf09d2a4d7614f648e9109dce609887499a7c6ee`](https://github.com/python/typeshed/commit/cf09d2a4d7614f648e9109dce609887499a7c6ee).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -37,6 +39,8 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = ['cryptography']
+
+
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"

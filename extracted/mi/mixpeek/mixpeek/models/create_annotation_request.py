@@ -34,10 +34,11 @@ class CreateAnnotationRequest(BaseModel):
     confidence: Optional[Union[Annotated[float, Field(le=1.0, strict=True, ge=0.0)], Annotated[int, Field(le=1, strict=True, ge=0)]]] = Field(default=None, description="Human confidence (0.0–1.0).")
     reasoning: Optional[Annotated[str, Field(strict=True, max_length=5000)]] = Field(default=None, description="Why this decision was made.")
     payload: Optional[Dict[str, Any]] = Field(default=None, description="Structured payload (use-case-specific).")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional custom metadata to attach to this annotation. Stored and returned as-is, and mirrored onto the mxp_document_annotations signal so it can be read and filtered alongside the annotation.")
     retriever_id: Optional[StrictStr] = None
     execution_id: Optional[StrictStr] = None
     stage_name: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["document_id", "collection_id", "label", "confidence", "reasoning", "payload", "retriever_id", "execution_id", "stage_name"]
+    __properties: ClassVar[List[str]] = ["document_id", "collection_id", "label", "confidence", "reasoning", "payload", "metadata", "retriever_id", "execution_id", "stage_name"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -96,6 +97,7 @@ class CreateAnnotationRequest(BaseModel):
             "confidence": obj.get("confidence"),
             "reasoning": obj.get("reasoning"),
             "payload": obj.get("payload"),
+            "metadata": obj.get("metadata"),
             "retriever_id": obj.get("retriever_id"),
             "execution_id": obj.get("execution_id"),
             "stage_name": obj.get("stage_name")

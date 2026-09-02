@@ -1,0 +1,16 @@
+# This is a config for Novita Agent Sandbox template.
+# You can use template ID (p6xxkzd3h233e3yvuyxb) or template name (ecomm-site) to create a sandbox:
+
+# Python SDK
+# from novita_sandbox.core import Sandbox, AsyncSandbox
+# sandbox = Sandbox.create("ecomm-site") # Sync sandbox
+# sandbox = await AsyncSandbox.create("ecomm-site") # Async sandbox
+
+# JS SDK
+# import { Sandbox } from 'novita-sandbox'
+# const sandbox = await Sandbox.create('ecomm-site')
+
+team_id = "a4591acb-eb6e-4c9e-bae0-fcdfb3158d9e"
+dockerfile = "novita.Dockerfile"
+template_name = "ecomm-site"
+template_id = "p6xxkzd3h233e3yvuyxb"

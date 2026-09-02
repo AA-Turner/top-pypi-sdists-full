@@ -1,0 +1,344 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentic-devtools"
+dynamic = ["version"]
+description = "Agentic devtools integrate Jira, DevOps & more"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "ayaiayorg" }
+]
+dependencies = [
+    "specify-cli==1.0.1",
+    "requests>=2.28.0",
+    "Jinja2>=3.0.0",
+    "PyYAML>=6.0.0",
+    "build>=1.2.2",
+    "twine>=5.0.0",
+    "azure-monitor-query>=1.0.0",
+    "azure-identity>=1.0.0",
+    "langchain-core>=1.4.7,<2",
+    "langgraph>=0.2.0,<2",
+    "langgraph-checkpoint-sqlite>=3.0.1",
+    "mcp>=1.0.0,<2.0.0",
+    "jsonschema>=4.20.0",
+    "pydantic>=2.0,<3",
+    "packaging>=21.0",
+    "github-copilot-sdk>=1.0.0,<2.0.0",
+    "openai>=1.30.0,<2",
+    "tiktoken>=0.7.0,<1",
+    "typing-extensions>=4.0",
+    "atlassian-python-api>=4.0,<5",
+    "tomli>=1.1.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+browser = [
+    "playwright>=1.40.0",
+    "pyotp>=2.9.0",
+]
+dev = [
+    "black>=24.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.8.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.4.0",
+    "types-PyYAML>=6.0.0",
+    "types-requests>=2.28.0",
+    "vcrpy>=6.0.0",
+    "pytest-recording>=0.13.0",
+]
+
+[project.scripts]
+# All entry points route through runner.run_as_script, which derives the
+# command name from sys.argv[0] and handles KeyboardInterrupt gracefully.
+# Exception: agdt-mcp-server is wired directly to agentic_devtools.mcp.server:main
+# because MCP stdio transport requires direct control of stdin/stdout.
+agdt-set = "agentic_devtools.cli.runner:run_as_script"
+agdt-get = "agentic_devtools.cli.runner:run_as_script"
+agdt-delete = "agentic_devtools.cli.runner:run_as_script"
+agdt-clear = "agentic_devtools.cli.runner:run_as_script"
+agdt-show = "agentic_devtools.cli.runner:run_as_script"
+agdt-add-pull-request-comment = "agentic_devtools.cli.runner:run_as_script"
+agdt-approve-pull-request = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-pull-request = "agentic_devtools.cli.runner:run_as_script"
+agdt-get-pull-request-threads = "agentic_devtools.cli.runner:run_as_script"
+agdt-reply-to-pull-request-thread = "agentic_devtools.cli.runner:run_as_script"
+agdt-resolve-thread = "agentic_devtools.cli.runner:run_as_script"
+agdt-mark-pull-request-draft = "agentic_devtools.cli.runner:run_as_script"
+agdt-publish-pull-request = "agentic_devtools.cli.runner:run_as_script"
+agdt-run-e2e-tests-synapse = "agentic_devtools.cli.runner:run_as_script"
+agdt-run-e2e-tests-fabric = "agentic_devtools.cli.runner:run_as_script"
+agdt-run-wb-patch = "agentic_devtools.cli.runner:run_as_script"
+agdt-get-run-details = "agentic_devtools.cli.runner:run_as_script"
+agdt-wait-for-run = "agentic_devtools.cli.runner:run_as_script"
+agdt-list-pipelines = "agentic_devtools.cli.runner:run_as_script"
+agdt-get-pipeline-id = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-pipeline = "agentic_devtools.cli.runner:run_as_script"
+agdt-update-pipeline = "agentic_devtools.cli.runner:run_as_script"
+agdt-get-pull-request-details = "agentic_devtools.cli.runner:run_as_script"
+agdt-pr-review-build-manifest = "agentic_devtools.cli.runner:run_as_script"
+agdt-pr-review-triage = "agentic_devtools.cli.runner:run_as_script"
+agdt-file-review-write = "agentic_devtools.cli.runner:run_as_script"
+agdt-pr-review-resolve-ducks = "agentic_devtools.cli.runner:run_as_script"
+agdt-pr-review-accept-answer = "agentic_devtools.cli.runner:run_as_script"
+agdt-pr-review-refresh-comment = "agentic_devtools.cli.runner:run_as_script"
+agdt-pr-review-submit = "agentic_devtools.cli.runner:run_as_script"
+agdt-confirm-suggestion-addressed = "agentic_devtools.cli.runner:run_as_script"
+agdt-reject-suggestion-resolution = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-epic = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-issue = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-subtask = "agentic_devtools.cli.runner:run_as_script"
+agdt-add-jira-comment = "agentic_devtools.cli.runner:run_as_script"
+agdt-get-jira-issue = "agentic_devtools.cli.runner:run_as_script"
+agdt-update-jira-issue = "agentic_devtools.cli.runner:run_as_script"
+agdt-render-issue = "agentic_devtools.cli.runner:run_as_script"
+agdt-phase0-review = "agentic_devtools.cli.runner:run_as_script"
+agdt-validate-templates = "agentic_devtools.cli.runner:run_as_script"
+agdt-list-project-roles = "agentic_devtools.cli.runner:run_as_script"
+agdt-get-project-role-details = "agentic_devtools.cli.runner:run_as_script"
+agdt-add-users-to-project-role = "agentic_devtools.cli.runner:run_as_script"
+agdt-add-users-to-project-role-batch = "agentic_devtools.cli.runner:run_as_script"
+agdt-find-role-id-by-name = "agentic_devtools.cli.runner:run_as_script"
+agdt-check-user-exists = "agentic_devtools.cli.runner:run_as_script"
+agdt-check-users-exist = "agentic_devtools.cli.runner:run_as_script"
+agdt-parse-jira-error-report = "agentic_devtools.cli.runner:run_as_script"
+agdt-git-save-work = "agentic_devtools.cli.runner:run_as_script"
+agdt-git-sync = "agentic_devtools.cli.runner:run_as_script"
+agdt-git-stage = "agentic_devtools.cli.runner:run_as_script"
+agdt-git-push = "agentic_devtools.cli.runner:run_as_script"
+agdt-git-force-push = "agentic_devtools.cli.runner:run_as_script"
+agdt-git-publish = "agentic_devtools.cli.runner:run_as_script"
+agdt-commit-body-show = "agentic_devtools.cli.runner:run_as_script"
+agdt-test = "agentic_devtools.cli.runner:run_as_script"
+agdt-test-quick = "agentic_devtools.cli.runner:run_as_script"
+agdt-test-file = "agentic_devtools.cli.runner:run_as_script"
+agdt-test-pattern = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-specify = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-plan = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-tasks = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-implement = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-clarify = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-checklist = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-analyze = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-constitution = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-taskstoissues = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-validate-frs = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-cross-ref = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-test-coverage = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-validate-checklists = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-verify-artifacts = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-request-artifact-fix = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-nest = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-retro-spec = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-scaffold-plan = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-scaffold-new-feature = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-scaffold-check-prereqs = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-scaffold-tasks = "agentic_devtools.cli.runner:run_as_script"
+agdt-speckit-scaffold-update-agent-context = "agentic_devtools.cli.runner:run_as_script"
+agdt-release-pypi = "agentic_devtools.cli.runner:run_as_script"
+agdt-config-mode = "agentic_devtools.cli.runner:run_as_script"
+agdt-sync-back = "agentic_devtools.cli.runner:run_as_script"
+agdt-observability-summary = "agentic_devtools.cli.runner:run_as_script"
+agdt-setup = "agentic_devtools.cli.runner:run_as_script"
+agdt-setup-copilot-cli = "agentic_devtools.cli.runner:run_as_script"
+agdt-setup-gh-cli = "agentic_devtools.cli.runner:run_as_script"
+agdt-setup-check = "agentic_devtools.cli.runner:run_as_script"
+agdt-setup-certs = "agentic_devtools.cli.runner:run_as_script"
+agdt-setup-decision-log = "agentic_devtools.cli.runner:run_as_script"
+agdt-init-pr-template = "agentic_devtools.cli.runner:run_as_script"
+agdt-copilot-auto-start = "agentic_devtools.cli.runner:run_as_script"
+agdt-retry-autostart = "agentic_devtools.cli.runner:run_as_script"
+agdt-query-app-insights = "agentic_devtools.cli.runner:run_as_script"
+agdt-query-fabric-dap-errors = "agentic_devtools.cli.runner:run_as_script"
+agdt-query-fabric-dap-provisioning = "agentic_devtools.cli.runner:run_as_script"
+agdt-query-fabric-dap-timeline = "agentic_devtools.cli.runner:run_as_script"
+agdt-tasks = "agentic_devtools.cli.runner:run_as_script"
+agdt-task-status = "agentic_devtools.cli.runner:run_as_script"
+agdt-task-log = "agentic_devtools.cli.runner:run_as_script"
+agdt-task-wait = "agentic_devtools.cli.runner:run_as_script"
+agdt-tasks-clean = "agentic_devtools.cli.runner:run_as_script"
+agdt-show-other-incomplete-tasks = "agentic_devtools.cli.runner:run_as_script"
+agdt-orchestrate-init = "agentic_devtools.cli.runner:run_as_script"
+agdt-orchestrate-step = "agentic_devtools.cli.runner:run_as_script"
+agdt-orchestrate-finalize = "agentic_devtools.cli.runner:run_as_script"
+agdt-audit-trio = "agentic_devtools.cli.runner:run_as_script"
+agdt-get-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-clear-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-pull-request-review-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-work-on-jira-issue-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-create-jira-issue-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-create-jira-epic-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-create-jira-subtask-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-update-jira-issue-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-optimize-issue-for-ai-agent-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-break-down-issue-into-subtasks-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-apply-pr-suggestions-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-initiate-pr-merge-orchestrator-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-vpn-on = "agentic_devtools.cli.runner:run_as_script"
+agdt-vpn-off = "agentic_devtools.cli.runner:run_as_script"
+agdt-vpn-status = "agentic_devtools.cli.runner:run_as_script"
+agdt-azure-context-use = "agentic_devtools.cli.runner:run_as_script"
+agdt-azure-context-status = "agentic_devtools.cli.runner:run_as_script"
+agdt-azure-context-current = "agentic_devtools.cli.runner:run_as_script"
+agdt-azure-context-ensure-login = "agentic_devtools.cli.runner:run_as_script"
+agdt-network-status = "agentic_devtools.cli.runner:run_as_script"
+agdt-pr-checks = "agentic_devtools.cli.checks.commands:main"
+agdt-vpn-run = "agentic_devtools.cli.runner:run_as_script"
+agdt-setup-worktree-background = "agentic_devtools.cli.runner:run_as_script"
+agdt-advance-workflow = "agentic_devtools.cli.runner:run_as_script"
+agdt-get-next-workflow-prompt = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-checklist = "agentic_devtools.cli.runner:run_as_script"
+agdt-update-checklist = "agentic_devtools.cli.runner:run_as_script"
+agdt-show-checklist = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-agdt-issue = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-reply-to-review-comments = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-agdt-bug-issue = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-agdt-feature-issue = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-agdt-documentation-issue = "agentic_devtools.cli.runner:run_as_script"
+agdt-create-agdt-task-issue = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-pr-state = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-pr-checks-status = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-copilot-review-status = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-rerun-checks = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-resolve-review-threads = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-pr-approve = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-request-copilot-review = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-pr-poll-ready = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-pr-merge = "agentic_devtools.cli.runner:run_as_script"
+agdt-gh-create-pull-request = "agentic_devtools.cli.runner:run_as_script"
+agdt-apply-pr-thread-autofix-suggestions = "agentic_devtools.cli.runner:run_as_script"
+agdt-evaluate-post-agent-state = "agentic_devtools.cli.runner:run_as_script"
+agdt-ai-pr-loop = "agentic_devtools.cli.ci.commands:ai_pr_loop_command"
+agdt-assign-implementation-agent = "agentic_devtools.cli.ci.commands:assign_implementation_agent_command"
+agdt-assign-speckit-agent = "agentic_devtools.cli.ci.commands:assign_speckit_agent_command"
+agdt-ai-pr-loop-scheduler = "agentic_devtools.cli.ci.scheduler_command:ai_pr_loop_scheduler_command"
+agdt-ai-pr-loop-watchdog = "agentic_devtools.cli.ci.watchdog_command:ai_pr_loop_watchdog_command"
+agdt-ai-pr-loop-supervisor = "agentic_devtools.cli.ci.supervisor_command:ai_pr_loop_supervisor_command"
+agdt-speckit-trigger = "agentic_devtools.cli.ci.commands:speckit_trigger_command"
+agdt-detect-parent = "agentic_devtools.cli.speckit.detect_parent_cli:main"
+agdt-detect-hierarchy = "agentic_devtools.cli.hierarchy.commands:detect_hierarchy_command"
+agdt-enforce-parent = "agentic_devtools.cli.hierarchy.commands:enforce_parent_command"
+agdt-cascade-trigger = "agentic_devtools.cli.hierarchy.commands:cascade_trigger_command"
+agdt-segments-status = "agentic_devtools.cli.runner:run_as_script"
+agdt-segments-clean = "agentic_devtools.cli.runner:run_as_script"
+agdt-mcp-server = "agentic_devtools.mcp.server:main"
+agdt-ci-reconcile = "agentic_devtools.cli.ci.reconciliation.command:reconcile_command"
+agdt-delete-pr-review-comments = "agentic_devtools.cli.ci.delete_review_comments_command:delete_review_comments_command"
+agdt-audit-prepare = "agentic_devtools.cli.audit.commands:audit_prepare_command"
+agdt-audit-apply = "agentic_devtools.cli.audit.commands:audit_apply_command"
+agdt-audit-dispatch-evaluation = "agentic_devtools.cli.audit.commands:audit_dispatch_evaluation_command"
+agdt-audit-takeover-eval-prs = "agentic_devtools.cli.audit.commands:audit_takeover_eval_prs_command"
+agdt-audit-on-pr-close = "agentic_devtools.cli.audit.on_pr_close:on_pr_close_command"
+agdt-audit-reap-stale = "agentic_devtools.cli.audit.commands:audit_reap_stale_command"
+agdt-suppressed-triage-reap = "agentic_devtools.cli.ci.suppressed_reaper_command:suppressed_triage_reap_command"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "agentic_devtools/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentic_devtools"]
+
+[tool.hatch.build.targets.wheel.force-include]
+".github/agents" = "agentic_devtools/_bundled_skills/agents"
+".github/prompts" = "agentic_devtools/_bundled_skills/prompts"
+".agents/skills" = "agentic_devtools/_bundled_skills/skills"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "--cov=agentic_devtools --cov-report=term-missing --cov-fail-under=100"
+markers = [
+    "windows_only: mark test to run only on Windows (msvcrt file locking)",
+    "linux_only: mark test to run only on Linux/Unix (fcntl file locking)",
+    "e2e: mark test as end-to-end smoke test",
+]
+filterwarnings = [
+    "error",
+    # urllib3 InsecureRequestWarning is suppressed at source in jira/helpers.py;
+    # this entry is a belt-and-suspenders guard for any test that imports the
+    # module before the suppression fires.
+    "ignore::urllib3.exceptions.InsecureRequestWarning",
+    # PytestUnraisableExceptionWarning fires when background file handles
+    # (e.g. log files opened by the tee thread) are garbage-collected after
+    # the test closes the temp directory.  These are test-environment artifacts
+    # and not indicative of production resource leaks.
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+    # langgraph imports trigger a LangChain pending-deprecation warning about
+    # allowed_objects default value change.  This is a third-party internal
+    # detail outside our control.  Filter by standard category + module to
+    # avoid depending on the private _api.deprecation submodule path.
+    "ignore::PendingDeprecationWarning:langchain_core",
+    # Instantiating ``mcp.server.fastmcp.FastMCP`` triggers a pydantic-settings
+    # IncompleteFieldDefinitionWarning about the FastMCP ``lifespan`` field's
+    # unresolved forward reference.  This is a third-party interaction between
+    # the ``mcp`` package and ``pydantic_settings`` (>=2.15) outside our control
+    # and cannot be resolved without calling ``model_rebuild()`` on the library's
+    # internal settings model.
+    "ignore::pydantic_settings.exceptions.IncompleteFieldDefinitionWarning",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # Pyflakes (unused imports F401, unused variables F841, etc.)
+    "W",      # pycodestyle warnings
+    "I",      # isort (import sorting)
+    "UP",     # pyupgrade (modernize syntax)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agentic_devtools"]
+
+[tool.coverage.run]
+source = ["agentic_devtools"]
+branch = false
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+exclude_also = [
+    "if sys.platform == .win32.:",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["langgraph.*", "mcp.*", "azure.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "agentic_devtools.cli.azure_devops.vpn_toggle",
+    "agentic_devtools.cli.azure_devops.mark_reviewed",
+    "agentic_devtools.cli.azure_devops.helpers",
+    "agentic_devtools.cli.azure_devops.pull_request_details_commands",
+    "agentic_devtools.cli.azure_devops.run_details_commands",
+    "agentic_devtools.cli.azure_context.commands",
+]
+ignore_errors = true

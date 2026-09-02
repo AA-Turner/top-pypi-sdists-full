@@ -1,0 +1,134 @@
+[project]
+name = "runlayer"
+version = "0.30.8"
+description = "A command-line interface for running MCP servers via HTTP transport"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Runlayer", email = "engineering@runlayer.com" }]
+keywords = ["mcp", "cli", "runlayer", "anysource", "agent", "llm"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = [
+  "fastmcp>=2.14.5,<3",  # Security fix for GHSA-rcfx-77hg-w2wv, GHSA-c2jp-c369-7pvx
+  "authlib>=1.6.12,<1.7.0",  # authlib 1.7 deprecates authlib.jose (stderr warning); remove once fastmcp migrates to joserfc
+  "fakeredis<2.35.0",    # pydocket 0.18.x imports FakeConnection removed in fakeredis 2.35.0
+  "typer>=0.17.4",
+  "mcp>=1.28.1,<2",  # Security fixes through CVE-2026-59950; v2 (2026-07-28 spec) is a breaking rework, migrate via ENG-3871
+  "structlog>=25.4.0",
+  "httpx>=0.27.0",
+  "pyyaml>=6.0.0",
+  "docker>=7.0.0",
+  "rich>=13.0.0",
+  "python-dotenv>=1.0.0",
+  "json5>=0.12.1",
+  "tomli>=2.0.0; python_version < '3.11'",
+  "typing-extensions>=4.1.0; python_version < '3.11'",
+  "questionary>=2.0.0",
+  "keyring>=25.0.0,<26",
+  "truststore>=0.10.4,<0.11",
+  "runlayer-hooks-sdk==0.2.2",
+  "opentelemetry-sdk>=1.27.0",
+  "opentelemetry-exporter-otlp-proto-http>=1.27.0",
+  "tomlkit>=0.15.0",
+  "google-re2==1.1.20251105",
+]
+
+[project.optional-dependencies]
+aiwatch = [
+  "anyio>=4.11.0,<5",
+  "google-re2==1.1.20251105",
+  "typer>=0.17.4",
+  "structlog>=25.4.0",
+  "httpx>=0.27.0",
+  "pyyaml>=6.0.0",
+  "rich>=13.0.0",
+  "json5>=0.12.1",
+  "tomli>=2.0.0; python_version < '3.11'",
+  "keyring>=25.0.0,<26",
+  "pydantic>=2.0.0",
+  "truststore>=0.10.4,<0.11",
+  "opentelemetry-sdk>=1.27.0",
+  "opentelemetry-exporter-otlp-proto-http>=1.27.0",
+]
+
+[project.urls]
+Homepage = "https://runlayer.com"
+Documentation = "https://docs.runlayer.com/"
+
+[tool.uv]
+exclude-newer = "7 days"
+constraint-dependencies = [
+  "pyjwt>=2.13.0",  # Security fix for GHSA-75c5-xw7c-p5pm, CVE-2026-48524
+  "urllib3>=2.7.0",  # CVE-2026-44431, CVE-2026-44432
+  "python-multipart>=0.0.30",  # CVE-2026-53539
+  "idna>=3.15",  # CVE-2026-45409
+  "cryptography>=48.0.1,<49.0.0",  # GHSA-537c-gmf6-5ccf
+  "pydantic-settings>=2.14.2",  # GHSA-4xgf-cpjx-pc3j
+  "starlette>=1.3.1",  # CVE-2026-54283
+]
+
+[tool.uv.sources]
+runlayer-hooks-sdk = { path = "../packages/python", editable = true }
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+[dependency-groups]
+dev = [
+  "pytest<10.0.0,>=9.0.3",
+  "pytest-asyncio>=1",
+  "ty>=0.0.19",
+  "ruff<1.0.0,>=0.15.2",
+  "freezegun>=1.5.0",
+  "pytest-xdist>=3.5.0",
+  "pytest-httpserver>=1.1.0",
+]
+
+[project.scripts]
+runlayer = "runlayer_cli.main:cli"
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["runlayer_cli", "hooks"]
+
+[tool.pytest.ini_options]
+markers = [
+  "e2e: end-to-end tests",
+  "no_backend_e2e: end-to-end tests that do not require a running backend",
+  "frozen_binary: builds + runs the PyInstaller bundle (slow; opt-in)",
+]
+addopts = "-m 'not e2e and not frozen_binary'"
+
+[tool.ruff.lint]
+extend-select = ["TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"fastmcp.OpenAPIProvider".msg = "CVE-2026-32871: OpenAPIProvider has SSRF vuln in _build_url(). Banned until fastmcp >=3.2.0."
+"fastmcp.server.openapi".msg = "CVE-2026-32871: OpenAPIProvider has SSRF vuln in _build_url(). Banned until fastmcp >=3.2.0."
+"lupa".msg = "CVE-2026-34444: Lupa attribute_filter bypass. CLI bundles lupa via fakeredis/pydocket only; direct use is banned."
+"cryptography.hazmat.primitives.serialization.pkcs7".msg = "CVE-2026-69247: PKCS7/S/MIME decryption paths are not used. Banned until cryptography can move to >=50.0.0."
+"cryptography.x509.verification".msg = "CVE-2026-69249: X.509 chain builder path is not used. Banned until cryptography can move to >=49.0.0."
+"diskcache".msg = "CVE-2025-69872: diskcache pickle deserialization is not used. CLI receives it transitively through FastMCP; direct imports are banned."
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.rules]
+# Downgrade some stricter rules to warnings for gradual migration from mypy
+unknown-argument = "warn"

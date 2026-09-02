@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: ha-silabs-firmware-client
+Version: 0.3.0
+Summary: Home Assistant client for firmwares released with `silabs-firmware-builder`
+Author-email: puddly <puddly3@gmail.com>
+License: Apache-2.0
+Project-URL: repository, https://github.com/home-assistant-libs/ha-silabs-firmware-client
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+Requires-Dist: packaging
+Requires-Dist: yarl
+Provides-Extra: testing
+Requires-Dist: tomli; extra == "testing"
+Requires-Dist: coverage[toml]; extra == "testing"
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-xdist; extra == "testing"
+Requires-Dist: pytest-asyncio; extra == "testing"
+Requires-Dist: pytest-cov; extra == "testing"
+Requires-Dist: pytest-timeout; extra == "testing"
+Requires-Dist: aioresponses; extra == "testing"
+Dynamic: license-file
+
+# ha-silabs-firmware-client
+
+Home Assistant client for firmwares released with [silabs-firmware-builder](https://github.com/NabuCasa/silabs-firmware-builder).

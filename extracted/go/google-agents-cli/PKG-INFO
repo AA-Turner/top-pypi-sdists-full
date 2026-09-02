@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-agents-cli
-Version: 1.4.2
+Version: 1.5.0
 Summary: Agents CLI — Agent Development Lifecycle toolchain for ADK
 Author-email: Google LLC <agents-cli-dev-pypi@google.com>
 Requires-Python: >=3.11
@@ -13,17 +13,22 @@ Requires-Dist: click>=8.1.8,<9
 Requires-Dist: PyYAML>=6.0.2,<7
 Requires-Dist: cookiecutter>=2.6.0,<3
 Requires-Dist: jinja2>=3.1.0
-Requires-Dist: google-cloud-aiplatform[evaluation]>=1.156.0,<2
+Requires-Dist: google-cloud-aiplatform[evaluation]>=1.165.0,<2
 Requires-Dist: google-cloud-resource-manager>=1.12.0
 Requires-Dist: google-auth[pyopenssl]>=2.47.0
+Requires-Dist: pyopenssl<26.2
 Requires-Dist: rich>=13.7.0
 Requires-Dist: backoff>=2.2.1
 Requires-Dist: requests>=2.31.0
 Requires-Dist: a2a-sdk>=1.0,<2
+Requires-Dist: protobuf>=5.29.5,<7
 Requires-Dist: tomlkit>=0.13.0,<1
 Requires-Dist: psutil>=5.9.0
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: pathspec>=0.12.1
+Requires-Dist: filelock>=3.12,<4
+Requires-Dist: packaging>=24
+Requires-Dist: pydantic>=2.10,<3
 Requires-Dist: ruff ; extra == "lint"
 Requires-Dist: ty ; extra == "lint"
 Requires-Dist: codespell ; extra == "lint"
@@ -111,7 +116,7 @@ See the [full tutorial](https://google.github.io/agents-cli/guide/quickstart-tut
 | Command | What it does |
 |---------|-------------|
 | `agents-cli setup` | Install CLI + skills to coding agents |
-| `agents-cli scaffold <name>` | Create a new agent project |
+| `agents-cli create <name>` | Create a new agent project |
 | `agents-cli eval run` | Run the agent over the eval dataset and grade the traces |
 | `agents-cli deploy` | Deploy to Google Cloud |
 | `agents-cli publish gemini-enterprise` | Register with Gemini Enterprise |
@@ -124,8 +129,8 @@ See the [full tutorial](https://google.github.io/agents-cli/guide/quickstart-tut
 | `agents-cli login` | Authenticate with Google Cloud or AI Studio |
 | `agents-cli login --status` | Show authentication status |
 | **Scaffold** | |
-| `agents-cli scaffold <name>` | Create a new agent project |
-| `agents-cli scaffold enhance` | Add deployment, CI/CD, or RAG to an existing project |
+| `agents-cli create <name>` | Create a new agent project |
+| `agents-cli scaffold enhance` | Add deployment or CI/CD to an existing project |
 | `agents-cli scaffold upgrade` | Upgrade project to a newer agents-cli version |
 | **Develop** | |
 | `agents-cli run "prompt"` | Run agent with a single prompt |
@@ -145,9 +150,6 @@ See the [full tutorial](https://google.github.io/agents-cli/guide/quickstart-tut
 | `agents-cli publish gemini-enterprise` | Register with Gemini Enterprise |
 | `agents-cli infra single-project` | Provision single-project infrastructure |
 | `agents-cli infra cicd` | Set up CI/CD pipeline + staging/prod infrastructure |
-| **Data** | |
-| `agents-cli infra datastore` | Provision datastore infrastructure for RAG |
-| `agents-cli data-ingestion` | Run data ingestion pipeline |
 | **Other** | |
 | `agents-cli info` | Show project config and CLI version |
 | `agents-cli update` | Force reinstall skills to all IDEs |

@@ -1,0 +1,44 @@
+#include "pycauset/matrix/TriangularMatrix.hpp"
+#include <cmath>
+#include <memory>
+
+namespace pycauset {
+
+uint64_t TriangularMatrixBase::calculate_triangular_offsets(uint64_t element_bits, uint64_t alignment_bits) {
+    const uint64_t n = base_rows();
+    row_offsets_.resize(n);
+    uint64_t current_offset_bits = 0;
+
+    for (uint64_t i = 0; i < n; ++i) {
+        // Store current offset (converted to bytes)
+        row_offsets_[i] = current_offset_bits / 8;
+
+        // Number of elements in this row
+        // If diagonal: columns i to N-1 => Count = N - i
+        // If strict: columns i+1 to N-1 => Count = N - 1 - i
+        uint64_t num_elements;
+        if (has_diagonal_) {
+            num_elements = (n > i) ? (n - i) : 0;
+        } else {
+            num_elements = (n > i) ? (n - 1 - i) : 0;
+        }
+        
+        if (num_elements > 0) {
+            uint64_t row_bits = num_elements * element_bits;
+            
+            // Align row_bits to alignment_bits
+            if (alignment_bits > 1) {
+                uint64_t remainder = row_bits % alignment_bits;
+                if (remainder != 0) {
+                    row_bits += (alignment_bits - remainder);
+                }
+            }
+            current_offset_bits += row_bits;
+        }
+    }
+    
+    // Return total size in bytes
+    return (current_offset_bits + 7) / 8;
+}
+
+} // namespace pycauset

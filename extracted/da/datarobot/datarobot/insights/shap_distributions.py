@@ -52,7 +52,7 @@ class ShapDistributions(BaseInsight):
         Returns
         -------
         features : List[Dict[str, Any]]
-            A list of the ShapDistributions values for each row
+            A list of the ShapDistributions values for each row.
         """
         return cast(List[Dict[str, Any]], self.data["features"])
 

@@ -1,0 +1,122 @@
+import asyncio
+import uuid
+
+import pytest
+import pytest_asyncio
+import os
+
+from logging import warning
+
+from novita_sandbox.core import (
+    Sandbox,
+    AsyncSandbox,
+    AsyncCommandHandle,
+    CommandExitException,
+    CommandHandle,
+)
+
+
+@pytest.fixture(scope="session")
+def sandbox_test_id():
+    return f"test_{uuid.uuid4()}"
+
+
+@pytest.fixture()
+def template():
+    return os.environ.get("NOVITA_TEMPLATE", "base")
+
+
+@pytest.fixture()
+def volume_template(template):
+    return os.environ.get("NOVITA_VOLUME_TEMPLATE", template)
+
+
+@pytest.fixture()
+def node_id():
+    value = os.environ.get("NOVITA_NODE_ID")
+    if not value:
+        pytest.skip("NOVITA_NODE_ID is not set")
+    return value
+
+
+@pytest.fixture()
+def sandbox(template, debug, sandbox_test_id):
+    sandbox = Sandbox.create(template, metadata={"sandbox_test_id": sandbox_test_id})
+
+    try:
+        yield sandbox
+    finally:
+        try:
+            sandbox.kill()
+        except (Exception, RuntimeError):
+            if not debug:
+                warning(
+                    "Failed to kill sandbox — this is expected if the test runs with local envd."
+                )
+
+
+@pytest_asyncio.fixture
+async def async_sandbox(template, debug, sandbox_test_id):
+    sandbox = await AsyncSandbox.create(
+        template, metadata={"sandbox_test_id": sandbox_test_id}
+    )
+
+    try:
+        yield sandbox
+    finally:
+        try:
+            await sandbox.kill()
+        except (Exception, RuntimeError):
+            if not debug:
+                warning(
+                    "Failed to kill sandbox — this is expected if the test runs with local envd."
+                )
+
+
+@pytest.fixture
+def debug():
+    return os.getenv("NOVITA_DEBUG") is not None
+
+
+@pytest.fixture(autouse=True)
+def skip_by_debug(request, debug):
+    if request.node.get_closest_marker("skip_debug"):
+        if debug:
+            pytest.skip("skipped because NOVITA_DEBUG is set")
+
+
+class Helpers:
+    @staticmethod
+    def catch_cmd_exit_error_in_background(cmd: AsyncCommandHandle):
+        disabled = False
+
+        async def wait_for_exit():
+            try:
+                await cmd.wait()
+            except CommandExitException as e:
+                if not disabled:
+                    assert (
+                        False
+                    ), f"command failed with exit code {e.exit_code}: {e.stderr}"
+
+        asyncio.create_task(wait_for_exit())
+
+        def disable():
+            nonlocal disabled
+            disabled = True
+
+        return disable
+
+    @staticmethod
+    def check_cmd_exit_error(cmd: CommandHandle):
+        try:
+            cmd.wait()
+        except CommandExitException as e:
+            assert False, f"command failed with exit code {e.exit_code}: {e.stderr}"
+        except Exception as e:
+            raise e
+
+
+@pytest.fixture
+def helpers():
+    return Helpers

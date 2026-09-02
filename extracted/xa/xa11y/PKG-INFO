@@ -1,0 +1,122 @@
+Metadata-Version: 2.4
+Name: xa11y
+Version: 0.13.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Testing
+Summary: Cross-platform accessibility client library
+Keywords: accessibility,a11y,automation,screen-reader
+License-Expression: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/xa11y/xa11y
+Project-URL: Repository, https://github.com/xa11y/xa11y
+
+# xa11y
+
+[![Crates.io](https://img.shields.io/crates/v/xa11y)](https://crates.io/crates/xa11y)
+[![PyPI](https://img.shields.io/pypi/v/xa11y)](https://pypi.org/project/xa11y/)
+[![CI](https://github.com/xa11y/xa11y/actions/workflows/ci.yml/badge.svg)](https://github.com/xa11y/xa11y/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-xa11y.dev-blueviolet)](https://xa11y.dev)
+
+A Playwright-style library for driving native desktop apps on macOS, Windows, and Linux. Built for end-to-end tests, computer-use agents, and assistive tools.
+
+**Use cases:** end-to-end desktop testing, computer-use agents, MCP tools, assistive technology.
+
+**[Documentation](https://xa11y.dev)** | **[Rust API](https://docs.rs/xa11y)** | **[Python API](https://xa11y.dev/api/python/)**
+
+## Quick Example
+
+```python
+import xa11y
+
+safari = xa11y.App.by_name("Safari")
+
+# Find elements with CSS-like selectors via locator
+for button in safari.locator("button").elements():
+    print(button.name)
+
+# Interact with elements via locator (re-resolves every call)
+safari.locator("button[name='Submit']").press()
+
+safari.locator("text_field[name^='Search']").set_value("hello world")
+```
+
+## Installation
+
+```bash
+pip install xa11y
+```
+
+Requires Python 3.9+. Pre-built wheels available for Linux, macOS, and Windows.
+
+> On **macOS**, grant your terminal **two** permissions in **System Settings > Privacy & Security**:
+> 1. **Accessibility**, required for all accessibility API access.
+> 2. **Screen & System Audio Recording** (macOS 26+), required to read window content. Without it, only menu bars are visible.
+>
+> Restart your terminal after changing permissions.
+>
+> On **Linux**, AT-SPI2 must be running (the default on GNOME and most desktop environments). Nothing else to grant.
+>
+> **Windows** works as installed.
+
+## Selector Syntax
+
+Query accessibility trees with CSS-like selectors:
+
+| Pattern | Meaning |
+| --- | --- |
+| `button` | Elements with role Button |
+| `button[name='OK']` | Button named exactly "OK" |
+| `textfield[name^='Search']` | Text field whose name starts with "Search" |
+| `textfield[name*='email']` | Text field whose name contains "email" |
+| `group > button` | Buttons that are direct children of a group |
+| `window button` | Buttons anywhere inside a window |
+| `button:nth(2)` | The 2nd button match |
+
+## Supported Actions
+
+| Action | Description |
+| --- | --- |
+| `press` | Click / activate |
+| `focus` / `blur` | Move or remove keyboard focus |
+| `toggle` | Toggle a checkbox or switch |
+| `expand` / `collapse` | Expand or collapse a disclosure |
+| `select` | Select an item |
+| `set_value` | Set a text field's value |
+| `type_text` | Type text into an element |
+| `increment` / `decrement` | Adjust a slider or stepper |
+| `show_menu` | Open a context menu |
+
+## Platform Support
+
+| Platform | Backend |
+| --- | --- |
+| macOS | AXUIElement |
+| Linux | AT-SPI2 (D-Bus) |
+| Windows | UI Automation |
+
+## Contributing
+
+```bash
+git clone https://github.com/xa11y/xa11y && cd xa11y
+cargo build --workspace
+cargo xtask check   # fmt, lint, test, python bindings
+```
+
+See the [development docs](https://xa11y.dev/explanation/design/) for architecture and setup.
+
+## License
+
+MIT. All dependencies are permissively licensed (MIT, Apache-2.0, BSD, or similar), enforced via `cargo-deny`.
+

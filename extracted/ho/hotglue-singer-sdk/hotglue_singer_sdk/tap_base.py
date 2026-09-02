@@ -1,0 +1,920 @@
+"""Tap abstract class."""
+
+import abc
+import json
+import sys
+import threading
+import traceback
+from enum import Enum
+from pathlib import Path, PurePath
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, Set, cast
+
+import click
+
+from hotglue_singer_sdk.cli import common_options
+from hotglue_singer_sdk.exceptions import MaxRecordsLimitException
+from hotglue_singer_sdk.helpers import _state
+from hotglue_singer_sdk.helpers._classproperty import classproperty
+from hotglue_singer_sdk.helpers._compat import final
+from hotglue_singer_sdk.helpers._singer import Catalog
+from hotglue_singer_sdk.helpers._state import write_stream_state
+from hotglue_singer_sdk.helpers._util import read_json_file
+from hotglue_singer_sdk.helpers.capabilities import (
+    AlertingLevel,
+    CapabilitiesEnum,
+    PluginCapabilities,
+    TapCapabilities,
+)
+from hotglue_singer_sdk.mapper import PluginMapper
+from hotglue_singer_sdk.plugin_base import PluginBase
+from hotglue_singer_sdk.streams import SQLStream, Stream
+# this import is used by taps, we need to fix those before removing it
+from hotglue_etl_exceptions import InvalidCredentialsError # noqa: F401
+
+STREAM_MAPS_CONFIG = "stream_maps"
+
+
+class CliTestOptionValue(Enum):
+    """Values for CLI option --test."""
+
+    All = "all"
+    Schema = "schema"
+    Disabled = False
+
+
+class Tap(PluginBase, metaclass=abc.ABCMeta):
+    """Abstract base class for taps.
+
+    The Tap class governs configuration, validation, and stream discovery for tap
+    plugins.
+    """
+
+    # Constructor
+
+    def __init__(
+        self,
+        config: Optional[Union[dict, PurePath, str, List[Union[PurePath, str]]]] = None,
+        catalog: Union[PurePath, str, dict, Catalog, None] = None,
+        state: Union[PurePath, str, dict, None] = None,
+        parse_env_config: bool = False,
+        validate_config: bool = True,
+    ) -> None:
+        """Initialize the tap.
+
+        Args:
+            config: Tap configuration. Can be a dictionary, a single path to a
+                configuration file, or a list of paths to multiple configuration
+                files.
+            catalog: Tap catalog. Can be a dictionary or a path to the catalog file.
+            state: Tap state. Can be dictionary or a path to the state file.
+            parse_env_config: Whether to look for configuration values in environment
+                variables.
+            validate_config: True to require validation of config settings.
+        """
+        super().__init__(
+            config=config,
+            parse_env_config=parse_env_config,
+            validate_config=validate_config,
+        )
+
+        # Declare private members
+        self._streams: Optional[Dict[str, Stream]] = None
+        self._input_catalog: Optional[Catalog] = None
+        self._state: Dict[str, Stream] = {}
+        self._catalog: Optional[Catalog] = None  # Tap's working catalog
+        self._selected_filters: Optional[dict] = None
+        if isinstance(config, (list, tuple)) and config:
+            self.config_file = config[0]
+        elif isinstance(config, (str, PurePath)):
+            self.config_file = config
+        else:
+            self.config_file = None
+
+        if catalog is not None:
+            self.register_streams_from_catalog(catalog)
+        if state is not None:
+            self.register_state_from_file(state)
+
+    def register_streams_from_catalog(self, catalog):
+        if isinstance(catalog, Catalog):
+            self._input_catalog = catalog
+        elif isinstance(catalog, dict):
+            self._input_catalog = Catalog.from_dict(catalog)
+        elif catalog is not None:
+            self._input_catalog = Catalog.from_dict(read_json_file(catalog))
+
+        self._catalog = None
+        
+        # Initialize mapper
+        self.mapper: PluginMapper
+        self.mapper = PluginMapper(
+            plugin_config=dict(self.config),
+            logger=self.logger,
+        )
+
+        self.mapper.register_raw_streams_from_catalog(self.catalog)
+
+
+    def register_state_from_file(self, state):
+        state_dict: dict = {}
+        if isinstance(state, dict):
+            state_dict = state
+        elif state:
+            state_dict = read_json_file(state)
+        self.load_state(state_dict)
+
+    def load_selected_filters_from_file(self, selected_filters):
+        self._selected_filters = read_json_file(selected_filters)
+        self.logger.info(f"Loaded selected filters: {self._selected_filters}")
+
+
+    # Class properties
+
+    @property
+    def streams(self) -> Dict[str, Stream]:
+        """Get streams discovered or catalogued for this tap.
+
+        Results will be cached after first execution.
+
+        Returns:
+            A mapping of names to streams, using discovery or a provided catalog.
+        """
+        input_catalog = self.input_catalog
+
+        if self._streams is None:
+            self._streams = {}
+            for stream in self.load_streams():
+                if input_catalog is not None:
+                    stream.apply_catalog(input_catalog)
+                self._streams[stream.name] = stream
+        return self._streams
+
+    @property
+    def state(self) -> dict:
+        """Get tap state.
+
+        Returns:
+            The tap's state dictionary
+
+        Raises:
+            RuntimeError: If state has not been initialized.
+        """
+        if self._state is None:
+            raise RuntimeError("Could not read from uninitialized state.")
+        return self._state
+
+    @property
+    def input_catalog(self) -> Optional[Catalog]:
+        """Get the catalog passed to the tap.
+
+        Returns:
+            Catalog dictionary input, or None if not provided.
+        """
+        return self._input_catalog
+
+    @property
+    def catalog(self) -> Catalog:
+        """Get the tap's working catalog.
+
+        Returns:
+            A Singer catalog object.
+        """
+        if self._catalog is None:
+            self._catalog = self.input_catalog or self._singer_catalog
+
+        return self._catalog
+
+    @classproperty
+    def capabilities(self) -> List[CapabilitiesEnum]:
+        """Get tap capabilities.
+
+        Returns:
+            A list of capabilities supported by this tap.
+        """
+        capabilities = [
+            TapCapabilities.CATALOG,
+            TapCapabilities.STATE,
+            TapCapabilities.DISCOVER,
+            PluginCapabilities.ABOUT,
+            PluginCapabilities.STREAM_MAPS,
+            PluginCapabilities.FLATTENING,
+            PluginCapabilities.HOTGLUE_EXCEPTIONS_CLASSES,
+        ]
+
+        if self.confirm_fetch_access_token_support():
+            capabilities.append(PluginCapabilities.ALLOWS_FETCH_ACCESS_TOKEN)
+        return capabilities
+
+    # Connection test:
+
+    @final
+    def run_connection_test(self) -> bool:
+        """Run connection test.
+
+        Returns:
+            True if the test succeeded.
+        """
+        for stream in self.streams.values():
+            # Initialize streams' record limits before beginning the sync test.
+            stream._MAX_RECORDS_LIMIT = 1
+
+        for stream in self.streams.values():
+            if stream.parent_stream_type:
+                self.logger.debug(
+                    f"Child stream '{type(stream).__name__}' should be called by "
+                    f"parent stream '{stream.parent_stream_type.__name__}'. "
+                    "Skipping direct invocation."
+                )
+                continue
+            try:
+                stream.sync()
+            except MaxRecordsLimitException:
+                pass
+        return True
+
+    @final
+    def write_schemas(self) -> None:
+        """Write a SCHEMA message for all known streams to STDOUT."""
+        for stream in self.streams.values():
+            stream._write_schema_message()
+
+    # Stream detection:
+
+    def run_discovery(self) -> str:
+        """Write the catalog json to STDOUT and return as a string.
+
+        Returns:
+            The catalog as a string of JSON.
+        """
+        catalog_text = self.catalog_json_text
+        print(catalog_text)
+        return catalog_text
+
+    @property
+    def catalog_dict(self) -> dict:
+        """Get catalog dictionary.
+
+        Returns:
+            The tap's catalog as a dict
+        """
+        return cast(dict, self._singer_catalog.to_dict())
+
+    @property
+    def catalog_json_text(self) -> str:
+        """Get catalog JSON.
+
+        Returns:
+            The tap's catalog as formatted JSON text.
+        """
+        return json.dumps(self.catalog_dict, indent=2)
+
+    @property
+    def _singer_catalog(self) -> Catalog:
+        """Return a Catalog object.
+
+        Returns:
+            :class:`hotglue_singer_sdk.helpers._singer.Catalog`.
+        """
+        return Catalog(
+            (stream.tap_stream_id, stream._singer_catalog_entry)
+            for stream in self.streams.values()
+        )
+
+    def discover_streams(self) -> List[Stream]:
+        """Initialize all available streams and return them as a list.
+
+        Return:
+            List of discovered Stream objects.
+
+        Raises:
+            NotImplementedError: If the tap implementation does not override this
+                method.
+        """
+        raise NotImplementedError(
+            f"Tap '{self.name}' does not support discovery. "
+            "Please set the '--catalog' command line argument and try again."
+        )
+
+    @classmethod
+    def update_access_token(cls, authenticator, auth_endpoint, tap) -> None:
+        """Update the access token.
+
+        Returns:
+            None
+        """
+
+        # If the tap has a use_auth_dummy_stream method, use it to create a dummy stream
+        # normally used for taps with dynamic catalogs
+        class DummyStream:
+            def __init__(self, tap):
+                self._tap = tap
+                self.logger = tap.logger
+                self.tap_name = tap.name
+                self.config = tap.config
+
+        stream = DummyStream(tap)
+        auth = authenticator(
+            stream=stream,
+            config_file=tap.config_file,
+            auth_endpoint=auth_endpoint,
+        )
+
+        # Update the access token
+        if not auth.is_token_valid():
+            auth.update_access_token_locally()
+
+    @final
+    def load_streams(self) -> List[Stream]:
+        """Load streams from discovery and initialize DAG.
+
+        Return the output of `self.discover_streams()` to enumerate
+        discovered streams.
+
+        Returns:
+            A list of discovered streams, ordered by name.
+        """
+        # Build the parent-child dependency DAG
+
+        # Index streams by type
+        streams_by_type: Dict[Type[Stream], List[Stream]] = {}
+        for stream in self.discover_streams():
+            stream_type = type(stream)
+            if stream_type not in streams_by_type:
+                streams_by_type[stream_type] = []
+            streams_by_type[stream_type].append(stream)
+
+        # Initialize child streams list for parents
+        for stream_type, streams in streams_by_type.items():
+            if stream_type.parent_stream_type:
+                parents = streams_by_type[stream_type.parent_stream_type]
+                for parent in parents:
+                    for stream in streams:
+                        parent.child_streams.append(stream)
+                        self.logger.info(
+                            f"Added '{stream.name}' as child stream to '{parent.name}'"
+                        )
+
+        streams = [stream for streams in streams_by_type.values() for stream in streams]
+        return sorted(
+            streams,
+            key=lambda x: x.name,
+            reverse=False,
+        )
+
+    # Bookmarks and state management
+
+    def load_state(self, state: Dict[str, Any]) -> None:
+        """Merge or initialize stream state with the provided state dictionary input.
+
+        Override this method to perform validation and backwards-compatibility patches
+        on self.state. If overriding, we recommend first running
+        `super().load_state(state)` to ensure compatibility with the SDK.
+
+        Args:
+            state: Initialize the tap's state with this value.
+
+        Raises:
+            ValueError: If the tap's own state is None, meaning it has not been
+                initialized.
+        """
+        if self.state is None:
+            raise ValueError("Cannot write to uninitialized state dictionary.")
+
+        for stream_name, stream_state in state.get("bookmarks", {}).items():
+            if not isinstance(stream_state, dict):
+                self.logger.debug(
+                    "Skipping non-dict bookmark for stream '%s': %r",
+                    stream_name,
+                    stream_state,
+                )
+                continue
+            for key, val in stream_state.items():
+                write_stream_state(
+                    self.state,
+                    stream_name,
+                    key,
+                    val,
+                )
+
+    # State handling
+
+    def _reset_state_progress_markers(self) -> None:
+        """Clear prior jobs' progress markers at beginning of sync."""
+        for _, state in self.state.get("bookmarks", {}).items():
+            _state.reset_state_progress_markers(state)
+            for partition_state in state.get("partitions", []):
+                _state.reset_state_progress_markers(partition_state)
+
+    # Fix sync replication method incompatibilities
+
+    def _set_compatible_replication_methods(self) -> None:
+        stream: Stream
+        for stream in self.streams.values():
+            for descendent in stream.descendent_streams:
+                if descendent.selected and descendent.ignore_parent_replication_key:
+                    self.logger.warning(
+                        f"Stream descendent '{descendent.name}' is selected and "
+                        f"its parent '{stream.name}' does not use inclusive "
+                        f"replication keys. "
+                        f"Forcing full table replication for '{stream.name}'."
+                    )
+                    stream.replication_key = None
+                    stream.forced_replication_method = "FULL_TABLE"
+
+    def _write_estimated_total_metric(self, stream_name: str, estimated_total: int) -> None:
+        """Write a stream's estimated record count to estimated_job_metrics.json."""
+        sync_output_dir = self._config.get("hg_sync_output")
+        metrics_path = Path(sync_output_dir).expanduser() / "estimated_job_metrics.json"
+
+        try:
+            content = json.loads(metrics_path.read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            content = {}
+
+        estimated_totals = content.setdefault("estimatedRecordCount", {})
+        estimated_totals[stream_name] = estimated_total
+
+        self.logger.info(
+            "Writing estimated total metric stream='%s' total=%s path='%s'",
+            stream_name,
+            estimated_total,
+            metrics_path.resolve(),
+        )
+
+        tmp_path = metrics_path.with_suffix(f"{metrics_path.suffix}.tmp")
+        tmp_path.write_text(json.dumps(content))
+        tmp_path.replace(metrics_path)
+
+    def _emit_estimated_record_totals_snapshot(self) -> None:
+        """Emit estimated record totals before sync begins.
+
+        Streams that support pre-sync count estimation should override
+        :meth:`~hotglue_singer_sdk.streams.core.Stream.get_estimated_record_count`.
+        """
+        init_log_emitted = False
+        self._prepare_state_and_replication_methods()
+        stream: "Stream"
+        for stream in self.streams.values():
+            if not stream.selected:
+                continue
+
+            if stream.parent_stream_type:
+                #mirrors sync_all logic, children are not invoked directly
+                continue
+
+            try:
+                stream._write_starting_replication_value(None)
+                total_records = stream.get_estimated_record_count()
+                if total_records is None:
+                    continue
+
+                if not init_log_emitted:
+                    self.logger.info("Starting estimated record totals snapshot.")
+                    init_log_emitted = True
+
+                self.logger.info(
+                    "Estimated records for stream='%s': %s",
+                    stream.name,
+                    total_records,
+                )
+                self._write_estimated_total_metric(stream.name, total_records)
+            except Exception as exc:
+                self.logger.warning(
+                    "Failed to collect pre-sync total for stream '%s': %s",
+                    stream.name,
+                    exc,
+                )
+
+        if init_log_emitted:
+            self.logger.info("Finished estimated record totals snapshot.")
+
+    # Sync methods
+    def _prepare_state_and_replication_methods(self) -> None:
+        """Prepare stream state and replication methods before a tap run."""
+        self._reset_state_progress_markers()
+        self._set_compatible_replication_methods()
+
+    def run_sync(self, catalog: Any = None, state: Any = None) -> None:
+        """Run the tap's sync operation.
+
+        Subclasses that don't use standard Singer streams (e.g. file-based taps)
+        can override this method to implement custom sync logic.
+        """
+        self.register_streams_from_catalog(catalog)
+        self.register_state_from_file(state)
+        self._emit_estimated_record_totals_snapshot()
+        self.sync_all()
+
+    @final
+    def sync_all(self) -> None:
+        """Sync all streams."""
+        self._prepare_state_and_replication_methods()
+        stream: "Stream"
+        for stream in self.streams.values():
+            if not stream.selected and not stream.has_selected_descendents:
+                self.logger.info(f"Skipping deselected stream '{stream.name}'.")
+                continue
+
+            if stream.parent_stream_type:
+                self.logger.debug(
+                    f"Child stream '{type(stream).__name__}' is expected to be called "
+                    f"by parent stream '{stream.parent_stream_type.__name__}'. "
+                    "Skipping direct invocation."
+                )
+                continue
+
+            stream.sync()
+            stream.finalize_state_progress_markers()
+
+        # this second loop is needed for all streams to print out their costs
+        # including child streams which are otherwise skipped in the loop above
+        for stream in self.streams.values():
+            stream.log_sync_costs()
+
+    # Get Available Filters methods
+    
+    @property
+    def available_filters_version(self) -> str:
+        """Get the version of the available filters."""
+        return "1.0.0"
+
+    def extract_reference_data_fields_metadata(self, streams_filters_metadata: Dict[str, Any]) -> Dict[str, Set[str]]:
+        """Parse streams_filters_metadata into stream names and fields.
+
+        Options may reference e.g. ``reference_data.vendors.vendor_id``;
+        
+        Returns a dictionary with the stream name as the key and a set of fields as the value.
+        Example:
+        {
+            "vendor": {"vendor_id", "vendor_name"},
+            "customer": {"customer_id", "customer_name"},
+        }
+        """
+        reference_data_metadata: Dict[str, Set[str]] = {}
+        for stream_entry in streams_filters_metadata.values():
+            if not isinstance(stream_entry, dict):
+                continue
+            filters = stream_entry.get("filters") or {}
+            for filter_entry in filters.values():
+                if not isinstance(filter_entry, dict):
+                    continue
+                options = filter_entry.get("options")
+                if isinstance(options, str) and options.startswith("reference_data."):
+                    reference_data_path = options.split(".")
+                    if len(reference_data_path) != 3:
+                        raise ValueError(f"Invalid reference_data path: {options}")
+                    stream_name = reference_data_path[1]
+                    field_name = reference_data_path[2]
+                    if stream_name not in reference_data_metadata:
+                        reference_data_metadata[stream_name] = set()
+                    reference_data_metadata[stream_name].add(field_name)
+        return reference_data_metadata
+
+    def load_available_filters_reference_data(self, stream_name_to_fields: Dict[str, Set[str]]) -> Dict[str, Any]:
+        """Load reference data for the streams.
+
+        Args:
+            stream_name_to_fields: A dictionary with the stream name as the key and a set of fields as the value.
+
+        Returns:
+            A dictionary with the stream name as the key and a list of dictionaries as the value.
+            The dictionaries are the records from the stream.
+            The records fields are filtered to only include the fields in the `fields` set.
+        """
+        reference_data: Dict[str, Any] = {}
+        for stream_name, fields in stream_name_to_fields.items():
+            if stream_name not in self.streams.keys():
+                raise Exception(f"Tried to fetch reference data for stream '{stream_name}' but it was not found in catalog.")
+            stream = self.streams[stream_name]
+            stream_reference_data = stream.get_available_filters_reference_data(fields)
+            reference_data[stream_name] = stream_reference_data
+        return reference_data
+
+    def get_available_filters(self, catalog: Any = None) -> None:
+        """Build available-filters JSON and print it to stdout."""
+        if catalog is None:
+            raise Exception("Catalog is required to get available filters.")
+        self.register_streams_from_catalog(catalog)
+
+        self.logger.info(f"Getting available filters for '{self.name}'.")
+
+        streams_filters_metadata: Dict[str, Any] = {}
+        for stream_name in sorted(self.streams.keys()):
+            stream = self.streams[stream_name]
+            if not stream.selected:
+                continue
+            stream_available_filters_metadata = stream.get_available_filters_metadata()
+            if stream_available_filters_metadata:
+                streams_filters_metadata[stream_name] = stream_available_filters_metadata
+        
+        reference_data_fields_metadata = self.extract_reference_data_fields_metadata(streams_filters_metadata)
+        reference_data = self.load_available_filters_reference_data(reference_data_fields_metadata)
+        payload = {
+            "filters_version": self.available_filters_version,
+            "reference_data": reference_data,
+            "streams": streams_filters_metadata,
+        }
+        sys.stdout.write(json.dumps(payload, indent=2))
+        sys.stdout.flush()
+
+    @classproperty
+    def cli(cls) -> Callable:
+        """Execute standard CLI handler for taps.
+
+        Returns:
+            A callable CLI object.
+        """
+
+        @common_options.PLUGIN_VERSION
+        @common_options.PLUGIN_ABOUT
+        @common_options.PLUGIN_ABOUT_FORMAT
+        @common_options.PLUGIN_CONFIG
+        @click.option(
+            "--discover",
+            is_flag=True,
+            help="Run the tap in discovery mode.",
+        )
+        @click.option(
+            "--test",
+            is_flag=False,
+            flag_value=CliTestOptionValue.All.value,
+            default=CliTestOptionValue.Disabled,
+            help=(
+                "Use --test to sync a single record for each stream. "
+                + "Use --test=schema to test schema output without syncing "
+                + "records."
+            ),
+        )
+        @click.option(
+            "--catalog",
+            "--properties",
+            help="Use a Singer catalog file with the tap.",
+            type=click.Path(),
+        )
+        @click.option(
+            "--state",
+            help="Use a bookmarks file for incremental replication.",
+            type=click.Path(),
+        )
+        @click.option(
+            "--access-token",
+            "access_token",
+            is_flag=True,
+            help="Refresh the OAuth access token and update the config file.",
+        )
+        @click.option(
+            "--get-available-filters",
+            help="Get available filters for the tap.",
+            is_flag=True,
+        )
+        @click.option(
+            "--selected-filters",
+            help="Selected filters file location.",
+            type=click.Path(),
+        )
+        @click.command(
+            help="Execute the Singer tap.",
+            context_settings={"help_option_names": ["--help"]},
+        )
+        def cli(
+            version: bool = False,
+            about: bool = False,
+            discover: bool = False,
+            test: CliTestOptionValue = CliTestOptionValue.Disabled,
+            config: Tuple[str, ...] = (),
+            state: str = None,
+            catalog: str = None,
+            format: str = None,
+            access_token: bool = False,
+            get_available_filters: bool = False,
+            selected_filters: str = None,
+        ) -> None:
+            """Handle command line execution.
+
+            Args:
+                version: Display the package version.
+                about: Display package metadata and settings.
+                discover: Run the tap in discovery mode.
+                test: Test connectivity by syncing a single record and exiting.
+                format: Specify output style for `--about`.
+                config: Configuration file location or 'ENV' to use environment
+                    variables. Accepts multiple inputs as a tuple.
+                catalog: Use a Singer catalog file with the tap.",
+                state: Use a bookmarks file for incremental replication.
+                access_token: Refresh the OAuth access token and update the config.
+
+            Raises:
+                FileNotFoundError: If the config file does not exist.
+            """
+            if version:
+                cls.print_version()
+                return
+
+            if not about:
+                cls.print_version(print_fn=cls.logger.info)
+            else:
+                cls.print_about(format=format)
+                return
+
+            validate_config: bool = True
+            if discover:
+                # Don't abort on validation failures
+                validate_config = False
+
+            parse_env_config = False
+            config_files: List[PurePath] = []
+            for config_path in config:
+                if config_path == "ENV":
+                    # Allow parse from env vars:
+                    parse_env_config = True
+                    continue
+
+                # Validate config file paths before adding to list
+                if not Path(config_path).is_file():
+                    raise FileNotFoundError(
+                        f"Could not locate config file at '{config_path}'."
+                        "Please check that the file exists."
+                    )
+
+                config_files.append(Path(config_path))
+
+            tap = cls(  # type: ignore  # Ignore 'type not callable'
+                config=config_files or None,
+                state=state,
+                catalog=catalog,
+                parse_env_config=parse_env_config,
+                validate_config=validate_config,
+            )
+
+            if selected_filters is not None:
+                tap.load_selected_filters_from_file(selected_filters)
+
+            if access_token:
+                return cls.fetch_access_token(connector=tap)
+
+            if discover:
+                tap.register_streams_from_catalog(catalog)
+                tap.register_state_from_file(state)
+                tap.run_discovery()
+                if test == CliTestOptionValue.All.value:
+                    tap.run_connection_test()
+            elif get_available_filters:
+                tap.get_available_filters(catalog)
+            elif test == CliTestOptionValue.All.value:
+                tap.run_connection_test()
+            elif test == CliTestOptionValue.Schema.value:
+                tap.write_schemas()
+            else:
+                tap.run_sync(catalog=catalog, state=state)
+
+        return cli
+
+
+class SQLTap(Tap):
+    """A specialized Tap for extracting from SQL streams."""
+
+    # Stream class used to initialize new SQL streams from their catalog declarations.
+    default_stream_class: Type[SQLStream]
+
+    def __init__(
+        self,
+        config: Optional[Union[dict, PurePath, str, List[Union[PurePath, str]]]] = None,
+        catalog: Union[PurePath, str, dict, None] = None,
+        state: Union[PurePath, str, dict, None] = None,
+        parse_env_config: bool = False,
+        validate_config: bool = True,
+    ) -> None:
+        """Initialize the SQL tap.
+
+        The SQLTap initializer additionally creates a cache variable for _catalog_dict.
+
+        Args:
+            config: Tap configuration. Can be a dictionary, a single path to a
+                configuration file, or a list of paths to multiple configuration
+                files.
+            catalog: Tap catalog. Can be a dictionary or a path to the catalog file.
+            state: Tap state. Can be dictionary or a path to the state file.
+            parse_env_config: Whether to look for configuration values in environment
+                variables.
+            validate_config: True to require validation of config settings.
+        """
+        self._catalog_dict: Optional[dict] = None
+        super().__init__(
+            config=config,
+            catalog=catalog,
+            state=state,
+            parse_env_config=parse_env_config,
+            validate_config=validate_config,
+        )
+
+    @property
+    def catalog_dict(self) -> dict:
+        """Get catalog dictionary.
+
+        Returns:
+            The tap's catalog as a dict
+        """
+        if self._catalog_dict:
+            return self._catalog_dict
+
+        if self.input_catalog:
+            return self.input_catalog.to_dict()
+
+        connector = self.default_stream_class.connector_class(dict(self.config))
+
+        result: Dict[str, List[dict]] = {"streams": []}
+        result["streams"].extend(connector.discover_catalog_entries())
+
+        self._catalog_dict = result
+        return self._catalog_dict
+
+    def discover_streams(self) -> List[Stream]:
+        """Initialize all available streams and return them as a list.
+
+        Returns:
+            List of discovered Stream objects.
+        """
+        result: List[Stream] = []
+        for catalog_entry in self.catalog_dict["streams"]:
+            result.append(self.default_stream_class(self, catalog_entry))
+
+        return result
+
+
+def extract_tap_instance_from_traceback(exc_traceback):
+    tb = exc_traceback
+    tap_instance = None
+    while tb is not None:
+        if "self" in tb.tb_frame.f_locals:
+            if isinstance(tb.tb_frame.f_locals['self'], Tap):
+                tap_instance = tb.tb_frame.f_locals['self']
+                break
+        tb = tb.tb_next
+    return tap_instance
+
+
+def custom_hotglue_tap_exception_handling(exc_type, exc_value, exc_traceback):
+    """
+    Global handler for all unhandled exceptions.
+    """
+    # if the exception is not derived from Exception we don't wanna log it
+    # example: KeyboardInterrupt, SystemExit, etc.
+    if not issubclass(exc_type, Exception):
+        # use the default hook to print to stderr
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    try:
+        tap_instance = extract_tap_instance_from_traceback(exc_traceback)
+
+        exc_type_name = exc_type.__name__
+        exc_message = str(exc_value) if exc_value else None
+        formatted_traceback = "".join(traceback.format_tb(exc_traceback)) if exc_traceback else None
+        alerting_level = AlertingLevel.ERROR
+
+        if tap_instance and hasattr(tap_instance, "exception_alerting_level_map"):
+            override_alerting_level_exceptions = tap_instance.exception_alerting_level_map.keys()
+            override_alerting_level_exception = next((exception for exception in override_alerting_level_exceptions if issubclass(exc_type, exception)), None)
+
+            if override_alerting_level_exception:
+                alerting_level = tap_instance.exception_alerting_level_map[override_alerting_level_exception]
+
+        exc_json = {
+            "exception_name": exc_type_name,
+            "exception_message": exc_message,
+            "exception_traceback": formatted_traceback,
+            "alerting_level": alerting_level.value,
+        }
+
+        current_thread_id = threading.get_ident()
+
+        with open(f"hg-tap-exception-{current_thread_id}.json", "w") as f:
+            f.write(json.dumps(exc_json, indent=2))
+    except Exception:
+        # we don't want to raise exceptions from this hook
+        pass
+
+    # use the default hook to print to stderr
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+
+def install_thread_excepthook():
+    """
+    Workaround for uncaught exceptions in threads.
+    """
+    run_old = threading.Thread.run
+    def run(*args, **kwargs):
+        try:
+            run_old(*args, **kwargs)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
+            raise
+    threading.Thread.run = run
+
+
+# only install the custom exception handler if we are running a tap
+if len(sys.argv) > 0 and "tap" in sys.argv[0]:
+    # Install the custom exception handler for main thread
+    sys.excepthook = custom_hotglue_tap_exception_handling
+    # Install the custom exception handler for threads
+    install_thread_excepthook()

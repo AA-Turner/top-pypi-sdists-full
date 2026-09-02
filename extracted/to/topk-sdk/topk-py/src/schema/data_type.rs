@@ -1,0 +1,284 @@
+use std::collections::HashMap;
+
+use pyo3::prelude::*;
+
+use topk_rs::proto::v1::control::field_type_list::ListValueType as ListValueTypePb;
+use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType as MatrixValueTypePb;
+
+use crate::data::unknown::UNSUPPORTED;
+use crate::schema::field_spec::FieldSpec;
+
+#[pyclass(eq)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum DataType {
+    Text(),
+    Integer(),
+    Float(),
+    Boolean(),
+    F8Vector {
+        dimension: u32,
+    },
+    F16Vector {
+        dimension: u32,
+    },
+    F32Vector {
+        dimension: u32,
+    },
+    U8Vector {
+        dimension: u32,
+    },
+    I8Vector {
+        dimension: u32,
+    },
+    BinaryVector {
+        dimension: u32,
+    },
+    F32SparseVector(),
+    F16SparseVector(),
+    F8SparseVector(),
+    I8SparseVector(),
+    U8SparseVector(),
+    Bytes(),
+    Timestamp(),
+    List {
+        value_type: ListValueType,
+    },
+    Struct {
+        fields: HashMap<String, FieldSpec>,
+    },
+    Matrix {
+        dimension: u32,
+        value_type: MatrixValueType,
+    },
+    Unknown(),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[pyclass(eq, eq_int)]
+pub enum ListValueType {
+    Text,
+    Integer,
+    Float,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[pyclass(eq, eq_int)]
+pub enum MatrixValueType {
+    F32,
+    F16,
+    F8,
+    U8,
+    I8,
+}
+
+impl From<MatrixValueType> for topk_rs::proto::v1::control::field_type_matrix::MatrixValueType {
+    fn from(value: MatrixValueType) -> Self {
+        match value {
+            MatrixValueType::F32 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F32
+            }
+            MatrixValueType::F16 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F16
+            }
+            MatrixValueType::F8 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F8
+            }
+            MatrixValueType::U8 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::U8
+            }
+            MatrixValueType::I8 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::I8
+            }
+        }
+    }
+}
+
+impl From<ListValueType> for topk_rs::proto::v1::control::FieldTypeList {
+    fn from(value: ListValueType) -> Self {
+        match value {
+            ListValueType::Integer => topk_rs::proto::v1::control::FieldTypeList {
+                value_type: topk_rs::proto::v1::control::field_type_list::ListValueType::Integer
+                    as i32,
+            },
+            ListValueType::Float => topk_rs::proto::v1::control::FieldTypeList {
+                value_type: topk_rs::proto::v1::control::field_type_list::ListValueType::Float
+                    as i32,
+            },
+            ListValueType::Text => topk_rs::proto::v1::control::FieldTypeList {
+                value_type: topk_rs::proto::v1::control::field_type_list::ListValueType::String
+                    as i32,
+            },
+        }
+    }
+}
+
+impl Into<topk_rs::proto::v1::control::field_type::DataType> for DataType {
+    fn into(self) -> topk_rs::proto::v1::control::field_type::DataType {
+        match self {
+            DataType::Integer() => topk_rs::proto::v1::control::field_type::DataType::integer(),
+            DataType::Float() => topk_rs::proto::v1::control::field_type::DataType::float(),
+            DataType::Text() => topk_rs::proto::v1::control::field_type::DataType::text(),
+            DataType::Boolean() => topk_rs::proto::v1::control::field_type::DataType::bool(),
+            DataType::F8Vector { dimension } => {
+                topk_rs::proto::v1::control::field_type::DataType::f8_vector(dimension)
+            }
+            DataType::F16Vector { dimension } => {
+                topk_rs::proto::v1::control::field_type::DataType::f16_vector(dimension)
+            }
+            DataType::F32Vector { dimension } => {
+                topk_rs::proto::v1::control::field_type::DataType::f32_vector(dimension)
+            }
+            DataType::U8Vector { dimension } => {
+                topk_rs::proto::v1::control::field_type::DataType::u8_vector(dimension)
+            }
+            DataType::I8Vector { dimension } => {
+                topk_rs::proto::v1::control::field_type::DataType::i8_vector(dimension)
+            }
+            DataType::BinaryVector { dimension } => {
+                topk_rs::proto::v1::control::field_type::DataType::binary_vector(dimension)
+            }
+            DataType::F32SparseVector() => {
+                topk_rs::proto::v1::control::field_type::DataType::f32_sparse_vector()
+            }
+            DataType::F16SparseVector() => {
+                topk_rs::proto::v1::control::field_type::DataType::f16_sparse_vector()
+            }
+            DataType::F8SparseVector() => {
+                topk_rs::proto::v1::control::field_type::DataType::f8_sparse_vector()
+            }
+            DataType::I8SparseVector() => {
+                topk_rs::proto::v1::control::field_type::DataType::i8_sparse_vector()
+            }
+            DataType::U8SparseVector() => {
+                topk_rs::proto::v1::control::field_type::DataType::u8_sparse_vector()
+            }
+            DataType::Bytes() => topk_rs::proto::v1::control::field_type::DataType::bytes(),
+            DataType::Timestamp() => {
+                topk_rs::proto::v1::control::field_type::DataType::timestamp()
+            }
+            DataType::List { value_type } => {
+                topk_rs::proto::v1::control::field_type::DataType::List(value_type.into())
+            }
+            DataType::Struct { fields } => {
+                topk_rs::proto::v1::control::field_type::DataType::r#struct(
+                    fields.into_iter().map(|(k, v)| (k, v.into())),
+                )
+            }
+            DataType::Matrix {
+                dimension,
+                value_type,
+            } => topk_rs::proto::v1::control::field_type::DataType::matrix(
+                dimension,
+                value_type.into(),
+            ),
+            DataType::Unknown() => panic!("cannot write an unknown field type: {UNSUPPORTED}"),
+        }
+    }
+}
+
+impl Into<topk_rs::proto::v1::control::FieldType> for DataType {
+    fn into(self) -> topk_rs::proto::v1::control::FieldType {
+        topk_rs::proto::v1::control::FieldType {
+            data_type: Some(self.into()),
+        }
+    }
+}
+
+impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
+    fn from(proto: topk_rs::proto::v1::control::field_type::DataType) -> Self {
+        match proto {
+            topk_rs::proto::v1::control::field_type::DataType::Integer(_) => DataType::Integer(),
+            topk_rs::proto::v1::control::field_type::DataType::Float(_) => DataType::Float(),
+            topk_rs::proto::v1::control::field_type::DataType::Text(_) => DataType::Text(),
+            topk_rs::proto::v1::control::field_type::DataType::Boolean(_) => DataType::Boolean(),
+            topk_rs::proto::v1::control::field_type::DataType::F16Vector(vector) => {
+                DataType::F16Vector {
+                    dimension: vector.dimension,
+                }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F8Vector(vector) => {
+                DataType::F8Vector {
+                    dimension: vector.dimension,
+                }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F32Vector(vector) => {
+                DataType::F32Vector {
+                    dimension: vector.dimension,
+                }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::U8Vector(vector) => {
+                DataType::U8Vector {
+                    dimension: vector.dimension,
+                }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::I8Vector(vector) => {
+                DataType::I8Vector {
+                    dimension: vector.dimension,
+                }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::BinaryVector(vector) => {
+                DataType::BinaryVector {
+                    dimension: vector.dimension,
+                }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F32SparseVector(_) => {
+                DataType::F32SparseVector()
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F16SparseVector(_) => {
+                DataType::F16SparseVector()
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F8SparseVector(_) => {
+                DataType::F8SparseVector()
+            }
+            topk_rs::proto::v1::control::field_type::DataType::I8SparseVector(_) => {
+                DataType::I8SparseVector()
+            }
+            topk_rs::proto::v1::control::field_type::DataType::U8SparseVector(_) => {
+                DataType::U8SparseVector()
+            }
+            topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes(),
+            topk_rs::proto::v1::control::field_type::DataType::Timestamp(_) => {
+                DataType::Timestamp()
+            }
+            topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
+                value_type: match list.value_type() {
+                    ListValueTypePb::Integer => ListValueType::Integer,
+                    ListValueTypePb::Float => ListValueType::Float,
+                    ListValueTypePb::String => ListValueType::Text,
+                    ListValueTypePb::Unspecified => return DataType::Unknown(),
+                },
+            },
+            topk_rs::proto::v1::control::field_type::DataType::Struct(s) => DataType::Struct {
+                fields: s.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            },
+            topk_rs::proto::v1::control::field_type::DataType::Matrix(matrix) => DataType::Matrix {
+                dimension: matrix.dimension,
+                value_type: match matrix.value_type() {
+                    MatrixValueTypePb::F32 => MatrixValueType::F32,
+                    MatrixValueTypePb::F16 => MatrixValueType::F16,
+                    MatrixValueTypePb::F8 => MatrixValueType::F8,
+                    MatrixValueTypePb::U8 => MatrixValueType::U8,
+                    MatrixValueTypePb::I8 => MatrixValueType::I8,
+                    MatrixValueTypePb::Unspecified => return DataType::Unknown(),
+                },
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use topk_rs::proto::v1::control as pb;
+
+    #[rstest]
+    #[case::list_value_type(pb::field_type::DataType::List(pb::FieldTypeList { value_type: 9999 }))]
+    #[case::matrix_value_type(pb::field_type::DataType::Matrix(pb::FieldTypeMatrix {
+        value_type: 9999,
+        ..Default::default()
+    }))]
+    fn unknown_sub_enum_collapses_to_unknown(#[case] proto: pb::field_type::DataType) {
+        assert_eq!(DataType::from(proto), DataType::Unknown());
+    }
+}

@@ -256,12 +256,14 @@ class AutoregressiveWrapper(Module):
         for i in range(seq_len):
             is_first = i == 0
 
+            x = out
+
             if restrict_to_max_seq_len:
                 max_len_exceeded = out.shape[-1] > max_seq_len
 
                 assert not (cache_kv and max_len_exceeded and not self.net.can_cache_kv_outside_max_seq_len), 'the network cannot use cached key values when decoding outside the max sequence length. most likely because you are using absolute positional embedding. you can switch to rotary embeddings to resolve this issue'
 
-                x = out[:, -max_seq_len:]
+                x = x[:, -max_seq_len:]
 
                 if exists(cache):
                     modify_cached_kv(cache, lambda t: t[..., -(max_seq_len - 1):, :])
@@ -329,6 +331,10 @@ class AutoregressiveWrapper(Module):
                 flattened_beam_indices = rearrange(top_beams_indices, 'b beams -> (b beams)')
 
                 out = out[flattened_beam_indices]
+
+                if should_cache:
+                    parent_beam_indices = flattened_beam_indices // beams
+                    modify_cached_kv(cache, lambda t: t[parent_beam_indices])
 
             scores = rearrange(scores, 'b beams -> (b beams)')
 

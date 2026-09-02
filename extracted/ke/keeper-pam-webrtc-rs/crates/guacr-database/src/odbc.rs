@@ -1,0 +1,1316 @@
+use async_trait::async_trait;
+use bytes::Bytes;
+use guacr_handlers::{
+    send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
+    KeepAliveManager, ProtocolHandler, RecordingConfig, VideoOutput,
+    DEFAULT_KEEPALIVE_INTERVAL_SECS,
+};
+use guacr_terminal::QueryResult;
+use log::{debug, info, warn};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
+
+use crate::csv_export::{generate_csv_filename, CsvExporter};
+use crate::handler_helpers::{
+    handle_quit, parse_display_size, render_connection_error, render_connection_success,
+    render_help, send_render, HelpSection,
+};
+use crate::query_executor::{execute_with_timing, QueryExecutor};
+use crate::recording::{
+    finalize_recording, init_recording, record_error_output, record_query_input,
+    record_query_output, send_and_record,
+};
+use crate::security::{
+    check_csv_export_allowed, check_csv_import_allowed, check_query_allowed,
+    DatabaseSecuritySettings,
+};
+
+use std::sync::atomic::AtomicI32;
+
+/// Global stream index counter for unique stream IDs
+static STREAM_INDEX: AtomicI32 = AtomicI32::new(5000);
+
+/// Generic ODBC database handler
+///
+/// Provides interactive SQL terminal access to any ODBC-compatible database.
+/// Covers IBM DB2, SAP HANA, Teradata, Informix, Vertica, Greenplum, Netezza,
+/// and any other database accessible via ODBC drivers.
+///
+/// IMPORTANT: odbc-api is a synchronous library. All ODBC calls are wrapped
+/// in tokio::task::spawn_blocking() to avoid blocking the async runtime.
+pub struct OdbcHandler {
+    config: OdbcConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct OdbcConfig {
+    pub default_port: u16,
+    pub connection_timeout_secs: u64,
+}
+
+impl Default for OdbcConfig {
+    fn default() -> Self {
+        Self {
+            default_port: 5432, // No universal default; PostgreSQL is common for testing
+            connection_timeout_secs: guacr_handlers::DEFAULT_CONNECTION_TIMEOUT_SECS,
+        }
+    }
+}
+
+impl OdbcHandler {
+    pub fn new(config: OdbcConfig) -> Self {
+        Self { config }
+    }
+
+    pub fn with_defaults() -> Self {
+        Self::new(OdbcConfig::default())
+    }
+}
+
+/// Escape a value for use inside `DRIVER={…}` braces.
+/// `}` is doubled to prevent early brace close; `;` is stripped because
+/// legitimate driver names never contain semicolons and it prevents
+/// injection of additional key=value pairs within the driver name.
+fn escape_odbc_driver(s: &str) -> String {
+    s.replace('}', "}}").replace(';', "")
+}
+
+/// Escape a value for a plain ODBC key=value pair.
+/// A `;` would start a new key=value pair; strip it to prevent injection.
+fn escape_odbc_value(s: &str) -> String {
+    s.replace(';', "")
+}
+
+/// Build an ODBC connection string from handler parameters.
+///
+/// Supports three modes (in priority order):
+/// 1. DSN-based: Uses a pre-configured Data Source Name
+/// 2. Raw connection string: Uses a user-provided connection string directly
+/// 3. Component-based: Builds from individual hostname, port, driver, etc.
+pub(crate) fn build_connection_string(
+    params: &HashMap<String, String>,
+    default_port: u16,
+) -> String {
+    if let Some(dsn) = params.get("dsn") {
+        // DSN-based: DSN values use key=value, so escape semicolons.
+        format!(
+            "DSN={};UID={};PWD={}",
+            escape_odbc_value(dsn),
+            escape_odbc_value(params.get("username").map(|s| s.as_str()).unwrap_or("")),
+            escape_odbc_value(params.get("password").map(|s| s.as_str()).unwrap_or(""))
+        )
+    } else if let Some(conn_str) = params.get("connection-string") {
+        // Raw connection string passed through unchanged (admin-controlled).
+        conn_str.clone()
+    } else {
+        // Build from individual components. Each value is escaped for its context.
+        let driver = escape_odbc_driver(
+            params
+                .get("driver")
+                .map(|s| s.as_str())
+                .unwrap_or("PostgreSQL"),
+        );
+        let hostname = escape_odbc_value(
+            params
+                .get("hostname")
+                .map(|s| s.as_str())
+                .unwrap_or("localhost"),
+        );
+        let default_port_str = default_port.to_string();
+        let port = escape_odbc_value(
+            params
+                .get("port")
+                .map(|s| s.as_str())
+                .unwrap_or(&default_port_str),
+        );
+        let database = escape_odbc_value(params.get("database").map(|s| s.as_str()).unwrap_or(""));
+        let username = escape_odbc_value(params.get("username").map(|s| s.as_str()).unwrap_or(""));
+        let password = escape_odbc_value(params.get("password").map(|s| s.as_str()).unwrap_or(""));
+
+        format!(
+            "DRIVER={{{}}};SERVER={};PORT={};DATABASE={};UID={};PWD={}",
+            driver, hostname, port, database, username, password
+        )
+    }
+}
+
+/// Validate that a connection parameter value does not contain dangerous ODBC keywords.
+///
+/// User-controlled parameter values must not contain keywords that can override
+/// critical ODBC settings. The dangerous keywords are:
+/// - `DRIVER=` — overrides the ODBC driver
+/// - `FILEDSN=` — redirects to an attacker-controlled DSN file
+/// - `SAVEFILE=` — writes credentials to disk
+///
+/// Returns `Ok(())` if the value is safe, or `Err(reason)` if it should be rejected.
+pub(crate) fn validate_connection_string_param(value: &str) -> Result<(), String> {
+    let upper = value.to_uppercase();
+    let dangerous = ["DRIVER=", "FILEDSN=", "SAVEFILE="];
+    for keyword in &dangerous {
+        if upper.contains(keyword) {
+            return Err(format!(
+                "parameter value contains forbidden keyword '{}'",
+                keyword.trim_end_matches('=')
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Redact password from a connection string for safe logging.
+pub(crate) fn redact_connection_string(conn_str: &str) -> String {
+    let mut result = conn_str.to_string();
+    // Case-insensitive search for PWD=
+    if let Some(pwd_start) = result.to_uppercase().find("PWD=") {
+        let after_pwd = pwd_start + 4;
+        let pwd_end = result[after_pwd..]
+            .find(';')
+            .map(|pos| after_pwd + pos)
+            .unwrap_or(result.len());
+        result.replace_range(after_pwd..pwd_end, "***");
+    }
+    result
+}
+
+/// Check if an SQL statement is a modifying operation.
+///
+/// This supplements the shared security module's classifier with additional
+/// database-vendor-specific keywords that ODBC-connected databases may use.
+pub(crate) fn is_sql_modifying_command(query: &str) -> bool {
+    let trimmed = query.trim().to_uppercase();
+    let first_word = trimmed.split_whitespace().next().unwrap_or("");
+    matches!(
+        first_word,
+        "INSERT"
+            | "UPDATE"
+            | "DELETE"
+            | "DROP"
+            | "TRUNCATE"
+            | "ALTER"
+            | "CREATE"
+            | "GRANT"
+            | "REVOKE"
+            | "MERGE"
+            | "UPSERT"
+            | "REPLACE"
+            | "RENAME"
+            | "CALL"
+            | "EXEC"
+            | "EXECUTE"
+    )
+}
+
+/// Execute an SQL query via ODBC and return a QueryResult.
+///
+/// This function runs synchronously inside spawn_blocking because odbc-api
+/// is not async. The Environment is created per-call to avoid Send/Sync issues
+/// with ODBC handles.
+async fn execute_odbc_query(
+    connection_string: String,
+    query: String,
+) -> Result<QueryResult, String> {
+    tokio::task::spawn_blocking(move || {
+        use odbc_api::buffers::TextRowSet;
+        use odbc_api::{ConnectionOptions, Cursor, Environment, ResultSetMetadata};
+
+        let env = Environment::new().map_err(|e| format!("ODBC environment error: {}", e))?;
+
+        let conn = env
+            .connect_with_connection_string(&connection_string, ConnectionOptions::default())
+            .map_err(|e| format!("ODBC connection error: {}", e))?;
+
+        let maybe_cursor = conn
+            .execute(&query, (), None)
+            .map_err(|e| format!("ODBC query error: {}", e))?;
+
+        match maybe_cursor {
+            Some(mut cursor) => {
+                // Get column count
+                let num_cols = cursor
+                    .num_result_cols()
+                    .map_err(|e| format!("Column count error: {}", e))?
+                    as u16;
+
+                if num_cols == 0 {
+                    return Ok(QueryResult {
+                        columns: vec!["Result".to_string()],
+                        rows: vec![vec!["OK".to_string()]],
+                        affected_rows: None,
+                        execution_time_ms: None,
+                    });
+                }
+
+                // Get column names
+                let mut columns = Vec::with_capacity(num_cols as usize);
+                for i in 1..=num_cols {
+                    let name = cursor
+                        .col_name(i)
+                        .map_err(|e| format!("Column name error: {}", e))?;
+                    columns.push(if name.is_empty() {
+                        format!("col{}", i)
+                    } else {
+                        name
+                    });
+                }
+
+                // Bind text buffers and fetch rows
+                // batch_size=1000 rows per fetch, max 8192 bytes per field
+                let buffer = TextRowSet::for_cursor(1000, &mut cursor, Some(8192))
+                    .map_err(|e| format!("Buffer allocation error: {}", e))?;
+
+                let mut row_set_cursor = cursor
+                    .bind_buffer(buffer)
+                    .map_err(|e| format!("Buffer bind error: {}", e))?;
+
+                let mut rows: Vec<Vec<String>> = Vec::new();
+
+                while let Some(batch) = row_set_cursor
+                    .fetch()
+                    .map_err(|e| format!("Fetch error: {}", e))?
+                {
+                    for row_idx in 0..batch.num_rows() {
+                        let mut row: Vec<String> = Vec::with_capacity(num_cols as usize);
+                        for col_idx in 0..(num_cols as usize) {
+                            let value = match batch.at(col_idx, row_idx) {
+                                Some(bytes) => String::from_utf8_lossy(bytes).to_string(),
+                                None => "NULL".to_string(),
+                            };
+                            row.push(value);
+                        }
+                        rows.push(row);
+                    }
+                }
+
+                Ok(QueryResult {
+                    columns,
+                    rows,
+                    affected_rows: None,
+                    execution_time_ms: None,
+                })
+            }
+            None => {
+                // Non-SELECT statement (INSERT, UPDATE, DELETE, DDL, etc.)
+                Ok(QueryResult {
+                    columns: vec!["Result".to_string()],
+                    rows: vec![vec!["OK".to_string()]],
+                    affected_rows: None,
+                    execution_time_ms: None,
+                })
+            }
+        }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// List tables via the ODBC catalog function SQLTables.
+async fn execute_odbc_list_tables(connection_string: String) -> Result<QueryResult, String> {
+    tokio::task::spawn_blocking(move || {
+        use odbc_api::buffers::TextRowSet;
+        use odbc_api::{ConnectionOptions, Cursor, Environment};
+
+        let env = Environment::new().map_err(|e| format!("ODBC environment error: {}", e))?;
+
+        let conn = env
+            .connect_with_connection_string(&connection_string, ConnectionOptions::default())
+            .map_err(|e| format!("ODBC connection error: {}", e))?;
+
+        // SQLTables returns: TABLE_CAT, TABLE_SCHEM, TABLE_NAME, TABLE_TYPE, REMARKS
+        let mut cursor = conn
+            .tables("", "", "", "TABLE")
+            .map_err(|e| format!("SQLTables error: {}", e))?;
+
+        let columns = vec![
+            "Catalog".to_string(),
+            "Schema".to_string(),
+            "Table".to_string(),
+            "Type".to_string(),
+            "Remarks".to_string(),
+        ];
+
+        let num_cols: usize = 5;
+
+        let buffer = TextRowSet::for_cursor(1000, &mut cursor, Some(4096))
+            .map_err(|e| format!("Buffer allocation error: {}", e))?;
+
+        let mut row_set_cursor = cursor
+            .bind_buffer(buffer)
+            .map_err(|e| format!("Buffer bind error: {}", e))?;
+
+        let mut rows: Vec<Vec<String>> = Vec::new();
+
+        while let Some(batch) = row_set_cursor
+            .fetch()
+            .map_err(|e| format!("Fetch error: {}", e))?
+        {
+            for row_idx in 0..batch.num_rows() {
+                let mut row = Vec::with_capacity(num_cols);
+                for col_idx in 0..num_cols {
+                    let value = match batch.at(col_idx, row_idx) {
+                        Some(bytes) => String::from_utf8_lossy(bytes).to_string(),
+                        None => "NULL".to_string(),
+                    };
+                    row.push(value);
+                }
+                rows.push(row);
+            }
+        }
+
+        Ok(QueryResult {
+            columns,
+            rows,
+            affected_rows: None,
+            execution_time_ms: None,
+        })
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// List columns for a specific table via the ODBC catalog function SQLColumns.
+async fn execute_odbc_list_columns(
+    connection_string: String,
+    table_name: String,
+) -> Result<QueryResult, String> {
+    tokio::task::spawn_blocking(move || {
+        use odbc_api::buffers::TextRowSet;
+        use odbc_api::{ConnectionOptions, Cursor, Environment, ResultSetMetadata};
+
+        let env = Environment::new().map_err(|e| format!("ODBC environment error: {}", e))?;
+
+        let conn = env
+            .connect_with_connection_string(&connection_string, ConnectionOptions::default())
+            .map_err(|e| format!("ODBC connection error: {}", e))?;
+
+        // SQLColumns returns many columns. The most useful are:
+        // Index 3: COLUMN_NAME
+        // Index 5: TYPE_NAME
+        // Index 6: COLUMN_SIZE
+        // Index 10: NULLABLE (0=NO, 1=YES, 2=UNKNOWN)
+        let mut cursor = conn
+            .columns("", "", &table_name, "")
+            .map_err(|e| format!("SQLColumns error: {}", e))?;
+
+        let result_columns = vec![
+            "Column".to_string(),
+            "Type".to_string(),
+            "Size".to_string(),
+            "Nullable".to_string(),
+        ];
+
+        let num_result_cols = cursor
+            .num_result_cols()
+            .map_err(|e| format!("Column count error: {}", e))?
+            as usize;
+
+        let buffer = TextRowSet::for_cursor(1000, &mut cursor, Some(4096))
+            .map_err(|e| format!("Buffer allocation error: {}", e))?;
+
+        let mut row_set_cursor = cursor
+            .bind_buffer(buffer)
+            .map_err(|e| format!("Buffer bind error: {}", e))?;
+
+        let mut rows: Vec<Vec<String>> = Vec::new();
+
+        while let Some(batch) = row_set_cursor
+            .fetch()
+            .map_err(|e| format!("Fetch error: {}", e))?
+        {
+            for row_idx in 0..batch.num_rows() {
+                // Extract the four fields we care about from the catalog result
+                let col_name = if 3 < num_result_cols {
+                    batch
+                        .at(3, row_idx)
+                        .map(|b| String::from_utf8_lossy(b).to_string())
+                        .unwrap_or_else(|| "NULL".to_string())
+                } else {
+                    "?".to_string()
+                };
+
+                let type_name = if 5 < num_result_cols {
+                    batch
+                        .at(5, row_idx)
+                        .map(|b| String::from_utf8_lossy(b).to_string())
+                        .unwrap_or_else(|| "NULL".to_string())
+                } else {
+                    "?".to_string()
+                };
+
+                let col_size = if 6 < num_result_cols {
+                    batch
+                        .at(6, row_idx)
+                        .map(|b| String::from_utf8_lossy(b).to_string())
+                        .unwrap_or_else(|| "NULL".to_string())
+                } else {
+                    "?".to_string()
+                };
+
+                let nullable = if 10 < num_result_cols {
+                    batch
+                        .at(10, row_idx)
+                        .map(|b| {
+                            let val = String::from_utf8_lossy(b).to_string();
+                            match val.as_str() {
+                                "0" => "NO".to_string(),
+                                "1" => "YES".to_string(),
+                                "2" => "UNKNOWN".to_string(),
+                                _ => val,
+                            }
+                        })
+                        .unwrap_or_else(|| "UNKNOWN".to_string())
+                } else {
+                    "?".to_string()
+                };
+
+                rows.push(vec![col_name, type_name, col_size, nullable]);
+            }
+        }
+
+        Ok(QueryResult {
+            columns: result_columns,
+            rows,
+            affected_rows: None,
+            execution_time_ms: None,
+        })
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// List installed ODBC drivers on the system.
+async fn execute_odbc_list_drivers() -> Result<QueryResult, String> {
+    tokio::task::spawn_blocking(move || {
+        use odbc_api::Environment;
+
+        let env = Environment::new().map_err(|e| format!("ODBC environment error: {}", e))?;
+
+        let mut rows: Vec<Vec<String>> = Vec::new();
+
+        for driver_info in env
+            .drivers()
+            .map_err(|e| format!("Driver list error: {}", e))?
+        {
+            let name = driver_info.description.clone();
+            let attrs = driver_info
+                .attributes
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join("; ");
+            rows.push(vec![name, attrs]);
+        }
+
+        Ok(QueryResult {
+            columns: vec!["Driver".to_string(), "Attributes".to_string()],
+            rows,
+            affected_rows: None,
+            execution_time_ms: None,
+        })
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// List configured ODBC Data Source Names on the system.
+async fn execute_odbc_list_dsns() -> Result<QueryResult, String> {
+    tokio::task::spawn_blocking(move || {
+        use odbc_api::Environment;
+
+        let env = Environment::new().map_err(|e| format!("ODBC environment error: {}", e))?;
+
+        let mut rows: Vec<Vec<String>> = Vec::new();
+
+        for dsn_info in env
+            .data_sources()
+            .map_err(|e| format!("DSN list error: {}", e))?
+        {
+            rows.push(vec![dsn_info.server_name.clone(), dsn_info.driver.clone()]);
+        }
+
+        Ok(QueryResult {
+            columns: vec!["DSN".to_string(), "Driver".to_string()],
+            rows,
+            affected_rows: None,
+            execution_time_ms: None,
+        })
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[async_trait]
+impl ProtocolHandler for OdbcHandler {
+    fn name(&self) -> &str {
+        "odbc"
+    }
+
+    fn as_event_based(&self) -> Option<&dyn EventBasedHandler> {
+        Some(self)
+    }
+
+    async fn connect(
+        &self,
+        params: HashMap<String, String>,
+        to_client: mpsc::Sender<Bytes>,
+        mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
+        _hooks: guacr_handlers::SessionHooks,
+    ) -> guacr_handlers::Result<()> {
+        let conn_id = params.get("client_id").cloned().unwrap_or_default();
+        info!("[conn={}] ODBC handler starting", conn_id);
+
+        // Parse security settings
+        let security = DatabaseSecuritySettings::from_params(&params);
+        if security.base.read_only {
+            info!("[conn={}] ODBC: Read-only mode enabled", conn_id);
+        }
+
+        // Parse recording configuration
+        let recording_config = RecordingConfig::from_params(&params);
+
+        // Validate user-supplied component params for dangerous keywords before building
+        // the connection string. Raw `connection-string` is admin-controlled and passes
+        // through, but individual fields (hostname, database, username, password, driver)
+        // are user-supplied and must not contain ODBC injection keywords.
+        for param_name in &["hostname", "database", "username", "password", "driver"] {
+            if let Some(val) = params.get(*param_name) {
+                if let Err(reason) = validate_connection_string_param(val) {
+                    return Err(HandlerError::MissingParameter(format!(
+                        "parameter '{}' rejected: {}",
+                        param_name, reason
+                    )));
+                }
+            }
+        }
+
+        // Build the ODBC connection string
+        let connection_string = build_connection_string(&params, self.config.default_port);
+
+        let database = params.get("database").map(|s| s.as_str()).unwrap_or("");
+        let driver = params.get("driver").map(|s| s.as_str()).unwrap_or("ODBC");
+
+        info!(
+            "[conn={}] ODBC: Connecting with: {}",
+            conn_id,
+            redact_connection_string(&connection_string)
+        );
+
+        // Parse display size from parameters (like SSH does)
+        let (width, height, cols, rows) = parse_display_size(&params);
+
+        info!(
+            "[conn={}] ODBC: Display size {}x{} px -> {}x{} chars",
+            conn_id, width, height, cols, rows
+        );
+
+        // Create query executor with ODBC prompt and correct dimensions
+        let prompt = if !database.is_empty() {
+            if security.base.read_only {
+                format!("odbc [{}] [RO]> ", database)
+            } else {
+                format!("odbc [{}]> ", database)
+            }
+        } else if security.base.read_only {
+            "odbc [RO]> ".to_string()
+        } else {
+            "odbc> ".to_string()
+        };
+        let mut executor = QueryExecutor::new_with_size(&prompt, "odbc", rows, cols)
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+        // Initialize recording if enabled
+        let mut recorder = init_recording(&recording_config, &params, "ODBC", cols, rows);
+
+        // Initialize threat detection if enabled
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = Arc::new(
+            ThreatDetector::new(crate::threat::threat_config_from_params(&params))
+                .map_err(|e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)))?,
+        );
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = crate::threat::new_session_id();
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard = SessionGuard::new(threat_detector.clone(), threat_session_id.clone());
+
+        // Send display initialization instructions (ready, name, cursor, size)
+        QueryExecutor::send_display_init(&to_client, width, height).await?;
+        debug!("[conn={}] ODBC: Sent display init instructions", conn_id);
+
+        // NOTE: Don't render initial screen yet - wait until after connection
+        // This matches SSH behavior and prevents rendering at wrong dimensions
+
+        // Test the connection by performing a lightweight operation
+        let conn_str_for_test = connection_string.clone();
+        let connect_result: Result<(), String> = tokio::task::spawn_blocking(move || {
+            use odbc_api::{ConnectionOptions, Environment};
+
+            let env = Environment::new().map_err(|e| format!("ODBC environment error: {}", e))?;
+
+            let _conn = env
+                .connect_with_connection_string(&conn_str_for_test, ConnectionOptions::default())
+                .map_err(|e| format!("ODBC connection error: {}", e))?;
+
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("Task join error: {}", e))
+        .and_then(|r| r);
+
+        match connect_result {
+            Ok(()) => {
+                info!(
+                    "[conn={}] ODBC: Connected successfully via driver '{}'",
+                    conn_id, driver
+                );
+
+                let conn_line = format!("Connected via ODBC (driver: {})", driver);
+                let db_line = if !database.is_empty() {
+                    Some(format!("Database: {}", database))
+                } else {
+                    None
+                };
+                let ro_line = if security.base.read_only {
+                    Some("Mode: READ-ONLY (modifications disabled)".to_string())
+                } else {
+                    None
+                };
+                let export_line = if security.disable_csv_export {
+                    Some("CSV Export: DISABLED".to_string())
+                } else {
+                    None
+                };
+
+                let mut info_lines: Vec<&str> = vec![&conn_line];
+                if let Some(ref dl) = db_line {
+                    info_lines.push(dl);
+                }
+                if let Some(ref rl) = ro_line {
+                    info_lines.push(rl);
+                }
+                if let Some(ref el) = export_line {
+                    info_lines.push(el);
+                }
+
+                render_connection_success(
+                    &mut executor,
+                    &to_client,
+                    &info_lines,
+                    &security,
+                    &mut recorder,
+                )
+                .await?;
+                debug!("[conn={}] ODBC: Initial screen sent successfully", conn_id);
+            }
+            Err(e) => {
+                let error_msg = format!("Connection failed: {}", e);
+                warn!("[conn={}] ODBC: {}", conn_id, error_msg);
+
+                render_connection_error(
+                    &mut executor,
+                    &to_client,
+                    &mut from_client,
+                    &error_msg,
+                    &[
+                        "Verify the ODBC driver is installed (\\drivers)",
+                        "Check DSN configuration (\\dsns)",
+                        "Verify hostname and port are correct",
+                        "Check credentials are correct",
+                        "Ensure the database server is running",
+                    ],
+                    &mut recorder,
+                )
+                .await?;
+                return Err(HandlerError::ConnectionFailed(error_msg));
+            }
+        }
+
+        // Event loop
+        // NOTE: Screen was already rendered above after connection success
+
+        // Debounce timer for batching screen updates (60 FPS)
+        let mut debounce = tokio::time::interval(std::time::Duration::from_millis(16));
+        debounce.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        // Keepalive to prevent ICE disconnect on idle sessions
+        let mut keepalive = KeepAliveManager::new(DEFAULT_KEEPALIVE_INTERVAL_SECS);
+        let mut keepalive_interval = tokio::time::interval(std::time::Duration::from_secs(
+            DEFAULT_KEEPALIVE_INTERVAL_SECS,
+        ));
+        keepalive_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        'outer: loop {
+            tokio::select! {
+                // Keepalive ping to prevent ICE disconnect on idle sessions
+                _ = keepalive_interval.tick() => {
+                    if let Some(sync_instr) = keepalive.check() {
+                        if send_and_record(&to_client, &mut recorder, sync_instr).await.is_err() {
+                            debug!("[conn={}] ODBC: Client channel closed during keepalive, stopping", conn_id);
+                            break;
+                        }
+                    }
+                }
+
+                // Debounce tick - render if terminal or input changed
+                _ = debounce.tick() => {
+                    // Check if client is still connected before rendering
+                    if to_client.is_closed() {
+                        debug!("[conn={}] ODBC: Client disconnected, stopping debounce timer", conn_id);
+                        break;
+                    }
+
+                    if executor.is_dirty() {
+                        let (_, instructions) = executor
+                            .render_screen()
+                            .await
+                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                        for instr in instructions {
+                            // Break if send fails (client disconnected)
+                            if crate::recording::send_and_record(&to_client, &mut recorder, instr).await.is_err() {
+                                debug!("[conn={}] ODBC: Client channel closed during debounce, stopping", conn_id);
+                                break 'outer;
+                            }
+                        }
+                    }
+                }
+
+                // Process input from client
+                msg = from_client.recv() => {
+                    let Some(msg) = msg else {
+                        info!("[conn={}] ODBC: Client disconnected", conn_id);
+                        break 'outer;
+                    };
+                    match executor.process_input(&msg).await {
+                        Ok((needs_render, instructions, pending_query)) => {
+                    if let Some(query) = pending_query {
+                        debug!("[conn={}] ODBC: Executing query: {}", conn_id, query);
+
+                        // Check for threats before execution
+                        #[cfg(feature = "threat-detection")]
+                        crate::handler_helpers::maybe_terminate_on_threat(
+                            &threat_detector, &threat_session_id, &query,
+                            params.get("username").map(|s| s.as_str()).unwrap_or(""),
+                            params.get("hostname").map(|s| s.as_str()).unwrap_or(""),
+                            "mysql",
+                            &mut executor, &to_client, &mut recorder,
+                        )
+                        .await?;
+
+                        // Record query input
+                        record_query_input(&mut recorder, &recording_config, &query);
+
+                        // Handle built-in commands
+                        if handle_builtin_command(
+                            &query,
+                            &mut executor,
+                            &to_client,
+                            &security,
+                            &connection_string,
+                            &mut recorder,
+                        )
+                        .await?
+                        {
+                            continue;
+                        }
+
+                        // Check for export command: \e <query>
+                        if query.to_lowercase().starts_with("\\e ") {
+                            let export_query = query[3..].trim();
+                            handle_csv_export(
+                                export_query,
+                                &connection_string,
+                                &mut executor,
+                                &to_client,
+                                &security,
+                                &mut recorder,
+                            )
+                            .await?;
+                            continue;
+                        }
+
+                        // Check for import command: \i <table>
+                        if query.to_lowercase().starts_with("\\i ") {
+                            let table_name = query[3..].trim();
+                            handle_csv_import(
+                                table_name,
+                                &mut executor,
+                                &to_client,
+                                &security,
+                                &mut recorder,
+                            )
+                            .await?;
+                            continue;
+                        }
+
+                        // Check read-only mode via shared security module
+                        if let Err(msg) = check_query_allowed(&query, &security) {
+                            executor
+                                .write_error(&msg)
+                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                            send_render(&mut executor, &to_client, &mut recorder).await?;
+                            continue;
+                        }
+
+                        // Additional read-only check for vendor-specific commands
+                        // the generic classifier might miss (EXEC, CALL, MERGE, etc.)
+                        if security.base.read_only && is_sql_modifying_command(&query) {
+                            executor
+                                .write_error("Command blocked: read-only mode is enabled.")
+                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                            send_render(&mut executor, &to_client, &mut recorder).await?;
+                            continue;
+                        }
+
+                        // Execute query via ODBC
+                        let conn_str = connection_string.clone();
+                        let q = query.clone();
+                        match execute_with_timing(|| execute_odbc_query(conn_str, q)).await {
+                            Ok(exec_result) => {
+                                let result = exec_result.into_query_result();
+
+                                // Record query output
+                                record_query_output(&mut recorder, &result);
+
+                                executor
+                                    .write_result(&result)
+                                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                            }
+                            Err(e) => {
+                                // Record error output
+                                record_error_output(&mut recorder, &e);
+
+                                executor
+                                    .write_error(&e)
+                                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                            }
+                        }
+
+                        send_render(&mut executor, &to_client, &mut recorder).await?;
+                        continue;
+                    }
+
+                    if needs_render {
+                        // Render immediately for special cases (Enter, Escape, etc.)
+                        for instr in instructions {
+                            let _ = crate::recording::send_and_record(&to_client, &mut recorder, instr).await;
+                        }
+                    }
+                    // For regular keystrokes, debounce timer will handle rendering
+                        }
+                        Err(e) => {
+                            warn!("[conn={}] ODBC: Input processing error: {}", conn_id, e);
+                        }
+                    }
+                }
+
+                // Client disconnected
+                else => {
+                    break;
+                }
+            }
+        }
+
+        // Finalize recording
+        finalize_recording(recorder, "ODBC");
+
+        send_disconnect(&to_client).await;
+        info!("[conn={}] ODBC handler ended", conn_id);
+        Ok(())
+    }
+
+    async fn health_check(&self) -> guacr_handlers::Result<HealthStatus> {
+        Ok(HealthStatus::Healthy)
+    }
+
+    async fn stats(&self) -> guacr_handlers::Result<HandlerStats> {
+        Ok(HandlerStats::default())
+    }
+}
+
+/// Handle built-in commands (help, quit, \tables, \columns, \drivers, \dsns)
+async fn handle_builtin_command(
+    command: &str,
+    executor: &mut QueryExecutor,
+    to_client: &mpsc::Sender<Bytes>,
+    security: &DatabaseSecuritySettings,
+    connection_string: &str,
+    recorder: &mut Option<guacr_handlers::MultiFormatRecorder>,
+) -> guacr_handlers::Result<bool> {
+    let command_lower = command.to_lowercase();
+    let command_trimmed = command_lower.trim();
+
+    match command_trimmed {
+        "help" | "?" | "\\h" | "\\?" => {
+            let mut sections = vec![
+                HelpSection {
+                    title: "Navigation",
+                    commands: vec![("help", "Show this help"), ("quit, exit", "Disconnect")],
+                },
+                HelpSection {
+                    title: "Catalog commands",
+                    commands: vec![
+                        ("\\tables", "List tables"),
+                        ("\\columns TBL", "List columns of a table"),
+                        ("\\drivers", "List installed ODBC drivers"),
+                        ("\\dsns", "List configured DSNs"),
+                    ],
+                },
+            ];
+
+            let mut export_cmds = Vec::new();
+            if !security.disable_csv_export {
+                export_cmds.push(("\\e <query>", "Export query results as CSV"));
+            }
+            if !security.disable_csv_import && !security.base.read_only {
+                export_cmds.push(("\\i <table>", "Import CSV data into table"));
+            }
+            if !export_cmds.is_empty() {
+                sections.push(HelpSection {
+                    title: "Export/Import",
+                    commands: export_cmds,
+                });
+            }
+
+            let mut sql_cmds: Vec<(&'static str, &'static str)> =
+                vec![("Type any SQL statement and press Enter to execute.", "")];
+            if security.base.read_only {
+                sql_cmds.push(("", ""));
+                sql_cmds.push(("Note: READ-ONLY mode is enabled.", ""));
+                sql_cmds.push(("INSERT/UPDATE/DELETE/DROP are disabled.", ""));
+            }
+            sections.push(HelpSection {
+                title: "SQL",
+                commands: sql_cmds,
+            });
+
+            render_help(
+                executor,
+                to_client,
+                "ODBC SQL Terminal",
+                &sections,
+                recorder,
+            )
+            .await?;
+            return Ok(true);
+        }
+        "quit" | "exit" | "\\q" => {
+            return Err(handle_quit(executor, to_client, recorder).await);
+        }
+        "\\tables" => {
+            let conn_str = connection_string.to_string();
+            match execute_odbc_list_tables(conn_str).await {
+                Ok(result) => {
+                    executor
+                        .write_result(&result)
+                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                }
+                Err(e) => {
+                    executor
+                        .write_error(&e)
+                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                }
+            }
+            send_render(executor, to_client, recorder).await?;
+            return Ok(true);
+        }
+        "\\drivers" => {
+            match execute_odbc_list_drivers().await {
+                Ok(result) => {
+                    executor
+                        .write_result(&result)
+                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                }
+                Err(e) => {
+                    executor
+                        .write_error(&e)
+                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                }
+            }
+            send_render(executor, to_client, recorder).await?;
+            return Ok(true);
+        }
+        "\\dsns" => {
+            match execute_odbc_list_dsns().await {
+                Ok(result) => {
+                    executor
+                        .write_result(&result)
+                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                }
+                Err(e) => {
+                    executor
+                        .write_error(&e)
+                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                }
+            }
+            send_render(executor, to_client, recorder).await?;
+            return Ok(true);
+        }
+        _ => {}
+    }
+
+    // Handle \columns <table> (has an argument so can't match exactly above)
+    if command_trimmed.starts_with("\\columns") {
+        let table_name = command_trimmed
+            .strip_prefix("\\columns")
+            .unwrap_or("")
+            .trim();
+
+        if table_name.is_empty() {
+            executor
+                .write_error("Usage: \\columns <table_name>")
+                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+            executor
+                .write_prompt()
+                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        } else {
+            let conn_str = connection_string.to_string();
+            match execute_odbc_list_columns(conn_str, table_name.to_string()).await {
+                Ok(result) => {
+                    if result.rows.is_empty() {
+                        executor
+                            .write_line(&format!("No columns found for table '{}'.", table_name))
+                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                        executor
+                            .write_prompt()
+                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                    } else {
+                        executor
+                            .write_result(&result)
+                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                    }
+                }
+                Err(e) => {
+                    executor
+                        .write_error(&e)
+                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                }
+            }
+        }
+
+        send_render(executor, to_client, recorder).await?;
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+/// Handle CSV export for an ODBC query
+async fn handle_csv_export(
+    query: &str,
+    connection_string: &str,
+    executor: &mut QueryExecutor,
+    to_client: &mpsc::Sender<Bytes>,
+    security: &DatabaseSecuritySettings,
+    recorder: &mut Option<guacr_handlers::MultiFormatRecorder>,
+) -> guacr_handlers::Result<()> {
+    use std::sync::atomic::Ordering;
+
+    // Check if export is allowed
+    if let Err(msg) = check_csv_export_allowed(security) {
+        executor
+            .write_error(&msg)
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        executor
+            .write_prompt()
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        send_render(executor, to_client, recorder).await?;
+        return Ok(());
+    }
+
+    executor
+        .write_line("Executing query for export...")
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    send_render(executor, to_client, recorder).await?;
+
+    // Execute the query via ODBC
+    let conn_str = connection_string.to_string();
+    let q = query.to_string();
+    match execute_odbc_query(conn_str, q).await {
+        Ok(result) => {
+            if result.rows.is_empty() {
+                executor
+                    .write_line("Query returned no results to export.")
+                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+            } else {
+                // Generate filename and create exporter
+                let filename = generate_csv_filename(query, "odbc");
+                let stream_idx = STREAM_INDEX.fetch_add(1, Ordering::SeqCst);
+                let mut exporter = CsvExporter::new(stream_idx);
+
+                executor
+                    .write_line(&format!(
+                        "Beginning CSV download ({} rows). Press Ctrl+C to cancel.",
+                        result.rows.len()
+                    ))
+                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+                // Send file instruction to start download
+                let file_instr = exporter.start_download(&filename);
+                to_client
+                    .send(file_instr)
+                    .await
+                    .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
+
+                // Export the data
+                match exporter.export_query_result(&result, to_client).await {
+                    Ok(()) => {
+                        executor
+                            .write_line("Download complete.")
+                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                    }
+                    Err(e) => {
+                        executor
+                            .write_error(&format!("Export failed: {}", e))
+                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            executor
+                .write_error(&format!("Query failed: {}", e))
+                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        }
+    }
+
+    executor
+        .write_prompt()
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    send_render(executor, to_client, recorder).await?;
+
+    Ok(())
+}
+
+/// Handle CSV import for an ODBC table
+async fn handle_csv_import(
+    table_name: &str,
+    executor: &mut QueryExecutor,
+    to_client: &mpsc::Sender<Bytes>,
+    security: &DatabaseSecuritySettings,
+    recorder: &mut Option<guacr_handlers::MultiFormatRecorder>,
+) -> guacr_handlers::Result<()> {
+    // Check if import is allowed
+    if let Err(msg) = check_csv_import_allowed(security) {
+        executor
+            .write_error(&msg)
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        executor
+            .write_prompt()
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        send_render(executor, to_client, recorder).await?;
+        return Ok(());
+    }
+
+    // Check read-only mode
+    if security.base.read_only {
+        executor
+            .write_error("Import blocked: read-only mode is enabled.")
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        executor
+            .write_prompt()
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        send_render(executor, to_client, recorder).await?;
+        return Ok(());
+    }
+
+    if table_name.is_empty() {
+        executor
+            .write_error("Usage: \\i <table_name>")
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        executor
+            .write_prompt()
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        send_render(executor, to_client, recorder).await?;
+        return Ok(());
+    }
+
+    executor
+        .write_error(&format!(
+            "CSV import is not yet implemented for ODBC (target table: {}).",
+            table_name
+        ))
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    executor
+        .write_line("To import data, use the database's native bulk-load tool.")
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    executor
+        .write_prompt()
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    send_render(executor, to_client, recorder).await?;
+
+    Ok(())
+}
+
+// Event-based handler implementation
+#[async_trait]
+impl EventBasedHandler for OdbcHandler {
+    fn name(&self) -> &str {
+        "odbc"
+    }
+
+    async fn connect_with_events(
+        &self,
+        params: HashMap<String, String>,
+        callback: Arc<dyn EventCallback>,
+        from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
+        _hooks: guacr_handlers::SessionHooks,
+    ) -> Result<(), HandlerError> {
+        guacr_handlers::connect_with_event_adapter(
+            |params, to_client, from_client, _video_tx, _hooks| {
+                self.connect(params, to_client, from_client, _video_tx, _hooks)
+            },
+            params,
+            callback,
+            from_client,
+            _video_tx,
+            _hooks,
+            4096,
+        )
+        .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::query_executor::QueryExecutor;
+    use crate::security::DatabaseSecuritySettings;
+    use std::collections::HashMap;
+    use tokio::sync::mpsc;
+
+    /// CSV import must return "not yet implemented" rather than inserting
+    /// hardcoded sample data.
+    #[tokio::test]
+    async fn test_csv_import_returns_not_implemented() {
+        let (to_client, mut rx) = mpsc::channel(64);
+        let mut executor = QueryExecutor::new("odbc> ", "odbc").unwrap();
+        let security = DatabaseSecuritySettings::from_params(&HashMap::new());
+        let mut recorder = None;
+
+        handle_csv_import(
+            "test_table",
+            &mut executor,
+            &to_client,
+            &security,
+            &mut recorder,
+        )
+        .await
+        .unwrap();
+
+        drop(to_client);
+        let mut rendered = String::new();
+        while let Some(bytes) = rx.recv().await {
+            rendered.push_str(&String::from_utf8_lossy(&bytes));
+        }
+
+        assert!(
+            rendered.contains("not yet implemented"),
+            "import must return 'not yet implemented'; got {} bytes",
+            rendered.len()
+        );
+    }
+}

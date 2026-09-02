@@ -1,0 +1,120 @@
+"""Scouts commands for the Yutori CLI."""
+
+from __future__ import annotations
+
+import typer
+from rich.console import Console
+
+from yutori.cli.commands import (
+    INTERVAL_PRESETS,
+    cli_client,
+    format_interval,
+    print_creation_result,
+    print_optional_field,
+    print_rejection_reason,
+    render_entity_table,
+    safe_str,
+)
+
+app = typer.Typer(help="Manage scouts")
+console = Console()
+
+
+@app.command("list")
+def list_scouts(
+    limit: int = typer.Option(None, help="Maximum number of scouts to return"),
+    status: str = typer.Option(None, help="Filter by status: active, paused, done"),
+) -> None:
+    """List your scouts."""
+    with cli_client() as client:
+        result = client.scouts.list(limit=limit, status=status)
+        scouts = result.get("scouts", [])
+
+        if not scouts:
+            console.print("[yellow]No scouts found.[/yellow]")
+            return
+
+        render_entity_table(
+            console,
+            "Your Scouts",
+            scouts,
+            id_key="id",
+            id_label="ID",
+            fourth_column_label="Interval",
+            fourth_column_fn=lambda scout: format_interval(scout.get("output_interval") or 0, short=True),
+        )
+
+
+@app.command()
+def get(
+    scout_id: str = typer.Argument(help="The scout ID"),
+) -> None:
+    """Get details of a specific scout."""
+    with cli_client() as client:
+        scout = client.scouts.get(scout_id)
+
+        console.print(f"\n[bold]Scout: {safe_str(scout.get('id', scout_id))}[/bold]\n")
+        console.print(f"  Query: {safe_str(scout.get('query', 'N/A'))}")
+        console.print(f"  Status: {safe_str(scout.get('status', 'N/A'))}")
+        print_rejection_reason(console, scout)
+
+        interval_str = format_interval(scout.get("output_interval") or 0)
+        console.print(f"  Interval: {interval_str}")
+
+        print_optional_field(console, scout, "user_timezone", "Timezone")
+        print_optional_field(console, scout, "created_at", "Created")
+        print_optional_field(console, scout, "next_run_at", "Next Run")
+
+
+@app.command()
+def create(
+    query: str = typer.Option(None, "--query", "-q", help="What to monitor"),
+    interval: str = typer.Option("daily", "--interval", "-i", help="Run interval: hourly, daily, weekly"),
+    timezone: str = typer.Option(None, "--timezone", "-tz", help="e.g., America/Los_Angeles"),
+) -> None:
+    """Create a new scout."""
+    if not query:
+        query = typer.prompt("What would you like to monitor?")
+
+    output_interval = INTERVAL_PRESETS.get(interval.lower())
+    if output_interval is None:
+        choices = ", ".join(INTERVAL_PRESETS)
+        console.print(f"[red]Invalid interval '{safe_str(interval)}'. Choose from: {choices}[/red]")
+        raise typer.Exit(1)
+
+    with cli_client() as client:
+        result = client.scouts.create(
+            query=query,
+            output_interval=output_interval,
+            user_timezone=timezone,
+        )
+
+        ok = print_creation_result(
+            console,
+            result,
+            success_message="Scout created successfully!",
+            failure_message="Scout creation failed.",
+            fields=[
+                ("ID", result.get("id", "N/A")),
+                ("Query", result.get("query", query)),
+            ],
+        )
+        if not ok:
+            raise typer.Exit(1)
+
+
+@app.command()
+def delete(
+    scout_id: str = typer.Argument(help="The scout ID to delete"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+) -> None:
+    """Delete a scout."""
+    if not force:
+        confirm = typer.confirm(f"Are you sure you want to delete scout {scout_id}?")
+        if not confirm:
+            console.print("[yellow]Cancelled.[/yellow]")
+            raise typer.Exit(0)
+
+    with cli_client() as client:
+        client.scouts.delete(scout_id)
+        console.print(f"[green]Scout {safe_str(scout_id)} deleted.[/green]")

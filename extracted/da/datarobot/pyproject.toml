@@ -23,10 +23,13 @@ preview = true
 quote-style = "preserve"
 
 [tool.ruff.per-file-target-version]
+"_dr_dev_plugin.py" = "py38"
 "tests/*.py" = "py38"
 "datarobot/auth/*.py" = "py39"
 "datarobot/core/*.py" = "py38"
 "datarobot/fs/*.py" = "py39"
+"datarobot/application_utils/chat_history/*.py" = "py311"
+"tests/application_utils/chat_history/**/*.py" = "py311"
 "sdk_docs/*.py" = "py311"
 
 [tool.ruff.lint]
@@ -75,6 +78,7 @@ ignore = [
     "PLR0911", # too-many-return-statements (corresponds to design rules)
     "PLW1641", # Object does not implement `__hash__` method
     "PLW2901", # `for` loop variable `key` overwritten by assignment target
+    "PLR0917", # too-many-positional-arguments (corresponds to design rules)
 ]
 
 [tool.ruff.lint.isort]

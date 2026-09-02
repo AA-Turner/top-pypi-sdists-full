@@ -56,9 +56,9 @@ class BlueprintTaskDocument(APIObject):
     parameters : list of dict(name, type, description)
         Parameters that task can receive in human-readable format.
     links : list of dict(name, url)
-        External links used in document
+        External links used in document.
     references : list of dict(name, url)
-        References used in document. When no link available url equals None.
+        References used in document. When no link is available, the URL equals None.
     """
 
     _converter = t.Dict({
@@ -99,12 +99,12 @@ class BlueprintTaskDocument(APIObject):
 
 
 class BlueprintChart(APIObject):
-    """A Blueprint chart that can be used to understand data flow in blueprint.
+    """A Blueprint chart that helps you understand data flow in a blueprint.
 
     Attributes
     ----------
     nodes : list of dict (id, label)
-        Chart nodes, id unique in chart.
+        Chart nodes; each ID is unique in the chart.
     edges : list of tuple (id1, id2)
         Directions of data flow between blueprint chart nodes.
     """
@@ -128,9 +128,9 @@ class BlueprintChart(APIObject):
         Parameters
         ----------
         project_id : str
-            The project's id.
+            The project's ID.
         blueprint_id : str
-            Id of blueprint to retrieve chart.
+            ID of the blueprint to retrieve a chart for.
 
         Returns
         -------
@@ -141,7 +141,7 @@ class BlueprintChart(APIObject):
         return cls.from_location(url)
 
     def to_graphviz(self) -> str:
-        """Get blueprint chart in graphviz DOT format.
+        """Get the blueprint chart in graphviz DOT format.
 
         Returns
         -------
@@ -159,15 +159,15 @@ class BlueprintChart(APIObject):
 
 
 class ModelBlueprintChart(BlueprintChart):
-    """A Blueprint chart that can be used to understand data flow in model.
+    """A Blueprint chart that helps you understand data flow in a model.
     Model blueprint chart represents reduced repository blueprint chart with
     only elements that used to build this particular model.
 
     Attributes
     ----------
-    nodes : list of dict (id, label)
-        Chart nodes, id unique in chart.
-    edges : list of tuple (id1, id2)
+    nodes : list of dict (ID, label)
+        Chart nodes; each ID is unique in the chart.
+    edges : list of tuple (ID1, ID2)
         Directions of data flow between blueprint chart nodes.
     """
 
@@ -183,9 +183,9 @@ class ModelBlueprintChart(BlueprintChart):
         Parameters
         ----------
         project_id : str
-            The project's id.
+            The project's ID.
         model_id : str
-            Id of model to retrieve model blueprint chart.
+            ID of the model to retrieve a model blueprint chart for.
 
         Returns
         -------
@@ -197,18 +197,18 @@ class ModelBlueprintChart(BlueprintChart):
 
 
 class Blueprint(APIObject):
-    """A Blueprint which can be used to fit models
+    """A Blueprint for fitting models
 
     Attributes
     ----------
     id : str
-        the ID of the blueprint
+        The ID of the blueprint.
     processes : List[str]
-        the processes used by the blueprint
+        The processes used by the blueprint.
     model_type : str
-        the model produced by the blueprint
+        The model produced by the blueprint.
     project_id : str
-        the project the blueprint belongs to
+        The project the blueprint belongs to.
     blueprint_category : str
         (New in version v2.6) Describes the category of the blueprint and the kind of model it
         produces.
@@ -217,10 +217,10 @@ class Blueprint(APIObject):
         If this field is not present, then there is no recommended feature list.
     supports_composable_ml : bool or None
         (New in version v2.26)
-        whether this blueprint is supported in the Composable ML.
+        Whether this blueprint is supported in the Composable ML.
     supports_incremental_learning : bool or None
         (New in version v3.3)
-        whether this blueprint supports incremental learning.
+        Whether this blueprint supports incremental learning.
     """
 
     _converter = t.Dict({
@@ -276,9 +276,9 @@ class Blueprint(APIObject):
         Parameters
         ----------
         project_id : str
-            The project's id.
+            The project's ID.
         blueprint_id : str
-            Id of blueprint to retrieve.
+            ID of the blueprint to retrieve.
 
         Returns
         -------
@@ -289,12 +289,12 @@ class Blueprint(APIObject):
         return cls.from_location(url)
 
     def get_json(self) -> BlueprintJson:
-        """Get the blueprint json representation used by this model.
+        """Get the blueprint JSON representation used by this model.
 
         Returns
         -------
         BlueprintJson
-            Json representation of the blueprint stages.
+            JSON representation of the blueprint stages.
         """
         url = f"projects/{self.project_id}/blueprints/{self.id}/json/"
         response_json = self._client.get(url).json()
@@ -313,7 +313,7 @@ class Blueprint(APIObject):
         return BlueprintChart.get(self.project_id, self.id)
 
     def get_documents(self) -> List[BlueprintTaskDocument]:
-        """Get documentation for tasks used in the blueprint.
+        """Get the documentation for tasks used in the blueprint.
 
         Returns
         -------

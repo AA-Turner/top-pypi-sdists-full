@@ -1,0 +1,188 @@
+Metadata-Version: 2.5
+Name: PyMemoryEditor
+Version: 2.2.0
+Summary: Read, write and scan process memory in a few lines of Python — Cheat Engine-style scans, pointer chains and AOB search on Windows, Linux and macOS.
+Project-URL: Homepage, https://github.com/JeanExtreme002/PyMemoryEditor
+Project-URL: Documentation, https://pymemoryeditor.readthedocs.io
+Project-URL: Repository, https://github.com/JeanExtreme002/PyMemoryEditor
+Project-URL: Issues, https://github.com/JeanExtreme002/PyMemoryEditor/issues
+Project-URL: Changelog, https://github.com/JeanExtreme002/PyMemoryEditor/releases
+Project-URL: Funding, https://github.com/sponsors/JeanExtreme002
+Author-email: Jean Loui Bernard Silva de Jesus <contact@jeanloui.dev>
+Maintainer-email: Jean Loui Bernard Silva de Jesus <contact@jeanloui.dev>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: aob-scan,cheat-engine,ctypes,debugging,game-hacking,introspection,memory-editor,memory-scanner,pattern-scan,pointer-scan,process-memory,reverse-engineering
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Games/Entertainment
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Security
+Classifier: Topic :: Software Development :: Debuggers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Monitoring
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Provides-Extra: app
+Requires-Dist: psutil<7,>=5.9; extra == 'app'
+Requires-Dist: pyside6>=6.5; extra == 'app'
+Provides-Extra: dev
+Requires-Dist: build; extra == 'dev'
+Requires-Dist: flake8; extra == 'dev'
+Requires-Dist: hypothesis; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: psutil<7,>=5.9; extra == 'dev'
+Requires-Dist: pyside6>=6.5; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest-qt; extra == 'dev'
+Requires-Dist: pytest-xdist; extra == 'dev'
+Requires-Dist: twine; extra == 'dev'
+Provides-Extra: speed
+Requires-Dist: numpy>=1.24; extra == 'speed'
+Provides-Extra: tests
+Requires-Dist: pytest; extra == 'tests'
+Requires-Dist: pytest-xdist; extra == 'tests'
+Description-Content-Type: text/markdown
+
+# PyMemoryEditor
+
+A pure-Python library (built on [ctypes](https://docs.python.org/3/library/ctypes.html)) that lets you **inspect, modify and search the memory of any running process in a few lines of Python** — Cheat Engine workflows on Windows, Linux and macOS!
+
+---
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/JeanExtreme002/PyMemoryEditor/main/PyMemoryEditor/app/assets/icon.svg" alt="PyMemoryEditor logo" width="120" />
+</p>
+
+<p align="center">
+  <b>Read, write and scan the memory of any process — straight from Python.</b><br>
+  <i>One unified API. Three operating systems. No C compiler. No native build step.</i>
+</p>
+
+<p align="center">
+  Runs on <b>🪟 Windows</b> · <b>🐧 Linux</b> · <b>🍎 macOS</b> — 32-bit and 64-bit.
+</p>
+
+<p align="center">
+  <a href="https://github.com/JeanExtreme002/PyMemoryEditor/actions/workflows/python-package.yml"><img src="https://github.com/JeanExtreme002/PyMemoryEditor/actions/workflows/python-package.yml/badge.svg" alt="Python Package" /></a>
+  <a href="https://pypi.org/project/PyMemoryEditor/"><img src="https://img.shields.io/pypi/v/PyMemoryEditor" alt="Pypi" /></a>
+  <a href="https://github.com/JeanExtreme002/PyMemoryEditor"><img src="https://img.shields.io/pypi/l/PyMemoryEditor" alt="License" /></a>
+  <a href="https://github.com/JeanExtreme002/PyMemoryEditor"><img src="https://img.shields.io/badge/python-3.10+-8A2BE2" alt="Python Version" /></a>
+  <a href="https://pypi.org/project/PyMemoryEditor/"><img src="https://static.pepy.tech/personalized-badge/pymemoryeditor?period=total&units=international_system&left_color=grey&right_color=orange&left_text=Downloads" alt="Downloads" /></a>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/JeanExtreme002/PyMemoryEditor/main/assets/screenshots/app.png" alt="PyMemoryEditor app attached to a running process" width="820" />
+</p>
+
+<p align="center">
+  Tweak a value in a running game · inspect a live program's state ·
+  harvest data straight from RAM.
+</p>
+
+---
+
+## Install
+
+```bash
+pip install PyMemoryEditor
+```
+
+To also install the bundled GUI app (a Cheat Engine-style scanner), use the `app` extra:
+
+```bash
+pip install "PyMemoryEditor[app]"
+pymemoryeditor
+```
+
+For faster scans on large processes, add the `speed` extra. It pulls in NumPy
+and automatically vectorizes the numeric scan comparison loop — ~10–30× faster on
+selective scans:
+
+```bash
+pip install "PyMemoryEditor[speed]"
+```
+📖 Full guide at **[Read the Docs](https://pymemoryeditor.readthedocs.io)**.
+
+---
+
+## See it in action
+
+```python
+from PyMemoryEditor import OpenProcess
+
+with OpenProcess(name="game.exe") as process:
+
+    # Scan the whole process for every address holding the value 100.
+    for address in process.search_by_value(int, value=100):
+        print(f"Found at 0x{address:X}")
+
+    # Read the current value, then write a new one back.
+    current = process.read_int(address)
+    process.write_int(address, current + 500)
+```
+
+That's it — read, write or scan another process in three lines, the same way on every platform.
+
+---
+
+## 📖 Documentation
+
+Full documentation lives at **[pymemoryeditor.readthedocs.io](https://pymemoryeditor.readthedocs.io)** — installation, the Cheat Engine workflow, every method and parameter, the GUI app guide, platform notes and troubleshooting.
+
+A quick map of where to go:
+
+<table>
+<tr><td><a href="docs/quickstart.md"><b>Quick Start</b></a></td><td>Open a process, read, write and run your first scan.</td></tr>
+<tr><td><a href="docs/guide/searching.md"><b>Searching memory</b></a></td><td>Value scans, ranges, refining results, the Cheat Engine loop.</td></tr>
+<tr><td><a href="docs/guide/pattern-scan.md"><b>Pattern scan</b></a></td><td>Find code/data with byte signatures (AOB) and regex.</td></tr>
+<tr><td><a href="docs/guide/pointers.md"><b>Pointers</b></a></td><td>Multi-level pointer chains and the live <code>RemotePointer</code>.</td></tr>
+<tr><td><a href="docs/guide/pointer-scan.md"><b>Pointer scan</b></a></td><td>Find static pointers that survive ASLR.</td></tr>
+<tr><td><a href="docs/app.md"><b>The GUI app</b></a></td><td>The bundled Cheat Engine-style scanner.</td></tr>
+<tr><td><a href="docs/api/openprocess.md"><b>API reference</b></a></td><td>Every public class, method and parameter.</td></tr>
+<tr><td><a href="docs/platform-notes.md"><b>Platform notes</b></a></td><td>Permissions and quirks on Windows, Linux and macOS.</td></tr>
+<tr><td><a href="docs/troubleshooting.md"><b>Troubleshooting</b></a></td><td>Common errors and how to fix them.</td></tr>
+</table>
+
+---
+
+## What can I build with this?
+
+- 🎮 **Game modding & speedrunning tools** — the classic Cheat Engine use case.
+- 🔬 **Debugging & introspection** — inspect live state without attaching a debugger.
+- 📊 **Observability tooling** — sample variables in a running process for telemetry.
+- 🔐 **Security & reverse-engineering research** — on systems you own or are authorized to test.
+- 🎓 **Learning** — the bundled app is a great teaching tool for how memory scanning works.
+
+> [!NOTE]
+> **Responsible use.** PyMemoryEditor talks to other processes through OS-level APIs.
+> Only point it at processes you own or have explicit permission to inspect.
+
+---
+
+## 🤝 Contributing
+
+Pull requests, bug reports and feature ideas are very welcome. Read
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for the development setup, test layout and
+the small set of platform-specific quirks to be aware of.
+
+If PyMemoryEditor helped your project, please ⭐ the repo — it's the easiest way to
+support the work and to help others discover the library.
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE) — free for personal and commercial use.

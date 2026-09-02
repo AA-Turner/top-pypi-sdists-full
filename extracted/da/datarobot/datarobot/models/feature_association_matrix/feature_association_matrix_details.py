@@ -39,22 +39,21 @@ class FeatureAssociationMatrixDetails(APIObject):
     Attributes
     ----------
     project_id : str
-        Id of the project that contains the requested associations.
+        ID of the project that contains the requested associations.
     chart_type : str
-        Which type of plotting the pair of features gets in the UI.
-        e.g., 'HORIZONTAL_BOX', 'VERTICAL_BOX', 'SCATTER' or 'CONTINGENCY'
+        The plot type used for the feature pair in the UI, e.g., 'HORIZONTAL_BOX',
+        'VERTICAL_BOX', 'SCATTER', or 'CONTINGENCY'.
     values : list
-        The data triplets for pairwise plotting e.g.
-        {"values": [[460.0, 428.5, 0.001], [1679.3, 259.0, 0.001], ...]
-        The first entry of each list is a value of feature1, the second entry of each list is a
-        value of feature2, and the third is the relative frequency of the pair of datapoints in the
-        sample.
+        Data triplets for pairwise plotting, for example,
+        ``{"values": [[460.0, 428.5, 0.001], [1679.3, 259.0, 0.001], ...]}``.
+        The first entry of each list is a value of feature1, the second is a value of feature2,
+        and the third is the relative frequency of the pair of datapoints in the sample.
     features : list
-        A list of the requested features, [feature1, feature2]
+        The requested features, [feature1, feature2].
     types : list
-        The type of `feature1` and `feature2`. Possible values: "CATEGORICAL", "NUMERIC"
+        The types of `feature1` and `feature2`. Possible values: "CATEGORICAL", "NUMERIC".
     featurelist_id : str
-        Id of the feature list to lookup FAM details for.
+        ID of the feature list to look up FAM details for.
     """
 
     _path = "projects/{}/featureAssociationMatrixDetails/"
@@ -107,7 +106,7 @@ class FeatureAssociationMatrixDetails(APIObject):
         Parameters
         ----------
         project_id : str
-            Id of the project of interest.
+            ID of the project of interest.
         feature1 : str
             Feature name for the first feature of interest.
         feature2 : str

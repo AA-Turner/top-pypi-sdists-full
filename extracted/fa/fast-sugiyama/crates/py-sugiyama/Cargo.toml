@@ -1,0 +1,20 @@
+[package]
+name = "py-fast-sugiyama"
+version = { workspace = true }
+edition = { workspace = true }
+authors = { workspace = true }
+description = "A fast and flexible hierarchical graph layout engine."
+license = "MIT"
+readme = "README.md"
+
+[lib]
+name = "fast_sugiyama"
+crate-type = ["cdylib"]
+
+
+[dependencies]
+rust-sugiyama = { workspace = true }
+
+log = { workspace = true }
+pyo3 = { workspace = true }
+pyo3-log = { workspace = true }

@@ -1,0 +1,55 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+authors = [
+  {name = "Justin Flannery", email = "juftin@juftin.com"}
+]
+dependencies = [
+  "hatch"
+]
+description = "testing hatch-pip-compile"
+license = "MIT"
+name = "hatch-pip-compile-test"
+readme = "README.md"
+requires-python = ">=3.8"
+version = "0.1.0"
+
+[tool.hatch.envs.default]
+path = ".venv/hatch-pip-compile-test"
+pip-compile-constraint = "default"
+type = "pip-compile"
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "mkdocs"
+]
+dev-mode = false
+lock-filename = "requirements/{env_name}.lock"
+path = ".venv/docs"
+pip-compile-constraint = "misc"
+pip-compile-hashes = true
+
+[tool.hatch.envs.lint]
+dependencies = [
+  "mypy>=1.6.1",
+  "ruff~=0.1.4"
+]
+detached = true
+path = ".venv/lint"
+type = "pip-compile"
+
+[tool.hatch.envs.misc]
+dependencies = []
+detached = true
+path = ".venv/misc"
+skip-install = true
+type = "pip-compile"
+
+[tool.hatch.envs.test]
+dependencies = [
+  "pytest",
+  "pytest-cov"
+]
+path = ".venv/test"

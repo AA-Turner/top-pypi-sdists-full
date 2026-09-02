@@ -1,0 +1,30 @@
+[package]
+name = "guacr-encoder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "H.264 encoder backends for guacr protocol handlers"
+readme = "README.md"
+
+[dependencies]
+anyhow.workspace = true
+bytes.workspace = true
+log.workspace = true
+crossbeam-queue.workspace = true
+guacr-handlers = { path = "../guacr-handlers" }
+
+openh264 = { version = "0.9", optional = true }
+openh264-sys2 = { version = "0.9", optional = true }
+
+# FFmpeg (libavcodec) — the single hardware H.264 backend on every platform: VAAPI/NVENC
+# (Linux), Media Foundation/QSV/NVENC (Windows), VideoToolbox (macOS). Links the system
+# FFmpeg (LGPL, provided by the manylinux builder image / the host on macOS/Windows).
+# Off by default; enabled with the `ffmpeg` feature. openh264 stays as the software fallback.
+ffmpeg-next = { version = "7.1", optional = true }
+
+[features]
+default = ["software"]
+software = ["dep:openh264", "dep:openh264-sys2"]
+# Unified FFmpeg hardware-encode backend — all platforms; runtime-probed with software
+# (openh264) as the guaranteed fallback. Replaced the raw nvenc/videotoolbox backends.
+ffmpeg = ["dep:ffmpeg-next"]

@@ -1,0 +1,91 @@
+Metadata-Version: 2.5
+Name: river-client
+Version: 0.9.0
+Summary: Python client for River ML training API
+Project-URL: Homepage, https://river.ai
+Author-email: River AI <api@river.ai>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: fine-tuning,grpc,llm,lora,reinforcement-learning,river,training
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.12
+Requires-Dist: grpcio>=1.80.0
+Requires-Dist: huggingface-hub>=0.36.0
+Requires-Dist: numpy>=2.0.0
+Requires-Dist: protobuf>=6.31.1
+Requires-Dist: transformers>=5.3.0
+Requires-Dist: xxhash>=3.0.0
+Provides-Extra: examples
+Requires-Dist: datasets>=2.14.0; extra == 'examples'
+Requires-Dist: wandb>=0.28.0; extra == 'examples'
+Description-Content-Type: text/markdown
+
+# river-client
+
+Python client for the [River](https://river.ai) ML training API — sampling,
+LoRA fine-tuning, and reinforcement learning against River-hosted models.
+
+## Installation
+
+```bash
+pip install river-client
+```
+
+Requires Python 3.12+.
+
+## Quick start
+
+```python
+import river_client as river
+
+client = river.Client(api_key="your-key", endpoint="api.river.ai")
+
+# Stateless sampling from a base model
+samples = client.sample(
+    "What is 2+2?",
+    base_model="Qwen/Qwen3.6-35B-A3B-FP8",
+    max_tokens=50,
+)
+print(samples[0].text)
+
+# Training with a session
+with client.session() as session:
+    model = session.create_model(
+        base_model="Qwen/Qwen3.6-35B-A3B-FP8",
+        lora=river.LoraConfig(rank=16),
+    )
+
+    # Forward + backward, then an optimizer step
+    result = model.forward_backward(data, loss_fn="cross_entropy")
+    model.optim_step(lr=1e-4)
+
+    # Sample from the current weights
+    sample_groups = model.sample("Continue:", max_tokens=100)
+```
+
+## AI agent skill
+
+The package bundles an agent skill — a `SKILL.md` that teaches AI coding
+agents (Claude Code and compatible tools) the current training API:
+`train_step` semantics, data formats, RL/SFT/distillation loop patterns,
+and fault-tolerant auto-recovery. Because it ships inside the wheel, the
+skill always matches the installed client version.
+
+Install it into your agent's skills directory:
+
+```bash
+python -m river_client.skill --install
+```
+
+This copies the skill into `~/.claude/skills/`; pass `--dest` for a
+different location (e.g. a project's `.claude/skills/`). Run without
+`--install` to print the bundled skill's path instead.
+
+## License
+
+Apache-2.0. See [`LICENSE`](LICENSE).

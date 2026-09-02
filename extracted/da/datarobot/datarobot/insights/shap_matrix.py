@@ -45,7 +45,7 @@ class ShapMatrix(CsvSupportedInsight):
 
     @property
     def columns(self) -> List[str]:
-        """List of columns associated with the SHAP matrix"""
+        """A list of columns associated with the SHAP matrix."""
         return cast(List[str], self.data["colnames"])
 
     @property

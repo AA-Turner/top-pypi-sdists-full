@@ -11,13 +11,12 @@ import re
 import time
 import uuid
 import warnings
-from datetime import timedelta
 from http.client import responses
 from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 
 from jinja2 import TemplateNotFound
 from sqlalchemy.exc import SQLAlchemyError
-from tornado import gen, web
+from tornado import web
 from tornado.httputil import HTTPHeaders, url_concat
 from tornado.ioloop import IOLoop
 from tornado.log import app_log
@@ -31,6 +30,8 @@ from .._xsrf_utils import (
     get_xsrf_token,
 )
 from ..metrics import (
+    CSP_REPORT_COUNT,
+    LOGIN_DURATION_SECONDS,
     PROXY_ADD_DURATION_SECONDS,
     PROXY_DELETE_DURATION_SECONDS,
     RUNNING_SERVERS,
@@ -38,22 +39,27 @@ from ..metrics import (
     SERVER_SPAWN_DURATION_SECONDS,
     SERVER_STOP_DURATION_SECONDS,
     TOTAL_USERS,
+    LoginStatus,
     ProxyDeleteStatus,
     ServerPollStatus,
+    ServerSpawnFailureReason,
     ServerSpawnStatus,
     ServerStopStatus,
 )
 from ..objects import Server
-from ..spawner import LocalProcessSpawner
+from ..slugs import is_valid_display_name, is_valid_safe_slug, normalise_unicode
+from ..spawner import LocalProcessSpawner, SpawnException
 from ..user import User
 from ..utils import (
     AnyTimeoutError,
     get_accepted_mimetype,
     get_browser_protocol,
     maybe_future,
+    safe_log,
     url_escape_path,
     url_path_join,
     utcnow,
+    wait_for_shielded,
 )
 
 # pattern for the authentication token header
@@ -178,10 +184,6 @@ class BaseHandler(RequestHandler):
     @property
     def proxy(self):
         return self.settings['proxy']
-
-    @property
-    def statsd(self):
-        return self.settings['statsd']
 
     @property
     def authenticator(self):
@@ -923,6 +925,7 @@ class BaseHandler(RequestHandler):
         if isinstance(authenticated, str):
             authenticated = {'name': authenticated}
         username = authenticated['name']
+        user_info = authenticated.get('user_info', None)
         auth_state = authenticated.get('auth_state')
         admin = authenticated.get('admin')
         refreshing = user is not None
@@ -939,6 +942,8 @@ class BaseHandler(RequestHandler):
         # Only set `admin` if the authenticator returned an explicit value.
         if admin is not None and admin != user.admin:
             user.admin = admin
+        if user_info is not None:
+            user.user_info = user_info
         # always ensure default roles ('user', 'admin' if admin) are assigned
         # after a successful login
         roles.assign_default_roles(self.db, entity=user)
@@ -975,27 +980,28 @@ class BaseHandler(RequestHandler):
 
     async def login_user(self, data=None):
         """Login a user"""
-        auth_timer = self.statsd.timer('login.authenticate').start()
+        login_start_time = time.perf_counter()
         authenticated = await self.authenticate(data)
-        auth_timer.stop(send=False)
 
         if authenticated:
             user = await self.auth_to_user(authenticated)
             self.set_login_cookie(user)
-            self.statsd.incr('login.success')
-            self.statsd.timing('login.authenticate.success', auth_timer.ms)
+            LOGIN_DURATION_SECONDS.labels(status=LoginStatus.success).observe(
+                time.perf_counter() - login_start_time
+            )
 
             self.log.info("User logged in: %s", user.name)
             user._auth_refreshed = time.monotonic()
             return user
         else:
-            self.statsd.incr('login.failure')
-            self.statsd.timing('login.authenticate.failure', auth_timer.ms)
             log_username = username = (data or {}).get('username', 'unknown user')
             # username failed login, don't log full invalid user input
             if len(username) > 32:
                 log_username = f"{username[:16]}...({len(username)} chars)"
             self.log.warning("Failed login for %r", log_username)
+            LOGIN_DURATION_SECONDS.labels(status=LoginStatus.failure).observe(
+                time.perf_counter() - login_start_time
+            )
 
     # ---------------------------------------------------------------
     # spawning-related
@@ -1021,7 +1027,9 @@ class BaseHandler(RequestHandler):
     def active_server_limit(self):
         return self.settings.get('active_server_limit', 0)
 
-    async def spawn_single_user(self, user, server_name='', options=None):
+    async def spawn_single_user(
+        self, user, server_name='', display_name='', options=None
+    ):
         # in case of error, include 'try again from /hub/home' message
         if self.authenticator.refresh_pre_spawn:
             auth_user = await self.refresh_auth(user, force=True)
@@ -1037,9 +1045,7 @@ class BaseHandler(RequestHandler):
 
         if server_name:
             if '/' in server_name:
-                error_message = (
-                    f"Invalid server_name (may not contain '/'): {server_name}"
-                )
+                error_message = f"Invalid server_name (may not contain '/'): {safe_log(server_name)}"
                 self.log.error(error_message)
                 raise web.HTTPError(400, error_message)
             user_server_name = f'{user.name}:{server_name}'
@@ -1047,7 +1053,8 @@ class BaseHandler(RequestHandler):
         if server_name in user.spawners and user.spawners[server_name].pending:
             pending = user.spawners[server_name].pending
             SERVER_SPAWN_DURATION_SECONDS.labels(
-                status=ServerSpawnStatus.already_pending
+                status=ServerSpawnStatus.failure,
+                reason=ServerSpawnFailureReason.already_pending,
             ).observe(time.perf_counter() - spawn_start_time)
             raise RuntimeError(f"{user_server_name} pending {pending}")
 
@@ -1067,7 +1074,8 @@ class BaseHandler(RequestHandler):
 
         if concurrent_spawn_limit and spawn_pending_count >= concurrent_spawn_limit:
             SERVER_SPAWN_DURATION_SECONDS.labels(
-                status=ServerSpawnStatus.throttled
+                status=ServerSpawnStatus.failure,
+                reason=ServerSpawnFailureReason.throttled,
             ).observe(time.perf_counter() - spawn_start_time)
             # Suggest number of seconds client should wait before retrying
             # This helps prevent thundering herd problems, where users simply
@@ -1103,7 +1111,8 @@ class BaseHandler(RequestHandler):
         if active_server_limit and active_count >= active_server_limit:
             self.log.info('%s servers active, no space available', active_count)
             SERVER_SPAWN_DURATION_SECONDS.labels(
-                status=ServerSpawnStatus.too_many_users
+                status=ServerSpawnStatus.failure,
+                reason=ServerSpawnFailureReason.too_many_users,
             ).observe(time.perf_counter() - spawn_start_time)
             raise web.HTTPError(
                 429, "Active user limit exceeded. Try again in a few minutes."
@@ -1113,7 +1122,7 @@ class BaseHandler(RequestHandler):
 
         self.log.debug("Initiating spawn for %s", user_server_name)
 
-        spawn_future = user.spawn(server_name, options, handler=self)
+        spawn_future = user.spawn(server_name, display_name, options, handler=self)
 
         self.log.debug(
             "%i%s concurrent spawns",
@@ -1143,9 +1152,9 @@ class BaseHandler(RequestHandler):
             self.log.info(
                 "User %s took %.3f seconds to start", user_server_name, toc - tic
             )
-            self.statsd.timing('spawner.success', (toc - tic) * 1000)
             SERVER_SPAWN_DURATION_SECONDS.labels(
-                status=ServerSpawnStatus.success
+                status=ServerSpawnStatus.success,
+                reason=ServerSpawnFailureReason.none,
             ).observe(time.perf_counter() - spawn_start_time)
             self.eventlog.emit(
                 schema_id='https://schema.jupyter.org/jupyterhub/events/server-action',
@@ -1202,11 +1211,29 @@ class BaseHandler(RequestHandler):
                 self.settings['failure_count'] = 0
                 return
             # spawn failed, increment count and abort if limit reached
+            e = f.exception()
+            if isinstance(e, SpawnException):
+                status = ServerSpawnStatus.failure
+                reason = e.reason
+            elif isinstance(e, web.HTTPError) and e.status_code < 500:
+                status = ServerSpawnStatus.failure
+                # use default value
+                reason = e.reason or ServerSpawnFailureReason.none
+            elif isinstance(e, web.HTTPError) and e.status_code >= 500:
+                status = ServerSpawnStatus.error
+                reason = e.reason or ServerSpawnFailureReason.none
+            else:
+                status = ServerSpawnStatus.error
+                reason = ServerSpawnFailureReason.none
+
             SERVER_SPAWN_DURATION_SECONDS.labels(
-                status=ServerSpawnStatus.failure
+                status=status,
+                reason=reason,
             ).observe(time.perf_counter() - spawn_start_time)
             self.settings.setdefault('failure_count', 0)
-            self.settings['failure_count'] += 1
+            if status == ServerSpawnStatus.error:
+                # increment on error only, not on handled rejections
+                self.settings['failure_count'] += 1
             failure_count = self.settings['failure_count']
             failure_limit = spawner.consecutive_failure_limit
             if failure_limit and 1 < failure_count < failure_limit:
@@ -1229,10 +1256,9 @@ class BaseHandler(RequestHandler):
                 IOLoop.current().call_later(2, abort)
 
         finish_spawn_future.add_done_callback(_track_failure_count)
-
         try:
-            await gen.with_timeout(
-                timedelta(seconds=self.slow_spawn_timeout), finish_spawn_future
+            await wait_for_shielded(
+                finish_spawn_future, timeout=self.slow_spawn_timeout
             )
         except AnyTimeoutError:
             # waiting_for_response indicates server process has started,
@@ -1259,20 +1285,17 @@ class BaseHandler(RequestHandler):
             ).observe(time.perf_counter() - poll_start_time)
 
             if status is not None:
-                toc = IOLoop.current().time()
-                self.statsd.timing('spawner.failure', (toc - tic) * 1000)
                 SERVER_SPAWN_DURATION_SECONDS.labels(
-                    status=ServerSpawnStatus.failure
+                    status=ServerSpawnStatus.error,
+                    reason="exited",
                 ).observe(time.perf_counter() - spawn_start_time)
 
                 # if it stopped, give the original spawn future a second chance to raise
                 # this avoids storing the generic 500 error as the spawn failure,
                 # when the original may be more informative
                 try:
-                    await asyncio.wait_for(
-                        asyncio.shield(finish_spawn_future), timeout=1
-                    )
-                except TimeoutError:
+                    await wait_for_shielded(finish_spawn_future, timeout=1)
+                except AnyTimeoutError:
                     pass
 
                 if finish_spawn_future.exception():
@@ -1382,7 +1405,6 @@ class BaseHandler(RequestHandler):
                 self.log.info(
                     "User %s server took %.3f seconds to stop", user.name, toc - tic
                 )
-                self.statsd.timing('spawner.stop', (toc - tic) * 1000)
                 SERVER_STOP_DURATION_SECONDS.labels(
                     status=ServerStopStatus.success
                 ).observe(toc - tic)
@@ -1408,7 +1430,7 @@ class BaseHandler(RequestHandler):
         future = spawner._stop_future = asyncio.ensure_future(stop())
 
         try:
-            await gen.with_timeout(timedelta(seconds=self.slow_stop_timeout), future)
+            await wait_for_shielded(future, timeout=self.slow_stop_timeout)
         except AnyTimeoutError:
             # hit timeout, but stop is still pending
             self.log.warning(
@@ -1529,20 +1551,25 @@ class BaseHandler(RequestHandler):
         message_html = ''
         exception = None
         status_message = responses.get(status_code, 'Unknown HTTP Error')
+        reason = ''
         if exc_info:
             exception = exc_info[1]
-            # get the custom message, if defined
-            try:
-                message = exception.log_message % exception.args
-            except Exception:
-                pass
+            if isinstance(exception, SpawnException):
+                log_message = exception.log_message
+                message = exception.message
+                message_html = exception.message_html
+                reason = exception.reason
+            elif isinstance(exception, web.HTTPError):
+                message = exception.get_message()
+                reason = exception.reason
+                status_message = reason or message
+
             # allow custom html messages
-            message_html = getattr(exception, "jupyterhub_html_message", "")
+            message_html = getattr(exception, "jupyterhub_html_message", message_html)
 
             # construct the custom reason, if defined
-            reason = getattr(exception, 'reason', '')
             if reason:
-                message = reasons.get(reason, reason)
+                message = reasons.get(reason, message)
 
             # get special jupyterhub_message, if defined
             message = getattr(exception, "jupyterhub_message", message)
@@ -1587,6 +1614,51 @@ class BaseHandler(RequestHandler):
                 html = self.render_template('error.html', sync=True, **ns)
 
         self.write(html)
+
+    async def _check_named_server_request(
+        self, user, server_name, display_name, check_limit=True
+    ):
+        """Check that a request for a named server is valid"""
+        if not self.allow_named_servers:
+            raise web.HTTPError(400, "Named servers are not enabled.")
+
+        # check the named server limit
+        if check_limit:
+            named_server_limit_per_user = (
+                await self.get_current_user_named_server_limit()
+            )
+            if named_server_limit_per_user > 0 and server_name not in user.orm_spawners:
+                spawner_names = set(user.orm_spawners.keys())
+                # discard default, only count named servers
+                spawner_names.discard("")
+                if named_server_limit_per_user <= len(spawner_names):
+                    raise web.HTTPError(
+                        400,
+                        f"User {user.name} already has the maximum of {named_server_limit_per_user} named servers."
+                        "  One must be deleted before a new server can be created",
+                    )
+
+        # Prevent creation of new invalid server names
+        if server_name not in user.orm_spawners:
+            if not is_valid_safe_slug(server_name):
+                error_message = f"Invalid server_name: {safe_log(server_name)}"
+                self.log.error(error_message)
+                raise web.HTTPError(400, error_message)
+
+            display_name = normalise_unicode(display_name)
+            if not is_valid_display_name(display_name):
+                error_message = f"Invalid display_name: {safe_log(display_name)}"
+                self.log.error(error_message)
+                raise web.HTTPError(400, error_message)
+
+        # Allow invalid server names created before JupyterHub 6
+        # if allow_invalid_named_server_start
+        if not self.settings[
+            "allow_invalid_named_server_start"
+        ] and not is_valid_safe_slug(server_name):
+            error_message = f"Starting invalid server_name {safe_log(server_name)} is disabled, contact your administrator"
+            self.log.error(error_message)
+            raise web.HTTPError(400, error_message)
 
 
 class Template404(BaseHandler):
@@ -1921,7 +1993,6 @@ class UserUrlHandler(BaseHandler):
             target = url_concat(target, {'redirects': 1})
 
         self.redirect(target)
-        self.statsd.incr('redirects.user_after_login')
 
 
 class UserRedirectHandler(BaseHandler):
@@ -1992,8 +2063,8 @@ class CSPReportHandler(BaseHandler):
             "Content security violation: %s",
             self.request.body.decode('utf8', 'replace'),
         )
-        # Report it to statsd as well
-        self.statsd.incr('csp_report')
+        # Report it to metrics as well
+        CSP_REPORT_COUNT.inc()
 
 
 class AddSlashHandler(BaseHandler):

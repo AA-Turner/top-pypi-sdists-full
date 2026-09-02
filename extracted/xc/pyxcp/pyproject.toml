@@ -1,0 +1,177 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11==2.13.6"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pyxcp"
+version = "0.29.18"
+description = "Universal Calibration Protocol for Python"
+readme = "docs/README.rst"
+license = {text = "LGPLv3"}
+authors = [
+    {name = "Christoph Schueler", email = "cpu.gems@googlemail.com"},
+]
+keywords = ["automotive", "ecu", "xcp", "asam", "autosar"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "construct>=2.10.68,<3",
+    "pyserial>=3.5,<4",
+    "pyusb>=1.2,<2",
+    "python-can>=4.2,<5",
+    "rich>=13.0,<15",
+    "chardet>=7.0.0",
+    "traitlets>=5.9,<6",
+    "toml>=0.10,<1",
+    "pytz>=2024.1",
+    "pydantic>=2.5,<3",
+]
+
+[project.urls]
+Homepage = "https://github.com/christoph2/pyxcp"
+
+[project.scripts]
+pyxcp-probe-can-drivers = "pyxcp.scripts.pyxcp_probe_can_drivers:main"
+xcp-id-scanner = "pyxcp.scripts.xcp_id_scanner:main"
+xcp-discovery = "pyxcp.scripts.xcp_discovery:main"
+xcp-fetch-a2l = "pyxcp.scripts.xcp_fetch_a2l:main"
+xcp-info = "pyxcp.scripts.xcp_info:main"
+xcp-profile = "pyxcp.scripts.xcp_profile:main"
+xcp-examples = "pyxcp.scripts.xcp_examples:main"
+xmraw-converter = "pyxcp.scripts.xmraw_converter:main"
+
+[tool.scikit-build]
+cmake.build-type = "Release"
+wheel.packages = ["pyxcp"]
+editable.mode = "inplace"
+
+[tool.poetry.group.dev.dependencies]
+Pygments = ">=2.10.0"
+bandit = ">=1.7.4"
+coverage = {extras = ["toml"], version = ">=6.2"}
+furo = ">=2021.11.12"
+mypy = ">=0.930"
+pre-commit = ">=2.16.0"
+pytest = ">=6.2.5"
+sphinx = ">=4.3.2"
+sphinx-autobuild = ">=2021.3.14"
+sphinx-click = ">=3.0.2"
+typeguard = ">=2.13.3"
+xdoctest = {extras = ["colors"], version = ">=0.15.10"}
+myst-parser = {version = ">=0.16.1"}
+sphinxcontrib-napoleon = ">=0.7"
+ruff = "^0.12.0"
+pre-commit-hooks = "^5.0.0"
+bumpver = ">=2023.1124"
+cmake = "^4.3.4"
+
+[tool.bumpver]
+current_version = "0.29.18"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = false
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'version = "{version}"',
+]
+"pyxcp/__init__.py" = [
+    '__version__ = "{version}"',
+]
+
+[tool.poetry]
+authors = ["Christoph Schueler <cpu.gems@googlemail.com>"]
+name = "pyxcp"
+version = "0.29.18"
+readme = "docs/README.rst"
+description = "Universal Calibration Protocol for Python"
+keywords = ["automotive", "ecu", "xcp", "asam", "autosar"]
+homepage = "https://github.com/christoph2/pyxcp"
+license = "LGPLv3"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+construct = ">=2.10.68,<3"
+pyserial = ">=3.5,<4"
+pyusb = ">=1.2,<2"
+python-can = ">=4.2,<5"
+rich = ">=13.0,<15"
+chardet = ">=7.0.0"
+traitlets = ">=5.9,<6"
+toml = ">=0.10,<1"
+pytz = ">=2024.1"
+pydantic = ">=2.5,<3"
+
+[tool.poetry.scripts]
+pyxcp-probe-can-drivers = "pyxcp.scripts.pyxcp_probe_can_drivers:main"
+xcp-id-scanner = "pyxcp.scripts.xcp_id_scanner:main"
+xcp-discovery = "pyxcp.scripts.xcp_discovery:main"
+xcp-fetch-a2l = "pyxcp.scripts.xcp_fetch_a2l:main"
+xcp-info = "pyxcp.scripts.xcp_info:main"
+xcp-profile = "pyxcp.scripts.xcp_profile:main"
+xcp-examples = "pyxcp.scripts.xcp_examples:main"
+xmraw-converter = "pyxcp.scripts.xmraw_converter:main"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--verbose",
+  "--tb=short",
+  "--junitxml=result.xml",
+  "-o",
+  "junit_family=xunit2",
+]
+testpaths = ["pyxcp/tests"]
+
+[tool.mypy]
+strict = false
+warn_unreachable = true
+pretty = true
+show_column_numbers = true
+show_error_context = true
+
+[tool.ruff]
+line-length = 132
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = ["I001"]
+unfixable = ["B"]
+
+[tool.cibuildwheel]
+build-verbosity = 3
+build = "cp3{10,11,12,13,14,15}-*"
+skip = ["*_i686", "*-musllinux*"]
+build-frontend = "build"
+
+[tool.pyright]
+include = ["pyxcp"]
+ignore = ["pyxcp/recorder/converter/**", "pyxcp/recorder/simdjson/**","pyxcp/recorder/mio/**", "pyxcp/recorder/lz4/**"]
+
+reportMissingImports = true
+reportMissingTypeStubs = false

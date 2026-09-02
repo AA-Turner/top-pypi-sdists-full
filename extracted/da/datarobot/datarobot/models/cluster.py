@@ -25,7 +25,7 @@ class Cluster(APIObject):
     Attributes
     ----------
     name: str
-        Current cluster name
+        Current cluster name.
     percent: float
         Percent of data contained in the cluster. This value is reported after cluster insights
         are computed for the model.
@@ -56,7 +56,7 @@ class Cluster(APIObject):
 
         Returns
         -------
-        List of clusters
+        List of clusters.
         """
         path = cls._cluster_names.format(project_id=project_id, model_id=model_id)
         response = cls._client.get(path).json()
@@ -66,7 +66,7 @@ class Cluster(APIObject):
     def update_multiple_names(
         cls, project_id: str, model_id: str, cluster_name_mappings: List[Tuple[str, str]]
     ) -> List[Cluster]:
-        """Update many clusters at once based on list of name mappings.
+        """Update the names of many clusters at once based on a list of name mappings.
 
         Parameters
         ----------
@@ -76,7 +76,7 @@ class Cluster(APIObject):
             ID of the model.
         cluster_name_mappings: List of tuples
             Cluster name mappings, consisting of current and previous names for each cluster.
-            Example:
+            See the following example.
 
             .. code-block:: python
 
@@ -86,7 +86,7 @@ class Cluster(APIObject):
 
         Returns
         -------
-        List of clusters
+        List of clusters.
 
         Raises
         ------
@@ -105,7 +105,7 @@ class Cluster(APIObject):
 
     @classmethod
     def update_name(cls, project_id: str, model_id: str, current_name: str, new_name: str) -> List[Cluster]:
-        """Change cluster name from current_name to new_name
+        """Change cluster name from ``current_name`` to ``new_name``.
 
         Parameters
         ----------
@@ -114,9 +114,9 @@ class Cluster(APIObject):
         model_id: str
             ID of the model.
         current_name: str
-            Current cluster name
+            Current cluster name.
         new_name: str
-            New cluster name
+            New cluster name.
 
         Returns
         -------

@@ -1,0 +1,4293 @@
+"""
+Workflow CLI commands.
+
+This module provides CLI entry points for all workflow initiation commands.
+Each command:
+1. Validates required state
+2. Loads and renders the appropriate prompt template
+3. Updates workflow state
+4. Logs the prompt to console with save notice
+
+The work-on-jira-issue workflow uses a state-machine approach with:
+- Pre-flight checks for worktree/branch validation
+- Step-specific micro-prompts
+- Automatic workflow advancement from commands
+"""
+
+import json
+import logging
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+from agentic_devtools.state import get_state_dir
+
+from ..copilot.session import get_default_copilot_model
+from .base import (
+    advance_workflow_step,
+    clear_state_for_workflow_initiation,
+    initiate_workflow,
+    validate_required_state,
+)
+from .preflight import check_worktree_and_branch, get_git_repo_root
+
+
+def _effective_argv(
+    _argv: list[str] | None,
+    *programmatic_params: object,
+) -> list[str] | None:
+    """Return the argv list that :func:`argparse.ArgumentParser.parse_args` should receive.
+
+    When ``_argv`` is explicitly provided (including ``[]``), it is returned
+    as-is — the caller is controlling what gets parsed.
+
+    When ``_argv is None`` **and** no programmatic parameter was supplied,
+    the function is being used as a CLI entry point, so we return ``None``
+    to let argparse read ``sys.argv``.
+
+    When ``_argv is None`` **but** at least one programmatic parameter is
+    not ``None``, the caller is invoking the function from code (or from
+    tests that forgot to pass ``_argv=[]``).  In that case we return ``[]``
+    so that argparse parses an empty argument list instead of the host
+    process's ``sys.argv`` — which could contain unrelated flags and cause
+    an unexpected ``SystemExit``.
+    """
+    if _argv is not None:
+        return _argv
+    if any(p is not None for p in programmatic_params):
+        return []
+    return None
+
+
+def _parse_bool_interactive(value: str) -> str:
+    """Validate ``--interactive`` value (pass-through for argparse ``type=``).
+
+    Accepts only ``true`` / ``false`` (case-insensitive).  Returns the
+    normalised lowercase string so the caller can compare with ``"true"``.
+    Raises :class:`argparse.ArgumentTypeError` for anything else, which
+    argparse converts into a user-friendly error message.
+    """
+    import argparse
+
+    normalised = value.strip().lower()
+    if normalised in ("true", "false"):
+        return normalised
+    raise argparse.ArgumentTypeError(f"invalid value '{value}' — must be 'true' or 'false'")
+
+
+def _parse_pr_review_engine(value: str) -> str:
+    """Validate and normalize ``--engine`` for pull-request review workflows.
+
+    Accepts the public values ``copilot`` and ``langchain``. The legacy
+    ``default`` value is retained as a backwards-compatible alias for
+    ``copilot``.
+    """
+    import argparse
+
+    normalised = value.strip().lower()
+    if normalised == "default":
+        return "copilot"
+    if normalised in ("copilot", "langchain"):
+        return normalised
+    raise argparse.ArgumentTypeError(f"invalid value '{value}' — must be 'copilot' or 'langchain'")
+
+
+def _read_scoped_execution_signals(issue_key: str | None) -> tuple[str | None, object]:
+    """Best-effort read of scoped execution-mode signals without state writes.
+
+    Reads ``orchestration.execution_mode`` and ``dry_run`` from the state file
+    resolved by ``get_state_dir()`` precedence (``AGENTIC_DEVTOOLS_STATE_DIR``,
+    pin file, then scoped bootstrap fallback), without calling
+    ``set_bootstrap_state()`` or ``set_value()``.
+    """
+    from ...state import PIN_FILENAME, RECOGNIZED_PIN_WORKFLOWS, get_bootstrap_state, is_safe_dir_segment
+
+    normalized_issue_key = issue_key.strip() if isinstance(issue_key, str) else ""
+    # Canonicalize GitHub issue keys: "#42" → "42" so is_safe_dir_segment accepts them
+    if normalized_issue_key.startswith("#"):
+        normalized_issue_key = normalized_issue_key.removeprefix("#")
+
+    def _read_pinned_state_dir_without_side_effects(git_root: Path) -> Path | None:
+        pin_path = git_root / ".agdt" / PIN_FILENAME
+        try:
+            raw = pin_path.read_text(encoding="utf-8")
+            payload = json.loads(raw)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+
+        workflow = payload.get("workflow")
+        if not isinstance(workflow, str) or workflow not in RECOGNIZED_PIN_WORKFLOWS:
+            return None
+
+        state_dir_raw = payload.get("state_dir")
+        if not isinstance(state_dir_raw, str) or not state_dir_raw.strip():
+            return None
+        state_dir = Path(state_dir_raw.strip())
+        if not state_dir.is_absolute():
+            return None
+
+        try:
+            created_raw = payload.get("created_utc")
+            ttl_hours = payload.get("ttl_hours")
+            if (
+                not isinstance(created_raw, str)
+                or not isinstance(ttl_hours, (int, float))
+                or isinstance(ttl_hours, bool)
+                or ttl_hours <= 0
+            ):
+                return None
+            from datetime import UTC, datetime, timedelta
+
+            created_at = datetime.fromisoformat(created_raw.replace("Z", "+00:00"))
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=UTC)
+            if created_at + timedelta(hours=ttl_hours) <= datetime.now(UTC):
+                return None
+        except (ValueError, TypeError):
+            return None
+
+        try:
+            resolved_state_dir = state_dir.resolve(strict=False)
+            workflows_root = (git_root / ".agdt" / "workflows").resolve(strict=False)
+            resolved_state_dir.relative_to(workflows_root)
+        except (ValueError, OSError):
+            return None
+        return resolved_state_dir
+
+    state_path: Path | None = None
+    repo_root: str | None = None
+
+    env_dir = os.environ.get("AGENTIC_DEVTOOLS_STATE_DIR", "").strip()
+    if env_dir:
+        state_path = Path(env_dir).expanduser().resolve(strict=False) / "state.json"
+    else:
+        repo_root = get_git_repo_root()
+        if repo_root is not None:
+            pinned_dir = _read_pinned_state_dir_without_side_effects(Path(repo_root))
+            if pinned_dir is not None:
+                state_path = pinned_dir / "state.json"
+
+    if state_path is None:
+        bootstrap = get_bootstrap_state()
+        raw_identity = bootstrap.get("identity", "")
+        identity = raw_identity.strip() if isinstance(raw_identity, str) else ""
+        if not identity:
+            return None, None
+
+        if normalized_issue_key:
+            worktree_key = normalized_issue_key
+        else:
+            raw_worktree_key = bootstrap.get("worktree_key", "")
+            worktree_key = raw_worktree_key.strip() if isinstance(raw_worktree_key, str) else ""
+
+        if not worktree_key:
+            return None, None
+        if not is_safe_dir_segment(identity) or not is_safe_dir_segment(worktree_key):
+            return None, None
+
+        if repo_root is None:
+            repo_root = get_git_repo_root()
+        if repo_root is None:
+            return None, None
+        state_path = Path(repo_root) / ".agdt" / "workflows" / identity / worktree_key / "state.json"
+
+    if not state_path.is_file():
+        return None, None
+
+    try:
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeError):
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+
+    raw_state_mode = payload.get("orchestration", {})
+    if isinstance(raw_state_mode, dict):
+        raw_state_mode = raw_state_mode.get("execution_mode")
+    else:
+        raw_state_mode = None
+    state_mode = raw_state_mode if isinstance(raw_state_mode, str) else None
+    return state_mode, payload.get("dry_run")
+
+
+def _format_auto_setup_success_message(workflow_name: str, issue_key: str, starts_copilot_session: bool = True) -> str:
+    """Return a formatted message block shown after a successful worktree auto-setup.
+
+    Args:
+        workflow_name: The workflow name (e.g., "work-on-jira-issue")
+        issue_key: The Jira issue key or other identifier (e.g., "PROJECT-1234")
+        starts_copilot_session: Whether the background setup will eventually
+            start a Copilot session in VS Code. LangChain PR review runs set
+            this to ``False`` because they continue headlessly in the
+            background instead.
+
+    Returns:
+        A formatted string to print to stdout.
+    """
+    sep = "=" * 80
+    if starts_copilot_session:
+        status_line = "A Copilot session will start automatically in the VS Code integrated terminal."
+        fallback_line = "If the session doesn't appear, run: agdt-task-log"
+    else:
+        status_line = "The LangChain review pipeline will continue automatically in the background."
+        fallback_line = "Monitor progress with: agdt-task-log or agdt-task-wait"
+    return (
+        f"\n{sep}\n"
+        f"✅ Worktree setup started for {issue_key}.\n"
+        f"{status_line}\n"
+        f"Workflow: {workflow_name}\n"
+        f"{fallback_line}\n"
+        f"{sep}"
+    )
+
+
+def _powershell_join(args: list[str]) -> str:
+    """Format a command list as a PowerShell-safe invocation.
+
+    Uses the ``&`` call operator with single-quoted arguments.  Single quotes
+    within each argument are escaped by doubling them (``''``), which is the
+    only escaping needed inside PowerShell single-quoted strings.  Double
+    quotes and ``%VAR%``-style tokens require no special treatment and are
+    passed through literally, making this safe for user-controlled text.
+
+    Returns an empty string when ``args`` is empty.
+    """
+    if not args:
+        return ""
+    quoted = ["'" + arg.replace("'", "''") + "'" for arg in args]
+    return "& " + " ".join(quoted)
+
+
+def _format_degraded_setup_message(issue_key: str, manual_command: list[str]) -> str:
+    """Return a formatted message shown when auto-setup fails.
+
+    This is used on two failure paths: when ``--issue-key`` is supplied and
+    preflight/auto-setup fails, and when a placeholder issue has been created
+    but the subsequent auto-setup step fails.
+
+    Args:
+        issue_key: The Jira issue key that was created/resolved (e.g., "PROJECT-1234")
+        manual_command: The auto_execute_command list that was attempted
+
+    Returns:
+        A formatted string to print to stdout with manual continuation instructions.
+    """
+    sep = "=" * 80
+    if sys.platform == "win32":
+        # Use PowerShell single-quote quoting so the copy-paste command is safe
+        # in PowerShell.  Single quotes prevent variable expansion (%VAR%,
+        # $env:VAR) and handle embedded double quotes without escaping.
+        shell_command = _powershell_join(manual_command)
+        shell_note = " (run from PowerShell)"
+    else:
+        import shlex
+
+        shell_command = shlex.join(manual_command)
+        shell_note = ""
+    return (
+        f"\n{sep}\n"
+        f"⚠️  Auto-setup failed for {issue_key}.\n"
+        f"The worktree/Copilot session could not be started automatically.\n"
+        f"\n"
+        f"To continue manually, run the following command from your current directory{shell_note}:\n"
+        f"\n"
+        f"  {shell_command}\n"
+        f"\n"
+        f"{sep}"
+    )
+
+
+def _ensure_bootstrap_identity() -> None:
+    """Resolve identity via set_bootstrap_state() before any state I/O.
+
+    Follows the same guard and error-handling pattern as initiate_workflow()
+    in base.py: skipped when state directory is overridden via env vars,
+    and failures are logged as warnings without blocking the workflow.
+    """
+    from ...state import set_bootstrap_state
+
+    env_state_override = os.getenv("AGENTIC_DEVTOOLS_STATE_DIR")
+    if env_state_override:
+        return
+    try:
+        set_bootstrap_state()
+    except (OSError, json.JSONDecodeError, UnicodeError, subprocess.SubprocessError) as exc:
+        logging.getLogger(__name__).warning(
+            "Failed to initialize bootstrap state before workflow clear; proceeding with unscoped state: %s",
+            exc,
+        )
+
+
+def _ensure_bootstrap_identity_and_scope(worktree_key: str) -> None:
+    """Resolve identity and set worktree_key scope via set_bootstrap_state() before any state I/O.
+
+    Combines identity resolution and worktree scoping into a single call so that
+    the state directory is locked to the correct scoped path before any ``set_value()``
+    calls are made.  This prevents the ``_unscoped`` folder from being created when
+    identity resolution succeeds.
+
+    Follows the same guard and error-handling pattern as ``_ensure_bootstrap_identity()``:
+    skipped when state directory is overridden via env vars, and failures are logged as
+    warnings without blocking the workflow.
+
+    Args:
+        worktree_key: The worktree key to use for scoping (e.g. ``"PROJECT-1234"`` or
+            ``"PR25858"``).  Issue key takes priority over PR ID when both are available,
+            matching the ``resolve_worktree_key()`` priority in ``agdt_branch.py``.
+    """
+    from ...state import set_bootstrap_state
+
+    env_state_override = os.getenv("AGENTIC_DEVTOOLS_STATE_DIR")
+    if env_state_override:
+        return
+    try:
+        set_bootstrap_state(worktree_key=worktree_key)
+    except (OSError, json.JSONDecodeError, UnicodeError, subprocess.SubprocessError) as exc:
+        logging.getLogger(__name__).warning(
+            "Failed to initialize bootstrap state; proceeding with unscoped state: %s",
+            exc,
+        )
+
+
+def _clear_stale_issue_keys_for_create() -> None:
+    """Delete stale issue-selection keys when starting a create-new-issue flow.
+
+    Called by create-jira-issue (and similar create workflows) when ``--issue-key``
+    is not provided.  Removes ``issue_key`` and ``jira.issue_key`` from state so
+    that downstream resolution does not accidentally reuse a key from a prior
+    workflow.
+
+    Emits an informational message to stderr when stale keys are found and cleared.
+    """
+    from ...state import delete_value, get_value
+
+    cleared: list[str] = []
+    for key in ("issue_key", "jira.issue_key"):
+        if get_value(key) is not None:
+            delete_value(key)
+            cleared.append(key)
+    if cleared:
+        keys_label = "/".join(cleared)
+        print(
+            f"\u2139\ufe0f  Cleared stale issue selection state ({keys_label}) "
+            "from prior workflow \u2014 creating fresh issue.",
+            file=sys.stderr,
+        )
+
+
+def _ensure_scoped_bootstrap_and_clear(issue_key: str | None) -> str | None:
+    """Normalize ``issue_key``, set bootstrap scope, then clear workflow state.
+
+    Jira workflow initiators must resolve bootstrap identity/scope before
+    ``clear_state_for_workflow_initiation()`` runs so state I/O happens in the
+    correct scoped directory. This helper keeps that ordering centralized.
+
+    Validation behavior:
+    - ``None`` means "not provided" and is allowed.
+    - A provided string is stripped; empty/whitespace-only input is rejected
+      with a clear error message.
+    - GitHub-style ``#N`` keys are canonicalized to bare ``N`` so that
+      ``is_safe_dir_segment()`` accepts the value and ``get_state_dir()``
+      resolves to the correct per-issue scope instead of ``_unscoped``.
+      A ``#``-prefixed key with no trailing positive integer (e.g. ``"#"``,
+      ``"#0"``, ``"#abc"``) is rejected with a clear error message to prevent
+      silent fallback to a stale scoped state from a previous run.
+
+    Args:
+        issue_key: Optional issue key provided via CLI or programmatic call
+            (Jira ``PROJECT-1234`` or GitHub ``42`` / ``#42`` format).
+
+    Returns:
+        Normalized issue key when provided; otherwise ``None``.
+    """
+    normalized_issue_key: str | None = None
+    if isinstance(issue_key, str):
+        normalized_issue_key = issue_key.strip()
+        if not normalized_issue_key:
+            print("ERROR: --issue-key cannot be empty or whitespace-only.", file=sys.stderr)
+            print("\nPlease pass a valid Jira issue key, for example:", file=sys.stderr)
+            print("  --issue-key PROJECT-1234", file=sys.stderr)
+            sys.exit(1)
+        # Canonicalize GitHub issue keys: "#42" → "42" so is_safe_dir_segment accepts them
+        # and get_state_dir() resolves to the correct per-issue scope instead of _unscoped.
+        if normalized_issue_key.startswith("#"):
+            bare = normalized_issue_key.removeprefix("#")
+            if not bare or not bare.isdigit() or not bare.lstrip("0"):
+                print(
+                    f"ERROR: --issue-key {normalized_issue_key!r} is not a valid GitHub issue number.",
+                    file=sys.stderr,
+                )
+                print(
+                    "\nGitHub issue keys must be a positive integer, e.g. '#42' or '42'.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            normalized_issue_key = bare
+
+    if normalized_issue_key:
+        _ensure_bootstrap_identity_and_scope(normalized_issue_key)
+    else:
+        _ensure_bootstrap_identity()
+
+    # Reset workflow-tracking keys now that scope is initialized.
+    clear_state_for_workflow_initiation()
+    return normalized_issue_key
+
+
+def initiate_pull_request_review_workflow(
+    pull_request_id: str | None = None,
+    issue_key: str | None = None,
+    interactive: bool | None = None,
+    model: str | None = None,
+    skip_copilot_session: bool | None = None,
+    force_rereview: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the pull request review workflow.
+
+    Can be started with either a pull request ID or a Jira issue key.
+    If issue key is provided, searches for an active PR with that issue key
+    in the source branch name.
+
+    If not in the correct worktree/branch context, automatically creates
+    a worktree and installs agentic-devtools, then continues by engine:
+    Copilot opens VS Code and starts a gh copilot session; LangChain runs
+    headlessly in the background without launching Copilot.
+
+    Usage:
+        agdt-initiate-pull-request-review-workflow --pull-request-id 12345
+        agdt-initiate-pull-request-review-workflow --issue-key PROJECT-1234
+        agdt-initiate-pull-request-review-workflow --pull-request-id 12345 --interactive false
+
+    Args:
+        pull_request_id: ID of the pull request to review.
+        issue_key: Jira issue key to find the PR by branch name.
+        interactive: Whether to start the Copilot session interactively (default: False).
+            Set to True for interactive mode.
+        skip_copilot_session: When True, no Copilot session is started.
+            For the default Copilot engine, PR review setup runs
+            **synchronously** (blocking) so the parent auto-setup task has all
+            review artifacts before continuing. For the LangChain engine, the
+            nested command returns after launching the background review
+            pipeline; review artifacts continue to appear asynchronously.
+            When False/None (the default), setup still runs synchronously for
+            the Copilot engine before session launch.
+        _argv: Command line arguments (for testing). Pass [] in tests to avoid
+            parsing sys.argv.  When any programmatic parameter is set and
+            ``_argv`` is ``None``, an empty argv is used automatically.
+
+    Either pull_request_id or issue_key must be provided via CLI/programmatic arguments;
+    any existing state is cleared at the start of this command to ensure a fresh workflow.
+    """
+    import argparse
+
+    from ...state import delete_value, get_value, set_value
+    from ..azure_devops.helpers import find_jira_issue_from_pr, find_pr_from_jira_issue, get_pull_request_source_branch
+    from .preflight import perform_auto_setup
+
+    # Parse CLI arguments first — no state I/O at this point, so no _unscoped dir is created.
+    parser = argparse.ArgumentParser(
+        description="Initiate the pull request review workflow",
+        epilog="""
+Examples:
+  agdt-initiate-pull-request-review-workflow --pull-request-id 12345
+  agdt-initiate-pull-request-review-workflow --issue-key PROJECT-1234
+  agdt-initiate-pull-request-review-workflow --pull-request-id 12345 --issue-key PROJECT-1234
+  agdt-initiate-pull-request-review-workflow --pull-request-id 12345 --interactive false
+        """,
+    )
+    parser.add_argument(
+        "--pull-request-id",
+        "-p",
+        dest="pull_request_id",
+        help="ID of the pull request to review.",
+    )
+    parser.add_argument(
+        "--issue-key",
+        "-i",
+        dest="issue_key",
+        help="Jira issue key to find PR by branch name (e.g., PROJECT-1234).",
+    )
+    parser.add_argument(
+        "--interactive",
+        dest="interactive",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Start Copilot session interactively (default: false). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help=(
+            "Model override. For engine=copilot: Copilot model (default: project config or gpt-4o). "
+            "For engine=langchain: explicit routing override (provider config still required)."
+        ),
+    )
+    parser.add_argument(
+        "--skip-copilot-session",
+        dest="skip_copilot_session",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip starting a Copilot session. With the Copilot engine this runs PR review "
+            "setup synchronously (blocks until complete); with the LangChain engine it "
+            "returns after launching the background review pipeline. Used by auto-execute "
+            "to avoid duplicate sessions when running inside a background task."
+        ),
+    )
+    parser.add_argument(
+        "--force-rereview",
+        dest="force_rereview",
+        action="store_true",
+        default=False,
+        help=(
+            "Force a re-review of the current commit even if it was already reviewed "
+            "by the same model/identity. Overwrites the existing review comment in place."
+        ),
+    )
+    parser.add_argument(
+        "--execution-mode",
+        dest="execution_mode",
+        choices=["live", "dry_run", "restricted"],
+        default=None,
+        help="Execution mode for safety policy (live/dry_run/restricted). Default: resolved from state/env.",
+    )
+    parser.add_argument(
+        "--engine",
+        dest="engine",
+        type=_parse_pr_review_engine,
+        default="copilot",
+        help=(
+            "Orchestration engine to use: 'copilot' (default) or 'langchain'. "
+            "The legacy value 'default' is accepted as an alias for 'copilot'."
+        ),
+    )
+    parser.add_argument(
+        "--use-langchain",
+        dest="use_langchain",
+        action="store_true",
+        default=False,
+        help="Alias for --engine langchain.",
+    )
+    parser.add_argument(
+        "--no-source-context",
+        dest="no_source_context",
+        action="store_true",
+        default=False,
+        help="Disable source-context enrichment (FR-008). Only applies to --engine langchain.",
+    )
+    args = parser.parse_args(
+        _effective_argv(
+            _argv,
+            pull_request_id,
+            issue_key,
+            interactive,
+            model,
+            skip_copilot_session,
+            force_rereview,
+        )
+    )
+
+    # CLI values override programmatic values only when not already set
+    if pull_request_id is None and args.pull_request_id:
+        pull_request_id = args.pull_request_id
+    if issue_key is None and args.issue_key:
+        issue_key = args.issue_key
+    if interactive is None and args.interactive is not None:
+        interactive = args.interactive == "true"
+    if interactive is None:
+        interactive = False
+    if model is None and args.model is not None:
+        model = args.model
+    if isinstance(model, str):
+        model = model.strip() or None
+    explicit_requested_model = model
+    model_was_explicit = model is not None
+    if model is None:
+        model = get_default_copilot_model()
+    if not skip_copilot_session and args.skip_copilot_session:
+        skip_copilot_session = True
+
+    if force_rereview is None:
+        force_rereview = bool(args.force_rereview)
+    use_langchain = getattr(args, "use_langchain", False) or args.engine == "langchain"
+    if getattr(args, "no_source_context", False) and not use_langchain:
+        parser.error("--no-source-context requires --engine langchain or --use-langchain")
+    source_context_enabled = not getattr(args, "no_source_context", False)
+
+    # Resolve identity and set the worktree_key scope BEFORE any state I/O (including
+    # the clear below), so that get_state_dir() resolves to the correct scoped directory
+    # and never creates the _unscoped fallback folder.
+    # Priority: issue_key > pull_request_id (matching resolve_worktree_key() in agdt_branch.py).
+    # Normalize both values (strip whitespace) before building the worktree_key so that
+    # leading/trailing whitespace does not cause is_safe_dir_segment() to reject the segment
+    # and fall back to _unscoped.
+    _issue_key_norm = issue_key.strip() if isinstance(issue_key, str) else ""
+    # Canonicalize GitHub issue keys: "#42" → "42" so is_safe_dir_segment accepts them
+    # and get_state_dir() resolves to the correct per-issue scope instead of _unscoped.
+    # Reject "#", "#0", "#abc" to avoid silent fallback to a stale scoped state.
+    if _issue_key_norm.startswith("#"):
+        _bare = _issue_key_norm.removeprefix("#")
+        if not _bare or not (_bare.isascii() and _bare.isdigit()) or int(_bare) <= 0:
+            print(
+                f"ERROR: --issue-key {_issue_key_norm!r} is not a valid GitHub issue number.",
+                file=sys.stderr,
+            )
+            print(
+                "\nGitHub issue keys must be a positive integer, e.g. '#42' or '42'.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        _issue_key_norm = _bare
+    _pr_id_norm = (
+        pull_request_id.strip()
+        if isinstance(pull_request_id, str)
+        else (str(pull_request_id) if pull_request_id is not None else "")
+    )
+    if _issue_key_norm:
+        _ensure_bootstrap_identity_and_scope(_issue_key_norm)
+    elif _pr_id_norm:
+        _ensure_bootstrap_identity_and_scope(f"PR{_pr_id_norm}")
+    else:
+        # Neither provided — fall back to identity-only; the error path below will exit.
+        _ensure_bootstrap_identity()
+
+    # FR-001/FR-005: Write pin file and set env var BEFORE spawning any background tasks.
+    # This ensures all child processes and independent CLI commands resolve to the same
+    # state directory, eliminating the race condition from #1180.
+    from ...state import delete_pin_file, get_state_dir, write_pin_file
+
+    # Skip pin file operations when the env var is already set externally —
+    # the explicit override takes precedence and must not be overwritten.
+    env_override = os.environ.get("AGENTIC_DEVTOOLS_STATE_DIR", "").strip()
+    if env_override:
+        resolved_state_dir = Path(env_override)
+        resolved_state_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        # Delete any stale pin file first so get_state_dir() resolves from the
+        # freshly-computed bootstrap scope, not a leftover from a previous run.
+        delete_pin_file()
+        resolved_state_dir = get_state_dir()
+        write_pin_file(resolved_state_dir, workflow="pull-request-review")
+        os.environ["AGENTIC_DEVTOOLS_STATE_DIR"] = str(resolved_state_dir)
+
+    # Clear workflow tracking state now that the bootstrap scope is set;
+    # load_state()/save_state() will use the correctly scoped directory.
+    # Always clears 'workflow'; clears 'agdt_run_id' only when this is a
+    # fresh user-initiated invocation (skip_copilot_session is falsy).
+    # When skip_copilot_session is set, this is a nested auto-execute
+    # invocation — preserve agdt_run_id so a pre-generated run ID from the
+    # parent process survives.
+    clear_state_for_workflow_initiation(preserve_run_id=bool(skip_copilot_session))
+    set_value("copilot.model_id", model)
+    # Persist execution mode if provided via CLI — must happen AFTER bootstrap
+    # scope is established so set_value() writes to the correctly scoped
+    # state directory rather than the _unscoped fallback.
+    if args.execution_mode is not None:
+        set_value("orchestration.execution_mode", args.execution_mode)
+    set_value("review.force_rereview", bool(force_rereview))
+    set_value("review.engine", "langchain" if use_langchain else "copilot")
+    set_value("review.source_context_enabled", bool(source_context_enabled))
+
+    # Remove any stale VS Code auto-start task from a previous workflow to
+    # prevent a duplicate Copilot session from firing on folderOpen/reload.
+    # This is belt-and-suspenders alongside the cleanup in
+    # _start_copilot_session_for_workflow — the earlier we remove the stale
+    # task, the smaller the window for a race where VS Code reloads and fires
+    # the old task before we start the new session.
+    repo_root_early = get_git_repo_root() or os.getcwd()
+    from .worktree_setup import _cleanup_stale_auto_start_task_for_worktree
+
+    _cleanup_stale_auto_start_task_for_worktree(repo_root_early)
+
+    # Set provided values in state using the NORMALIZED identifiers.  When both issue_key
+    # and pull_request_id are provided, write jira.issue_key FIRST so that the engine-side
+    # priority guard in set_value() (which checks the loaded state dict) sees the issue key
+    # and skips overwriting the bootstrap scope when pull_request_id is written immediately
+    # after.  Whitespace-only inputs normalize to an empty string and are treated as absent.
+    if _issue_key_norm:
+        set_value("jira.issue_key", _issue_key_norm)
+        if not _pr_id_norm:
+            # --issue-key was given without --pull-request-id: clear any stale PR ID
+            # left by a prior run so the cross-lookup below searches for the correct PR
+            # instead of silently reusing an unrelated pull request.
+            delete_value("pull_request_id")
+    if _pr_id_norm:
+        set_value("pull_request_id", _pr_id_norm)
+        if not _issue_key_norm:
+            # --pull-request-id was given without --issue-key: clear any stale issue key
+            # left by a prior run so the cross-lookup below derives a fresh value from
+            # the PR instead of silently reusing an unrelated Jira issue.
+            delete_value("jira.issue_key")
+
+    # Resolve values using the local variable (already holding the parsed CLI arg) as the
+    # primary source. Falling back to get_value() handles the case where neither CLI arg
+    # was provided but a prior cross-lookup or background task wrote the value to state.
+    # Note: `or` treats any falsy value (None, "") as absent; argparse returns None when
+    # an optional arg is omitted, and "" only when explicitly passed (e.g. --pull-request-id "").
+    # Both are correctly treated as "not provided" here.
+    # This avoids the bug where set_value() shifts the state directory (by creating
+    # runtime-bootstrap.json) and a subsequent get_value() reads from the *new* directory
+    # where the value was never written, producing None and a misleading error.
+    resolved_pr_id = _pr_id_norm or get_value("pull_request_id")
+    resolved_issue_key = _issue_key_norm or get_value("jira.issue_key")
+
+    # Cross-lookup: If we have one but not the other, look up the missing one
+    if resolved_pr_id and not resolved_issue_key:
+        # We have PR ID but no issue key -> look up from PR
+        print(f"Looking up Jira issue from PR #{resolved_pr_id}...")
+        found_issue = find_jira_issue_from_pr(int(resolved_pr_id))
+        if found_issue:  # pragma: no cover
+            resolved_issue_key = found_issue
+            set_value("jira.issue_key", resolved_issue_key)
+            print(f"✓ Found Jira issue {resolved_issue_key} from PR")
+        else:
+            print("ℹ️  No Jira issue key found in PR branch/title/description")
+
+    elif resolved_issue_key and not resolved_pr_id:
+        # We have issue key but no PR ID -> look up from Jira/ADO
+        print(f"Searching for PR linked to Jira issue '{resolved_issue_key}'...")
+        found_pr = find_pr_from_jira_issue(resolved_issue_key, verbose=True)
+        if found_pr:
+            resolved_pr_id = str(found_pr)
+            set_value("pull_request_id", resolved_pr_id)
+            print(f"✓ Found PR #{resolved_pr_id}")
+        else:
+            print(f"ERROR: No active PR found for issue key '{resolved_issue_key}'")
+            print("\nSearched in:")
+            print("  - Jira issue comments and description")
+            print("  - Azure DevOps PR source branch, title, and description")
+            print("\nTo find a completed PR, use:")
+            print(f"  agdt-find-pr-by-issue --issue-key {resolved_issue_key} --status all")
+            delete_pin_file()
+            sys.exit(1)
+
+    # At this point, resolved_pr_id / resolved_issue_key hold the authoritative values.
+    # Re-persist them into the *current* state directory so that any earlier writes to
+    # the _unscoped dir (before runtime-bootstrap.json existed) don't leave the active
+    # scoped state.json missing these keys for downstream commands.
+    #
+    # SCOPE-PINNING INVARIANT: When both issue_key and pull_request_id are present,
+    # jira.issue_key MUST be written first. set_value() saves the state dict and then
+    # updates runtime-bootstrap.json based on the loaded state. Writing the issue key
+    # first ensures it is present when pull_request_id triggers the bootstrap update,
+    # preventing a scope flip back to PR scope. This ordering is enforced below and
+    # must be preserved if this block is refactored.
+    if resolved_issue_key:
+        existing_issue_key = get_value("jira.issue_key")
+        if existing_issue_key != resolved_issue_key:
+            set_value("jira.issue_key", resolved_issue_key)
+    if resolved_pr_id:
+        set_value("pull_request_id", str(resolved_pr_id))
+
+    # Validate we have a PR ID now
+    if not resolved_pr_id:
+        print("ERROR: Either --pull-request-id or --issue-key must be provided.")
+        print("\nUsage:")
+        print("  agdt-initiate-pull-request-review-workflow --pull-request-id 12345")
+        print("  agdt-initiate-pull-request-review-workflow --issue-key PROJECT-1234")
+        delete_pin_file()
+        sys.exit(1)
+
+    # For PR review workflows, we need to know the source branch BEFORE creating
+    # the worktree, so we can checkout that branch instead of creating a new one.
+    # Fetch PR details early to get the source branch.
+    source_branch: str | None = None
+    try:
+        source_branch = get_pull_request_source_branch(int(resolved_pr_id))
+        if source_branch:
+            print(f"PR source branch: {source_branch}")
+    except Exception as e:
+        print(f"Error: Could not fetch PR source branch: {e}", file=sys.stderr)
+
+    # For PR review, we MUST have the source branch to checkout the correct code
+    if not source_branch:
+        print(
+            f"\nError: Unable to determine source branch for PR #{resolved_pr_id}.",
+            file=sys.stderr,
+        )
+        print("This is required to checkout the correct code for review.", file=sys.stderr)
+        print("\nPossible causes:", file=sys.stderr)
+        print("  - Azure CLI not authenticated (run 'az login')", file=sys.stderr)
+        print("  - Network issues or Azure DevOps API unavailable", file=sys.stderr)
+        print(f"  - PR #{resolved_pr_id} does not exist or is not accessible", file=sys.stderr)
+        delete_pin_file()
+        sys.exit(1)
+
+    # Determine the worktree folder identifier
+    # Use Jira issue key if available, otherwise use PR{pr_id} format
+    worktree_identifier = resolved_issue_key if resolved_issue_key else f"PR{resolved_pr_id}"
+
+    # Check if we're in the correct worktree/branch context
+    # For PR reviews, also pass source_branch so branch validation can match on exact branch name
+    # (important when no Jira issue - folder is PR{id} but branch is the actual PR source branch)
+    preflight_result = check_worktree_and_branch(worktree_identifier, source_branch=source_branch)
+
+    if not preflight_result.passed:
+        print(f"\n⚠️  Not in the correct context for {worktree_identifier}")
+        for reason in preflight_result.failure_reasons:
+            print(f"   - {reason}")
+
+        # Build the command to re-run inside the worktree so the full setup
+        # (fetch PR details, generate prompts, init workflow state) executes there.
+        auto_execute_command = [
+            "agdt-initiate-pull-request-review-workflow",
+            "--pull-request-id",
+            str(resolved_pr_id),
+        ]
+        if resolved_issue_key:
+            auto_execute_command.extend(["--issue-key", resolved_issue_key])
+        auto_execute_command.extend(["--interactive", "true" if interactive else "false"])
+        if model and (not use_langchain or model_was_explicit):
+            auto_execute_command.extend(["--model", model])
+        auto_execute_command.append("--skip-copilot-session")
+        if use_langchain:
+            auto_execute_command.extend(["--engine", "langchain"])
+            if not source_context_enabled:
+                auto_execute_command.append("--no-source-context")
+        if force_rereview:
+            auto_execute_command.append("--force-rereview")
+
+        # Automatically set up the environment with the PR's source branch
+        if perform_auto_setup(
+            worktree_identifier,
+            "pull-request-review",
+            branch_name=source_branch,
+            use_existing_branch=True if source_branch else False,
+            additional_params={"pull_request_id": resolved_pr_id} if resolved_pr_id else None,
+            auto_execute_command=auto_execute_command,
+            interactive=interactive,
+            model=model,
+            starts_copilot_session=not use_langchain,
+        ):
+            print(
+                _format_auto_setup_success_message(
+                    "pull-request-review",
+                    worktree_identifier,
+                    starts_copilot_session=not use_langchain,
+                )
+            )
+            return
+        else:
+            # Setup failed - exit with error
+            sys.exit(1)  # pragma: no cover
+
+    print(f"\nInitiating pull request review for PR #{resolved_pr_id}...")
+
+    # Engine selection: route to LangChain review path if requested
+    if use_langchain:
+        # Load model routing config if available
+        import os as _os_engine
+
+        _repo_root_engine = _os_engine.environ.get("AGDT_REPO_ROOT") or get_git_repo_root() or _os_engine.getcwd()
+        from ...config import load_review_model_config
+
+        _model_config = load_review_model_config(_repo_root_engine)
+        if model_was_explicit and model:
+            _model_config = {**_model_config, "default-model": model}
+
+        from ...orchestration.review.runner import run_langchain_review_background
+
+        run_langchain_review_background(
+            pr_id=int(resolved_pr_id),
+            source_context_enabled=source_context_enabled,
+            model_config=_model_config or None,
+            requested_model=explicit_requested_model,
+        )
+        return
+
+    # Run setup synchronously in all Copilot execution paths so the review
+    # state, queue, prompt files, and commit metadata are fully written before
+    # this command returns or launches a Copilot session. See #1183.
+    from ..azure_devops.review_commands import setup_pull_request_review
+
+    setup_pull_request_review()
+
+    if not skip_copilot_session:
+        from .worktree_setup import _start_copilot_session_for_pr_review
+
+        # Use the git repo/worktree root (not cwd) so the prompt file is found
+        # even when the command is invoked from a subdirectory.
+        repo_root = get_git_repo_root() or os.getcwd()
+        _start_copilot_session_for_pr_review(repo_root, interactive=interactive, model=model)
+
+
+def initiate_work_on_jira_issue_workflow(
+    issue_key: str | None = None,
+    interactive: bool | None = None,
+    model: str | None = None,
+    skip_copilot_session: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the work-on-jira-issue workflow with pre-flight checks.
+
+    This workflow uses a state-machine approach:
+    1. Pre-flight: Validates worktree folder & branch contain issue key
+    2. Auto-setup (if preflight fails): Creates worktree, installs helpers, opens VS Code
+    3. Retrieve (if preflight passes): Auto-fetches Jira issue details
+    4. Planning: Analyze issue and post plan comment
+    5. Implementation: Code changes, tests, docs
+    6. Verification: Run tests and quality gates
+    7. Commit: Stage and commit changes
+    8. Pull-request: Create PR
+    9. Completion: Post final Jira comment
+
+    If not in the correct worktree/branch context, automatically creates
+    a worktree, installs agentic-devtools, and opens VS Code.
+
+    Usage:
+        agdt-initiate-work-on-jira-issue-workflow [--issue-key PROJECT-1234]
+        agdt-initiate-work-on-jira-issue-workflow --issue-key PROJECT-1234 --interactive true
+        agdt-initiate-work-on-jira-issue-workflow --issue-key PROJECT-1234 --engine langchain
+        agdt-initiate-work-on-jira-issue-workflow --issue-key PROJECT-1234 --use-langchain
+        agdt-initiate-work-on-jira-issue-workflow --issue-key PROJECT-1234 --engine langchain --resume
+
+    Args:
+        issue_key: Jira issue key (e.g., PROJECT-1234). If not provided, uses jira.issue_key from state.
+        interactive: Whether to start the Copilot session interactively (default: False).
+        _argv: Command line arguments (for testing). Pass [] to skip CLI parsing.
+    """
+    import argparse
+
+    from ...state import set_value
+    from .preflight import perform_auto_setup
+
+    # Parse CLI arguments first — no state I/O at this point.
+    parser = argparse.ArgumentParser(description="Initiate the work-on-jira-issue workflow")
+    parser.add_argument(
+        "--issue-key",
+        dest="issue_key",
+        help="Jira issue key (e.g., PROJECT-1234). If not provided, uses jira.issue_key from state.",
+    )
+    parser.add_argument(
+        "--interactive",
+        dest="interactive",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Start Copilot session interactively (default: false). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help="Copilot model to use (default: project config or gpt-4o). Run agdt-setup to configure.",
+    )
+    parser.add_argument(
+        "--skip-copilot-session",
+        dest="skip_copilot_session",
+        action="store_true",
+        default=False,
+        help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
+    )
+    parser.add_argument(
+        "--engine",
+        dest="engine",
+        choices=["langchain"],
+        default=None,
+        help="Orchestration engine to use. 'langchain' routes to the LangGraph-based implementation.",
+    )
+    parser.add_argument(
+        "--use-langchain",
+        dest="use_langchain",
+        action="store_true",
+        default=False,
+        help="Alias for --engine langchain. Routes to the LangGraph-based implementation.",
+    )
+    parser.add_argument(
+        "--resume",
+        dest="resume",
+        action="store_true",
+        default=False,
+        help="Resume from an existing LangGraph checkpoint. Requires --engine langchain or --use-langchain.",
+    )
+    parser.add_argument(
+        "--resume-data",
+        dest="resume_data",
+        default=None,
+        help=(
+            "JSON string with structured resume payload passed as"
+            " Command(resume=...) when resuming an interrupted or incomplete"
+            " execution checkpoint. Requires --resume."
+        ),
+    )
+    parser.add_argument(
+        "--execution-mode",
+        dest="execution_mode",
+        choices=["live", "dry_run", "restricted"],
+        default=None,
+        help="Execution mode for safety policy (live/dry_run/restricted). Default: resolved from state/env.",
+    )
+    args = parser.parse_args(_effective_argv(_argv, issue_key, interactive, model, skip_copilot_session))
+
+    # CLI values override programmatic values only when not already set
+    if issue_key is None and args.issue_key:
+        issue_key = args.issue_key
+    if interactive is None and args.interactive is not None:
+        interactive = args.interactive == "true"
+    if interactive is None:
+        interactive = False
+    if model is None and args.model is not None:
+        model = args.model
+    if isinstance(model, str):
+        model = model.strip() or None
+    if model is None:
+        model = get_default_copilot_model()
+    if not skip_copilot_session and args.skip_copilot_session:
+        skip_copilot_session = True
+
+    # Resolve engine selection: --use-langchain is an alias for --engine langchain
+    engine = args.engine
+    if args.use_langchain:
+        engine = "langchain"
+
+    # Validate --resume requires LangChain engine selection
+    if args.resume and engine != "langchain":
+        print("ERROR: --resume requires --engine langchain or --use-langchain.", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate --resume-data requires --resume
+    resume_data = None
+    if args.resume_data is not None:
+        if not args.resume:
+            print("ERROR: --resume-data requires --resume.", file=sys.stderr)
+            sys.exit(1)
+        # Parse and validate resume data JSON
+        try:
+            resume_data = json.loads(args.resume_data)
+        except json.JSONDecodeError as e:
+            print(f"ERROR: --resume-data is not valid JSON: {e}", file=sys.stderr)
+            sys.exit(1)
+        if not isinstance(resume_data, dict):
+            print("ERROR: --resume-data must be a JSON object.", file=sys.stderr)
+            sys.exit(1)
+
+    # Validate restricted mode before any state I/O (bootstrap, model write,
+    # mode write). Resolve scoped state-mode signals via direct state-file read
+    # so no bootstrap/set_value mutations occur before we exit.
+    from ...orchestration.safety.mode import ExecutionMode, resolve_execution_mode
+
+    scoped_state_mode, scoped_state_dry_run = _read_scoped_execution_signals(issue_key)
+    _pre_state_mode = resolve_execution_mode(
+        cli_mode=args.execution_mode,
+        state_mode=scoped_state_mode,
+        state_dry_run=scoped_state_dry_run,
+    )
+    if _pre_state_mode is ExecutionMode.restricted:
+        print(
+            "ERROR: execution_mode=restricted is read-only and cannot run "
+            "the work-on-issue workflow because it performs local mutations.\n"
+            "Use execution_mode=dry_run for simulation or execution_mode=live to apply changes.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Resolve identity/scope and clear state in the correct order.
+    issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
+    set_value("copilot.model_id", model)
+    # Persist the effective execution mode if provided via CLI — must happen
+    # AFTER bootstrap scope is established so set_value() writes to the
+    # correctly scoped state directory rather than the _unscoped fallback.
+    if args.execution_mode is not None:
+        set_value("orchestration.execution_mode", _pre_state_mode.value)
+
+    # If issue_key provided via CLI, set it in state
+    if issue_key:  # pragma: no cover
+        set_value("jira.issue_key", issue_key)
+    else:
+        # Validate required state if no issue_key provided
+        required_values = validate_required_state(["jira.issue_key"])
+        issue_key = required_values["jira.issue_key"]
+        if isinstance(issue_key, str):
+            issue_key = issue_key.strip()
+        if not issue_key:
+            print("ERROR: jira.issue_key cannot be empty or whitespace-only.", file=sys.stderr)
+            print("\nPlease set a valid value using:", file=sys.stderr)
+            print("  agdt-set jira.issue_key PROJECT-1234", file=sys.stderr)
+            sys.exit(1)
+        if isinstance(issue_key, str):
+            set_value("jira.issue_key", issue_key)
+
+    # Route to LangGraph-based workflow when --engine langchain is selected.
+    if engine == "langchain":
+        from ...orchestration.runner import run_langchain_workflow
+
+        run_langchain_workflow(
+            issue_key,
+            interactive=interactive,
+            model=model,
+            resume=args.resume,
+            resume_data=resume_data,
+            worktree_key=str(issue_key) if issue_key is not None else None,
+        )
+        return
+
+    # Run pre-flight checks
+    preflight_result = check_worktree_and_branch(issue_key)
+
+    if not preflight_result.passed:
+        print(f"\n⚠️  Not in the correct context for issue {issue_key}")
+        for reason in preflight_result.failure_reasons:
+            print(f"   - {reason}")
+
+        # Build the command to re-run inside the worktree
+        auto_execute_command = [
+            "agdt-initiate-work-on-jira-issue-workflow",
+            "--issue-key",
+            issue_key,
+            "--interactive",
+            "true" if interactive else "false",
+            "--model",
+            model,
+            "--skip-copilot-session",
+        ]
+
+        # Automatically set up the environment
+        if perform_auto_setup(
+            issue_key,
+            "work-on-jira-issue",
+            auto_execute_command=auto_execute_command,
+            interactive=interactive,
+            model=model,
+        ):
+            # Setup successful - Copilot session will start automatically
+            print(_format_auto_setup_success_message("work-on-jira-issue", issue_key))
+            return
+        else:
+            # Setup failed - exit with error
+            sys.exit(1)  # pragma: no cover
+
+    # Pre-flight passed - proceed to retrieve step
+    _execute_retrieve_step(issue_key, preflight_result.branch_name)
+
+    # Start a Copilot CLI session after the retrieve step completes.
+    if not skip_copilot_session:
+        from .worktree_setup import _start_copilot_session_for_work_on_jira_issue
+
+        repo_root = get_git_repo_root() or os.getcwd()
+        _start_copilot_session_for_work_on_jira_issue(repo_root, interactive=interactive, model=model)
+
+
+def _execute_retrieve_step(issue_key: str, branch_name: str) -> None:
+    """
+    Execute the retrieve step: fetch Jira issue and advance to planning.
+
+    Args:
+        issue_key: The Jira issue key
+        branch_name: Current git branch name
+    """
+    from ...state import set_workflow_state
+
+    # Set workflow state to retrieve step
+    set_workflow_state(
+        name="work-on-jira-issue",
+        status="in-progress",
+        step="retrieve",
+        context={
+            "jira_issue_key": issue_key,
+            "branch_name": branch_name,
+        },
+    )
+
+    # Fetch Jira issue synchronously (not via background task)
+    # We need the results immediately to proceed with workflow
+    print(f"Fetching Jira issue {issue_key}...")
+    try:
+        from ..jira.get_commands import get_issue
+        from ..jira.state_helpers import set_jira_value
+
+        # Ensure issue key is set in jira state
+        set_jira_value("issue_key", issue_key)
+
+        # Call get_issue synchronously - this prints details and saves to temp file
+        get_issue()
+    except SystemExit:
+        # get_issue calls sys.exit(1) on failure
+        print(f"Warning: Failed to fetch issue {issue_key}. Proceeding with limited context.", file=sys.stderr)
+    except Exception as e:
+        print(f"Warning: Could not fetch Jira issue: {e}", file=sys.stderr)
+
+    # Get issue details from the temp file (get_issue saves full JSON there)
+    # The state only stores metadata reference, not the actual issue data
+    issue_file = get_state_dir() / "temp-get-issue-details-response.json"
+    issue_data = {}
+    if issue_file.exists():
+        try:
+            import json
+
+            issue_data = json.loads(issue_file.read_text(encoding="utf-8"))
+        except Exception as e:  # pragma: no cover
+            print(f"Warning: Could not read issue file: {e}", file=sys.stderr)
+
+    prompt_fields = _format_jira_issue_prompt_fields(issue_data)
+
+    # Output retrieve prompt (brief summary)
+    print("\n" + "=" * 80)
+    print("WORKFLOW: work-on-jira-issue")
+    print("STEP: retrieve")
+    print("=" * 80)
+    print(f"\nIssue {issue_key} retrieved successfully.")
+    print(f"Summary: {prompt_fields['jira_issue_summary']}")
+    print(f"Type: {prompt_fields['jira_issue_type']}")
+    print("=" * 80)
+
+    # Automatically advance to planning step
+    _execute_planning_step(
+        issue_key=issue_key,
+        branch_name=branch_name,
+        issue_summary=prompt_fields["jira_issue_summary"],
+        issue_type=prompt_fields["jira_issue_type"],
+        issue_labels=prompt_fields["jira_issue_labels"],
+        issue_description=prompt_fields["jira_issue_description"],
+        issue_comments=prompt_fields["jira_issue_comments"],
+    )
+
+
+def _execute_planning_step(
+    issue_key: str,
+    branch_name: str,
+    issue_summary: str,
+    issue_type: str,
+    issue_labels: str,
+    issue_description: str,
+    issue_comments: str,
+) -> None:
+    """
+    Execute the planning step: output planning prompt.
+
+    Args:
+        issue_key: The Jira issue key
+        branch_name: Current git branch name
+        issue_summary: Issue summary from Jira
+        issue_type: Issue type
+        issue_labels: Comma-separated labels
+        issue_description: Full issue description
+        issue_comments: Formatted recent comments
+    """
+    from ...state import set_workflow_state
+
+    # Update workflow state to planning
+    set_workflow_state(
+        name="work-on-jira-issue",
+        status="in-progress",
+        step="planning",
+        context={
+            "jira_issue_key": issue_key,
+            "branch_name": branch_name,
+            "issue_summary": issue_summary,
+        },
+    )
+
+    # Build dynamic command hints based on current state
+    from ...state import get_value
+    from .manager import _build_command_hint
+
+    jira_comment = get_value("jira.comment")
+
+    add_jira_comment_hint = _build_command_hint(
+        "agdt-add-jira-comment",
+        "--jira-comment",
+        "jira.comment",
+        jira_comment,
+        is_required=True,
+    )
+
+    if jira_comment:  # pragma: no cover
+        add_jira_comment_usage = "agdt-add-jira-comment"
+    else:
+        add_jira_comment_usage = 'agdt-add-jira-comment --jira-comment "<your plan>"'
+
+    # Output planning prompt
+    initiate_workflow(
+        workflow_name="work-on-jira-issue",
+        required_state_keys=[],
+        optional_state_keys=[],
+        additional_variables={
+            "issue_key": issue_key,
+            "issue_summary": issue_summary,
+            "issue_type": issue_type,
+            "issue_labels": issue_labels,
+            "issue_description": issue_description,
+            "issue_comments": issue_comments,
+            "branch_name": branch_name,
+            "add_jira_comment_hint": add_jira_comment_hint,
+            "add_jira_comment_usage": add_jira_comment_usage,
+        },
+        step_name="planning",
+        context={
+            "jira_issue_key": issue_key,
+            "branch_name": branch_name,
+            "issue_summary": issue_summary,
+        },
+        skip_bootstrap_init=True,
+    )
+
+
+def advance_work_on_jira_issue_workflow(step: str | None = None) -> None:
+    """
+    Advance the work-on-jira-issue workflow to the next step.
+
+    Usage: agdt-advance-workflow <step>
+
+    Steps: implementation, verification, commit, pull-request, completion
+
+    Args:
+        step: The step to advance to (optional, auto-detects next step if not provided)
+    """
+    from ...state import get_value, get_workflow_state, is_workflow_active
+
+    if not is_workflow_active("work-on-jira-issue"):
+        state_dir = get_state_dir().resolve()
+        print("ERROR: No active workflow found.", file=sys.stderr)
+        print("work-on-jira-issue workflow is not active.", file=sys.stderr)
+        print(f"State directory checked: {state_dir}", file=sys.stderr)
+        print(
+            "No re-initiation will be attempted by this command.",
+            file=sys.stderr,
+        )
+        print(
+            "\nDiagnostic steps:\n"
+            "  - Run `agdt-get-workflow` to inspect current workflow state\n"
+            "  - Run `agdt-show` to inspect state directory contents",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    workflow = get_workflow_state()
+    if not workflow:
+        print("ERROR: Could not get workflow state.", file=sys.stderr)
+        sys.exit(1)
+
+    context = workflow.get("context", {})
+    current_step = workflow.get("step", "")
+    issue_key = context.get("jira_issue_key", get_value("jira.issue_key") or "")
+    branch_name = context.get("branch_name", "")
+    issue_summary = context.get("issue_summary", "")
+
+    # Determine next step if not specified
+    step_order = [
+        "planning",
+        "checklist-creation",
+        "implementation",
+        "implementation-review",
+        "verification",
+        "commit",
+        "pull-request",
+        "completion",
+    ]
+    if step is None:
+        try:
+            current_idx = step_order.index(current_step)
+            step = step_order[current_idx + 1] if current_idx + 1 < len(step_order) else "completion"
+        except ValueError:
+            step = "implementation"
+
+    # Get PR info if available (for completion step)
+    pull_request_id = get_value("pull_request_id") or context.get("pull_request_id", "")
+    pull_request_url = context.get("pull_request_url", "")
+
+    # Build variables for the step
+    variables = {
+        "issue_key": issue_key,
+        "issue_summary": issue_summary,
+        "branch_name": branch_name,
+        "pull_request_id": pull_request_id,
+        "pull_request_url": pull_request_url,
+    }
+
+    advance_workflow_step(
+        workflow_name="work-on-jira-issue",
+        step_name=step,
+        variables=variables,
+        status="in-progress" if step != "completion" else "completed",
+    )
+
+
+#: Ordered pull-request-review steps. Advancement may repeat a step or move to
+#: the immediately following step, but never skip one.
+PULL_REQUEST_REVIEW_STEP_SEQUENCE: tuple[str, ...] = (
+    "initiate",
+    "pr-synthesis",
+    "delegate",
+    "consolidate-and-submit",
+    "decision",
+    "completion",
+)
+
+
+def _pr_review_delegate_remediation(progress: dict[str, object]) -> str:
+    """Build the remediation text shown when file reviews are still missing.
+
+    Args:
+        progress: The ``compute_review_progress`` result for the PR.
+
+    Returns:
+        A multi-line remediation message naming the concrete next actions.
+    """
+    completed = progress.get("completed_count", 0)
+    total = progress.get("total_count", 0)
+    return (
+        f"Only {completed}/{total} files have an accepted answer in the review ledger.\n"
+        "File-level answers are the input the PR update is composed from, so the PR\n"
+        "cannot be updated until every in-scope file is answered.\n"
+        "\nRemediation:\n"
+        "  - Mode A (multi-agent): dispatch a `pr-review/file-reviewer` subagent per file\n"
+        "    in `manifest.json`; reading diffs directly (e.g. `git diff`) does NOT record answers.\n"
+        "  - Mode B (single-agent/CLI fallback): complete each pending answer yourself using the\n"
+        "    scaffold under `<artifact_dir>/answers/<fileKey>.answer.json`.\n"
+        "  - Every file must be written with `agdt-file-review-write` and then accepted with\n"
+        "    `agdt-pr-review-accept-answer`.\n"
+        "  - Re-check progress with `agdt-get-workflow` until the counts match.\n"
+        "  - When all files are answered, re-run `agdt-advance-workflow consolidate-and-submit`\n"
+        "    to revalidate progress and advance the workflow."
+    )
+
+
+def validate_pull_request_review_transition(
+    current_step: str,
+    step: str,
+    progress: dict[str, object],
+    submit_result: dict[str, object] | None = None,
+    *,
+    pr_id: int | None = None,
+) -> str | None:
+    """Validate a pull-request-review step transition against its postconditions.
+
+    Guards the workflow against three failure modes:
+    skipping a step entirely (e.g. ``delegate`` straight to ``completion``),
+    reaching ``completion`` while the review ledger is still empty, and
+    reaching ``completion`` without a verified submission outcome recorded in
+    ``answers/submit-result.json``. When ``pr_id`` is provided, the result must
+    record the same ``prId``. For live (non-dry-run) submissions six conditions
+    independently block advancement: a missing or non-dict ``counts`` object,
+    malformed (non-integer, boolean, or negative) count values, ``failed > 0``
+    (at least one file failed to post), ``posted == 0 and accepted > 0``
+    (nothing was posted despite files being accepted), ``stale > 0`` or
+    ``skipped > 0`` (rejected entries that were not posted to the PR), and
+    ``posted < total_count`` (the submission does not cover the full ledger).
+    Dry-run results bypass all live checks.
+
+    Args:
+        current_step: The workflow step the PR review is currently on.
+        step: The step being advanced to.
+        progress: The ``compute_review_progress`` result for the PR.
+        submit_result: Parsed ``answers/submit-result.json`` for the PR, or
+            ``None`` if it has not been written yet.
+        pr_id: Expected pull-request ID. When provided, the result file must
+            record the same ``prId``; a missing or different ``prId`` is
+            rejected as belonging to a different run.
+
+    Returns:
+        An error message when the transition must be refused, otherwise None.
+    """
+    sequence = PULL_REQUEST_REVIEW_STEP_SEQUENCE
+    all_complete = bool(progress.get("all_complete"))
+
+    if current_step in sequence and step in sequence:
+        current_index = sequence.index(current_step)
+        if sequence.index(step) > current_index + 1:
+            next_step = sequence[current_index + 1]
+            return (
+                f"ERROR: Cannot skip from '{current_step}' to '{step}'.\n"
+                f"The pull-request-review workflow is a pipeline with state dependencies;\n"
+                f"each step consumes what the previous step recorded.\n"
+                f"Advance to '{next_step}' first: agdt-advance-workflow {next_step}"
+            )
+
+    if current_step == "delegate" and step == "consolidate-and-submit" and not all_complete:
+        return (
+            "ERROR: Cannot advance from 'delegate' to 'consolidate-and-submit' until all files are answered.\n"
+            + _pr_review_delegate_remediation(progress)
+        )
+
+    if step == "completion" and not all_complete:
+        return (
+            "ERROR: Cannot advance to 'completion': the review was never submitted to the PR.\n"
+            + _pr_review_delegate_remediation(progress)
+        )
+
+    if step == "completion":
+        if submit_result is None:
+            return (
+                "ERROR: Cannot advance to 'completion': no submission outcome recorded.\n"
+                "Run 'agdt-pr-review-submit' (consolidate-and-submit step) before marking the review complete.\n"
+                "Re-run 'agdt-advance-workflow completion' once the submit step completes."
+            )
+        if pr_id is not None:
+            result_pr_id = submit_result.get("prId")
+            if result_pr_id is None:
+                return (
+                    "ERROR: Cannot advance to 'completion': 'answers/submit-result.json' is"
+                    f" missing the required 'prId' for the current PR {pr_id}.\n"
+                    "Re-run 'agdt-pr-review-submit' for this PR, then advance again."
+                )
+            if str(result_pr_id) != str(pr_id):
+                return (
+                    f"ERROR: Cannot advance to 'completion': 'answers/submit-result.json'"
+                    f" belongs to PR {result_pr_id}, not the current PR {pr_id}.\n"
+                    "Re-run 'agdt-pr-review-submit' for this PR, then advance again."
+                )
+        raw_dry_run = submit_result.get("dryRun")
+        if not isinstance(raw_dry_run, bool):
+            return (
+                "ERROR: Cannot advance to 'completion': 'answers/submit-result.json' has"
+                " a malformed 'dryRun' field.\n"
+                "Expected a JSON boolean (true/false).\n"
+                "Re-run 'agdt-pr-review-submit' to generate a valid result."
+            )
+        dry_run: bool = raw_dry_run
+        if not dry_run:
+            counts = submit_result.get("counts")
+            if not isinstance(counts, dict):
+                return (
+                    "ERROR: Cannot advance to 'completion': 'answers/submit-result.json' is missing"
+                    " the required 'counts' object.\n"
+                    "Re-run 'agdt-pr-review-submit' to generate a valid result."
+                )
+            raw_posted = counts.get("posted")
+            raw_accepted = counts.get("accepted")
+            raw_failed = counts.get("failed")
+            if (
+                type(raw_posted) is not int
+                or type(raw_accepted) is not int
+                or type(raw_failed) is not int
+                or raw_posted < 0
+                or raw_accepted < 0
+                or raw_failed < 0
+            ):
+                return (
+                    "ERROR: Cannot advance to 'completion': 'answers/submit-result.json' has"
+                    " malformed count fields.\n"
+                    "Expected non-negative integers for 'posted', 'accepted', and 'failed'.\n"
+                    "Re-run 'agdt-pr-review-submit' to generate a valid result."
+                )
+            posted: int = raw_posted
+            accepted: int = raw_accepted
+            failed: int = raw_failed
+            raw_stale = counts.get("stale", 0)
+            raw_skipped = counts.get("skipped", 0)
+            if type(raw_stale) is not int or type(raw_skipped) is not int or raw_stale < 0 or raw_skipped < 0:
+                return (
+                    "ERROR: Cannot advance to 'completion': 'answers/submit-result.json' has"
+                    " malformed count fields.\n"
+                    "Expected non-negative integers for 'stale' and 'skipped' when they are present.\n"
+                    "Re-run 'agdt-pr-review-submit' to generate a valid result."
+                )
+            stale_count: int = raw_stale
+            skipped_count: int = raw_skipped
+            if failed > 0:
+                return (
+                    f"ERROR: Cannot advance to 'completion': {failed} file(s) failed to post.\n"
+                    "Check 'answers/submit-result.json' for per-file errors"
+                    " and re-run 'agdt-pr-review-submit' to retry."
+                )
+            if posted == 0 and accepted > 0:
+                return (
+                    "ERROR: Cannot advance to 'completion': the submission ran but no comments were posted.\n"
+                    f"Submitted {accepted} file(s) but 0 were posted"
+                    " — check 'answers/submit-result.json' for failures.\n"
+                    "Re-run 'agdt-pr-review-submit' to retry."
+                )
+            if stale_count > 0 or skipped_count > 0:
+                return (
+                    f"ERROR: Cannot advance to 'completion': the submission has"
+                    f" {stale_count} stale and {skipped_count} skipped file(s)"
+                    f" that were not posted to the PR.\n"
+                    "Stale and skipped entries are rejected — only posted files count as reviewed.\n"
+                    "Re-run 'agdt-pr-review-submit' to resubmit all files."
+                )
+            raw_total = progress.get("total_count", 0)
+            total_count = int(raw_total) if isinstance(raw_total, (int, float)) else 0
+            if total_count > 0 and posted < total_count:
+                return (
+                    f"ERROR: Cannot advance to 'completion': only {posted}/{total_count} files"
+                    f" were posted to the PR (accepted={accepted}).\n"
+                    "The ledger may have grown since the last submission.\n"
+                    "Re-run 'agdt-pr-review-submit' to submit the remaining files."
+                )
+
+    return None
+
+
+def advance_pull_request_review_workflow(step: str | None = None) -> None:
+    """
+    Advance the pull-request-review workflow to the next step.
+
+    Usage: agdt-advance-workflow <step>
+
+    Steps: pr-synthesis, delegate, consolidate-and-submit, decision, completion
+
+    Args:
+        step: The step to advance to (optional, auto-detects next step if not provided)
+    """
+    from ...state import get_value, get_workflow_state, is_workflow_active
+    from ..azure_devops.pr_review_ledger import resolve_answers_dir as _resolve_answers_dir
+    from ..azure_devops.pr_review_progress import compute_review_progress
+    from ..azure_devops.pr_review_submit import read_submit_result as _read_submit_result
+
+    if not is_workflow_active("pull-request-review"):
+        state_dir = get_state_dir().resolve()
+        print("ERROR: No active workflow found.", file=sys.stderr)
+        print("pull-request-review workflow is not active.", file=sys.stderr)
+        print(f"State directory checked: {state_dir}", file=sys.stderr)
+        print(
+            "No re-initiation will be attempted by this command.",
+            file=sys.stderr,
+        )
+        print(
+            "\nDiagnostic steps:\n"
+            "  - Run `agdt-get-workflow` to inspect current workflow state\n"
+            "  - Run `agdt-show` to inspect state directory contents",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    workflow = get_workflow_state()
+    if not workflow:
+        print("ERROR: Could not get workflow state.", file=sys.stderr)
+        sys.exit(1)
+
+    context = workflow.get("context", {})
+    current_step = workflow.get("step", "")
+
+    # Get PR ID from context or state
+    pull_request_id = context.get("pull_request_id") or get_value("pull_request_id")
+    if not pull_request_id:
+        print("ERROR: No pull_request_id found in workflow context or state.", file=sys.stderr)
+        sys.exit(1)
+
+    # Convert to int if string
+    try:
+        pr_id_int = int(pull_request_id)
+    except (TypeError, ValueError):
+        print(f"ERROR: Invalid pull_request_id: {pull_request_id}", file=sys.stderr)
+        sys.exit(1)
+
+    # Compute delegate-step progress from the v2 artifacts (manifest.json total +
+    # the answer ledger), replacing the retired queue.json / get_queue_status
+    # progress source. The manifest supplies the in-scope file total (correct
+    # before any answers are accepted) and the ledger supplies the reviewed count.
+    progress = compute_review_progress(pr_id_int)
+
+    # Read submit-result.json so the completion guard can verify submission happened
+    submit_result = _read_submit_result(_resolve_answers_dir(pr_id_int))
+
+    _VALID_STEPS = {"pr-synthesis", "delegate", "consolidate-and-submit", "decision", "completion"}
+
+    if step is not None and step not in _VALID_STEPS:
+        print(
+            f"ERROR: Unknown step '{step}'. Valid steps: {', '.join(sorted(_VALID_STEPS))}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if step is None:
+        # Auto-detect next step in the v2 chain:
+        #   initiate -> pr-synthesis -> delegate -> consolidate-and-submit -> decision -> completion
+        if current_step == "initiate":
+            step = "pr-synthesis"
+        elif current_step == "pr-synthesis":
+            step = "delegate"
+        elif current_step == "delegate":
+            # Only advance when all files have been answered; otherwise keep polling.
+            step = "consolidate-and-submit" if progress["all_complete"] else "delegate"
+        elif current_step == "consolidate-and-submit":
+            step = "decision"
+        elif current_step == "decision":  # pragma: no cover
+            step = "completion"
+        else:  # pragma: no cover
+            # Default to delegate
+            step = "delegate"
+
+    transition_error = validate_pull_request_review_transition(
+        current_step, step, progress, submit_result, pr_id=pr_id_int
+    )
+    if transition_error:
+        print(transition_error, file=sys.stderr)
+        sys.exit(1)
+
+    # Build variables for the step
+    jira_issue_key = context.get("jira_issue_key") or get_value("jira.issue_key") or ""
+    pr_title = context.get("pr_title", "")
+    pr_author = context.get("pr_author", "")
+    source_branch = context.get("source_branch", "")
+    target_branch = context.get("target_branch", "")
+    file_count = context.get("file_count", progress["total_count"])
+
+    # Compute approval/changes counts from review-state if available
+    approval_count = 0
+    changes_count = 0
+    try:
+        from ..azure_devops.review_state import load_review_state
+
+        review_state = load_review_state(pr_id_int)
+        for file_entry in review_state.files.values():
+            if file_entry.status == "approved":
+                approval_count += 1
+            elif file_entry.status == "needs-work":
+                changes_count += 1
+    except (FileNotFoundError, OSError, ValueError, AttributeError, KeyError):
+        # Best-effort: if review-state is unavailable or malformed, counts default to 0
+        pass
+
+    variables = {
+        "pull_request_id": pull_request_id,
+        "jira_issue_key": jira_issue_key,
+        "pr_title": pr_title,
+        "pr_author": pr_author,
+        "source_branch": source_branch,
+        "target_branch": target_branch,
+        "file_count": file_count,
+        # PR context variables (for pr-synthesis step)
+        "pr_url": context.get("pr_url", ""),
+        "source_code_platform": context.get("source_code_platform", ""),
+        "repo_review_focus_areas": context.get("repo_review_focus_areas", ""),
+        # Progress variables (for delegate step) sourced from manifest + ledger.
+        "completed_count": progress["completed_count"],
+        "pending_count": progress["pending_count"],
+        "total_count": progress["total_count"],
+        # current_file / prompt_file_path are legacy single-file-loop fields with
+        # no meaning in the v2 fan-out; kept empty for template compatibility.
+        "current_file": "",
+        "prompt_file_path": "",
+        "all_complete": progress["all_complete"],
+        # Review status variables (for decision step)
+        "approval_count": approval_count,
+        "changes_count": changes_count,
+    }
+
+    # Derive decision and trigger status cascade for completion step
+    decision = "⚠️ Unavailable"
+    if step == "completion":
+        try:
+            from ...state import is_dry_run as _is_dry_run
+            from ..azure_devops.auth import get_auth_headers, get_pat
+            from ..azure_devops.config import AzureDevOpsConfig
+            from ..azure_devops.helpers import require_requests
+            from ..azure_devops.review_attribution import format_status
+            from ..azure_devops.review_scaffold import build_pr_base_url
+            from ..azure_devops.review_state import complete_active_session, load_review_state, save_review_state
+            from ..azure_devops.status_cascade import cascade_overall_summary_update, execute_cascade
+
+            review_state = load_review_state(pr_id_int)
+            _STATUS_DECISION_MAP = {
+                "approved": "✅ Approved",
+                "needs-work": "📝 Needs Work",
+            }
+            overall_status = review_state.overallSummary.status
+            decision = _STATUS_DECISION_MAP.get(overall_status, format_status(overall_status, use_emoji=True))
+            dry_run = _is_dry_run()
+
+            try:
+                # Mark local session completion before any remote setup/API calls so
+                # this lifecycle transition is persisted even when cascade setup fails.
+                if not dry_run:
+                    complete_active_session(review_state)
+                config = AzureDevOpsConfig.from_state()
+                base_url = build_pr_base_url(config, pr_id_int)
+                requests = require_requests()
+                pat = get_pat()
+                headers = get_auth_headers(pat)
+                repo_id = review_state.repoId
+
+                patch_ops = cascade_overall_summary_update(review_state, base_url)
+
+                # Derive human-readable decision from overall status (always, even if PATCH fails)
+                overall_status = review_state.overallSummary.status
+                decision = _STATUS_DECISION_MAP.get(overall_status, format_status(overall_status, use_emoji=True))
+
+                execute_cascade(
+                    patch_operations=patch_ops,
+                    requests_module=requests,
+                    headers=headers,
+                    config=config,
+                    repo_id=repo_id,
+                    pull_request_id=pr_id_int,
+                    dry_run=dry_run,
+                    state=review_state,
+                )
+
+                # Run finalization pass after cascade, before save
+                try:
+                    from ..azure_devops.finalization import run_finalization_pass
+
+                    run_finalization_pass(
+                        review_state=review_state,
+                        pr_id=pr_id_int,
+                        config=config,
+                        headers=headers,
+                        dry_run=dry_run,
+                    )
+
+                    # Re-derive decision after finalization (status may have changed);
+                    # the updated value feeds into variables["decision"] below for template rendering
+                    overall_status = review_state.overallSummary.status
+                    decision = _STATUS_DECISION_MAP.get(overall_status, format_status(overall_status, use_emoji=True))
+                except Exception as fin_exc:
+                    print(f"Warning: Finalization pass failed: {fin_exc}", file=sys.stderr)
+
+            except Exception as exc:
+                print(f"Warning: Failed to update PR summary: {exc}", file=sys.stderr)
+            finally:
+                save_review_state(review_state)
+
+        except FileNotFoundError:
+            print("Warning: Review state not found. Skipping summary cascade.", file=sys.stderr)
+        except (OSError, ValueError, AttributeError, KeyError, TypeError) as exc:
+            print(f"Warning: Could not update PR summary: {exc}", file=sys.stderr)
+
+    variables["decision"] = decision
+
+    advance_workflow_step(
+        workflow_name="pull-request-review",
+        step_name=step,
+        variables=variables,
+        status="in-progress" if step != "completion" else "completed",
+    )
+
+
+def initiate_create_jira_issue_workflow(
+    project_key: str | None = None,
+    issue_key: str | None = None,
+    issue_type: str | None = None,
+    user_request: str | None = None,
+    interactive: bool | None = None,
+    model: str | None = None,
+    skip_copilot_session: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the create-jira-issue workflow.
+
+    If no issue_key is provided, creates a placeholder issue in Jira first,
+    then sets up a worktree and opens VS Code for the user to continue.
+
+    If issue_key is provided (after worktree setup), continues the workflow
+    to populate the issue with full details based on the user's request.
+
+    Usage:
+        # Initial call - creates placeholder and sets up worktree:
+        agdt-initiate-create-jira-issue-workflow --user-request "I need a story to..."
+
+        # With custom issue type:
+        agdt-initiate-create-jira-issue-workflow --issue-type Task --user-request "I need a task to..."
+
+        # Continuation call in new VS Code window:
+        agdt-initiate-create-jira-issue-workflow --issue-key PROJECT-1234 --user-request "..."
+
+        # With interactive mode:
+        agdt-initiate-create-jira-issue-workflow --issue-key PROJECT-1234 --interactive true
+
+    Args:
+        project_key: Jira project key (e.g., PROJECT). If not provided, uses jira.project_key from state.
+        issue_key: Issue key (provided after placeholder creation for continuation).
+        issue_type: Jira issue type (e.g., Story, Task, Bug). Defaults to "Story".
+        user_request: User's explanation of what they want. The AI agent will use this
+            to populate all Jira fields (summary, description, acceptance criteria, etc.).
+        interactive: Whether to start the Copilot session interactively (default: False).
+        _argv: Command line arguments (for testing). Pass [] to skip CLI parsing.
+
+    Optional state:
+    - jira.user_request: User's explanation of what they want
+    - jira.summary: Issue summary (AI-generated from user_request)
+    - jira.description: Issue description (AI-generated from user_request)
+    - jira.issue_type: Issue type (defaults to "Story")
+    """
+    import argparse
+
+    from ...state import get_value, set_value
+    from .preflight import check_worktree_and_branch, perform_auto_setup
+    from .worktree_setup import create_placeholder_issue, generate_workflow_branch_name
+
+    # Parse CLI arguments first — no state I/O at this point.
+    parser = argparse.ArgumentParser(description="Initiate the create-jira-issue workflow")
+    parser.add_argument(
+        "--project-key",
+        dest="project_key",
+        help="Jira project key (e.g., PROJECT). If not provided, uses jira.project_key from state.",
+    )
+    parser.add_argument(
+        "--issue-key",
+        "-i",
+        dest="issue_key",
+        help="Issue key (provided after placeholder creation for continuation).",
+    )
+    parser.add_argument(
+        "--issue-type",
+        "-t",
+        dest="issue_type",
+        help="Jira issue type (e.g., Story, Task, Bug). Defaults to 'Story'.",
+    )
+    parser.add_argument(
+        "--user-request",
+        "-u",
+        dest="user_request",
+        help="Your explanation of what you want. AI will use this to populate all Jira fields.",
+    )
+    parser.add_argument(
+        "--interactive",
+        dest="interactive",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Start Copilot session interactively (default: false). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help="Copilot model to use (default: project config or gpt-4o). Run agdt-setup to configure.",
+    )
+    parser.add_argument(
+        "--skip-copilot-session",
+        dest="skip_copilot_session",
+        action="store_true",
+        default=False,
+        help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
+    )
+    args = parser.parse_args(
+        _effective_argv(
+            _argv, project_key, issue_key, issue_type, user_request, interactive, model, skip_copilot_session
+        )
+    )
+
+    # CLI values override programmatic values only when not already set
+    if project_key is None:
+        project_key = args.project_key
+    if issue_key is None:
+        issue_key = args.issue_key
+    if issue_type is None:
+        issue_type = args.issue_type
+    if user_request is None:
+        user_request = args.user_request
+    if interactive is None and args.interactive is not None:
+        interactive = args.interactive == "true"
+    if interactive is None:
+        interactive = False
+    if model is None and args.model is not None:
+        model = args.model
+    if isinstance(model, str):
+        model = model.strip() or None
+    if model is None:
+        model = get_default_copilot_model()
+    if not skip_copilot_session and args.skip_copilot_session:
+        skip_copilot_session = True
+
+    # Resolve identity/scope and clear state in the correct order.
+    issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
+
+    # When --issue-key is not provided, clear stale issue-selection state
+    # from prior workflows so the create flow always starts fresh (FR-002).
+    if not issue_key:
+        _clear_stale_issue_keys_for_create()
+
+    set_value("copilot.model_id", model)
+
+    # If project_key provided via CLI, set it in state
+    if project_key:  # pragma: no cover
+        set_value("jira.project_key", project_key)
+
+    # If issue_key provided via CLI, set it in state
+    if issue_key:  # pragma: no cover
+        set_value("jira.issue_key", issue_key)
+
+    # If issue_type provided via CLI, set it in state
+    if issue_type:  # pragma: no cover
+        set_value("jira.issue_type", issue_type)
+
+    # If user_request provided via CLI, set it in state
+    if user_request:  # pragma: no cover
+        set_value("jira.user_request", user_request)
+
+    # Resolve values using local variables first, falling back to state.
+    # Avoids the bootstrap-race bug where set_value() may shift the state
+    # directory so that the subsequent get_value() reads from a different
+    # location and returns None, producing a misleading error.
+    resolved_issue_key = issue_key or get_value("jira.issue_key")
+    if isinstance(resolved_issue_key, str):
+        resolved_issue_key = resolved_issue_key.strip()
+    resolved_project_key = project_key or get_value("jira.project_key") or "PROJECT"
+    resolved_issue_type = issue_type or get_value("jira.issue_type") or "Story"
+    resolved_user_request = user_request or get_value("jira.user_request")
+
+    # Persist the resolved default so initiate_workflow's required_state_keys check passes
+    if not get_value("jira.project_key"):
+        set_value("jira.project_key", resolved_project_key)
+
+    # Persist the resolved issue key into the current state directory so that
+    # initiate_workflow() can read it from optional_state_keys even if an earlier
+    # set_value() wrote to a different (e.g. _unscoped) state dir. Overwrite any
+    # differing value so the resolved key is authoritative in the active state dir.
+    current_issue_key = get_value("jira.issue_key")
+    if resolved_issue_key and resolved_issue_key != current_issue_key:
+        set_value("jira.issue_key", resolved_issue_key)
+
+    # If we have an issue key, check if we're in the right context
+    if resolved_issue_key:
+        preflight_result = check_worktree_and_branch(resolved_issue_key)
+
+        if preflight_result.passed:
+            # We're in the correct context - proceed with the workflow
+            initiate_workflow(
+                workflow_name="create-jira-issue",
+                required_state_keys=["jira.project_key"],
+                optional_state_keys=[
+                    "jira.summary",
+                    "jira.description",
+                    "jira.issue_key",
+                    "jira.issue_type",
+                    "jira.user_request",
+                ],
+                skip_bootstrap_init=True,
+                warn_on_missing=False,
+            )
+
+            # Start a Copilot CLI session after the workflow is initiated.
+            if not skip_copilot_session:
+                from .worktree_setup import _start_copilot_session_for_create_jira_issue
+
+                repo_root = get_git_repo_root() or os.getcwd()
+                _start_copilot_session_for_create_jira_issue(repo_root, interactive=interactive, model=model)
+            return
+        else:
+            # Not in correct context - auto-setup
+            print(f"\n⚠️  Not in the correct context for issue {resolved_issue_key}")
+            for reason in preflight_result.failure_reasons:
+                print(f"   - {reason}")
+
+            auto_execute_command = [
+                "agdt-initiate-create-jira-issue-workflow",
+                "--issue-key",
+                resolved_issue_key,
+                "--project-key",
+                resolved_project_key,
+                "--interactive",
+                "true" if interactive else "false",
+                "--model",
+                model,
+                "--skip-copilot-session",
+            ]
+            auto_execute_command.extend(["--issue-type", resolved_issue_type])
+            if resolved_user_request:
+                auto_execute_command.extend(["--user-request", resolved_user_request])
+
+            if perform_auto_setup(
+                resolved_issue_key,
+                "create-jira-issue",
+                user_request=resolved_user_request,
+                auto_execute_command=auto_execute_command,
+                interactive=interactive,
+                model=model,
+            ):
+                print(_format_auto_setup_success_message("create-jira-issue", resolved_issue_key))
+                return
+            else:
+                print(_format_degraded_setup_message(resolved_issue_key, auto_execute_command))
+                sys.exit(1)
+
+    # No issue key - create placeholder, then auto-setup with update workflow
+    print(f"\n{'=' * 80}")
+    print("CREATE WORKFLOW: create-jira-issue")
+    print("=" * 80)
+    print("\n\U0001f4dd Step 1: Creating placeholder Jira issue...")
+
+    issue_result = create_placeholder_issue(
+        project_key=resolved_project_key,
+        issue_type=resolved_issue_type,
+    )
+
+    if not issue_result.success or not issue_result.issue_key:
+        print(f"\n\u274c Failed to create placeholder issue: {issue_result.error_message}")
+        sys.exit(1)
+
+    created_issue_key = issue_result.issue_key
+    set_value("jira.issue_key", created_issue_key)
+
+    # Build user request for the update workflow
+    update_user_request = (
+        "This is a placeholder issue that needs to be populated with a proper "
+        "description, acceptance criteria, and additional information."
+    )
+    if resolved_user_request:
+        update_user_request += f" Here is what the issue should cover: {resolved_user_request}"
+
+    # Build auto-execute command for the new worktree
+    auto_execute_command = [
+        "agdt-initiate-update-jira-issue-workflow",
+        "--issue-key",
+        created_issue_key,
+        "--interactive",
+        "true" if interactive else "false",
+        "--model",
+        model,
+        "--skip-copilot-session",
+        "--user-request",
+        update_user_request,
+    ]
+
+    # Use the issue-type-based branch naming
+    branch_name = generate_workflow_branch_name(
+        issue_key=created_issue_key,
+        issue_type=resolved_issue_type,
+        workflow_name="create-jira-issue",
+    )
+
+    if perform_auto_setup(
+        created_issue_key,
+        "update-jira-issue",
+        branch_name=branch_name,
+        user_request=update_user_request,
+        auto_execute_command=auto_execute_command,
+        interactive=interactive,
+        model=model,
+    ):
+        print(_format_auto_setup_success_message("update-jira-issue", created_issue_key))
+    else:
+        print(_format_degraded_setup_message(created_issue_key, auto_execute_command))
+        sys.exit(1)
+
+
+def initiate_create_jira_epic_workflow(
+    project_key: str | None = None,
+    issue_key: str | None = None,
+    user_request: str | None = None,
+    interactive: bool | None = None,
+    model: str | None = None,
+    skip_copilot_session: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the create-jira-epic workflow.
+
+    If no issue_key is provided, creates a placeholder Epic in Jira first,
+    then sets up a worktree and opens VS Code for the user to continue.
+
+    If issue_key is provided (after worktree setup), continues the workflow
+    to populate the epic with full details based on the user's request.
+
+    Usage:
+        # Initial call - creates placeholder and sets up worktree:
+        agdt-initiate-create-jira-epic-workflow --user-request "I need an epic for..."
+
+        # Continuation call in new VS Code window:
+        agdt-initiate-create-jira-epic-workflow --issue-key PROJECT-1234 --user-request "..."
+
+        # With interactive mode:
+        agdt-initiate-create-jira-epic-workflow --issue-key PROJECT-1234 --interactive true
+
+    Args:
+        project_key: Jira project key (e.g., PROJECT). If not provided, uses jira.project_key from state.
+        issue_key: Issue key (provided after placeholder creation for continuation).
+        user_request: User's explanation of what they want. The AI agent will use this
+            to populate all Jira fields (summary, epic name, description, user story, etc.).
+        interactive: Whether to start the Copilot session interactively (default: False).
+        _argv: Command line arguments (for testing). Pass [] to skip CLI parsing.
+
+    Optional state:
+    - jira.user_request: User's explanation of what they want
+    - jira.summary: Epic summary (AI-generated from user_request)
+    - jira.epic_name: Epic name (AI-generated from user_request)
+    - jira.role: User role for the user story
+    - jira.desired_outcome: Desired outcome for the user story
+    - jira.benefit: Benefit for the user story
+    """
+    import argparse
+
+    from ...state import get_value, set_value
+    from .preflight import check_worktree_and_branch, perform_auto_setup
+    from .worktree_setup import create_placeholder_issue, generate_workflow_branch_name
+
+    # Parse CLI arguments first — no state I/O at this point.
+    parser = argparse.ArgumentParser(description="Initiate the create-jira-epic workflow")
+    parser.add_argument(
+        "--project-key",
+        dest="project_key",
+        help="Jira project key (e.g., PROJECT). If not provided, uses jira.project_key from state.",
+    )
+    parser.add_argument(
+        "--issue-key",
+        "-i",
+        dest="issue_key",
+        help="Issue key (provided after placeholder creation for continuation).",
+    )
+    parser.add_argument(
+        "--user-request",
+        "-u",
+        dest="user_request",
+        help="Your explanation of what you want. AI will use this to populate all Jira fields.",
+    )
+    parser.add_argument(
+        "--interactive",
+        dest="interactive",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Start Copilot session interactively (default: false). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help="Copilot model to use (default: project config or gpt-4o). Run agdt-setup to configure.",
+    )
+    parser.add_argument(
+        "--skip-copilot-session",
+        dest="skip_copilot_session",
+        action="store_true",
+        default=False,
+        help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
+    )
+    args = parser.parse_args(
+        _effective_argv(_argv, project_key, issue_key, user_request, interactive, model, skip_copilot_session)
+    )
+
+    # CLI values override programmatic values only when not already set
+    if project_key is None:
+        project_key = args.project_key
+    if issue_key is None:
+        issue_key = args.issue_key
+    if user_request is None:
+        user_request = args.user_request
+    if interactive is None and args.interactive is not None:
+        interactive = args.interactive == "true"
+    if interactive is None:
+        interactive = False
+    if model is None and args.model is not None:
+        model = args.model
+    if isinstance(model, str):
+        model = model.strip() or None
+    if model is None:
+        model = get_default_copilot_model()
+    if not skip_copilot_session and args.skip_copilot_session:
+        skip_copilot_session = True
+
+    # Resolve identity/scope and clear state in the correct order.
+    issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
+
+    # When --issue-key is not provided, clear stale issue-selection state
+    # from prior workflows so the create flow always starts fresh.
+    if not issue_key:
+        _clear_stale_issue_keys_for_create()
+
+    set_value("copilot.model_id", model)
+
+    # If project_key provided via CLI, set it in state
+    if project_key:  # pragma: no cover
+        set_value("jira.project_key", project_key)
+
+    # If issue_key provided via CLI, set it in state
+    if issue_key:  # pragma: no cover
+        set_value("jira.issue_key", issue_key)
+
+    # If user_request provided via CLI, set it in state
+    if user_request:  # pragma: no cover
+        set_value("jira.user_request", user_request)
+
+    # Resolve values using local variables first, falling back to state.
+    # Avoids the bootstrap-race bug where set_value() may shift the state
+    # directory so that the subsequent get_value() reads from a different
+    # location and returns None, producing a misleading error.
+    resolved_issue_key = issue_key or get_value("jira.issue_key")
+    if isinstance(resolved_issue_key, str):
+        resolved_issue_key = resolved_issue_key.strip()
+    resolved_project_key = project_key or get_value("jira.project_key") or "PROJECT"
+    resolved_user_request = user_request or get_value("jira.user_request")
+
+    # Persist the resolved issue key into the current state dir so that
+    # initiate_workflow() and prompt templates can reliably see jira.issue_key
+    if resolved_issue_key:
+        current_issue_key = get_value("jira.issue_key")
+        if current_issue_key != resolved_issue_key:
+            set_value("jira.issue_key", resolved_issue_key)
+
+    # Persist the resolved default so initiate_workflow's required_state_keys check passes
+    if not get_value("jira.project_key"):
+        set_value("jira.project_key", resolved_project_key)
+
+    # If we have an issue key, check if we're in the right context
+    if resolved_issue_key:
+        preflight_result = check_worktree_and_branch(resolved_issue_key)
+
+        if preflight_result.passed:
+            # We're in the correct context - proceed with the workflow
+            initiate_workflow(
+                workflow_name="create-jira-epic",
+                required_state_keys=["jira.project_key"],
+                optional_state_keys=[
+                    "jira.summary",
+                    "jira.epic_name",
+                    "jira.role",
+                    "jira.desired_outcome",
+                    "jira.benefit",
+                    "jira.issue_key",
+                    "jira.user_request",
+                ],
+                skip_bootstrap_init=True,
+            )
+
+            # Start a Copilot CLI session after the workflow is initiated.
+            if not skip_copilot_session:
+                from .worktree_setup import _start_copilot_session_for_create_jira_epic
+
+                repo_root = get_git_repo_root() or os.getcwd()
+                _start_copilot_session_for_create_jira_epic(repo_root, interactive=interactive, model=model)
+            return
+        else:
+            # Not in correct context - auto-setup
+            print(f"\n⚠️  Not in the correct context for issue {resolved_issue_key}")
+            for reason in preflight_result.failure_reasons:
+                print(f"   - {reason}")
+
+            auto_execute_command = [
+                "agdt-initiate-create-jira-epic-workflow",
+                "--issue-key",
+                resolved_issue_key,
+                "--project-key",
+                resolved_project_key,
+                "--interactive",
+                "true" if interactive else "false",
+                "--model",
+                model,
+                "--skip-copilot-session",
+            ]
+            if resolved_user_request:
+                auto_execute_command.extend(["--user-request", resolved_user_request])
+
+            if perform_auto_setup(
+                resolved_issue_key,
+                "create-jira-epic",
+                user_request=resolved_user_request,
+                auto_execute_command=auto_execute_command,
+                interactive=interactive,
+                model=model,
+            ):
+                print(_format_auto_setup_success_message("create-jira-epic", resolved_issue_key))
+                return
+            else:
+                sys.exit(1)
+
+    # No issue key - create placeholder, then auto-setup with update workflow
+    print(f"\n{'=' * 80}")
+    print("CREATE WORKFLOW: create-jira-epic")
+    print("=" * 80)
+    print("\n\U0001f4dd Step 1: Creating placeholder Epic...")
+
+    issue_result = create_placeholder_issue(
+        project_key=resolved_project_key,
+        issue_type="Epic",
+    )
+
+    if not issue_result.success or not issue_result.issue_key:
+        print(f"\n\u274c Failed to create placeholder issue: {issue_result.error_message}")
+        sys.exit(1)
+
+    created_issue_key = issue_result.issue_key
+    set_value("jira.issue_key", created_issue_key)
+
+    # Build user request for the update workflow
+    update_user_request = (
+        "This is a placeholder issue that needs to be populated with a proper "
+        "description, acceptance criteria, and additional information."
+    )
+    if resolved_user_request:
+        update_user_request += f" Here is what the issue should cover: {resolved_user_request}"
+
+    # Build auto-execute command for the new worktree
+    auto_execute_command = [
+        "agdt-initiate-update-jira-issue-workflow",
+        "--issue-key",
+        created_issue_key,
+        "--interactive",
+        "true" if interactive else "false",
+        "--model",
+        model,
+        "--skip-copilot-session",
+        "--user-request",
+        update_user_request,
+    ]
+
+    # Use the issue-type-based branch naming
+    branch_name = generate_workflow_branch_name(
+        issue_key=created_issue_key,
+        issue_type="Epic",
+        workflow_name="create-jira-epic",
+    )
+
+    if perform_auto_setup(
+        created_issue_key,
+        "update-jira-issue",
+        branch_name=branch_name,
+        user_request=update_user_request,
+        auto_execute_command=auto_execute_command,
+        interactive=interactive,
+        model=model,
+    ):
+        print(_format_auto_setup_success_message("update-jira-issue", created_issue_key))
+    else:
+        sys.exit(1)
+
+
+def initiate_create_jira_subtask_workflow(
+    parent_key: str | None = None,
+    issue_key: str | None = None,
+    user_request: str | None = None,
+    interactive: bool | None = None,
+    model: str | None = None,
+    skip_copilot_session: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the create-jira-subtask workflow.
+
+    If no issue_key is provided, creates a placeholder Sub-task in Jira first,
+    then sets up a worktree and opens VS Code for the user to continue.
+
+    If issue_key is provided (after worktree setup), continues the workflow
+    to populate the subtask with full details based on the user's request.
+
+    Usage:
+        # Initial call - creates placeholder and sets up worktree:
+        agdt-initiate-create-jira-subtask-workflow --parent-key PROJECT-1234 --user-request "I need a subtask to..."
+
+        # Continuation call in new VS Code window:
+        agdt-initiate-create-jira-subtask-workflow --issue-key PROJECT-1235 --user-request "..."
+
+        # With interactive mode:
+        agdt-initiate-create-jira-subtask-workflow --issue-key PROJECT-1235 --interactive true
+
+    Args:
+        parent_key: Parent issue key (e.g., PROJECT-1234). Required for creating placeholder.
+        issue_key: Issue key (provided after placeholder creation for continuation).
+        user_request: User's explanation of what they want. The AI agent will use this
+            to populate all Jira fields (summary, description, etc.).
+        interactive: Whether to start the Copilot session interactively (default: False).
+        _argv: Command line arguments (for testing). Pass [] to skip CLI parsing.
+
+    Optional state:
+    - jira.user_request: User's explanation of what they want
+    - jira.summary: Subtask summary (AI-generated from user_request)
+    - jira.description: Subtask description (AI-generated from user_request)
+    """
+    import argparse
+
+    from ...state import get_value, set_value
+    from ..jira.create_commands import get_subtask_type_name
+    from .preflight import check_worktree_and_branch, perform_auto_setup
+    from .worktree_setup import create_placeholder_issue, generate_workflow_branch_name
+
+    # Parse CLI arguments first — no state I/O at this point.
+    parser = argparse.ArgumentParser(description="Initiate the create-jira-subtask workflow")
+    parser.add_argument(
+        "--parent-key",
+        dest="parent_key",
+        help="Parent issue key (e.g., PROJECT-1234). If not provided, uses jira.parent_key from state.",
+    )
+    parser.add_argument(
+        "--issue-key",
+        "-i",
+        dest="issue_key",
+        help="Issue key (provided after placeholder creation for continuation).",
+    )
+    parser.add_argument(
+        "--user-request",
+        "-u",
+        dest="user_request",
+        help="Your explanation of what you want. AI will use this to populate all Jira fields.",
+    )
+    parser.add_argument(
+        "--interactive",
+        dest="interactive",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Start Copilot session interactively (default: false). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help="Copilot model to use (default: project config or gpt-4o). Run agdt-setup to configure.",
+    )
+    parser.add_argument(
+        "--skip-copilot-session",
+        dest="skip_copilot_session",
+        action="store_true",
+        default=False,
+        help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
+    )
+    args = parser.parse_args(
+        _effective_argv(_argv, parent_key, issue_key, user_request, interactive, model, skip_copilot_session)
+    )
+
+    # CLI values override programmatic values only when not already set
+    if parent_key is None:
+        parent_key = args.parent_key
+    if issue_key is None:
+        issue_key = args.issue_key
+    if user_request is None:
+        user_request = args.user_request
+    if interactive is None and args.interactive is not None:
+        interactive = args.interactive == "true"
+    if interactive is None:
+        interactive = False
+    if model is None and args.model is not None:
+        model = args.model
+    if isinstance(model, str):
+        model = model.strip() or None
+    if model is None:
+        model = get_default_copilot_model()
+    if not skip_copilot_session and args.skip_copilot_session:
+        skip_copilot_session = True
+
+    # Resolve identity/scope and clear state in the correct order.
+    issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
+
+    # When --issue-key is not provided, clear stale issue-selection state
+    # from prior workflows so the create flow always starts fresh.
+    if not issue_key:
+        _clear_stale_issue_keys_for_create()
+
+    set_value("copilot.model_id", model)
+
+    # If parent_key provided via CLI, set it in state
+    if parent_key:
+        set_value("jira.parent_key", parent_key)
+
+    # If issue_key provided via CLI, set it in state
+    if issue_key:
+        set_value("jira.issue_key", issue_key)
+
+    # If user_request provided via CLI, set it in state
+    if user_request:  # pragma: no cover
+        set_value("jira.user_request", user_request)
+
+    # Resolve values using local variables first, falling back to state.
+    # Avoids the bootstrap-race bug where set_value() may shift the state
+    # directory so that the subsequent get_value() reads from a different
+    # location and returns None, producing a misleading error.
+    resolved_issue_key = issue_key or get_value("jira.issue_key")
+    if isinstance(resolved_issue_key, str):
+        resolved_issue_key = resolved_issue_key.strip()
+    resolved_parent_key = parent_key or get_value("jira.parent_key")
+    resolved_user_request = user_request or get_value("jira.user_request")
+
+    # Re-persist keys into the current state directory.
+    # set_value("jira.issue_key") above may have shifted get_state_dir() from
+    # _unscoped to scoped (by creating runtime-bootstrap.json), so re-writing here
+    # guarantees validate_required_state() inside initiate_workflow() finds them in
+    # the correct location.
+    #
+    # To avoid a bootstrap race where jira.parent_key is only written to the old
+    # (_unscoped) state.json, ensure that any potential scope-shifting write for
+    # jira.issue_key happens first, and only when the value actually changes. Then
+    # re-write jira.parent_key so it is guaranteed to exist in the active directory.
+    if resolved_issue_key:
+        current_issue_key = get_value("jira.issue_key")
+        if current_issue_key != resolved_issue_key:
+            set_value("jira.issue_key", resolved_issue_key)
+    if resolved_parent_key:
+        set_value("jira.parent_key", resolved_parent_key)
+
+    # If we have an issue key, check if we're in the right context
+    if resolved_issue_key:
+        preflight_result = check_worktree_and_branch(resolved_issue_key)
+
+        if preflight_result.passed:
+            # We're in the correct context - proceed with the workflow
+            initiate_workflow(
+                workflow_name="create-jira-subtask",
+                required_state_keys=["jira.parent_key"],
+                optional_state_keys=["jira.summary", "jira.description", "jira.issue_key", "jira.user_request"],
+                skip_bootstrap_init=True,
+            )
+
+            # Start a Copilot CLI session after the workflow is initiated.
+            if not skip_copilot_session:
+                from .worktree_setup import _start_copilot_session_for_create_jira_subtask
+
+                repo_root = get_git_repo_root() or os.getcwd()
+                _start_copilot_session_for_create_jira_subtask(repo_root, interactive=interactive, model=model)
+            return
+        else:
+            # Not in correct context - auto-setup
+            print(f"\n⚠️  Not in the correct context for issue {resolved_issue_key}")
+            for reason in preflight_result.failure_reasons:
+                print(f"   - {reason}")
+
+            if not resolved_parent_key:
+                print("ERROR: --parent-key is required for the create-jira-subtask workflow.")
+                sys.exit(1)
+
+            auto_execute_command = [
+                "agdt-initiate-create-jira-subtask-workflow",
+                "--issue-key",
+                resolved_issue_key,
+                "--parent-key",
+                resolved_parent_key,
+                "--interactive",
+                "true" if interactive else "false",
+                "--model",
+                model,
+                "--skip-copilot-session",
+            ]
+            if resolved_user_request:
+                auto_execute_command.extend(["--user-request", resolved_user_request])
+
+            if perform_auto_setup(
+                resolved_issue_key,
+                "create-jira-subtask",
+                user_request=resolved_user_request,
+                additional_params={"parent_key": resolved_parent_key},
+                auto_execute_command=auto_execute_command,
+                interactive=interactive,
+                model=model,
+            ):
+                print(_format_auto_setup_success_message("create-jira-subtask", resolved_issue_key))
+                return
+            else:
+                sys.exit(1)
+
+    # No issue key - need parent_key to create placeholder
+    if not resolved_parent_key:
+        print("ERROR: --parent-key is required to create a placeholder subtask.")
+        print("\nUsage:")
+        print("  agdt-initiate-create-jira-subtask-workflow --parent-key PROJECT-1234")
+        sys.exit(1)
+
+    # Extract project key from parent key
+    project_key = resolved_parent_key.split("-")[0] if resolved_parent_key else "PROJECT"
+
+    # Create placeholder, then auto-setup with update workflow
+    print(f"\n{'=' * 80}")
+    print("CREATE WORKFLOW: create-jira-subtask")
+    print("=" * 80)
+    subtask_type_name = get_subtask_type_name(project_key=project_key)
+    print(f"\n\U0001f4dd Step 1: Creating placeholder {subtask_type_name}...")
+
+    issue_result = create_placeholder_issue(
+        project_key=project_key,
+        issue_type=subtask_type_name,
+        parent_key=resolved_parent_key,
+    )
+
+    if not issue_result.success or not issue_result.issue_key:
+        print(f"\n\u274c Failed to create placeholder issue: {issue_result.error_message}")
+        sys.exit(1)
+
+    created_issue_key = issue_result.issue_key
+    set_value("jira.issue_key", created_issue_key)
+
+    # Build user request for the update workflow
+    update_user_request = (
+        "This is a placeholder issue that needs to be populated with a proper "
+        "description, acceptance criteria, and additional information."
+    )
+    if resolved_user_request:
+        update_user_request += f" Here is what the issue should cover: {resolved_user_request}"
+
+    # Build auto-execute command for the new worktree
+    auto_execute_command = [
+        "agdt-initiate-update-jira-issue-workflow",
+        "--issue-key",
+        created_issue_key,
+        "--interactive",
+        "true" if interactive else "false",
+        "--model",
+        model,
+        "--skip-copilot-session",
+        "--user-request",
+        update_user_request,
+    ]
+
+    # Use the issue-type-based branch naming
+    branch_name = generate_workflow_branch_name(
+        issue_key=created_issue_key,
+        issue_type="Sub-task",
+        workflow_name="create-jira-subtask",
+        parent_key=resolved_parent_key,
+    )
+
+    if perform_auto_setup(
+        created_issue_key,
+        "update-jira-issue",
+        branch_name=branch_name,
+        user_request=update_user_request,
+        auto_execute_command=auto_execute_command,
+        interactive=interactive,
+        model=model,
+    ):
+        print(_format_auto_setup_success_message("update-jira-issue", created_issue_key))
+    else:
+        sys.exit(1)
+
+
+def _stringify_jira_text_value(value: object, default: str) -> str:
+    """Convert a Jira text field to string, handling ADF dicts.
+
+    Jira Cloud and newer Server versions may return Atlassian Document Format
+    (ADF) dicts for text fields like ``description`` and comment ``body``.
+    This normalises any value to a plain string.
+
+    Args:
+        value: The raw field value (may be ``str``, ``dict``, ``None``, etc.).
+        default: Fallback when the value is ``None`` or empty.
+
+    Returns:
+        A plain-text string representation of *value*.
+    """
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value or default
+    if isinstance(value, dict):
+        from ..jira.adf import _convert_adf_to_text
+
+        result = _convert_adf_to_text(value)
+        return result.strip() if result else default
+    return str(value) or default
+
+
+def _format_jira_issue_comments(comments_data: object) -> str:
+    """Format the most recent Jira comments for prompt rendering.
+
+    Returns the last 5 comments, each truncated to 200 characters,
+    or ``"No comments"`` when no comments exist.
+
+    Args:
+        comments_data: The ``fields.comment.comments`` list from the Jira API.
+
+    Returns:
+        Formatted string of recent comments.
+    """
+    if not isinstance(comments_data, list) or not comments_data:
+        return "No comments"
+
+    comment_lines: list[str] = []
+    for c in comments_data[-5:]:
+        if not isinstance(c, dict):
+            continue
+        author_data = c.get("author", {})
+        author = author_data.get("displayName", "Unknown") if isinstance(author_data, dict) else "Unknown"
+        body = _stringify_jira_text_value(c.get("body"), "")[:200]
+        comment_lines.append(f"**{author}**: {body}...")
+    return "\n".join(comment_lines) if comment_lines else "No comments"
+
+
+def _format_jira_issue_prompt_fields(issue_data: dict[str, object]) -> dict[str, str]:
+    """Extract and format Jira issue fields for workflow prompt variables.
+
+    Shared by :func:`_fetch_issue_for_prompt` and :func:`_execute_retrieve_step`
+    to keep the two callers in sync.
+
+    Args:
+        issue_data: The full Jira issue JSON (with a ``fields`` key).
+
+    Returns:
+        Dict with keys ``jira_issue_summary``, ``jira_issue_type``,
+        ``jira_issue_labels``, ``jira_issue_description``, and
+        ``jira_issue_comments``.
+    """
+    fields = issue_data.get("fields", {})
+    if not isinstance(fields, dict):
+        fields = {}
+
+    issue_type_data = fields.get("issuetype", {})
+    if not isinstance(issue_type_data, dict):
+        issue_type_data = {}
+
+    labels = fields.get("labels", [])
+    if not isinstance(labels, list):
+        labels = []
+
+    comments = fields.get("comment", {})
+    if not isinstance(comments, dict):
+        comments = {}
+
+    return {
+        "jira_issue_summary": _stringify_jira_text_value(fields.get("summary"), "No summary available"),
+        "jira_issue_type": _stringify_jira_text_value(issue_type_data.get("name"), "Unknown"),
+        "jira_issue_labels": ", ".join(str(label) for label in labels if label) or "None",
+        "jira_issue_description": _stringify_jira_text_value(fields.get("description"), "No description available"),
+        "jira_issue_comments": _format_jira_issue_comments(comments.get("comments", [])),
+    }
+
+
+def _fetch_issue_for_prompt(issue_key: str) -> dict[str, str]:
+    """Pre-fetch Jira issue details for use as template variables.
+
+    Calls ``get_issue()`` synchronously and reads the resulting temp JSON file
+    to extract fields for the prompt template.  On any failure the function
+    prints a warning to *stderr* and returns an empty dict so that the template
+    falls back to the manual fetch instruction.
+
+    Args:
+        issue_key: Jira issue key to set in Jira state before fetching issue
+            details. Any existing ``jira.issue_key`` value is overridden.
+
+    Returns:
+        Dict with keys ``jira_issue_summary``, ``jira_issue_type``,
+        ``jira_issue_labels``, ``jira_issue_description``, and
+        ``jira_issue_comments`` — or ``{}`` on failure.
+    """
+    try:
+        from ..jira.get_commands import get_issue
+        from ..jira.state_helpers import set_jira_value
+
+        # Ensure issue key is set in jira state
+        set_jira_value("issue_key", issue_key)
+
+        # Call get_issue synchronously — prints details and saves to temp file
+        get_issue()
+    except SystemExit:
+        print(
+            f"Warning: Failed to fetch issue {issue_key}. The prompt will include a manual fetch instruction.",
+            file=sys.stderr,
+        )
+        return {}
+    except Exception as e:
+        print(f"Warning: Could not fetch Jira issue: {e}", file=sys.stderr)
+        return {}
+
+    # Read the temp file that get_issue() wrote
+    issue_file = get_state_dir() / "temp-get-issue-details-response.json"
+    if not issue_file.exists():
+        print(
+            "Warning: Issue details file not found after fetch. The prompt will include a manual fetch instruction.",
+            file=sys.stderr,
+        )
+        return {}
+
+    try:
+        issue_data = json.loads(issue_file.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"Warning: Could not read issue file: {e}", file=sys.stderr)
+        return {}
+
+    return _format_jira_issue_prompt_fields(issue_data)
+
+
+def initiate_update_jira_issue_workflow(
+    issue_key: str | None = None,
+    user_request: str | None = None,
+    interactive: bool | None = None,
+    model: str | None = None,
+    skip_copilot_session: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the update-jira-issue workflow.
+
+    If not in the correct worktree/branch context, automatically creates
+    a worktree, installs agentic-devtools, and opens VS Code.
+
+    Usage:
+        # Initial call - sets up worktree if needed:
+        agdt-initiate-update-jira-issue-workflow --issue-key PROJECT-1234 --user-request "I want to update..."
+
+        # Continuation call in new VS Code window:
+        agdt-initiate-update-jira-issue-workflow --issue-key PROJECT-1234 --user-request "..."
+
+        # With interactive mode:
+        agdt-initiate-update-jira-issue-workflow --issue-key PROJECT-1234 --interactive true
+
+    Args:
+        issue_key: Jira issue key (e.g., PROJECT-1234). If not provided, uses jira.issue_key from state.
+        user_request: User's explanation of the updates they want. The AI agent will use this
+            to determine what fields to update and how.
+        interactive: Whether to start the Copilot session interactively (default: False).
+        _argv: Command line arguments (for testing). Pass [] to skip CLI parsing.
+
+    Optional state:
+    - jira.user_request: User's explanation of what they want to update
+    - jira.summary: New summary (AI-generated from user_request)
+    - jira.description: New description (AI-generated from user_request)
+    - jira.comment: Comment to add
+    """
+    import argparse
+
+    from ...state import get_value, set_value
+    from .preflight import check_worktree_and_branch, perform_auto_setup
+
+    # Parse CLI arguments first — no state I/O at this point.
+    parser = argparse.ArgumentParser(description="Initiate the update-jira-issue workflow")
+    parser.add_argument(
+        "--issue-key",
+        dest="issue_key",
+        help="Jira issue key (e.g., PROJECT-1234). If not provided, uses jira.issue_key from state.",
+    )
+    parser.add_argument(
+        "--user-request",
+        "-u",
+        dest="user_request",
+        help="Your explanation of what you want to update. AI will determine the changes to make.",
+    )
+    parser.add_argument(
+        "--interactive",
+        dest="interactive",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Start Copilot session interactively (default: false). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help="Copilot model to use (default: project config or gpt-4o). Run agdt-setup to configure.",
+    )
+    parser.add_argument(
+        "--skip-copilot-session",
+        dest="skip_copilot_session",
+        action="store_true",
+        default=False,
+        help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
+    )
+    args = parser.parse_args(_effective_argv(_argv, issue_key, user_request, interactive, model, skip_copilot_session))
+
+    # CLI values override programmatic values only when not already set
+    if issue_key is None:
+        issue_key = args.issue_key
+    if user_request is None:
+        user_request = args.user_request
+    if interactive is None and args.interactive is not None:
+        interactive = args.interactive == "true"
+    if interactive is None:
+        interactive = False
+    if model is None and args.model is not None:
+        model = args.model
+    if isinstance(model, str):
+        model = model.strip() or None
+    if model is None:
+        model = get_default_copilot_model()
+    if not skip_copilot_session and args.skip_copilot_session:
+        skip_copilot_session = True
+
+    # Resolve identity/scope and clear state in the correct order.
+    issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
+    set_value("copilot.model_id", model)
+
+    # If issue_key provided via CLI, set it in state
+    if issue_key:
+        set_value("jira.issue_key", issue_key)
+
+    # If user_request provided via CLI, set it in state
+    if user_request:  # pragma: no cover
+        set_value("jira.user_request", user_request)
+
+    # Resolve values using local variables first, falling back to state.
+    # Avoids the bootstrap-race bug where set_value() may shift the state
+    # directory so that the subsequent get_value() reads from a different
+    # location and returns None, producing a misleading error.
+    resolved_issue_key = issue_key or get_value("jira.issue_key")
+    if isinstance(resolved_issue_key, str):
+        resolved_issue_key = resolved_issue_key.strip()
+    resolved_user_request = user_request or get_value("jira.user_request")
+
+    if not resolved_issue_key:
+        print("ERROR: --issue-key is required.")
+        print("\nUsage:")
+        print("  agdt-initiate-update-jira-issue-workflow --issue-key PROJECT-1234")
+        sys.exit(1)
+
+    # Check if we're in the correct context
+    preflight_result = check_worktree_and_branch(resolved_issue_key)
+
+    if not preflight_result.passed:
+        print(f"\n⚠️  Not in the correct context for issue {resolved_issue_key}")
+        for reason in preflight_result.failure_reasons:
+            print(f"   - {reason}")
+
+        # Automatically set up the environment
+        auto_execute_command = [
+            "agdt-initiate-update-jira-issue-workflow",
+            "--issue-key",
+            resolved_issue_key,
+            "--interactive",
+            "true" if interactive else "false",
+            "--model",
+            model,
+            "--skip-copilot-session",
+        ]
+        if resolved_user_request:
+            auto_execute_command.extend(["--user-request", resolved_user_request])
+
+        if perform_auto_setup(
+            resolved_issue_key,
+            "update-jira-issue",
+            user_request=resolved_user_request,
+            auto_execute_command=auto_execute_command,
+            interactive=interactive,
+            model=model,
+        ):
+            print(_format_auto_setup_success_message("update-jira-issue", resolved_issue_key))
+            return
+        else:
+            sys.exit(1)
+
+    # We're in the correct context - proceed with the workflow
+    # Ensure jira.issue_key is persisted in the same state directory that
+    # initiate_workflow() will validate against. When runtime-bootstrap.json
+    # is created lazily, a call to get_state_dir() inside set_value() can
+    # cause the active state directory to "shift" after the first write.
+    # Detect that situation and re-write the key so both scopes are consistent.
+    original_state_dir = get_state_dir()
+    set_value("jira.issue_key", resolved_issue_key)
+    new_state_dir = get_state_dir()
+    if new_state_dir != original_state_dir:
+        set_value("jira.issue_key", resolved_issue_key)
+
+    # Pre-fetch Jira issue details for the prompt template
+    issue_variables = _fetch_issue_for_prompt(resolved_issue_key)
+
+    # Persist pre-fetched issue fields to state under the ``jira.issue_*``
+    # namespace so that :func:`_render_step_prompt` can re-render the
+    # ``make-updates`` template (via ``@agdt.get-next-workflow-prompt``)
+    # without re-fetching from Jira.  Keys are stored as ``jira.issue_<field>``
+    # (dot replaces the first underscore only, matching the existing
+    # ``jira.*`` namespace convention).
+    for key, value in issue_variables.items():
+        # key is e.g. "jira_issue_summary" -> "jira.issue_summary"
+        state_key = key.replace("jira_", "jira.", 1)
+        set_value(state_key, value)
+
+    # Determine step based on pre-fetch result: skip initiate when data is available
+    step = "make-updates" if issue_variables else "initiate"
+
+    initiate_workflow(
+        workflow_name="update-jira-issue",
+        required_state_keys=["jira.issue_key"],
+        optional_state_keys=["jira.summary", "jira.description", "jira.comment", "jira.user_request"],
+        additional_variables=issue_variables if issue_variables else None,
+        step_name=step,
+        skip_bootstrap_init=True,
+    )
+
+    # Start a Copilot CLI session after the workflow is initiated.
+    if not skip_copilot_session:
+        from .worktree_setup import _start_copilot_session_for_update_jira_issue
+
+        repo_root = get_git_repo_root() or os.getcwd()
+        _start_copilot_session_for_update_jira_issue(repo_root, interactive=interactive, model=model, step=step)
+
+
+def initiate_apply_pull_request_review_suggestions_workflow(
+    pull_request_id: str | None = None,
+    issue_key: str | None = None,
+    interactive: bool | None = None,
+    model: str | None = None,
+    skip_copilot_session: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the apply-pull-request-review-suggestions workflow.
+
+    If not in the correct worktree/branch context, automatically creates
+    a worktree, installs agentic-devtools, and opens VS Code, then starts
+    a Copilot session with the integrated prompt.
+
+    Usage:
+        agdt-initiate-apply-pr-suggestions-workflow --pull-request-id 12345
+        agdt-initiate-apply-pr-suggestions-workflow --pull-request-id 12345 --issue-key PROJECT-1234
+        agdt-initiate-apply-pr-suggestions-workflow --pull-request-id 12345 --interactive false
+
+    Args:
+        pull_request_id: ID of the pull request with suggestions to apply.
+            If not provided, uses pull_request_id from state.
+        issue_key: Jira issue key for context and worktree setup.
+            If not provided, attempts to derive from PR source branch.
+        interactive: Whether to start the Copilot session interactively (default: False).
+            Set to True for interactive mode.
+        _argv: Command line arguments (for testing). Pass [] in tests to avoid
+            parsing sys.argv.  When any programmatic parameter is set and
+            ``_argv`` is ``None``, an empty argv is used automatically.
+
+    Optional state:
+    - jira.issue_key: Jira issue key for context
+    """
+    import argparse
+
+    from ...state import delete_value, get_value, set_value
+    from .preflight import check_worktree_and_branch, perform_auto_setup
+
+    # Parse CLI arguments first — no state I/O at this point, so no _unscoped dir is created.
+    # Always parse to pick up --interactive even when pull_request_id/issue_key are supplied
+    # programmatically.
+    parser = argparse.ArgumentParser(
+        description="Initiate the apply-pull-request-review-suggestions workflow",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  agdt-initiate-apply-pr-suggestions-workflow --pull-request-id 12345
+  agdt-initiate-apply-pr-suggestions-workflow --pull-request-id 12345 --issue-key PROJECT-1234
+  agdt-initiate-apply-pr-suggestions-workflow --pull-request-id 12345 --interactive false
+        """,
+    )
+    parser.add_argument(
+        "--pull-request-id",
+        dest="pull_request_id",
+        help="ID of the pull request with suggestions to apply. If not provided, uses pull_request_id from state.",
+    )
+    parser.add_argument(
+        "--issue-key",
+        "-i",
+        dest="issue_key",
+        help="Jira issue key for context. If not provided, derives from PR source branch.",
+    )
+    parser.add_argument(
+        "--interactive",
+        dest="interactive",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Start Copilot session interactively (default: false). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help="Copilot model to use (default: project config or gpt-4o). Run agdt-setup to configure.",
+    )
+    parser.add_argument(
+        "--skip-copilot-session",
+        dest="skip_copilot_session",
+        action="store_true",
+        default=False,
+        help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
+    )
+    args = parser.parse_args(
+        _effective_argv(_argv, pull_request_id, issue_key, interactive, model, skip_copilot_session)
+    )
+
+    # CLI values override programmatic values only when not already set
+    if pull_request_id is None and args.pull_request_id:
+        pull_request_id = args.pull_request_id
+    if issue_key is None and args.issue_key:
+        issue_key = args.issue_key
+    if interactive is None and args.interactive is not None:
+        interactive = args.interactive == "true"
+    if interactive is None:
+        interactive = False
+    if model is None and args.model is not None:
+        model = args.model
+    if isinstance(model, str):
+        model = model.strip() or None
+    if model is None:
+        model = get_default_copilot_model()
+    if not skip_copilot_session and args.skip_copilot_session:
+        skip_copilot_session = True
+
+    # Resolve identity and set the worktree_key scope BEFORE any state I/O (including
+    # the clear below), so that get_state_dir() resolves to the correct scoped directory
+    # and never creates the _unscoped fallback folder.
+    # Priority: issue_key > pull_request_id (matching resolve_worktree_key() in agdt_branch.py).
+    # Normalize both values (strip whitespace) before building the worktree_key so that
+    # leading/trailing whitespace does not cause is_safe_dir_segment() to reject the segment
+    # and fall back to _unscoped.
+    _issue_key_norm = issue_key.strip() if isinstance(issue_key, str) else ""
+    # Canonicalize GitHub issue keys: "#42" → "42" so is_safe_dir_segment accepts them
+    # and get_state_dir() resolves to the correct per-issue scope instead of _unscoped.
+    # Reject "#", "#0", "#abc" to avoid silent fallback to a stale scoped state.
+    if _issue_key_norm.startswith("#"):
+        _bare = _issue_key_norm.removeprefix("#")
+        if not _bare or not (_bare.isascii() and _bare.isdigit()) or int(_bare) <= 0:
+            print(
+                f"ERROR: --issue-key {_issue_key_norm!r} is not a valid GitHub issue number.",
+                file=sys.stderr,
+            )
+            print(
+                "\nGitHub issue keys must be a positive integer, e.g. '#42' or '42'.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        _issue_key_norm = _bare
+    _pr_id_norm = (
+        pull_request_id.strip()
+        if isinstance(pull_request_id, str)
+        else (str(pull_request_id) if pull_request_id is not None else "")
+    )
+    if _issue_key_norm:
+        _ensure_bootstrap_identity_and_scope(_issue_key_norm)
+    elif _pr_id_norm:
+        _ensure_bootstrap_identity_and_scope(f"PR{_pr_id_norm}")
+    else:
+        _ensure_bootstrap_identity()
+
+    # Clear workflow tracking state (workflow, agdt_run_id) now that the bootstrap scope
+    # is set; load_state()/save_state() will use the correctly scoped directory.
+    clear_state_for_workflow_initiation()
+    set_value("copilot.model_id", model)
+
+    # Set provided values in state.  When both issue_key and pull_request_id are provided,
+    # write jira.issue_key FIRST so that the engine-side priority guard in set_value()
+    # (which checks the loaded state dict) sees the issue key and skips overwriting the
+    # bootstrap scope when pull_request_id is written immediately after.
+    # Use the normalized values for both presence checks and state writes so that
+    # whitespace-only inputs are treated as absent and state remains canonical.
+    if _issue_key_norm:
+        set_value("jira.issue_key", _issue_key_norm)
+        if not _pr_id_norm:
+            # --issue-key was given without --pull-request-id: clear any stale PR ID
+            # left by a prior run so it is not silently reused.
+            delete_value("pull_request_id")
+
+    if _pr_id_norm:
+        set_value("pull_request_id", _pr_id_norm)
+        if not _issue_key_norm:
+            # --pull-request-id was given without --issue-key: clear any stale issue key
+            # left by a prior run so the derive-from-PR path below is not bypassed by
+            # an unrelated Jira issue that happened to be stored in state.
+            delete_value("jira.issue_key")
+
+    # Resolve values using local variables first, falling back to state.
+    # Avoids the bootstrap-race bug where set_value() may shift the state
+    # directory so that the subsequent get_value() reads from a different
+    # location and returns None, producing a misleading error.
+    resolved_pr_id = _pr_id_norm or get_value("pull_request_id")
+    resolved_issue_key = _issue_key_norm or get_value("jira.issue_key")
+
+    # If we don't have an issue key, try to derive it from the PR
+    if not resolved_issue_key and resolved_pr_id:
+        from ..azure_devops.commands import _extract_issue_key_from_branch
+
+        pr_details = get_value("pr_details")
+        if pr_details and "sourceRefName" in pr_details:
+            source_branch = pr_details["sourceRefName"].replace("refs/heads/", "")
+            resolved_issue_key = _extract_issue_key_from_branch(source_branch)
+            if resolved_issue_key:
+                set_value("jira.issue_key", resolved_issue_key)
+
+    # Check if we're in the correct worktree/branch context
+    if resolved_issue_key:
+        preflight_result = check_worktree_and_branch(resolved_issue_key)
+
+        if not preflight_result.passed:
+            print(f"\n⚠️  Not in the correct context for issue {resolved_issue_key}")
+            for reason in preflight_result.failure_reasons:
+                print(f"   - {reason}")
+
+            # Build the command to re-run inside the worktree so the full setup
+            # (render prompt, copy review state, start session) executes there.
+            auto_execute_command = [
+                "agdt-initiate-apply-pr-suggestions-workflow",
+            ]
+            if resolved_pr_id:
+                auto_execute_command.extend(["--pull-request-id", str(resolved_pr_id)])
+            if resolved_issue_key:  # pragma: no branch
+                auto_execute_command.extend(["--issue-key", resolved_issue_key])
+            auto_execute_command.extend(["--interactive", "true" if interactive else "false"])
+            auto_execute_command.extend(["--model", model])
+            auto_execute_command.append("--skip-copilot-session")
+
+            # Automatically set up the environment
+            if perform_auto_setup(
+                resolved_issue_key,
+                "apply-pull-request-review-suggestions",
+                additional_params={"pull_request_id": resolved_pr_id} if resolved_pr_id else None,
+                auto_execute_command=auto_execute_command,
+                interactive=interactive,
+                model=model,
+            ):
+                print(_format_auto_setup_success_message("apply-pull-request-review-suggestions", resolved_issue_key))
+                return
+            else:
+                sys.exit(1)  # pragma: no cover
+
+    # Re-persist identifiers so validate_required_state() and optional_state_keys
+    # inside initiate_workflow() find them even if get_state_dir() shifted after
+    # earlier set_value() calls above.
+    if resolved_issue_key:
+        set_value("jira.issue_key", resolved_issue_key)
+    if resolved_pr_id:
+        set_value("pull_request_id", str(resolved_pr_id))
+    initiate_workflow(
+        workflow_name="apply-pull-request-review-suggestions",
+        required_state_keys=["pull_request_id"],
+        optional_state_keys=["jira.issue_key"],
+        skip_bootstrap_init=True,
+    )
+
+    # Auto-copy review state into the apply-suggestions directory
+    # so the agent has cross-workflow context prepared automatically.
+    _copy_review_state_to_apply_suggestions()
+
+    # Start a Copilot CLI session with the rendered prompt.
+    # _start_copilot_session_for_apply_pr_suggestions waits for the prompt file
+    # written by initiate_workflow before launching the session.
+    if not skip_copilot_session:
+        from .worktree_setup import _start_copilot_session_for_apply_pr_suggestions
+
+        # Use the git repo/worktree root (not cwd) so the prompt file is found
+        # even when the command is invoked from a subdirectory.
+        repo_root = get_git_repo_root() or os.getcwd()
+        _start_copilot_session_for_apply_pr_suggestions(repo_root, interactive=interactive, model=model)
+
+
+def _copy_review_state_to_apply_suggestions() -> None:
+    """Copy review-state.json into the apply-suggestions directory.
+
+    Reads the current review state (from the local ``reviews/`` directory)
+    and snapshots it into the ``apply-suggestions/`` directory as part of
+    the ``AppliedSuggestionsState.reviewStateSnapshot``.  This gives the
+    AI agent cross-workflow context without requiring an explicit
+    ``load_workflow_artifacts()`` call.
+
+    Silently does nothing when no review state exists or any read fails.
+    """
+    import json
+
+    from ...state import get_value
+    from ..azure_devops.review_state import REVIEW_STATE_FILENAME, REVIEW_STATE_SUBDIR
+    from .applied_suggestions import (
+        AppliedSuggestionsState,
+        save_applied_suggestions_state,
+    )
+
+    review_state_path = get_state_dir() / REVIEW_STATE_SUBDIR / REVIEW_STATE_FILENAME
+    if not review_state_path.exists():
+        return
+
+    try:
+        review_data = json.loads(review_state_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+
+    raw_pr_id = get_value("pull_request_id")
+    try:
+        pr_id = int(raw_pr_id) if raw_pr_id is not None else 0
+    except (TypeError, ValueError):
+        pr_id = 0
+
+    applied_state = AppliedSuggestionsState(
+        prId=pr_id,
+        reviewStateSnapshot=review_data,
+    )
+    save_applied_suggestions_state(applied_state)
+
+
+def initiate_optimize_issue_for_ai_agent_workflow(
+    issue_key: str | None = None,
+    user_request: str | None = None,
+    interactive: bool | None = None,
+    model: str | None = None,
+    skip_copilot_session: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the optimize-issue-for-ai-agent workflow.
+
+    If not in the correct worktree/branch context, automatically creates
+    a worktree, installs agentic-devtools, and opens VS Code.
+
+    Usage:
+        # Initial call - sets up worktree if needed:
+        agdt-initiate-optimize-issue-for-ai-agent-workflow --issue-key PROJECT-1234
+
+        # With optional user request (the doubled backslash is intentional: it renders
+        # as a single shell-continuation backslash in CLI help output):
+        agdt-initiate-optimize-issue-for-ai-agent-workflow --issue-key PROJECT-1234 \\
+            --user-request "Focus on acceptance criteria"
+
+        # With interactive mode:
+        agdt-initiate-optimize-issue-for-ai-agent-workflow --issue-key PROJECT-1234 --interactive true
+
+    Args:
+        issue_key: Jira issue key (e.g., PROJECT-1234). If not provided, uses jira.issue_key from state.
+        user_request: Optional guidance on what to focus on when optimizing the issue.
+        interactive: Whether to start the Copilot session interactively once session
+            launch is wired (see TODO below). The value is persisted to
+            ``workflow.context.interactive`` in state so future session-launch code
+            can read it with zero CLI changes. On the preflight-fail path it is also
+            forwarded to ``perform_auto_setup``.
+        _argv: Command line arguments (for testing). Pass [] to skip CLI parsing.
+
+    Required state:
+    - jira.issue_key: The Jira issue key to optimize
+
+    Optional state:
+    - jira.user_request: Guidance on what to focus on when optimizing
+    """
+    import argparse
+
+    from ...state import get_value, set_value, update_workflow_context
+    from .preflight import check_worktree_and_branch, perform_auto_setup
+
+    # Parse CLI arguments first — no state I/O at this point.
+    parser = argparse.ArgumentParser(description="Initiate the optimize-issue-for-ai-agent workflow")
+    parser.add_argument(
+        "--issue-key",
+        dest="issue_key",
+        help="Jira issue key (e.g., PROJECT-1234). If not provided, uses jira.issue_key from state.",
+    )
+    parser.add_argument(
+        "--user-request",
+        "-u",
+        dest="user_request",
+        help="Optional guidance on what to focus on when optimizing the issue.",
+    )
+    parser.add_argument(
+        "--interactive",
+        dest="interactive",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Start Copilot session interactively (default: false). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help="Copilot model to use (default: project config or gpt-4o). Run agdt-setup to configure.",
+    )
+    parser.add_argument(
+        "--skip-copilot-session",
+        dest="skip_copilot_session",
+        action="store_true",
+        default=False,
+        help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
+    )
+    args = parser.parse_args(_effective_argv(_argv, issue_key, user_request, interactive, model, skip_copilot_session))
+
+    # CLI values override programmatic values only when not already set
+    if issue_key is None:
+        issue_key = args.issue_key
+    if user_request is None:
+        user_request = args.user_request
+    if interactive is None and args.interactive is not None:
+        interactive = args.interactive == "true"
+    if interactive is None:
+        interactive = False
+    if model is None and args.model is not None:
+        model = args.model
+    if isinstance(model, str):
+        model = model.strip() or None
+    if model is None:
+        model = get_default_copilot_model()
+    if not skip_copilot_session and args.skip_copilot_session:
+        skip_copilot_session = True
+
+    # Resolve identity/scope and clear state in the correct order.
+    # Context keys (jira.issue_key, jira.user_request, etc.) are intentionally preserved.
+    issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
+    set_value("copilot.model_id", model)
+
+    # If issue_key provided via CLI, set it in state
+    if issue_key:
+        set_value("jira.issue_key", issue_key)
+
+    # If user_request provided via CLI, set it in state
+    if user_request:  # pragma: no cover
+        set_value("jira.user_request", user_request)
+
+    # Resolve values using local variables first, falling back to state.
+    # Avoids the bootstrap-race bug where set_value() may shift the state
+    # directory so that the subsequent get_value() reads from a different
+    # location and returns None, producing a misleading error.
+    resolved_issue_key = issue_key or get_value("jira.issue_key")
+    if isinstance(resolved_issue_key, str):
+        resolved_issue_key = resolved_issue_key.strip()
+    resolved_user_request = user_request or get_value("jira.user_request")
+
+    if not resolved_issue_key:
+        print("ERROR: --issue-key is required.")
+        print("\nUsage:")
+        print("  agdt-initiate-optimize-issue-for-ai-agent-workflow --issue-key PROJECT-1234")
+        sys.exit(1)
+
+    # Check if we're in the correct context
+    preflight_result = check_worktree_and_branch(resolved_issue_key)
+
+    if not preflight_result.passed:
+        print(f"\n⚠️  Not in the correct context for issue {resolved_issue_key}")
+        for reason in preflight_result.failure_reasons:
+            print(f"   - {reason}")
+
+        # Automatically set up the environment
+        auto_execute_command = [
+            "agdt-initiate-optimize-issue-for-ai-agent-workflow",
+            "--issue-key",
+            resolved_issue_key,
+            "--interactive",
+            "true" if interactive else "false",
+            "--model",
+            model,
+            "--skip-copilot-session",
+        ]
+        if resolved_user_request:
+            auto_execute_command.extend(["--user-request", resolved_user_request])
+
+        if perform_auto_setup(
+            resolved_issue_key,
+            "optimize-issue-for-ai-agent",
+            user_request=resolved_user_request,
+            auto_execute_command=auto_execute_command,
+            interactive=interactive,
+            model=model,
+        ):
+            print(_format_auto_setup_success_message("optimize-issue-for-ai-agent", resolved_issue_key))
+            return
+        else:
+            sys.exit(1)  # pragma: no cover
+
+    # We're in the correct context - proceed with the workflow.
+    # Only re-persist jira.issue_key when the current state does not already
+    # contain the same value. This avoids an unnecessary write that could
+    # create/update runtime-bootstrap.json and shift get_state_dir(), which
+    # would cause initiate_workflow(validate_required_state=["jira.issue_key"])
+    # to look in a different directory that does not yet contain the key.
+    current_issue_key = get_value("jira.issue_key")
+    if current_issue_key != resolved_issue_key:
+        set_value("jira.issue_key", resolved_issue_key)
+    initiate_workflow(
+        workflow_name="optimize-issue-for-ai-agent",
+        required_state_keys=["jira.issue_key"],
+        optional_state_keys=["jira.user_request"],
+        skip_bootstrap_init=True,
+    )
+
+    # Persist interactive preference in workflow context so it survives set_workflow_state() overwrites.
+    update_workflow_context({"interactive": "true" if interactive else "false"})
+
+    # TODO: Wire Copilot session launch here after ayaiayorg/agentic-devtools#869/#871
+    # session helpers are available
+
+
+def initiate_break_down_issue_into_subtasks_workflow(
+    issue_key: str | None = None,
+    user_request: str | None = None,
+    interactive: bool | None = None,
+    model: str | None = None,
+    skip_copilot_session: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the break-down-issue-into-subtasks workflow.
+
+    If not in the correct worktree/branch context, automatically creates
+    a worktree, installs agentic-devtools, and opens VS Code.
+
+    Usage:
+        # Initial call - sets up worktree if needed:
+        agdt-initiate-break-down-issue-into-subtasks-workflow --issue-key PROJECT-1234
+
+        # With optional user request (the doubled backslash is intentional: it renders
+        # as a single shell-continuation backslash in CLI help output):
+        agdt-initiate-break-down-issue-into-subtasks-workflow --issue-key PROJECT-1234 \\
+            --user-request "Split into 3 subtasks"
+
+        # With interactive mode:
+        agdt-initiate-break-down-issue-into-subtasks-workflow --issue-key PROJECT-1234 --interactive true
+
+    Args:
+        issue_key: Jira issue key (e.g., PROJECT-1234). If not provided, uses jira.issue_key from state.
+        user_request: Optional guidance on how to break down the issue.
+        interactive: Whether to start the Copilot session interactively once session
+            launch is wired (see TODO below). The value is persisted to
+            ``workflow.context.interactive`` in state so future session-launch code
+            can read it with zero CLI changes. On the preflight-fail path it is also
+            forwarded to ``perform_auto_setup``.
+        _argv: Command line arguments (for testing). Pass [] to skip CLI parsing.
+
+    Required state:
+    - jira.issue_key: The Jira issue key to break down
+
+    Optional state:
+    - jira.user_request: Guidance on how to break down the issue
+    """
+    import argparse
+
+    from ...state import get_value, set_value, update_workflow_context
+    from .preflight import check_worktree_and_branch, perform_auto_setup
+
+    # Parse CLI arguments first — no state I/O at this point.
+    parser = argparse.ArgumentParser(description="Initiate the break-down-issue-into-subtasks workflow")
+    parser.add_argument(
+        "--issue-key",
+        dest="issue_key",
+        help="Jira issue key (e.g., PROJECT-1234). If not provided, uses jira.issue_key from state.",
+    )
+    parser.add_argument(
+        "--user-request",
+        "-u",
+        dest="user_request",
+        help="Optional guidance on how to break down the issue into subtasks.",
+    )
+    parser.add_argument(
+        "--interactive",
+        dest="interactive",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Start Copilot session interactively (default: false). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help="Copilot model to use (default: project config or gpt-4o). Run agdt-setup to configure.",
+    )
+    parser.add_argument(
+        "--skip-copilot-session",
+        dest="skip_copilot_session",
+        action="store_true",
+        default=False,
+        help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
+    )
+    args = parser.parse_args(_effective_argv(_argv, issue_key, user_request, interactive, model, skip_copilot_session))
+
+    # CLI values override programmatic values only when not already set
+    if issue_key is None:
+        issue_key = args.issue_key
+    if user_request is None:
+        user_request = args.user_request
+    if interactive is None and args.interactive is not None:
+        interactive = args.interactive == "true"
+    if interactive is None:
+        interactive = False
+    if model is None and args.model is not None:
+        model = args.model
+    if isinstance(model, str):
+        model = model.strip() or None
+    if model is None:
+        model = get_default_copilot_model()
+    if not skip_copilot_session and args.skip_copilot_session:
+        skip_copilot_session = True
+
+    # Resolve identity/scope and clear state in the correct order.
+    # Context keys (jira.issue_key, jira.user_request, etc.) are intentionally preserved.
+    issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
+    set_value("copilot.model_id", model)
+
+    # If issue_key provided via CLI, set it in state
+    if issue_key:
+        set_value("jira.issue_key", issue_key)
+
+    # If user_request provided via CLI, set it in state
+    if user_request:  # pragma: no cover
+        set_value("jira.user_request", user_request)
+
+    # Resolve values using local variables first, falling back to state.
+    # Avoids the bootstrap-race bug where set_value() may shift the state
+    # directory so that the subsequent get_value() reads from a different
+    # location and returns None, producing a misleading error.
+    resolved_issue_key = issue_key or get_value("jira.issue_key")
+    if isinstance(resolved_issue_key, str):
+        resolved_issue_key = resolved_issue_key.strip()
+    resolved_user_request = user_request or get_value("jira.user_request")
+
+    if not resolved_issue_key:
+        print("ERROR: --issue-key is required.")
+        print("\nUsage:")
+        print("  agdt-initiate-break-down-issue-into-subtasks-workflow --issue-key PROJECT-1234")
+        sys.exit(1)
+
+    # Check if we're in the correct context
+    preflight_result = check_worktree_and_branch(resolved_issue_key)
+
+    if not preflight_result.passed:
+        print(f"\n⚠️  Not in the correct context for issue {resolved_issue_key}")
+        for reason in preflight_result.failure_reasons:
+            print(f"   - {reason}")
+
+        # Automatically set up the environment
+        auto_execute_command = [
+            "agdt-initiate-break-down-issue-into-subtasks-workflow",
+            "--issue-key",
+            resolved_issue_key,
+            "--interactive",
+            "true" if interactive else "false",
+            "--model",
+            model,
+            "--skip-copilot-session",
+        ]
+        if resolved_user_request:
+            auto_execute_command.extend(["--user-request", resolved_user_request])
+
+        if perform_auto_setup(
+            resolved_issue_key,
+            "break-down-issue-into-subtasks",
+            user_request=resolved_user_request,
+            auto_execute_command=auto_execute_command,
+            interactive=interactive,
+            model=model,
+        ):
+            print(_format_auto_setup_success_message("break-down-issue-into-subtasks", resolved_issue_key))
+            return
+        else:
+            sys.exit(1)  # pragma: no cover
+
+    # We're in the correct context - proceed with the workflow
+    # Re-persist jira.issue_key so validate_required_state() inside
+    # initiate_workflow() finds it even if get_state_dir() shifts due to
+    # bootstrap/scope initialization during this write.
+    before_state_dir = get_state_dir()
+    set_value("jira.issue_key", resolved_issue_key)
+    after_state_dir = get_state_dir()
+    if after_state_dir != before_state_dir:
+        # State directory changed (e.g., runtime bootstrap was initialized).
+        # Re-write jira.issue_key so it exists in the new scoped directory
+        # that initiate_workflow() will validate against.
+        set_value("jira.issue_key", resolved_issue_key)
+    initiate_workflow(
+        workflow_name="break-down-issue-into-subtasks",
+        required_state_keys=["jira.issue_key"],
+        optional_state_keys=["jira.user_request"],
+        skip_bootstrap_init=True,
+    )
+
+    # Persist interactive preference in workflow context so it survives set_workflow_state() overwrites.
+    update_workflow_context({"interactive": "true" if interactive else "false"})
+
+    # TODO: Wire Copilot session launch here after ayaiayorg/agentic-devtools#869/#871
+    # session helpers are available
+
+
+# =============================================================================
+# Checklist Commands
+# =============================================================================
+
+
+def create_checklist_cmd() -> None:
+    """
+    Create a new implementation checklist for the current workflow.
+
+    Usage: agdt-create-checklist [items]
+           agdt-create-checklist "1. First task|2. Second task|3. Third task"
+
+    Items can be provided as:
+    - CLI argument with | delimiter
+    - From state key 'checklist_items' (newline-separated)
+
+    Creates checklist and triggers CHECKLIST_CREATED event to advance workflow.
+    """
+    import argparse
+
+    from ...state import get_value, get_workflow_state, is_workflow_active
+    from .checklist import Checklist, ChecklistItem, get_checklist, save_checklist
+    from .manager import WorkflowEvent, notify_workflow_event
+
+    # Parse arguments
+    parser = argparse.ArgumentParser(
+        description="Create an implementation checklist for the current workflow.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  agdt-create-checklist "Task 1|Task 2|Task 3"
+  agdt-set checklist_items "1. First task
+  2. Second task"
+  agdt-create-checklist
+        """,
+    )
+    parser.add_argument(
+        "items",
+        nargs="?",
+        type=str,
+        help="Checklist items (| or newline separated). Can also use state key 'checklist_items'.",
+    )
+    args = parser.parse_args()
+
+    # Verify we're in a workflow that supports checklists
+    if not is_workflow_active("work-on-jira-issue"):
+        print("ERROR: Checklist creation requires an active work-on-jira-issue workflow.", file=sys.stderr)
+        sys.exit(1)
+
+    workflow = get_workflow_state()
+    if not workflow:  # pragma: no cover
+        print("ERROR: Could not get workflow state.", file=sys.stderr)
+        sys.exit(1)
+
+    current_step = workflow.get("step", "")
+    if current_step != "checklist-creation":
+        # Also allow if there's already a checklist (updating)
+        existing = get_checklist()
+        if not existing:
+            print(
+                f"WARNING: Current step is '{current_step}', not 'checklist-creation'. Creating checklist anyway.",
+                file=sys.stderr,
+            )
+
+    # Get items from argument or state
+    items_text: str | None = args.items or get_value("checklist_items")
+
+    if not items_text:
+        print("ERROR: No checklist items provided.", file=sys.stderr)
+        print("\nUsage:", file=sys.stderr)
+        print('  agdt-create-checklist "1. First task|2. Second task"', file=sys.stderr)
+        print("  OR", file=sys.stderr)
+        print('  agdt-set checklist_items "1. First task', file=sys.stderr)
+        print('  2. Second task"', file=sys.stderr)
+        print("  agdt-create-checklist", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse items (support both | delimiter and newlines)
+    raw_items = items_text.replace("|", "\n").split("\n")
+    items = []
+    for line in raw_items:
+        line = line.strip()
+        if not line:  # pragma: no cover
+            continue
+        # Remove leading numbers if present (e.g., "1. Task" -> "Task")
+        import re
+
+        cleaned = re.sub(r"^\d+\.\s*", "", line)
+        if cleaned:
+            items.append(cleaned)
+
+    if not items:  # pragma: no cover
+        print("ERROR: No valid checklist items found.", file=sys.stderr)
+        sys.exit(1)
+
+    # Create checklist
+    checklist_items = [ChecklistItem(id=i + 1, text=text) for i, text in enumerate(items)]
+    checklist = Checklist(items=checklist_items, modified_by_agent=False)
+    save_checklist(checklist)
+
+    # Output checklist
+    print("\n" + "=" * 60)
+    print("CHECKLIST CREATED")
+    print("=" * 60)
+    print(f"\n{len(items)} items:")
+    print()
+    print(checklist.render_markdown())
+    print()
+    print("=" * 60)
+
+    # Trigger workflow event to advance to implementation
+    result = notify_workflow_event(WorkflowEvent.CHECKLIST_CREATED)
+    if result.triggered:
+        if result.immediate_advance:
+            # Prompt was already rendered by notify_workflow_event
+            pass
+        else:
+            print("\n✓ Workflow transition triggered - waiting for background tasks.")
+            # Auto-show the next workflow prompt
+            from .manager import get_next_workflow_prompt_cmd
+
+            get_next_workflow_prompt_cmd()
+    else:
+        print("\nNote: Workflow was not automatically advanced.")
+
+
+def update_checklist_cmd() -> None:
+    """
+    Update the implementation checklist.
+
+    Usage: agdt-update-checklist [options]
+
+    Options:
+        --add "New task"      Add a new item
+        --remove "1,2"        Remove items by ID
+        --complete "1,2,3"    Mark items as complete
+        --revert "1,2"        Revert items to incomplete
+        --edit "1:New text"   Edit an item's text
+
+    Examples:
+        agdt-update-checklist --add "Fix discovered bug"
+        agdt-update-checklist --complete "1,2"
+        agdt-update-checklist --revert "3"
+        agdt-update-checklist --remove "5"
+        agdt-update-checklist --edit "2:Updated task description"
+    """
+    import argparse
+
+    from ...state import is_workflow_active
+    from .checklist import get_checklist, parse_completed_items_arg, save_checklist
+    from .manager import WorkflowEvent, notify_workflow_event
+
+    # Parse arguments with argparse
+    parser = argparse.ArgumentParser(
+        description="Update the implementation checklist.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--add", type=str, help="Add a new item to the checklist")
+    parser.add_argument("--remove", type=str, help="Remove items by ID (comma-separated)")
+    parser.add_argument("--complete", type=str, help="Mark items as complete (comma-separated IDs)")
+    parser.add_argument("--revert", type=str, help="Revert items to incomplete (comma-separated IDs)")
+    parser.add_argument("--edit", type=str, help="Edit an item (format: 'ID:New text')")
+    args = parser.parse_args()
+
+    if not is_workflow_active("work-on-jira-issue"):
+        print("ERROR: Checklist update requires an active work-on-jira-issue workflow.", file=sys.stderr)
+        sys.exit(1)
+
+    checklist = get_checklist()
+    if not checklist:
+        print("ERROR: No checklist exists. Create one first with agdt-create-checklist.", file=sys.stderr)
+        sys.exit(1)
+
+    # Check if any operation was specified
+    if not any([args.add, args.remove, args.complete, args.revert, args.edit]):
+        print("ERROR: No operation specified.", file=sys.stderr)
+        print("\nUsage:", file=sys.stderr)
+        print('  agdt-update-checklist --add "New task"', file=sys.stderr)
+        print('  agdt-update-checklist --complete "1,2,3"', file=sys.stderr)
+        print('  agdt-update-checklist --revert "1"', file=sys.stderr)
+        print('  agdt-update-checklist --remove "5"', file=sys.stderr)
+        print('  agdt-update-checklist --edit "2:Updated text"', file=sys.stderr)
+        sys.exit(1)
+
+    modified = False
+
+    # Process --add
+    if args.add:
+        item = checklist.add_item(args.add)
+        print(f"✓ Added item {item.id}: {item.text}")
+        modified = True
+
+    # Process --remove
+    if args.remove:
+        ids = parse_completed_items_arg(args.remove)
+        for item_id in ids:
+            if checklist.remove_item(item_id):
+                print(f"✓ Removed item {item_id}")
+            else:
+                print(f"⚠ Item {item_id} not found")
+        modified = True
+
+    # Process --complete
+    if args.complete:
+        ids = parse_completed_items_arg(args.complete)
+        marked = checklist.mark_completed(ids)
+        for item_id in marked:
+            print(f"✓ Marked item {item_id} complete")
+        not_marked = set(ids) - set(marked)
+        for item_id in not_marked:  # pragma: no cover
+            print(f"⚠ Item {item_id} not found or already complete")
+        modified = True
+
+    # Process --revert
+    if args.revert:
+        ids = parse_completed_items_arg(args.revert)
+        for item_id in ids:
+            found = checklist.get_item(item_id)
+            if found and found.completed:
+                found.completed = False
+                print(f"✓ Reverted item {item_id} to incomplete")
+            elif found:
+                print(f"⚠ Item {item_id} already incomplete")
+            else:
+                print(f"⚠ Item {item_id} not found")
+        modified = True
+
+    # Process --edit
+    if args.edit:
+        edit_spec = args.edit
+        if ":" not in edit_spec:
+            print(f'⚠ Invalid edit format: {edit_spec}. Use: --edit "1:New text"', file=sys.stderr)
+        else:
+            item_id_str, new_text = edit_spec.split(":", 1)
+            try:
+                item_id = int(item_id_str.strip())
+                if checklist.update_item(item_id, new_text.strip()):
+                    print(f"✓ Updated item {item_id}")
+                else:
+                    print(f"⚠ Item {item_id} not found")
+                modified = True
+            except ValueError:
+                print(f"⚠ Invalid item ID: {item_id_str}", file=sys.stderr)
+
+    if modified:
+        save_checklist(checklist)
+        print("\n" + "=" * 40)
+        print("Updated checklist:")
+        print(checklist.render_markdown())
+
+        # Check if all items are now complete
+        if checklist.all_complete():
+            print("\n✓ All items complete!")
+            result = notify_workflow_event(WorkflowEvent.CHECKLIST_COMPLETE)
+            if result.triggered and not result.immediate_advance:
+                # Has pending tasks to wait for - tell user to wait
+                print("✓ Workflow transition triggered - waiting for background tasks.")
+                print("   Run `agdt-get-next-workflow-prompt` to check status.")
+            # If immediate_advance is True, the prompt was already rendered by notify_workflow_event
+
+
+def show_checklist_cmd() -> None:
+    """
+    Display the current implementation checklist.
+
+    Usage: agdt-show-checklist
+    """
+    from ...state import is_workflow_active
+    from .checklist import get_checklist
+
+    if not is_workflow_active("work-on-jira-issue"):
+        print("No active work-on-jira-issue workflow.", file=sys.stderr)
+        sys.exit(1)
+
+    checklist = get_checklist()
+    if not checklist:
+        print("No checklist exists for current workflow.")
+        print("\nCreate one with: agdt-create-checklist")
+        return
+
+    completed, total = checklist.completion_status()
+    print("\n" + "=" * 50)
+    print(f"IMPLEMENTATION CHECKLIST ({completed}/{total} complete)")
+    print("=" * 50)
+    print()
+    print(checklist.render_markdown())
+    print()
+
+    if checklist.all_complete():
+        print("✅ All items complete!")
+    else:
+        print(f"📋 {total - completed} item(s) remaining")
+
+
+def setup_worktree_background_cmd(_argv: list[str] | None = None) -> None:
+    """
+    Background task command to perform worktree setup.
+
+    This command is called by the background task system and should not
+    be invoked directly by users.
+
+    Usage: agdt-setup-worktree-background --issue-key PROJECT-1234 [options]
+
+    Args:
+        _argv: Command line arguments (for testing). Pass [] to skip CLI parsing.
+    """
+    import argparse
+    import json
+
+    from .worktree_setup import setup_worktree_in_background_sync
+
+    parser = argparse.ArgumentParser(description="Background worktree setup (internal)")
+    parser.add_argument(
+        "--issue-key",
+        required=True,
+        dest="issue_key",
+        help="Jira issue key (e.g., PROJECT-1234)",
+    )
+    parser.add_argument(
+        "--branch-prefix",
+        default="feature",
+        dest="branch_prefix",
+        help="Branch prefix (default: feature)",
+    )
+    parser.add_argument(
+        "--workflow-name",
+        default="work-on-jira-issue",
+        dest="workflow_name",
+        help="Workflow name for continuation prompt",
+    )
+    parser.add_argument(
+        "--user-request",
+        default=None,
+        dest="user_request",
+        help="User's request explanation",
+    )
+    parser.add_argument(
+        "--additional-params",
+        default=None,
+        dest="additional_params",
+        help="Additional parameters as JSON string",
+    )
+
+    args = parser.parse_args(_argv)
+
+    additional_params = None
+    if args.additional_params:
+        try:
+            additional_params = json.loads(args.additional_params)
+        except json.JSONDecodeError:
+            print(f"Warning: Could not parse additional-params JSON: {args.additional_params}", file=sys.stderr)
+
+    setup_worktree_in_background_sync(
+        issue_key=args.issue_key,
+        branch_prefix=args.branch_prefix,
+        workflow_name=args.workflow_name,
+        user_request=args.user_request,
+        additional_params=additional_params,
+    )
+
+
+def initiate_pr_merge_orchestrator_workflow(
+    pull_request_id: str | None = None,
+    strategy: str | None = None,
+    delete_branch: bool | None = None,
+    poll_interval_seconds: int | None = None,
+    max_cycles: int | None = None,
+    auto_merge: bool | None = None,
+    _argv: list[str] | None = None,
+) -> None:
+    """
+    Initiate the PR merge orchestrator workflow.
+
+    This workflow continuously monitors an open PR, reacts to Copilot review
+    outcomes on the latest head commit, routes to review-addressing when
+    comments exist, and proceeds through approval and merge when merge gates
+    are satisfied.
+
+    State machine: INIT -> POLL -> ADDRESS_REVIEW (optional) -> WAIT_REVIEW
+    -> READY_TO_MERGE -> APPROVE -> MERGE -> VERIFY -> DONE, with BLOCKED
+    as a terminal failure state.
+
+    Usage:
+        agdt-initiate-pr-merge-orchestrator-workflow --pull-request-id 1078
+        agdt-initiate-pr-merge-orchestrator-workflow --pull-request-id 1078 --strategy squash
+        agdt-initiate-pr-merge-orchestrator-workflow --pull-request-id 1078 --auto-merge true
+
+    Args:
+        pull_request_id: ID of the pull request to merge.
+        strategy: Merge strategy (squash, merge, rebase). Default: squash.
+        delete_branch: Whether to delete the source branch after merge. Default: true.
+        poll_interval_seconds: Seconds between poll cycles. Default: 30, min 10.
+        max_cycles: Maximum number of poll cycles. Default: 120.
+        auto_merge: Whether to auto-merge when gates are green. Default: false.
+        _argv: Command line arguments (for testing). Pass [] in tests to avoid
+            parsing sys.argv.
+    """
+    import argparse
+
+    from ...state import set_value
+
+    parser = argparse.ArgumentParser(
+        description="Initiate the PR merge orchestrator workflow",
+        epilog="""
+Examples:
+  agdt-initiate-pr-merge-orchestrator-workflow --pull-request-id 1078
+  agdt-initiate-pr-merge-orchestrator-workflow --pull-request-id 1078 --strategy squash
+  agdt-initiate-pr-merge-orchestrator-workflow --pull-request-id 1078 --auto-merge true
+        """,
+    )
+    parser.add_argument(
+        "--pull-request-id",
+        "-p",
+        dest="pull_request_id",
+        help="ID of the pull request to merge (required).",
+    )
+    parser.add_argument(
+        "--strategy",
+        dest="strategy",
+        default=None,
+        choices=["squash", "merge", "rebase"],
+        help="Merge strategy (default: squash).",
+    )
+    parser.add_argument(
+        "--delete-branch",
+        dest="delete_branch",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Delete source branch after merge (default: true). Pass 'true' or 'false'.",
+    )
+    parser.add_argument(
+        "--poll-interval-seconds",
+        dest="poll_interval_seconds",
+        default=None,
+        type=int,
+        help="Seconds between poll cycles (default: 30, min: 10).",
+    )
+    parser.add_argument(
+        "--max-cycles",
+        dest="max_cycles",
+        default=None,
+        type=int,
+        help="Maximum number of poll cycles (default: 120).",
+    )
+    parser.add_argument(
+        "--auto-merge",
+        dest="auto_merge",
+        default=None,
+        type=_parse_bool_interactive,
+        help="Auto-merge when gates are green (default: false). Pass 'true' or 'false'.",
+    )
+    args = parser.parse_args(
+        _effective_argv(
+            _argv,
+            pull_request_id,
+            strategy,
+            delete_branch,
+            poll_interval_seconds,
+            max_cycles,
+            auto_merge,
+        )
+    )
+
+    # Programmatic values take precedence; fall back to CLI args when not set
+    if pull_request_id is None:
+        pull_request_id = args.pull_request_id
+    if strategy is None:
+        strategy = args.strategy
+    if delete_branch is None and args.delete_branch is not None:
+        delete_branch = args.delete_branch == "true"
+    if poll_interval_seconds is None:
+        poll_interval_seconds = args.poll_interval_seconds
+    if max_cycles is None:
+        max_cycles = args.max_cycles
+    if auto_merge is None and args.auto_merge is not None:
+        auto_merge = args.auto_merge == "true"
+
+    # Normalize and validate required parameter — normalize first so that
+    # whitespace-only values (e.g. "  ") are caught as empty.
+    _pr_id_norm = str(pull_request_id).strip() if pull_request_id is not None else ""
+    if not _pr_id_norm:
+        print(
+            "ERROR: --pull-request-id must not be empty or whitespace-only.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Apply defaults
+    if strategy is None:
+        strategy = "squash"
+    if delete_branch is None:
+        delete_branch = True
+    if poll_interval_seconds is None:
+        poll_interval_seconds = 30
+    if max_cycles is None:
+        max_cycles = 120
+    if auto_merge is None:
+        auto_merge = False
+
+    # Validate constraints
+    _VALID_STRATEGIES = {"squash", "merge", "rebase"}
+    if strategy not in _VALID_STRATEGIES:
+        print(
+            f"ERROR: --strategy must be one of {', '.join(sorted(_VALID_STRATEGIES))}; got '{strategy}'.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if poll_interval_seconds < 10:
+        print("ERROR: --poll-interval-seconds must be at least 10.", file=sys.stderr)
+        sys.exit(1)
+
+    # Resolve identity and set the worktree_key scope BEFORE any state I/O,
+    # so that get_state_dir() resolves to the correct scoped directory and
+    # never creates the _unscoped fallback folder.
+    _ensure_bootstrap_identity_and_scope(f"PR{_pr_id_norm}")
+
+    # Clear workflow tracking state now that the bootstrap scope is set.
+    clear_state_for_workflow_initiation()
+
+    # Persist values in state (after bootstrap scope is established)
+    set_value("pull_request_id", _pr_id_norm)
+    set_value("merge.strategy", strategy)
+    set_value("merge.delete_branch", delete_branch)
+    set_value("merge.poll_interval_seconds", poll_interval_seconds)
+    set_value("merge.max_cycles", max_cycles)
+    set_value("merge.auto_merge", auto_merge)
+
+    initiate_workflow(
+        workflow_name="pr-merge-orchestrator",
+        step_name="init",
+        skip_bootstrap_init=True,
+        required_state_keys=["pull_request_id"],
+        optional_state_keys=[
+            "merge.strategy",
+            "merge.delete_branch",
+            "merge.poll_interval_seconds",
+            "merge.max_cycles",
+            "merge.auto_merge",
+        ],
+        context={
+            "pull_request_id": _pr_id_norm,
+            "strategy": strategy,
+            "delete_branch": delete_branch,
+            "poll_interval_seconds": poll_interval_seconds,
+            "max_cycles": max_cycles,
+            "auto_merge": auto_merge,
+            "cycle_count": 0,
+            "last_processed_head_sha": None,
+            "last_processed_review_id": None,
+            "last_action": None,
+        },
+    )

@@ -51,7 +51,7 @@ class JobRun(APIObject):
     description: str
         A description of the job run.
     created_at: str
-        ISO-8601 formatted timestamp of when the version was created
+        ISO-8601 formatted timestamp of when the version was created.
     items: List[JobFileItem]
         A list of file items attached to the job.
     status: JobRunStatus
@@ -132,7 +132,7 @@ class JobRun(APIObject):
         max_wait: Optional[int] = DEFAULT_MAX_WAIT,
         runtime_parameter_values: Optional[List[RuntimeParameterValue]] = None,
     ) -> JobRun:
-        """Create a job run.
+        """Creates a job run.
 
         .. versionadded:: v3.4
 
@@ -141,26 +141,26 @@ class JobRun(APIObject):
         job_id: str
             The ID of the job.
         max_wait: Optional[int]
-            max time to wait for a terminal status ("succeeded", "failed", "interrupted", "canceled").
-            If set to None - method will return without waiting.
+            The maximum time to wait for a terminal status ("succeeded", "failed", "interrupted", "canceled").
+            If set to None, the method returns without waiting.
         runtime_parameter_values: Optional[List[RuntimeParameterValue]]
-            Additional parameters to be injected into a model at runtime. The fieldName
-            must match a fieldName that is listed in the runtimeParameterDefinitions section
-            of the model-metadata.yaml file.
+            Additional parameters to be injected into a model at runtime. The `fieldName`
+            must match a `fieldName` that is listed in the `runtimeParameterDefinitions` section
+            of the model-metadata.YAML file.
 
         Returns
         -------
-        Job
-            created job
+        JobRun
+            The created job run.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         ValueError
-            if execution environment or entry point is not specified for the job
+            If execution environment or entry point is not specified for the job.
         """
 
         job = Job.get(job_id)
@@ -188,7 +188,7 @@ class JobRun(APIObject):
 
     @classmethod
     def list(cls, job_id: str) -> List[JobRun]:
-        """List job runs.
+        """Returns a list of job runs.
 
         .. versionadded:: v3.4
 
@@ -199,22 +199,22 @@ class JobRun(APIObject):
 
         Returns
         -------
-        List[Job]
+        List[JobRun]
             A list of job runs.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         data = unpaginate(cls._job_run_base_path(job_id), None, cls._client)
         return [cls.from_server_data(item) for item in data]
 
     @classmethod
     def get(cls, job_id: str, job_run_id: str) -> JobRun:
-        """Get job run by id.
+        """Returns the job run by ID.
 
         .. versionadded:: v3.4
 
@@ -227,35 +227,35 @@ class JobRun(APIObject):
 
         Returns
         -------
-        Job
+        JobRun
             The retrieved job run.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = cls._job_run_path(job_id, job_run_id)
         return cls.from_location(path)
 
     def update(self, description: Optional[str] = None) -> None:
-        """Update job run properties.
+        """Updates the job run properties.
 
         .. versionadded:: v3.4
 
         Parameters
         ----------
         description: str
-            new job run description
+            The new job run description.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         payload = {}
         if description:
@@ -285,32 +285,37 @@ class JobRun(APIObject):
         self._client.delete(url)
 
     def refresh(self) -> None:
-        """Update job run with the latest data from server.
+        """Updates the job run with the latest data from the server.
 
         .. versionadded:: v3.4
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         new_object = self.get(self.custom_job_id, self.id)
         self._update_values(new_object)
 
     def get_logs(self) -> Optional[str]:
-        """Get log of the job run.
+        """Returns the log for the job run.
 
         .. versionadded:: v3.4
+
+        Returns
+        -------
+        Optional[str]
+            The log for the job run, or None if no log is available.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         path = self._job_run_logs_path(self.custom_job_id, self.id)
         try:
@@ -322,16 +327,16 @@ class JobRun(APIObject):
             raise
 
     def delete_logs(self) -> None:
-        """Get log of the job run.
+        """Deletes the logs for the job run.
 
         .. versionadded:: v3.4
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         path = self._job_run_logs_path(self.custom_job_id, self.id)
         self._client.delete(path)

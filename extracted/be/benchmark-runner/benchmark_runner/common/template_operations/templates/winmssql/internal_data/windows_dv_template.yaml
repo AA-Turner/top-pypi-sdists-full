@@ -1,0 +1,27 @@
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  annotations:
+    cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+  name: windows-clone-dv
+  namespace: {{ namespace }}
+spec:
+  source:
+    {%- if cdi_source_type == 's3' %}
+    s3:
+      url: {{ url }}
+      {%- if cdi_source_s3_cred %}
+      secretRef: {{ cdi_source_s3_cred }}
+      {%- endif %}
+    {%- else %}
+    http:
+      url: {{ url }}
+    {%- endif %}
+  pvc:
+    accessModes:
+      - ReadWriteMany
+    resources:
+      requests:
+        storage: {{ storage }}
+    volumeMode: Block
+    storageClassName: {{ vm_storage_class }}

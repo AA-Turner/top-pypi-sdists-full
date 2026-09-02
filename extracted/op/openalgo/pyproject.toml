@@ -1,0 +1,56 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "openalgo"
+version = "2.0.3"
+description = "Python library for OpenAlgo's trading APIs and WebSocket feeds, with 100+ technical indicators powered by a Rust core."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Rajandran R", email = "rajandran@openalgo.in" }]
+keywords = [
+    "trading", "algorithmic-trading", "finance", "websocket", "market-data",
+    "real-time", "stock-market", "api-wrapper", "openalgo", "trading-api",
+    "stock-trading", "technical-analysis", "indicators", "rsi", "macd", "sma",
+    "ema", "bollinger-bands", "supertrend", "atr", "volume-analysis", "rust", "pyo3",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "httpx>=0.27.0",
+    "pandas>=2.2.0",
+    "websocket-client>=1.8.0",
+    "numpy>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://openalgo.in"
+Documentation = "https://docs.openalgo.in"
+Repository = "https://github.com/marketcalls/openalgo-python-library"
+
+[tool.maturin]
+# Mixed Python + Rust: the pure-Python `openalgo` package lives at the repo root and
+# the compiled core is placed at openalgo/_oaindicators.
+python-source = "."
+module-name = "openalgo._oaindicators"
+manifest-path = "rust/oa_py/Cargo.toml"
+features = ["pyo3/extension-module"]
+strip = true
+# The repo-root LICENSE lives outside the crate dir, so the sdist (built relative to
+# the manifest) did not bundle it even though PKG-INFO declared `License-File: LICENSE`
+# - PyPI rejects that mismatch. Explicitly include it in the sdist.
+include = [{ path = "LICENSE", format = "sdist" }]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dashscope
-Version: 1.27.2
+Version: 1.27.3
 Summary: dashscope client sdk library
 Home-page: https://dashscope.aliyun.com/
 Author: Alibaba Cloud
@@ -28,16 +28,16 @@ Requires-Dist: cryptography
 Requires-Dist: certifi
 Requires-Dist: typer>=0.9.0
 Requires-Dist: rich>=13.0.0
-Requires-Dist: httpx>=0.27.0
+Requires-Dist: httpx>=0.25.0
 Requires-Dist: httpx-sse>=0.4.0
-Requires-Dist: prompt-toolkit>=3.0
-Requires-Dist: pydantic>=2.0
-Requires-Dist: tenacity
-Requires-Dist: tomli>=2.0; python_version < "3.11"
-Requires-Dist: PyYAML>=6.0
-Requires-Dist: textual>=0.50
+Requires-Dist: typing_extensions>=4.0
 Provides-Extra: tokenizer
 Requires-Dist: tiktoken; extra == "tokenizer"
+Provides-Extra: acli
+Requires-Dist: prompt-toolkit>=3.0; extra == "acli"
+Requires-Dist: textual>=0.50; extra == "acli"
+Requires-Dist: PyYAML>=6.0; extra == "acli"
+Requires-Dist: tomli>=2.0; python_version < "3.11" and extra == "acli"
 Provides-Extra: acli-anthropic
 Requires-Dist: anthropic>=0.40; extra == "acli-anthropic"
 Provides-Extra: acli-openai
@@ -48,11 +48,22 @@ Requires-Dist: numpy>=1.20; extra == "acli-voice"
 Provides-Extra: acli-camera
 Requires-Dist: opencv-python>=4.5; extra == "acli-camera"
 Provides-Extra: acli-all
+Requires-Dist: prompt-toolkit>=3.0; extra == "acli-all"
+Requires-Dist: textual>=0.50; extra == "acli-all"
+Requires-Dist: PyYAML>=6.0; extra == "acli-all"
+Requires-Dist: tomli>=2.0; python_version < "3.11" and extra == "acli-all"
 Requires-Dist: anthropic>=0.40; extra == "acli-all"
 Requires-Dist: openai>=1.30; extra == "acli-all"
 Requires-Dist: sounddevice>=0.4; extra == "acli-all"
 Requires-Dist: numpy>=1.20; extra == "acli-all"
 Requires-Dist: opencv-python>=4.5; extra == "acli-all"
+Provides-Extra: rl
+Requires-Dist: pydantic>=2.0; extra == "rl"
+Requires-Dist: tenacity; extra == "rl"
+Requires-Dist: PyYAML>=6.0; extra == "rl"
+Requires-Dist: fastapi>=0.100; extra == "rl"
+Requires-Dist: uvicorn>=0.20; extra == "rl"
+Requires-Dist: opentelemetry-sdk>=1.20; extra == "rl"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -69,6 +80,8 @@ Dynamic: summary
 
 # DashScope Python SDK
 
+> **English** | [中文](README_zh.md)
+
 The DashScope Python SDK provides a comprehensive interface to [Alibaba Cloud Model Studio (Bailian)](https://www.alibabacloud.com/help/en/model-studio/) APIs, covering text generation, multi-modal understanding, embeddings, reranking, image/video generation, speech synthesis & recognition, and more.
 
 ## What is New
@@ -81,14 +94,18 @@ To install the DashScope Python SDK, simply run:
 pip install dashscope
 ```
 
+The base install covers SDK API calls and the `dashscope` CLI command.
+Optional feature groups are available as extras:
+
+| Extra | Provides | Install |
+|-------|----------|---------|
+| `acli` | Interactive AI assistant (DashScope SDK Expert) | `pip install "dashscope[acli]"` |
+| `rl` | Agentic RL fine-tuning | `pip install "dashscope[rl]"` |
+| `tokenizer` | Local tokenizer without downloads | `pip install "dashscope[tokenizer]"` |
+
 If you clone the code from github, you can install from  source by running:
 ```shell
 pip install -e .
-```
-
-To use tokenizer in local mode without downloading any files, run:
-```shell
-pip install dashscope[tokenizer]
 ```
 
 

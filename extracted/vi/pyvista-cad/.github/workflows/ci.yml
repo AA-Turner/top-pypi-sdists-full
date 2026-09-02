@@ -1,0 +1,231 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - run: uv sync --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src/pyvista_cad
+
+  test:
+    name: test (${{ matrix.os }} / py${{ matrix.python-version }} / ${{ matrix.extras }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      # Targeted matrix: Ubuntu runs the full Python × extras sweep
+      # because it owns the coverage upload and is the cheapest runner;
+      # macOS and Windows only get the lowest/highest supported Python
+      # times the cheapest extras combos that still exercise platform
+      # specifics (DLL/dylib loaders, path handling). Skipping the
+      # middle Pythons on macOS/Windows trades a slim regression
+      # surface for ~3× fewer billed jobs.
+      matrix:
+        include:
+          # Ubuntu — full Python sweep × all extras
+          - { os: ubuntu-latest, python-version: "3.10", extras: "dev" }
+          - { os: ubuntu-latest, python-version: "3.11", extras: "dev" }
+          - { os: ubuntu-latest, python-version: "3.12", extras: "dev" }
+          - { os: ubuntu-latest, python-version: "3.13", extras: "dev" }
+          - { os: ubuntu-latest, python-version: "3.14", extras: "dev" }
+          - { os: ubuntu-latest, python-version: "3.10", extras: "dev,step" }
+          - { os: ubuntu-latest, python-version: "3.14", extras: "dev,step" }
+          # Coverage upload cell. Deliberately installs the `full` alias
+          # rather than `all`: this job's name is pinned as a required
+          # status check in the repo ruleset, so renaming it would block
+          # every PR until the ruleset is updated to match. Exercising
+          # the alias also keeps the back-compat path covered in CI.
+          - { os: ubuntu-latest, python-version: "3.14", extras: "dev,full,step-light", coverage: true }
+          # macOS — minimal: lowest + highest Python only
+          - { os: macos-14, python-version: "3.10", extras: "dev" }
+          - { os: macos-14, python-version: "3.14", extras: "dev,step" }
+          # Windows — minimal; `dev,full,step-light` already excluded
+          # historically because cascadio lacks Windows wheels.
+          - { os: windows-latest, python-version: "3.10", extras: "dev" }
+          - { os: windows-latest, python-version: "3.14", extras: "dev,step" }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - name: Set up headless display
+        uses: pyvista/setup-headless-display-action@v4
+      - name: Install system packages for OCCT backends
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev libglu1 libxft2 libxcursor-dev libxinerama1 \
+            libocct-data-exchange-dev libocct-foundation-dev xvfb openscad
+      - name: Install dependencies
+        run: uv sync --extra ${{ matrix.extras }}
+      - name: Cache pooch downloads
+        # `pyvista_cad.examples.downloads` fetches multi-MB CAD fixtures
+        # from raw.githubusercontent.com / huggingface on first use
+        # (~20s per cell, cold). The pooch registry is hard-coded in
+        # downloads.py with sha256 pins, so hashing that file alone is
+        # a complete cache key — any registry change rotates the key
+        # and forces a re-fetch. `PYVISTA_CAD_USERDATA_PATH` overrides
+        # pooch's default OS cache dir to a workspace-local path so
+        # `actions/cache` can pick it up uniformly across runners.
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.pooch-cache/pyvista_cad
+          key: pooch-${{ runner.os }}-${{ hashFiles('src/pyvista_cad/examples/downloads.py') }}
+          restore-keys: |
+            pooch-${{ runner.os }}-
+      - name: Run tests (coverage cell)
+        if: matrix.coverage
+        env:
+          PYVISTA_CAD_USERDATA_PATH: ${{ github.workspace }}/.pooch-cache/pyvista_cad
+        run: uv run pytest tests/ -n auto --cov --cov-report=xml -v
+      - name: Run tests
+        if: ${{ !matrix.coverage }}
+        env:
+          PYVISTA_CAD_USERDATA_PATH: ${{ github.workspace }}/.pooch-cache/pyvista_cad
+        run: uv run pytest tests/ -n auto -v
+      - name: Upload coverage
+        if: matrix.coverage
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+      - name: Upload image-cache failures
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-cache-failures-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.extras }}
+          path: tests/image_cache_failures/
+          if-no-files-found: ignore
+
+  lazy-imports:
+    # Mission goal #4: `import pyvista_cad` must not import build123d,
+    # cascadio, OCP, lib3mf, ifcopenshell, gmsh, FreeCAD, pyiges, geomdl.
+    # This job installs ONLY the core package (DXF-only via ezdxf) so a
+    # leaked import would actually be detectable (modules aren't on the
+    # path, ImportError would surface). The matrix-`test` job above runs
+    # with the full extras set and so cannot enforce this invariant.
+    name: Lazy-imports guardrail (minimal extras)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - name: Install minimal (core + pytest only, no optional backends)
+        # pytest-pyvista is a test plugin (not a CAD backend); it owns
+        # the `image_cache_dir` pytest ini option, so omitting it makes
+        # pytest fail at config time with strict-warnings enabled.
+        run: |
+          uv venv
+          uv pip install -e . pytest pytest-pyvista
+      - name: Run lazy-imports guardrail
+        run: uv run pytest tests/test_lazy_imports.py -v
+
+  benchmark:
+    # Ubuntu-only because cross-platform timing is noisy. The first
+    # green run on `main` establishes the baseline; the 5% regression
+    # gate lands in a follow-up once `bench.json` has been compared
+    # across at least two runs.
+    name: Benchmark (perf regression gate)
+    runs-on: ubuntu-latest
+    # Informational until the cross-run 5% regression gate lands: absolute
+    # wall-clock budgets are too noisy on shared runners to block CI.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - uses: pyvista/setup-headless-display-action@v4
+      - name: Install [dev,all] for end-to-end perf cases
+        run: uv sync --extra dev --extra all
+      - name: Run benchmarks
+        # Absolute wall-clock budgets flake on shared runners; soft mode
+        # records breaches without failing the job. bench.json is still
+        # emitted for the planned cross-run regression gate.
+        env:
+          PYVISTA_CAD_PERF_SOFT: "1"
+        run: |
+          uv run pytest tests/perf/ \
+            --benchmark-only \
+            --benchmark-json=bench.json \
+            -v
+      - name: Upload benchmark JSON
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-json
+          path: bench.json
+          if-no-files-found: error
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - run: uv build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

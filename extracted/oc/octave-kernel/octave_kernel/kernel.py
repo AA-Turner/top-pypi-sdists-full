@@ -1,0 +1,740 @@
+"""Main kernel implementation"""
+
+from __future__ import annotations
+
+import atexit
+import base64
+import contextlib
+import glob
+import json
+import logging
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import uuid
+from importlib.resources import files
+from typing import Any
+from xml.dom import minidom
+
+from IPython.display import SVG, Image
+from metakernel import MetaKernel, ProcessMetaKernel, REPLWrapper, u
+from traitlets import Bool, Dict, Unicode
+
+from ._utils import get_octave_executable, is_sandboxed_octave
+from ._version import __version__
+
+STDIN_PROMPT = "__stdin_prompt>"
+STDIN_PROMPT_REGEX = re.compile(rf"\A.+?{STDIN_PROMPT}|debug> ", re.DOTALL)
+HELP_LINKS = [
+    {
+        "text": "GNU Octave",
+        "url": "https://www.gnu.org/software/octave/support.html",
+    },
+    {
+        "text": "Octave Kernel",
+        "url": "https://github.com/Calysto/octave_kernel",
+    },
+    *MetaKernel.help_links,
+]
+
+
+class PDF:
+    """Wrapper for PDF object for display."""
+
+    def __init__(self, filename: str) -> None:
+        with open(filename, "rb") as f:
+            data = f.read()
+            self._repr_pdf_ = base64.b64encode(data)
+
+
+def get_kernel_json() -> dict[str, Any]:
+    """Get the kernel json for the kernel."""
+    json_file = os.environ.get("OCTAVE_KERNEL_JSON")
+    if json_file:
+        with open(json_file) as fid:
+            data = json.load(fid)
+    else:
+        data = json.loads(files("octave_kernel").joinpath("kernel.json").read_text())
+    data["argv"][0] = sys.executable
+    return data  # type: ignore[no-any-return]
+
+
+class OctaveKernel(ProcessMetaKernel):
+    """Jupyter kernel for GNU Octave.
+
+    Extends :class:`metakernel.ProcessMetaKernel` to provide Octave execution,
+    tab completion, inline help, and inline plot rendering.
+
+    Configuration is done via ``octave_kernel_config.py`` in the Jupyter config
+    path. Configurable traits: ``plot_settings``, ``inline_toolkit``,
+    ``kernel_json``, ``cli_options``, ``executable``, and ``load_octaverc``.
+    """
+
+    app_name = "octave_kernel"
+    implementation = "Octave Kernel"
+    implementation_version = __version__
+    language = "octave"
+    help_links = HELP_LINKS
+    kernel_json = Dict(get_kernel_json()).tag(config=True)
+    cli_options = Unicode("").tag(config=True)
+    inline_toolkit = Unicode("").tag(config=True)
+    executable = Unicode("").tag(config=True)
+    load_octaverc = Bool(True).tag(config=True)
+
+    _octave_engine: OctaveEngine | None = None
+    _language_version: str | None = None
+
+    @property
+    def language_version(self) -> str:
+        return self.octave_engine.version
+
+    @property
+    def language_info(self) -> dict[str, Any]:  # type: ignore[override]
+        return {
+            "mimetype": "text/x-octave",
+            "name": "octave",
+            "file_extension": ".m",
+            "version": self.language_version,
+            "help_links": HELP_LINKS,
+        }
+
+    @property
+    def banner(self) -> str:  # type: ignore[override]
+        msg = "Octave Kernel v%s running GNU Octave v%s"
+        return msg % (__version__, self.language_version)
+
+    @property
+    def octave_engine(self) -> OctaveEngine:
+        if self._octave_engine:
+            return self._octave_engine
+        self._octave_engine = OctaveEngine(
+            plot_settings=self.plot_settings,
+            defer_startup=True,
+            error_handler=self.Error,
+            stdin_handler=self.raw_input,
+            stream_handler=self.Print,
+            cli_options=self.cli_options,
+            inline_toolkit=self.inline_toolkit,
+            load_octaverc=self.load_octaverc,
+            logger=self.log,
+            executable=self.executable,
+        )
+        return self._octave_engine
+
+    def makeWrapper(self) -> REPLWrapper:
+        """Start an Octave process and return a :class:`REPLWrapper` object."""
+        return self.octave_engine.repl
+
+    def do_execute_direct(self, code: str, silent: bool = False) -> Any:
+        """Execute code in Octave and display any resulting inline figures.
+
+        Parameters
+        ----------
+        code
+            Octave source code to execute.
+        silent
+            If True, suppress output and skip figure rendering.
+
+        Returns
+        -------
+        Any
+            Result from the parent kernel's execute method.
+        """
+        if code.strip() in ["quit", "quit()", "exit", "exit()"]:
+            if self._octave_engine is not None:
+                self._octave_engine._cleanup()
+                self._octave_engine = None
+            self.payload = [{"source": "ask_exit", "keepkernel": False}]
+            return None
+        if not self.octave_engine._has_startup:
+            self.octave_engine._startup()
+        val = ProcessMetaKernel.do_execute_direct(self, code, silent=silent)
+
+        if not silent:
+            try:
+                plot_dir = self.octave_engine.make_figures()
+            except Exception as e:  # noqa: BLE001
+                self.Error(e)
+                return val
+            if plot_dir:
+                for image in self.octave_engine.extract_figures(plot_dir, True):
+                    self.Display(image)
+        return val
+
+    def get_kernel_help_on(
+        self, info: dict[str, Any], level: int = 0, none_on_fail: bool = False
+    ) -> str | None:
+        """Return Octave help text for an object.
+
+        Parameters
+        ----------
+        info
+            Dict with at least a ``help_obj`` key naming the object.
+        level
+            Help detail level (reserved for API compatibility).
+        none_on_fail
+            If True, return ``None`` instead of ``""`` on failure.
+
+        Returns
+        -------
+        str or None
+            The Octave help string, or ``None``/``""`` on failure.
+        """
+        obj = info.get("help_obj", "")
+        if not obj or len(obj.split()) > 1:
+            if none_on_fail:
+                return None
+            else:
+                return ""
+        return self.octave_engine.eval(f"help {obj}", silent=True)
+
+    def Print(self, *args: str, **kwargs: Any) -> None:
+        """Write output, filtering out raw stdin-prompt markers."""
+        # Ignore standalone input hook displays.
+        out = []
+        for arg in args:
+            if arg.strip() == STDIN_PROMPT:
+                return
+            if arg.strip().startswith(STDIN_PROMPT):
+                arg = arg.replace(STDIN_PROMPT, "")
+            out.append(arg)
+        super().Print(*out, **kwargs)
+
+    def raw_input(self, text: str) -> str:  # type: ignore[override]
+        """Read a line of user input, stripping the stdin-prompt prefix.
+
+        Parameters
+        ----------
+        text
+            Prompt text shown to the user, as received from pexpect.  When
+            ``input()`` is called inside a loop, pexpect may bundle output
+            from the previous iteration together with the next prompt in a
+            single string.  This method extracts and streams any such
+            preceding output so it appears in the cell, then forwards only
+            the actual prompt text to the Jupyter client (issue #179).
+
+        Returns
+        -------
+        str
+            The user's input string.
+        """
+        # Remove the stdin prompt marker to restore the original prompt.
+        text = text.replace(STDIN_PROMPT, "")
+
+        # When input() is called in a loop, pexpect may deliver output from the
+        # previous iteration concatenated before the next prompt.  Split it off,
+        # stream it so it appears in the cell output, and keep only the prompt.
+        for sep in ("\r\n", "\n", "\r"):
+            if sep in text:
+                preceding, text = text.rsplit(sep, 1)
+                preceding = preceding.rstrip("\r")
+                if preceding:
+                    self.Print(preceding)
+                break
+
+        return super().raw_input(text)  # type: ignore[no-untyped-call, no-any-return]
+
+    def get_completions(self, info: dict[str, Any]) -> list[str]:
+        """
+        Get completions from kernel based on info dict.
+        """
+        cmd = f'completion_matches("{info["obj"]}")'
+        val = self.octave_engine.eval(cmd, silent=True)
+        return val.splitlines() if val else []
+
+    async def do_is_complete(self, code: str) -> dict[str, str]:
+        """Check whether the code is complete and ready to execute.
+
+        Parameters
+        ----------
+        code
+            Source code to check for completeness.
+
+        Returns
+        -------
+        dict[str, str]
+            A dict with ``status`` of ``"complete"``, ``"incomplete"``, or
+            ``"unknown"``, and optionally ``"indent"`` when incomplete.
+        """
+        openers = re.compile(
+            r"^\s*(?:if|for|while|do|parfor|function|switch|try|unwind_protect)"
+            r"(?:\s|$|\()",
+            re.MULTILINE,
+        )
+        closers = re.compile(
+            r"^\s*(?:end(?:if|for|while|function|switch|_try_catch|_unwind_protect)?|until)"
+            r"(?:\s|;|$)",
+            re.MULTILINE,
+        )
+        depth = len(openers.findall(code)) - len(closers.findall(code))
+        if depth > 0:
+            return {"status": "incomplete", "indent": "  "}
+        return {"status": "complete"}
+
+    def handle_plot_settings(self) -> None:
+        """Handle the current plot settings"""
+        self.octave_engine.plot_settings = self.plot_settings
+
+
+class OctaveEngine:
+    """Low-level interface to a GNU Octave subprocess.
+
+    Manages an Octave REPL subprocess via :class:`metakernel.REPLWrapper`,
+    handling startup, code evaluation, figure generation, and cleanup.
+    """
+
+    def __init__(
+        self,
+        error_handler: Any = None,
+        stream_handler: Any = None,
+        line_handler: Any = None,
+        stdin_handler: Any = None,
+        plot_settings: dict[str, Any] | None = None,
+        inline_toolkit: str | None = None,
+        defer_startup: bool = False,
+        cli_options: str = "",
+        executable: str = "",
+        load_octaverc: bool = True,
+        logger: Any = None,
+    ) -> None:
+        """Initialize the Octave engine.
+
+        Parameters
+        ----------
+        error_handler
+            Callback invoked with error messages or exceptions.
+        stream_handler
+            Callback invoked with streamed output text.
+        line_handler
+            Callback invoked for each output line.
+        stdin_handler
+            Callback invoked when Octave requests user input.
+        plot_settings
+            Dict controlling figure format and dimensions. Keys: ``format``,
+            ``backend``, ``width``, ``height``, ``resolution``, ``name``,
+            ``plot_dir``.
+        inline_toolkit
+            Octave graphics toolkit for inline plots (e.g. ``"gnuplot"``).
+        defer_startup
+            If True, delay startup commands until the first :meth:`eval` call.
+        cli_options
+            Extra command-line options appended to the Octave invocation.
+        executable
+            Path to the Octave executable. Resolved in order: this argument,
+            ``OCTAVE_EXECUTABLE`` env var, ``octave``/``octave-cli`` on
+            ``PATH``, then Flatpak.
+        load_octaverc
+            If True (default), source ``~/.octaverc`` during startup.  Set to
+            False to skip loading the user init file, which is useful in
+            reproducible or sandboxed environments where the init file may
+            alter the path, set conflicting options, or is simply unavailable.
+        logger
+            Logger instance; defaults to the module-level logger.
+        """
+        if not logger:
+            logger = logging.getLogger(__name__)
+            logging.basicConfig()
+        self.logger = logger
+        self._executable = self._get_executable(executable)
+        self.version = self._validate_executable(self.executable)
+        self.tmp_dir = self._get_temp_dir()
+        self.cli_options = cli_options
+        self.inline_toolkit = inline_toolkit
+        self.load_octaverc = load_octaverc
+        self.repl = self._create_repl()
+        self.error_handler = error_handler
+        self.stream_handler = stream_handler
+        self.stdin_handler = stdin_handler or sys.stdin
+        self.line_handler = line_handler
+        self._has_startup = False
+        self._plot_settings = plot_settings
+        try:
+            if not defer_startup:
+                self._startup()
+        except BaseException:
+            # _cleanup is not registered yet and __init__ will not return, so
+            # nothing else can reach self.repl.  Without this the Octave
+            # process runs for the life of the interpreter, unreferenced.
+            # A later _startup() (the defer_startup path) is not affected:
+            # by then the caller holds the engine and atexit is armed.
+            with contextlib.suppress(Exception):
+                self.repl.terminate()
+            raise
+        atexit.register(self._cleanup)
+
+    @property
+    def plot_settings(self) -> dict[str, Any]:
+        return self._plot_settings  # type: ignore[return-value]
+
+    @plot_settings.setter
+    def plot_settings(self, settings: dict[str, Any] | None) -> None:
+        if not self._has_startup:
+            # This will set plot_settings again.
+            self._startup()
+            return
+
+        settings = settings or {"backend": "inline"}
+        self._plot_settings = settings
+
+        # Remove "None" keys so we can use setdefault below.
+        keys = [
+            "format",
+            "backend",
+            "width",
+            "height",
+            "resolution",
+            "backend",
+            "name",
+            "plot_dir",
+        ]
+        for key in keys:
+            if key in settings and settings.get(key, None) is None:
+                del settings[key]
+
+        settings.setdefault("format", "png")
+        settings.setdefault("backend", "inline")
+        settings.setdefault("width", -1)
+        settings.setdefault("height", -1)
+        settings.setdefault("resolution", 0)
+        settings.setdefault("name", "Figure")
+        settings.setdefault("plot_dir", None)
+
+        cmds = []
+
+        if settings["backend"] == "inline":
+            if self.inline_toolkit:
+                cmds.append(f"graphics_toolkit('{self.inline_toolkit}')")
+            cmds.append("set(0, 'defaultfigurevisible', 'off');")
+        elif settings["backend"].startswith("inline:"):
+            backend = settings["backend"].replace("inline:", "")
+            cmds.append(f"graphics_toolkit('{backend}')")
+            cmds.append("set(0, 'defaultfigurevisible', 'off');")
+        else:
+            cmds.append("set(0, 'defaultfigurevisible', 'on');")
+            if settings["backend"] != "default":
+                cmds.append(f"graphics_toolkit('{settings['backend']}');")
+        self.eval("\n".join(cmds))
+
+    def eval(
+        self, code: str, timeout: float | None = None, silent: bool = False
+    ) -> str:
+        """Evaluate code in the Octave subprocess.
+
+        Parameters
+        ----------
+        code
+            Octave source code to run.
+        timeout
+            Seconds to wait for a response; ``None`` uses the default.
+        silent
+            If True, suppress stream and line callbacks.
+
+        Returns
+        -------
+        str
+            Text output from Octave.
+        """
+        stream_handler = None if silent else self.stream_handler
+        line_handler = None if silent else self.line_handler
+
+        if self.logger:
+            self.logger.debug("Octave eval:")
+            self.logger.debug(code)
+        try:
+            resp = self.repl.run_command(
+                code.rstrip(),
+                timeout=timeout,
+                stream_handler=stream_handler,
+                line_handler=line_handler,
+                stdin_handler=self.stdin_handler,
+            )
+            resp = resp.replace(STDIN_PROMPT, "")
+            if self.logger and resp:
+                self.logger.debug(resp)
+            return resp
+        except KeyboardInterrupt:
+            return self._interrupt(silent=True)
+        except Exception as e:
+            if self.error_handler:
+                self.error_handler(e)
+                return ""
+            else:
+                raise
+
+    def make_figures(self, plot_dir: str | None = None) -> str | None:
+        """Create figures for the current figures.
+
+        Parameters
+        ----------
+        plot_dir
+            The directory in which to create the plots.
+
+        Returns
+        -------
+        out: str
+            The plot directory containing the files.
+        """
+        settings = self._plot_settings
+        assert settings is not None  # noqa: S101
+        if not settings["backend"].startswith("inline"):
+            self.eval('drawnow("expose");')
+            if not plot_dir:
+                return None
+        if not self._has_startup:
+            self._startup()
+        fmt = settings["format"]
+        res = settings["resolution"]
+        wid = settings["width"]
+        hgt = settings["height"]
+        name = settings["name"]
+        tmp_dir = settings["plot_dir"] or os.path.join(self.tmp_dir, "plots")
+        plot_dir = plot_dir or tempfile.mkdtemp(dir=tmp_dir)
+        plot_dir = plot_dir.replace(os.path.sep, "/")
+
+        # Do not overwrite any existing plot files.
+        spec = os.path.join(plot_dir, f"{name}*")
+        start = len(glob.glob(spec))
+
+        make_figs = f'_make_figures("{plot_dir}", "{fmt}", "{name}", {wid}, {hgt}, {res}, {start})'
+        resp = self.eval(make_figs, silent=True)
+        msg = "Inline plot failed, consider trying another graphics toolkit\n"
+        if resp and "error:" in resp:
+            resp = msg + resp
+            if self.error_handler:
+                self.error_handler(resp)
+            else:
+                raise RuntimeError(resp)
+        return plot_dir
+
+    def extract_figures(self, plot_dir: str, remove: bool = False) -> list[Any]:
+        """Get a list of IPython Image objects for the created figures.
+
+        Parameters
+        ----------
+        plot_dir
+            The directory in which to create the plots.
+        remove
+            Whether to remove the plot directory after saving.
+
+        Returns
+        -------
+        A list of figures.
+        """
+        images: list[Any] = []
+        spec = os.path.join(plot_dir, f"{self.plot_settings['name']}*")
+        for fname in reversed(glob.glob(spec)):
+            filename = os.path.join(plot_dir, fname)
+            try:
+                if fname.lower().endswith(".svg"):
+                    im = self._handle_svg(filename)
+                elif fname.lower().endswith(".pdf"):
+                    im = PDF(filename)
+                else:
+                    im = Image(filename)  # type: ignore[no-untyped-call]
+                images.append(im)
+            except Exception as e:
+                if self.error_handler:
+                    self.error_handler(e)
+                else:
+                    raise
+        if remove:
+            shutil.rmtree(plot_dir, True)
+        return images
+
+    def _startup(self) -> None:
+        """Start up the Octave process."""
+        self._has_startup = True
+        cwd = os.getcwd().replace(os.path.sep, "/")
+        octaverc = "source ~/.octaverc; " if self.load_octaverc else ""
+        cmd = f'more off; {octaverc}cd("{cwd}");{self.repl.prompt_change_cmd}'
+        self.eval(cmd, silent=True)
+        here = os.path.realpath(os.path.dirname(__file__)).replace(os.path.sep, "/")
+        self.eval(f'addpath("{here}")')
+        self.plot_settings = self._plot_settings
+
+    def _handle_svg(self, filename: str) -> Any:
+        """Handle special considerations for SVG images."""
+        # Gnuplot can create invalid characters in SVG files.
+        with open(filename, encoding="utf-8", errors="replace") as fid:
+            data = fid.read()
+        im = SVG(data=data)  # type: ignore[no-untyped-call]
+        try:
+            im.data = self._fix_svg_size(im.data)
+        except Exception:  # noqa: BLE001, S110
+            pass
+        return im
+
+    def _fix_svg_size(self, data: str) -> str:
+        """GnuPlot SVGs do not have height/width attributes.  Set
+        these to be the same as the viewBox, so that the browser
+        scales the image correctly.
+        """
+        # Minidom does not support parseUnicode, so it must be decoded
+        # to accept unicode characters
+        parsed = minidom.parseString(data.encode("utf-8"))  # noqa: S318
+        (svg,) = parsed.getElementsByTagName("svg")
+
+        viewbox = svg.getAttribute("viewBox").split(" ")
+        w_str, h_str = viewbox[2:]
+        width: float = int(w_str)
+        height: float = int(h_str)
+
+        # Handle overrides in case they were not encoded.
+        settings = self.plot_settings
+        if settings["width"] != -1:
+            if settings["height"] == -1:
+                height = height * settings["width"] / width
+            width = settings["width"]
+        if settings["height"] != -1:
+            if settings["width"] == -1:
+                width = width * settings["height"] / height
+            height = settings["height"]
+
+        svg.setAttribute("width", f"{int(width)}px")
+        svg.setAttribute("height", f"{int(height)}px")
+        return svg.toxml()
+
+    def _create_repl(self) -> REPLWrapper:
+        """Create the REPLWrapper for Octave."""
+        cmd = self.executable
+        # Interactive mode prevents crashing on Windows on syntax errors.
+        # Delay sourcing the "~/.octaverc" file in case it displays a pager.
+        cmd += " --no-gui --interactive --quiet --no-init-file --no-line-editing "
+
+        # Add cli options provided by the user.
+        cmd += os.environ.get("OCTAVE_CLI_OPTIONS", self.cli_options)
+
+        orig_prompt = u("octave.*>")
+        change_prompt = u("PS1('{0}'); PS2('{1}')")
+
+        # Disaable ansi escape characters.
+        os.environ["TERM"] = "dumb"
+
+        repl = REPLWrapper(
+            cmd,
+            orig_prompt,
+            change_prompt,
+            stdin_prompt_regex=STDIN_PROMPT_REGEX,
+            force_prompt_on_continuation=True,
+        )
+        if os.name == "nt":
+            repl.child.crlf = "\n"
+        repl.interrupt = self._interrupt  # type: ignore[method-assign]
+        # Remove the default 50ms delay before sending lines.
+        repl.child.delaybeforesend = None
+        # ptyprocess's close() sleeps `delayafterclose` (default 0.1s) then
+        # checks isalive() before raising "Could not terminate the child."
+        # On the free-threaded (no-GIL) build, process reaping can lag past
+        # that window even though the termination signal was already sent,
+        # producing a false positive. Give it more headroom.
+        repl.child.delayafterclose = 0.5
+        repl.child.delayafterterminate = 0.5
+        return repl
+
+    def _interrupt(self, continuation: bool = False, silent: bool = False) -> str:
+        """Interrupt the Octave process."""
+        if os.name == "nt":
+            msg = "** Warning: Cannot interrupt Octave on Windows"
+            if self.stream_handler:
+                self.stream_handler(msg)
+            elif self.logger:
+                self.logger.warning(msg)
+            return self._interrupt_expect(silent)
+
+        return REPLWrapper.interrupt(self.repl, continuation=continuation)  # type: ignore[no-any-return]
+
+    def _interrupt_expect(self, silent: bool) -> str:
+        """Interrupt the Octave process with expected results."""
+        repl = self.repl
+        child = repl.child
+        expects = [repl.prompt_regex, child.linesep]
+        expected = uuid.uuid4().hex
+        repl.sendline(f'disp("{expected}");')
+        if repl.prompt_emit_cmd:
+            repl.sendline(repl.prompt_emit_cmd)
+        lines = []
+        while True:
+            # Prevent a keyboard interrupt from breaking this up.
+            while True:
+                try:
+                    pos = child.expect(expects)
+                    break
+                except KeyboardInterrupt:
+                    pass
+            if pos == 1:  # End of line received
+                line = child.before
+                if silent:
+                    lines.append(line)
+                else:
+                    self.stream_handler(line)
+            else:
+                line = child.before
+                if line.strip() == expected:
+                    break
+                if len(line) != 0:
+                    # prompt received, but partial line precedes it
+                    if silent:
+                        lines.append(line)
+                    else:
+                        self.stream_handler(line)
+        return "\n".join(lines)
+
+    @property
+    def executable(self) -> str:
+        """The Octave executable string, with --auto-servernum injected for xvfb-run."""
+        parts = shlex.split(self._executable)
+        if (
+            parts
+            and os.path.basename(parts[0]) == "xvfb-run"
+            and "--auto-servernum" not in parts
+        ):
+            parts.insert(1, "--auto-servernum")
+        return shlex.join(parts)
+
+    def _get_executable(self, executable: str = "") -> str:
+        """Find the best octave executable."""
+        return get_octave_executable(executable)
+
+    def _validate_executable(self, executable: str) -> str:
+        """Validate the Octave executable."""
+        cmd = [*shlex.split(executable), "--eval", "disp(version)"]
+        try:
+            return subprocess.check_output(cmd, text=True).strip()  # noqa: S603
+        except subprocess.CalledProcessError as e:
+            if "OCTAVE_EXECUTABLE" in os.environ:
+                prefix = f"OCTAVE_EXECUTABLE ({executable})"
+            else:
+                prefix = f"Octave executable {executable}"
+            msg = f"{prefix} does not point to a valid octave, please see README"
+            raise OSError(msg) from e
+
+    def _get_temp_dir(self) -> str:
+        """Get an appropriate default temp dir."""
+        executable = self.executable
+        base_dir = None
+        if "snap" in executable:
+            base_dir = os.path.expanduser("~/snap/octave/current/octave_kernel")
+            os.makedirs(base_dir, exist_ok=True)
+        elif is_sandboxed_octave(executable):
+            cache_dir = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
+            base_dir = os.path.join(cache_dir, "oct2py")
+            os.makedirs(base_dir, exist_ok=True)
+
+        temp_dir = tempfile.mkdtemp(dir=base_dir)
+        os.mkdir(os.path.join(temp_dir, "plots"))
+        atexit.register(shutil.rmtree, temp_dir)
+        return temp_dir
+
+    def _cleanup(self) -> None:
+        """Clean up resources used by the session."""
+        try:
+            self.repl.terminate()
+        except Exception as e:  # noqa: BLE001
+            self.logger.debug(str(e))
+        workspace = os.path.join(os.getcwd(), "octave-workspace")
+        if os.path.exists(workspace):
+            os.remove(workspace)

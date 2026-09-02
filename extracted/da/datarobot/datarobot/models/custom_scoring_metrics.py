@@ -59,7 +59,7 @@ class CustomScoringMetric(APIObject):
     name : str
         Display name of the metric.
     target_type : str
-        The target type this metric applies to (e.g. Binary, Regression, Multiclass).
+        The target type this metric applies to (e.g., Binary, Regression, Multiclass).
     user_id : str or None
         ID of the user who created the metric.
     organization_id : str or None
@@ -146,7 +146,7 @@ class CustomScoringMetric(APIObject):
         is_archived: bool = False,
         tags: Optional[List[Dict[str, str]]] = None,
     ) -> List["CustomScoringMetric"]:
-        """List custom scoring metrics.
+        """Returns a list of custom scoring metrics.
 
         Parameters
         ----------
@@ -155,7 +155,7 @@ class CustomScoringMetric(APIObject):
         limit : int
             Maximum number of records to return.
         target_type : str, optional
-            Filter by target type (e.g. "Binary", "Regression", "Multiclass").
+            Filter by target type (e.g., "Binary", "Regression", "Multiclass").
         search : str, optional
             Filter by name sub-string.
         is_archived : bool
@@ -279,11 +279,11 @@ class CustomScoringMetricVersionFileContents(APIObject):
     Attributes
     ----------
     metadata_file_name : str
-        Stored name of the metadata file (e.g. ``metadata.yml`` or ``metadata.yaml``).
+        Stored name of the metadata file (e.g., ``metadata.yml`` or ``metadata.yaml``).
     metadata_file_contents : str
         Raw UTF-8 contents of the metadata file.
     code_file_name : str
-        Stored name of the Python file (e.g. ``custom_metrics.py``).
+        Stored name of the Python file (e.g., ``custom_metrics.py``).
     code_file_contents : str
         Raw UTF-8 contents of the custom metrics Python file.
     """
@@ -397,7 +397,7 @@ class CustomScoringMetricVersion(APIObject):  # pylint: disable=too-many-instanc
         offset: int = 0,
         limit: int = 20,
     ) -> List["CustomScoringMetricVersion"]:
-        """List all versions for a given custom scoring metric.
+        """Returns a list of all versions for a given custom scoring metric.
 
         Parameters
         ----------
@@ -486,7 +486,7 @@ class CustomScoringMetricVersion(APIObject):  # pylint: disable=too-many-instanc
         return cls.from_server_data(response.json())
 
     def delete(self) -> None:
-        """Delete this version."""
+        """Deletes the custom scoring metric version."""
         url = f"{VERSIONS_URL.format(metric_id=self.custom_scoring_metric_registry_id)}{self.id}/"
         self._client.delete(url)
 

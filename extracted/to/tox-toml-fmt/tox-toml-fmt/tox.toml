@@ -1,4 +1,4 @@
-requires = ["tox>=4.60", "tox-uv>=1.36"]
+requires = ["tox>=4.61.2", "tox-uv>=1.36"]
 env_list = ["fix", "3.15", "3.15t", "3.14", "3.13", "3.12", "3.11", "3.10", "type", "docs", "pkg_meta", "pkg_sdist"]
 skip_missing_interpreters = true
 
@@ -126,9 +126,9 @@ commands = [
 ]
 
 [env.pkg_sdist]
-description = "build a wheel from the sdist and check it carries toml-fmt-common"
+description = "build the sdist, then install and test it the way a packager does"
 runner = "uv-venv-runner"
 skip_install = true
-dependency_groups = []
+dependency_groups = ["test"]
 change_dir = "{tox_root}{/}.."
 commands = [["python", "tasks{/}check_sdist.py", "tox-toml-fmt"]]

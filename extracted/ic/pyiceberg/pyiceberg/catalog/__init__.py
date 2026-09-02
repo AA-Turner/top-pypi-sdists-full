@@ -31,6 +31,8 @@ from typing import (
     cast,
 )
 
+from typing_extensions import override
+
 from pyiceberg.exceptions import (
     NamespaceAlreadyExistsError,
     NoSuchNamespaceError,
@@ -68,6 +70,8 @@ from pyiceberg.typedef import (
 )
 from pyiceberg.utils.config import Config, merge_config
 from pyiceberg.utils.properties import property_as_bool
+from pyiceberg.view import View
+from pyiceberg.view.metadata import ViewVersion
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -218,6 +222,14 @@ def infer_catalog_type(name: str, catalog_properties: RecursiveDict) -> CatalogT
     )
 
 
+def _check_required_catalog_properties(name: str, catalog_type: CatalogType, conf: RecursiveDict) -> None:
+    """Validate required properties for explicitly selected catalog types."""
+    if catalog_type in {CatalogType.REST, CatalogType.HIVE, CatalogType.SQL} and URI not in conf:
+        raise ValueError(
+            f"URI missing, please provide using --uri, the config or environment variable PYICEBERG_CATALOG__{name.upper()}__URI"
+        )
+
+
 def load_catalog(name: str | None = None, **properties: str | None) -> Catalog:
     """Load the catalog based on the properties.
 
@@ -263,6 +275,7 @@ def load_catalog(name: str | None = None, **properties: str | None) -> Catalog:
         catalog_type = infer_catalog_type(name, conf)
 
     if catalog_type:
+        _check_required_catalog_properties(name, catalog_type, conf)
         return AVAILABLE_CATALOGS[catalog_type](name, cast(dict[str, str], conf))
 
     raise ValueError(f"Could not initialize catalog with the following properties: {properties}")
@@ -482,12 +495,13 @@ class Catalog(ABC):
         """
 
     @abstractmethod
-    def register_table(self, identifier: str | Identifier, metadata_location: str) -> Table:
+    def register_table(self, identifier: str | Identifier, metadata_location: str, overwrite: bool = False) -> Table:
         """Register a new table using existing metadata.
 
         Args:
             identifier (Union[str, Identifier]): Table identifier for the table
             metadata_location (str): The location to the metadata
+            overwrite (bool): Whether to overwrite the existing table, default False
 
         Returns:
             Table: The newly registered table
@@ -533,6 +547,7 @@ class Catalog(ABC):
 
         Raises:
             NoSuchTableError: If a table with the name does not exist.
+            TableAlreadyExistsError: If the target table already exists.
         """
 
     @abstractmethod
@@ -634,6 +649,20 @@ class Catalog(ABC):
         """
 
     @abstractmethod
+    def load_view(self, identifier: str | Identifier) -> View:
+        """Load the view's metadata and returns the view instance.
+
+        Args:
+            identifier (str | Identifier): View identifier.
+
+        Returns:
+            View: the view instance with its metadata.
+
+        Raises:
+            NoSuchViewError: If a view with the name does not exist.
+        """
+
+    @abstractmethod
     def load_namespace_properties(self, namespace: str | Identifier) -> Properties:
         """Get properties for a namespace.
 
@@ -664,6 +693,22 @@ class Catalog(ABC):
         """
 
     @abstractmethod
+    def register_view(self, identifier: str | Identifier, metadata_location: str) -> View:
+        """Register a new view using existing metadata.
+
+        Args:
+            identifier (Union[str, Identifier]): View identifier for the view
+            metadata_location (str): The location to the metadata
+
+        Returns:
+            View: The newly registered view
+
+        Raises:
+            ViewAlreadyExistsError: If the view already exists.
+            TableAlreadyExistsError: If a table with the same name already exists.
+        """
+
+    @abstractmethod
     def drop_view(self, identifier: str | Identifier) -> None:
         """Drop a view.
 
@@ -672,6 +717,31 @@ class Catalog(ABC):
 
         Raises:
             NoSuchViewError: If a view with the given name does not exist.
+        """
+
+    @abstractmethod
+    def create_view(
+        self,
+        identifier: str | Identifier,
+        schema: Schema | pa.Schema,
+        view_version: ViewVersion,
+        location: str | None = None,
+        properties: Properties = EMPTY_DICT,
+    ) -> View:
+        """Create a view.
+
+        Args:
+            identifier (str | Identifier): View identifier.
+            schema (Schema): View's schema.
+            view_version (ViewVersion): The format version for the view.
+            location (str | None): Location for the view. Optional Argument.
+            properties (Properties): View properties that can be a string based dictionary.
+
+        Returns:
+            View: the created view instance.
+
+        Raises:
+            ViewAlreadyExistsError: If a view with the name already exists.
         """
 
     @staticmethod
@@ -733,9 +803,9 @@ class Catalog(ABC):
 
         return ".".join(segment.strip() for segment in tuple_identifier)
 
+    @abstractmethod
     def supports_server_side_planning(self) -> bool:
         """Check if the catalog supports server-side scan planning."""
-        return False
 
     @staticmethod
     def identifier_to_database(
@@ -836,6 +906,11 @@ class MetastoreCatalog(Catalog, ABC):
     def __init__(self, name: str, **properties: str):
         super().__init__(name, **properties)
 
+    @override
+    def supports_server_side_planning(self) -> bool:
+        return False
+
+    @override
     def create_table_transaction(
         self,
         identifier: str | Identifier,
@@ -849,6 +924,7 @@ class MetastoreCatalog(Catalog, ABC):
             self._create_staged_table(identifier, schema, location, partition_spec, sort_order, properties)
         )
 
+    @override
     def table_exists(self, identifier: str | Identifier) -> bool:
         try:
             self.load_table(identifier)
@@ -856,6 +932,7 @@ class MetastoreCatalog(Catalog, ABC):
         except NoSuchTableError:
             return False
 
+    @override
     def namespace_exists(self, namespace: str | Identifier) -> bool:
         """Check if a namespace exists.
 
@@ -871,6 +948,7 @@ class MetastoreCatalog(Catalog, ABC):
         except NoSuchNamespaceError:
             return False
 
+    @override
     def purge_table(self, identifier: str | Identifier) -> None:
         table = self.load_table(identifier)
         self.drop_table(identifier)
@@ -890,6 +968,17 @@ class MetastoreCatalog(Catalog, ABC):
         delete_files(io, manifest_lists_to_delete, MANIFEST_LIST)
         delete_files(io, prev_metadata_files, PREVIOUS_METADATA)
         delete_files(io, {table.metadata_location}, METADATA)
+
+    @override
+    def create_view(
+        self,
+        identifier: str | Identifier,
+        schema: Schema | pa.Schema,
+        view_version: ViewVersion,
+        location: str | None = None,
+        properties: Properties = EMPTY_DICT,
+    ) -> View:
+        raise NotImplementedError
 
     def _create_staged_table(
         self,

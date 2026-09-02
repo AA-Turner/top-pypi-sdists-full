@@ -83,13 +83,13 @@ class Challenger(APIObject):
         Parameters
         ----------
         deployment_id : str
-            The ID of the deployment
+            The ID of the deployment.
         model_package_id : str
-            The model package id of the challenger model
+            The model package ID of the challenger model.
         prediction_environment_id : str
-            The prediction environment id of the challenger model
+            The prediction environment ID of the challenger model.
         name : str
-            The name of the challenger model
+            The name of the challenger model.
         max_wait : Optional[int]
             The amount of seconds to wait for successful resolution of a challenger creation job.
 
@@ -122,14 +122,14 @@ class Challenger(APIObject):
         Parameters
         ----------
         deployment_id : str
-            The ID of the deployment
+            The ID of the deployment.
         challenger_id : str
-            The ID of the challenger
+            The ID of the challenger.
 
         Returns
         -------
         Challenger
-            The challenger object
+            The challenger object.
 
         Examples
         --------
@@ -153,17 +153,17 @@ class Challenger(APIObject):
 
     @classmethod
     def list(cls, deployment_id: str) -> List[Challenger]:
-        """List all challengers for a deployment
+        """Returns a list of all challengers for a deployment.
 
         Parameters
         ----------
         deployment_id : str
-            The ID of the deployment
+            The ID of the deployment.
 
         Returns
         -------
         challengers: list
-            A list of challenger objects
+            A list of challenger objects.
 
         Examples
         --------
@@ -194,14 +194,14 @@ class Challenger(APIObject):
         name: Optional[str] = None,
         prediction_environment_id: Optional[str] = None,
     ) -> None:
-        """Update name and prediction environment of a challenger
+        """Update the name and prediction environment of a challenger.
 
         Parameters
         ----------
         name: Optional[str]
-            The name of the challenger model
+            The name of the challenger model.
         prediction_environment_id: Optional[str]
-            The prediction environment id of the challenger model
+            The prediction environment ID of the challenger model.
         """
         payload = {}
         if name:

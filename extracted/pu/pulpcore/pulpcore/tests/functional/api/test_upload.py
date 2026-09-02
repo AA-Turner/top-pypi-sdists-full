@@ -1,0 +1,300 @@
+"""Tests related to content upload."""
+
+import hashlib
+import os
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from random import shuffle
+
+import pytest
+
+from pulpcore.client.pulp_file import ApiException as FileApiException
+from pulpcore.client.pulpcore import ApiException
+from pulpcore.tests.functional.utils import generate_iso
+
+
+@pytest.fixture
+def pulpcore_random_chunked_file_factory(tmp_path):
+    """Returns a function to create random chunks to be uploaded."""
+
+    def _create_chunks(number_chunks=2, chunk_sizes=None):
+        # Default to 512 byte chunk sizes
+        if chunk_sizes:
+            if len(chunk_sizes) != number_chunks:
+                raise Exception("number_chunks != len(chunk_sizes)")
+        else:
+            chunk_sizes = [512] * number_chunks
+        chunks = {"size": sum(chunk_sizes), "chunks": []}
+        hasher = hashlib.new("sha256")
+        start = 0
+        for chunk_size in chunk_sizes:
+            chunk_file = tmp_path / str(uuid.uuid4())
+            content = os.urandom(chunk_size)
+            hasher.update(content)
+            chunk_file.write_bytes(content)
+            content_sha = hashlib.sha256(content).hexdigest()
+            end = start + chunk_size - 1
+            chunks["chunks"].append(
+                (str(chunk_file), f"bytes {start}-{end}/{chunks['size']}", content_sha)
+            )
+            start = start + chunk_size
+        chunks["digest"] = hasher.hexdigest()
+        return chunks
+
+    return _create_chunks
+
+
+@pytest.fixture
+def pulpcore_upload_chunks(
+    pulpcore_bindings,
+    gen_object_with_cleanup,
+    monitor_task,
+):
+    """Upload file in chunks."""
+    artifacts = []
+
+    def _upload_chunks(size, chunks, sha256, include_chunk_sha256=False):
+        """
+        Chunks is a list of tuples in the form of (chunk_filename, "bytes-ranges", optional_sha256).
+        """
+        upload = gen_object_with_cleanup(pulpcore_bindings.UploadsApi, {"size": size})
+
+        for data in chunks:
+            kwargs = {"file": data[0], "content_range": data[1], "upload_href": upload.pulp_href}
+            if include_chunk_sha256:
+                if len(data) != 3:
+                    raise Exception(f"Chunk didn't include its sha256: {data}")
+                kwargs["sha256"] = data[2]
+
+            pulpcore_bindings.UploadsApi.update(**kwargs)
+
+        finish_task = pulpcore_bindings.UploadsApi.commit(upload.pulp_href, {"sha256": sha256}).task
+        response = monitor_task(finish_task)
+        artifact_href = response.created_resources[0]
+        artifact = pulpcore_bindings.ArtifactsApi.read(artifact_href)
+        artifacts.append(artifact_href)
+        return upload, artifact
+
+    yield _upload_chunks
+
+
+@pytest.mark.parallel
+def test_create_artifact_without_checksum(
+    pulpcore_upload_chunks, pulpcore_random_chunked_file_factory
+):
+    """Test creation of artifact using upload of files in chunks."""
+
+    file_chunks_data = pulpcore_random_chunked_file_factory()
+    size = file_chunks_data["size"]
+    chunks = file_chunks_data["chunks"]
+    shuffle(chunks)
+    sha256 = file_chunks_data["digest"]
+
+    _, artifact = pulpcore_upload_chunks(size, chunks, sha256)
+
+    assert artifact.sha256 == sha256
+
+
+@pytest.mark.parallel
+def test_create_artifact_passing_checksum(
+    pulpcore_upload_chunks, pulpcore_random_chunked_file_factory
+):
+    """Test creation of artifact using upload of files in chunks passing checksum."""
+    file_chunks_data = pulpcore_random_chunked_file_factory(number_chunks=5)
+    size = file_chunks_data["size"]
+    chunks = file_chunks_data["chunks"]
+    shuffle(chunks)
+    sha256 = file_chunks_data["digest"]
+
+    _, artifact = pulpcore_upload_chunks(size, chunks, sha256, include_chunk_sha256=True)
+
+    assert artifact.sha256 == sha256
+
+
+@pytest.mark.parallel
+def test_upload_chunk_wrong_checksum(
+    pulpcore_bindings, pulpcore_random_chunked_file_factory, gen_object_with_cleanup
+):
+    """Test creation of artifact using upload of files in chunks passing wrong checksum."""
+    file_chunks_data = pulpcore_random_chunked_file_factory()
+    size = file_chunks_data["size"]
+    chunks = file_chunks_data["chunks"]
+
+    upload = gen_object_with_cleanup(pulpcore_bindings.UploadsApi, {"size": size})
+    for data in chunks:
+        kwargs = {"file": data[0], "content_range": data[1], "upload_href": upload.pulp_href}
+        kwargs["sha256"] = "WRONG CHECKSUM"
+        with pytest.raises(ApiException) as e:
+            pulpcore_bindings.UploadsApi.update(**kwargs)
+
+        assert e.value.status == 400
+
+
+@pytest.mark.parallel
+def test_upload_response(
+    pulpcore_bindings, pulpcore_random_chunked_file_factory, gen_object_with_cleanup
+):
+    """Test upload responses when creating an upload and uploading chunks."""
+    file_chunks_data = pulpcore_random_chunked_file_factory(chunk_sizes=[6291456, 4194304])
+    upload = gen_object_with_cleanup(
+        pulpcore_bindings.UploadsApi, {"size": file_chunks_data["size"]}
+    )
+
+    expected_keys = ["pulp_href", "pulp_created", "size"]
+    for key in expected_keys:
+        assert hasattr(upload, key)
+
+    for data in file_chunks_data["chunks"]:
+        kwargs = {"file": data[0], "content_range": data[1], "upload_href": upload.pulp_href}
+        response = pulpcore_bindings.UploadsApi.update(**kwargs)
+
+        for key in expected_keys:
+            assert hasattr(response, key)
+
+    upload = pulpcore_bindings.UploadsApi.read(upload.pulp_href)
+
+    expected_keys.append("chunks")
+
+    for key in expected_keys:
+        assert hasattr(upload, key)
+
+    expected_chunks = [
+        {"offset": 0, "size": 6291456},
+        {"offset": 6291456, "size": 4194304},
+    ]
+    sorted_chunks_response = sorted(
+        [c.model_dump() for c in upload.chunks], key=lambda i: i["offset"]
+    )
+    assert sorted_chunks_response == expected_chunks
+
+
+@pytest.mark.parallel
+def test_delete_upload(
+    pulpcore_bindings, pulpcore_upload_chunks, pulpcore_random_chunked_file_factory
+):
+    """Check whether uploads are being correctly deleted after committing."""
+    file_chunks_data = pulpcore_random_chunked_file_factory()
+    size = file_chunks_data["size"]
+    chunks = file_chunks_data["chunks"]
+    shuffle(chunks)
+    sha256 = file_chunks_data["digest"]
+
+    upload, _ = pulpcore_upload_chunks(size, chunks, sha256)
+
+    with pytest.raises(ApiException) as e:
+        pulpcore_bindings.UploadsApi.read(upload.pulp_href)
+
+    assert e.value.status == 404
+
+
+def test_upload_owner(pulpcore_bindings, gen_user, gen_object_with_cleanup):
+    user = gen_user(model_roles=["core.upload_creator"])
+    with user:
+        upload = gen_object_with_cleanup(pulpcore_bindings.UploadsApi, {"size": 1024})
+        pulpcore_bindings.UploadsApi.read(upload.pulp_href)
+        assert set(pulpcore_bindings.UploadsApi.my_permissions(upload.pulp_href).permissions) == {
+            "core.view_upload",
+            "core.change_upload",
+            "core.delete_upload",
+            "core.manage_roles_upload",
+        }
+
+
+@pytest.mark.parallel
+def test_upload_duplicate_chunk(
+    pulpcore_bindings,
+    pulpcore_random_chunked_file_factory,
+    gen_object_with_cleanup,
+    monitor_task,
+):
+    """Test that uploading the same chunk twice replaces rather than duplicates it."""
+    file_chunks_data = pulpcore_random_chunked_file_factory(number_chunks=1)
+    size = file_chunks_data["size"]
+    chunk = file_chunks_data["chunks"][0]
+    sha256 = file_chunks_data["digest"]
+
+    upload = gen_object_with_cleanup(pulpcore_bindings.UploadsApi, {"size": size})
+    kwargs = {"file": chunk[0], "content_range": chunk[1], "upload_href": upload.pulp_href}
+
+    pulpcore_bindings.UploadsApi.update(**kwargs)
+    pulpcore_bindings.UploadsApi.update(**kwargs)
+
+    upload_detail = pulpcore_bindings.UploadsApi.read(upload.pulp_href)
+    assert len(upload_detail.chunks) == 1, "Duplicate chunk should replace the existing one"
+
+    task = pulpcore_bindings.UploadsApi.commit(upload.pulp_href, {"sha256": sha256}).task
+    response = monitor_task(task)
+    artifact_href = response.created_resources[0]
+    artifact = pulpcore_bindings.ArtifactsApi.read(artifact_href)
+    assert artifact.sha256 == sha256
+
+
+def test_upload_synchronous(file_bindings, gen_user, file_fixtures_root):
+    """Test synchronously uploading a File.
+
+    1. Upload a unit
+    2. Attempt to upload same unit with different labels
+    3. Assert that labels don't change.
+    4. Assert that uploading without permissions returns a 403.
+    """
+    # Single unit upload
+    file_path = file_fixtures_root.joinpath("1.iso")
+    generate_iso(file_path)
+    with gen_user(model_roles=["file.file_uploader"]):
+        labels = {"key_1": "value_1"}
+        upload_attrs = {"file": str(file_path), "relative_path": "1.iso", "pulp_labels": labels}
+        package = file_bindings.ContentFilesApi.upload(**upload_attrs)
+        assert package.pulp_labels == labels
+
+        # Duplicate unit
+        new_labels = {"key_2": "value_2"}
+        upload_attrs = {"file": str(file_path), "relative_path": "1.iso", "pulp_labels": new_labels}
+        duplicate_package = file_bindings.ContentFilesApi.upload(**upload_attrs)
+
+        assert duplicate_package.pulp_href == package.pulp_href
+        assert duplicate_package.pulp_labels == package.pulp_labels
+        assert duplicate_package.pulp_labels != new_labels
+
+    with gen_user(model_roles=[]), pytest.raises(FileApiException) as ctx:
+        labels = {"key_1": "value_1"}
+        upload_attrs = {"file": str(file_path), "relative_path": "1.iso", "pulp_labels": labels}
+        file_bindings.ContentFilesApi.upload(**upload_attrs)
+    assert ctx.value.status == 403
+
+
+@pytest.mark.parallel
+def test_sync_upload_reuses_existing_artifact(file_bindings, tmp_path):
+    """Uploading the same bytes twice should reuse the Artifact instead of 400ing."""
+    path = tmp_path / "blob"
+    path.write_bytes(uuid.uuid4().bytes)
+
+    first = file_bindings.ContentFilesApi.upload(
+        relative_path=f"{uuid.uuid4()}.bin", file=str(path)
+    )
+    second = file_bindings.ContentFilesApi.upload(
+        relative_path=f"{uuid.uuid4()}.bin", file=str(path)
+    )
+    first = file_bindings.ContentFilesApi.read(first.pulp_href)
+    second = file_bindings.ContentFilesApi.read(second.pulp_href)
+
+    assert first.pulp_href != second.pulp_href
+    assert first.sha256 == second.sha256
+    assert first.artifact == second.artifact
+
+
+@pytest.mark.parallel
+def test_sync_upload_reuses_artifact_concurrently(file_bindings, tmp_path):
+    """Concurrent uploads of the same bytes must share one Artifact."""
+    path = tmp_path / "blob"
+    path.write_bytes(uuid.uuid4().bytes)
+    names = [f"{uuid.uuid4()}.bin" for _ in range(4)]
+
+    def _upload(name):
+        return file_bindings.ContentFilesApi.upload(relative_path=name, file=str(path))
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(_upload, names))
+
+    contents = [file_bindings.ContentFilesApi.read(result.pulp_href) for result in results]
+    assert len({content.artifact for content in contents}) == 1
+    assert len({content.pulp_href for content in contents}) == 4

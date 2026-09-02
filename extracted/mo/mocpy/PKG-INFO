@@ -1,0 +1,63 @@
+Metadata-Version: 2.4
+Name: mocpy
+Version: 0.20.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Rust
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: Scientific/Engineering :: Astronomy
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Education
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: astropy
+Requires-Dist: numpy
+Requires-Dist: regions ; extra == 'astropy-regions'
+Requires-Dist: pre-commit>=2.20 ; extra == 'dev'
+Requires-Dist: pytest>6.0 ; extra == 'dev'
+Requires-Dist: pytest-mock ; extra == 'dev'
+Requires-Dist: pytest-cov ; extra == 'dev'
+Requires-Dist: requests ; extra == 'dev'
+Requires-Dist: regions ; extra == 'dev'
+Requires-Dist: ruff>=0.5.0 ; extra == 'dev'
+Requires-Dist: cdshealpix>=0.6.4 ; extra == 'dev'
+Requires-Dist: astropy-sphinx-theme ; extra == 'docs'
+Requires-Dist: nbsphinx ; extra == 'docs'
+Requires-Dist: numpydoc ; extra == 'docs'
+Requires-Dist: sphinx-astropy ; extra == 'docs'
+Requires-Dist: sphinx-collections ; extra == 'docs'
+Requires-Dist: sphinx-copybutton ; extra == 'docs'
+Requires-Dist: sphinx-gallery ; extra == 'docs'
+Requires-Dist: sphinxcontrib-bibtex ; extra == 'docs'
+Requires-Dist: ipython ; extra == 'docs'
+Requires-Dist: toml ; extra == 'docs'
+Requires-Dist: astropy-healpix ; extra == 'docs'
+Requires-Dist: matplotlib ; extra == 'notebooks'
+Requires-Dist: cdshealpix>=0.6.4 ; extra == 'notebooks'
+Requires-Dist: networkx>=2.5 ; extra == 'notebooks'
+Requires-Dist: astroquery>=0.4.9 ; extra == 'notebooks'
+Requires-Dist: astropy-healpix ; extra == 'notebooks'
+Requires-Dist: ipyaladin ; extra == 'notebooks'
+Requires-Dist: regions ; extra == 'notebooks'
+Requires-Dist: nbmake ; extra == 'notebooks'
+Requires-Dist: matplotlib ; extra == 'plots'
+Requires-Dist: cdshealpix>=0.6.4 ; extra == 'plots'
+Requires-Dist: networkx>=2.5 ; extra == 'plots'
+Requires-Dist: requests ; extra == 'query-fits'
+Provides-Extra: astropy_regions
+Provides-Extra: dev
+Provides-Extra: docs
+Provides-Extra: notebooks
+Provides-Extra: plots
+Provides-Extra: query_fits
+License-File: LICENSE
+Keywords: astronomy,astrophysics,HEALPix
+Requires-Python: >=3.9
+Project-URL: Changelog, https://github.com/cds-astro/mocpy/blob/master/CHANGELOG.md
+Project-URL: Documentation, https://cds-astro.github.io/mocpy/
+Project-URL: Issues, https://github.com/cds-astro/mocpy/issues
+Project-URL: Repository, https://github.com/cds-astro/mocpy

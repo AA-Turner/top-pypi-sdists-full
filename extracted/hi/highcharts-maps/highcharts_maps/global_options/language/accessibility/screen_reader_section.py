@@ -1,1 +1,0 @@
-from highcharts_core.global_options.language.accessibility.screen_reader_section import *

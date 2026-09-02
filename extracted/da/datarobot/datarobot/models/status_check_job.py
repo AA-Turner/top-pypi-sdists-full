@@ -145,11 +145,12 @@ class StatusCheckJob:
 
     def get_result_when_complete(self, max_wait: int = DEFAULT_MAX_WAIT) -> APIObject:
         """
-        Wait for the job to complete, then attempt to convert the resulting json into an object of type
-        self.resource_type
+        Wait for the job to complete, then attempt to convert the resulting JSON into an object of type
+        ``self.resource_type``.
+
         Returns
         -------
-        A newly created resource of type self.resource_type
+        A newly created resource of type ``self.resource_type``.
         """
 
         if not self.resource_type:

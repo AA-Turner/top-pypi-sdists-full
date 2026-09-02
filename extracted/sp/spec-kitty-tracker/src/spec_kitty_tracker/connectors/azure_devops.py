@@ -142,7 +142,9 @@ class AzureDevOpsConnector(HTTPConnectorBase):
         del idempotency_key
         operations: list[dict[str, Any]] = []
         if "title" in patch:
-            operations.append({"op": "add", "path": "/fields/System.Title", "value": patch["title"]})
+            operations.append(
+                {"op": "add", "path": "/fields/System.Title", "value": patch["title"]}
+            )
         if "body" in patch:
             operations.append(
                 {"op": "add", "path": "/fields/System.Description", "value": patch["body"]}
@@ -196,9 +198,13 @@ class AzureDevOpsConnector(HTTPConnectorBase):
         )
 
     async def upsert_link(self, ref: ExternalRef, link: CanonicalLink) -> None:
+        target_url = (
+            f"{self.config.base_url.rstrip('/')}/{self.config.organization}"
+            f"/_apis/wit/workItems/{link.target.id}"
+        )
         relation = {
             "rel": self._ado_relation_type(link.type),
-            "url": f"{self.config.base_url.rstrip('/')}/{self.config.organization}/_apis/wit/workItems/{link.target.id}",
+            "url": target_url,
         }
         await self._request(
             "PATCH",
@@ -300,7 +306,9 @@ class AzureDevOpsConnector(HTTPConnectorBase):
                 url=str(item.get("url") or ""),
             ),
             title=str(fields.get("System.Title") or "Untitled"),
-            body=str(fields.get("System.Description")) if fields.get("System.Description") else None,
+            body=str(fields.get("System.Description"))
+            if fields.get("System.Description")
+            else None,
             status=self._status_from_ado_state(fields.get("System.State")),
             issue_type=self._issue_type_from_ado(fields.get("System.WorkItemType")),
             priority=self._parse_priority(fields.get("Microsoft.VSTS.Common.Priority")),

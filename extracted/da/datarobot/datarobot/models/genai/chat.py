@@ -156,13 +156,13 @@ class Chat(APIObject):
         sort: Optional[str] = None,
     ) -> List[Chat]:
         """
-        List all chats available to the user. If the LLM blueprint is specified,
+        Returns a list of all chats available to the user. If the LLM blueprint is specified,
         results are restricted to only those chats associated with the LLM blueprint.
 
         Parameters
         ----------
         llm_blueprint : Optional[Union[LLMBlueprint, str]], optional
-            Returns only those chats associated with a particular LLM blueprint,
+            Limits results to chats associated with a particular LLM blueprint,
             specified by either the entity or the ID.
         sort : Optional[str]
             The property to sort chats by. Prefix the attribute name with a dash ( - )

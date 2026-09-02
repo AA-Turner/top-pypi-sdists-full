@@ -1,0 +1,114 @@
+"""Usage command for the Yutori CLI."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import typer
+from rich.console import Console
+from rich.table import Table
+
+from yutori.cli.commands import cli_client, print_aligned_fields, safe_str
+
+app = typer.Typer(help="View usage statistics")
+console = Console()
+
+# Width of the longest rate-limit label ("Requests today"). Used as
+# ``min_label_width`` so blocks that conditionally drop rows (e.g. when
+# only "Resets at:" prints) still align to the same column.
+_RATE_LIMIT_LABEL_WIDTH = len("Requests today")
+
+
+def _print_rate_limits(
+    console: Console,
+    title: str,
+    limits: dict[str, Any],
+    *,
+    show_per_second: bool = False,
+    gate_on_status_available: bool = False,
+) -> None:
+    """Print a rate-limit block as aligned fields.
+
+    The Requests-today / Daily-limit / Remaining (and optional Per-second)
+    rows are suppressed when ``gate_on_status_available`` is set and the
+    server reports a non-``"available"`` status. ``Resets at`` always prints
+    so the block is never empty.
+    """
+    console.print(title)
+    fields: list[tuple[str, Any]] = []
+    if not gate_on_status_available or limits.get("status") == "available":
+        fields.extend(
+            [
+                ("Requests today", limits.get("requests_today", "N/A")),
+                ("Daily limit", limits.get("daily_limit", "N/A")),
+                ("Remaining", limits.get("remaining_requests", "N/A")),
+            ]
+        )
+        if show_per_second:
+            fields.append(("Per-second", limits.get("per_second_limit", "N/A")))
+    fields.append(("Resets at", limits.get("reset_at", "N/A")))
+    print_aligned_fields(console, fields, min_label_width=_RATE_LIMIT_LABEL_WIDTH)
+
+
+@app.callback(invoke_without_command=True)
+def usage(
+    ctx: typer.Context,
+    period: str = typer.Option("24h", help="Activity period: 24h, 7d, 30d, or 90d"),
+) -> None:
+    """Show API usage statistics."""
+    if ctx.invoked_subcommand is not None:
+        return
+
+    with cli_client() as client:
+        data = client.get_usage(period=period)
+
+        console.print("\n[bold]Usage Statistics[/bold]\n")
+
+        # Active scouts
+        num_active = data.get("num_active_scouts", 0)
+        console.print(f"  Active Scouts: {num_active}")
+        active_ids = data.get("active_scout_ids", [])
+        if active_ids:
+            for sid in active_ids[:5]:
+                console.print(f"    - {safe_str(sid)}")
+            if len(active_ids) > 5:
+                console.print(f"    ... and {len(active_ids) - 5} more")
+
+        # Rate limits
+        rate_limits = data.get("rate_limits", {})
+        if rate_limits:
+            _print_rate_limits(
+                console,
+                f"\n  [bold]API Rate Limits[/bold] ({safe_str(rate_limits.get('status', 'unknown'))})",
+                rate_limits,
+                gate_on_status_available=True,
+            )
+
+        # Fall back to the deprecated legacy key on older servers.
+        navigator_limits = data.get("navigator_rate_limits") or data.get("n1_rate_limits") or {}
+        if navigator_limits:
+            _print_rate_limits(
+                console,
+                "\n  [bold]Navigator API Rate Limits[/bold]",
+                navigator_limits,
+                show_per_second=True,
+            )
+
+        # Activity counts
+        activity = data.get("activity", {})
+        if activity:
+            p = activity.get("period", period)
+            console.print(f"\n  [bold]Activity ({p})[/bold]")
+
+            # `navigator_calls` is the canonical key; keep the legacy fallback for older servers.
+            navigator_calls = activity.get("navigator_calls", activity.get("n1_calls", 0))
+            table = Table(show_header=True, padding=(0, 2))
+            table.add_column("Metric")
+            table.add_column("Count", justify="right")
+            table.add_row("Scout runs", str(activity.get("scout_runs", 0)))
+            table.add_row("Browsing tasks", str(activity.get("browsing_tasks", 0)))
+            table.add_row("Research tasks", str(activity.get("research_tasks", 0)))
+            table.add_row("Navigator API calls", str(navigator_calls))
+            console.print(table)
+
+        console.print()

@@ -182,7 +182,7 @@ class InsightsConfiguration(APIObject):
     nemo_metric_id : Optional[str]
         The ID for the NEMO metric.
     llm_id : Optional[str]
-        The LLM ID for OOTB metrics that use LLMs.
+        The LLM ID for OOTB metrics that use ``LLMs``.
     custom_model_llm_validation_id : Optional[str]
         The ID for the custom model LLM validation if using a custom model LLM for OOTB metrics.
     aggregation_types : list[str], optional

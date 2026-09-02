@@ -1,0 +1,148 @@
+name: AI PR Loop
+run-name: AI PR Loop (PR ${{ inputs.pr_number }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to process (scheduler-driven)'
+        required: true
+        type: string
+      trigger_reason:
+        description: 'Reason for dispatch (e.g. scheduler_oldest_eligible)'
+        required: false
+        type: string
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+  checks: read
+env:
+  AGDT_USE_PYTHON_ORCHESTRATOR: "1"
+  ENABLE_AUTO_APPLY_SUGGESTIONS: ${{ vars.ENABLE_AUTO_APPLY_SUGGESTIONS || 'false' }}
+  ENABLE_SUPPRESSED_DEFERRAL: ${{ vars.ENABLE_SUPPRESSED_DEFERRAL || 'false' }}
+concurrency:
+  # Keep independent PR loops from replacing one another's pending run.
+  group: ai-pr-loop-${{ inputs.pr_number }}
+  cancel-in-progress: false
+jobs:
+  ai-pr-loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event.inputs.pr_number != ''
+    steps:
+      - name: Checkout workflow sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python for cooldown gate
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check provider cooldown gate
+        id: cooldown-gate
+        env:
+          GH_TOKEN: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
+        run: |
+          python -m pip install --disable-pip-version-check -q jinja2
+          python - <<'PY'
+          import sys
+          from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+          sys.argv = ["watchdog", "--mode", "cooldown-gate", "--repo", "${{ github.repository }}"]
+          ai_pr_loop_watchdog_command()
+          PY
+      - name: Resolve PR head ref
+        if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+        id: dispatch-pr
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          PR_NUMBER_INPUT: ${{ github.event.inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          pr_number="$PR_NUMBER_INPUT"
+          if [[ "$pr_number" =~ ^\"([0-9]+)\"$ || "$pr_number" =~ ^\'([0-9]+)\'$ ]]; then
+            pr_number="${BASH_REMATCH[1]}"
+          fi
+          if [[ ! "$pr_number" =~ ^[0-9]+$ ]]; then
+            echo "::error::workflow_dispatch input pr_number must be a numeric pull request number"
+            exit 1
+          fi
+          pr_json="$(gh pr view "$pr_number" --repo "${{ github.repository }}" --json headRefName)"
+          head_ref="$(echo "$pr_json" | jq -r '.headRefName')"
+          echo "head_ref=$head_ref" >> "$GITHUB_OUTPUT"
+      - name: Checkout repository
+        if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.dispatch-pr.outputs.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.SPECKIT_PR_TOKEN }}
+      - name: Configure git identity
+        if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+        run: |
+          git config user.name "AMARSNIK_swica"
+          git config user.email "AMARSNIK_swica@users.noreply.github.com"
+      - name: Set up Python
+        if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install uv
+        if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+        uses: astral-sh/setup-uv@v4
+        continue-on-error: true
+        with:
+          version: "0.7 - 0.11" # Stay on the tested 0.x series while allowing patch/minor updates.
+          enable-cache: true
+          cache-dependency-glob: 'pyproject.toml'
+      - name: Install agentic-devtools
+        if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+        run: |
+          if command -v uv >/dev/null 2>&1; then
+            uv pip install --system .
+          else
+            python -m pip install --upgrade pip
+            python -m pip install .
+          fi
+      - name: Run AI PR loop orchestrator
+        if: steps.cooldown-gate.outputs.cooldown_active != 'true'
+        id: run-loop
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          AGDT_PR_APPROVER_PAT: ${{ secrets.AGDT_PR_APPROVER_PAT }}
+          REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          AI_PR_LOOP_CREDENTIAL_IDENTITY: SPECKIT_PR_TOKEN
+          AGDT_ALLOW_PRIVILEGED_PATHS: "1"
+        run: |
+          exit_code=0
+          set +e
+          agdt-ai-pr-loop
+          exit_code=$?
+          set -e
+          # Control-flow exits: 1=guard-blocked, 5=repair-dispatched, 6=rate-limit-paused
+          echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
+          if [[ "$exit_code" -eq 1 || "$exit_code" -eq 5 || "$exit_code" -eq 6 ]]; then
+            echo "::notice::ai-pr-loop exited with control-flow code ${exit_code}; treating as non-fatal."
+            exit 0
+          fi
+          exit "$exit_code"
+      - name: Dispatch AI PR Loop Redispatch
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          REPO_VARIABLE_WRITER_PAT: ${{ secrets.REPO_VARIABLE_WRITER_PAT }}
+          COOLDOWN_ACTIVE: ${{ steps.cooldown-gate.outputs.cooldown_active }}
+          LOOP_EXIT_CODE: ${{ steps.run-loop.outputs.exit_code }}
+        run: |
+          if [[ -n "${REPO_VARIABLE_WRITER_PAT}" ]] && [[ "${COOLDOWN_ACTIVE}" == "true" || "${LOOP_EXIT_CODE}" == "6" ]]; then
+            export GH_TOKEN="${REPO_VARIABLE_WRITER_PAT}"
+          fi
+          gh workflow run ai-pr-loop-redispatch.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "${{ github.event.repository.default_branch }}" \
+          || echo "::warning::Failed to dispatch ai-pr-loop-redispatch.yml; continuing"

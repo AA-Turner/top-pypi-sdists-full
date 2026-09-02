@@ -1,0 +1,88 @@
+[package]
+name = "guacr-database"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Database protocol handlers (MySQL, PostgreSQL, SQL Server, Oracle, SQLite, Redshift, MongoDB, Redis, Cassandra, Elasticsearch, DynamoDB, Generic ODBC) for guacr"
+
+[dependencies]
+# Local dependencies
+guacr-handlers = { path = "../guacr-handlers" }
+
+# Ratatui (TestBackend only - no crossterm/termion)
+ratatui = { version = "0.29", default-features = false }
+guacr-terminal = { path = "../guacr-terminal" }
+guacr-protocol = { path = "../guacr-protocol" }
+
+# Workspace dependencies
+tokio.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+log.workspace = true
+
+# KeeperDB — core types + the unified feature-gated driver registry.
+keeperdb-core.workspace = true
+keeperdb-drivers.workspace = true
+secrecy.workspace = true
+
+# NoSQL drivers (not covered by keeperdb)
+mongodb = { version = "3.1" }
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
+# DynamoDB (optional — off by default via the `dynamodb` feature). The AWS SDK pulls
+# rustls 0.21 + rustls-webpki 0.101.7; gating it keeps shipping builds on a single rustls 0.23.
+aws-sdk-dynamodb = { version = "1.54", optional = true }
+aws-config = { version = "1.5", features = ["behavior-version-latest"], optional = true }
+aws-types = { version = "1.3", optional = true }
+
+# Cassandra/ScyllaDB
+scylla = "0.14"
+
+# Generic ODBC access (covers DB2, SAP HANA, Teradata, Informix, Vertica, Greenplum, etc.)
+# Note: Requires unixODBC (Linux/macOS) or ODBC Driver Manager (Windows) at build and runtime.
+odbc-api = "20"
+
+# Elasticsearch (HTTP REST API)
+reqwest.workspace = true
+
+# TLS
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
+
+# Async utilities
+tokio-util = { version = "0.7", features = ["compat"] }
+futures-util = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Date/time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID support
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Hex encoding (for SQL Server binary data)
+hex = "0.4"
+
+# Image processing for spreadsheet view
+image = "0.25"
+
+# Utilities
+base64.workspace = true
+urlencoding = "2.1"
+
+# Lock primitives (no poisoning)
+parking_lot = "0.12"
+
+# Threat detection (optional)
+guacr-threat-detection = { path = "../guacr-threat-detection", optional = true }
+
+[features]
+default = []
+threat-detection = ["guacr-threat-detection"]
+# DynamoDB handler — off by default (AWS-only, deferred). Enabling pulls the AWS SDK, which
+# brings in rustls 0.21 + rustls-webpki 0.101.7. Keep disabled for shipping builds.
+dynamodb = ["dep:aws-sdk-dynamodb", "dep:aws-config", "dep:aws-types"]

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "localarena"
+version = "0.4.0"
+description = "Live multi-provider model evaluation with portable evidence and uncertainty"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Maziyar Panahi" },
+]
+keywords = ["arena", "evaluation", "leaderboard", "local-models", "task-packs"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.scripts]
+localarena = "localarena.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/maziyarpanahi/localarena"
+Repository = "https://github.com/maziyarpanahi/localarena"
+Issues = "https://github.com/maziyarpanahi/localarena/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/localarena"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/src",
+  "/tests",
+]

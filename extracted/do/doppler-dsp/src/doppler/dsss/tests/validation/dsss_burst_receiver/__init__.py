@@ -1,1 +1,0 @@
-"""Certification evidence for `DsssBurstReceiver`."""

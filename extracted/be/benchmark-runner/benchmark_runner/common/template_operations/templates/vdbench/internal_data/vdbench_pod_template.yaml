@@ -1,0 +1,192 @@
+{%- if cluster == "kubernetes" %}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: vdbench-pv
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: {{ storage }}
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vdbench-pod-pvc-claim
+  namespace: {{ namespace }}
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ storage }}
+{%- endif %}
+{%- if odf_pvc == True %}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  {% if scale -%}
+  name: vdbench-pod-pvc-claim-{{ scale }}
+  {%- else -%}
+  name: vdbench-pod-pvc-claim
+  {%- endif %}
+  namespace: {{ namespace }}
+spec:
+  storageClassName: ocs-storagecluster-ceph-rbd
+  accessModes: [ "ReadWriteOnce" ]
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ storage }}
+{%- endif %}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  {% if scale -%}
+  name: vdbench-{{ kind }}-{{ trunc_uuid }}-{{ scale }}
+  {%- else -%}
+  name: vdbench-{{ kind }}-{{ trunc_uuid }}
+  {%- endif %}
+  namespace: {{ namespace }}
+  annotations:
+    {%- if kind == 'kata' %}
+    io.katacontainers.config.hypervisor.virtio_fs_extra_args: '["-o","allow_direct_io"]'
+    {%- endif %}
+  labels:
+    {% if scale -%}
+    app: vdbench-{{ trunc_uuid }}-{{ scale }}
+    type: vdbench-{{ kind }}-{{ trunc_uuid }}-{{ scale }}
+    {%- else -%}
+    app: vdbench-{{ trunc_uuid }}
+    type: vdbench-{{ kind }}-{{ trunc_uuid }}
+    {%- endif %}
+    benchmark-uuid: {{ uuid }}
+    benchmark-runner-workload: vdbench
+spec:
+  {%- if cluster != "kubernetes" %}
+  selector:
+    matchLabels:
+      app: vdbench
+  {%- endif %}
+  {%- if cluster == "kubernetes" %}
+  volumes:
+    - name: vdbench-pod-vol
+      persistentVolumeClaim:
+        claimName: vdbench-pod-pvc-claim
+  {%- endif %}
+  {%- if pin_node1 or scale_node %}
+  nodeSelector:
+    {% if scale -%}
+    kubernetes.io/hostname: {{ scale_node }}
+    {%- else -%}
+    kubernetes.io/hostname: {{ pin_node1 }}
+    {%- endif %}
+  {%- endif %}
+  containers:
+    - name: vdbench-pod
+      image: {{ vdbench_image }}
+      imagePullPolicy: Always
+      resources:
+        requests:
+          cpu: {{ requests_cpu }}
+          memory: {{ requests_memory }}
+        limits:
+          cpu: {{ limits_cpu }}
+          memory: {{ limits_memory }}
+      {%- if cluster == "kubernetes" %}
+      volumeMounts:
+        - name: vdbench-pod-vol
+          mountPath: "/workload"
+      {%- endif %}
+      {%- if odf_pvc == True %}
+      volumeMounts:
+        {% if scale -%}
+        - name: vdbench-pod-pvc-claim-{{ scale }}
+        {%- else -%}
+        - name: vdbench-pod-pvc-claim
+        {%- endif %}
+          mountPath: "/workload"
+      {%- else %}
+      volumeMounts:
+        - name: vdbench-ephemeral-vol
+          mountPath: "/workload"
+      {%- endif %}
+      env:
+        - name: BLOCK_SIZES
+          value: "{{ BLOCK_SIZES }}"
+        - name: IO_OPERATION
+          value: "{{ IO_OPERATION }}"
+        - name: IO_THREADS
+          value: "{{ IO_THREADS }}"
+        - name: FILES_IO #How file IO will be done
+          value: "{{ FILES_IO }}"
+        - name: IO_RATE # an integer or "max"
+          value: "{{ IO_RATE }}"
+        - name: MIX_PRECENTAGE # used for mixed workload 0-100
+          value:
+        #global settings
+        - name: DURATION
+          value: "{{ DURATION }}"
+        - name: PAUSE #pause after every test in sec
+          value: "{{ PAUSE }}"
+        - name: WARMUP # warmup before any test in sec
+          value: "{{ WARMUP }}"
+        - name: FILES_SELECTION #This parameter allows you to select directories and files for processing either sequential/random
+          value: "{{ FILES_SELECTION }}"
+        - name: COMPRESSION_RATIO #ratio is 1:X e.g 2 = 50% compressible
+          value: "{{ COMPRESSION_RATIO }}"
+        - name: RUN_FILLUP # will it run a fillup before testing starts yes/no
+          value: "{{ RUN_FILLUP }}"
+        - name: LOGS_DIR # logs directory
+          value: "{{ LOGS_DIR }}"
+        #data set settings
+        - name: DIRECTORIES #how many directories to create
+          value: "{{ DIRECTORIES }}"
+        - name: FILES_PER_DIRECTORY
+          value: "{{ FILES_PER_DIRECTORY }}"
+        - name: SIZE_PER_FILE # size in MB
+          value: "{{ SIZE_PER_FILE }}"
+        - name: WORKLOAD_METHOD
+          value: "{{ WORKLOAD_METHOD }}"
+      command: ["/bin/bash"]
+      args: ["-c", "$WORKLOAD_METHOD"]
+  restartPolicy: "Never"
+  {%- if cluster != "kubernetes" and odf_pvc == True %}
+  spec:
+    pvc:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ storage }}
+          Reclaim Policy: Delete
+      storageClassName: ocs-storagecluster-ceph-rbd
+    source:
+      blank: {}
+  {%- endif %}
+  {%- if odf_pvc == True %}
+  volumes:
+    {% if scale -%}
+    - name: vdbench-pod-pvc-claim-{{ scale }}
+      namespace: {{ namespace }}
+      persistentVolumeClaim:
+        claimName: vdbench-pod-pvc-claim-{{ scale }}
+    {%- else -%}
+    - name: vdbench-pod-pvc-claim
+      namespace: {{ namespace }}
+      persistentVolumeClaim:
+        claimName: vdbench-pod-pvc-claim
+    {%- endif %}
+  {%- else %}
+  volumes:
+    - name: vdbench-ephemeral-vol
+      emptyDir: {}
+  {%- endif %}

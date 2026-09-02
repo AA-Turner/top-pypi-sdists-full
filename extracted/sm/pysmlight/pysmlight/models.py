@@ -1,0 +1,278 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+import re
+
+from mashumaro import DataClassDictMixin, field_options
+
+from .const import PERIPHERAL_MODELS, AmbiEffect, BleState, PppUSBState
+from .payload import Payload
+
+
+@dataclass
+class Firmware(DataClassDictMixin):
+    mode: str | None = None  # ESP|ZB|ESPs3
+    type: int | None = None
+    notes: str | None = None
+    rev: str | None = None
+    link: str | None = None
+    ver: str | None = None
+    dev: bool = False
+    prod: bool = False
+    baud: int | None = None
+
+    def __post_init__(self):
+        # zigbee firmware match key attributes
+        if self.baud is not None:
+            self.ver = self.rev
+            self.dev = not self.prod
+
+    def set_mode(self, mode):
+        self.mode = mode
+
+
+FirmwareList = list[Firmware] | None
+
+
+@dataclass
+class Radio(DataClassDictMixin):
+    chip_index: int | None = None
+    zb_channel: int | None = None
+    zb_flash_size: int | None = None
+    zb_hw: str | None = None
+    zb_ram_size: int | None = None
+    zb_version: str | None = None
+    zb_type: int | None = None  # enum (coordinator, router, thread)
+    radioModes: list[bool] | None = None
+
+
+@dataclass
+class BleFeatures(DataClassDictMixin):
+    ble_enabled: bool | None = None
+    proxy_enabled: bool | None = None
+
+
+@dataclass
+class Info(DataClassDictMixin):
+    addons: dict[str, bool] = field(default_factory=dict)
+    ble: BleFeatures | None = None
+    coord_mode: int | None = None  # Enum
+    device_ip: str | None = None
+    fs_total: int | None = None
+    fw_channel: str | None = None  # dev, beta or release
+    hostname: str | None = None
+    hw_version: str | None = None
+    legacy_api: int = 0
+    MAC: str | None = None
+    model: str | None = None
+    ram_total: int | None = None
+    psram_total: int | None = None
+    sw_version: str | None = None
+    u_device: bool | None = None
+    wifi_mode: int | None = None  # enum (off, client, AP etc)
+    radios: list[Radio] = field(default_factory=list)
+    zb_channel: int | None = None
+    zb_flash_size: int | None = None
+    zb_hw: str | None = None
+    zb_ram_size: int | None = None
+    zb_version: str | None = None
+    zb_type: int | None = None  # enum (coordinator, router, thread)
+
+    @classmethod
+    def load_payload(cls, payload: Payload) -> Info:
+        zb_version_val = int(payload.zb_version)
+        return cls(
+            device_ip=payload.device_ip,
+            legacy_api=payload.legacy_api,
+            MAC=payload.MAC,
+            model=payload.model,
+            fw_channel="release",
+            sw_version=payload.sw_version,
+            zb_hw=payload.zb_hw,
+            zb_version=None if zb_version_val == -1 else str(zb_version_val),
+        )
+
+    @property
+    def has_peripherals(self) -> bool:
+        """Return true if the device supports peripheral features (e.g. Ambilight, buzzer, IR)."""
+        return any(s in (self.model or "") for s in PERIPHERAL_MODELS)
+
+    def check_zb_version(self, radio: Radio) -> Radio:
+        if radio.zb_version is not None:
+            if radio.zb_version in (-1, "-1"):
+                radio.zb_channel = 2  # custom
+                radio.zb_version = None
+            else:
+                radio.zb_version = str(radio.zb_version)
+        return radio
+
+    def __post_init__(self) -> None:
+        if self.hw_version is not None:
+            try:
+                hw = int(self.hw_version)
+                self.hw_version = f"{hw // 100}.{hw % 100:02d}"
+            except ValueError:
+                pass
+
+        if self.model is not None:
+            self.model = self.model.replace("P", "p")
+            self.model = self.model.replace("MG", "Mg")
+
+            if self.u_device is None:
+                self.u_device = (
+                    self.model.endswith("U") or "ultima" in self.model.lower()
+                )
+
+            # Zwave is optional module for Ultima, remove radio instance if not present
+            if "Ultima" in self.model and not self.addons.get("zwave", False):
+                self.radios = self.radios[:2]
+
+        # Factory firmware may have invalid .plus suffix, convert to valid version
+        if self.sw_version:
+            if "plus" in self.sw_version:
+                self.sw_version = re.sub(
+                    r"\.plus(\d*)$",
+                    lambda m: f".{m.group(1) if m.group(1) else '1'}",
+                    self.sw_version,
+                )
+            elif self.sw_version.endswith(".dev"):
+                self.sw_version = f"{self.sw_version}0"
+
+        if not self.radios:
+            # construct radio object for backward compatibility (v2.5.0)
+            self.radios = [
+                Radio(
+                    chip_index=0,
+                    zb_channel=self.zb_channel,
+                    zb_flash_size=self.zb_flash_size,
+                    zb_hw=self.zb_hw,
+                    zb_ram_size=self.zb_ram_size,
+                    zb_version=self.zb_version,
+                    zb_type=self.zb_type,
+                )
+            ]
+
+        for r in self.radios:
+            self.check_zb_version(r)
+
+
+@dataclass
+class AmbilightPayload(DataClassDictMixin):
+    ultLedMode: AmbiEffect | None = None
+    ultLedColor: str | None = None
+    ultLedColor2: str | None = None
+    ultLedSpeed: int | None = None
+    ultLedBri: int | None = None
+    ultLedDir: int | None = None
+
+
+@dataclass
+class BleSession(DataClassDictMixin):
+    state: BleState | None = None
+    proxy_connected: bool | None = None
+
+
+@dataclass
+class Sensors(DataClassDictMixin):
+    esp32_temp: float | None = None
+    zb_temp: float | None = None
+    zb_temp2: float | None = None
+    uptime: int = 0
+    socket_uptime: int | None = None
+    socket_uptime2: int | None = field(
+        default=None, metadata=field_options(alias="socket2_uptime")
+    )
+    socket_uptime3: int | None = field(
+        default=None, metadata=field_options(alias="socket3_uptime")
+    )
+    otbr_uptime: int | None = None
+    ram_usage: int | None = None
+    psram_usage: int | None = None
+    fs_used: int | None = None
+    ethernet: bool = False
+    wifi_connected: bool = False
+    wifi_status: int | str | None = None  # enum (off, client, AP etc)
+    vpn_status: bool = False
+
+    # toggle states:
+    disable_leds: bool | None = None
+    night_mode: bool | None = None
+    auto_zigbee: bool | None = None
+    vpn_enabled: bool | None = None
+
+    ble: BleSession | None = None
+
+    # Ultima additional sensors:
+    ambilight: AmbilightPayload | None = None
+    lte_detect: bool | None = None
+    lte_state: PppUSBState | None = None
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "socket_uptime",
+            "socket_uptime2",
+            "socket_uptime3",
+            "otbr_uptime",
+        ):
+            value = getattr(self, field_name)
+            if value == 0:
+                setattr(self, field_name, None)
+
+
+@dataclass
+class SettingsEvent(DataClassDictMixin):
+    page: int | None = None
+    origin: str | None = None
+    needReboot: bool = False
+    setting: dict[str, bool | int] | None = None
+
+
+@dataclass
+class IRPayload(DataClassDictMixin):
+    code: str | None = None
+    freq: int | None = None
+
+    @classmethod
+    def from_raw_timings(cls, timings: list[int], freq: int | None = None) -> IRPayload:
+        """Create an IRPayload from raw pulse timings in microseconds."""
+        timings_hex: list[str] = []
+        for interval in timings:
+            ticks = int(interval / 50)
+            while ticks > 255:
+                timings_hex.extend(["ff", "00"])
+                ticks -= 255
+            timings_hex.append(f"{max(1, ticks):02x}")
+        freq_khz = round(freq / 1000) if freq else 38
+        return cls(code="".join(timings_hex), freq=freq_khz)
+
+    def to_raw_timings(self) -> list[int]:
+        """Convert IRPayload code to raw pulse timings in microseconds."""
+        if not self.code:
+            raise ValueError("IRPayload code is empty")
+
+        timings: list[int] = []
+        current_ticks = 0
+        skip_next = False
+
+        hex_pairs = [self.code[i : i + 2] for i in range(0, len(self.code), 2)]
+
+        for i, pair in enumerate(hex_pairs):
+            if skip_next:
+                skip_next = False
+                continue
+
+            ticks = int(pair, 16)
+
+            if ticks == 255 and i + 1 < len(hex_pairs) and hex_pairs[i + 1] == "00":
+                current_ticks += 255
+                skip_next = True
+            else:
+                timings.append((current_ticks + ticks) * 50)
+                current_ticks = 0
+
+        return timings
+
+
+@dataclass
+class BuzzerPayload(DataClassDictMixin):
+    code: str | None = None

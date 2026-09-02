@@ -1,3 +1,0 @@
-datastore:
-  # Use file datastore as a default for a default butler
-  cls: lsst.daf.butler.datastores.fileDatastore.FileDatastore

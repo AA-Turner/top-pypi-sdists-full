@@ -34,7 +34,6 @@ import unittest
 from typing import Any, cast
 
 import numpy
-from packaging.version import parse as parse_version
 
 import h5py
 import hdf5plugin
@@ -70,6 +69,7 @@ compression_name_to_class = {
     "sz": hdf5plugin.SZ,
     "sz3": hdf5plugin.SZ3,
     "zfp": hdf5plugin.Zfp,
+    "htj2k": hdf5plugin.Htj2k,
     "zstd": hdf5plugin.Zstd,
 }
 
@@ -321,6 +321,14 @@ class TestHDF5PluginRW(BaseTestHDF5PluginRW):
             with self.subTest(dtype=dtype):
                 self._test("fcidecomp", dtype=dtype)
 
+    @unittest.skipUnless(should_test("htj2k"), "HTJ2K filter not available")
+    def testHtj2k(self):
+        """Write/read test with htj2k filter plugin"""
+        # Test with supported datatypes
+        for dtype in (numpy.uint8, numpy.uint16, numpy.int8, numpy.int16):
+            with self.subTest(dtype=dtype):
+                self._test("htj2k", dtype=dtype)
+
     @unittest.skipUnless(should_test("sperr"), "Sperr filter not available")
     def testSperr(self):
         """Write/read test with Sperr filter plugin"""
@@ -435,8 +443,8 @@ class TestStrings(unittest.TestCase):
             numpy.array(["test", "strings", "ascii"] * N, dtype="S"),
             numpy.array([b"test", b"strings", b"binary"] * N, dtype="O"),
         ]
-        has_h5py_314 = parse_version(h5py.__version__) >= parse_version("3.14")
-        has_numpy_2 = parse_version(numpy.__version__) >= parse_version("2.0")
+        has_h5py_314 = h5py.version.version_tuple >= (3, 14)
+        has_numpy_2 = numpy.__version__.startswith("2.")
         if has_h5py_314 and has_numpy_2:
             self.string_arrays.append(
                 numpy.array(["test", "strings", "Crème brûlée"] * N, dtype="T")
@@ -494,13 +502,17 @@ class TestStrings(unittest.TestCase):
                 self.assertEqual(len(filters), 1)
                 self.assertEqual(filters[0][0], hdf5plugin.FILTERS[filter_name])
 
-    @unittest.skip(reason="segfault (#364)")
+    @unittest.skipIf(
+        h5py.version.hdf5_version_tuple < (2, 1, 0), "hdf5 v2.1.0 required"
+    )
     @unittest.skipUnless(should_test("blosc"), "Blosc filter not available")
     def testStringsBlosc(self):
         """Strings write/read test with blosc filter plugin"""
         self._test_strings("blosc")  # Default options
 
-    @unittest.skip(reason="segfault (#364)")
+    @unittest.skipIf(
+        h5py.version.hdf5_version_tuple < (2, 1, 0), "hdf5 v2.1.0 required"
+    )
     @unittest.skipUnless(should_test("blosc2"), "Blosc filter not available")
     def testStringsBlosc2(self):
         """Strings write/read test with blosc2 filter plugin"""
@@ -588,6 +600,13 @@ class TestFromFilterOptionsMethods(unittest.TestCase):
 
     def testFciDecomp(self):
         compression_filter = hdf5plugin.FciDecomp._from_filter_options((1, 2, 3))
+        self.assertEqual(compression_filter.filter_options, ())
+
+    def testHtj2k(self):
+        # (version, dtype, width, height, ncomps)
+        compression_filter = hdf5plugin.Htj2k._from_filter_options(
+            (1, 0x0002, 256, 256, 1)
+        )
         self.assertEqual(compression_filter.filter_options, ())
 
     def testLZ4(self):
@@ -777,6 +796,11 @@ class TestFromFilterOptionsRoundtrip(unittest.TestCase):
         data = numpy.arange(256**2, dtype=numpy.uint16).reshape(256, 256)
         self._test(hdf5plugin.FciDecomp(), data)
 
+    @unittest.skipUnless(should_test("htj2k"), "HTJ2K filter not available")
+    def testHtj2k(self):
+        data = numpy.arange(256**2, dtype=numpy.uint16).reshape(256, 256)
+        self._test(hdf5plugin.Htj2k(), data)
+
     @unittest.skipUnless(should_test("lz4"), "LZ4 filter not available")
     def testLZ4(self):
         data = numpy.arange(256**2, dtype=numpy.float32).reshape(256, 256)
@@ -925,8 +949,8 @@ class TestRegisterFilter(BaseTestHDF5PluginRW):
     """Test usage of the register function"""
 
     def _simple_test(self, filter_name: str):
-        if filter_name == "fcidecomp":
-            self._test("fcidecomp", dtype=numpy.uint8)
+        if filter_name in ("fcidecomp", "htj2k"):
+            self._test(filter_name, dtype=numpy.uint8)
         elif filter_name in ("sz", "zfp"):
             self._test(filter_name, dtype=numpy.float32, lossless=False)
         else:

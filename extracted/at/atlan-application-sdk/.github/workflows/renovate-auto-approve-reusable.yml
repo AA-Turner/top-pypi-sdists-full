@@ -1,0 +1,209 @@
+# .github/workflows/renovate-auto-approve-reusable.yml
+#
+# Reusable workflow: automatically post an atlan-ci code-owner approval on
+# Renovate dependency-only PRs once all required CI checks are green on the
+# current HEAD.
+#
+# All approval logic lives here so that atlan-*-app repos never copy it —
+# they carry only a thin caller that sets their workflow_run trigger and
+# passes event context as inputs.
+#
+# Inputs
+#   event_name  github.event_name from the caller ('workflow_run' or 'workflow_dispatch')
+#   head_sha    github.event.workflow_run.head_sha (empty for workflow_dispatch)
+#   pr_number   inputs.pr_number from the caller (empty for workflow_run)
+#
+# Why github.repository resolves correctly:
+#   In a reusable workflow, github.repository refers to the *calling* repository,
+#   not application-sdk. So REPO picks up the consumer's repo automatically.
+#
+# Why atlan-ci:
+#   atlan-ci is a regular GitHub User account listed in CODEOWNERS (the `*` rule).
+#   Running `gh pr review --approve` with GH_TOKEN set to ORG_PAT_GITHUB
+#   posts the review as atlan-ci, satisfying require_code_owner_review.
+#   GitHub Apps cannot be CODEOWNERS, so this one step deliberately keeps
+#   using the atlan-ci PAT rather than the atlan-app-fleet App token.
+#
+# Caller migration (fleet rollout in progress):
+#   Callers should use `secrets: inherit` rather than the old explicit
+#   `secrets: { org_pat: ${{ secrets.ORG_PAT_GITHUB }} }` — inherit makes both
+#   ORG_PAT_GITHUB (approval step, above) and FLEET_APP_ID/FLEET_APP_PRIVATE_KEY
+#   (dashboard-dispatch step, below) available with nothing else to configure.
+#   The `org_pat` secret input stays declared (optional) only until every
+#   atlan-*-app caller has migrated — remove it once the fleet rollout is done.
+#
+# Relationship to @sdk-review:
+#   Fully decoupled. This workflow uses the approval signature
+#   "**Renovate auto-approval:**". The sdk-review companion workflows only act
+#   on reviews starting with "**SDK reviewer's verdict:**" and will never touch
+#   approvals posted here. Human comments do not auto-dismiss this approval;
+#   freshness is guaranteed by the ruleset's dismiss_stale_reviews_on_push.
+#
+# Approval conditions (ALL must hold):
+#   1. PR author is a Renovate bot: atlan-app-fleet[bot] (self-hosted fleet
+#      runner) or renovate[bot] (Mend — still used by application-sdk itself)
+#   2. PR is open and not a draft
+#   3. Current HEAD SHA matches the evaluated SHA (race guard)
+#   4. Every changed file is under .github/, uv.lock, requirements.txt,
+#      pyproject.toml, the Pkl toolkit pin + lock (contract/PklProject[.deps.json]),
+#      or the regenerated contract artifacts (app/generated/**, atlan.yaml, app.yaml)
+#   5. All ruleset-required checks are green (gh pr checks --required exits 0)
+#   6. Renovate's own renovate/artifacts status is green — this is what stops a
+#      failed post-upgrade task from auto-merging
+#   7. atlan-ci has not already posted an APPROVED review with this signature
+#
+# Where that logic lives:
+#   .github/scripts/renovate_approval_conditions.py, unit-tested by
+#   .github/scripts/tests/test_renovate_approval_conditions.py — per
+#   docs/standards/ci.md, branching logic does not belong in a `run:` block
+#   because it cannot be regression-tested there. That matters more here than
+#   the line count suggests: this is the code-owner approval for every Renovate
+#   PR in the fleet, consumers pin it at @main, and a wrong condition does not
+#   fail loudly — it approves something it should not. The full rationale for
+#   each condition, and for the fail-closed defaults, is in that script's
+#   docstrings (FND-372).
+#
+# Trigger rationale lives in the caller — each consumer lists the workflow names
+# that produce its required status checks, which differ per repo.
+#
+# Push-based dashboard update:
+#   After every gate evaluation (approved or not), this workflow dispatches
+#   atlanhq/application-sdk/renovate-dashboard.yaml with the calling repo as
+#   input. This keeps the dashboard current within seconds of a PR state change
+#   rather than waiting up to 6h for the next cron. Non-critical — the cron
+#   provides fleet-wide coverage as a fallback if the dispatch fails. Uses a
+#   minted atlan-app-fleet token (isolated rate-limit budget) when available,
+#   falling back to the atlan-ci PAT chain otherwise.
+
+name: "Renovate auto-approve (reusable)"
+
+on:
+  workflow_call:
+    inputs:
+      event_name:
+        description: "github.event_name from the caller"
+        required: true
+        type: string
+      head_sha:
+        description: "github.event.workflow_run.head_sha (empty for workflow_dispatch)"
+        required: false
+        default: ""
+        type: string
+      pr_number:
+        description: "PR number for workflow_dispatch manual testing"
+        required: false
+        default: ""
+        type: string
+      extra_dep_file_pattern:
+        description: >
+          Optional extra ERE alternation of repo-specific dependency file paths
+          to treat as auto-approvable, appended to the built-in allowlist (which
+          already covers .github/ and lock/manifest/contract files). Each branch
+          is whole-path matched, so anchor to full workspace-relative paths,
+          e.g. 'packages/conformance/.../templates/.+\.ya?ml'. This is how a repo
+          declares its OWN dep-managed source paths without hard-coding any
+          app-specific path into this shared workflow. A pattern that does not
+          compile fails the step rather than widening the allowlist.
+        required: false
+        default: ""
+        type: string
+    secrets:
+      org_pat:
+        description: >
+          DEPRECATED — pass `secrets: inherit` instead so ORG_PAT_GITHUB and
+          FLEET_APP_ID/FLEET_APP_PRIVATE_KEY are picked up by their real names.
+          Kept optional only during the fleet rollout; remove once every
+          atlan-*-app caller has migrated off explicit named secrets.
+        required: false
+      ORG_PAT_GITHUB:
+        description: "PAT owned by atlan-ci with repo read + pull-request write access. Required for the approval step; available via secrets: inherit."
+        required: false
+      FLEET_APP_ID:
+        description: "atlan-app-fleet App ID (org secret). Used to mint a token for the (non-critical) dashboard-dispatch step; available via secrets: inherit."
+        required: false
+      FLEET_APP_PRIVATE_KEY:
+        description: "atlan-app-fleet App private key (org secret). Same availability as FLEET_APP_ID above."
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  renovate-auto-approve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Serialize concurrent runs for the same SHA so the idempotency check
+    # is reliable — two workflow completions for the same HEAD can't both
+    # pass the "no approval yet" guard in parallel.
+    concurrency:
+      group: renovate-auto-approve-${{ inputs.head_sha || inputs.pr_number }}
+      cancel-in-progress: false
+    steps:
+      # A `uses:` reusable workflow does NOT bring its own repo's files into the
+      # caller's checkout, so the consumer repo has no copy of the gate script.
+      # Same .sdk-scripts pattern as generated-freshness.yaml / release-version-bump.yaml
+      # (docs/standards/ci.md, "Reusing scripts from a reusable workflow").
+      # Nothing else is checked out: the gate reads the PR entirely through the
+      # API and never touches the consumer's working tree.
+      #
+      # `ref: main` is a literal on purpose. Do NOT replace it with
+      # `${{ github.job_workflow_sha }}` — that is documented as the commit of
+      # the reusable workflow file the caller resolved, which looks like exactly
+      # the right way to keep this script in step with this YAML, but it renders
+      # EMPTY (it is an OIDC claim, not a usable expression value). checkout then
+      # treats `ref` as unsupplied and takes the default branch, so the step goes
+      # green having fetched a different commit's script. See docs/standards/ci.md.
+      #
+      # Every caller pins this reusable at @main, so `main` is the matching ref.
+      # To pilot a change to the gate from a consumer repo, temporarily point both
+      # this ref and the caller's `uses:` at the branch, and revert before merge.
+      - name: Fetch approval-gate script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: atlanhq/application-sdk
+          ref: main
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+          path: .sdk-scripts
+
+      - name: Auto-approve if Renovate dep-only PR and all required checks are green
+        env:
+          # secrets.org_pat: old explicit-passthrough callers. secrets.ORG_PAT_GITHUB:
+          # new callers using `secrets: inherit`. Same credential either way.
+          GH_TOKEN: ${{ secrets.org_pat || secrets.ORG_PAT_GITHUB }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ inputs.event_name }}
+          RUN_SHA: ${{ inputs.head_sha }}
+          DISPATCH_PR: ${{ inputs.pr_number }}
+          EXTRA_DEP_PATTERN: ${{ inputs.extra_dep_file_pattern }}
+        run: python3 .sdk-scripts/.github/scripts/renovate_approval_conditions.py
+
+      - name: Mint fleet App token for dashboard dispatch
+        if: always()
+        id: app-token
+        continue-on-error: true # soft-fail: falls through to the PAT chain below
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          owner: atlanhq
+          repositories: application-sdk
+
+      - name: Trigger Renovate dashboard update
+        if: always()
+        env:
+          # Preferred: minted App token (isolated rate-limit budget, scoped to
+          # just application-sdk). Falls back to the PAT chain for callers not
+          # yet migrated to `secrets: inherit`, or if the mint step ever fails.
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.org_pat || secrets.ORG_PAT_GITHUB }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Push a fresh snapshot of this repo's Renovate PR state to the dashboard.
+          # Runs after every gate evaluation so the dashboard reflects current state
+          # within seconds — approved, blocked, or skipped. Non-critical: falls back
+          # to cron coverage if the dispatch fails (e.g. token lacks actions:write).
+          gh workflow run renovate-dashboard.yaml \
+            --repo atlanhq/application-sdk \
+            --field repo="${REPO}" \
+          || echo "::warning::Could not trigger renovate-dashboard.yaml in atlanhq/application-sdk — dashboard will sync on next scheduled run."

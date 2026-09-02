@@ -6,6 +6,7 @@ ACTION_DETAILS_PATH: str
 APPLICATION_VERSION_PATH: str
 APP_DEPLOYMENT_PATH: str
 ENV_ACTION_ID: str
+ENV_ACTION_ID_BARE: str
 ENV_ALLOW_PUBLISHED_VERSION: str
 ENV_API_BASE: str
 ENV_BUNDLE_REF: str
@@ -156,11 +157,15 @@ def resolve_action_id(env: Optional[Any[str, str]] = None, argv: Optional[Any[st
     """
     The action record id for this worker, if it can be determined locally.
     
-        Two sources, no I/O. ``$MATRICE_ACTION_ID`` first, because an operator setting it means it. Then
-        ``sys.argv``: py_compute launches every action container as
-        ``python3 <entrypoint>.py <action_record_id> <port>`` (``action_instance.py:2660``, ``:2703``),
-        so the id is the first argument that looks like an ObjectId. Matching on shape rather than
-        position keeps this from mistaking a port or a flag for an id.
+        Three sources, no I/O. ``$MATRICE_ACTION_ID`` first, because an operator setting it means it,
+        then ``$ACTION_ID`` -- the bare name the Go services and the ENV_ID_ACTIONS images read, and the
+        only one some py_compute launch paths emitted. Then ``sys.argv``: py_compute launches every
+        action container as ``python3 <entrypoint>.py <action_record_id> <port>``, so the id is the
+        first argument that looks like an ObjectId. Matching on shape rather than position keeps this
+        from mistaking a port or a flag for an id.
+    
+        A malformed value in either env var falls through rather than erroring, so a truncated id does
+        not mask a good one in argv.
     """
     ...
 def resolve_app_bundle_refs(post_processing_config: Any = None) -> Tuple[Any, ...]:

@@ -1,0 +1,208 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openbricks"
+# Version is baked by ``scripts/bump-version.py`` into
+# ``openbricks_dev/__init__.py::__version__``; the root ``VERSION``
+# file is the canonical source. ``dynamic`` tells setuptools to read
+# from the attribute, so this pyproject never needs editing for a
+# version bump.
+dynamic = ["version"]
+description = "openbricks — host-side CLI + MuJoCo-backed simulator for the openbricks MicroPython firmware. Flash, list, run, upload, log; ``openbricks sim`` for the physics simulator."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "openbricks contributors" }]
+keywords = [
+    "openbricks",
+    "micropython",
+    "robotics",
+    "esp32",
+    "ble",
+    "bluetooth",
+    "pybricks",
+    "lego",
+    "firmware",
+    "simulation",
+    "mujoco",
+    "wro",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Embedded Systems",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering",
+]
+# Core (CLI-only) dependencies. Users who don't need the physics sim
+# install just these — fast, no MuJoCo. The sim deps live under the
+# optional ``[sim]`` extra below.
+dependencies = [
+    # BLE scan + connect on macOS / Linux / Windows without vendor tools.
+    "bleak >= 0.22",
+    # ``servo-id`` talks Feetech SCS to a USB adapter directly.
+    # esptool already pulls pyserial in transitively; declared
+    # explicitly because we import ``serial`` ourselves.
+    "pyserial >= 3.5",
+    # (``markdown`` lived here until 1.64.0 — the pre-1.63 docs
+    # renderer needed it; ``openbricks docs`` now opens the bundled
+    # Sphinx site and imports nothing to do it.)
+    # Flashing ESP32 / ESP32-S3 images. esptool v5 (out for ~12
+    # months) renamed the binary (``esptool.py`` → ``esptool``) and
+    # switched commands to kebab-case (``write-flash`` etc.) — the
+    # legacy forms still work in v5 but print deprecation warnings
+    # on every invocation. We can't pin v5 as a floor because v5
+    # requires Python >= 3.10 and openbricks supports >= 3.9; so
+    # ``flash.py`` runtime-detects which binary is on PATH and
+    # picks command spelling accordingly.
+    "esptool >= 4.7",
+    # Serial REPL bridge used by ``flash`` after a write.
+    "mpremote >= 1.23",
+    # Ed25519 verification of firmware signatures (the
+    # official/customized label). Already in the tree transitively
+    # via esptool; declared because ``_signing`` imports it.
+    "cryptography >= 3.4",
+    # Host-side cross-compiler for ``run``/``upload`` staging. Pinned
+    # EXACTLY: the .mpy bytecode format must stay loadable by the
+    # firmware's pinned MicroPython (native/micropython @ v1.29
+    # preview, format 6). Bytecode-only .mpy checks only the major
+    # format version at load, so 1.28's compiler feeds 1.29 fine;
+    # tests/test_mpycompile.py canaries the header. Revisit this pin
+    # on every MicroPython submodule bump.
+    "mpy-cross == 1.28.0.post2",
+]
+
+[project.optional-dependencies]
+# ``pip install openbricks[sim]`` adds the MuJoCo physics simulator.
+# MuJoCo is ~50 MB with native OpenGL deps, so it's opt-in: most
+# users (flash + run + log) don't need it.
+sim = [
+    "mujoco >= 3.2",
+    "numpy >= 1.24",
+]
+dev = ["pytest", "coverage", "build"]
+
+[project.urls]
+Homepage      = "https://openbricks.dev"
+Documentation = "https://docs.openbricks.dev"
+Source        = "https://github.com/1e0ng/openbricks"
+Issues   = "https://github.com/1e0ng/openbricks/issues"
+Releases = "https://github.com/1e0ng/openbricks/releases"
+
+[project.scripts]
+# One unified entry point. ``openbricks sim …`` short-circuits to
+# ``openbricks_sim.cli`` when the [sim] extra is installed; otherwise
+# prints a "pip install openbricks[sim]" hint.
+openbricks = "openbricks_dev.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "openbricks_dev.__version__" }
+
+# Both the CLI module (``openbricks_dev``, kept as a Python module
+# name to avoid colliding with the firmware-side ``openbricks``
+# package on the hub) and the sim module ship in the same wheel.
+[tool.setuptools.packages.find]
+include = ["openbricks_dev*", "openbricks_sim*"]
+
+# Non-Python data inside the sim package — the WRO + practice
+# worlds. ``setuptools.packages.find`` only catches ``*.py``
+# files; without this stanza the world XMLs (and their PNG mat
+# textures + READMEs) wouldn't ship in the wheel and end users
+# would hit ``WorldLoadError: world file not found:
+# wro-2026-elementary`` even though the alias map knows about it.
+# This bug shipped in 0.10.3-0.10.5; the fix lands in 0.10.6.
+[tool.setuptools.package-data]
+# Offline manual for ``openbricks docs`` — one Sphinx-built archive,
+# synced into _docs/ by setup.py::_sync_docs; without this stanza the wheel
+# would ship the command but not the pages it reads.
+openbricks_dev = [
+    "_docs/offline-docs.zip",
+]
+openbricks_sim = [
+    "worlds/*/world.xml",
+    "worlds/*/mat.png",
+    "worlds/*/README.md",
+    # LDraw prop sources read at world-load time by ``world.py``'s
+    # ``<lego_prop>`` expansion. F2 introduced these and they were
+    # NOT in the original packaging — wheels 0.10.7-0.10.10 shipped
+    # without them and silently broke every WRO world on
+    # ``pip install``. Same shape of bug as the missing-worlds bug
+    # in 0.10.3-0.10.5 (PR #84), now caught by
+    # ``test_wheel_bundles_worlds.test_wheel_contains_ldr_props``.
+    "worlds/*/props/*.ldr",
+    # 3D-printed scenery meshes (currently just the Senior mosaic
+    # frame). MuJoCo loads them via ``<mesh file="..."/>`` at
+    # ``mj_makeData`` time, same lifecycle as ``mat.png``.
+    "worlds/*/*.stl",
+]
+
+# The ``openbricks_sim._native`` CPython extension is declared in
+# ``setup.py`` alongside this pyproject — see that shim's docstring
+# for why. Summary: setuptools' declarative ext-modules can't
+# handle source paths that reach *upward* in the repo (to the
+# shared ``native/user_c_modules/openbricks/*_core.c`` files), but
+# a setup.py that resolves them to absolute paths sidesteps the
+# issue.
+
+# ---------------------------------------------------------------------
+# cibuildwheel — produces the manylinux / macOS / Windows binary
+# wheels that PyPI accepts. Without these, ``pip install openbricks``
+# falls back to the sdist and recompiles ``openbricks_sim._native``
+# on the user's machine (slow, requires a C toolchain). With them,
+# install is a download + extract.
+#
+# Build matrix:
+#   * CPython 3.9-3.13 (matches the trove classifiers above).
+#   * Linux x86_64 manylinux_2_28 (CentOS 8 / glibc 2.28 baseline —
+#     covers Ubuntu 18.04+, Debian 10+, RHEL 8+).
+#   * macOS arm64 + x86_64 (universal2 wheel built on macos-latest).
+#   * Windows AMD64.
+#
+# Skipped (reason in parens):
+#   * PyPy (no asks; setuptools Extension would need extra config).
+#   * 32-bit (no asks; saves CI time).
+#   * musllinux (Alpine — straightforward to add later if asked).
+#   * linux aarch64 (would need QEMU emulation; ~10× slower; revisit
+#     when we have a Pi user).
+# ---------------------------------------------------------------------
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+skip = [
+    "*-musllinux*",
+    "*-manylinux_i686",
+    "*-win32",
+]
+# After each wheel builds, install it into a clean venv and import
+# the C extension. Catches a broken wheel at build time instead of
+# after publish.
+test-command = 'python -c "from openbricks_sim import _native; assert hasattr(_native, \"TrapezoidalProfile\"); print(_native.__file__)"'
+# Don't test the x86_64 slice of the universal2 macOS wheel. The arm64
+# runner would run that test under Rosetta (`arch -x86_64 pip install`),
+# and installing our deps pulls in `cryptography`, which ships only
+# arm64 macOS wheels — so the x86_64 install builds it from source and
+# fails on a missing OpenSSL. The wheel itself still builds fat (both
+# arches) and the native arm64 slice is still test-installed; we just
+# skip the cross-arch test that can't resolve its own dependencies.
+test-skip = "*_universal2:x86_64"
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux_2_28"
+
+[tool.cibuildwheel.macos]
+# Universal2 wheels (x86_64 + arm64 fat binaries) so one wheel
+# covers both Intel and Apple Silicon Macs.
+archs = ["universal2"]

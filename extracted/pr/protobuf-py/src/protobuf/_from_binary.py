@@ -17,6 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from typing_extensions import Buffer, assert_never
+
 from ._descriptors import (
     DescEnum,
     DescFieldValueEnum,
@@ -29,7 +31,6 @@ from ._descriptors import (
 )
 from ._enum import Enum
 from ._field_values import scalar_zero_value
-from ._typing import assert_never
 from ._wire._binary_reader import DEPTH_LIMIT, BinaryReader
 from ._wire._binary_writer import BinaryWriter
 from ._wire._wire_type import WireType
@@ -366,7 +367,7 @@ def _read_unknown_map_entry(
 
 
 def merge_from_binary(
-    message: Message, data: bytes, *, ignore_unknown_fields: bool = False
+    message: Message, data: Buffer, *, ignore_unknown_fields: bool = False
 ) -> None:
     """Parse serialized binary data, merging fields into an existing message.
 
@@ -380,7 +381,7 @@ def merge_from_binary(
 
     Args:
         message: The message instance to merge into.
-        data: Serialized binary protobuf data.
+        data: Serialized binary protobuf data. Must not be mutated during parsing.
         ignore_unknown_fields: If `True`, unknown fields in the binary data are silently discarded.
     """
     message._merge_from_binary(data, ignore_unknown_fields)

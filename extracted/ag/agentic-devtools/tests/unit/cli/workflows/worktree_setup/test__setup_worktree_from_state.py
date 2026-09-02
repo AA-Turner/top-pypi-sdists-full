@@ -1,0 +1,285 @@
+"""Tests for SetupWorktreeFromState."""
+
+from unittest.mock import patch
+
+import pytest
+
+
+class TestSetupWorktreeFromState:
+    """Tests for _setup_worktree_from_state function."""
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_reads_parameters_from_state(self, mock_get_value, mock_setup_sync):
+        """Test that parameters are read from state correctly."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-5678",
+            "worktree_setup.branch_prefix": "bugfix",
+            "worktree_setup.branch_name": "feature/PROJECT-5678/test",
+            "worktree_setup.use_existing_branch": "true",
+            "worktree_setup.workflow_name": "pull-request-review",
+            "worktree_setup.user_request": "Review this PR",
+            "worktree_setup.additional_params": '{"pr_id": "123"}',
+            "worktree_setup.auto_execute_command": None,
+            "worktree_setup.auto_execute_timeout": None,
+            "worktree_setup.interactive": None,
+            "worktree_setup.model": "gpt-4o",
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        mock_setup_sync.assert_called_once_with(
+            issue_key="PROJECT-5678",
+            branch_prefix="bugfix",
+            branch_name="feature/PROJECT-5678/test",
+            use_existing_branch=True,
+            workflow_name="pull-request-review",
+            user_request="Review this PR",
+            additional_params={"pr_id": "123"},
+            auto_execute_command=None,
+            auto_execute_timeout=60,
+            interactive=False,
+            model="gpt-4o",
+        )
+
+    @patch("agentic_devtools.state.get_value")
+    def test_raises_error_when_issue_key_missing(self, mock_get_value):
+        """Test that ValueError is raised when issue_key is missing."""
+        mock_get_value.return_value = None
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        with pytest.raises(ValueError, match="worktree_setup.issue_key not set"):
+            _setup_worktree_from_state()
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_handles_invalid_json_in_additional_params(self, mock_get_value, mock_setup_sync):
+        """Test that invalid JSON in additional_params is handled gracefully."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.branch_prefix": "feature",
+            "worktree_setup.branch_name": None,
+            "worktree_setup.use_existing_branch": "false",
+            "worktree_setup.workflow_name": "work-on-jira-issue",
+            "worktree_setup.user_request": None,
+            "worktree_setup.additional_params": "invalid json {",
+            "worktree_setup.auto_execute_command": None,
+            "worktree_setup.auto_execute_timeout": None,
+            "worktree_setup.interactive": None,
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        mock_setup_sync.assert_called_once()
+        call_kwargs = mock_setup_sync.call_args[1]
+        assert call_kwargs["additional_params"] is None
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_uses_default_values_when_not_set(self, mock_get_value, mock_setup_sync):
+        """Test that default values are used when state values are not set."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-9999",
+            "worktree_setup.branch_prefix": None,  # Should default to "feature"
+            "worktree_setup.branch_name": None,
+            "worktree_setup.use_existing_branch": None,  # Should default to False
+            "worktree_setup.workflow_name": None,  # Should default to "work-on-jira-issue"
+            "worktree_setup.user_request": None,
+            "worktree_setup.additional_params": None,
+            "worktree_setup.auto_execute_command": None,
+            "worktree_setup.auto_execute_timeout": None,
+            "worktree_setup.interactive": None,
+            "worktree_setup.model": None,
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        mock_setup_sync.assert_called_once_with(
+            issue_key="PROJECT-9999",
+            branch_prefix="feature",
+            branch_name=None,
+            use_existing_branch=False,
+            workflow_name="work-on-jira-issue",
+            user_request=None,
+            additional_params=None,
+            auto_execute_command=None,
+            auto_execute_timeout=60,
+            interactive=False,
+            model=None,
+        )
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_reads_auto_execute_command_from_state(self, mock_get_value, mock_setup_sync):
+        """Test that auto_execute_command is read from state as JSON list."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.branch_prefix": "feature",
+            "worktree_setup.branch_name": None,
+            "worktree_setup.use_existing_branch": None,
+            "worktree_setup.workflow_name": "pull-request-review",
+            "worktree_setup.user_request": None,
+            "worktree_setup.additional_params": None,
+            "worktree_setup.auto_execute_command": '["agdt-initiate-pull-request-review-workflow", "--pr-id", "42"]',
+            "worktree_setup.auto_execute_timeout": "120",
+            "worktree_setup.interactive": None,
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        call_kwargs = mock_setup_sync.call_args[1]
+        assert call_kwargs["auto_execute_command"] == ["agdt-initiate-pull-request-review-workflow", "--pr-id", "42"]
+        assert call_kwargs["auto_execute_timeout"] == 120
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_handles_invalid_json_in_auto_execute_command(self, mock_get_value, mock_setup_sync):
+        """Test that invalid JSON in auto_execute_command is handled gracefully."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.branch_prefix": "feature",
+            "worktree_setup.branch_name": None,
+            "worktree_setup.use_existing_branch": None,
+            "worktree_setup.workflow_name": "work-on-jira-issue",
+            "worktree_setup.user_request": None,
+            "worktree_setup.additional_params": None,
+            "worktree_setup.auto_execute_command": "not valid json [",
+            "worktree_setup.auto_execute_timeout": None,
+            "worktree_setup.interactive": None,
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        call_kwargs = mock_setup_sync.call_args[1]
+        assert call_kwargs["auto_execute_command"] is None
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_handles_invalid_int_in_auto_execute_timeout(self, mock_get_value, mock_setup_sync):
+        """Test that invalid integer in auto_execute_timeout defaults to 60."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.branch_prefix": "feature",
+            "worktree_setup.branch_name": None,
+            "worktree_setup.use_existing_branch": None,
+            "worktree_setup.workflow_name": "work-on-jira-issue",
+            "worktree_setup.user_request": None,
+            "worktree_setup.additional_params": None,
+            "worktree_setup.auto_execute_command": None,
+            "worktree_setup.auto_execute_timeout": "not-a-number",
+            "worktree_setup.interactive": None,
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        call_kwargs = mock_setup_sync.call_args[1]
+        assert call_kwargs["auto_execute_timeout"] == 60
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_passes_interactive_false_when_stored(self, mock_get_value, mock_setup_sync):
+        """Test that interactive=False is passed when state stores 'false'."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.branch_prefix": "feature",
+            "worktree_setup.branch_name": None,
+            "worktree_setup.use_existing_branch": None,
+            "worktree_setup.workflow_name": "pull-request-review",
+            "worktree_setup.user_request": None,
+            "worktree_setup.additional_params": None,
+            "worktree_setup.auto_execute_command": None,
+            "worktree_setup.auto_execute_timeout": None,
+            "worktree_setup.interactive": "false",
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        call_kwargs = mock_setup_sync.call_args[1]
+        assert call_kwargs["interactive"] is False
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_defaults_interactive_to_false_when_not_stored(self, mock_get_value, mock_setup_sync):
+        """Test that interactive defaults to False when not set in state."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.branch_prefix": "feature",
+            "worktree_setup.branch_name": None,
+            "worktree_setup.use_existing_branch": None,
+            "worktree_setup.workflow_name": "work-on-jira-issue",
+            "worktree_setup.user_request": None,
+            "worktree_setup.additional_params": None,
+            "worktree_setup.auto_execute_command": None,
+            "worktree_setup.auto_execute_timeout": None,
+            "worktree_setup.interactive": None,
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        call_kwargs = mock_setup_sync.call_args[1]
+        assert call_kwargs["interactive"] is False
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_normalizes_whitespace_only_model_to_none(self, mock_get_value, mock_setup_sync):
+        """Test that whitespace-only model from state is normalized to None."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.model": "   ",
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        call_kwargs = mock_setup_sync.call_args[1]
+        assert call_kwargs["model"] is None
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_normalizes_non_string_model_to_none(self, mock_get_value, mock_setup_sync):
+        """Test that non-string model from state is normalized to None."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.model": 42,
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        call_kwargs = mock_setup_sync.call_args[1]
+        assert call_kwargs["model"] is None
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_strips_model_whitespace(self, mock_get_value, mock_setup_sync):
+        """Test that leading/trailing whitespace is stripped from model."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.model": "  gpt-4o  ",
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        call_kwargs = mock_setup_sync.call_args[1]
+        assert call_kwargs["model"] == "gpt-4o"

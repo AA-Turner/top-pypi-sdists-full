@@ -1,0 +1,8 @@
+[project]
+name = "google-adk-python-agent"
+version = "0.1.0"
+description = "Minimal Google ADK agent (framework detection corpus)."
+requires-python = ">=3.10"
+dependencies = [
+    "google-adk>=1.0",
+]

@@ -454,6 +454,12 @@ def _collect_remotely_overridable(root: BaseSettings) -> dict[str, BaseSettings]
     return targets
 
 
+def adopt_remote_default(settings: BaseSettings, field: str, value: Any) -> None:
+    """Write a server-supplied default, unless local configuration already set the field."""
+    if field not in settings.model_fields_set:
+        setattr(settings, field, value)
+
+
 def apply_remote_defaults(root: BaseSettings, values: Mapping[str, bool | None]) -> dict[str, bool]:
     """Apply server-resolved defaults to the marked fields, returning the values that won.
 
@@ -475,8 +481,8 @@ def apply_remote_defaults(root: BaseSettings, values: Mapping[str, bool | None])
                 code=ErrorCode.WORKER_RUNTIME_CONFIG_ERROR,
                 message=f"Feature flag {field!r} has no field marked `RemotelyOverridable`",
             )
-        if value is not None and field not in settings.model_fields_set:
-            setattr(settings, field, value)
+        if value is not None:
+            adopt_remote_default(settings, field, value)
         effective[field] = bool(getattr(settings, field))
     return effective
 
@@ -490,6 +496,13 @@ class GraphConfig(BaseSettings):
     graph_summarise_enabled: bool = Field(
         default=True,
         description="If True, LLM summaries are generated for workflow graph nodes during upload.",
+    )
+    # Remotely defaulted like upload_graph: this runs a CST parse over customer
+    # source in customer-deployed workers, so it must be disableable without a
+    # customer redeploy. Never assign it in a validator.
+    dataflow_views_enabled: Annotated[bool, RemotelyOverridable()] = Field(
+        default=True,
+        description="If True, data-flow graph views are generated and uploaded alongside the control-flow view.",
     )
     graph_summarise_model: str = Field(
         default="mistral-small-latest",

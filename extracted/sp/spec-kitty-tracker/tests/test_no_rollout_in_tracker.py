@@ -88,9 +88,7 @@ def test_tracker_source_has_no_rollout_patterns() -> None:
             for pattern, description in FORBIDDEN_PATTERNS:
                 if pattern.search(line):
                     rel = py_file.relative_to(TRACKER_SRC.parent.parent)
-                    violations.append(
-                        f"  {rel}:{line_num}: {description}: {line.strip()}"
-                    )
+                    violations.append(f"  {rel}:{line_num}: {description}: {line.strip()}")
 
     assert not violations, (
         "Forbidden rollout / feature-flag patterns found in tracker source:\n"

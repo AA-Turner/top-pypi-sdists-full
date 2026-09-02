@@ -79,37 +79,33 @@ static int
 resize_lite(bitarrayobject *self, Py_ssize_t nbits)
 {
     const Py_ssize_t newsize = BYTES(nbits);
+    char *item;
 
     assert(self->allocated >= Py_SIZE(self));
     assert(self->readonly == 0);
     assert(self->ob_exports == 0);
     assert(self->buffer == NULL);
 
-    /* bypass everything when buffer size hasn't changed */
-    if (newsize == Py_SIZE(self)) {
-        self->nbits = nbits;
-        return 0;
-    }
+    if (newsize == Py_SIZE(self))
+        goto done;
 
     if (newsize == 0) {
         PyMem_Free(self->ob_item);
         self->ob_item = NULL;
         Py_SET_SIZE(self, 0);
         self->allocated = 0;
-        self->nbits = 0;
-        return 0;
+        goto done;
     }
 
-    self->ob_item = PyMem_Realloc(self->ob_item, newsize);
-    if (self->ob_item == NULL) {
-        Py_SET_SIZE(self, 0);
-        self->allocated = 0;
-        self->nbits = 0;
+    item = PyMem_Realloc(self->ob_item, newsize);
+    if (item == NULL) {
         PyErr_NoMemory();
         return -1;
     }
+    self->ob_item = item;
     Py_SET_SIZE(self, newsize);
     self->allocated = newsize;
+ done:
     self->nbits = nbits;
     return 0;
 }
@@ -172,6 +168,7 @@ count_n_lock_held(bitarrayobject *a, Py_ssize_t n, int vi)
     Py_ssize_t m;             /* popcount in each block */
 
     assert(0 <= n && n <= nbits);
+    assert(vi == 0 || vi == 1);
 
     /* by counting big blocks we save comparisons and updates */
 #define BLOCK_BITS  4096      /* block size: 4096 bits = 64 words */
@@ -333,7 +330,7 @@ ssqi(PyObject *module, PyObject *args)
     uint64_t limit, res;
     int mode = 1;
 
-    if (!PyArg_ParseTuple(args, "O!|i", bitarray_type,
+    if (!PyArg_ParseTuple(args, "O!|i:ssqi", bitarray_type,
                           (PyObject *) &a, &mode))
         return NULL;
 
@@ -976,17 +973,12 @@ digit_to_int(int m, char c)
 static int
 base_to_length(int n)
 {
-    int m = 0;
+    int m;
 
-    if (!n || n & (n - 1)) {
-        PyErr_SetString(PyExc_ValueError, "base must be a power of 2");
-        return -1;
+    for (m = 1; m <= 6; m++) {
+        if (n == 1 << m)
+            return m;
     }
-    while (n >>= 1)
-        m++;
-    if (1 <= m && m <= 6)
-        return m;
-
     PyErr_SetString(PyExc_ValueError, "base must be 2, 4, 8, 16, 32 or 64");
     return -1;
 }
@@ -1260,6 +1252,137 @@ byte_length(Py_ssize_t i)
     return n;
 }
 
+/* self[a:b] = 1 */
+static void
+set_span_1(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b)
+{
+    assert(0 <= a && a <= self->nbits);
+    assert(0 <= b && b <= self->nbits);
+    assert(self->readonly == 0);
+
+    if (b >= a + 8) {
+        const Py_ssize_t ca = BYTES(a);  /* char-range(ca, cb) */
+        const Py_ssize_t cb = b / 8;
+
+        assert(a + 8 > 8 * ca && 8 * cb + 8 > b);
+
+        set_span_1(self, a, 8 * ca);
+        memset(self->ob_item + ca, 0xff, (size_t) (cb - ca));
+        set_span_1(self, 8 * cb, b);
+    }
+    else {                               /* (bit-) range(a, b) */
+        while (a < b)
+            setbit(self, a++, 1);
+    }
+}
+
+/*************  ULEB128  (Unsigned Little Endian Base 128)  **************/
+
+/* Write ULEB128 representation of `i` to str and return number
+   of bytes written. */
+static int
+uleb128_encode(char *str, Py_ssize_t i)
+{
+    int len = 0;
+
+    assert(i >= 0);
+    while (i >= 0x80) {
+        /* 7 payload bits and continuation bit */
+        str[len++] = (char) ((i & 0x7f) | 0x80);
+        i >>= 7;
+    }
+    assert(i <= 0x7f);
+    str[len++] = (char) i;  /* no continuation bit */
+    return len;
+}
+
+/* Decode one ULEB128 integer from `iter` and return its value.
+   Return -1 on failure after setting an exception. */
+static Py_ssize_t
+uleb128_decode(PyObject *iter)
+{
+    Py_ssize_t i = 0;
+    int shift = 0;
+    int c;
+
+    assert(PyIter_Check(iter));
+    while (1) {
+        if ((c = next_char(iter)) < 0)
+            return -1;
+
+        if ((c & 0x7f) > (PY_SSIZE_T_MAX >> shift))
+            /* payload does not fit in the remaining bits */
+            goto overflow;
+
+        i |= ((Py_ssize_t) (c & 0x7f)) << shift;
+        if ((c & 0x80) == 0)
+            return i;
+
+        if (shift + 7 >= 8 * (int) sizeof(Py_ssize_t) - 1)
+            /* continuation would exceed the available bits */
+            goto overflow;
+
+        shift += 7;
+    }
+
+ overflow:
+    PyErr_SetString(PyExc_OverflowError,
+                    "ULEB128 value does not fit in Py_ssize_t");
+    return -1;
+}
+
+static PyObject *
+mod_uleb128_encode(PyObject *module, PyObject *obj)
+{
+    Py_ssize_t i;
+    char str[16];  /* buffer is large enough for PY_SSIZE_T_MAX */
+    int len;
+
+    i = PyNumber_AsSsize_t(obj, PyExc_OverflowError);
+    if (i == -1 && PyErr_Occurred())
+        return NULL;
+    if (i < 0) {
+        PyErr_SetString(PyExc_ValueError, "non-negative integer expected");
+        return NULL;
+    }
+
+    len = uleb128_encode(str, i);
+    assert(len <= 16);
+    return PyBytes_FromStringAndSize(str, len);
+}
+
+PyDoc_STRVAR(uleb128_encode_doc,
+"uleb128_encode(i, /) -> bytes\n\
+\n\
+Return the ULEB128 representation of non-negative integer `i`.");
+
+
+static PyObject *
+mod_uleb128_decode(PyObject *module, PyObject *obj)
+{
+    PyObject *iter;
+    Py_ssize_t i;
+
+    iter = PyObject_GetIter(obj);
+    if (iter == NULL)
+        return PyErr_Format(PyExc_TypeError, "'%s' object is not iterable",
+                            Py_TYPE(obj)->tp_name);
+
+    i = uleb128_decode(iter);
+    Py_DECREF(iter);
+    if (i < 0)
+        return NULL;
+
+    return PyLong_FromSsize_t(i);
+}
+
+PyDoc_STRVAR(uleb128_decode_doc,
+"uleb128_decode(stream, /) -> int\n\
+\n\
+Decode one ULEB128 integer from a binary stream (an integer iterator,\n\
+or bytes-like object).  The remaining stream is left untouched.");
+
+
 /***********************  sparse bitarray compression  *****************
  *
  * see also: doc/sparse_compression.rst
@@ -1290,8 +1413,8 @@ byte_length(Py_ssize_t i)
    SEGSIZE must also be divisible by the word size sizeof(uint64_t) = 8. */
 #define SEGSIZE  32
 
-/* number of segments for given bitarray */
-#define NSEG(self)  ((Py_SIZE(self) + SEGSIZE - 1) / SEGSIZE)
+/* number of segments for given bitarray `a` */
+#define NSEG(a)  ((Py_SIZE(a) + SEGSIZE - 1) / SEGSIZE)
 
 /* Calculate an array with the running totals (rts) for 256 bit segments.
    Note that we call these "segments", as opposed to "blocks", in order to
@@ -1305,18 +1428,18 @@ byte_length(Py_ssize_t i)
    +-----------+-----------+-----------+-----------+
    0           5           5           8          12   running totals, rts[i]
 
-   In this example we have a bitarray of length nbits = 987.  Note that:
+   In this example we have a bitarray 'a' of length nbits = 987.  Note that:
 
-     * The number of segments is given by NSEG(self).
-       Here we have 4 segments: NSEG(self) = 4
+     * The number of segments is given by NSEG(a).
+       Here we have 4 segments: NSEG(a) = 4
 
-     * The rts array has always NSEG(self) + 1 elements, such that
-       last element is always indexed by NSEG(self).
+     * The rts array has always NSEG(a) + 1 elements, such that
+       last element is always indexed by NSEG(a).
 
      * The element rts[0] is always zero.
 
-     * The last element rts[NSEG(self)] is always the total count.
-       Here: rts[NSEG(self)] = rts[4] = 12
+     * The last element rts[NSEG(a)] is always the total count.
+       Here: rts[NSEG(a)] = rts[4] = 12
 
      * The last segment may be partial.  In that case, its size is given
        by nbits % 256.  Here: nbits % 256 = 987 % 256 = 219
@@ -1364,6 +1487,33 @@ sc_rts(bitarrayobject *a)
     return res;
 }
 
+/* Return the last populated segment, or -1 when the population is zero.
+
+   For the example above, the last populated segment is 3, because:
+
+       rts[3 + 1] - rts[3] = 12 - 8 = 4 > 0
+ */
+static Py_ssize_t
+sc_last_pop_seg(const Py_ssize_t *rts, Py_ssize_t nseg)
+{
+    const Py_ssize_t total = rts[nseg];
+    Py_ssize_t lo = 0, hi = nseg;
+
+    if (total == 0)
+        return -1;
+
+    /* Find the largest index i for which rts[i] < total. */
+    while (lo < hi) {
+        Py_ssize_t mid = (hi + lo + 1) / 2;
+
+        if (rts[mid] < total)
+            lo = mid;
+        else
+            hi = mid - 1;
+    }
+    return lo;
+}
+
 /* expose sc_rts() to Python during debug mode for testing */
 #ifndef NDEBUG
 static PyObject *
@@ -1371,7 +1521,7 @@ module_sc_rts(PyObject *module, PyObject *obj)
 {
     PyObject *list;
     bitarrayobject *a;
-    Py_ssize_t *rts, nseg, i;
+    Py_ssize_t *rts, nseg, last, i;
 
     assert(bitarray_Check(obj));
     a = (bitarrayobject *) obj;
@@ -1394,8 +1544,9 @@ module_sc_rts(PyObject *module, PyObject *obj)
             goto error;
         PyList_SET_ITEM(list, i, item);
     }
+    last = sc_last_pop_seg(rts, nseg);
     PyMem_Free(rts);
-    return list;
+    return Py_BuildValue("Nn", list, last);
  error:
     Py_XDECREF(list);
     PyMem_Free(rts);
@@ -1407,7 +1558,7 @@ module_sc_rts(PyObject *module, PyObject *obj)
 /* Return population count for the decoded block size of type n.
    Roughly equivalent to the Python expression:
 
-      a.count(1, 8 * offset, 8 * offset + (1 << (8 * n)))
+      a[8 * offset : 8 * offset + (1 << (8 * n))].count()
 
    The offset must be divisible by SEGSIZE, as this function makes use of
    running totals, stored in rts[].
@@ -1415,12 +1566,12 @@ module_sc_rts(PyObject *module, PyObject *obj)
 static Py_ssize_t
 sc_count(bitarrayobject *a, Py_ssize_t *rts, Py_ssize_t offset, int n)
 {
-    const Py_ssize_t i = offset / SEGSIZE;     /* indices into rts[] */
-    const Py_ssize_t j = Py_MIN(i + BSI(n) / SEGSIZE, NSEG(a));
+    const Py_ssize_t start = offset / SEGSIZE;  /* indices into rts[] */
+    const Py_ssize_t stop = Py_MIN(start + BSI(n) / SEGSIZE, NSEG(a));
 
     assert(offset % SEGSIZE == 0 && 1 <= n && n <= 4);
-    assert(0 <= i && i <= j && j <= NSEG(a));
-    return rts[j] - rts[i];
+    assert(0 <= start && start <= stop && stop <= NSEG(a));
+    return rts[stop] - rts[start];
 }
 
 /* Write a raw block, and return number of bytes copied.
@@ -1456,12 +1607,7 @@ sc_write_raw(char *str, bitarrayobject *a, Py_ssize_t *rts, Py_ssize_t offset)
     return (int) k;
 }
 
-/* Write 'k' indices (of 'n' bytes each) into buffer 'str'.
-   Note that 'n' (which is also the block type) has been selected
-   (in sc_encode_block()) such that:
-
-       k = sc_count(a, rts, offset, n) < 256
-*/
+/* Write `k` indices (of `n` bytes each) into buffer `str`. */
 static void
 sc_write_indices(char *str, bitarrayobject *a, Py_ssize_t *rts,
                  Py_ssize_t offset, int n, int k)
@@ -1469,47 +1615,36 @@ sc_write_indices(char *str, bitarrayobject *a, Py_ssize_t *rts,
     const char *buff = a->ob_item + offset;
     Py_ssize_t m;
 
-    assert(0 < k && k < 256);  /* note that k cannot be 0 in this function */
-    assert(k == sc_count(a, rts, offset, n));   /* see above */
+    assert(0 <= k && k < 256);
+    assert(k == sc_count(a, rts, offset, n));
 
-    rts += offset / SEGSIZE;   /* rts index relative to offset now */
+    rts += offset / SEGSIZE;
 
-    for (m = 0;;) {  /* loop segments */
-        Py_ssize_t i, ni;
+    /* loop segments in this block */
+    for (m = 0; k; m++) {
+        Py_ssize_t ni = rts[m + 1] - rts[m];  /* segment population */
+        Py_ssize_t i;
 
-        assert(m + offset / SEGSIZE < NSEG(a));
-        /* number of indices in this segment, i.e. the segment population */
-        ni = rts[m + 1] - rts[m];
-        if (ni == 0)
-            goto next_segment;
-
-        for (i = m * SEGSIZE;; i++) {  /* loop bytes in segment */
+        assert(0 <= ni && ni <= k);
+        k -= (int) ni;
+        /* loop bytes in this segment */
+        for (i = m * SEGSIZE; ni; i++) {
             int j;
 
-            assert(i < (m + 1) * SEGSIZE && i + offset < Py_SIZE(a));
             if (buff[i] == 0x00)
                 continue;
 
-            for (j = 0; j < 8; j++) {  /* loop bits */
-                assert(8 * (offset + i) + j < a->nbits);
+            for (j = 0; j < 8 && ni; j++) {
                 if (buff[i] & BITMASK(a, j)) {
                     write_n(str, n, 8 * i + j);
                     str += n;
-                    if (--k == 0)
-                        /* we have encountered all indices in this block */
-                        return;
-
-                    if (--ni == 0)
-                        /* we have encountered all indices in this segment */
-                        goto next_segment;
+                    ni--;
                 }
             }
         }
-        Py_UNREACHABLE();
-    next_segment:
-        m++;
+        assert(ni == 0);
     }
-    Py_UNREACHABLE();
+    assert(k == 0);
 }
 
 /* Write a sparse block of type 'n' with 'k' indices.
@@ -1523,6 +1658,7 @@ sc_write_sparse(char *str, bitarrayobject *a, Py_ssize_t *rts,
 
     assert(1 <= n && n <= 4);
     assert(0 <= k && k < 256);
+    assert(k == sc_count(a, rts, offset, n));
 
     /* write block header */
     if (n == 1) {                        /* type 1 - one header byte */
@@ -1533,10 +1669,10 @@ sc_write_sparse(char *str, bitarrayobject *a, Py_ssize_t *rts,
         str[len++] = (char) (0xc0 + n);  /* block type */
         str[len++] = (char) k;           /* index count */
     }
-    if (k == 0)  /* no index bytes to write */
+    if (k == 0)  /* shortcut: skip index-writing setup */
         return len;
 
-    /* write block data - k indices, n bytes per index */
+    /* write block data: k indices, n bytes per index */
     sc_write_indices(str + len, a, rts, offset, n, k);
     return len + n * k;
 }
@@ -1578,7 +1714,8 @@ sc_write_sparse(char *str, bitarrayobject *a, Py_ssize_t *rts,
 
          Regardless of the exact index count for each block, the total size
          of the index bytes is (n * population), as all blocks are of type n.
-         The number_of_blocks is 256 (unless limited by the bitarray size).
+         The number_of_blocks is the number of type-n blocks needed to reach
+         the last populated segment, capped at 256.
          The header_size is only 1 byte for type 1 and 2 bytes otherwise.
 
      (b) The encoded size of a single block of type n+1 is:
@@ -1598,7 +1735,8 @@ sc_write_sparse(char *str, bitarrayobject *a, Py_ssize_t *rts,
  */
 static Py_ssize_t
 sc_encode_block(char *str, Py_ssize_t *len,
-                bitarrayobject *a, Py_ssize_t *rts, Py_ssize_t offset)
+                bitarrayobject *a, Py_ssize_t *rts, Py_ssize_t last_pop_seg,
+                Py_ssize_t offset)
 {
     const Py_ssize_t nbytes = Py_SIZE(a) - offset;  /* remaining bytes */
     int count, n;
@@ -1623,7 +1761,8 @@ sc_encode_block(char *str, Py_ssize_t *len,
             break;
 
         /* number of blocks of type n */
-        nblocks = Py_MIN(256, (nbytes - 1) / BSI(n) + 1);
+        nblocks = (last_pop_seg * SEGSIZE - offset) / BSI(n) + 1;
+        nblocks = Py_MIN(256, nblocks);
         /* cost of nblocks blocks of type n */
         cost_a = ((n == 1) ? 1 : 2) * nblocks;
         /* cost of a single block of type n+1 */
@@ -1662,27 +1801,27 @@ sc_encode_header(char *str, bitarrayobject *a)
    The lock for `a` must be held by the caller.  The output may be resized,
    so `out` is passed as `PyObject **` to propagate a possibly changed
    pointer back to the caller.
-   Return encoded length (bytes written into `out`), or -1 on error. */
+   Return encoded length (bytes written into `*out`), or -1 on error. */
 static Py_ssize_t
 sc_encode_lock_held(bitarrayobject *a, PyObject **out)
 {
-    char *str;                  /* output buffer */
-    Py_ssize_t len = 0;         /* bytes written into output buffer */
-    Py_ssize_t offset = 0;      /* block offset into bitarray a in bytes */
-    Py_ssize_t *rts;            /* running totals of segments */
-    Py_ssize_t total;           /* total population count of bitarray */
+    char *str;              /* output buffer */
+    Py_ssize_t len = 0;     /* bytes written into output buffer */
+    Py_ssize_t offset = 0;  /* block offset into bitarray a in bytes */
+    Py_ssize_t *rts;        /* running totals of segments */
+    Py_ssize_t last;        /* last populated segment */
+
+    assert(PyBytes_Check(*out));
 
     set_padbits(a);
     if ((rts = sc_rts(a)) == NULL)
         return -1;
+    last = sc_last_pop_seg(rts, NSEG(a));
 
     str = PyBytes_AS_STRING(*out);
     len += sc_encode_header(str, a);
-
-    total = rts[NSEG(a)];
-    /* encode blocks as long as we haven't reached the end of the bitarray
-       and haven't reached the total population count yet */
-    while (offset < Py_SIZE(a) && rts[offset / SEGSIZE] != total) {
+    /* encode blocks through the last populated segment */
+    while (offset <= last * SEGSIZE) {
         Py_ssize_t allocated = PyBytes_GET_SIZE(*out);
 
         /* Make sure we have enough memory in output buffer for next block.
@@ -1696,7 +1835,7 @@ sc_encode_lock_held(bitarrayobject *a, PyObject **out)
             }
             str = PyBytes_AS_STRING(*out);
         }
-        offset += sc_encode_block(str, &len, a, rts, offset);
+        offset += sc_encode_block(str, &len, a, rts, last, offset);
     }
     PyMem_Free(rts);
     str[len++] = 0x00;          /* add stop byte */
@@ -1727,8 +1866,6 @@ sc_encode(PyObject *module, PyObject *obj)
     }
     return out;
 }
-
-#undef ALLOC_SIZE
 
 PyDoc_STRVAR(sc_encode_doc,
 "sc_encode(bitarray, /) -> bytes\n\
@@ -1816,8 +1953,8 @@ sc_read_sparse(bitarrayobject *a, Py_ssize_t offset, PyObject *iter,
     return BSI(n);
 }
 
-/* Decode one block: consume iter and set bitarray buffer starting at
-   offset.  Return decoded block size, or -1 on failure. */
+/* Consume iter and set bitarray buffer starting at offset.
+   Return size of offset increment in bytes, or -1 on failure. */
 static Py_ssize_t
 sc_decode_block(bitarrayobject *a, Py_ssize_t offset, PyObject *iter)
 {
@@ -1896,18 +2033,224 @@ untouched.  Use `sc_encode()` for compressing (encoding).");
 #undef BSI
 #undef NSEG
 
+/* --------------------------- run-length codec ------------------------ */
+
+static Py_ssize_t
+rl_find(bitarrayobject *a, int vi, Py_ssize_t start)
+{
+    PyObject *res;
+    Py_ssize_t index;
+
+    assert(vi == 0 || vi == 1);
+    assert(0 <= start && start <= a->nbits);
+
+    /* bitarray.find(a, vi, start) */
+    res = PyObject_CallMethod((PyObject *) bitarray_type, "find", "Oin",
+                              (PyObject *) a, vi, start);
+    if (res == NULL)
+        return -1;
+
+    index = PyLong_AsSsize_t(res);
+    Py_DECREF(res);
+    return index;
+}
+
+/* Encode bitarray `a` into the bytes object referenced by `*out`.
+   The lock for `a` must be held by the caller.
+   Return encoded length, or -1 on error. */
+static Py_ssize_t
+rl_encode_lock_held(bitarrayobject *a, PyObject **out)
+{
+    char *str;                          /* output buffer */
+    Py_ssize_t len = 0;                 /* bytes written into output buffer */
+    Py_ssize_t start = 0;               /* start index */
+    int vi = a->nbits && getbit(a, 0);  /* current bit value */
+
+    str = PyBytes_AS_STRING(*out);
+
+    /* write RL header */
+    str[len++] = (char) '0' + vi;                /* first bit */
+    len += uleb128_encode(str + len, a->nbits);  /* nbits */
+
+    while (start < a->nbits) {
+        Py_ssize_t allocated = PyBytes_GET_SIZE(*out);
+        Py_ssize_t stop = rl_find(a, !vi, start);
+
+        if (stop < 0) {
+            if (PyErr_Occurred())
+                return -1;
+            stop = a->nbits;
+        }
+
+        if (allocated - 10 < len) {
+            if (allocated > PY_SSIZE_T_MAX - ALLOC_SIZE) {
+                PyErr_SetString(PyExc_OverflowError,
+                                "run-length encoding too large");
+                return -1;
+            }
+            if (_PyBytes_Resize(out, allocated + ALLOC_SIZE) < 0)
+                return -1;
+            str = PyBytes_AS_STRING(*out);
+        }
+
+        assert(start < stop && stop <= a->nbits);
+        len += uleb128_encode(str + len, stop - start);
+
+        start = stop;
+        vi = !vi;
+    }
+
+    return len;
+}
+
+static PyObject *
+rl_encode(PyObject *module, PyObject *obj)
+{
+    PyObject *out;   /* bytes object to be returned */
+    Py_ssize_t len;  /* bytes written into output bytes buffer */
+
+    if (ensure_bitarray(obj) < 0)
+        return NULL;
+
+    out = PyBytes_FromStringAndSize(NULL, ALLOC_SIZE);
+    if (out == NULL)
+        return NULL;
+
+    Py_BEGIN_CRITICAL_SECTION(obj);
+    len = rl_encode_lock_held((bitarrayobject *) obj, &out);
+    Py_END_CRITICAL_SECTION();
+
+    if (len < 0 || _PyBytes_Resize(&out, len) < 0) {
+        Py_XDECREF(out);
+        return NULL;
+    }
+    return out;
+}
+
+#undef ALLOC_SIZE
+
+PyDoc_STRVAR(rl_encode_doc,
+"rl_encode(bitarray, /) -> bytes\n\
+\n\
+Return the run-length encoded binary representation of a bitarray.\n\
+This representation may be useful for bitarrays with long runs of\n\
+identical bits.  Use `rl_decode()` for decoding.");
+
+static int
+rl_decode_header(PyObject *iter, Py_ssize_t *nbits, int *vi)
+{
+    int c;
+
+    if ((c = next_char(iter)) < 0)
+        return -1;
+    if (c != '0' && c != '1') {
+        PyErr_Format(PyExc_ValueError, "invalid first bit: 0x%02x", c);
+        return -1;
+    }
+    *vi = c - '0';
+
+    if ((*nbits = uleb128_decode(iter)) < 0)
+        return -1;
+
+    return 0;
+}
+
+static int
+rl_decode_core(bitarrayobject *a, PyObject *iter, int vi)
+{
+    const Py_ssize_t nbits = a->nbits;
+    Py_ssize_t i = 0;           /* current index */
+    Py_ssize_t n;
+
+    assert(PyIter_Check(iter));
+    assert(vi == 0 || vi == 1);
+
+    while (i < nbits) {
+        if ((n = uleb128_decode(iter)) < 0)
+            return -1;
+
+        if (n == 0) {
+            PyErr_SetString(PyExc_ValueError, "run length cannot be zero");
+            return -1;
+        }
+
+        if (n > nbits - i) {
+            PyErr_Format(PyExc_ValueError,
+                         "run length %zd exceeds remaining length %zd",
+                         n, nbits - i);
+            return -1;
+        }
+        if (vi)
+            set_span_1(a, i, i + n);
+
+        i += n;
+        vi = !vi;
+    }
+    return 0;
+}
+
+static PyObject *
+rl_decode(PyObject *module, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = {"", "endian", NULL};
+    PyObject *obj, *iter, *endian = Py_None;
+    bitarrayobject *a = NULL;
+    Py_ssize_t nbits;
+    int vi;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O:rl_decode", kwlist,
+                                     &obj, &endian))
+        return NULL;
+
+    iter = PyObject_GetIter(obj);
+    if (iter == NULL)
+        return PyErr_Format(PyExc_TypeError, "'%s' object is not iterable",
+                            Py_TYPE(obj)->tp_name);
+
+    if (rl_decode_header(iter, &nbits, &vi) < 0)
+        goto error;
+
+    a = new_bitarray(nbits, endian, 0);
+    if (a == NULL)
+        goto error;
+
+    if (rl_decode_core(a, iter, vi) < 0)
+        goto error;
+
+    Py_DECREF(iter);
+    return (PyObject *) a;
+
+ error:
+    Py_DECREF(iter);
+    Py_XDECREF((PyObject *) a);
+    return NULL;
+}
+
+PyDoc_STRVAR(rl_decode_doc,
+"rl_decode(stream, /, endian=None) -> bitarray\n\
+\n\
+Decode a run-length encoded bitarray from a binary stream (an integer\n\
+iterator, or bytes-like object), and return the decoded bitarray.\n\
+This function consumes only one bitarray and leaves the remaining stream\n\
+untouched.  Use `rl_encode()` for encoding.");
+
+
 /* ------------------- variable length bitarray format ----------------- */
 
-/* LEN_PAD_BITS is always 3 - the number of bits (length) that is necessary
-   to represent the number of pad bits.  The number of padding bits itself is
-   called 'padding' below.
+/* LEN_PAD_BITS is the number of bits in the head byte used to encode
+   'padding': the number of unused payload bits in the final encoded byte.
+   This format padding is unrelated to the pad bits in the bitarray's final
+   storage byte.  For example, b'\x10' has padding = 1 and decodes to
+   bitarray('000'), which has 5 pad bits.
 
-   'padding' refers to the pad bits within the variable length format.
-   This is not the same as the pad bits of the actual bitarray.
-   For example, b'\x10' has padding = 1, and decodes to bitarray('000'),
-   which has 5 pad bits.  'padding' can take values up to 6.
+   The variable 'padding' can range from 0 to 6.  A value of 7 is not
+   allowed, as the final byte would then contribute no payload bits.
+   In single-byte encodings, 'padding' is limited to 4, the number of
+   payload bits in the head byte; b'\x40' therefore represents an empty
+   bitarray.
  */
 #define LEN_PAD_BITS  3
+#define HEAD_WIDTH  (7 - LEN_PAD_BITS)
 
 /* initial number of bits we allocate in vl_decode(), and amount by which
    we increase the allocation in vl_decode_core() */
@@ -1918,31 +2261,31 @@ untouched.  Use `sc_encode()` for compressing (encoding).");
 static int
 vl_decode_core(bitarrayobject *a, PyObject *iter)
 {
-    Py_ssize_t i = 0;        /* bit counter */
+    Py_ssize_t i = 0;      /* index of next output bit */
     int padding, k, c;
 
-    if ((c = next_char(iter)) < 0)           /* head byte */
+    if ((c = next_char(iter)) < 0)        /* head byte */
         return -1;
 
-    padding = (c & 0x70) >> 4;
-    if (padding == 7 || ((c & 0x80) == 0 && padding > 4)) {
+    padding = (c & 0x70) >> HEAD_WIDTH;
+    if (padding > ((c & 0x80) ? 6 : HEAD_WIDTH)) {
         PyErr_Format(PyExc_ValueError, "invalid head byte: 0x%02x", c);
         return -1;
     }
-    for (k = 0; k < 4; k++)
-        setbit(a, i++, (0x08 >> k) & c);
+    for (k = 0; k < HEAD_WIDTH; k++, i++)
+        setbit(a, i, (0x08 >> k) & c);
 
     while (c & 0x80) {
         if ((c = next_char(iter)) < 0)
             return -1;
 
         /* ensure bitarray is large enough to accommodate seven more bits */
-        if (a->nbits < i + 7 && resize_lite(a, a->nbits + ALLOC_BITS) < 0)
+        if (i + 7 > a->nbits && resize_lite(a, a->nbits + ALLOC_BITS) < 0)
             return -1;
         assert(i + 6 < a->nbits);
 
-        for (k = 0; k < 7; k++)
-            setbit(a, i++, (0x40 >> k) & c);
+        for (k = 0; k < 7; k++, i++)
+            setbit(a, i, (0x40 >> k) & c);
     }
     /* set final length of bitarray */
     return resize_lite(a, i - padding);
@@ -1992,38 +2335,39 @@ leaves the remaining stream untouched.  Use `vl_encode()` for encoding.");
 static PyObject *
 vl_encode_lock_held(bitarrayobject *a)
 {
+    const Py_ssize_t nbits = a->nbits;
+    const int r = (int) (nbits % 7);
+    const Py_ssize_t nbytes = nbits / 7 + 1 + (r > HEAD_WIDTH);
+    const int padding = (HEAD_WIDTH - r + 7) % 7;
     PyObject *bytes;
-    Py_ssize_t nbits, n, i, j = 0;  /* j: byte counter */
-    int padding;
+    Py_ssize_t i = 0, j;
     char *str;
 
-    nbits = a->nbits;
-    n = (nbits + LEN_PAD_BITS + 6) / 7;  /* number of resulting bytes */
-    padding = (int) (7 * n - LEN_PAD_BITS - nbits);
+    assert(nbytes >= 1);
+    assert(0 <= padding && padding <= (nbytes == 1 ? 4 : 6));
 
-    bytes = PyBytes_FromStringAndSize(NULL, n);
+    bytes = PyBytes_FromStringAndSize(NULL, nbytes);
     if (bytes == NULL)
         return NULL;
 
-    str = PyBytes_AsString(bytes);
-    str[0] = (nbits > 4) ? 0x80 : 0x00;  /* lead bit */
-    str[0] |= padding << 4;              /* encode padding */
-    for (i = 0; i < 4 && i < nbits; i++)
-        str[0] |= (0x08 >> i) * getbit(a, i);
+    str = PyBytes_AS_STRING(bytes);
 
-    for (i = 4; i < nbits; i++) {
-        int k = (i - 4) % 7;
+    for (j = 0; j < nbytes; j++) {
+        const int width = j ? 7 : HEAD_WIDTH;
+        int k;
 
-        if (k == 0) {
-            j++;
-            str[j] = (j < n - 1) ? 0x80 : 0x00;  /* lead bit */
-        }
-        str[j] |= (0x40 >> k) * getbit(a, i);
+        str[j] = (j < nbytes - 1) ? 0x80 : 0x00;  /* continuation bit */
+
+        for (k = width - 1; k >= 0 && i < nbits; k--, i++)
+            str[j] |= getbit(a, i) << k;
     }
-    assert(j == n - 1);
-
+    str[0] |= padding << HEAD_WIDTH;  /* add padding to first byte */
+    assert(i == nbits);
     return bytes;
 }
+
+#undef LEN_PAD_BITS
+#undef HEAD_WIDTH
 
 static PyObject *
 vl_encode(PyObject *module, PyObject *obj)
@@ -2047,7 +2391,6 @@ Return variable length binary representation of bitarray.\n\
 This representation is useful for efficiently storing small bitarray\n\
 in a binary stream.  Use `vl_decode()` for decoding.");
 
-#undef LEN_PAD_BITS
 
 /* ----------------------- canonical Huffman decoder ------------------- */
 
@@ -2277,7 +2620,6 @@ static PyTypeObject CHDI_Type = {
 /* ---------- module functions exposed in debug mode for testing ------- */
 
 #ifndef NDEBUG
-
 static PyObject *
 module_setup_table(PyObject *module, PyObject *obj)
 {
@@ -2312,6 +2654,17 @@ module_zlw(PyObject *module, PyObject *obj)
     res->endian = endian;
     memcpy(res->ob_item, &w, 8);
     return (PyObject *) res;
+}
+
+static PyObject *
+module_adjust_slice(PyObject *module, PyObject *args)
+{
+    Py_ssize_t length, slicelength, start, stop, step;
+
+    if (!PyArg_ParseTuple(args, "nnnn", &length, &start, &stop, &step))
+        return NULL;
+    slicelength = adjust_slice(length, &start, &stop, &step);
+    return Py_BuildValue("nnnn", slicelength, start, stop, step);
 }
 
 static PyObject *
@@ -2372,7 +2725,6 @@ module_write_n(PyObject *module, PyObject *args)
     write_n(str, n, i);
     return res;
 }
-
 #endif  /* NDEBUG */
 
 
@@ -2383,8 +2735,7 @@ static PyMethodDef module_functions[] = {
                                            METH_VARARGS, ones_doc},
     {"count_n",   (PyCFunction) count_n,   METH_VARARGS, count_n_doc},
     {"parity",    (PyCFunction) parity,    METH_O,       parity_doc},
-    {"_ssqi",     (PyCFunction) ssqi,      METH_VARARGS, 0},
-    {"xor_indices", (PyCFunction) xor_indices, METH_O,       xor_indices_doc},
+    {"xor_indices", (PyCFunction) xor_indices, METH_O,   xor_indices_doc},
     {"count_and", (PyCFunction) count_and, METH_VARARGS, count_and_doc},
     {"count_or",  (PyCFunction) count_or,  METH_VARARGS, count_or_doc},
     {"count_xor", (PyCFunction) count_xor, METH_VARARGS, count_xor_doc},
@@ -2404,6 +2755,9 @@ static PyMethodDef module_functions[] = {
                                            METH_VARARGS, ba2base_doc},
     {"base2ba",   (PyCFunction) base2ba,   METH_KEYWORDS |
                                            METH_VARARGS, base2ba_doc},
+    {"rl_encode", (PyCFunction) rl_encode, METH_O,       rl_encode_doc},
+    {"rl_decode", (PyCFunction) rl_decode, METH_KEYWORDS |
+                                           METH_VARARGS, rl_decode_doc},
     {"sc_encode", (PyCFunction) sc_encode, METH_O,       sc_encode_doc},
     {"sc_decode", (PyCFunction) sc_decode, METH_O,       sc_decode_doc},
     {"vl_encode", (PyCFunction) vl_encode, METH_O,       vl_encode_doc},
@@ -2412,18 +2766,26 @@ static PyMethodDef module_functions[] = {
     {"canonical_decode",
                   (PyCFunction) chdi_new,  METH_VARARGS, chdi_doc},
 
+    /* The following functions are private */
+    {"ssqi",           (PyCFunction) ssqi,               METH_VARARGS, 0},
+    {"uleb128_encode", (PyCFunction) mod_uleb128_encode, METH_O,
+     uleb128_encode_doc},
+    {"uleb128_decode", (PyCFunction) mod_uleb128_decode, METH_O,
+     uleb128_decode_doc},
+
 #ifndef NDEBUG
     /* functions exposed in debug mode for testing */
-    {"_setup_table", (PyCFunction) module_setup_table, METH_O,       0},
-    {"_zlw",         (PyCFunction) module_zlw,         METH_O,       0},
-    {"_cfw",         (PyCFunction) module_cfw,         METH_VARARGS, 0},
-    {"_d2i",         (PyCFunction) module_d2i,         METH_VARARGS, 0},
-    {"_read_n",      (PyCFunction) module_read_n,      METH_VARARGS, 0},
-    {"_write_n",     (PyCFunction) module_write_n,     METH_VARARGS, 0},
-    {"_sc_rts",      (PyCFunction) module_sc_rts,      METH_O,       0},
+    {"_setup_table",  (PyCFunction) module_setup_table,  METH_O,       0},
+    {"_zlw",          (PyCFunction) module_zlw,          METH_O,       0},
+    {"_adjust_slice", (PyCFunction) module_adjust_slice, METH_VARARGS, 0},
+    {"_cfw",          (PyCFunction) module_cfw,          METH_VARARGS, 0},
+    {"_d2i",          (PyCFunction) module_d2i,          METH_VARARGS, 0},
+    {"_read_n",       (PyCFunction) module_read_n,       METH_VARARGS, 0},
+    {"_write_n",      (PyCFunction) module_write_n,      METH_VARARGS, 0},
+    {"_sc_rts",       (PyCFunction) module_sc_rts,       METH_O,       0},
 #endif
 
-    {NULL,        NULL}  /* sentinel */
+    {NULL}  /* sentinel */
 };
 
 /******************************* Install Module ***************************/

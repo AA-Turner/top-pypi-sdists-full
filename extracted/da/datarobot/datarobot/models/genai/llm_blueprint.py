@@ -199,19 +199,19 @@ class LLMBlueprint(APIObject):
         The LLM settings for the LLM blueprint. The specific keys allowed and the
         constraints on the values are defined in the response from `LLMDefinition.list`
         but this typically has dict fields:
-        - system_prompt - The system prompt that tells the LLM how to behave.
-        - max_completion_length - The maximum number of tokens in the completion.
-        - temperature - Controls the variability in the LLM response.
-        - top_p - Whether the model considers next tokens with top_p probability mass.
+        - ``system_prompt``: The system prompt that tells the LLM how to behave.
+        - ``max_completion_length``: The maximum number of tokens in the completion.
+        - ``temperature``: Controls the variability in the LLM response.
+        - ``top_p``: Whether the model considers next tokens with ``top_p`` probability mass.
         Or
-        - system_prompt - The system prompt that tells the LLM how to behave.
-        - validation_id - The ID of the external model LLM validation.
-        - external_llm_context_size - The external LLM's context size, in tokens,
+        - ``system_prompt``: The system prompt that tells the LLM how to behave.
+        - ``validation_id``: The ID of the external model LLM validation.
+        - ``external_llm_context_size``: The context size of the external LLM, in tokens,
         for external model LLM blueprints.
         Or
-        - custom_model_id - The ID of the custom model.
-        - custom_model_version_id - The ID of the version of the custom model.
-        - system_prompt - The system prompt that tells the LLM how to behave.
+        - ``custom_model_id``: The ID of the custom model.
+        - ``custom_model_version_id``: The ID of the version of the custom model.
+        - ``system_prompt``: The system prompt that tells the LLM how to behave.
     creation_date : str
         The date the playground was created.
     creation_user_id : str
@@ -238,7 +238,7 @@ class LLMBlueprint(APIObject):
     vector_database_error_resolution : str or None
         The resolution for the vector database error, if any, associated with the LLM blueprint.
     custom_model_llm_validation_status : str or None
-        The status of the custom model LLM validation if the llm_id is 'custom-model'.
+        The status of the custom model LLM validation if the ``llm_id`` is 'custom-model'.
     custom_model_llm_error_message : str or None
         The error message for the custom model LLM, if any.
     custom_model_llm_error_resolution : str or None
@@ -342,18 +342,18 @@ class LLMBlueprint(APIObject):
             The LLM settings for the LLM blueprint. The specific keys allowed and the
             constraints on the values are defined in the response from `LLMDefinition.list`
             but this typically has dict fields:
-            - system_prompt - The system prompt that tells the LLM how to behave.
-            - max_completion_length - The maximum number of tokens in the completion.
-            - temperature - Controls the variability in the LLM response.
-            - top_p - Whether the model considers next tokens with top_p probability mass.
+            - ``system_prompt``: The system prompt that tells the LLM how to behave.
+            - ``max_completion_length``: The maximum number of tokens in the completion.
+            - ``temperature``: Controls the variability in the LLM response.
+            - ``top_p``: Whether the model considers next tokens with ``top_p`` probability mass.
             Or
-            - system_prompt - The system prompt that tells the LLM how to behave.
-            - validation_id - The ID of the custom model LLM validation
+            - ``system_prompt``: The system prompt that tells the LLM how to behave.
+            - ``validation_id``: The ID of the custom model LLM validation
             for custom model LLM blueprints.
             Or
-            - custom_model_id - The ID of the custom model.
-            - custom_model_version_id - The ID of the version of the custom model.
-            - system_prompt - The system prompt that tells the LLM how to behave.
+            - ``custom_model_id``: The ID of the custom model.
+            - ``custom_model_version_id``: The ID of the version of the custom model.
+            - ``system_prompt``: The system prompt that tells the LLM how to behave.
         vector_database: VectorDatabase, str, or None, optional
             The vector database to use with this LLM blueprint, either
             `VectorDatabase` or vector database ID.
@@ -445,9 +445,9 @@ class LLMBlueprint(APIObject):
         sort: Optional[str] = None,
     ) -> List[LLMBlueprint]:
         """
-        Lists all LLM blueprints available to the user. If the playground is specified, then the
+        Returns a list of all LLM blueprints available to the user. If the playground is specified, then the
         results are restricted to the LLM blueprints associated with the playground. If the
-        LLMs are specified, then the results are restricted to the LLM blueprints using those
+        ``LLMs`` are specified, then the results are restricted to the LLM blueprints using those
         LLM types. If `vector_databases` are specified, then the results are restricted to the
         LLM blueprints using those vector databases.
 
@@ -463,9 +463,9 @@ class LLMBlueprint(APIObject):
             The returned LLM blueprints are filtered to those associated with the vector databases
             specified. Accepts either the entity or the ID.
         is_saved: Optional[bool], optional
-            The returned LLM blueprints are filtered to those matching is_saved.
+            The returned LLM blueprints are filtered to those matching ``is_saved``.
         is_starred: Optional[bool], optional
-            The returned LLM blueprints are filtered to those matching is_starred.
+            The returned LLM blueprints are filtered to those matching ``is_starred``.
         sort : Optional[str]
             Property to sort LLM blueprints by.
             Prefix the attribute name with a dash to sort in descending order,
@@ -522,18 +522,18 @@ class LLMBlueprint(APIObject):
             The new LLM settings for the LLM blueprint. These must match the `LLMSettings`
             returned from the `LLMDefinition.list` method for the LLM type used for this
             LLM blueprint but this typically has dict fields:
-            - system_prompt - The system prompt that tells the LLM how to behave.
-            - max_completion_length - The maximum number of tokens in the completion.
-            - temperature - Controls the variability in the LLM response.
-            - top_p - Whether the model considers next tokens with top_p probability mass.
+            - ``system_prompt``: The system prompt that tells the LLM how to behave.
+            - ``max_completion_length``: The maximum number of tokens in the completion.
+            - ``temperature``: Controls the variability in the LLM response.
+            - ``top_p``: Whether the model considers next tokens with ``top_p`` probability mass.
             Or
-            - system_prompt - The system prompt that tells the LLM how to behave.
-            - validation_id - The ID of the custom model LLM validation
+            - ``system_prompt``: The system prompt that tells the LLM how to behave.
+            - ``validation_id``: The ID of the custom model LLM validation
             for custom model LLM blueprints.
             Or
-            - custom_model_id - The ID of the custom model.
-            - custom_model_version_id - The ID of the version of the custom model.
-            - system_prompt - The system prompt that tells the LLM how to behave.
+            - ``custom_model_id``: The ID of the custom model.
+            - ``custom_model_version_id``: The ID of the version of the custom model.
+            - ``system_prompt``: The system prompt that tells the LLM how to behave.
         vector_database: Optional[Union[VectorDatabase, str]], optional
             The new vector database for the LLM blueprint.
         vector_database_settings: Optional[VectorDatabaseSettings], optional

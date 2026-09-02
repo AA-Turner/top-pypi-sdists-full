@@ -1,0 +1,64 @@
+Metadata-Version: 2.4
+Name: SURE-tools
+Version: 4.18.20
+Summary: Succinct Representation of Single Cells
+Home-page: https://github.com/ZengFLab/SURE
+Author: Feng Zeng
+Author-email: zengfeng@xmu.edu.cn
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: dill==0.3.8
+Requires-Dist: scanpy
+Requires-Dist: pytorch-ignite
+Requires-Dist: datatable
+Requires-Dist: scipy
+Requires-Dist: numpy
+Requires-Dist: scikit-learn
+Requires-Dist: pandas
+Requires-Dist: pyro-ppl
+Requires-Dist: jax[cuda12]
+Requires-Dist: leidenalg
+Requires-Dist: python-igraph
+Requires-Dist: networkx
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: fa2-modified
+Requires-Dist: zuko
+Requires-Dist: plotly
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# SURE: SUccinct REpresentation of cells
+ SURE implements a discrete latent state model with normalizing flow encoder for exact estimation of cellular populations. 
+
+
+## Installation
+1. Create a virtual environment
+```bash
+conda create -n SURE python=3.10 scipy numpy pandas scikit-learn && conda activate SURE
+```
+
+2. Install [PyTorch](https://pytorch.org/get-started/locally/) following the official instruction. 
+```bash
+pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+```
+
+3. Install SURE
+```bash
+pip3 install SURE-tools
+```
+
+
+

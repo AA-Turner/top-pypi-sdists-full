@@ -101,7 +101,7 @@ class OtelMetricValue(APIObject):
     end_time: datetime
         End time of the metric value period.
     values: List[OtelMetricBucketValue]
-        List of metric bucket values.
+        A list of metric bucket values.
     """
 
     _path = "otel/{}/{}/metrics/valuesOverTime/"
@@ -142,14 +142,14 @@ class OtelMetricValue(APIObject):
         start_time: Optional[datetime | date | str] = None,
         end_time: Optional[datetime | date | str] = None,
     ) -> List[OtelMetricValue]:
-        """List OpenTelemetry metric buckets with values.
+        """Returns a list of OpenTelemetry metric buckets with values.
 
         .. versionadded:: v3.9
 
         Parameters
         ----------
         entity_type: str
-            The entity type of the reported metrics (e.g., deployment, or use_case).
+            The entity type of the reported metrics (e.g., deployment or ``use_case``).
         entity_id: str
             The entity ID of the reported metrics (e.g., `123456`).
         resolution: OtelMetricResolution

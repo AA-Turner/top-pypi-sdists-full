@@ -63,8 +63,7 @@ def validate_workspace_contract(workspace: DiscoveredWorkspace) -> None:
         return  # provider_context is allowed to be None
     if not isinstance(ctx, dict):
         raise DiscoveryContractError(
-            f"workspace.provider_context must be dict or None, "
-            f"got {type(ctx).__name__}",
+            f"workspace.provider_context must be dict or None, got {type(ctx).__name__}",
             provider=provider,
             kind="workspace",
             field_path="provider_context",
@@ -80,8 +79,7 @@ def validate_workspace_contract(workspace: DiscoveredWorkspace) -> None:
         )
     if "workspace_handle" in ctx and not _is_optional_str(ctx["workspace_handle"]):
         raise DiscoveryContractError(
-            f"workspace_handle must be str | None, "
-            f"got {type(ctx['workspace_handle']).__name__}",
+            f"workspace_handle must be str | None, got {type(ctx['workspace_handle']).__name__}",
             provider=provider,
             kind="workspace",
             field_path="provider_context.workspace_handle",
@@ -89,8 +87,7 @@ def validate_workspace_contract(workspace: DiscoveredWorkspace) -> None:
         )
     if "workspace_url" in ctx and not _is_optional_str(ctx["workspace_url"]):
         raise DiscoveryContractError(
-            f"workspace_url must be str | None, "
-            f"got {type(ctx['workspace_url']).__name__}",
+            f"workspace_url must be str | None, got {type(ctx['workspace_url']).__name__}",
             provider=provider,
             kind="workspace",
             field_path="provider_context.workspace_url",
@@ -108,13 +105,9 @@ def validate_resource_contract(resource: DiscoveredResource) -> None:
     _require_non_empty_str(
         resource.parent_workspace_id, provider, "resource", "parent_workspace_id", "RS-002"
     )
-    _require_non_empty_str(
-        resource.resource_type, provider, "resource", "resource_type", "RS-003"
-    )
+    _require_non_empty_str(resource.resource_type, provider, "resource", "resource_type", "RS-003")
     _require_non_empty_str(resource.stable_ref, provider, "resource", "stable_ref", "RS-004")
-    _require_non_empty_str(
-        resource.display_name, provider, "resource", "display_name", "RS-005"
-    )
+    _require_non_empty_str(resource.display_name, provider, "resource", "display_name", "RS-005")
 
     cp = resource.connector_params
     if not isinstance(cp, dict):
@@ -228,8 +221,7 @@ def _require_non_empty_str(
 ) -> None:
     if not isinstance(value, str) or not value:
         raise DiscoveryContractError(
-            f"{kind}.{field_path} must be a non-empty str, "
-            f"got {type(value).__name__} ({value!r})",
+            f"{kind}.{field_path} must be a non-empty str, got {type(value).__name__} ({value!r})",
             provider=provider,
             kind=kind,
             field_path=field_path,

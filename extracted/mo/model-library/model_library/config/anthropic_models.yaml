@@ -1,0 +1,345 @@
+base-config:
+  supports_rate_limit_monitoring: true
+  company: Anthropic
+  country: United States
+  open_source: false
+  supports:
+    images: true
+    files: true
+    tools: true
+    temperature: true
+    output_schema: true
+  properties:
+    reasoning_model: false
+  costs_per_million_token:
+    cache:
+      read_discount: 0.1
+      write_markup: 1.25
+    batch:
+      input_discount: 0.5
+      output_discount: 0.5
+  documentation_url: https://docs.claude.com/en/docs/about-claude/models/overview
+  default_parameters:
+    temperature: 1
+
+claude-fable-5-models:
+  anthropic/claude-fable-5:
+    label: Claude Fable 5
+    release_date: 2026-06-09
+    properties:
+      context_window: 1_000_000
+      max_tokens: 128_000
+      reasoning_model: true
+    costs_per_million_token:
+      input: 10.0
+      output: 50.0
+      cache:
+        read: 1.0
+        write: 12.5
+    supports_rate_limit_monitoring: false
+    provider_properties:
+      supports_auto_thinking: true
+      supports_compute_effort: true
+      fallback_models:
+        - claude-opus-4-8
+    default_parameters:
+      max_tokens: 128_000
+      compute_effort: "max"
+    alternative_keys:
+      - anthropic/claude-fable-5-high:
+          label: Claude Fable 5 (High Effort)
+          default_parameters:
+            compute_effort: "high"
+      - anthropic/claude-fable-5-no-fallback:
+          label: Claude Fable 5 (No Fallback)
+          provider_properties:
+            fallback_models: []
+claude-opus-5-models:
+  anthropic/claude-opus-5:
+    label: Claude Opus 5
+    release_date: 2026-07-22
+    provider_endpoint: claude-opus-5
+    properties:
+      context_window: 1_000_000
+      max_tokens: 128_000
+      reasoning_model: true
+    costs_per_million_token:
+      input: 5.0
+      output: 25.0
+      cache:
+        read: 0.5
+        write: 6.25
+    provider_properties:
+      supports_auto_thinking: true
+      supports_compute_effort: true
+      fallback_models:
+        - claude-opus-4-8
+    default_parameters:
+      max_tokens: 128_000
+      compute_effort: "max"
+    alternative_keys:
+      - anthropic/claude-opus-5-low:
+          label: Claude Opus 5 (Low Effort)
+          default_parameters:
+            compute_effort: "low"
+      - anthropic/claude-opus-5-medium:
+          label: Claude Opus 5 (Medium Effort)
+          default_parameters:
+            compute_effort: "medium"
+      - anthropic/claude-opus-5-high:
+          label: Claude Opus 5 (High Effort)
+          default_parameters:
+            compute_effort: "high"
+      - anthropic/claude-opus-5-xhigh:
+          label: Claude Opus 5 (Extra High Effort)
+          default_parameters:
+            compute_effort: "xhigh"
+      - anthropic/claude-opus-5-max:
+          label: Claude Opus 5 (Max Effort)
+          default_parameters:
+            compute_effort: "max"
+      - anthropic/claude-opus-5-no-fallback:
+          label: Claude Opus 5 (No Fallback)
+          provider_properties:
+            fallback_models: []
+      - anthropic/claude-opus-5-resumable:
+          label: Claude Opus 5 (Max Effort, Resumable Turns)
+          provider_properties:
+            returns_thinking_truncated_turns: true
+      - anthropic/claude-opus-5-task-budget:
+          label: Claude Opus 5 (Max Effort, Task Budget)
+          provider_properties:
+            task_budget_tokens: 500_000
+            returns_thinking_truncated_turns: true
+
+claude-opus-4-8-models:
+  anthropic/claude-opus-4-8:
+    label: Claude Opus 4.8
+    release_date: 2026-05-28
+    properties:
+      context_window: 1_000_000
+      max_tokens: 128_000
+      reasoning_model: true
+    costs_per_million_token:
+      input: 5.0
+      output: 25.0
+      cache:
+        read: 0.5
+        write: 6.25
+    provider_properties:
+      supports_auto_thinking: true
+      supports_compute_effort: true
+    default_parameters:
+      max_tokens: 128_000
+      compute_effort: "max"
+    alternative_keys:
+      - anthropic/claude-opus-4-8-high:
+          label: Claude Opus 4.8 (High Effort)
+          default_parameters:
+            compute_effort: "high"
+      - anthropic/claude-opus-4-8-medium:
+          label: Claude Opus 4.8 (Medium Effort)
+          default_parameters:
+            compute_effort: "medium"
+      - anthropic/claude-opus-4-8-resumable:
+          label: Claude Opus 4.8 (Max Effort, Resumable Turns)
+          provider_properties:
+            returns_thinking_truncated_turns: true
+      - anthropic/claude-opus-4-8-task-budget:
+          label: Claude Opus 4.8 (Max Effort, Task Budget)
+          provider_properties:
+            task_budget_tokens: 500_000
+            returns_thinking_truncated_turns: true
+
+claude-opus-4-7-models:
+  anthropic/claude-opus-4-7:
+    label: Claude Opus 4.7
+    release_date: 2026-04-16
+    properties:
+      context_window: 1_000_000
+      max_tokens: 128_000
+      reasoning_model: true
+    costs_per_million_token:
+      input: 5.0
+      output: 25.0
+      cache:
+        read: 0.5
+        write: 6.25
+    provider_properties:
+      supports_auto_thinking: true
+      supports_compute_effort: true
+    default_parameters:
+      compute_effort: "max"
+    alternative_keys:
+      - anthropic/claude-opus-4-7-high:
+          label: Claude Opus 4.7 (High Effort)
+          default_parameters:
+            compute_effort: "high"
+
+claude-opus-models:
+  base-config:
+    supports:
+      batch: true
+  anthropic/claude-opus-4-6:
+    label: Claude Opus 4.6 (Nonthinking)
+    release_date: 2026-02-05
+    properties:
+      context_window: 1_000_000
+      max_tokens: 128_000
+    default_parameters:
+      compute_effort: "max"
+    costs_per_million_token:
+      input: 5.0
+      output: 25.0
+      cache:
+        read: 0.5
+        write: 6.25
+    provider_properties:
+      supports_auto_thinking: true
+      supports_compute_effort: true
+    alternative_keys:
+      - anthropic/claude-opus-4-6-thinking:
+          properties:
+            reasoning_model: true
+    metadata:
+      available_as_evaluator: true
+
+  anthropic/claude-opus-4-5-20251101:
+    label: Claude Opus 4.5 (Nonthinking)
+    release_date: 2025-11-24
+    properties:
+      context_window: 200_000
+      max_tokens: 64_000
+    default_parameters:
+      compute_effort: "high"
+    costs_per_million_token:
+      input: 5.0
+      output: 25.0
+      cache:
+        read: 0.5
+        write: 6.25
+    provider_properties:
+      supports_compute_effort: true
+    alternative_keys:
+      - anthropic/claude-opus-4-5-20251101-thinking:
+          properties:
+            reasoning_model: true
+
+claude-sonnet-models:
+  base-config:
+    supports:
+      batch: true
+  anthropic/claude-sonnet-5:
+    label: Claude Sonnet 5
+    release_date: 2026-06-30
+    properties:
+      context_window: 1_000_000
+      max_tokens: 128_000
+      reasoning_model: true
+      training_cutoff: "2026-01"
+    costs_per_million_token:
+      input: 3
+      output: 15
+      cache:
+        read: 0.3
+        write: 3.75
+    provider_properties:
+      supports_auto_thinking: true
+      supports_compute_effort: true
+    default_parameters:
+      max_tokens: 128_000
+      compute_effort: "max"
+    metadata:
+      available_as_evaluator: true
+    alternative_keys:
+      - anthropic/claude-sonnet-5-low:
+          label: Claude Sonnet 5 (Low Effort)
+          default_parameters:
+            compute_effort: "low"
+      - anthropic/claude-sonnet-5-medium:
+          label: Claude Sonnet 5 (Medium Effort)
+          default_parameters:
+            compute_effort: "medium"
+      - anthropic/claude-sonnet-5-high:
+          label: Claude Sonnet 5 (High Effort)
+          default_parameters:
+            compute_effort: "high"
+      - anthropic/claude-sonnet-5-xhigh:
+          label: Claude Sonnet 5 (Extra High Effort)
+          default_parameters:
+            compute_effort: "xhigh"
+      - anthropic/claude-sonnet-5-resumable:
+          label: Claude Sonnet 5 (Max Effort, Resumable Turns)
+          provider_properties:
+            returns_thinking_truncated_turns: true
+
+  anthropic/claude-sonnet-4-6:
+    label: Claude Sonnet 4.6
+    release_date: 2026-02-17
+    properties:
+      context_window: 1_000_000
+      max_tokens: 128_000
+      reasoning_model: true
+    costs_per_million_token:
+      input: 3
+      output: 15
+      cache:
+        read: 0.3
+        write: 3.75
+    provider_properties:
+      supports_auto_thinking: true
+      supports_compute_effort: true
+    default_parameters:
+      compute_effort: "max"
+    metadata:
+      available_as_evaluator: true
+
+  anthropic/claude-sonnet-4-5-20250929:
+    label: Claude Sonnet 4.5 (Nonthinking)
+    release_date: 2025-09-29
+    properties:
+      context_window: 1_000_000
+      max_tokens: 64_000
+      training_cutoff: null
+    metadata:
+      available_as_evaluator: true
+    costs_per_million_token:
+      input: 3.0
+      output: 15.0
+      cache:
+        read: 0.3
+        write: 3.75
+      context:
+        threshold: 200_000
+        input: 6.00
+        output: 22.5
+        cache:
+          read: 0.6
+          write: 7.50
+    alternative_keys:
+      - anthropic/claude-sonnet-4-5-20250929-thinking:
+          properties:
+            reasoning_model: true
+
+claude-haiku-models:
+  base-config:
+    supports:
+      batch: true
+
+  anthropic/claude-haiku-4-5-20251001:
+    label: Claude Haiku 4.5 (Nonthinking)
+    release_date: 2025-10-15
+    properties:
+      context_window: 200_000
+      max_tokens: 64_000
+      training_cutoff: "2025-07"
+    costs_per_million_token:
+      input: 1.0
+      output: 5.0
+      cache:
+        read: 0.1
+        write: 1.25
+    alternative_keys:
+      - anthropic/claude-haiku-4-5-20251001-thinking:
+          properties:
+            reasoning_model: true

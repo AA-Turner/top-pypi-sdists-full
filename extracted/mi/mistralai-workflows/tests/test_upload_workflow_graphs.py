@@ -4,6 +4,9 @@ from uuid import uuid4
 
 import httpx
 
+from mistralai.workflows.core._dataflow import CONTROL_FLOW_VIEW
+from mistralai.workflows.core._graph import build_graph_statically
+from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.graph_summaries import NodeSummary, SummariseError, SummaryResult
 from mistralai.workflows.core.wire_format import AtlasWireFormat
 from mistralai.workflows.core.worker import _GRAPH_PAYLOAD_VERSION, _upload_workflow_graphs
@@ -13,7 +16,7 @@ WF_ID = uuid4()
 REG_ID = uuid4()
 
 
-def _fake_graph() -> AtlasWireFormat:
+def _fake_graph(sources: dict[str, str] | None = None) -> AtlasWireFormat:
     return AtlasWireFormat(
         version=_GRAPH_PAYLOAD_VERSION,
         workflow_name="FakeWorkflow",
@@ -21,10 +24,39 @@ def _fake_graph() -> AtlasWireFormat:
         edges=[],
         files={},
         incomplete=False,
+        sources=sources,
     )
 
 
 FAKE_GRAPH = _fake_graph()
+
+_LEAK_SECRET = "sk-live-do-not-upload"  # noqa: S105
+
+_LEAKY_SOURCE = f"""
+from mistralai import workflows
+
+@workflows.activity()
+async def fetch() -> dict:
+    return {{}}
+
+@workflows.workflow.define(name="FakeWorkflow")
+class FakeLeaky:
+    @workflows.workflow.entrypoint
+    async def run(self) -> dict:
+        data = await fetch()
+        api_key = "{_LEAK_SECRET}"
+        return {{**data, "k": api_key}}
+"""
+
+
+def _leaky_graph() -> AtlasWireFormat:
+    """A real analysable graph carrying a secret, not an empty stub.
+
+    An empty-node graph produces no transform nodes, so a leak assertion over it
+    passes vacuously — which is how the source leak in transform labels survived.
+    """
+    return build_graph_statically(_LEAKY_SOURCE, "/tmp/fake_leaky.py", lambda _path: None)[0]
+
 
 _SUMMARISE_PATH = "mistralai.workflows.core.graph_summaries.summarise_workflow"
 _SUMMARY_CONFIG_PATH = "mistralai.workflows.core.worker._get_summary_config"
@@ -85,8 +117,81 @@ class TestUploadWorkflowGraphs:
         body = json.loads(sent_request.content)
         assert body["workflow_registration_id"] == str(REG_ID)
         assert body["version"] == 3
-        assert body["graph_data"] == FAKE_GRAPH.model_dump(by_alias=True, exclude_none=True)
+        assert {key: value for key, value in body["graph_data"].items() if key not in {"view", "views"}} == (
+            FAKE_GRAPH.model_dump(by_alias=True, exclude_none=True)
+        )
         assert body["error"] is None
+
+    async def test_posts_control_and_data_flow_views(self) -> None:
+        client = _make_client()
+        ref = _make_ref()
+
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH),
+            _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
+        ):
+            await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
+
+        sent_request: httpx.Request = client.sdk_configuration.async_client.send.call_args[0][0]
+        graph_data = json.loads(sent_request.content)["graph_data"]
+
+        # The control-flow view stays at the top level for clients that predate
+        # `views`, and `views` holds only the extra renderings — never a second
+        # copy of the control-flow graph.
+        assert graph_data["view"] == CONTROL_FLOW_VIEW
+        assert [view["view"] for view in graph_data["views"]] == ["Data flow"]
+
+    async def test_no_workflow_source_reaches_the_graphs_api(self) -> None:
+        """Sources feed the analyser but must never leave the worker.
+
+        The data-flow analyser needs the source text, so `to_dict` is called with
+        `include_sources=True`. Uploading that would ship the workflow's source —
+        and any secret written as a literal in it — to the graphs API.
+        """
+        client = _make_client()
+        ref = _make_ref()
+        graph = _leaky_graph()
+
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=graph),
+            _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
+        ):
+            await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
+
+        sent_request: httpx.Request = client.sdk_configuration.async_client.send.call_args[0][0]
+        raw_body = sent_request.content.decode()
+        graph_data = json.loads(raw_body)["graph_data"]
+
+        dataflow = next(v for v in graph_data["views"] if v["view"] == "Data flow")
+        transforms = [n for n in dataflow["nodes"] if n["type"] == "transform"]
+        assert transforms, "fixture produced no transform nodes — the leak assertion below would be vacuous"
+
+        assert "sources" not in graph_data
+        for view in graph_data["views"]:
+            assert "sources" not in view, f"{view['view']} view still carries sources"
+        assert _LEAK_SECRET not in raw_body
+
+    async def test_dataflow_views_disabled_uploads_legacy_control_flow_only(self) -> None:
+        """The kill-switch restores the pre-data-flow payload exactly."""
+        client = _make_client()
+        ref = _make_ref()
+        graph = _fake_graph()
+
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=graph),
+            patch.object(config.worker.graph, "dataflow_views_enabled", False),
+            _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
+        ):
+            await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
+
+        sent_request: httpx.Request = client.sdk_configuration.async_client.send.call_args[0][0]
+        graph_data = json.loads(sent_request.content)["graph_data"]
+        assert "views" not in graph_data
+        assert "sources" not in graph_data
+        assert graph_data == graph.to_dict()
 
     async def test_build_graph_failure_uploads_error_record(self) -> None:
         client = _make_client()

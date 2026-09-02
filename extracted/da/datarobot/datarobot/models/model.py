@@ -160,7 +160,7 @@ if TYPE_CHECKING:
 
 class Sentinel:
     """This class is used to work around some limitations with Sphinx.
-    See get_roc_curve for more information.
+    See ``get_roc_curve`` for more information.
     """
 
 
@@ -302,8 +302,8 @@ class GenericModel(APIObject, BrowserMixin):
         sort_by_partition: str, one of `validation`, `backtesting`, `crossValidation`, or `holdout`
             Set the partition to use for the sorted (by score) list of models. `validation` is the default.
         sort_by_metric: str
-            Set the project metric to use for model sorting. The DataRobot-selected project optimization metric
-            is the default.
+            Set the project metric to use for model sorting. The DataRobot-selected project optimization metric is the
+            default.
         with_metric: str
             For a single-metric list of results, specify that project metric.
         search_term: str
@@ -321,17 +321,19 @@ class GenericModel(APIObject, BrowserMixin):
         training_filters: List[str]
             If specified, only models matching at least one of the listed training conditions are returned.
             The following formats are supported for autoML and datetime partitioned projects:
-            - number of rows in the training subset
+            - number of rows in the training subset.
             For datetime partitioned projects:
-            - <training duration>, for example, `P6Y0M0D`
-            - <training_duration>-<time_window_sample_percent>-<sampling_method> Example: `P6Y0M0D-78-Random`,
-            (returns models trained on 6 years of data, sampling rate 78%, random sampling).
-            - `Start/end date`
-            - `Project settings`
+            - <training duration>, for example, ``P6Y0M0D``.
+            - ``<training_duration>-<time_window_sample_percent>-<sampling_method>`` (for example,
+            ``P6Y0M0D-78-Random``, which returns models trained on 6 years of data, sampling rate 78%, random sampling).
+            - ``Start/end date``.
+            - ``Project settings``.
         number_of_clusters: list of int
             Filter models by the number of clusters. Applicable only in unsupervised clustering projects.
         limit: int
+            The maximum number of model records to return.
         offset: int
+            The number of model records to skip before returning results.
 
         Returns
         -------
@@ -377,11 +379,10 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         data : dict
-            The directly translated dict of JSON from the server. No casing fixes have
-            been applied.
+            The directly translated dict of JSON from the server. No casing fixes have been applied.
         keep_attrs : list
-            List of attribute namespaces such as `['top.middle.bottom']` that should be kept
-            even if their values are `None`.
+            A list of attribute namespaces such as `['top.middle.bottom']` that should be kept even if their values are
+            `None`.
         """
         case_converted = from_api(data, do_recursive=False, keep_attrs=keep_attrs)
         return cls.from_data(case_converted)
@@ -418,18 +419,17 @@ class GenericModel(APIObject, BrowserMixin):
         hasWordCloud: bool
             Whether the model has word cloud data available.
         eligibleForPrime: bool
-            (Deprecated in version v3.6)
-            Whether the model is eligible for Prime.
+            (Deprecated in version v3.6) Whether the model is eligible for Prime.
         hasParameters: bool
             Whether the model has parameters that can be retrieved.
         supportsCodeGeneration: bool
             (New in version v2.18) Whether the model supports code generation.
         supportsShap: bool
-            (New in version v2.18) True if the model supports the Shapley package, i.e., Shapley-based
-            feature importance.
+            (New in version v2.18) True if the model supports the Shapley package, i.e., Shapley-based feature
+            importance.
         supportsEarlyStopping: bool
-            (New in version v2.22) `True` if this is an early stopping
-            tree-based model and the number of trained iterations can be retrieved.
+            (New in version v2.22) `True` if this is an early stopping tree-based model and the number of trained
+            iterations can be retrieved.
         """
 
         url = f"projects/{self.project_id}/models/{self.id}/supportedCapabilities/"
@@ -449,7 +449,7 @@ class GenericModel(APIObject, BrowserMixin):
         modelId: str
             The ID of the model.
         data: array
-            List of `numEstimatorsItem` objects, one for each modeling stage.
+            A list of `numEstimatorsItem` objects, one for each modeling stage.
 
         `numEstimatorsItem` will be of the form:
 
@@ -512,38 +512,33 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         sample_pct : Optional[float]
-            The amount of data to use for training, as a percentage of the project dataset from
-            0 to 100.
+            The amount of data to use for training, as a percentage of the project dataset from 0 to 100.
         featurelist_id : Optional[str]
-            The identifier of the featurelist to use. If not defined, the
-            featurelist of this model is used.
+            The identifier of the featurelist to use. If not defined, the featurelist of this model is used.
         scoring_type : Optional[str]
-            Either ``validation`` or ``crossValidation`` (also ``dr.SCORING_TYPE.validation``
-            or ``dr.SCORING_TYPE.cross_validation``). ``validation`` is available for every
-            partitioning type and indicates that the default model validation should be
-            used for the project.
-            If the project uses a form of cross-validation partitioning,
-            ``crossValidation`` can also be used to indicate
-            that all of the available training/validation combinations
-            should be used to evaluate the model.
+            Either ``validation`` or ``crossValidation`` (also ``dr.SCORING_TYPE.validation`` or
+            ``dr.SCORING_TYPE.cross_validation``). ``validation`` is available for every partitioning type and indicates
+            that the default model validation should be used for the project. If the project uses a form of
+            cross-validation partitioning, ``crossValidation`` can also be used to indicate that all of the available
+            training/validation combinations should be used to evaluate the model.
         training_row_count : Optional[int]
             The number of rows to use to train the requested model.
         monotonic_increasing_featurelist_id : str
-            (New in version 2.11) Optional; the ID of the featurelist that defines
-            the set of features with a monotonically increasing relationship to the target.
-            Passing ``None`` disables the increasing monotonicity constraint. The default
-            (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
+            (New in version 2.11) Optional; the ID of the featurelist that defines the set of features with a
+            monotonically increasing relationship to the target. Passing ``None`` disables the increasing monotonicity
+            constraint. The default (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the
+            blueprint.
         monotonic_decreasing_featurelist_id : str
-            (New in version 2.11) Optional; the ID of the featurelist that defines
-            the set of features with a monotonically decreasing relationship to the target.
-            Passing ``None`` disables the decreasing monotonicity constraint. The default
-            (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
+            (New in version 2.11) Optional; the ID of the featurelist that defines the set of features with a
+            monotonically decreasing relationship to the target. Passing ``None`` disables the decreasing monotonicity
+            constraint. The default (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the
+            blueprint.
 
         Returns
         -------
         model_job_id : str
-            The ID of the created job; can be used as a parameter to ``ModelJob.get``
-            or the ``wait_for_async_model_creation`` function.
+            The ID of the created job; can be used as a parameter to ``ModelJob.get`` or the
+            ``wait_for_async_model_creation`` function.
 
         Examples
         --------
@@ -606,47 +601,41 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         featurelist_id : Optional[str]
-            The featurelist to use to train the model. If not specified, the featurelist of this
-            model is used.
+            The featurelist to use to train the model. If not specified, the featurelist of this model is used.
         training_row_count : Optional[int]
-            The number of rows of data that should be used to train the model. If specified,
-            neither ``training_duration`` nor ``use_project_settings`` may be specified.
+            The number of rows of data that should be used to train the model. If specified, neither
+            ``training_duration`` nor ``use_project_settings`` may be specified.
         training_duration : Optional[str]
-            A duration string specifying the time range that the data used to train the model should
-            span. If specified, neither ``training_row_count`` nor ``use_project_settings`` may be
-            specified.
+            A duration string specifying the time range that the data used to train the model should span. If specified,
+            neither ``training_row_count`` nor ``use_project_settings`` may be specified.
         use_project_settings : Optional[bool]
-            (New in version v2.20) Defaults to ``False``. If ``True``, indicates that the custom
-            backtest partitioning settings specified by the user will be used to train the model and
-            evaluate backtest scores. If specified, neither ``training_row_count`` nor
-            ``training_duration`` may be specified.
+            (New in version v2.20) Defaults to ``False``. If ``True``, indicates that the custom backtest partitioning
+            settings specified by the user will be used to train the model and evaluate backtest scores. If specified,
+            neither ``training_row_count`` nor ``training_duration`` may be specified.
         time_window_sample_pct : Optional[int]
-            May only be specified when the requested model is a time window (e.g., duration or start
-            and end dates). An integer between 1 and 99 indicating the percentage to sample
-            within the window. The points kept are determined by a random uniform sample.
-            If specified, ``training_duration`` must be specified; otherwise, the number of rows used
-            to train the model and evaluate backtest scores will be unclear and an error will occur.
+            May only be specified when the requested model is a time window (e.g., duration or start and end dates). An
+            integer between 1 and 99 indicating the percentage to sample within the window. The points kept are
+            determined by a random uniform sample. If specified, ``training_duration`` must be specified; otherwise, the
+            number of rows used to train the model and evaluate backtest scores will be unclear and an error will occur.
         sampling_method : Optional[str]
-            (New in version v2.23) Defines the way training data is selected. Can be either
-            ``random`` or ``latest``. In combination with ``training_row_count``, defines how rows
-            are selected from the backtest (``latest`` by default). When training data is defined using
-            a time range (``training_duration`` or ``use_project_settings``), this setting changes the
-            way ``time_window_sample_pct`` is applied (``random`` by default). Applicable to OTV
-            projects only.
+            (New in version v2.23) Defines the way training data is selected. Can be either ``random`` or ``latest``. In
+            combination with ``training_row_count``, defines how rows are selected from the backtest (``latest`` by
+            default). When training data is defined using a time range (``training_duration`` or
+            ``use_project_settings``), this setting changes the way ``time_window_sample_pct`` is applied (``random`` by
+            default). Applicable to OTV projects only.
         monotonic_increasing_featurelist_id : Optional[str]
-            (New in version v2.18) Optional; the ID of the featurelist that defines
-            the set of features with a monotonically increasing relationship to the target.
-            Passing ``None`` disables the increasing monotonicity constraint. The default
-            (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
+            (New in version v2.18) Optional; the ID of the featurelist that defines the set of features with a
+            monotonically increasing relationship to the target. Passing ``None`` disables the increasing monotonicity
+            constraint. The default (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the
+            blueprint.
         monotonic_decreasing_featurelist_id : Optional[str]
-            (New in version v2.18) Optional; the ID of the featurelist that defines
-            the set of features with a monotonically decreasing relationship to the target.
-            Passing ``None`` disables the decreasing monotonicity constraint. The default
-            (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
+            (New in version v2.18) Optional; the ID of the featurelist that defines the set of features with a
+            monotonically decreasing relationship to the target. Passing ``None`` disables the decreasing monotonicity
+            constraint. The default (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the
+            blueprint.
         n_clusters: Optional[int]
-            (New in version 2.27) The number of clusters to use in an unsupervised clustering model.
-            This parameter is used only for unsupervised clustering models that do not automatically
-            determine the number of clusters.
+            (New in version 2.27) The number of clusters to use in an unsupervised clustering model. This parameter is
+            used only for unsupervised clustering models that do not automatically determine the number of clusters.
 
         Returns
         -------
@@ -696,17 +685,16 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         sample_pct: Optional[float]
-            The sample size in percent (1 to 100) to use in training. If this parameter is used,
-            then ``training_row_count`` should not be given.
+            The sample size in percent (1 to 100) to use in training. If this parameter is used, then
+            ``training_row_count`` should not be given.
         featurelist_id : Optional[str]
             The featurelist ID.
         training_row_count : Optional[int]
-            The number of rows used to train the model. If this parameter is used, then ``sample_pct``
-            should not be given.
+            The number of rows used to train the model. If this parameter is used, then ``sample_pct`` should not be
+            given.
         n_clusters: Optional[int]
-            (New in version 2.27) The number of clusters to use in an unsupervised clustering model.
-            This parameter is used only for unsupervised clustering models that do not determine
-            the number of clusters automatically.
+            (New in version 2.27) The number of clusters to use in an unsupervised clustering model. This parameter is
+            used only for unsupervised clustering models that do not determine the number of clusters automatically.
 
         Returns
         -------
@@ -749,13 +737,12 @@ class GenericModel(APIObject, BrowserMixin):
         training_data_name : Optional[str]
             The name of the iteration or data stage to indicate what the incremental learning was performed on.
         data_stage_encoding : Optional[str]
-            The encoding type of the data in the data stage (default: UTF-8).
-            Supported formats: UTF-8, ASCII, WINDOWS1252
+            The encoding type of the data in the data stage (default: UTF-8). Supported formats: UTF-8, ASCII,
+            WINDOWS1252.
         data_stage_delimiter : Optional[str]
             The delimiter used by the data in the data stage (default: ',').
         data_stage_compression : Optional[str]
-            The compression type of the data stage file, e.g., 'zip' (default: None).
-            Supported formats: zip.
+            The compression type of the data stage file, e.g., 'zip' (default: None). Supported formats: zip.
 
         Returns
         -------
@@ -798,10 +785,10 @@ class GenericModel(APIObject, BrowserMixin):
         early_stopping_rounds: Optional[int]
             The number of chunks in which no improvement is observed that triggers the early stopping mechanism.
         first_iteration_only: bool
-            Specifies whether incremental learning training should be limited to the first
-            iteration. If set to True, the training process will be performed only for the first
-            iteration. If set to False, training will continue until early stopping conditions
-            are met or the maximum number of iterations is reached. The default value is False.
+            Specifies whether incremental learning training should be limited to the first iteration. If set to True,
+            the training process will be performed only for the first iteration. If set to False, training will continue
+            until early stopping conditions are met or the maximum number of iterations is reached. The default value is
+            False.
         chunk_definition_id: str
             The ID of the chunk definition to use for incremental training.
 
@@ -866,7 +853,7 @@ class GenericModel(APIObject, BrowserMixin):
         training_data_name: Optional[str] = None,
     ) -> ModelJob:
         """Submit a job to the queue to perform incremental training on an existing model.
-        See the train_incremental documentation.
+        See the ``train_incremental`` documentation.
         """
         return self.train_incremental(data_stage_id, training_data_name)
 
@@ -896,59 +883,50 @@ class GenericModel(APIObject, BrowserMixin):
         dataset : :class:`Dataset <datarobot.models.Dataset>`, optional
             The dataset to make predictions against (as uploaded from Project.upload_dataset).
         dataframe : pd.DataFrame, optional
-            (New in v3.0)
-            The dataframe to make predictions against.
+            (New in v3.0) The dataframe to make predictions against.
         file_path : Optional[str]
-            (New in v3.0)
-            Path to the file to make predictions against.
+            (New in v3.0) Path to the file to make predictions against.
         file : IOBase, optional
-            (New in v3.0)
-            The file to make predictions against.
+            (New in v3.0) The file to make predictions against.
         include_prediction_intervals : Optional[bool]
-            (New in v2.16) For :ref:`time series <time-series>` projects only.
-            Specifies whether prediction intervals should be calculated for this request. Defaults
-            to True if `prediction_intervals_size` is specified; otherwise, defaults to False.
+            (New in v2.16) For :ref:`time series <time-series>` projects only. Specifies whether prediction intervals
+            should be calculated for this request. Defaults to True if `prediction_intervals_size` is specified;
+            otherwise, defaults to False.
         prediction_intervals_size : Optional[int]
-            (New in v2.16) For :ref:`time series <time-series>` projects only.
-            Represents the percentile to use for the size of the prediction intervals. Defaults to
-            80 if `include_prediction_intervals` is True. The prediction intervals size must be
-            between 1 and 100 (inclusive).
+            (New in v2.16) For :ref:`time series <time-series>` projects only. Represents the percentile to use for the
+            size of the prediction intervals. Defaults to 80 if `include_prediction_intervals` is True. The prediction
+            intervals size must be between 1 and 100 (inclusive).
         forecast_point : datetime.datetime or None, optional
-            (New in version v2.20) For time series projects only. The default point relative
-            to which predictions will be generated, based on the forecast window of the project. See
-            the time series :ref:`prediction documentation <time-series-predict>` for more
-            information.
+            (New in version v2.20) For time series projects only. The default point relative to which predictions will
+            be generated, based on the forecast window of the project. See the time series :ref:`prediction
+            documentation <time-series-predict>` for more information.
         predictions_start_date : datetime.datetime or None, optional
-            (New in version v2.20) For time series projects only. The start date for bulk
-            predictions. Note that this parameter is for generating historical predictions using the
-            training data. This parameter should be provided in conjunction with
-            ``predictions_end_date``. Cannot be provided with the ``forecast_point`` parameter.
-        predictions_end_date : datetime.datetime or None, optional
-            (New in version v2.20) For time series projects only. The end date for bulk
-            predictions, exclusive. Note that this parameter is for generating historical
-            predictions using the training data. This parameter should be provided in conjunction
-            with ``predictions_start_date``. Cannot be provided with the
-            ``forecast_point`` parameter.
-        actual_value_column : str, optional
-            (New in version v2.21) For time series unsupervised projects only.
-            The actual value column can be used to calculate the classification metrics and
-            insights on the prediction dataset. Cannot be provided with the ``forecast_point``
+            (New in version v2.20) For time series projects only. The start date for bulk predictions. Note that this
+            parameter is for generating historical predictions using the training data. This parameter should be
+            provided in conjunction with ``predictions_end_date``. Cannot be provided with the ``forecast_point``
             parameter.
+        predictions_end_date : datetime.datetime or None, optional
+            (New in version v2.20) For time series projects only. The end date for bulk predictions, exclusive. Note
+            that this parameter is for generating historical predictions using the training data. This parameter should
+            be provided in conjunction with ``predictions_start_date``. Cannot be provided with the ``forecast_point``
+            parameter.
+        actual_value_column : str, optional
+            (New in version v2.21) For time series unsupervised projects only. The actual value column can be used to
+            calculate the classification metrics and insights on the prediction dataset. Cannot be provided with the
+            ``forecast_point`` parameter.
         explanation_algorithm: optional, (New in version v2.21). If set to 'shap', the
-            response will include prediction explanations based on the SHAP explainer (SHapley
-            Additive exPlanations). Defaults to null (no prediction explanations).
+            Response will include prediction explanations based on the SHAP explainer (SHapley Additive exPlanations).
+            Defaults to null (no prediction explanations).
         max_explanations: int, optional (New in version v2.21). Specifies the maximum number of
-            explanation values that should be returned for each row, ordered by absolute value,
-            greatest to least. If null, no limit. In the case of 'shap': if the number of features
-            is greater than the limit, the sum of the remaining values will also be returned as
-            `shapRemainingTotal`. Defaults to null. Cannot be set if `explanation_algorithm` is
-            omitted.
+            Explanation values that should be returned for each row, ordered by absolute value, greatest to least. If
+            null, no limit. In the case of 'shap': if the number of features is greater than the limit, the sum of the
+            remaining values will also be returned as `shapRemainingTotal`. Defaults to null. Cannot be set if
+            `explanation_algorithm` is omitted.
         max_ngram_explanations: optional; int or str
-            (New in version v2.29) Specifies the maximum number of text explanation values that
-            should be returned. If set to `all`, text explanations will be computed and all
-            n-gram explanations will be returned. If set to a non-zero positive integer value, text
-            explanations will be computed and this number of descendingly sorted n-gram explanations
-            will be returned. By default, text explanation will not be triggered to be computed.
+            (New in version v2.29) Specifies the maximum number of text explanation values that should be returned. If
+            set to `all`, text explanations will be computed and all n-gram explanations will be returned. If set to a
+            non-zero positive integer value, text explanations will be computed and this number of descendingly sorted
+            n-gram explanations will be returned. By default, text explanation will not be triggered to be computed.
 
         Returns
         -------
@@ -1064,9 +1042,9 @@ class GenericModel(APIObject, BrowserMixin):
         return params
 
     def _validate_data_slice_filter(self, data_slice_filter: Optional[Union[DataSlice, Sentinel]]) -> None:
-        """Validate that data_slice_filter is not None for
-        get_feature_impact, get_residuals_chart, get_lift_chart, and get_roc_curve.
-        If data_slice_filter is None, the insights API fetch will not filter insights,
+        """Validate that ``data_slice_filter`` is not None for
+        ``get_feature_impact``, ``get_residuals_chart``, ``get_lift_chart``, and ``get_roc_curve``.
+        If ``data_slice_filter`` is None, the insights API fetch will not filter insights,
         which may return a list of charts. The methods listed above expect to return
         only a single chart (sliced or unsliced) insight.
         """
@@ -1087,12 +1065,12 @@ class GenericModel(APIObject, BrowserMixin):
 
         Feature Impact is computed for each column by creating new data with that column randomly
         permuted (but the others left unchanged) and measuring how the error metric score for the
-        predictions is affected. The 'impactUnnormalized' is how much worse the error metric score
-        is when making predictions on this modified data. The 'impactNormalized' is normalized so
+        predictions is affected. The '``impactUnnormalized``' is how much worse the error metric score
+        is when making predictions on this modified data. The '``impactNormalized``' is normalized so
         that the largest value is 1. In both cases, larger values indicate more important features.
 
         If a feature is redundant, i.e., once other features are considered it does not
-        contribute much in addition, the 'redundantWith' value is the name of the feature that has the
+        contribute much in addition, the '``redundantWith``' value is the name of the feature that has the
         highest correlation with this feature. Note that redundancy detection is only available for
         jobs run after the addition of this feature. When retrieving data that predates this
         functionality, a NoRedundancyImpactAvailable warning will be used.
@@ -1109,9 +1087,9 @@ class GenericModel(APIObject, BrowserMixin):
         with_metadata : bool
             The flag indicating whether the result should include the metadata as well.
         data_slice_filter : DataSlice, optional
-            A DataSlice used to filter the return values based on the DataSlice ID. By default, this function
-            uses data_slice_filter.id == None, which returns an unsliced insight. If data_slice_filter is None,
-            get_feature_impact will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``get_feature_impact`` will raise a ``ValueError``.
 
         Returns
         -------
@@ -1133,7 +1111,7 @@ class GenericModel(APIObject, BrowserMixin):
                     identification was run while calculating this Feature Impact.
               - ``rowCount`` - An integer or None that indicates the number of rows that were used to
                     calculate Feature Impact. For Feature Impact calculated with the default
-                    logic without specifying the rowCount, we return None here.
+                    logic without specifying the ``rowCount``, we return None here.
               - ``count`` - An integer with the number of features under ``featureImpacts``.
 
         Raises
@@ -1141,7 +1119,7 @@ class GenericModel(APIObject, BrowserMixin):
         ClientError
             If the feature impacts have not been computed.
         ValueError
-            If data_slice_filter is passed as None.
+            If ``data_slice_filter`` is passed as None.
         """
 
         self._validate_data_slice_filter(data_slice_filter)
@@ -1193,9 +1171,9 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         data_slice_filter : DataSlice, optional
-            A DataSlice used to filter the return values based on the DataSlice ID. By default, this function
-            uses data_slice_filter.id == None, which returns an unsliced insight. If data_slice_filter is None,
-            no data_slice filtering will be applied when requesting the ROC curve.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            no ``data_slice_id`` filtering is applied when requesting the ROC curve.
 
         Returns
         -------
@@ -1254,9 +1232,9 @@ class GenericModel(APIObject, BrowserMixin):
         Returns
         -------
         feature_impacts : list of dict
-            The feature impact data. Each item is a dict with the keys 'featureImpacts' (list),
-            'class' (str). Each item in 'featureImpacts' is a dict with the keys 'featureName',
-            'impactNormalized', 'impactUnnormalized', and 'redundantWith'.
+            The feature impact data. Each item is a dict with the keys ``featureImpacts`` (list), 'class' (str). Each
+            item in '``featureImpacts``' is a dict with the keys ``featureName``, '``impactNormalized``',
+            '``impactUnnormalized``', and '``redundantWith``'.
 
         Raises
         ------
@@ -1294,26 +1272,24 @@ class GenericModel(APIObject, BrowserMixin):
         """
         Request that feature impacts be computed for the model.
 
-        See :meth:`get_feature_impact <datarobot.models.Model.get_feature_impact>` for more
+        See :meth:`get_feature_impact <datarobot.models.Model.``get_feature_impact``>` for more
         information on the result of the job.
 
         Parameters
         ----------
         row_count : Optional[int]
-            The sample size (in rows) to use for Feature Impact computation. This is not
-            supported for unsupervised, multiclass (which has a separate method), and time series
-            projects.
+            The sample size (in rows) to use for Feature Impact computation. This is not supported for unsupervised,
+            multiclass (which has a separate method), and time series projects.
         with_metadata : Optional[bool]
-            Flag indicating whether the result should include the metadata.
-            If True, metadata is included.
+            Flag indicating whether the result should include the metadata. If True, metadata is included.
         data_slice_id : Optional[str]
             The ID for the data slice used in the request. If None, requests unsliced insight data.
 
         Returns
         -------
         job : Job or status_id
-            A job representing the Feature Impact computation. To retrieve the completed Feature Impact
-            data, use `job.get_result` or `job.get_result_when_complete`.
+            A job representing the Feature Impact computation. To retrieve the completed Feature Impact data, use
+            `job.get_result` or `job.get_result_when_complete`.
 
         Raises
         ------
@@ -1342,10 +1318,9 @@ class GenericModel(APIObject, BrowserMixin):
         dataset_id : str
             The ID of the dataset to make predictions against (as uploaded from Project.upload_dataset).
         actual_value_column : str, optional
-            (New in version v2.21) For time series unsupervised projects only.
-            The actual value column can be used to calculate the classification metrics and
-            insights on the prediction dataset. Cannot be provided with the ``forecast_point``
-            parameter.
+            (New in version v2.21) For time series unsupervised projects only. The actual value column can be used to
+            calculate the classification metrics and insights on the prediction dataset. Cannot be provided with the
+            ``forecast_point`` parameter.
 
         Returns
         -------
@@ -1371,9 +1346,8 @@ class GenericModel(APIObject, BrowserMixin):
         Returns
         -------
         feature_impacts : list or dict
-            The feature impact data. See
-            :meth:`get_feature_impact <datarobot.models.Model.get_feature_impact>` for the exact
-            schema.
+            The feature impact data. See :meth:`get_feature_impact <datarobot.models.Model.``get_feature_impact``>` for
+            the exact schema.
         """
         try:
             feature_impact_response = self.request_feature_impact(**kwargs)
@@ -1439,17 +1413,16 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         row_count : int
-            (New in version v2.21) The sample size to use for Feature Effects computation.
-            Minimum is 10 rows. Maximum is 100000 rows or the training sample size of the model,
-            whichever is less.
+            (New in version v2.21) The sample size to use for Feature Effects computation. Minimum is 10 rows. Maximum
+            is 100000 rows or the training sample size of the model, whichever is less.
         data_slice_id : Optional[str]
             The ID for the data slice used in the request. If None, requests unsliced insight data.
 
         Returns
         -------
         job : Job
-            A job representing the feature effect computation. To get the completed feature effect
-            data, use `job.get_result` or `job.get_result_when_complete`.
+            A job representing the feature effect computation. To get the completed feature effect data, use
+            `job.get_result` or `job.get_result_when_complete`.
 
         Raises
         ------
@@ -1492,13 +1465,13 @@ class GenericModel(APIObject, BrowserMixin):
         top_n_features : int or None
             The number of top features (ranked by feature impact) used to calculate Feature Effects.
         features : list or None
-            The list of features used to calculate Feature Effects.
+            The a list of features used to calculate Feature Effects.
 
         Returns
         -------
         job : Job
-            A job representing Feature Effect computation. To get the completed Feature Effect
-            data, use `job.get_result` or `job.get_result_when_complete`.
+            A job representing Feature Effect computation. To get the completed Feature Effect data, use
+            `job.get_result` or `job.get_result_when_complete`.
         """
         return FeatureEffectsMulticlass.create(
             project_id=self.project_id,
@@ -1619,15 +1592,14 @@ class GenericModel(APIObject, BrowserMixin):
         top_n_features : int or None
             The number of top features (ranked by Feature Impact) used to calculate Feature Effects.
         features : list or None
-            The list of features used to calculate Feature Effects.
+            The a list of features used to calculate Feature Effects.
         max_wait : Optional[int]
-            The maximum time to wait for a requested Feature Effects job to complete before
-            raising an error.
+            The maximum time to wait for a requested Feature Effects job to complete before raising an error.
 
         Returns
         -------
         feature_effects : list of FeatureEffectsMulticlass
-            The list of multiclass feature effects data.
+            The a list of multiclass feature effects data.
         """
         try:
             feature_effects = self.get_feature_effects_multiclass(source=source, class_=class_)
@@ -1657,8 +1629,7 @@ class GenericModel(APIObject, BrowserMixin):
         """
         Retrieve Feature Effects for the model, requesting a new job if it has not been run previously.
 
-        See :meth:`get_feature_effect_metadata \
-        <datarobot.models.Model.get_feature_effect_metadata>`
+        See :meth:`get_feature_effect_metadata         <datarobot.models.Model.get_feature_effect_metadata>`
         for retrieving information on the source.
 
         Parameters
@@ -1668,9 +1639,8 @@ class GenericModel(APIObject, BrowserMixin):
         max_wait : Optional[int]
             The maximum time to wait for a requested Feature Effect job to complete before raising an error.
         row_count : Optional[int]
-            (New in version v2.21) The sample size to use for Feature Effects computation.
-            Minimum is 10 rows. Maximum is 100000 rows or the training sample size of the model,
-            whichever is less.
+            (New in version v2.21) The sample size to use for Feature Effects computation. Minimum is 10 rows. Maximum
+            is 100000 rows or the training sample size of the model, whichever is less.
         data_slice_id : Optional[str]
             The ID for the data slice used in the request. If None, requests unsliced insight data.
 
@@ -1703,8 +1673,8 @@ class GenericModel(APIObject, BrowserMixin):
         Returns
         -------
         prime_eligibility : dict
-            A dict indicating whether the model can be approximated with DataRobot Prime
-            (key `can_make_prime`) and why it may be ineligible (key `message`).
+            A dict indicating whether the model can be approximated with DataRobot Prime (key `can_make_prime`) and why
+            it may be ineligible (key `message`).
         """
         converter = t.Dict({
             t.Key("can_make_prime"): t.Bool(),
@@ -1768,11 +1738,11 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         sample_pct : float
-            Optional; the percentage of the dataset to use with the model. If not provided, will
-            use the value from this model.
+            Optional; the percentage of the dataset to use with the model. If not provided, will use the value from this
+            model.
         training_row_count : int
-            (New in version v2.9) Optional; the integer number of rows of the dataset to use with
-            the model. Only one of `sample_pct` and `training_row_count` should be specified.
+            (New in version v2.9) Optional; the integer number of rows of the dataset to use with the model. Only one of
+            `sample_pct` and `training_row_count` should be specified.
 
         Returns
         -------
@@ -1811,11 +1781,11 @@ class GenericModel(APIObject, BrowserMixin):
         optimizing them to allow efficiently retraining models on larger amounts of the training
         data.
 
-        In addition to training_row_count and training_duration, frozen datetime models may be
-        trained on an exact date range. Only one of training_row_count, training_duration, or
-        training_start_date and training_end_date should be specified.
+        In addition to ``training_row_count`` and ``training_duration``, frozen datetime models may be
+        trained on an exact date range. Only one of ``training_row_count``, ``training_duration``, or
+        ``training_start_date`` and ``training_end_date`` should be specified.
 
-        Models specified using training_start_date and training_end_date are the only ones that can
+        Models specified using ``training_start_date`` and ``training_end_date`` are the only ones that can
         be trained into the holdout data (once the holdout is unlocked).
 
         All durations should be specified with a duration string such as those returned
@@ -1827,32 +1797,28 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         training_row_count : Optional[int]
-            The number of rows of data that should be used to train the model. If specified,
-            training_duration may not be specified.
+            The number of rows of data that should be used to train the model. If specified, ``training_duration`` may
+            not be specified.
         training_duration : Optional[str]
-            A duration string specifying the time range that the data used to train the model should
-            span. If specified, training_row_count may not be specified.
+            A duration string specifying the time range that the data used to train the model should span. If specified,
+            ``training_row_count`` may not be specified.
         training_start_date : datetime.datetime, optional
-            The start date of the data to train the model on. Only rows occurring at or after
-            this datetime will be used. If training_start_date is specified, training_end_date
-            must also be specified.
+            The start date of the data to train the model on. Only rows occurring at or after this datetime will be
+            used. If ``training_start_date`` is specified, ``training_end_date`` must also be specified.
         training_end_date : datetime.datetime, optional
-            The end date of the data to train the model on. Only rows occurring strictly before
-            this datetime will be used. If training_end_date is specified, training_start_date
-            must also be specified.
+            The end date of the data to train the model on. Only rows occurring strictly before this datetime will be
+            used. If ``training_end_date`` is specified, ``training_start_date`` must also be specified.
         time_window_sample_pct : Optional[int]
-            May only be specified when the requested model is a time window (e.g., duration or start
-            and end dates). An integer between 1 and 99 indicating the percentage to sample
-            within the window. The points kept are determined by a random uniform sample.
-            If specified, training_duration must be specified; otherwise, the number of rows used
-            to train the model and evaluate backtest scores will be unclear and an error will occur.
+            May only be specified when the requested model is a time window (e.g., duration or start and end dates). An
+            integer between 1 and 99 indicating the percentage to sample within the window. The points kept are
+            determined by a random uniform sample. If specified, ``training_duration`` must be specified; otherwise, the
+            number of rows used to train the model and evaluate backtest scores will be unclear and an error will occur.
         sampling_method : Optional[str]
-            (New in version v2.23) Defines the way training data is selected. Can be either
-            ``random`` or ``latest``. In combination with ``training_row_count``, defines how rows
-            are selected from the backtest (``latest`` by default). When training data is defined using
-            a time range (``training_duration`` or ``use_project_settings``), this setting changes the
-            way ``time_window_sample_pct`` is applied (``random`` by default). Applicable to OTV
-            projects only.
+            (New in version v2.23) Defines the way training data is selected. Can be either ``random`` or ``latest``. In
+            combination with ``training_row_count``, defines how rows are selected from the backtest (``latest`` by
+            default). When training data is defined using a time range (``training_duration`` or
+            ``use_project_settings``), this setting changes the way ``time_window_sample_pct`` is applied (``random`` by
+            default). Applicable to OTV projects only.
 
         Returns
         -------
@@ -1902,10 +1868,9 @@ class GenericModel(APIObject, BrowserMixin):
         source: str
             The data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
         fallback_to_parent_insights : bool
-            Optional; if True, attempts to return insight data for this
-            model's parent if the insight is not available for this model and the model has a
-            defined parent model. If omitted or False, or if there is no parent model, will not
-            attempt to return insight data from this model's parent.
+            Optional; if True, attempts to return insight data for this model's parent if the insight is not available
+            for this model and the model has a defined parent model. If omitted or False, or if there is no parent
+            model, will not attempt to return insight data from this model's parent.
 
         Returns
         -------
@@ -1946,14 +1911,13 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         url_template: str
-            Format string for the insight url
+            Format string for the insight url.
         insight_type: str
-            Name of insight type.  Used in warning messages.
+            Name of insight type. Used in warning messages.
         fallback_to_parent_insights : bool
-            Optional, if True, this will return insight data for this
-            model's parent for any source that is not available for this model, if this model
-            has a defined parent model. If omitted or False, or this model has no parent,
-            this will not attempt to retrieve any insight data from this model's parent.
+            Optional, if True, this will return insight data for this model's parent for any source that is not
+            available for this model, if this model has a defined parent model. If omitted or False, or this model has
+            no parent, this will not attempt to retrieve any insight data from this model's parent.
 
         Returns
         -------
@@ -2013,22 +1977,21 @@ class GenericModel(APIObject, BrowserMixin):
         insight_type: str
             The name of the insight, i.e., ROC curve, residuals, etc.
         params: dict
-            Params used in the original request for the insight data. The same params will be used to query
-            the parent model.
+            Params used in the original request for the insight data. The same params will be used to query the parent
+            model.
         fallback_to_parent_insights: bool optional
-            The default value of False makes this function a no-op.  If True, execute this function.
+            The default value of False makes this function a no-op. If True, execute this function.
 
         Returns
         -------
         insight data: dict
-            This is the list of all insight data including both what was found associated with the
-            original model and additional insights found in parent model if the model is frozen and
-            fallback_to_parent_insights == True.
+            This is the a list of all insight data including both what was found associated with the original model and
+            additional insights found in parent model if the model is frozen and fallback_to_parent_insights == True.
 
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         """
 
         if self.is_frozen and fallback_to_parent_insights:
@@ -2126,18 +2089,17 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         source : str
-            Lift chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
-            (New in version v2.23) For time series and OTV models, also accepts values `backtest_2`,
-            `backtest_3`, ..., up to the number of backtests in the model.
+            Lift chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values. (New in version v2.23)
+            For time series and OTV models, also accepts values `backtest_2`, `backtest_3`, ..., up to the number of
+            backtests in the model.
         fallback_to_parent_insights : bool
-            (New in version v2.14) Optional, if True, this will return lift chart data for this
-            model's parent if the lift chart is not available for this model and the model has a
-            defined parent model. If omitted or False, or there is no parent model, will not
-            attempt to return insight data from this model's parent.
+            (New in version v2.14) Optional, if True, this will return lift chart data for this model's parent if the
+            lift chart is not available for this model and the model has a defined parent model. If omitted or False, or
+            there is no parent model, will not attempt to return insight data from this model's parent.
         data_slice_filter : DataSlice, optional
-            A dataslice used to filter the return values based on the dataslice.id. By default this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then get_lift_chart will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``get_lift_chart`` will raise a ``ValueError``.
 
         Returns
         -------
@@ -2147,9 +2109,9 @@ class GenericModel(APIObject, BrowserMixin):
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         ValueError
-            If data_slice_filter passed as None
+            If ``data_slice_filter`` passed as None.
         """
         insight_name = "liftChart"
 
@@ -2231,13 +2193,12 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         fallback_to_parent_insights : Optional[bool]
-            (New in version v2.14) Optional, if True, this will return lift chart data for this
-            model's parent for any source that is not available for this model and if this model
-            has a defined parent model. If omitted or False, or this model has no parent,
-            this will not attempt to retrieve any data from this model's parent.
+            (New in version v2.14) Optional, if True, this will return lift chart data for this model's parent for any
+            source that is not available for this model and if this model has a defined parent model. If omitted or
+            False, or this model has no parent, this will not attempt to retrieve any data from this model's parent.
         data_slice_filter : DataSlice, optional
-            Filters the returned lift chart by data_slice_filter.id.
-            If None (the default) applies no filter based on data_slice_id.
+            Filters the returned lift chart by ``data_slice_filter.id``. If ``None`` (the default), applies no filter
+            based on ``data_slice_id``.
 
         Returns
         -------
@@ -2366,14 +2327,13 @@ class GenericModel(APIObject, BrowserMixin):
         source : str
             Lift chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
         fallback_to_parent_insights : bool
-            Optional, if True, this will return lift chart data for this
-            model's parent if the lift chart is not available for this model and the model has a
-            defined parent model. If omitted or False, or there is no parent model, will not
-            attempt to return insight data from this model's parent.
+            Optional, if True, this will return lift chart data for this model's parent if the lift chart is not
+            available for this model and the model has a defined parent model. If omitted or False, or there is no
+            parent model, will not attempt to return insight data from this model's parent.
         data_slice_filter : DataSlice, optional
-            A dataslice used to filter the return values based on the dataslice.id. By default this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then get_lift_chart will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``get_lift_chart`` will raise a ``ValueError``.
         target_class : str, optional
             Lift chart target class name.
 
@@ -2385,7 +2345,7 @@ class GenericModel(APIObject, BrowserMixin):
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         """
         insight_name = "liftChart"
 
@@ -2444,14 +2404,13 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         fallback_to_parent_insights : bool
-            (New in version v2.14) Optional, if True, this will return lift chart data for this
-            model's parent for any source that is not available for this model and if this model
-            has a defined parent model. If omitted or False, or this model has no parent,
-            this will not attempt to retrieve any data from this model's parent.
+            (New in version v2.14) Optional, if True, this will return lift chart data for this model's parent for any
+            source that is not available for this model and if this model has a defined parent model. If omitted or
+            False, or this model has no parent, this will not attempt to retrieve any data from this model's parent.
         data_slice_filter : DataSlice, optional
-            A dataslice used to filter the return values based on the dataslice.id. By default this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then get_lift_chart will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``get_lift_chart`` will raise a ``ValueError``.
         target_class : str, optional
             Lift chart target class name.
 
@@ -2509,10 +2468,9 @@ class GenericModel(APIObject, BrowserMixin):
         source : str
             Lift chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
         fallback_to_parent_insights : bool
-            Optional, if True, this will return lift chart data for this
-            model's parent if the lift chart is not available for this model and the model has a
-            defined parent model. If omitted or False, or there is no parent model, will not
-            attempt to return insight data from this model's parent.
+            Optional, if True, this will return lift chart data for this model's parent if the lift chart is not
+            available for this model and the model has a defined parent model. If omitted or False, or there is no
+            parent model, will not attempt to return insight data from this model's parent.
 
         Returns
         -------
@@ -2522,7 +2480,7 @@ class GenericModel(APIObject, BrowserMixin):
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         """
         url_template = "projects/{}/models/{}/multilabelLiftCharts/{}/"
         response_data = self._get_insight(
@@ -2561,17 +2519,15 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         source : str
-            Residuals chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible
-            values.
+            Residuals chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
         fallback_to_parent_insights : bool
-            Optional, if True, this will return residuals chart data for this model's parent if
-            the residuals chart is not available for this model and the model has a defined parent
-            model. If omitted or False, or there is no parent model, will not attempt to return
-            residuals data from this model's parent.
+            Optional, if True, this will return residuals chart data for this model's parent if the residuals chart is
+            not available for this model and the model has a defined parent model. If omitted or False, or there is no
+            parent model, will not attempt to return residuals data from this model's parent.
         data_slice_filter : DataSlice, optional
-            A dataslice used to filter the return values based on the dataslice.id. By default this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then get_residuals_chart will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``get_residuals_chart`` will raise a ``ValueError``.
 
         Returns
         -------
@@ -2581,9 +2537,9 @@ class GenericModel(APIObject, BrowserMixin):
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         ValueError
-            If data_slice_filter passed as None
+            If ``data_slice_filter`` passed as None.
         """
 
         insight_name = "residuals"
@@ -2636,13 +2592,12 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         fallback_to_parent_insights : bool
-            Optional, if True, this will return residuals chart data for this model's parent
-            for any source that is not available for this model and if this model has a
-            defined parent model. If omitted or False, or this model has no parent, this will
-            not attempt to retrieve any data from this model's parent.
+            Optional, if True, this will return residuals chart data for this model's parent for any source that is not
+            available for this model and if this model has a defined parent model. If omitted or False, or this model
+            has no parent, this will not attempt to retrieve any data from this model's parent.
         data_slice_filter : DataSlice, optional
-            Filters the returned residuals charts by data_slice_filter.id.
-            If None (the default) applies no filter based on data_slice_id.
+            Filters the returned residuals charts by ``data_slice_filter.id``. If ``None`` (the default), applies no
+            filter based on ``data_slice_id``.
 
         Returns
         -------
@@ -2742,10 +2697,9 @@ class GenericModel(APIObject, BrowserMixin):
         source : str
            Confusion chart source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
         fallback_to_parent_insights : bool
-            (New in version v2.14) Optional, if True, this will return confusion chart data for
-            this model's parent if the confusion chart is not available for this model and the
-            defined parent model. If omitted or False, or there is no parent model, will not
-            attempt to return insight data from this model's parent.
+            (New in version v2.14) Optional, if True, this will return confusion chart data for this model's parent if
+            the confusion chart is not available for this model and the defined parent model. If omitted or False, or
+            there is no parent model, will not attempt to return insight data from this model's parent.
 
         Returns
         -------
@@ -2755,7 +2709,7 @@ class GenericModel(APIObject, BrowserMixin):
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         """
         url_template = "projects/{}/models/{}/confusionCharts/{}/"
         response_data = self._get_insight(
@@ -2773,10 +2727,9 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         fallback_to_parent_insights : bool
-            (New in version v2.14) Optional, if True, this will return confusion chart data for
-            this model's parent for any source that is not available for this model and if this
-            has a defined parent model. If omitted or False, or this model has no parent,
-            this will not attempt to retrieve any data from this model's parent.
+            (New in version v2.14) Optional, if True, this will return confusion chart data for this model's parent for
+            any source that is not available for this model and if this has a defined parent model. If omitted or False,
+            or this model has no parent, this will not attempt to retrieve any data from this model's parent.
 
         Returns
         -------
@@ -2799,7 +2752,7 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         charts_to_fix : list of dict
-            list of confusion chart data to be mutated
+            A list of confusion chart data to be mutated.
         """
         url_template = "projects/{}/models/{}/confusionCharts/{}/metadata/"
         for chart in charts_to_fix:
@@ -2825,18 +2778,17 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         source : str
-            ROC curve data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
-            (New in version v2.23) For time series and OTV models, also accepts values `backtest_2`,
-            `backtest_3`, ..., up to the number of backtests in the model.
+            ROC curve data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values. (New in version v2.23)
+            For time series and OTV models, also accepts values `backtest_2`, `backtest_3`, ..., up to the number of
+            backtests in the model.
         fallback_to_parent_insights : bool
-            (New in version v2.14) Optional, if True, this will return ROC curve data for this
-            model's parent if the ROC curve is not available for this model and the model has a
-            defined parent model. If omitted or False, or there is no parent model, will not
-            attempt to return data from this model's parent.
+            (New in version v2.14) Optional, if True, this will return ROC curve data for this model's parent if the ROC
+            curve is not available for this model and the model has a defined parent model. If omitted or False, or
+            there is no parent model, will not attempt to return data from this model's parent.
         data_slice_filter : DataSlice, optional
-            A dataslice used to filter the return values based on the dataslice.id. By default this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then get_roc_curve will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``get_roc_curve`` will raise a ``ValueError``.
 
         Returns
         -------
@@ -2846,11 +2798,11 @@ class GenericModel(APIObject, BrowserMixin):
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         (New in version v3.0) TypeError
             If the underlying project type is multilabel
         ValueError
-            If data_slice_filter passed as None
+            If ``data_slice_filter`` passed as None.
         """
         self._validate_data_slice_filter(data_slice_filter)
 
@@ -2901,13 +2853,12 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         fallback_to_parent_insights : bool
-            (New in version v2.14) Optional, if True, this will return ROC curve data for this
-            model's parent for any source that is not available for this model and if this model
-            has a defined parent model. If omitted or False, or this model has no parent,
-            this will not attempt to retrieve any data from this model's parent.
+            (New in version v2.14) Optional, if True, this will return ROC curve data for this model's parent for any
+            source that is not available for this model and if this model has a defined parent model. If omitted or
+            False, or this model has no parent, this will not attempt to retrieve any data from this model's parent.
         data_slice_filter : DataSlice, optional
-            filters the returned roc_curve by data_slice_filter.id.  If None (the default) applies no filter based on
-            data_slice_id.
+            Filters the returned ``roc_curve`` by ``data_slice_filter.id``. If ``None`` (the default), applies no filter
+            based on ``data_slice_id``.
 
         Returns
         -------
@@ -2925,7 +2876,7 @@ class GenericModel(APIObject, BrowserMixin):
             sliced_roc = model.get_all_roc_curves(data_slice_filter=ds_filter)
 
             # Get roc curve insights for unsliced data
-            data_slice_filter=DataSlice(id=None)
+            data_slice_filter=DataSlice(ID=None)
             unsliced_roc = model.get_all_roc_curves(data_slice_filter=ds_filter)
 
             # Get all roc curve insights
@@ -2958,7 +2909,7 @@ class GenericModel(APIObject, BrowserMixin):
     def get_labelwise_roc_curves(self, source, fallback_to_parent_insights=False):
         """
         Retrieve a list of LabelwiseRocCurve instances for a multilabel model for the given source and all labels.
-        This method is valid only for multilabel projects. For binary projects, use Model.get_roc_curve API .
+        This method is valid only for multilabel projects. For binary projects, use Model.``get_roc_curve`` API .
 
         .. versionadded:: v2.24
 
@@ -2967,20 +2918,19 @@ class GenericModel(APIObject, BrowserMixin):
         source : str
             ROC curve data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
         fallback_to_parent_insights : bool
-            Optional, if True, this will return ROC curve data for this
-            model's parent if the ROC curve is not available for this model and the model has a
-            defined parent model. If omitted or False, or there is no parent model, will not
-            attempt to return data from this model's parent.
+            Optional, if True, this will return ROC curve data for this model's parent if the ROC curve is not available
+            for this model and the model has a defined parent model. If omitted or False, or there is no parent model,
+            will not attempt to return data from this model's parent.
 
         Returns
         -------
         list of :class:`LabelwiseRocCurve <datarobot.models.roc_curve.LabelwiseRocCurve>`
-            Labelwise ROC Curve instances for ``source`` and all labels
+            Labelwise ROC Curve instances for ``source`` and all labels.
 
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         """
         url_template = "projects/{}/models/{}/labelwiseRocCurves/{}/"
         response_data = self._get_insight(
@@ -3003,7 +2953,7 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         exclude_stop_words : Optional[bool]
-            Set to True if you want stopwords filtered out of response.
+            When ``True``, stopwords are filtered out of the response.
 
         Returns
         -------
@@ -3024,8 +2974,7 @@ class GenericModel(APIObject, BrowserMixin):
         file_name : str
             File path where scoring code will be saved.
         source_code : Optional[bool]
-            Set to True to download source code archive.
-            It will not be executable.
+            When ``True``, downloads the source code archive, which is not executable.
         """
         url = "projects/{}/models/{}/scoringCode/?sourceCode={}".format(
             self.project_id, self.id, "true" if source_code else "false"
@@ -3036,19 +2985,19 @@ class GenericModel(APIObject, BrowserMixin):
                 f.write(chunk)
 
     def get_model_blueprint_json(self) -> BlueprintJson:
-        """Get the blueprint json representation used by this model.
+        """Get the blueprint JSON representation used by this model.
 
         Returns
         -------
         BlueprintJson
-            Json representation of the blueprint stages.
+            JSON representation of the blueprint stages.
         """
         from . import Blueprint  # pylint: disable=import-outside-toplevel
 
         return Blueprint(id=self.blueprint_id, project_id=self.project_id).get_json()
 
     def get_model_blueprint_documents(self):
-        """Get documentation for tasks used in this model.
+        """Get the documentation for tasks used in this model.
 
         Returns
         -------
@@ -3102,8 +3051,7 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         data_subset : str
-            data set definition to build predictions on.
-            Choices are:
+            The data set definition to build predictions on. Choices are:.
 
                 - `dr.enums.DATA_SUBSET.ALL` or string `all` for all data available. Not valid for
                     models in datetime partitioned projects
@@ -3115,16 +3063,15 @@ class GenericModel(APIObject, BrowserMixin):
                     the predictions for all backtest validation folds. Requires the model to have
                     successfully scored all backtests. Datetime partitioned projects only.
         explanation_algorithm : dr.enums.EXPLANATIONS_ALGORITHM
-            (New in v2.21) Optional. If set to `dr.enums.EXPLANATIONS_ALGORITHM.SHAP`, the response
-            will include prediction explanations based on the SHAP explainer (SHapley Additive
-            exPlanations). Defaults to `None` (no prediction explanations).
+            (New in v2.21) Optional. If set to `dr.enums.EXPLANATIONS_ALGORITHM.SHAP`, the response will include
+            prediction explanations based on the SHAP explainer (SHapley Additive exPlanations). Defaults to `None` (no
+            prediction explanations).
         max_explanations : int
-            (New in v2.21) Optional. Specifies the maximum number of explanation values that should
-            be returned for each row, ordered by absolute value, greatest to least. In the case of
-            `dr.enums.EXPLANATIONS_ALGORITHM.SHAP`:  If not set, explanations are returned for all
-            features. If the number of features is greater than the ``max_explanations``, the sum of
-            remaining values will also be returned as ``shap_remaining_total``. Max 100. Defaults to
-            null for datasets narrower than 100 columns, defaults to 100 for datasets wider than 100
+            (New in v2.21) Optional. Specifies the maximum number of explanation values that should be returned for each
+            row, ordered by absolute value, greatest to least. In the case of `dr.enums.EXPLANATIONS_ALGORITHM.SHAP`: If
+            not set, explanations are returned for all features. If the number of features is greater than the
+            ``max_explanations``, the sum of remaining values will also be returned as ``shap_remaining_total``. Max
+            100. Defaults to null for datasets narrower than 100 columns, defaults to 100 for datasets wider than 100
             columns. Is ignored if ``explanation_algorithm`` is not set.
 
         Returns
@@ -3192,17 +3139,15 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         partition : float
-            Optional; the ID of the partition (1,2,3.0,4.0,etc...) to filter results by
-            can be a whole number positive integer or float value. 0 corresponds to the
-            validation partition.
+            Optional; the ID of the partition (1,2,3.0,4.0,etc...) to filter results by can be a whole number positive
+            integer or float value. 0 corresponds to the validation partition.
         metric: unicode
-            optional name of the metric to filter to resulting cross validation scores by
+            The optional name of the metric to filter to resulting cross validation scores by.
 
         Returns
         -------
         cross_validation_scores: dict
-            A dictionary keyed by metric showing cross validation scores per
-            partition.
+            A dictionary keyed by metric showing cross validation scores per partition.
         """
         url = f"projects/{self.project_id}/models/{self.id}/crossValidationScores/"
         querystring = []
@@ -3230,15 +3175,13 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         params : dict
-            Mapping of parameter ID to parameter value.
-            The list of valid parameter IDs for a model can be found by calling
-            `get_advanced_tuning_parameters()`.
-            This endpoint does not need to include values for all parameters.  If a parameter
-            is omitted, its `current_value` will be used.
+            Mapping of parameter ID to parameter value. The a list of valid parameter IDs for a model can be found by
+            calling `get_advanced_tuning_parameters()`. This endpoint does not need to include values for all
+            parameters. If a parameter is omitted, its `current_value` will be used.
         description : str
-            Human-readable string describing the newly advanced-tuned model
+            Human-readable string describing the newly advanced-tuned model.
         grid_search_arguments : GridSearchArguments
-            Grid search arguments
+            Grid search arguments.
         Returns
         -------
         ModelJob
@@ -3343,12 +3286,11 @@ class GenericModel(APIObject, BrowserMixin):
             * parameter_name : **(str)** name of the parameter (unique per task, see below)
             * parameter_id : **(str)** opaque ID string uniquely identifying parameter
             * default_value : **(*)** the actual value used to train the model; either
-              the single value of the parameter specified before training, or the best
-              value from the list of grid-searched values (based on `current_value`)
+              The single value of the parameter specified before training, or the best value from the a list of
+              grid-searched values (based on `current_value`).
             * current_value : **(*)** the single value or list of values of the
-              parameter that were grid searched. Depending on the grid search
-              specification, could be a single fixed value (no grid search),
-              a list of discrete values, or a range.
+              Parameter that were grid searched. Depending on the grid search specification, could be a single fixed
+              value (no grid search), a list of discrete values, or a range.
             * task_name : **(str)** name of the task that this parameter belongs to
             * constraints: **(dict)** see the notes below
             * vertex_id: **(str)** ID of vertex that this parameter belongs to
@@ -3452,7 +3394,7 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         grid_search_arguments : GridSearchArguments
-            Grid search arguments
+            Grid search arguments.
 
         Returns
         -------
@@ -3497,9 +3439,8 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         threshold : float
-           only used for binary classification projects. The threshold to when deciding between
-           the positive and negative classes when making predictions.  Should be between 0.0 and
-           1.0 (inclusive).
+           Only used for binary classification projects. The threshold to when deciding between the positive and
+           negative classes when making predictions. Should be between 0.0 and 1.0 (inclusive).
         """
         url = f"projects/{self.project_id}/models/{self.id}/"
         self._client.patch(url, data={"prediction_threshold": threshold})
@@ -3533,13 +3474,13 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         fairness_metrics_set : Optional[str]
-            Can be one of <datarobot.enums.FairnessMetricsSet>.
-            The fairness metric used to calculate the fairness scores.
+            Can be one of <datarobot.enums.FairnessMetricsSet>. The fairness metric used to calculate the fairness
+            scores.
 
         Returns
         -------
         status_id : str
-            A statusId of computation request.
+            A ``statusId`` of computation request.
         """
         route = f"{self._base_model_path}{self.id}/fairnessInsights/"
         data = {"fairness_metrics_set": fairness_metrics_set} if fairness_metrics_set else {}
@@ -3553,8 +3494,8 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         fairness_metrics_set : Optional[str]
-            The fairness metric used to calculate the fairness scores.
-            Value can be any one of <datarobot.enums.FairnessMetricsSet>.
+            The fairness metric used to calculate the fairness scores. Value can be any one of
+            <datarobot.enums.FairnessMetricsSet>.
 
         Returns
         -------
@@ -3573,8 +3514,8 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         fairness_metrics_set : Optional[str]
-            Can be one of <datarobot.enums.FairnessMetricsSet>.
-            The fairness metric used to calculate the fairness scores.
+            Can be one of <datarobot.enums.FairnessMetricsSet>. The fairness metric used to calculate the fairness
+            scores.
         offset : Optional[int]
             Number of items to skip.
         limit : Optional[int]
@@ -3582,7 +3523,7 @@ class GenericModel(APIObject, BrowserMixin):
 
         Returns
         -------
-        json
+        JSON
         """
         query_params = f"?offset={offset}&limit={limit}"
         if fairness_metrics_set:
@@ -3599,12 +3540,12 @@ class GenericModel(APIObject, BrowserMixin):
         feature : str
             Bias and Fairness protected feature name.
         compared_class_names : list(str)
-            List of two classes to compare
+            A list of two classes to compare.
 
         Returns
         -------
         status_id : str
-            A statusId of computation request.
+            A ``statusId`` of computation request.
         """
         route = f"{self._base_model_path}{self.id}/dataDisparityInsights/"
         response = self._client.post(
@@ -3624,13 +3565,13 @@ class GenericModel(APIObject, BrowserMixin):
         feature : str
             Bias and Fairness protected feature name.
         class_name1 : str
-            One of the compared classes
+            One of the compared classes.
         class_name2 : str
-            Another compared class
+            Another compared class.
 
         Returns
         -------
-        json
+        JSON
         """
         route = (
             f"{self._base_model_path}{self.id}/dataDisparityInsights/?"
@@ -3645,7 +3586,7 @@ class GenericModel(APIObject, BrowserMixin):
         Returns
         -------
         status_id : str
-            A statusId of computation request.
+            A ``statusId`` of computation request.
         """
         route = f"{self._base_model_path}{self.id}/crossClassAccuracyScores/"
         response = self._client.post(route)
@@ -3659,7 +3600,7 @@ class GenericModel(APIObject, BrowserMixin):
 
         Returns
         -------
-        json
+        JSON
         """
         route = f"{self._base_model_path}{self.id}/crossClassAccuracyScores/"
         return self._client.get(route).json()
@@ -3687,28 +3628,27 @@ class Model(GenericModel):
     featurelist_id : str
         ID of the featurelist used by the model.
     sample_pct : float or None
-        Percentage of the project dataset used in model training. If the project uses
-        datetime partitioning, the sample_pct will be None.  See `training_row_count`,
-        `training_duration`, and `training_start_date` / `training_end_date` instead.
+        Percentage of the project dataset used in model training. If the project uses datetime partitioning,
+        ``sample_pct`` will be None. See ``training_row_count``, ``training_duration``, and ``training_start_date`` /
+        ``training_end_date`` instead.
     training_row_count : int or None
-        Number of rows of the project dataset used in model training.  In a datetime
-        partitioned project, if specified, defines the number of rows used to train the model and
-        evaluate backtest scores; if unspecified, either `training_duration` or
-        `training_start_date` and `training_end_date` is used for training_row_count.
+        Number of rows of the project dataset used in model training. In a datetime partitioned project, if specified,
+        defines the number of rows used to train the model and evaluate backtest scores; if unspecified, either
+        ``training_duration`` or ``training_start_date`` and ``training_end_date`` is used instead.
     training_duration : str or None
-        For datetime partitioned projects only. If specified, defines the duration spanned by the data used to train
-        the model and evaluate backtest scores.
+        For datetime partitioned projects only. If specified, defines the duration spanned by the data used to train the
+        model and evaluate backtest scores.
     training_start_date : datetime or None
-        For frozen models in datetime partitioned projects only. If specified, the start
-        date of the data used to train the model.
+        For frozen models in datetime partitioned projects only. If specified, the start date of the data used to train
+        the model.
     training_end_date : datetime or None
-        For frozen models in datetime partitioned projects only. If specified, the end
-        date of the data used to train the model.
+        For frozen models in datetime partitioned projects only. If specified, the end date of the data used to train
+        the model.
     model_type : str
         Type of model, for example 'Nystroem Kernel SVM Regressor'.
     model_category : str
-        Category of model, for example 'prime' for DataRobot Prime models, 'blend' for blender models, and
-        'model' for other models.
+        Category of model, for example 'prime' for DataRobot Prime models, 'blend' for blender models, and 'model' for
+        other models.
     is_frozen : bool
         Whether this model is a frozen model.
     is_n_clusters_dynamically_determined : bool
@@ -3718,13 +3658,11 @@ class Model(GenericModel):
     metrics : dict
         Mapping from each metric to the model's score for that metric.
     monotonic_increasing_featurelist_id : str
-        Optional. ID of the featurelist that defines the set of features with
-        a monotonically increasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional. ID of the featurelist that defines the set of features with a monotonically increasing relationship to
+        the target. If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        Optional. ID of the featurelist that defines the set of features with
-        a monotonically decreasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional. ID of the featurelist that defines the set of features with a monotonically decreasing relationship to
+        the target. If None, no such constraints are enforced.
     n_clusters : int
         (New in version v2.27) Optional. Number of data clusters discovered by model.
     has_empty_clusters: bool
@@ -3736,16 +3674,14 @@ class Model(GenericModel):
     prediction_threshold : float
         Binary classification projects only. Threshold used for predictions.
     prediction_threshold_read_only : bool
-        Whether modification of the prediction threshold is forbidden. Threshold
-        modification is forbidden once a model has had a deployment created or predictions made via
-        the dedicated prediction API.
+        Whether modification of the prediction threshold is forbidden. Threshold modification is forbidden once a model
+        has had a deployment created or predictions made via the dedicated prediction API.
     model_number : integer
         Model number assigned to the model.
     parent_model_id : str or None
         (New in version v2.20) ID of the model that tuning parameters are derived from.
     supports_composable_ml : bool or None
-        (New in version v2.26)
-        Whether this model is supported Composable ML.
+        (New in version v2.26) Whether this model is supported Composable ML.
 
     """
 
@@ -3883,7 +3819,7 @@ class Model(GenericModel):
         Raises
         ------
         ValueError
-            passed ``project`` parameter value is of not supported type
+            Passed ``project`` parameter value is of not supported type.
         """
         from . import Project  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -3910,73 +3846,68 @@ class PrimeModel(Model):
     All durations are specified with a duration string such as those returned
     by the :meth:`partitioning_methods.construct_duration_string
     <datarobot.helpers.partitioning_methods.construct_duration_string>` helper method.
-    Please see :ref:`datetime partitioned project documentation <date-dur-spec>`
+    See :ref:`datetime partitioned project documentation <date-dur-spec>`
     for more information on duration strings.
 
     Attributes
     ----------
     id : str
-        the ID of the model
+        ID of the model.
     project_id : str
-        the ID of the project the model belongs to
+        ID of the project the model belongs to.
     processes : List[str]
-        the processes used by the model
+        Processes used by the model.
     featurelist_name : str
-        the name of the featurelist used by the model
+        Name of the featurelist used by the model.
     featurelist_id : str
-        the ID of the featurelist used by the model
+        ID of the featurelist used by the model.
     sample_pct : float
-        the percentage of the project dataset used in training the model
+        Percentage of the project dataset used in training the model.
     training_row_count : int or None
-        the number of rows of the project dataset used in training the model.  In a datetime
-        partitioned project, if specified, defines the number of rows used to train the model and
-        evaluate backtest scores; if unspecified, either `training_duration` or
-        `training_start_date` and `training_end_date` was used to determine that instead.
+        Number of rows of the project dataset used in training the model. In a datetime partitioned project, if
+        specified, defines the number of rows used to train the model and evaluate backtest scores; if unspecified,
+        either ``training_duration`` or ``training_start_date`` and ``training_end_date`` was used to determine that
+        instead.
     training_duration : str or None
-        only present for models in datetime partitioned projects.  If specified, a duration string
-        specifying the duration spanned by the data used to train the model and evaluate backtest
-        scores.
+        For datetime partitioned projects only. If specified, a duration string specifying the duration spanned by the
+        data used to train the model and evaluate backtest scores.
     training_start_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the start
-        date of the data used to train the model.
+        For frozen models in datetime partitioned projects only. If specified, the start date of the data used to train
+        the model.
     training_end_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the end
-        date of the data used to train the model.
+        For frozen models in datetime partitioned projects only. If specified, the end date of the data used to train
+        the model.
     model_type : str
-        what model this is, e.g., 'DataRobot Prime'
+        Type of model, for example 'DataRobot Prime'.
     model_category : str
-        what kind of model this is - always 'prime' for DataRobot Prime models
+        Category of model; always 'prime' for DataRobot Prime models.
     is_frozen : bool
-        whether this model is a frozen model
+        Whether this model is a frozen model.
     blueprint_id : str
-        the ID of the blueprint used in this model
+        ID of the blueprint used in this model.
     metrics : dict
-        a mapping from each metric to the model's scores for that metric
+        Mapping from each metric to the model's scores for that metric.
     ruleset : Ruleset
-        the ruleset used in the Prime model
+        Ruleset used in the Prime model.
     parent_model_id : str
-        the ID of the model that this Prime model approximates
+        ID of the model that this Prime model approximates.
     monotonic_increasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically increasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional. ID of the featurelist that defines the set of features with a monotonically increasing relationship to
+        the target. If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically decreasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional. ID of the featurelist that defines the set of features with a monotonically decreasing relationship to
+        the target. If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        Optional; whether this model supports enforcing monotonic constraints
+        Optional. Whether this model supports enforcing monotonic constraints.
     is_starred : bool
-        whether this model is marked as starred
+        Whether this model is marked as starred.
     prediction_threshold : float
-        for binary classification projects, the threshold used for predictions
+        Binary classification projects only. Threshold used for predictions.
     prediction_threshold_read_only : bool
-        indicated whether modification of the prediction threshold is forbidden. Threshold
-        modification is forbidden once a model has had a deployment created or predictions made via
-        the dedicated prediction API.
+        Whether modification of the prediction threshold is forbidden. Threshold modification is forbidden once a model
+        has had a deployment created or predictions made via the dedicated prediction API.
     supports_composable_ml : bool or None
-        (New in version v2.26)
-        whether this model is supported in the Composable ML.
+        (New in version v2.26) Whether this model is supported in Composable ML.
     """
 
     _converter = (
@@ -4087,9 +4018,9 @@ class PrimeModel(Model):
         Parameters
         ----------
         project_id : str
-            The id of the project the prime model belongs to
+            ID of the project the prime model belongs to.
         model_id : str
-            The ``model_id`` of the prime model to retrieve.
+            ID of the prime model to retrieve.
 
         Returns
         -------
@@ -4105,13 +4036,13 @@ class PrimeModel(Model):
         Parameters
         ----------
         language : str
-            the language the code should be downloaded in - see ``datarobot.enums.PRIME_LANGUAGE``
-            for available languages
+            The language the code should be downloaded in - see ``datarobot.enums.PRIME_LANGUAGE`` for available
+            languages.
 
         Returns
         -------
         job : Job
-            A job tracking the code preparation and validation
+            A job tracking the code preparation and validation.
         """
         from . import Job  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -4133,71 +4064,65 @@ class BlenderModel(Model):
     Attributes
     ----------
     id : str
-        the ID of the model
+        The ID of the model.
     project_id : str
-        the ID of the project the model belongs to
+        The ID of the project the model belongs to.
     processes : List[str]
-        the processes used by the model
+        The processes used by the model.
     featurelist_name : str
-        the name of the featurelist used by the model
+        The name of the featurelist used by the model.
     featurelist_id : str
-        the ID of the featurelist used by the model
+        The ID of the featurelist used by the model.
     sample_pct : float
-        the percentage of the project dataset used in training the model
+        The percentage of the project dataset used in training the model.
     training_row_count : int or None
-        the number of rows of the project dataset used in training the model.  In a datetime
-        partitioned project, if specified, defines the number of rows used to train the model and
-        evaluate backtest scores; if unspecified, either `training_duration` or
-        `training_start_date` and `training_end_date` was used to determine that instead.
+        The number of rows of the project dataset used in training the model. In a datetime partitioned project, if
+        specified, defines the number of rows used to train the model and evaluate backtest scores; if unspecified,
+        either `training_duration` or `training_start_date` and `training_end_date` was used to determine that instead.
     training_duration : str or None
-        only present for models in datetime partitioned projects.  If specified, a duration string
-        specifying the duration spanned by the data used to train the model and evaluate backtest
-        scores.
+        Only present for models in datetime partitioned projects. If specified, a duration string specifying the
+        duration spanned by the data used to train the model and evaluate backtest scores.
     training_start_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the start
-        date of the data used to train the model.
+        Only present for frozen models in datetime partitioned projects. If specified, the start date of the data used
+        to train the model.
     training_end_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the end
-        date of the data used to train the model.
+        Only present for frozen models in datetime partitioned projects. If specified, the end date of the data used to
+        train the model.
     model_type : str
-        what model this is, e.g., 'DataRobot Prime'
+        What model this is, e.g., 'DataRobot Prime'.
     model_category : str
-        what kind of model this is - always 'prime' for DataRobot Prime models
+        What kind of model this is - always 'prime' for DataRobot Prime models.
     is_frozen : bool
-        whether this model is a frozen model
+        Whether this model is a frozen model.
     blueprint_id : str
-        the ID of the blueprint used in this model
+        The ID of the blueprint used in this model.
     metrics : dict
-        a mapping from each metric to the model's scores for that metric
+        A mapping from each metric to the model's scores for that metric.
     model_ids : List[str]
-        List of model ids used in blender
+        A list of model IDs used in the blender.
     blender_method : str
-        Method used to blend results from underlying models
+        Method used to blend results from underlying models.
     monotonic_increasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically increasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional; the ID of the featurelist that defines the set of features with a monotonically increasing
+        relationship to the target. If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically decreasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional; the ID of the featurelist that defines the set of features with a monotonically decreasing
+        relationship to the target. If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        Optional; whether this model supports enforcing monotonic constraints
+        Optional; whether this model supports enforcing monotonic constraints.
     is_starred : bool
-        whether this model marked as starred
+        Whether this model marked as starred.
     prediction_threshold : float
-        for binary classification projects, the threshold used for predictions
+        For binary classification projects, the threshold used for predictions.
     prediction_threshold_read_only : bool
-        indicated whether modification of the prediction threshold is forbidden. Threshold
-        modification is forbidden once a model has had a deployment created or predictions made via
-        the dedicated prediction API.
+        Indicated whether modification of the prediction threshold is forbidden. Threshold modification is forbidden
+        once a model has had a deployment created or predictions made via the dedicated prediction API.
     model_number : integer
-        model number assigned to a model
+        Model number assigned to a model.
     parent_model_id : str or None
-        (New in version v2.20) the ID of the model that tuning parameters are derived from
+        (New in version v2.20) the ID of the model that tuning parameters are derived from.
     supports_composable_ml : bool or None
-        (New in version v2.26)
-        whether this model is supported in the Composable ML.
+        (New in version v2.26) whether this model is supported in the Composable ML.
     """
 
     _converter = (
@@ -4281,7 +4206,7 @@ class BlenderModel(Model):
         Parameters
         ----------
         project_id : str
-            The project's id.
+            The project's ID.
         model_id : str
             The ``model_id`` of the leaderboard item to retrieve.
 
@@ -4309,68 +4234,62 @@ class FrozenModel(Model):
     Attributes
     ----------
     id : str
-        the ID of the model
+        The ID of the model.
     project_id : str
-        the ID of the project the model belongs to
+        The ID of the project the model belongs to.
     processes : List[str]
-        the processes used by the model
+        The processes used by the model.
     featurelist_name : str
-        the name of the featurelist used by the model
+        The name of the featurelist used by the model.
     featurelist_id : str
-        the ID of the featurelist used by the model
+        The ID of the featurelist used by the model.
     sample_pct : float
-        the percentage of the project dataset used in training the model
+        The percentage of the project dataset used in training the model.
     training_row_count : int or None
-        the number of rows of the project dataset used in training the model.  In a datetime
-        partitioned project, if specified, defines the number of rows used to train the model and
-        evaluate backtest scores; if unspecified, either `training_duration` or
-        `training_start_date` and `training_end_date` was used to determine that instead.
+        The number of rows of the project dataset used in training the model. In a datetime partitioned project, if
+        specified, defines the number of rows used to train the model and evaluate backtest scores; if unspecified,
+        either `training_duration` or `training_start_date` and `training_end_date` was used to determine that instead.
     training_duration : str or None
-        only present for models in datetime partitioned projects.  If specified, a duration string
-        specifying the duration spanned by the data used to train the model and evaluate backtest
-        scores.
+        Only present for models in datetime partitioned projects. If specified, a duration string specifying the
+        duration spanned by the data used to train the model and evaluate backtest scores.
     training_start_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the start
-        date of the data used to train the model.
+        Only present for frozen models in datetime partitioned projects. If specified, the start date of the data used
+        to train the model.
     training_end_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the end
-        date of the data used to train the model.
+        Only present for frozen models in datetime partitioned projects. If specified, the end date of the data used to
+        train the model.
     model_type : str
-        what model this is, e.g., 'Nystroem Kernel SVM Regressor'
+        What model this is, e.g., 'Nystroem Kernel SVM Regressor'.
     model_category : str
-        what kind of model this is - 'prime' for DataRobot Prime models, 'blend' for blender models,
-        and 'model' for other models
+        What kind of model this is - 'prime' for DataRobot Prime models, 'blend' for blender models, and 'model' for
+        other models.
     is_frozen : bool
-        whether this model is a frozen model
+        Whether this model is a frozen model.
     parent_model_id : str
-        the ID of the model that tuning parameters are derived from
+        The ID of the model that tuning parameters are derived from.
     blueprint_id : str
-        the ID of the blueprint used in this model
+        The ID of the blueprint used in this model.
     metrics : dict
-        a mapping from each metric to the model's scores for that metric
+        A mapping from each metric to the model's scores for that metric.
     monotonic_increasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically increasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional; the ID of the featurelist that defines the set of features with a monotonically increasing
+        relationship to the target. If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically decreasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional; the ID of the featurelist that defines the set of features with a monotonically decreasing
+        relationship to the target. If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        Optional; whether this model supports enforcing monotonic constraints
+        Optional; whether this model supports enforcing monotonic constraints.
     is_starred : bool
-        whether this model marked as starred
+        Whether this model marked as starred.
     prediction_threshold : float
-        for binary classification projects, the threshold used for predictions
+        For binary classification projects, the threshold used for predictions.
     prediction_threshold_read_only : bool
-        indicated whether modification of the prediction threshold is forbidden. Threshold
-        modification is forbidden once a model has had a deployment created or predictions made via
-        the dedicated prediction API.
+        Indicated whether modification of the prediction threshold is forbidden. Threshold modification is forbidden
+        once a model has had a deployment created or predictions made via the dedicated prediction API.
     model_number : integer
-        model number assigned to a model
+        Model number assigned to a model.
     supports_composable_ml : bool or None
-        (New in version v2.26)
-        whether this model is supported in the Composable ML.
+        (New in version v2.26) whether this model is supported in the Composable ML.
     """
 
     _frozen_path_template = "projects/{}/frozenModels/"
@@ -4459,7 +4378,7 @@ class FrozenModel(Model):
         Parameters
         ----------
         project_id : str
-            The project's id.
+            The project's ID.
         model_id : str
             The ``model_id`` of the leaderboard item to retrieve.
 
@@ -4489,136 +4408,120 @@ class DatetimeModel(Model):
     Attributes
     ----------
     id : str
-        the ID of the model
+        The ID of the model.
     project_id : str
-        the ID of the project the model belongs to
+        The ID of the project the model belongs to.
     processes : List[str]
-        the processes used by the model
+        The processes used by the model.
     featurelist_name : str
-        the name of the featurelist used by the model
+        The name of the featurelist used by the model.
     featurelist_id : str
-        the ID of the featurelist used by the model
+        The ID of the featurelist used by the model.
     sample_pct : float
-        the percentage of the project dataset used in training the model
+        The percentage of the project dataset used in training the model.
     training_row_count : int or None
-        If specified, an int specifying the number of rows used to train the model and evaluate
-        backtest scores.
+        If specified, an int specifying the number of rows used to train the model and evaluate backtest scores.
     training_duration : str or None
-        If specified, a duration string specifying the duration spanned by the data used to train
-        the model and evaluate backtest scores.
+        If specified, a duration string specifying the duration spanned by the data used to train the model and evaluate
+        backtest scores.
     training_start_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the start
-        date of the data used to train the model.
+        Only present for frozen models in datetime partitioned projects. If specified, the start date of the data used
+        to train the model.
     training_end_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the end
-        date of the data used to train the model.
+        Only present for frozen models in datetime partitioned projects. If specified, the end date of the data used to
+        train the model.
     time_window_sample_pct : int or None
-        An integer between 1 and 99 indicating the percentage of sampling within the training
-        window.  The points kept are determined by a random uniform sample.  If not specified, no
-        sampling was done.
+        An integer between 1 and 99 indicating the percentage of sampling within the training window. The points kept
+        are determined by a random uniform sample. If not specified, no sampling was done.
     sampling_method : str or None
-        (New in v2.23) indicates the way training data has been selected (either how rows have been
-        selected within backtest or how ``time_window_sample_pct`` has been applied).
+        (New in v2.23) indicates the way training data has been selected (either how rows have been selected within
+        backtest or how ``time_window_sample_pct`` has been applied).
     model_type : str
-        what model this is, e.g., 'Nystroem Kernel SVM Regressor'
+        What model this is, e.g., 'Nystroem Kernel SVM Regressor'.
     model_category : str
-        what kind of model this is - 'prime' for DataRobot Prime models, 'blend' for blender models,
-        and 'model' for other models
+        What kind of model this is - 'prime' for DataRobot Prime models, 'blend' for blender models, and 'model' for
+        other models.
     is_frozen : bool
-        whether this model is a frozen model
+        Whether this model is a frozen model.
     blueprint_id : str
-        the ID of the blueprint used in this model
+        The ID of the blueprint used in this model.
     metrics : dict
-        a mapping from each metric to the model's scores for that metric.  The keys in metrics are
-        the different metrics used to evaluate the model, and the values are the results.  The
-        dictionaries inside of metrics will be as described here: 'validation', the score
-        for a single backtest; 'crossValidation', always None; 'backtesting', the average score for
-        all backtests if all are available and computed, or None otherwise; 'backtestingScores', a
-        list of scores for all backtests where the score is None if that backtest does not have a
-        score available; and 'holdout', the score for the holdout or None if the holdout is locked
-        or the score is unavailable.
+        A mapping from each metric to the model's scores for that metric. The keys in metrics are the different metrics
+        used to evaluate the model, and the values are the results. The dictionaries inside of metrics will be as
+        described here: ``validation``, the score for a single backtest; ``crossValidation``, always None;
+        ``backtesting``, the average score for all backtests if all are available and computed, or None otherwise;
+        ``backtestingScores``, a list of scores for all backtests where the score is None if that backtest does not have
+        a score available; and ``holdout``, the score for the holdout or None if the holdout is locked or the score is
+        unavailable.
     backtests : list of dict
-        describes what data was used to fit each backtest, the score for the project metric, and
-        why the backtest score is unavailable if it is not provided.
+        Describes what data was used to fit each backtest, the score for the project metric, and why the backtest score
+        is unavailable if it is not provided.
     data_selection_method : str
-        which of training_row_count, training_duration, or training_start_data and training_end_date
-        were used to determine the data used to fit the model.  One of 'rowCount',
-        'duration', or 'selectedDateRange'.
+        Which of ``training_row_count``, ``training_duration``, or ``training_start_data`` and ``training_end_date``
+        were used to determine the data used to fit the model. One of '``rowCount``', 'duration', or
+        'selectedDateRange'.
     training_info : dict
-        describes which data was used to train on when scoring the holdout and making predictions.
-        training_info` will have the following keys: `holdout_training_start_date`,
-        `holdout_training_duration`, `holdout_training_row_count`, `holdout_training_end_date`,
-        `prediction_training_start_date`, `prediction_training_duration`,
-        `prediction_training_row_count`, `prediction_training_end_date`. Start and end dates will
-        be datetimes, durations will be duration strings, and rows will be integers.
+        Describes which data was used to train on when scoring the holdout and making predictions. ``training_info`` has
+        the following keys: ``holdout_training_start_date``, ``holdout_training_duration``,
+        ``holdout_training_row_count``, ``holdout_training_end_date``, ``prediction_training_start_date``,
+        ``prediction_training_duration``, ``prediction_training_row_count``, and ``prediction_training_end_date``. Start
+        and end dates are datetimes, durations are duration strings, and rows are integers.
     holdout_score : float or None
-        the score against the holdout, if available and the holdout is unlocked, according to the
-        project metric.
+        The score against the holdout, if available and the holdout is unlocked, according to the project metric.
     holdout_status : string or None
-        the status of the holdout score, e.g., "COMPLETED", "HOLDOUT_BOUNDARIES_EXCEEDED".
-        Unavailable if the holdout fold was disabled in the partitioning configuration.
+        The status of the holdout score, e.g., "COMPLETED", "HOLDOUT_BOUNDARIES_EXCEEDED". Unavailable if the holdout
+        fold was disabled in the partitioning configuration.
     monotonic_increasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically increasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional; the ID of the featurelist that defines the set of features with a monotonically increasing
+        relationship to the target. If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically decreasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional; the ID of the featurelist that defines the set of features with a monotonically decreasing
+        relationship to the target. If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        Optional; whether this model supports enforcing monotonic constraints
+        Optional; whether this model supports enforcing monotonic constraints.
     is_starred : bool
-        whether this model marked as starred
+        Whether this model marked as starred.
     prediction_threshold : float
-        for binary classification projects, the threshold used for predictions
+        For binary classification projects, the threshold used for predictions.
     prediction_threshold_read_only : bool
-        indicated whether modification of the prediction threshold is forbidden. Threshold
-        modification is forbidden once a model has had a deployment created or predictions made via
-        the dedicated prediction API.
+        Indicated whether modification of the prediction threshold is forbidden. Threshold modification is forbidden
+        once a model has had a deployment created or predictions made via the dedicated prediction API.
     effective_feature_derivation_window_start : int or None
-        (New in v2.16) For :ref:`time series <time-series>` projects only.
-        How many units of the ``windows_basis_unit`` into the past relative to the forecast point
-        the user needs to provide history for at prediction time. This can differ from the
-        ``feature_derivation_window_start`` set on the project due to the differencing method and
-        period selected, or if the model is a time series native model such as ARIMA. Will be a
-        negative integer in time series projects and ``None`` otherwise.
-    effective_feature_derivation_window_end : int or None
-        (New in v2.16) For :ref:`time series <time-series>` projects only.
-        How many units of the ``windows_basis_unit`` into the past relative to the forecast point
-        the feature derivation window should end. Will be a non-positive integer in time series
+        (New in v2.16) For :ref:`time series <time-series>` projects only. How many units of the ``windows_basis_unit``
+        into the past relative to the forecast point the user needs to provide history for at prediction time. This can
+        differ from the ``feature_derivation_window_start`` set on the project due to the differencing method and period
+        selected, or if the model is a time series native model such as ARIMA. Will be a negative integer in time series
         projects and ``None`` otherwise.
+    effective_feature_derivation_window_end : int or None
+        (New in v2.16) For :ref:`time series <time-series>` projects only. How many units of the ``windows_basis_unit``
+        into the past relative to the forecast point the feature derivation window should end. Will be a non-positive
+        integer in time series projects and ``None`` otherwise.
     forecast_window_start : int or None
-        (New in v2.16) For :ref:`time series <time-series>` projects only.
-        How many units of the ``windows_basis_unit`` into the future relative to the forecast point
-        the forecast window should start. Note that this field will be the same as what is shown in
-        the project settings. Will be a non-negative integer in time series projects and `None`
-        otherwise.
+        (New in v2.16) For :ref:`time series <time-series>` projects only. How many units of the ``windows_basis_unit``
+        into the future relative to the forecast point the forecast window should start. Note that this field will be
+        the same as what is shown in the project settings. Will be a non-negative integer in time series projects and
+        `None` otherwise.
     forecast_window_end : int or None
-        (New in v2.16) For :ref:`time series <time-series>` projects only.
-        How many units of the ``windows_basis_unit`` into the future relative to the forecast point
-        the forecast window should end. Note that this field will be the same as what is shown in
-        the project settings. Will be a non-negative integer in time series projects and `None`
+        (New in v2.16) For :ref:`time series <time-series>` projects only. How many units of the ``windows_basis_unit``
+        into the future relative to the forecast point the forecast window should end. Note that this field will be the
+        same as what is shown in the project settings. Will be a non-negative integer in time series projects and `None`
         otherwise.
     windows_basis_unit : str or None
-        (New in v2.16) For :ref:`time series <time-series>` projects only.
-        Indicates which unit is the basis for the feature derivation window and the forecast window.
-        Note that this field will be the same as what is shown in the project settings. In time
-        series projects, will be either the detected time unit or "ROW", and `None` otherwise.
+        (New in v2.16) For :ref:`time series <time-series>` projects only. Indicates which unit is the basis for the
+        feature derivation window and the forecast window. Note that this field will be the same as what is shown in the
+        project settings. In time series projects, will be either the detected time unit or "ROW", and `None` otherwise.
     model_number : integer
-        model number assigned to a model
+        Model number assigned to a model.
     parent_model_id : str or None
-        (New in version v2.20) the ID of the model that tuning parameters are derived from
+        (New in version v2.20) the ID of the model that tuning parameters are derived from.
 
     supports_composable_ml : bool or None
-        (New in version v2.26)
-        whether this model is supported in the Composable ML.
+        (New in version v2.26) whether this model is supported in the Composable ML.
     is_n_clusters_dynamically_determined : Optional[bool]
-        (New in version 2.27) if ``True``, indicates that model determines number of clusters
-        automatically.
+        (New in version 2.27) if ``True``, indicates that model determines number of clusters automatically.
     n_clusters : Optional[int]
-        (New in version 2.27) Number of clusters to use in an unsupervised clustering model.
-        This parameter is used only for unsupervised clustering models that don't automatically
-        determine the number of clusters.
+        (New in version 2.27) Number of clusters to use in an unsupervised clustering model. This parameter is used only
+        for unsupervised clustering models that don't automatically determine the number of clusters.
     """
 
     _training_info_converter = t.Dict({
@@ -4765,10 +4668,9 @@ class DatetimeModel(Model):
         Parameters
         ----------
         data : dict
-            The directly translated dict of JSON from the server. No casing fixes have
-            taken place
+            The directly translated dict of JSON from the server. No casing fixes have taken place.
         keep_attrs: list
-            Allow these attributes to stay even if they have None value
+            Allow these attributes to stay even if they have None value.
         """
 
         def cut_attr_level(pattern: str) -> Optional[List[str]]:
@@ -4794,14 +4696,14 @@ class DatetimeModel(Model):
         Parameters
         ----------
         project : str
-            the ID of the project the model belongs to
+            The ID of the project the model belongs to.
         model_id : str
-            the ID of the model to retrieve
+            The ID of the model to retrieve.
 
         Returns
         -------
         model : DatetimeModel
-            the model
+            The model.
         """
         url = f"projects/{project}/datetimeModels/{model_id}/"
         return cls.from_location(url)
@@ -4838,8 +4740,8 @@ class DatetimeModel(Model):
         Returns
         -------
         job : Job
-            a job tracking the backtest computation.  When it is complete, all available backtests
-            will have scores computed.
+            A job tracking the backtest computation. When it is complete, all available backtests will have scores
+            computed.
         """
         from .job import Job  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -4868,8 +4770,7 @@ class DatetimeModel(Model):
         Parameters
         ----------
         data_subset : str
-            data set definition to build predictions on.
-            Choices are:
+            The data set definition to build predictions on. Choices are:.
 
                 - `dr.enums.DATA_SUBSET.HOLDOUT` for holdout data set only
                 - `dr.enums.DATA_SUBSET.ALL_BACKTESTS` for downloading the predictions for all
@@ -4901,17 +4802,14 @@ class DatetimeModel(Model):
         limit : Optional[int]
             The maximum number of results to return. Defaults to 100 if not specified.
         metric : Optional[str]
-            The name of the metric to retrieve scores for. If omitted, the default project metric
-            will be used.
+            The name of the metric to retrieve scores for. If omitted, the default project metric will be used.
         multiseries_value : Optional[str]
-            If specified, only the series containing the given value in one of the series ID columns
-            will be returned.
+            If specified, only the series containing the given value in one of the series ID columns will be returned.
         order_by : Optional[str]
-            Used for sorting the series. Attribute must be one of
-            ``datarobot.enums.SERIES_ACCURACY_ORDER_BY``.
+            Used for sorting the series. Attribute must be one of ``datarobot.enums.SERIES_ACCURACY_ORDER_BY``.
         reverse : Optional[bool]
-            Used for sorting the series. If ``True``, will sort the series in descending order by
-            the attribute specified by ``order_by``.
+            Used for sorting the series. If ``True``, will sort the series in descending order by the attribute
+            specified by ``order_by``.
 
         Returns
         -------
@@ -4945,31 +4843,27 @@ class DatetimeModel(Model):
         order_by=None,
         reverse=False,
     ):
-        """Save series accuracy results for the specified model in a CSV file.
+        """Save the series accuracy results for the specified model in a CSV file.
 
         Parameters
         ----------
         filename : str or file object
             The path or file object to save the data to.
         encoding : Optional[str]
-            A string representing the encoding to use in the output csv file.
-            Defaults to 'utf-8'.
+            A string representing the encoding to use in the output CSV file. Defaults to 'utf-8'.
         offset : Optional[int]
             The number of results to skip. Defaults to 0 if not specified.
         limit : Optional[int]
             The maximum number of results to return. Defaults to 100 if not specified.
         metric : Optional[str]
-            The name of the metric to retrieve scores for. If omitted, the default project metric
-            will be used.
+            The name of the metric to retrieve scores for. If omitted, the default project metric will be used.
         multiseries_value : Optional[str]
-            If specified, only the series containing the given value in one of the series ID columns
-            will be returned.
+            If specified, only the series containing the given value in one of the series ID columns will be returned.
         order_by : Optional[str]
-            Used for sorting the series. Attribute must be one of
-            ``datarobot.enums.SERIES_ACCURACY_ORDER_BY``.
+            Used for sorting the series. Attribute must be one of ``datarobot.enums.SERIES_ACCURACY_ORDER_BY``.
         reverse : Optional[bool]
-            Used for sorting the series. If ``True``, will sort the series in descending order by
-            the attribute specified by ``order_by``.
+            Used for sorting the series. If ``True``, will sort the series in descending order by the attribute
+            specified by ``order_by``.
         """
 
         data = self.get_series_accuracy_as_dataframe(
@@ -5004,11 +4898,10 @@ class DatetimeModel(Model):
         limit : Optional[int]
             The maximum number of results to return. Defaults to 100 if not specified.
         order_by : Optional[str]
-            Used for sorting the series. Attribute must be one of
-            ``datarobot.enums.SERIES_ACCURACY_ORDER_BY``.
+            Used for sorting the series. Attribute must be one of ``datarobot.enums.SERIES_ACCURACY_ORDER_BY``.
         reverse : Optional[bool]
-            Used for sorting the series. If ``True``, will sort the series in descending order by
-            the attribute specified by ``order_by``.
+            Used for sorting the series. If ``True``, will sort the series in descending order by the attribute
+            specified by ``order_by``.
 
         Returns
         -------
@@ -5018,9 +4911,9 @@ class DatetimeModel(Model):
         Raises
         ------
         ValueError
-            If the model type returns an unsupported insight
+            If the model type returns an unsupported insight.
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         """
         initial_params: Dict[str, Any] = {
             "offset": offset,
@@ -5084,43 +4977,36 @@ class DatetimeModel(Model):
         featurelist_id : Optional[str]
             The ID of the featurelist to use.
         training_row_count : Optional[int]
-            The number of rows to train the model on. If this parameter is used then `sample_pct`
-            cannot be specified.
+            The number of rows to train the model on. If this parameter is used then `sample_pct` cannot be specified.
         time_window_sample_pct : Optional[int]
-            An int between ``1`` and ``99`` indicating the percentage of
-            sampling within the time window. The points kept are determined by a random uniform
-            sample. If specified, `training_row_count` must not be specified and either
-            `training_duration` or `training_start_date` and `training_end_date` must be specified.
+            An int between ``1`` and ``99`` indicating the percentage of sampling within the time window. The points
+            kept are determined by a random uniform sample. If specified, `training_row_count` must not be specified and
+            either `training_duration` or `training_start_date` and `training_end_date` must be specified.
         training_duration : Optional[str]
-            A duration string representing the training duration for the submitted model. If
-            specified then `training_row_count`, `training_start_date`, and `training_end_date`
-            cannot be specified.
+            A duration string representing the training duration for the submitted model. If specified then
+            `training_row_count`, `training_start_date`, and `training_end_date` cannot be specified.
         training_start_date : Optional[str]
-            A datetime string representing the start date of
-            the data to use for training this model.  If specified, `training_end_date` must also be
-            specified, and `training_duration` cannot be specified. The value must be before the
-            `training_end_date` value.
+            A datetime string representing the start date of the data to use for training this model. If specified,
+            `training_end_date` must also be specified, and `training_duration` cannot be specified. The value must be
+            before the `training_end_date` value.
         training_end_date : Optional[str]
-            A datetime string representing the end date of the
-            data to use for training this model.  If specified, `training_start_date` must also be
-            specified, and `training_duration` cannot be specified. The value must be after the
-            `training_start_date` value.
+            A datetime string representing the end date of the data to use for training this model. If specified,
+            `training_start_date` must also be specified, and `training_duration` cannot be specified. The value must be
+            after the `training_start_date` value.
         sampling_method : Optional[str]
-            (New in version v2.23) defines the way training data is selected. Can be either
-            ``random`` or ``latest``.  In combination with ``training_row_count`` defines how rows
-            are selected from backtest (``latest`` by default).  When training data is defined using
-            time range (``training_duration`` or ``use_project_settings``) this setting changes the
-            way ``time_window_sample_pct`` is applied (``random`` by default).  Applicable to OTV
+            (New in version v2.23) defines the way training data is selected. Can be either ``random`` or ``latest``. In
+            combination with ``training_row_count`` defines how rows are selected from backtest (``latest`` by default).
+            When training data is defined using time range (``training_duration`` or ``use_project_settings``) this
+            setting changes the way ``time_window_sample_pct`` is applied (``random`` by default). Applicable to OTV
             projects only.
         n_clusters : Optional[int]
-            (New in version 2.27) Number of clusters to use in an unsupervised clustering model.
-            This parameter is used only for unsupervised clustering models that don't automatically
-            determine the number of clusters.
+            (New in version 2.27) Number of clusters to use in an unsupervised clustering model. This parameter is used
+            only for unsupervised clustering models that don't automatically determine the number of clusters.
 
         Returns
         -------
         job : ModelJob
-            The created job that is retraining the model
+            The created job that is retraining the model.
         """
         if bool(training_start_date) ^ bool(training_end_date):
             raise ValueError("Both training_start_date and training_end_date must be specified.")
@@ -5217,20 +5103,19 @@ class DatetimeModel(Model):
         See :meth:`get_feature_effect <datarobot.models.DatetimeModel.get_feature_effect>` for more
         information on the result of the job.
 
-        See :meth:`get_feature_effect_metadata \
-        <datarobot.models.DatetimeModel.get_feature_effect_metadata>`
-        for retrieving information of backtest_index.
+        See :meth:`get_feature_effect_metadata         <datarobot.models.DatetimeModel.get_feature_effect_metadata>`
+        for retrieving information of ``backtest_index``.
 
         Parameters
         ----------
-        backtest_index: string, FeatureEffectMetadataDatetime.backtest_index.
+        backtest_index : string, FeatureEffectMetadataDatetime.backtest_index.
             The backtest index to retrieve Feature Effects for.
 
         Returns
         -------
         job : Job
-            A Job representing the feature effect computation. To get the completed feature effect
-            data, use `job.get_result` or `job.get_result_when_complete`.
+            A Job representing the feature effect computation. To get the completed feature effect data, use
+            `job.get_result` or `job.get_result_when_complete`.
 
         Raises
         ------
@@ -5278,18 +5163,16 @@ class DatetimeModel(Model):
         Requires that Feature Effects has already been computed with
         :meth:`request_feature_effect <datarobot.models.Model.request_feature_effect>`.
 
-        See :meth:`get_feature_effect_metadata \
-        <datarobot.models.DatetimeModel.get_feature_effect_metadata>`
-        for retrieving information of source, backtest_index.
+        See :meth:`get_feature_effect_metadata         <datarobot.models.DatetimeModel.get_feature_effect_metadata>`
+        for retrieving information of source, ``backtest_index``.
 
         Parameters
         ----------
         source: string
-            The source Feature Effects are retrieved for.
-            One value of [FeatureEffectMetadataDatetime.sources]. To retrieve the available
-            sources for feature effect.
+            The source Feature Effects are retrieved for. One value of [FeatureEffectMetadataDatetime.sources]. To
+            retrieve the available sources for feature effect.
 
-        backtest_index: string, FeatureEffectMetadataDatetime.backtest_index.
+        backtest_index : string, FeatureEffectMetadataDatetime.backtest_index.
             The backtest index to retrieve Feature Effects for.
 
         Returns
@@ -5335,21 +5218,19 @@ class DatetimeModel(Model):
         """
         Retrieve Feature Effects computations for the model, requesting a new job if it hasn't been run previously.
 
-        See :meth:`get_feature_effect_metadata \
-        <datarobot.models.DatetimeModel.get_feature_effect_metadata>`
-        for retrieving information of source, backtest_index.
+        See :meth:`get_feature_effect_metadata         <datarobot.models.DatetimeModel.get_feature_effect_metadata>`
+        for retrieving information of source, ``backtest_index``.
 
         Parameters
         ----------
         max_wait : Optional[int]
-            The maximum time to wait for a requested feature effect job to complete before erroring
+            The maximum time to wait for a requested feature effect job to complete before erroring.
 
         source : string
-            The source Feature Effects are retrieved for.
-            One value of [FeatureEffectMetadataDatetime.sources]. To retrieve the available sources
-            for feature effect.
+            The source Feature Effects are retrieved for. One value of [FeatureEffectMetadataDatetime.sources]. To
+            retrieve the available sources for feature effect.
 
-        backtest_index: string, FeatureEffectMetadataDatetime.backtest_index.
+        backtest_index : string, FeatureEffectMetadataDatetime.backtest_index.
             The backtest index to retrieve Feature Effects for.
 
         Returns
@@ -5400,13 +5281,13 @@ class DatetimeModel(Model):
         top_n_features : int or None
             Number of top features (ranked by Feature Impact) used to calculate Feature Effects.
         features : list or None
-            The list of features to use to calculate Feature Effects.
+            The a list of features to use to calculate Feature Effects.
 
         Returns
         -------
         job : Job
-            A Job representing Feature Effects computation. To get the completed Feature Effect
-            data, use `job.get_result` or `job.get_result_when_complete`.
+            A Job representing Feature Effects computation. To get the completed Feature Effect data, use
+            `job.get_result` or `job.get_result_when_complete`.
         """
         return FeatureEffectsMulticlass.create(
             project_id=self.project_id,
@@ -5490,14 +5371,14 @@ class DatetimeModel(Model):
         top_n_features : int or None
             Number of top features (ranked by feature impact) used to calculate Feature Effects.
         features : list or None
-            The list of features used to calculate Feature Effects.
+            The a list of features used to calculate Feature Effects.
         max_wait : Optional[int]
             The maximum time to wait for a requested feature effect job to complete before erroring.
 
         Returns
         -------
         feature_effects : list of FeatureEffectsMulticlass
-            The list of multiclass feature effects data.
+            The a list of multiclass feature effects data.
         """
         try:
             feature_effects = self.get_feature_effects_multiclass(
@@ -5529,13 +5410,13 @@ class DatetimeModel(Model):
         Parameters
         ----------
         prediction_intervals_size : int
-            The prediction interval's size to calculate for this model. See the
-            :ref:`prediction intervals <prediction-intervals>` documentation for more information.
+            The prediction interval's size to calculate for this model. See the :ref:`prediction intervals
+            <prediction-intervals>` documentation for more information.
 
         Returns
         -------
         job : Job
-            a :py:class:`Job <datarobot.models.Job>` tracking the prediction intervals computation
+            A :py:class:`Job <datarobot.models.Job>` tracking the prediction intervals computation.
         """
         url = f"projects/{self.project_id}/models/{self.id}/predictionIntervals/"
         payload = {"percentiles": [prediction_intervals_size]}
@@ -5555,10 +5436,9 @@ class DatetimeModel(Model):
         Parameters
         ----------
         offset : Optional[int]
-            If provided, this many results will be skipped
+            If provided, this many results will be skipped.
         limit : Optional[int]
-            If provided, at most this many results will be returned. If not provided, will return
-            at most 100 results.
+            If provided, at most this many results will be returned. If not provided, will return at most 100 results.
 
         Returns
         -------
@@ -5589,24 +5469,21 @@ class DatetimeModel(Model):
         Parameters
         ----------
         backtest : int or string, optional
-            Compute plots for a specific backtest (use the backtest index starting from zero).
-            To compute plots for holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``
+            Compute plots for a specific backtest (use the backtest index starting from zero). To compute plots for
+            holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``.
         source : string, optional
-            The source of the data for the backtest/holdout.
-            Attribute must be one of ``dr.enums.SOURCE_TYPE``
+            The source of the data for the backtest/holdout. Attribute must be one of ``dr.enums.SOURCE_TYPE``.
         forecast_distance_start : Optional[int]:
-            The start of forecast distance range (forecast window) to compute.
-            If not specified, the first forecast distance for this project will be used.
-            Only for time series supervised models
+            The start of forecast distance range (forecast window) to compute. If not specified, the first forecast
+            distance for this project will be used. Only for time series supervised models.
         forecast_distance_end : Optional[int]:
-            The end of forecast distance range (forecast window) to compute.
-            If not specified, the last forecast distance for this project will be used.
-            Only for time series supervised models
+            The end of forecast distance range (forecast window) to compute. If not specified, the last forecast
+            distance for this project will be used. Only for time series supervised models.
 
         Returns
         -------
         job : Job
-            a :py:class:`Job <datarobot.models.Job>` tracking the datetime trend plots computation
+            A :py:class:`Job <datarobot.models.Job>` tracking the datetime trend plots computation.
 
         Notes
         -----
@@ -5642,16 +5519,15 @@ class DatetimeModel(Model):
         Parameters
         ----------
         forecast_distance : Optional[int]
-            Forecast distance to retrieve the metadata for.
-            If not specified, the first forecast distance for this project will be used.
-            Only available for time series projects.
+            Forecast distance to retrieve the metadata for. If not specified, the first forecast distance for this
+            project will be used. Only available for time series projects.
 
         Returns
         -------
         metadata : AccuracyOverTimePlotsMetadata
-            a :py:class:`AccuracyOverTimePlotsMetadata
-            <datarobot.models.datetime_trend_plots.AccuracyOverTimePlotsMetadata>`
-            representing Accuracy over Time plots metadata
+            A :py:class:`AccuracyOverTimePlotsMetadata
+            <datarobot.models.datetime_trend_plots.AccuracyOverTimePlotsMetadata>` representing Accuracy over Time plots
+            metadata.
         """
         params = {"forecastDistance": forecast_distance}
         url = "projects/{}/datetimeModels/{}/accuracyOverTimePlots/metadata/".format(self.project_id, self.id)
@@ -5693,43 +5569,37 @@ class DatetimeModel(Model):
         Parameters
         ----------
         backtest : int or string, optional
-            Retrieve plots for a specific backtest (use the backtest index starting from zero).
-            To retrieve plots for holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``
+            Retrieve plots for a specific backtest (use the backtest index starting from zero). To retrieve plots for
+            holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``.
         source : string, optional
-            The source of the data for the backtest/holdout.
-            Attribute must be one of ``dr.enums.SOURCE_TYPE``
+            The source of the data for the backtest/holdout. Attribute must be one of ``dr.enums.SOURCE_TYPE``.
         forecast_distance : Optional[int]
-            Forecast distance to retrieve the plots for.
-            If not specified, the first forecast distance for this project will be used.
-            Only available for time series projects.
+            Forecast distance to retrieve the plots for. If not specified, the first forecast distance for this project
+            will be used. Only available for time series projects.
         series_id : string, optional
-            The name of the series to retrieve for multiseries projects.
-            If not provided an average plot for the first 1000 series will be retrieved.
+            The name of the series to retrieve for multiseries projects. If not provided an average plot for the first
+            1000 series will be retrieved.
         resolution : string, optional
-            Specifying at which resolution the data should be binned.
-            If not provided an optimal resolution will be used to
-            build chart data with number of bins <= ``max_bin_size``.
-            One of ``dr.enums.DATETIME_TREND_PLOTS_RESOLUTION``.
+            Specifying at which resolution the data should be binned. If not provided an optimal resolution will be used
+            to build chart data with number of bins <= ``max_bin_size``. One of
+            ``dr.enums.DATETIME_TREND_PLOTS_RESOLUTION``.
         max_bin_size : Optional[int]
-            An int between ``1`` and ``1000``, which specifies
-            the maximum number of bins for the retrieval. Default is ``500``.
+            An int between ``1`` and ``1000``, which specifies the maximum number of bins for the retrieval. Default is
+            ``500``.
         start_date : datetime.datetime, optional
-            The start of the date range to return.
-            If not specified, start date for requested plot will be used.
+            The start of the date range to return. If not specified, start date for requested plot will be used.
         end_date : datetime.datetime, optional
-            The end of the date range to return.
-            If not specified, end date for requested plot will be used.
+            The end of the date range to return. If not specified, end date for requested plot will be used.
         max_wait : int or None, optional
-            The maximum time to wait for a compute job to complete before retrieving the plots.
-            Default is ``dr.enums.DEFAULT_MAX_WAIT``.
-            If ``0`` or ``None``, the plots would be retrieved without attempting the computation.
+            The maximum time to wait for a compute job to complete before retrieving the plots. Default is
+            ``dr.enums.DEFAULT_MAX_WAIT``. If ``0`` or ``None``, the plots would be retrieved without attempting the
+            computation.
 
         Returns
         -------
         plot : AccuracyOverTimePlot
-            a :py:class:`AccuracyOverTimePlot
-            <datarobot.models.datetime_trend_plots.AccuracyOverTimePlot>`
-            representing Accuracy over Time plot
+            A :py:class:`AccuracyOverTimePlot <datarobot.models.datetime_trend_plots.AccuracyOverTimePlot>` representing
+            Accuracy over Time plot.
 
         Examples
         --------
@@ -5787,29 +5657,27 @@ class DatetimeModel(Model):
         Parameters
         ----------
         backtest : int or string, optional
-            Retrieve plots for a specific backtest (use the backtest index starting from zero).
-            To retrieve plots for holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``
+            Retrieve plots for a specific backtest (use the backtest index starting from zero). To retrieve plots for
+            holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``.
         source : string, optional
-            The source of the data for the backtest/holdout.
-            Attribute must be one of ``dr.enums.SOURCE_TYPE``
+            The source of the data for the backtest/holdout. Attribute must be one of ``dr.enums.SOURCE_TYPE``.
         forecast_distance : Optional[int]
-            Forecast distance to retrieve the plots for.
-            If not specified, the first forecast distance for this project will be used.
-            Only available for time series projects.
+            Forecast distance to retrieve the plots for. If not specified, the first forecast distance for this project
+            will be used. Only available for time series projects.
         series_id : string, optional
-            The name of the series to retrieve for multiseries projects.
-            If not provided an average plot for the first 1000 series will be retrieved.
+            The name of the series to retrieve for multiseries projects. If not provided an average plot for the first
+            1000 series will be retrieved.
         max_wait : int or None, optional
-            The maximum time to wait for a compute job to complete before retrieving the plots.
-            Default is ``dr.enums.DEFAULT_MAX_WAIT``.
-            If ``0`` or ``None``, the plots would be retrieved without attempting the computation.
+            The maximum time to wait for a compute job to complete before retrieving the plots. Default is
+            ``dr.enums.DEFAULT_MAX_WAIT``. If ``0`` or ``None``, the plots would be retrieved without attempting the
+            computation.
 
         Returns
         -------
         plot : AccuracyOverTimePlotPreview
-            a :py:class:`AccuracyOverTimePlotPreview
-            <datarobot.models.datetime_trend_plots.AccuracyOverTimePlotPreview>`
-            representing Accuracy over Time plot preview
+            A :py:class:`AccuracyOverTimePlotPreview
+            <datarobot.models.datetime_trend_plots.AccuracyOverTimePlotPreview>` representing Accuracy over Time plot
+            preview.
 
         Examples
         --------
@@ -5849,9 +5717,9 @@ class DatetimeModel(Model):
         Returns
         -------
         metadata : ForecastVsActualPlotsMetadata
-            a :py:class:`ForecastVsActualPlotsMetadata
-            <datarobot.models.datetime_trend_plots.ForecastVsActualPlotsMetadata>`
-            representing Forecast vs Actual plots metadata
+            A :py:class:`ForecastVsActualPlotsMetadata
+            <datarobot.models.datetime_trend_plots.ForecastVsActualPlotsMetadata>` representing Forecast vs Actual plots
+            metadata.
         """
         url = "projects/{}/datetimeModels/{}/forecastVsActualPlots/metadata/".format(self.project_id, self.id)
         server_data = self._client.get(url, params={}).json()
@@ -5905,45 +5773,40 @@ class DatetimeModel(Model):
         Parameters
         ----------
         backtest : int or string, optional
-            Retrieve plots for a specific backtest (use the backtest index starting from zero).
-            To retrieve plots for holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``
+            Retrieve plots for a specific backtest (use the backtest index starting from zero). To retrieve plots for
+            holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``.
         source : string, optional
-            The source of the data for the backtest/holdout.
-            Attribute must be one of ``dr.enums.SOURCE_TYPE``
+            The source of the data for the backtest/holdout. Attribute must be one of ``dr.enums.SOURCE_TYPE``.
         forecast_distance_start : Optional[int]:
-            The start of forecast distance range (forecast window) to retrieve.
-            If not specified, the first forecast distance for this project will be used.
+            The start of forecast distance range (forecast window) to retrieve. If not specified, the first forecast
+            distance for this project will be used.
         forecast_distance_end : Optional[int]:
-            The end of forecast distance range (forecast window) to retrieve.
-            If not specified, the last forecast distance for this project will be used.
+            The end of forecast distance range (forecast window) to retrieve. If not specified, the last forecast
+            distance for this project will be used.
         series_id : string, optional
-            The name of the series to retrieve for multiseries projects.
-            If not provided an average plot for the first 1000 series will be retrieved.
+            The name of the series to retrieve for multiseries projects. If not provided an average plot for the first
+            1000 series will be retrieved.
         resolution : string, optional
-            Specifying at which resolution the data should be binned.
-            If not provided an optimal resolution will be used to
-            build chart data with number of bins <= ``max_bin_size``.
-            One of ``dr.enums.DATETIME_TREND_PLOTS_RESOLUTION``.
+            Specifying at which resolution the data should be binned. If not provided an optimal resolution will be used
+            to build chart data with number of bins <= ``max_bin_size``. One of
+            ``dr.enums.DATETIME_TREND_PLOTS_RESOLUTION``.
         max_bin_size : Optional[int]
-            An int between ``1`` and ``1000``, which specifies
-            the maximum number of bins for the retrieval. Default is ``500``.
+            An int between ``1`` and ``1000``, which specifies the maximum number of bins for the retrieval. Default is
+            ``500``.
         start_date : datetime.datetime, optional
-            The start of the date range to return.
-            If not specified, start date for requested plot will be used.
+            The start of the date range to return. If not specified, start date for requested plot will be used.
         end_date : datetime.datetime, optional
-            The end of the date range to return.
-            If not specified, end date for requested plot will be used.
+            The end of the date range to return. If not specified, end date for requested plot will be used.
         max_wait : int or None, optional
-            The maximum time to wait for a compute job to complete before retrieving the plots.
-            Default is ``dr.enums.DEFAULT_MAX_WAIT``.
-            If ``0`` or ``None``, the plots would be retrieved without attempting the computation.
+            The maximum time to wait for a compute job to complete before retrieving the plots. Default is
+            ``dr.enums.DEFAULT_MAX_WAIT``. If ``0`` or ``None``, the plots would be retrieved without attempting the
+            computation.
 
         Returns
         -------
         plot : ForecastVsActualPlot
-            a :py:class:`ForecastVsActualPlot
-            <datarobot.models.datetime_trend_plots.ForecastVsActualPlot>`
-            representing Forecast vs Actual plot
+            A :py:class:`ForecastVsActualPlot <datarobot.models.datetime_trend_plots.ForecastVsActualPlot>` representing
+            Forecast vs Actual plot.
 
         Examples
         --------
@@ -6016,25 +5879,24 @@ class DatetimeModel(Model):
         Parameters
         ----------
         backtest : int or string, optional
-            Retrieve plots for a specific backtest (use the backtest index starting from zero).
-            To retrieve plots for holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``
+            Retrieve plots for a specific backtest (use the backtest index starting from zero). To retrieve plots for
+            holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``.
         source : string, optional
-            The source of the data for the backtest/holdout.
-            Attribute must be one of ``dr.enums.SOURCE_TYPE``
+            The source of the data for the backtest/holdout. Attribute must be one of ``dr.enums.SOURCE_TYPE``.
         series_id : string, optional
-            The name of the series to retrieve for multiseries projects.
-            If not provided an average plot for the first 1000 series will be retrieved.
+            The name of the series to retrieve for multiseries projects. If not provided an average plot for the first
+            1000 series will be retrieved.
         max_wait : int or None, optional
-            The maximum time to wait for a compute job to complete before retrieving the plots.
-            Default is ``dr.enums.DEFAULT_MAX_WAIT``.
-            If ``0`` or ``None``, the plots would be retrieved without attempting the computation.
+            The maximum time to wait for a compute job to complete before retrieving the plots. Default is
+            ``dr.enums.DEFAULT_MAX_WAIT``. If ``0`` or ``None``, the plots would be retrieved without attempting the
+            computation.
 
         Returns
         -------
         plot : ForecastVsActualPlotPreview
-            a :py:class:`ForecastVsActualPlotPreview
-            <datarobot.models.datetime_trend_plots.ForecastVsActualPlotPreview>`
-            representing Forecast vs Actual plot preview
+            A :py:class:`ForecastVsActualPlotPreview
+            <datarobot.models.datetime_trend_plots.ForecastVsActualPlotPreview>` representing Forecast vs Actual plot
+            preview.
 
         Examples
         --------
@@ -6073,9 +5935,9 @@ class DatetimeModel(Model):
         Returns
         -------
         metadata : AnomalyOverTimePlotsMetadata
-            a :py:class:`AnomalyOverTimePlotsMetadata
-            <datarobot.models.datetime_trend_plots.AnomalyOverTimePlotsMetadata>`
-            representing Anomaly over Time plots metadata
+            A :py:class:`AnomalyOverTimePlotsMetadata
+            <datarobot.models.datetime_trend_plots.AnomalyOverTimePlotsMetadata>` representing Anomaly over Time plots
+            metadata.
         """
         url = "projects/{}/datetimeModels/{}/anomalyOverTimePlots/metadata/".format(self.project_id, self.id)
         server_data = self._client.get(url, params={}).json()
@@ -6110,39 +5972,34 @@ class DatetimeModel(Model):
         Parameters
         ----------
         backtest : int or string, optional
-            Retrieve plots for a specific backtest (use the backtest index starting from zero).
-            To retrieve plots for holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``
+            Retrieve plots for a specific backtest (use the backtest index starting from zero). To retrieve plots for
+            holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``.
         source : string, optional
-            The source of the data for the backtest/holdout.
-            Attribute must be one of ``dr.enums.SOURCE_TYPE``
+            The source of the data for the backtest/holdout. Attribute must be one of ``dr.enums.SOURCE_TYPE``.
         series_id : string, optional
-            The name of the series to retrieve for multiseries projects.
-            If not provided an average plot for the first 1000 series will be retrieved.
+            The name of the series to retrieve for multiseries projects. If not provided an average plot for the first
+            1000 series will be retrieved.
         resolution : string, optional
-            Specifying at which resolution the data should be binned.
-            If not provided an optimal resolution will be used to
-            build chart data with number of bins <= ``max_bin_size``.
-            One of ``dr.enums.DATETIME_TREND_PLOTS_RESOLUTION``.
+            Specifying at which resolution the data should be binned. If not provided an optimal resolution will be used
+            to build chart data with number of bins <= ``max_bin_size``. One of
+            ``dr.enums.DATETIME_TREND_PLOTS_RESOLUTION``.
         max_bin_size : Optional[int]
-            An int between ``1`` and ``1000``, which specifies
-            the maximum number of bins for the retrieval. Default is ``500``.
+            An int between ``1`` and ``1000``, which specifies the maximum number of bins for the retrieval. Default is
+            ``500``.
         start_date : datetime.datetime, optional
-            The start of the date range to return.
-            If not specified, start date for requested plot will be used.
+            The start of the date range to return. If not specified, start date for requested plot will be used.
         end_date : datetime.datetime, optional
-            The end of the date range to return.
-            If not specified, end date for requested plot will be used.
+            The end of the date range to return. If not specified, end date for requested plot will be used.
         max_wait : int or None, optional
-            The maximum time to wait for a compute job to complete before retrieving the plots.
-            Default is ``dr.enums.DEFAULT_MAX_WAIT``.
-            If ``0`` or ``None``, the plots would be retrieved without attempting the computation.
+            The maximum time to wait for a compute job to complete before retrieving the plots. Default is
+            ``dr.enums.DEFAULT_MAX_WAIT``. If ``0`` or ``None``, the plots would be retrieved without attempting the
+            computation.
 
         Returns
         -------
         plot : AnomalyOverTimePlot
-            a :py:class:`AnomalyOverTimePlot
-            <datarobot.models.datetime_trend_plots.AnomalyOverTimePlot>`
-            representing Anomaly over Time plot
+            A :py:class:`AnomalyOverTimePlot <datarobot.models.datetime_trend_plots.AnomalyOverTimePlot>` representing
+            Anomaly over Time plot.
 
         Examples
         --------
@@ -6201,25 +6058,23 @@ class DatetimeModel(Model):
         prediction_threshold: Optional[float]
             Only bins with predictions exceeding this threshold will be returned in the response.
         backtest : int or string, optional
-            Retrieve plots for a specific backtest (use the backtest index starting from zero).
-            To retrieve plots for holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``
+            Retrieve plots for a specific backtest (use the backtest index starting from zero). To retrieve plots for
+            holdout, use ``dr.enums.DATA_SUBSET.HOLDOUT``.
         source : string, optional
-            The source of the data for the backtest/holdout.
-            Attribute must be one of ``dr.enums.SOURCE_TYPE``
+            The source of the data for the backtest/holdout. Attribute must be one of ``dr.enums.SOURCE_TYPE``.
         series_id : string, optional
-            The name of the series to retrieve for multiseries projects.
-            If not provided an average plot for the first 1000 series will be retrieved.
+            The name of the series to retrieve for multiseries projects. If not provided an average plot for the first
+            1000 series will be retrieved.
         max_wait : int or None, optional
-            The maximum time to wait for a compute job to complete before retrieving the plots.
-            Default is ``dr.enums.DEFAULT_MAX_WAIT``.
-            If ``0`` or ``None``, the plots would be retrieved without attempting the computation.
+            The maximum time to wait for a compute job to complete before retrieving the plots. Default is
+            ``dr.enums.DEFAULT_MAX_WAIT``. If ``0`` or ``None``, the plots would be retrieved without attempting the
+            computation.
 
         Returns
         -------
         plot : AnomalyOverTimePlotPreview
-            a :py:class:`AnomalyOverTimePlotPreview
-            <datarobot.models.datetime_trend_plots.AnomalyOverTimePlotPreview>`
-            representing Anomaly over Time plot preview
+            A :py:class:`AnomalyOverTimePlotPreview <datarobot.models.datetime_trend_plots.AnomalyOverTimePlotPreview>`
+            representing Anomaly over Time plot preview.
 
         Examples
         --------
@@ -6276,9 +6131,8 @@ class DatetimeModel(Model):
         source: "training" or "validation"
             The source to compute insight for.
         series_id: string
-            Required for multiseries projects. The series id to compute insight for.
-            Say if there is a series column containing cities,
-            the example of the series name to pass would be "Boston"
+            Required for multiseries projects. The series ID to compute insight for. Say if there is a series column
+            containing cities, the example of the series name to pass would be "Boston".
 
         Returns
         -------
@@ -6301,7 +6155,7 @@ class DatetimeModel(Model):
         detection model in time series unsupervised project which also supports calculation of
         Shapley values.
 
-        Records can be filtered by the data backtest, source and series_id.
+        Records can be filtered by the data backtest, source and ``series_id``.
         The results can be limited.
 
         .. versionadded:: v2.25
@@ -6312,20 +6166,18 @@ class DatetimeModel(Model):
             The backtest of the data to filter records by.
         source: "training" or "validation"
             The source of the data to filter records by.
-        series_id: string
-            The series id to filter records by.
+        series_id : string
+            The series ID to filter records by.
         limit: Optional[int]
         offset: Optional[int]
         with_data_only: Optional[bool]
-            Whether to return only records with preview and explanations available.
-            False by default.
+            Whether to return only records with preview and explanations available. False by default.
 
         Returns
         -------
         records : list of AnomalyAssessmentRecord
-            a :py:class:`AnomalyAssessmentRecord
-            <datarobot.models.anomaly_assessment.AnomalyAssessmentRecord>`
-            representing Anomaly Assessment Record
+            A :py:class:`AnomalyAssessmentRecord <datarobot.models.anomaly_assessment.AnomalyAssessmentRecord>`
+            representing Anomaly Assessment Record.
 
         """
         return AnomalyAssessmentRecord.list(
@@ -6363,12 +6215,12 @@ class DatetimeModel(Model):
 
         Feature Impact is computed for each column by creating new data with that column randomly
         permuted (but the others left unchanged), and seeing how the error metric score for the
-        predictions is affected. The 'impactUnnormalized' is how much worse the error metric score
-        is when making predictions on this modified data. The 'impactNormalized' is normalized so
+        predictions is affected. The '``impactUnnormalized``' is how much worse the error metric score
+        is when making predictions on this modified data. The '``impactNormalized``' is normalized so
         that the largest value is 1. In both cases, larger values indicate more important features.
 
         If a feature is redundant, i.e., once other features are considered it does not
-        contribute much in addition, the 'redundantWith' value is the name of the feature that has the
+        contribute much in addition, the '``redundantWith``' value is the name of the feature that has the
         highest correlation with this feature. Note that redundancy detection is only available for
         jobs run after the addition of this feature. When retrieving data that predates this
         functionality, a NoRedundancyImpactAvailable warning will be used.
@@ -6385,12 +6237,12 @@ class DatetimeModel(Model):
         with_metadata : bool
             The flag indicating if the result should include the metadata as well.
         backtest : int or string
-            The index of the backtest unless it is holdout then it is string 'holdout'. This is supported
-            only in DatetimeModels
+            The index of the backtest unless it is holdout then it is string 'holdout'. This is supported only in
+            DatetimeModels.
         data_slice_filter : DataSlice, optional
-            (New in version v3.4) A data slice used to filter the return values based on the dataslice.id.
-            By default, this function will use data_slice_filter.id == None which returns an unsliced insight.
-            If data_slice_filter is None then get_roc_curve will raise a ValueError.
+            (New in version v3.4) A ``DataSlice`` used to filter the return values based on the data slice ID. By
+            default, this function uses ``data_slice_filter.id == None``, which returns an unsliced insight. If
+            ``data_slice_filter`` is ``None``, then ``get_roc_curve`` will raise a ``ValueError``.
 
         Returns
         -------
@@ -6398,7 +6250,7 @@ class DatetimeModel(Model):
             The feature impact data response depends on the with_metadata parameter. The response is
             either a dict with metadata and a list with actual data or just a list with that data.
 
-            Each List item is a dict with the keys ``featureName``, ``impactNormalized``, and
+            Each list item is a dict with the keys ``featureName``, ``impactNormalized``, and
             ``impactUnnormalized``, ``redundantWith`` and ``count``.
 
             For dict response available keys are:
@@ -6412,7 +6264,7 @@ class DatetimeModel(Model):
                     identification was run while calculating this Feature Impact.
               - ``rowCount`` - An integer or None that indicates the number of rows that was used to
                     calculate Feature Impact. For the Feature Impact calculated with the default
-                    logic, without specifying the rowCount, we return None here.
+                    logic, without specifying the ``rowCount``, we return None here.
               - ``count`` - An integer with the number of features under the ``featureImpacts``.
 
         Raises
@@ -6439,30 +6291,29 @@ class DatetimeModel(Model):
         """
         Request feature impacts to be computed for the model.
 
-        See :meth:`get_feature_impact <datarobot.models.Model.get_feature_impact>` for more
+        See :meth:`get_feature_impact <datarobot.models.Model.``get_feature_impact``>` for more
         information on the result of the job.
 
         Parameters
         ----------
         row_count : int
-            The sample size (specified in rows) to use for Feature Impact computation. This is not
-            supported for unsupervised, multi-class (that has a separate method) and time series
-            projects.
+            The sample size (specified in rows) to use for Feature Impact computation. This is not supported for
+            unsupervised, multi-class (that has a separate method) and time series projects.
         with_metadata : bool
             The flag indicating if the result should include the metadata as well.
         backtest : int or string
-            The index of the backtest unless it is holdout then it is string 'holdout'. This is supported
-            only in DatetimeModels
+            The index of the backtest unless it is holdout then it is string 'holdout'. This is supported only in
+            DatetimeModels.
         data_slice_filter : DataSlice, optional
-            (New in version v3.4) A data slice used to filter the return values based on the dataslice.id.
-            By default, this function will use data_slice_filter.id == None which returns an unsliced insight.
-            If data_slice_filter is None then get_roc_curve will raise a ValueError.
+            (New in version v3.4) A ``DataSlice`` used to filter the return values based on the data slice ID. By
+            default, this function uses ``data_slice_filter.id == None``, which returns an unsliced insight. If
+            ``data_slice_filter`` is ``None``, then ``get_roc_curve`` will raise a ``ValueError``.
 
         Returns
         -------
         job : Job
-            A Job representing the feature impact computation. To get the completed feature impact
-            data, use `job.get_result` or `job.get_result_when_complete`.
+            A Job representing the feature impact computation. To get the completed feature impact data, use
+            `job.get_result` or `job.get_result_when_complete`.
 
         Raises
         ------
@@ -6502,26 +6353,24 @@ class DatetimeModel(Model):
         Parameters
         ----------
         max_wait : Optional[int]
-            The maximum time to wait for a requested feature impact job to complete before erroring
+            The maximum time to wait for a requested feature impact job to complete before erroring.
         row_count : int
-            The sample size (specified in rows) to use for Feature Impact computation. This is not
-            supported for unsupervised, multi-class (that has a separate method) and time series
-            projects.
+            The sample size (specified in rows) to use for Feature Impact computation. This is not supported for
+            unsupervised, multi-class (that has a separate method) and time series projects.
         with_metadata : bool
             The flag indicating if the result should include the metadata as well.
         backtest : str
             Feature Impact backtest. Can be 'holdout' or numbers from 0 up to max number of backtests in project.
         data_slice_filter : DataSlice, optional
-            (New in version v3.4) A data slice used to filter the return values based on the dataslice.id.
-            By default, this function will use data_slice_filter.id == None which returns an unsliced insight.
-            If data_slice_filter is None then get_roc_curve will raise a ValueError.
+            (New in version v3.4) A ``DataSlice`` used to filter the return values based on the data slice ID. By
+            default, this function uses ``data_slice_filter.id == None``, which returns an unsliced insight. If
+            ``data_slice_filter`` is ``None``, then ``get_roc_curve`` will raise a ``ValueError``.
 
         Returns
         -------
         feature_impacts : list or dict
-            The feature impact data. See
-            :meth:`get_feature_impact <datarobot.models.Model.get_feature_impact>` for the exact
-            schema.
+            The feature impact data. See :meth:`get_feature_impact <datarobot.models.Model.``get_feature_impact``>` for
+            the exact schema.
         """
         try:
             feature_impact_job = self.request_feature_impact(
@@ -6578,15 +6427,14 @@ class DatetimeModel(Model):
         Parameters
         ----------
         source : str
-            (Deprecated in version v3.4)
-            Lift chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
-            If `backtest_index` is present then this will be ignored.
+            (Deprecated in version v3.4) Lift chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible
+            values. If `backtest_index` is present then this will be ignored.
         backtest_index : str
             Lift chart data backtest. Can be 'holdout' or numbers from 0 up to max number of backtests in project.
         data_slice_filter : DataSlice, optional
-            A data slice used to filter the return values based on the dataslice.id. By default this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then request_lift_chart will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``request_lift_chart`` will raise a ``ValueError``.
 
         Returns
         -------
@@ -6620,22 +6468,19 @@ class DatetimeModel(Model):
         Parameters
         ----------
         source : str
-            (Deprecated in version v3.4)
-            Lift chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
-            For time series and OTV models, also accepts values `backtest_2`, `backtest_3`, ...,
-            up to the number of backtests in the model.
-            If `backtest_index` is present then this will be ignored.
+            (Deprecated in version v3.4) Lift chart data source. Check datarobot.enums.CHART_DATA_SOURCE for possible
+            values. For time series and OTV models, also accepts values `backtest_2`, `backtest_3`, ..., up to the
+            number of backtests in the model. If `backtest_index` is present then this will be ignored.
         backtest_index : str
             Lift chart data backtest. Can be 'holdout' or numbers from 0 up to max number of backtests in project.
         fallback_to_parent_insights : bool
-            Optional, if True, this will return lift chart data for this
-            model's parent if the lift chart is not available for this model and the model has a
-            defined parent model. If omitted or False, or there is no parent model, will not
-            attempt to return insight data from this model's parent.
+            Optional, if True, this will return lift chart data for this model's parent if the lift chart is not
+            available for this model and the model has a defined parent model. If omitted or False, or there is no
+            parent model, will not attempt to return insight data from this model's parent.
         data_slice_filter : DataSlice, optional
-            A data slice used to filter the return values based on the dataslice.id. By default this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then get_lift_chart will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``get_lift_chart`` will raise a ``ValueError``.
 
         Returns
         -------
@@ -6645,9 +6490,9 @@ class DatetimeModel(Model):
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         ValueError
-            If data_slice_filter passed as None
+            If ``data_slice_filter`` passed as None.
         """
         if backtest_index is not None:
             source = self._get_source_for_lift_and_roc(backtest_index=backtest_index)
@@ -6675,15 +6520,14 @@ class DatetimeModel(Model):
         Parameters
         ----------
         source : str
-            (Deprecated in version v3.4)
-            Roc Curve data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
-            If `backtest_index` is present then this will be ignored.
+            (Deprecated in version v3.4) Roc Curve data source. Check datarobot.enums.CHART_DATA_SOURCE for possible
+            values. If `backtest_index` is present then this will be ignored.
         backtest_index : str
             ROC curve data backtest. Can be 'holdout' or numbers from 0 up to max number of backtests in project.
         data_slice_filter : DataSlice, optional
-            A data slice used to filter the return values based on the dataslice.id. By default this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then request_roc_curve will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``request_roc_curve`` will raise a ``ValueError``.
 
         Returns
         -------
@@ -6717,22 +6561,19 @@ class DatetimeModel(Model):
         Parameters
         ----------
         source : str
-            (Deprecated in version v3.4)
-            ROC curve data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
-            For time series and OTV models, also accepts values `backtest_2`, `backtest_3`, ...,
-            up to the number of backtests in the model.
-            If `backtest_index` is present then this will be ignored.
+            (Deprecated in version v3.4) ROC curve data source. Check datarobot.enums.CHART_DATA_SOURCE for possible
+            values. For time series and OTV models, also accepts values `backtest_2`, `backtest_3`, ..., up to the
+            number of backtests in the model. If `backtest_index` is present then this will be ignored.
         backtest_index : str
             ROC curve data backtest. Can be 'holdout' or numbers from 0 up to max number of backtests in project.
         fallback_to_parent_insights : bool
-            Optional, if True, this will return ROC curve data for this
-            model's parent if the ROC curve is not available for this model and the model has a
-            defined parent model. If omitted or False, or there is no parent model, will not
-            attempt to return data from this model's parent.
+            Optional, if True, this will return ROC curve data for this model's parent if the ROC curve is not available
+            for this model and the model has a defined parent model. If omitted or False, or there is no parent model,
+            will not attempt to return data from this model's parent.
         data_slice_filter : DataSlice, optional
-            A data slice used to filter the return values based on the data slice.id. By default, this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then get_roc_curve will raise a ValueError.
+            A ``DataSlice`` used to filter the return values based on the data slice ID. By default, this function uses
+            ``data_slice_filter.id == None``, which returns an unsliced insight. If ``data_slice_filter`` is ``None``,
+            then ``get_roc_curve`` will raise a ``ValueError``.
 
         Returns
         -------
@@ -6742,11 +6583,11 @@ class DatetimeModel(Model):
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         TypeError
-            If the underlying project type is multilabel
+            If the underlying project type is multilabel.
         ValueError
-            If data_slice_filter passed as None
+            If ``data_slice_filter`` passed as None.
         """
 
         if backtest_index is not None:
@@ -6768,76 +6609,71 @@ class RatingTableModel(Model):
     All durations are specified with a duration string such as those returned
     by the :meth:`partitioning_methods.construct_duration_string
     <datarobot.helpers.partitioning_methods.construct_duration_string>` helper method.
-    Please see :ref:`datetime partitioned project documentation <date-dur-spec>`
+    See :ref:`datetime partitioned project documentation <date-dur-spec>`
     for more information on duration strings.
 
     Attributes
     ----------
     id : str
-        the ID of the model
+        ID of the model.
     project_id : str
-        the ID of the project the model belongs to
+        ID of the project the model belongs to.
     processes : List[str]
-        the processes used by the model
+        Processes used by the model.
     featurelist_name : str
-        the name of the featurelist used by the model
+        Name of the featurelist used by the model.
     featurelist_id : str
-        the ID of the featurelist used by the model
+        ID of the featurelist used by the model.
     sample_pct : float or None
-        the percentage of the project dataset used in training the model.  If the project uses
-        datetime partitioning, the sample_pct will be None.  See `training_row_count`,
-        `training_duration`, and `training_start_date` and `training_end_date` instead.
+        Percentage of the project dataset used in training the model. If the project uses datetime partitioning,
+        ``sample_pct`` will be None. See ``training_row_count``, ``training_duration``, and ``training_start_date`` and
+        ``training_end_date`` instead.
     training_row_count : int or None
-        the number of rows of the project dataset used in training the model.  In a datetime
-        partitioned project, if specified, defines the number of rows used to train the model and
-        evaluate backtest scores; if unspecified, either `training_duration` or
-        `training_start_date` and `training_end_date` was used to determine that instead.
+        Number of rows of the project dataset used in training the model. In a datetime partitioned project, if
+        specified, defines the number of rows used to train the model and evaluate backtest scores; if unspecified,
+        either ``training_duration`` or ``training_start_date`` and ``training_end_date`` was used to determine that
+        instead.
     training_duration : str or None
-        only present for models in datetime partitioned projects.  If specified, a duration string
-        specifying the duration spanned by the data used to train the model and evaluate backtest
-        scores.
+        For datetime partitioned projects only. If specified, a duration string specifying the duration spanned by the
+        data used to train the model and evaluate backtest scores.
     training_start_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the start
-        date of the data used to train the model.
+        For frozen models in datetime partitioned projects only. If specified, the start date of the data used to train
+        the model.
     training_end_date : datetime or None
-        only present for frozen models in datetime partitioned projects.  If specified, the end
-        date of the data used to train the model.
+        For frozen models in datetime partitioned projects only. If specified, the end date of the data used to train
+        the model.
     model_type : str
-        what model this is, e.g., 'Nystroem Kernel SVM Regressor'
+        Type of model, for example 'Nystroem Kernel SVM Regressor'.
     model_category : str
-        what kind of model this is - 'prime' for DataRobot Prime models, 'blend' for blender models,
-        and 'model' for other models
+        Category of model, for example 'prime' for DataRobot Prime models, 'blend' for blender models, and 'model' for
+        other models.
     is_frozen : bool
-        whether this model is a frozen model
+        Whether this model is a frozen model.
     blueprint_id : str
-        the ID of the blueprint used in this model
+        ID of the blueprint used in this model.
     metrics : dict
-        a mapping from each metric to the model's scores for that metric
+        Mapping from each metric to the model's scores for that metric.
     rating_table_id : str
-        the ID of the rating table that belongs to this model
+        ID of the rating table that belongs to this model.
     monotonic_increasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically increasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional. ID of the featurelist that defines the set of features with a monotonically increasing relationship to
+        the target. If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        Optional; the ID of the featurelist that defines the set of features with
-        a monotonically decreasing relationship to the target.
-        If None, no such constraints are enforced.
+        Optional. ID of the featurelist that defines the set of features with a monotonically decreasing relationship to
+        the target. If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        Optional; whether this model supports enforcing monotonic constraints
+        Optional. Whether this model supports enforcing monotonic constraints.
     is_starred : bool
-        whether this model marked as starred
+        Whether this model is marked as starred.
     prediction_threshold : float
-        for binary classification projects, the threshold used for predictions
+        Binary classification projects only. Threshold used for predictions.
     prediction_threshold_read_only : bool
-        indicated whether modification of the prediction threshold is forbidden. Threshold
-        modification is forbidden once a model has had a deployment created or predictions made via
-        the dedicated prediction API.
+        Whether modification of the prediction threshold is forbidden. Threshold modification is forbidden once a model
+        has had a deployment created or predictions made via the dedicated prediction API.
     model_number : integer
-        model number assigned to a model
+        Model number assigned to the model.
     supports_composable_ml : bool or None
-        (New in version v2.26)
-        whether this model is supported in the Composable ML.
+        (New in version v2.26) Whether this model is supported in Composable ML.
     """
 
     _converter = (t.Dict({t.Key("rating_table_id"): String}) + Model._converter).allow_extra("*")
@@ -6915,21 +6751,21 @@ class RatingTableModel(Model):
 
     @classmethod
     def get(cls, project_id: str, model_id: str) -> RatingTableModel:  # type: ignore[override]  # pylint: disable=arguments-renamed
-        """Retrieve a specific rating table model
+        """Retrieve a specific rating table model.
 
         If the project does not have a rating table, a ClientError will occur.
 
         Parameters
         ----------
         project_id : str
-            the ID of the project the model belongs to
+            ID of the project the model belongs to.
         model_id : str
-            the ID of the model to retrieve
+            ID of the model to retrieve.
 
         Returns
         -------
         model : RatingTableModel
-            the model
+            The queried model.
         """
         url = f"projects/{project_id}/ratingTableModels/{model_id}/"
         return cls.from_location(url)
@@ -6943,22 +6779,21 @@ class RatingTableModel(Model):
         Parameters
         ----------
         project_id : str
-            the ID of the project the rating table belongs to
+            ID of the project the rating table belongs to.
         rating_table_id : str
-            the ID of the rating table to create this model from
+            ID of the rating table to create this model from.
 
         Returns
         -------
-        job: Job
-            an instance of created async job
+        job : Job
+            An instance of the created async job.
 
         Raises
         ------
         ClientError
-            Raised if creating model from a RatingTable that failed validation
+            Raised if creating model from a RatingTable that failed validation.
         JobAlreadyRequested
-            Raised if creating model from a RatingTable that is already
-            associated with a RatingTableModel
+            Raised if creating model from a RatingTable that is already associated with a RatingTableModel.
         """
         from .job import Job  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -6978,10 +6813,9 @@ class ModelParameters(APIObject):
     parameters : list of dict
         Model parameters that are related to the whole model.
     derived_features : list of dict
-        Preprocessing information about derived features, including original feature name, derived
-        feature name, feature type, list of applied transformation and coefficient for the
-        derived feature. Multistage models also contains list of coefficients for each stage in
-        `stage_coefficients` key (empty list for single stage models).
+        Preprocessing information about derived features, including original feature name, derived feature name, feature
+        type, a list of applied transformation and coefficient for the derived feature. Multistage models also contain a
+        list of coefficients for each stage in the ``stage_coefficients`` key (empty list for single stage models).
 
     Notes
     -----
@@ -7025,9 +6859,9 @@ class ModelParameters(APIObject):
         Parameters
         ----------
         project_id : str
-            The project's id.
+            ID of the project.
         model_id : str
-            Id of model parameters we requested.
+            ID of the model whose parameters were requested.
 
         Returns
         -------
@@ -7057,7 +6891,7 @@ class ClusteringModel(Model):
         model_id: str
             Project's model to start creation in.
         max_wait: int
-            Maximum number of seconds to wait before giving up
+            Maximum number of seconds to wait before giving up.
 
         Returns
         -------
@@ -7066,20 +6900,19 @@ class ClusteringModel(Model):
         Raises
         ------
         ClientError
-            Server rejected creation due to client error.
-            Most likely cause is bad ``project_id`` or ``model_id``.
+            Server rejected creation due to client error. Most likely cause is bad ``project_id`` or ``model_id``.
         AsyncFailureError
-            If any of the responses from the server are unexpected
+            If any of the responses from the server are unexpected.
         AsyncProcessUnsuccessfulError
             If the cluster insights computation has failed or was cancelled.
         AsyncTimeoutError
-            If the cluster insights computation did not resolve in time
+            If the cluster insights computation did not resolve in time.
         """
         return ClusterInsight.compute(project_id=self.project_id, model_id=self.id, max_wait=max_wait)
 
     @property
     def insights(self) -> List[ClusterInsight]:
-        """Return actual list of cluster insights if already computed.
+        """Return the actual list of cluster insights if already computed.
 
         Returns
         -------
@@ -7089,7 +6922,7 @@ class ClusteringModel(Model):
 
     @property
     def clusters(self) -> List[Cluster]:
-        """Return actual list of Clusters.
+        """Return the actual list of clusters.
 
         Returns
         -------
@@ -7103,8 +6936,7 @@ class ClusteringModel(Model):
         Parameters
         ----------
         cluster_name_mappings: List of tuples
-            Cluster names mapping consisting of current cluster name and old cluster name.
-            Example:
+            Cluster names mapping consisting of current cluster name and old cluster name. Example:.
 
             .. code-block:: python
 
@@ -7119,8 +6951,8 @@ class ClusteringModel(Model):
         Raises
         ------
         datarobot.errors.ClientError
-            Server rejected update of cluster names.
-            Possible reasons include: incorrect format of mapping, mapping introduces duplicates.
+            Server rejected update of cluster names. Possible reasons include: incorrect format of mapping, mapping
+            introduces duplicates.
         """
         return Cluster.update_multiple_names(
             project_id=self.project_id,
@@ -7129,7 +6961,7 @@ class ClusteringModel(Model):
         )
 
     def update_cluster_name(self, current_name: str, new_name: str) -> List[Cluster]:
-        """Change cluster name from current_name to new_name.
+        """Change the cluster name from ``current_name`` to ``new_name``.
 
         Parameters
         ----------
@@ -7162,13 +6994,13 @@ class CombinedModel(Model):
     Attributes
     ----------
     id : str
-        the ID of the model
+        The ID of the model.
     project_id : str
-        the ID of the project the model belongs to
+        The ID of the project the model belongs to.
     segmentation_task_id : str
-        the ID of a segmentation task used in this model
+        The ID of a segmentation task used in this model.
     is_active_combined_model : bool
-        flag indicating if this is the active combined model in segmented project
+        Flag indicating if this is the active combined model in segmented project.
     """
 
     _converter = t.Dict({
@@ -7208,9 +7040,9 @@ class CombinedModel(Model):
         Parameters
         ----------
         project_id : str
-            The project's id.
+            The project's ID.
         combined_model_id : str
-            Id of the combined model.
+            ID of the combined model.
 
         Returns
         -------
@@ -7222,24 +7054,23 @@ class CombinedModel(Model):
 
     @classmethod
     def set_segment_champion(cls, project_id: str, model_id: str, clone: bool = False) -> str:
-        """Update a segment champion in a combined model by setting the model_id
-        that belongs to the child project_id as the champion.
+        """Update a segment champion in a combined model by setting the ``model_id`` that belongs to the child
+        ``project_id`` as the champion.
 
         Parameters
         ----------
         project_id : str
-            The project id for the child model that contains the model id.
+            The project ID for the child model that contains the model ID.
         model_id : str
-            Id of the model to mark as the champion
+            ID of the model to mark as the champion.
         clone : bool
-            (New in version v2.29) optional, defaults to False.
-            Defines if combined model has to be cloned prior to setting champion
-            (champion will be set for new combined model if yes).
+            (New in version v2.29) optional, defaults to False. Defines if combined model has to be cloned prior to
+            setting champion (champion will be set for new combined model if yes).
 
         Returns
         -------
         combined_model_id : str
-            Id of the combined model that was updated
+            ID of the combined model that was updated.
 
         """
         url = f"projects/{project_id}/segmentChampion/"
@@ -7262,8 +7093,7 @@ class CombinedModel(Model):
         Parameters
         ----------
         encoding : Optional[str]
-            A string representing the encoding to use in the output csv file.
-            Defaults to 'utf-8'.
+            A string representing the encoding to use in the output CSV file. Defaults to 'utf-8'.
 
         Returns
         -------
@@ -7282,15 +7112,14 @@ class CombinedModel(Model):
             )
 
     def get_segments_as_csv(self, filename: str, encoding: str = "utf-8") -> None:
-        """Save the Combine Models segments to a csv.
+        """Save the Combine Models segments to a CSV.
 
         Parameters
         ----------
         filename : str or file object
             The path or file object to save the data to.
         encoding : Optional[str]
-            A string representing the encoding to use in the output csv file.
-            Defaults to 'utf-8'.
+            A string representing the encoding to use in the output CSV file. Defaults to 'utf-8'.
         """
         data = self.get_segments_as_dataframe(encoding=encoding)
         data.to_csv(

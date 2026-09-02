@@ -39,9 +39,9 @@ class ModerationTemplate(APIObject):
     Attributes
     ----------
     id: str
-        ID of the Template
+        The ID of the template.
     name: str
-        Template name
+        The name of the template.
     """
 
     _path = "guardTemplates/"
@@ -121,26 +121,26 @@ class ModerationTemplate(APIObject):
 
     @classmethod
     def get(cls, template_id: str) -> ModerationTemplate:
-        """Get Template by id.
+        """Returns the template by ID.
 
         .. versionadded:: v3.6
 
         Parameters
         ----------
         template_id: str
-            ID of the Template
+            The ID of the template.
 
         Returns
         -------
         ModerationTemplate
-            retrieved Template
+            The retrieved template.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         path = cls._template_path(template_id)
         return cls.from_location(path)
@@ -154,7 +154,7 @@ class ModerationTemplate(APIObject):
         for_production: Optional[bool] = None,
         name: Optional[str] = None,
     ) -> List[ModerationTemplate]:
-        """List Templates.
+        """Returns a list of templates.
 
         .. versionadded:: v3.6
 
@@ -165,14 +165,14 @@ class ModerationTemplate(APIObject):
         Returns
         -------
         List[ModerationTemplate]
-            a list of Templates
+            A list of templates.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         params: Dict[str, Any] = {}
 
@@ -196,26 +196,26 @@ class ModerationTemplate(APIObject):
 
     @classmethod
     def find(cls, name: str) -> Optional[ModerationTemplate]:
-        """Find Template by name.
+        """Finds the template by name.
 
         .. versionadded:: v3.6
 
         Parameters
         ----------
         name: str
-            name of the Template
+            The name of the template.
 
         Returns
         -------
-        List[ModerationTemplate]
-            a list of Templates
+        ModerationTemplate
+            The matching template, or ``None`` if no template is found.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         templates = cls.list(name=name, include_agentic=True)
         if len(templates):
@@ -235,42 +235,42 @@ class ModerationTemplate(APIObject):
         model_info: Optional[GuardModelInfo] = None,
         nemo_info: Optional[GuardNemoInfo] = None,
     ) -> ModerationTemplate:
-        """Create a Template.
+        """Creates a template.
 
         .. versionadded:: v3.6
 
         Parameters
         ----------
         name: str
-            name of the template.
+            The name of the template.
         description: str
-            description of the template.
+            The description of the template.
         type: GuardType
-            type of the template.
+            The type of the template.
         allowed_stages: List[ModerationGuardStage]
-            the stages of moderation this guard is allowed to be used
+            The stages of moderation where this guard may be used.
         ootb_type: ModerationGuardOotbType
-            for guards of type "ootb", the specific "Out of the Box" metric type.
+            For guards of type ``ootb``, the specific Out of the Box metric type.
         llm_type:
-            the backing LLM this guard uses.
+            The backing LLM this guard uses.
         nemo_info
-            additional configuration for NeMo Guardrails guards.
+            Additional configuration for NeMo Guardrails guards.
         model_info
-            additional configuration for guards using a deployed model.
+            Additional configuration for guards using a deployed model.
         intervention
-            the assessment conditions, and action the guard should take if conditions are met.
+            The assessment conditions and action the guard should take if conditions are met.
 
         Returns
         -------
         ModerationTemplate
-            created Template
+            The created template.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         payload = {
             "name": name,
@@ -310,37 +310,37 @@ class ModerationTemplate(APIObject):
         model_info: Optional[GuardModelInfo] = None,
         nemo_info: Optional[GuardNemoInfo] = None,
     ) -> None:
-        """Update Template. All fields are optional, and omitted fields are left unchanged.
+        """Updates the template. All fields are optional, and omitted fields are left unchanged.
 
         .. versionadded:: v3.6
 
         Parameters
         ----------
         name: str
-            name of the template.
+            The name of the template.
         description: str
-            description of the template.
+            The description of the template.
         type: GuardType
-            type of the template.
+            The type of the template.
         allowed_stages: List[ModerationGuardStage]
-            the stages of moderation this guard is allowed to be used
+            The stages of moderation where this guard may be used.
         ootb_type: ModerationGuardOotbType
-            for guards of type "ootb", the specific "Out of the Box" metric type.
+            For guards of type ``ootb``, the specific Out of the Box metric type.
         llm_type:
-            the backing LLM this guard uses.
+            The backing LLM this guard uses.
         nemo_info
-            additional configuration for NeMo Guardrails guards.
+            Additional configuration for NeMo Guardrails guards.
         model_info
-            additional configuration for guards using a deployed model.
+            Additional configuration for guards using a deployed model.
         intervention
-            the assessment conditions, and action the guard should take if conditions are met.
+            The assessment conditions and action the guard should take if conditions are met.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
 
         payload = {}
@@ -364,23 +364,23 @@ class ModerationTemplate(APIObject):
         self._update_values(new_version)
 
     def refresh(self: ModerationTemplate) -> None:
-        """Update Template with the latest data from server.
+        """Updates the template with the latest data from the server.
 
         .. versionadded:: v3.6
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         new_object = self.get(self.id)
         self._update_values(new_object)
 
     def delete(self: ModerationTemplate) -> None:
-        """Delete Template.
+        """Deletes the template.
 
         .. versionadded:: v3.6
 

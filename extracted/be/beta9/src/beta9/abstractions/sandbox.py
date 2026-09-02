@@ -1,0 +1,4270 @@
+import asyncio
+import atexit
+import io
+import shlex
+import time
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+
+from .. import terminal
+from ..abstractions.base import set_channel, unset_channel
+from ..abstractions.base.runner import (
+    RUNTIME_PREPARE_FAILED_MSG,
+    SANDBOX_STUB_TYPE,
+    BaseAbstraction,
+)
+from ..abstractions.image import Image
+from ..abstractions.pod import Pod
+from ..abstractions.volume import CloudBucket, Volume
+from ..clients.gateway import GatewayServiceStub, StopContainerRequest, StopContainerResponse
+from ..clients.pod import (
+    CreatePodRequest,
+    CreatePodResponse,
+    PodSandboxConnectRequest,
+    PodSandboxConnectResponse,
+    PodSandboxCreateDirectoryRequest,
+    PodSandboxCreateImageFromFilesystemRequest,
+    PodSandboxCreateImageFromFilesystemResponse,
+    PodSandboxDeleteDirectoryRequest,
+    PodSandboxDeleteFileRequest,
+    PodSandboxDownloadFileRequest,
+    PodSandboxExecRequest,
+    PodSandboxExecResponse,
+    PodSandboxExposePortRequest,
+    PodSandboxExposePortResponse,
+    PodSandboxFindInFilesRequest,
+    PodSandboxKillRequest,
+    PodSandboxListFilesRequest,
+    PodSandboxListProcessesRequest,
+    PodSandboxListProcessesResponse,
+    PodSandboxListUrlsRequest,
+    PodSandboxListUrlsResponse,
+    PodSandboxReplaceInFilesRequest,
+    PodSandboxSnapshotMemoryRequest,
+    PodSandboxSnapshotMemoryResponse,
+    PodSandboxStatFileRequest,
+    PodSandboxStatusRequest,
+    PodSandboxStatusResponse,
+    PodSandboxStderrRequest,
+    PodSandboxStderrResponse,
+    PodSandboxStdoutRequest,
+    PodSandboxStdoutResponse,
+    PodSandboxUpdateNetworkPermissionsRequest,
+    PodSandboxUpdateNetworkPermissionsResponse,
+    PodSandboxUpdateTtlRequest,
+    PodSandboxUpdateTtlResponse,
+    PodSandboxUploadFileRequest,
+    PodServiceStub,
+)
+from ..config import ConfigContext
+from ..env import is_remote
+from ..exceptions import SandboxConnectionError, SandboxFileSystemError, SandboxProcessError
+from ..type import DurableDisk, GpuType, GpuTypeAlias, Pool
+from ..utils import retry_on_transient_error
+
+SANDBOX_EXEC_RPC_TIMEOUT_SECONDS = 15
+SANDBOX_STATUS_RPC_TIMEOUT_SECONDS = 5
+SANDBOX_OUTPUT_RPC_TIMEOUT_SECONDS = 5
+SANDBOX_WAIT_POLL_INTERVAL_SECONDS = 0.1
+SANDBOX_EXEC_READY_TIMEOUT_SECONDS = 90
+SANDBOX_EXEC_READY_RETRY_DELAY_SECONDS = 0.05
+SANDBOX_EXEC_READINESS_ERRORS = (
+    "failed to connect to sandbox",
+    "process manager not ready",
+    "sandbox process manager is not ready",
+    "process manager failed to become ready",
+    "sandbox process manager client not ready",
+    "deadline exceeded while waiting for connections to become ready",
+    "context deadline exceeded while waiting for connections to become ready",
+)
+SANDBOX_TERMINAL_STATUSES = {
+    "complete",
+    "completed",
+    "exited",
+    "failed",
+    "error",
+    "stopped",
+    "terminated",
+}
+DOCKER_SANDBOX_NETWORK_MODE = "host"
+DOCKER_SANDBOX_PID_MODE = "host"
+DOCKER_COMPOSE_OVERRIDE_PATH = "/tmp/.docker-compose-override.yml"
+SANDBOX_IDLE_ENTRYPOINT = ["tail", "-f", "/dev/null"]
+
+
+def _is_sandbox_exec_readiness_error(error_msg: str) -> bool:
+    normalized = (error_msg or "").lower()
+    return any(marker in normalized for marker in SANDBOX_EXEC_READINESS_ERRORS)
+
+
+def _call_with_sandbox_readiness_retry(do_call):
+    deadline = time.monotonic() + SANDBOX_EXEC_READY_TIMEOUT_SECONDS
+
+    while True:
+        response = retry_on_transient_error(do_call)
+        if response.ok:
+            return response
+        if not _is_sandbox_exec_readiness_error(response.error_msg):
+            return response
+        if time.monotonic() >= deadline:
+            return response
+
+        time.sleep(SANDBOX_EXEC_READY_RETRY_DELAY_SECONDS)
+
+
+def _sandbox_docker_namespace_args() -> List[str]:
+    return [
+        "--network",
+        DOCKER_SANDBOX_NETWORK_MODE,
+        "--pid",
+        DOCKER_SANDBOX_PID_MODE,
+    ]
+
+
+def _is_sandbox_terminal_status(status: str) -> bool:
+    return (status or "").strip().lower() in SANDBOX_TERMINAL_STATUSES
+
+
+def _default_sandbox_exit_code(status: str) -> int:
+    normalized = (status or "").strip().lower()
+    if normalized in {"failed", "error"}:
+        return 1
+    if normalized == "terminated":
+        return 137
+    return 0
+
+
+class Sandbox(Pod):
+    """
+    A sandboxed container for running Python code or arbitrary processes.
+    You can use this to create isolated environments where you can execute code,
+    manage files, and run processes.
+
+    Parameters:
+        cpu (Union[int, float, str]):
+            The number of CPU cores allocated to the container. Default is 1.0.
+        memory (Union[int, str]):
+            The amount of memory allocated to the container. It should be specified in
+            MiB, or as a string with units (e.g. "1Gi"). Default is 128 MiB.
+        gpu (Union[GpuType, str]):
+            The type or name of the GPU device to be used for GPU-accelerated tasks. If not
+            applicable or no GPU required, leave it empty. Default is [GpuType.NoGPU](#gputype).
+        gpu_count (int):
+            The number of GPUs to allocate. Default is 0.
+        image (Union[Image, dict]):
+            The container image used for the task execution. Whatever you pass here will have an additional `add_python_packages` call
+            with `["fastapi", "vllm", "huggingface_hub"]` added to it to ensure that we can run vLLM in the container.
+        keep_warm_seconds (int):
+            The number of seconds to keep the sandbox around. Default is 10 minutes (600s). Use -1 for sandboxes that never timeout.
+        authorized (bool):
+            Whether the sandbox should be authorized for external access. Default is False.
+        name (str):
+            Assign the sandbox to an app namespace. If the app does not exist, it will be created with the given name.
+        volumes (List[Union[Volume, CloudBucket]]):
+            The volumes and/or cloud buckets to mount into the Sandbox container. Default is an empty list.
+        secrets (List[str]):
+            The secrets to pass to the Sandbox container.
+        env (Optional[Dict[str, str]]):
+            A dictionary of environment variables to be injected into each Sandbox container. Default is {}.
+        sync_local_dir (bool):
+            Whether to sync the local directory to the sandbox filesystem on creation. Default is False.
+        block_network (bool):
+            Whether to block all outbound network access from the sandbox. When enabled, the sandbox cannot
+            make outbound connections to external services, but inbound connections to exposed ports are still
+            allowed. Default is False. Cannot be used together with allow_list.
+        allow_list (Optional[List[str]]):
+            List of CIDR ranges that the sandbox is allowed to connect to. All other outbound network access
+            will be blocked. Must use CIDR notation (e.g., "8.8.8.8/32" for a single IP, "10.0.0.0/8" for
+            a range). Supports both IPv4 and IPv6. Examples: ["8.8.8.8/32"], ["10.0.0.0/8", "2001:db8::/32"].
+            Cannot be used together with block_network. Default is None (no restrictions unless block_network
+            is enabled).
+        docker_enabled (bool):
+            Enable Docker-in-Docker support inside the sandbox.
+
+            Example:
+                ```python
+                from beta9 import Image, Sandbox
+
+                # Install Docker in the image
+                image = Image(python_version="python3.11").with_docker()
+
+                # Enable Docker in the sandbox
+                sandbox = Sandbox(image=image, docker_enabled=True)
+                instance = sandbox.create()
+
+                # Docker daemon will be automatically started
+                instance.docker.run("hello-world")
+                ```
+        ports (Optional[List[int]]):
+            List of ports to expose from the sandbox. When specified, these ports will be accessible
+            via public URLs upon sandbox creation. Default is an empty list. You can also dynamically
+            expose ports at runtime using `instance.expose_port(port)`.
+        pool (Optional[Union[str, Pool]]):
+            The private pool to run the sandbox on. Pass a pool name to select an existing private
+            pool, or a Pool object to request managed pool capacity.
+
+    Example:
+        ```python
+        from beta9 import Sandbox
+
+        # Create a sandbox with GPU support
+        sandbox = Sandbox(
+            cpu=2.0,
+            memory="2Gi",
+            pool="my-private-pool",
+            keep_warm_seconds=1800  # 30 minutes
+        )
+
+        # Create and connect to the sandbox
+        instance = sandbox.create()
+
+        # Run some code
+        response = instance.process.run_code("print('Hello from sandbox!')")
+        print(response.result)
+        print(response.exit_code)
+
+        # Clean up
+        instance.terminate()
+        ```
+    """
+
+    def __init__(
+        self,
+        cpu: Union[int, float, str] = 1.0,
+        memory: Union[int, str] = 128,
+        gpu: Union[GpuTypeAlias, List[GpuTypeAlias]] = GpuType.NoGPU,
+        gpu_count: int = 0,
+        image: Image = Image(python_version="python3.11"),
+        keep_warm_seconds: int = 600,
+        authorized: bool = False,
+        name: Optional[str] = None,
+        volumes: Optional[List[Union[Volume, CloudBucket]]] = [],
+        disks: Optional[List[DurableDisk]] = None,
+        secrets: Optional[List[str]] = None,
+        env: Optional[Dict[str, str]] = {},
+        sync_local_dir: bool = False,
+        block_network: bool = False,
+        allow_list: Optional[List[str]] = None,
+        docker_enabled: bool = False,
+        ports: Optional[List[int]] = [],
+        pool: Optional[Union[str, Pool]] = None,
+        allow_marketplace: bool = False,
+        context: Optional[ConfigContext] = None,
+    ):
+        self.debug_buffer = io.StringIO()
+        self.sync_local_dir = sync_local_dir
+        if context is not None:
+            set_channel(context=context)
+
+        super().__init__(
+            cpu=cpu,
+            memory=memory,
+            gpu=gpu,
+            gpu_count=gpu_count,
+            image=image,
+            keep_warm_seconds=keep_warm_seconds,
+            authorized=authorized,
+            name=name,
+            volumes=volumes,
+            disks=disks,
+            secrets=secrets,
+            env=env,
+            block_network=block_network,
+            allow_list=allow_list,
+            docker_enabled=docker_enabled,
+            ports=ports,
+            pool=pool,
+            allow_marketplace=allow_marketplace,
+            entrypoint=list(SANDBOX_IDLE_ENTRYPOINT),
+        )
+        if context is not None:
+            self.config_context = context
+
+    def debug(self):
+        """
+        Print the debug buffer contents to stdout.
+
+        This method outputs any debug information that has been collected
+        during sandbox operations.
+        """
+        print(self.debug_buffer.getvalue())
+
+    def connect(self, id: str) -> "SandboxInstance":
+        """
+        Connect to an existing sandbox instance by ID.
+
+        Parameters:
+            id (str): The container ID of the existing sandbox instance.
+
+        Returns:
+            SandboxInstance: A connected sandbox instance.
+
+        Raises:
+            SandboxConnectionError: If the connection fails.
+
+        Example:
+            ```python
+            # Connect to an existing sandbox
+            instance = sandbox.connect("sandbox-123")
+            ```
+        """
+        response: "PodSandboxConnectResponse" = self.stub.sandbox_connect(
+            PodSandboxConnectRequest(
+                container_id=id,
+            )
+        )
+
+        if not response.ok:
+            raise SandboxConnectionError(response.error_msg)
+
+        return SandboxInstance(
+            container_id=id,
+            ok=True,
+            error_msg="",
+            stub_id=response.stub_id,
+        )
+
+    def create_from_memory_snapshot(self, snapshot_id: str) -> "SandboxInstance":
+        """
+        Create a sandbox instance from a filesystem snapshot.
+        This will create a new sandbox instance with any filesystem-level changes made in that original sandbox instance.
+        However, it will not restore any running processes or state present in the original sandbox instance.
+
+        Parameters:
+            snapshot_id (str): The ID of the snapshot to create the sandbox from.
+
+        Returns:
+            SandboxInstance: A new sandbox instance ready for use.
+
+        Example:
+            ```python
+            # Create a sandbox instance from a memory snapshot
+            instance = sandbox.create_from_memory_snapshot("snapshot-123")
+            print(f"Sandbox created with ID: {instance.sandbox_id()}")
+            ```
+        """
+
+        terminal.header(f"Creating sandbox from memory snapshot: {snapshot_id}")
+
+        create_response: CreatePodResponse = self.stub.create_pod(
+            CreatePodRequest(
+                checkpoint_id=snapshot_id,
+            )
+        )
+
+        if not create_response.ok:
+            raise SandboxConnectionError(create_response.error_msg)
+
+        self.stub_id = create_response.stub_id
+
+        terminal.header(f"Sandbox created successfully ===> {create_response.container_id}")
+
+        if self.keep_warm_seconds < 0:
+            terminal.header(
+                "This sandbox has no timeout, it will run until it is shut down manually."
+            )
+        else:
+            terminal.header(f"This sandbox will timeout after {self.keep_warm_seconds} seconds.")
+
+        return SandboxInstance(
+            stub_id=self.stub_id,
+            container_id=create_response.container_id,
+            ok=create_response.ok,
+            error_msg=create_response.error_msg,
+        )
+
+    def create(self) -> "SandboxInstance":
+        """
+        Create a new sandbox instance.
+
+        This method creates a new containerized sandbox environment with the
+        specified configuration.
+
+        Returns:
+            SandboxInstance: A new sandbox instance ready for use.
+
+        Example:
+            ```python
+            # Create a new sandbox
+            instance = sandbox.create()
+            print(f"Sandbox created with ID: {instance.sandbox_id()}")
+            ```
+        """
+
+        if not self.prepare_runtime(
+            stub_type=SANDBOX_STUB_TYPE,
+            force_create_stub=True,
+            ignore_patterns=["*"] if not self.sync_local_dir else None,
+        ):
+            return SandboxInstance(
+                container_id="",
+                ok=False,
+                error_msg=RUNTIME_PREPARE_FAILED_MSG,
+                stub_id="",
+            )
+
+        terminal.header("Creating sandbox")
+
+        create_response: CreatePodResponse = self.stub.create_pod(
+            CreatePodRequest(
+                stub_id=self.stub_id,
+            )
+        )
+
+        if not create_response.ok:
+            raise SandboxConnectionError(create_response.error_msg)
+
+        terminal.header(f"Sandbox created successfully ===> {create_response.container_id}")
+
+        if self.keep_warm_seconds < 0:
+            terminal.header(
+                "This sandbox has no timeout, it will run until it is shut down manually."
+            )
+        else:
+            terminal.header(f"This sandbox will timeout after {self.keep_warm_seconds} seconds.")
+
+        return SandboxInstance(
+            stub_id=self.stub_id,
+            container_id=create_response.container_id,
+            ok=create_response.ok,
+            error_msg=create_response.error_msg,
+        )
+
+
+@dataclass
+class SandboxInstance(BaseAbstraction):
+    """
+    A sandbox instance that provides access to the sandbox internals.
+
+    This class represents an active sandboxed container and provides methods for
+    process management, file system operations, Docker management, preview URLs,
+    and lifecycle management.
+
+    Attributes:
+        container_id (str): The unique ID of the created sandbox container.
+        fs (SandboxFileSystem): File system interface for the sandbox.
+        process (SandboxProcessManager): Process management interface for the sandbox.
+        docker (SandboxDockerManager): Docker management interface for the sandbox.
+
+    Example:
+        ```python
+        # Create a sandbox instance
+        instance = sandbox.create()
+
+        # Access file system
+        instance.fs.upload_file("local_file.txt", "/remote_file.txt")
+
+        # Run processes
+        result = instance.process.run_code("import os; print(os.getcwd())")
+
+        # Use Docker (requires docker_enabled=True)
+        sandbox_with_docker = Sandbox(docker_enabled=True)
+        instance = sandbox_with_docker.create()
+        instance.docker.run("nginx:latest", detach=True, ports={"80": "8080"})
+
+        # Expose a port
+        url = instance.expose_port(8000)
+
+        # Clean up
+        instance.terminate()
+        ```
+    """
+
+    container_id: str
+    stub_id: str
+    ok: bool = field(default=False)
+    error_msg: str = field(default="")
+    gateway_stub: "GatewayServiceStub" = field(init=False)
+    stub: "PodServiceStub" = field(init=False)
+
+    def __post_init__(self):
+        super().__init__()
+        self.gateway_stub = GatewayServiceStub(self.channel)
+        self.stub = PodServiceStub(self.channel)
+        self.fs = SandboxFileSystem(self)
+        self.process = SandboxProcessManager(self)
+        self.docker = SandboxDockerManager(self)
+        self.terminated = False
+        atexit.register(self._cleanup)
+
+    def _cleanup(self):
+        try:
+            if hasattr(self, "container_id") and self.container_id and not self.terminated:
+                if not is_remote():
+                    terminal.warn(
+                        f'WARNING: {self.container_id} is still running, to terminate use Sandbox().connect("{self.container_id}").terminate()'
+                    )
+        except BaseException as e:
+            terminal.warn(f"Error during sandbox cleanup: {e}")
+
+    def terminate(self) -> bool:
+        """
+        Terminate the container associated with this sandbox instance.
+
+        This method stops the sandbox container and frees up associated resources.
+        Once terminated, the sandbox instance cannot be used for further operations.
+
+        Returns:
+            bool: True if the container was terminated successfully, False otherwise.
+
+        Example:
+            ```python
+            # Terminate the sandbox
+            success = instance.terminate()
+            if success:
+                print("Sandbox terminated successfully")
+            ```
+        """
+        res: "StopContainerResponse" = self.gateway_stub.stop_container(
+            StopContainerRequest(container_id=self.container_id)
+        )
+
+        if res.ok:
+            self.terminated = True
+
+        return res.ok
+
+    def create_image_from_filesystem(self) -> str:
+        """
+        Save the current sandbox filesystem state and create an image from it.
+
+        Returns:
+            str: The image ID.
+
+        Example:
+            ```python
+            # Create an image from the sandbox filesystem contents
+            image_id = instance.create_image_from_filesystem()
+            print(f"Image created with ID: {image_id}")
+            ```
+        """
+        terminal.header(f"Creating an image from sandbox filesystem: {self.container_id}")
+
+        res: "PodSandboxCreateImageFromFilesystemResponse" = (
+            self.stub.sandbox_create_image_from_filesystem(
+                PodSandboxCreateImageFromFilesystemRequest(
+                    stub_id=self.stub_id, container_id=self.container_id
+                )
+            )
+        )
+
+        if not res.ok:
+            raise SandboxProcessError(res.error_msg)
+
+        return res.image_id
+
+    def snapshot_memory(self) -> str:
+        """
+        Create a memory snapshot of the sandbox (including all running processes and GPU state).
+
+        Returns:
+            str: The checkpoint ID.
+
+        Example:
+            ```python
+            # Create a snapshot of the sandbox memory contents
+            checkpoint_id = instance.snapshot_memory()
+            print(f"Checkpoint created with ID: {checkpoint_id}")
+            ```
+        """
+        terminal.header(f"Creating a memory snapshot of sandbox: {self.container_id}")
+
+        res: "PodSandboxSnapshotMemoryResponse" = self.stub.sandbox_snapshot_memory(
+            PodSandboxSnapshotMemoryRequest(stub_id=self.stub_id, container_id=self.container_id)
+        )
+
+        if not res.ok:
+            raise SandboxProcessError(res.error_msg)
+
+        return res.checkpoint_id
+
+    def sandbox_id(self) -> str:
+        """
+        Get the ID of the sandbox.
+
+        Returns:
+            str: The container ID of the sandbox.
+
+        Example:
+            ```python
+            sandbox_id = instance.sandbox_id()
+            print(f"Working with sandbox: {sandbox_id}")
+            ```
+        """
+        return self.container_id
+
+    def status(self) -> Tuple[int, str]:
+        """
+        Get the current sandbox status.
+
+        Returns:
+            Tuple[int, str]: The sandbox exit code and status string. An exit code of -1
+            indicates that the sandbox is still running.
+        """
+        res: "PodSandboxStatusResponse" = self.stub.sandbox_status(
+            PodSandboxStatusRequest(container_id=self.container_id)
+        )
+        if not res.ok:
+            raise SandboxProcessError(res.error_msg)
+        return res.exit_code, res.status
+
+    def poll(self) -> Optional[int]:
+        """
+        Return the sandbox exit code if it has exited, otherwise None.
+        """
+        exit_code, status = self.status()
+        if not _is_sandbox_terminal_status(status):
+            return None
+        if exit_code < 0:
+            return _default_sandbox_exit_code(status)
+        return exit_code
+
+    def wait(self, timeout: Optional[float] = None) -> int:
+        """
+        Wait for the sandbox to exit and return its exit code.
+
+        Parameters:
+            timeout (Optional[float]): Maximum seconds to wait. Default is None.
+        """
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            exit_code = self.poll()
+            if exit_code is not None:
+                return exit_code
+            if deadline is not None and time.monotonic() >= deadline:
+                raise SandboxProcessError(
+                    f"Sandbox {self.container_id} did not exit within {timeout} seconds"
+                )
+            time.sleep(SANDBOX_WAIT_POLL_INTERVAL_SECONDS)
+
+    def update_ttl(self, ttl: int):
+        """
+        Update the keep warm setting of the sandbox.
+
+        This method allows you to change how long the sandbox will remain active
+        before automatically shutting down.
+
+        Parameters:
+            ttl (int): The number of seconds to keep the sandbox alive.
+                      Use -1 for sandboxes that never timeout.
+
+        Raises:
+            SandboxProcessError: If the TTL update fails.
+
+        Example:
+            ```python
+            # Keep the sandbox alive for 1 hour
+            instance.update_ttl(3600)
+
+            # Make the sandbox never timeout
+            instance.update_ttl(-1)
+            ```
+        """
+        res: "PodSandboxUpdateTtlResponse" = self.stub.sandbox_update_ttl(
+            PodSandboxUpdateTtlRequest(container_id=self.container_id, ttl=ttl)
+        )
+
+        if not res.ok:
+            raise SandboxProcessError(res.error_msg)
+
+    def expose_port(self, port: int) -> str:
+        """
+        Dynamically expose a port to the internet.
+
+        This method creates a public URL that allows external access to a specific
+        port within the sandbox. The URL is SSL-terminated and provides secure
+        access to services running in the sandbox.
+
+        Parameters:
+            port (int): The port number to expose within the sandbox.
+
+        Returns:
+            str: The public URL for accessing the exposed port.
+
+        Raises:
+            SandboxProcessError: If port exposure fails.
+
+        Example:
+            ```python
+            # Expose port 8000 for a web service
+            url = instance.expose_port(8000)
+            print(f"Web service available at: {url}")
+            ```
+        """
+        res: "PodSandboxExposePortResponse" = self.stub.sandbox_expose_port(
+            PodSandboxExposePortRequest(
+                container_id=self.container_id, stub_id=self.stub_id, port=port
+            )
+        )
+
+        if res.ok:
+            return res.url
+
+        raise SandboxProcessError("Failed to expose port")
+
+    def update_network_permissions(
+        self, block_network: bool = False, allow_list: Optional[List[str]] = None
+    ) -> None:
+        """
+        Dynamically update network permissions for the sandbox at runtime.
+
+        This method allows you to modify the network access restrictions of a running
+        sandbox without needing to restart it. You can either block all network access
+        or specify an allowlist of CIDR ranges that the sandbox can communicate with.
+        Does not block access via ports exposed by expose_port.
+
+        Parameters:
+            block_network (bool): If True, blocks all outbound network access from the
+                sandbox. Cannot be used together with allow_list. Default: False.
+            allow_list (Optional[List[str]]): List of CIDR ranges (e.g., "8.8.8.8/32",
+                "10.0.0.0/8") that the sandbox is allowed to access. If specified,
+                all other outbound traffic is blocked. Cannot be used with block_network=True.
+                Default: None.
+
+        Raises:
+            SandboxProcessError: If the network permissions update fails.
+            ValueError: If both block_network=True and allow_list are specified.
+
+        Example:
+            ```python
+            # Allow access only to specific IP ranges
+            instance.update_network_permissions(
+                allow_list=["8.8.8.8/32", "1.1.1.1/32"]
+            )
+
+            # Block all network access
+            instance.update_network_permissions(block_network=True)
+
+            # Remove all restrictions (allow full network access)
+            instance.update_network_permissions()
+            ```
+
+        Note:
+            - CIDR notation must be valid (e.g., "192.168.1.0/24", "8.8.8.8/32")
+            - IPv4 addresses should use /32 suffix for single hosts
+            - This replaces all existing network rules atomically
+        """
+        if block_network and allow_list:
+            raise ValueError("Cannot specify both block_network=True and allow_list")
+
+        if allow_list is None:
+            allow_list = []
+
+        res: "PodSandboxUpdateNetworkPermissionsResponse" = (
+            self.stub.sandbox_update_network_permissions(
+                PodSandboxUpdateNetworkPermissionsRequest(
+                    container_id=self.container_id,
+                    stub_id=self.stub_id,
+                    block_network=block_network,
+                    allow_list=allow_list,
+                )
+            )
+        )
+
+        if not res.ok:
+            raise SandboxProcessError(f"Failed to update network permissions: {res.error_msg}")
+
+    def list_urls(self) -> Dict[int, str]:
+        """
+        List all exposed URLs in the sandbox    .
+
+        Returns:
+            Dict[int, str]: A dictionary of exposed URLs, organized by port.
+
+        Raises:
+            SandboxConnectionError: If listing URLs fails.
+
+        Example:
+            ```python
+            # List all exposed URLs
+            urls = instance.list_urls()
+            print(f"Exposed URLs: {urls}")
+            ```
+        """
+        res: "PodSandboxListUrlsResponse" = self.stub.sandbox_list_urls(
+            PodSandboxListUrlsRequest(container_id=self.container_id)
+        )
+        if not res.ok:
+            raise SandboxConnectionError(res.error_msg)
+
+        return res.urls
+
+    @property
+    def aio(self) -> "AsyncSandboxInstance":
+        """
+        Get an async interface for this sandbox instance.
+
+        Returns:
+            AsyncSandboxInstance: An async wrapper providing non-blocking methods.
+
+        Example:
+            ```python
+            instance = sandbox.create()
+
+            # Use async operations
+            await instance.aio.fs.upload_file("local.txt", "/remote.txt")
+            result = await instance.aio.process.run_code("print('hello')")
+            await instance.aio.terminate()
+            ```
+        """
+        if not hasattr(self, "_aio"):
+            self._aio = AsyncSandboxInstance(self)
+        return self._aio
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        # Remove non-picklable attributes
+        state.pop("gateway_stub", None)
+        state.pop("stub", None)
+        state.pop("channel", None)
+        state.pop("_aio", None)
+
+        unset_channel()
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        unset_channel()
+        self.gateway_stub = GatewayServiceStub(self.channel)
+        self.stub = PodServiceStub(self.channel)
+
+
+class SandboxProcessResponse:
+    """
+    Response object containing the results of a completed process execution.
+
+    This class encapsulates the output and status information from a process
+    that has finished running in the sandbox.
+
+    Attributes:
+        pid (int): The process ID of the executed command.
+        exit_code (int): The exit code of the process (0 typically indicates success).
+        stdout (SandboxProcessStream): Stream containing the standard output.
+        stderr (SandboxProcessStream): Stream containing the standard error output.
+        result (str): Combined stdout and stderr output as a string.
+
+    Example:
+        ```python
+        # Run a command and get the response
+        response = instance.process.run_code("echo 'Hello World'")
+        print(f"Exit code: {response.exit_code}")
+        print(f"Output: {response.result}")
+        ```
+    """
+
+    def __init__(
+        self,
+        pid: int,
+        exit_code: int,
+        stdout: "SandboxProcessStream",
+        stderr: "SandboxProcessStream",
+    ):
+        self.pid = pid
+        self.exit_code = exit_code
+        self.result: str = stdout.read() + stderr.read()
+
+    @classmethod
+    def from_output(
+        cls,
+        *,
+        pid: int,
+        exit_code: int,
+        stdout: str,
+        stderr: str,
+    ) -> "SandboxProcessResponse":
+        response = cls.__new__(cls)
+        response.pid = pid
+        response.exit_code = exit_code
+        response.result = stdout + stderr
+        return response
+
+
+class SandboxProcessManager:
+    """
+    Manager for executing and controlling processes within a sandbox.
+
+    This class provides a high-level interface for running commands and Python
+    code within the sandbox environment. It supports both blocking and non-blocking
+    execution, environment variable configuration, and working directory specification.
+
+    Attributes:
+        sandbox_instance (SandboxInstance): The sandbox instance this manager operates on.
+        processes (Dict[int, SandboxProcess]): Dictionary mapping PIDs to active processes.
+
+    Example:
+        ```python
+        # Get the process manager
+        pm = instance.process
+
+        # Run Python code
+        result = pm.run_code("import sys; print(sys.version)")
+
+        # Run a shell command
+        process = pm.exec("ls", "-la")
+        process.wait()
+
+        # List running processes
+        active_processes = pm.list_processes()
+        ```
+    """
+
+    def __init__(self, sandbox_instance: SandboxInstance) -> "SandboxProcess":
+        self.sandbox_instance: SandboxInstance = sandbox_instance
+        self.processes: Dict[int, SandboxProcess] = {}
+
+    def run_code(
+        self,
+        code: str,
+        blocking: bool = True,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+    ) -> Union["SandboxProcessResponse", "SandboxProcess"]:
+        """
+        Run Python code in the sandbox.
+
+        This method executes Python code within the sandbox environment. The code
+        is executed using the Python interpreter available in the sandbox.
+
+        Parameters:
+            code (str): The Python code to execute.
+            blocking (bool): Whether to wait for the process to complete.
+                           If True, returns SandboxProcessResponse. If False, returns SandboxProcess.
+            cwd (Optional[str]): The working directory to run the code in. Default is None.
+            env (Optional[Dict[str, str]]): Environment variables to set for the process. Default is None.
+
+        Returns:
+            Union[SandboxProcessResponse, SandboxProcess]:
+                - SandboxProcessResponse if blocking=True (process completed)
+                - SandboxProcess if blocking=False (process still running)
+
+        Example:
+            ```python
+            # Run blocking Python code
+            result = pm.run_code("print('Hello from sandbox!')")
+            print(result.result)
+
+            # Run non-blocking Python code
+            process = pm.run_code("import time; time.sleep(10)", blocking=False)
+            # Do other work while process runs
+            process.wait()
+            ```
+        """
+        process = self._exec("python3", "-c", code, cwd=cwd, env=env, wait=blocking)
+
+        if blocking:
+            if process.exit_code >= 0:
+                return SandboxProcessResponse.from_output(
+                    pid=process.pid,
+                    exit_code=process.exit_code,
+                    stdout=process._inline_stdout,
+                    stderr=process._inline_stderr,
+                )
+
+            process.wait()
+
+            return SandboxProcessResponse(
+                pid=process.pid,
+                exit_code=process.exit_code,
+                stdout=process.stdout,
+                stderr=process.stderr,
+            )
+
+        return process
+
+    def exec(
+        self,
+        *args,
+        cwd: Optional[str] = "/workspace",
+        env: Optional[Dict[str, str]] = None,
+    ) -> "SandboxProcess":
+        """
+        Run an arbitrary command in the sandbox.
+
+        This method executes shell commands within the sandbox environment.
+        The command is executed using the shell available in the sandbox.
+
+        Parameters:
+            *args: The command and its arguments to execute.
+            cwd (Optional[str]): The working directory to run the command in. Default is None.
+            env (Optional[Dict[str, str]]): Environment variables to set for the command. Default is None.
+
+        Returns:
+            SandboxProcess: A process object that can be used to interact with the running command.
+
+        Example:
+            ```python
+            # Run a simple command
+            process = pm.exec("ls", "-la")
+            process.wait()
+
+            # Run with custom environment
+            process = pm.exec("echo", "$CUSTOM_VAR", env={"CUSTOM_VAR": "hello"})
+
+            # Run in specific directory
+            process = pm.exec("pwd", cwd="/tmp")
+            ```
+        """
+        return self._exec(*args, cwd=cwd, env=env)
+
+    def _exec(
+        self,
+        *args,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        wait: bool = False,
+    ) -> "SandboxProcess":
+        """
+        Internal method to execute commands in the sandbox.
+
+        Parameters:
+            *args: The command and its arguments.
+            cwd (Optional[str]): Working directory.
+            env (Optional[Dict[str, str]]): Environment variables.
+
+        Returns:
+            SandboxProcess: The created process object.
+
+        Raises:
+            SandboxProcessError: If process creation fails.
+        """
+        command = list(args) if not isinstance(args[0], list) else args[0]
+        shell_command = " ".join(shlex.quote(arg) for arg in command)
+
+        def _do_exec():
+            return self.sandbox_instance.stub._unary_unary(
+                "/pod.PodService/SandboxExec",
+                PodSandboxExecRequest,
+                PodSandboxExecResponse,
+            )(
+                PodSandboxExecRequest(
+                    container_id=self.sandbox_instance.container_id,
+                    command=shell_command,
+                    cwd=cwd,
+                    env=env,
+                    wait=wait,
+                ),
+                timeout=SANDBOX_EXEC_RPC_TIMEOUT_SECONDS,
+            )
+
+        response = self._exec_with_readiness_retry(_do_exec)
+
+        if not response.ok or response.pid <= 0:
+            raise SandboxProcessError(response.error_msg)
+
+        done = getattr(response, "done", False)
+        process = SandboxProcess(
+            self.sandbox_instance,
+            pid=response.pid,
+            cwd=cwd,
+            args=command,
+            env=env,
+            exit_code=getattr(response, "exit_code", -1) if done else -1,
+            inline_stdout=getattr(response, "stdout", "") if done else "",
+            inline_stderr=getattr(response, "stderr", "") if done else "",
+        )
+        self.processes[response.pid] = process
+        return process
+
+    def _exec_with_readiness_retry(
+        self,
+        do_exec: Callable[[], PodSandboxExecResponse],
+    ) -> PodSandboxExecResponse:
+        return _call_with_sandbox_readiness_retry(do_exec)
+
+    def list_processes(self) -> Dict[int, "SandboxProcess"]:
+        """
+        List all processes running in the sandbox.
+
+        Returns:
+            Dict[int, SandboxProcess]: Dictionary of active process objects, indexed by PID.
+
+        Example:
+            ```python
+            processes = pm.list_processes()
+            for pid, process in processes.items():
+                print(f"Process {process.pid} is running")
+            ```
+        """
+        processes: PodSandboxListProcessesResponse = (
+            self.sandbox_instance.stub.sandbox_list_processes(
+                PodSandboxListProcessesRequest(container_id=self.sandbox_instance.container_id)
+            )
+        )
+        if not processes.ok:
+            raise SandboxProcessError(processes.error_msg)
+
+        return {
+            process.pid: SandboxProcess(
+                self.sandbox_instance,
+                pid=process.pid,
+                cwd=process.cwd,
+                args=process.cmd.split(" "),
+                env=process.env,
+                exit_code=process.exit_code,
+            )
+            for process in processes.processes
+        }
+
+    def get_process(self, pid: int) -> "SandboxProcess":
+        """
+        Get a process by its PID.
+
+        Parameters:
+            pid (int): The process ID to look up.
+
+        Returns:
+            SandboxProcess: The process object for the given PID.
+
+        Raises:
+            SandboxProcessError: If the process is not found.
+
+        Example:
+            ```python
+            try:
+                process = pm.get_process(12345)
+                print(f"Found process: {process.pid}")
+            except SandboxProcessError:
+                print("Process not found")
+            ```
+        """
+        self.processes = self.list_processes()
+
+        if pid not in self.processes.keys():
+            raise SandboxProcessError(f"Process with pid {pid} not found")
+
+        return self.processes[pid]
+
+    @property
+    def aio(self) -> "AsyncSandboxProcessManager":
+        """
+        Get an async interface for this process manager.
+
+        Returns:
+            AsyncSandboxProcessManager: An async wrapper providing non-blocking methods.
+
+        Example:
+            ```python
+            result = await instance.process.aio.run_code("print('hello')")
+            process = await instance.process.aio.exec("ls", "-la")
+            ```
+        """
+        if not hasattr(self, "_aio"):
+            self._aio = AsyncSandboxProcessManager(self)
+        return self._aio
+
+
+class SandboxProcessStream:
+    """
+    A stream-like interface for reading process output in real-time.
+
+    This class provides an iterator interface for reading stdout or stderr
+    from a running process. It buffers output and provides both line-by-line
+    iteration and bulk reading capabilities.
+
+    Attributes:
+        process (SandboxProcess): The process this stream belongs to.
+        fetch_fn: Function to fetch new output chunks.
+        _buffer (str): Internal buffer for incomplete lines.
+        _closed (bool): Whether the stream has been closed.
+        _last_output (str): Last known output for change detection.
+
+    Example:
+        ```python
+        # Get a process stream
+        process = pm.exec("echo", "Hello\nWorld")
+
+        # Read line by line
+        for line in process.stdout:
+            print(f"Output: {line.strip()}")
+
+        # Read all output at once
+        all_output = process.stdout.read()
+        ```
+    """
+
+    def __init__(self, process: "SandboxProcess", fetch_fn):
+        self.process = process
+        self.fetch_fn = fetch_fn
+        self._buffer = ""
+        self._closed = False
+        self._last_output = ""
+
+    def __iter__(self):
+        """
+        Return an iterator for reading the stream line by line.
+
+        Returns:
+            self: The stream object as an iterator.
+        """
+        return self
+
+    def __next__(self):
+        """
+        Get the next line from the stream.
+
+        Returns:
+            str: The next line from the stream.
+
+        Raises:
+            StopIteration: When the stream is exhausted.
+        """
+        while True:
+            if "\n" in self._buffer:
+                line, self._buffer = self._buffer.split("\n", 1)
+                return line + "\n"
+
+            if self._closed:
+                if self._buffer:
+                    line, self._buffer = self._buffer, ""
+                    return line
+                raise StopIteration
+
+            chunk = self._fetch_next_chunk()
+            if chunk:
+                self._buffer += chunk
+            else:
+                exit_code, _ = self.process.status()
+                if exit_code >= 0:
+                    last_chunk = self._fetch_next_chunk()
+                    if last_chunk:
+                        self._buffer += last_chunk
+                        continue
+
+                    self._closed = True
+                else:
+                    time.sleep(0.1)
+
+    def _fetch_next_chunk(self):
+        """
+        Fetch the next chunk of output from the process.
+
+        Returns:
+            str: New output chunk, or empty string if no new output.
+        """
+        # The sandbox process manager returns output deltas and clears its
+        # internal buffer after each read. Do not treat the returned value as
+        # cumulative output.
+        return retry_on_transient_error(self.fetch_fn, max_retries=2, delay=0.2)
+
+    def read(self):
+        """
+        Return whatever output is currently available in the stream.
+        """
+        data = self._buffer
+        self._buffer = ""
+        process_exited = getattr(self.process, "exit_code", -1) >= 0
+
+        while True:
+            chunk = self._fetch_next_chunk()
+            if chunk:
+                data += chunk
+                if process_exited:
+                    break
+            else:
+                break
+
+        return data
+
+
+class SandboxProcess:
+    """
+    Represents a running process within a sandbox.
+
+    This class provides control and monitoring capabilities for processes
+    running in the sandbox. It allows you to wait for completion, kill
+    processes, check status, and access output streams.
+
+    Attributes:
+        sandbox_instance (SandboxInstance): The sandbox this process runs in.
+        pid (int): The process ID.
+        exit_code (int): The exit code of the process (-1 if still running).
+        _status (str): Internal status tracking.
+
+    Example:
+        ```python
+        # Start a process
+        process = pm.exec("sleep", "10")
+
+        # Check if it's still running
+        exit_code, status = process.status()
+        if exit_code < 0:
+            print("Process is still running")
+
+        # Wait for completion
+        exit_code = process.wait()
+        print(f"Process finished with exit code: {exit_code}")
+
+        # Access output streams
+        stdout = process.stdout.read()
+        stderr = process.stderr.read()
+        ```
+    """
+
+    def __init__(
+        self,
+        sandbox_instance: SandboxInstance,
+        *,
+        pid: int,
+        cwd: str,
+        args: List[str],
+        env: Dict[str, str],
+        exit_code: int = -1,
+        inline_stdout: str = "",
+        inline_stderr: str = "",
+    ):
+        self.sandbox_instance = sandbox_instance
+        self.pid = pid
+        self.exit_code = exit_code
+        self._status = ""
+        self.cwd = cwd
+        self.args = args
+        self.env = env
+        self._inline_stdout = inline_stdout
+        self._inline_stderr = inline_stderr
+
+    def wait(self, timeout: Optional[float] = None) -> int:
+        """
+        Wait for the process to complete.
+
+        This method blocks until the process finishes execution and returns
+        the exit code. It polls the process status until completion.
+
+        Parameters:
+            timeout (Optional[float]): Maximum seconds to wait. Default is None.
+
+        Returns:
+            int: The exit code of the completed process.
+
+        Example:
+            ```python
+            process = pm.exec("long_running_command")
+            exit_code = process.wait()
+            if exit_code == 0:
+                print("Command completed successfully")
+            ```
+        """
+        deadline = None if timeout is None else time.monotonic() + timeout
+        self.exit_code, self._status = self.status()
+
+        while self.exit_code < 0:
+            if deadline is not None and time.monotonic() >= deadline:
+                raise SandboxProcessError(f"Process {self.pid} did not exit within {timeout} seconds")
+            self.exit_code, self._status = self.status()
+            time.sleep(SANDBOX_WAIT_POLL_INTERVAL_SECONDS)
+
+        return self.exit_code
+
+    def kill(self):
+        """
+        Kill the process.
+
+        This method forcefully terminates the running process. Use this
+        when you need to stop a process that is not responding or when
+        you want to cancel a long-running operation.
+
+        Raises:
+            SandboxProcessError: If the kill operation fails.
+
+        Example:
+            ```python
+            process = pm.exec("sleep", "100")
+
+            # Kill the process after 5 seconds
+            import time
+            time.sleep(5)
+            process.kill()
+            ```
+        """
+        response = self.sandbox_instance.stub.sandbox_kill(
+            PodSandboxKillRequest(container_id=self.sandbox_instance.container_id, pid=self.pid)
+        )
+        if not response.ok:
+            raise SandboxProcessError(response.error_msg)
+
+    def status(self) -> Tuple[int, str]:
+        """
+        Get the status of the process.
+
+        This method returns the current exit code and status string of the process.
+        An exit code of -1 indicates the process is still running.
+
+        Returns:
+            Tuple[int, str]: A tuple containing (exit_code, status_string).
+
+        Raises:
+            SandboxProcessError: If status retrieval fails.
+
+        Example:
+            ```python
+            process = pm.exec("sleep", "5")
+
+            # Check status periodically
+            while True:
+                exit_code, status = process.status()
+                if exit_code >= 0:
+                    print(f"Process finished with exit code: {exit_code}")
+                    break
+                time.sleep(1)
+            ```
+        """
+
+        def _get_status():
+            return self.sandbox_instance.stub._unary_unary(
+                "/pod.PodService/SandboxStatus",
+                PodSandboxStatusRequest,
+                PodSandboxStatusResponse,
+            )(
+                PodSandboxStatusRequest(
+                    container_id=self.sandbox_instance.container_id, pid=self.pid
+                ),
+                timeout=SANDBOX_STATUS_RPC_TIMEOUT_SECONDS,
+            )
+
+        response = _call_with_sandbox_readiness_retry(_get_status)
+
+        if not response.ok:
+            raise SandboxProcessError(response.error_msg)
+
+        return response.exit_code, response.status
+
+    @property
+    def stdout(self):
+        """
+        Get a handle to a stream of the process's stdout.
+
+        Returns:
+            SandboxProcessStream: A stream object for reading stdout.
+
+        Example:
+            ```python
+            process = pm.exec("echo", "Hello World")
+            stdout_content = process.stdout.read()
+            print(f"STDOUT: {stdout_content}")
+            ```
+        """
+        # Cache the stream to preserve buffer state across multiple accesses
+        if not hasattr(self, "_stdout_stream"):
+            self._stdout_stream = SandboxProcessStream(
+                self,
+                self._stdout,
+            )
+        return self._stdout_stream
+
+    @property
+    def stderr(self):
+        """
+        Get a handle to a stream of the process's stderr.
+
+        Returns:
+            SandboxProcessStream: A stream object for reading stderr.
+
+        Example:
+            ```python
+            process = pm.exec("python3", "-c", "import sys; print('Error', file=sys.stderr)")
+            stderr_content = process.stderr.read()
+            print(f"STDERR: {stderr_content}")
+            ```
+        """
+        # Cache the stream to preserve buffer state across multiple accesses
+        if not hasattr(self, "_stderr_stream"):
+            self._stderr_stream = SandboxProcessStream(
+                self,
+                self._stderr,
+            )
+        return self._stderr_stream
+
+    def _stdout(self) -> str:
+        response = self.sandbox_instance.stub._unary_unary(
+            "/pod.PodService/SandboxStdout",
+            PodSandboxStdoutRequest,
+            PodSandboxStdoutResponse,
+        )(
+            PodSandboxStdoutRequest(
+                container_id=self.sandbox_instance.container_id, pid=self.pid
+            ),
+            timeout=SANDBOX_OUTPUT_RPC_TIMEOUT_SECONDS,
+        )
+        if not response.ok:
+            raise SandboxProcessError(response.error_msg)
+        return response.stdout
+
+    def _stderr(self) -> str:
+        response = self.sandbox_instance.stub._unary_unary(
+            "/pod.PodService/SandboxStderr",
+            PodSandboxStderrRequest,
+            PodSandboxStderrResponse,
+        )(
+            PodSandboxStderrRequest(
+                container_id=self.sandbox_instance.container_id, pid=self.pid
+            ),
+            timeout=SANDBOX_OUTPUT_RPC_TIMEOUT_SECONDS,
+        )
+        if not response.ok:
+            raise SandboxProcessError(response.error_msg)
+        return response.stderr
+
+    @property
+    def logs(self):
+        """
+        Returns a combined stream of both stdout and stderr.
+
+        This is a convenience property that combines both output streams.
+        The streams are read concurrently, so if one stream is empty, it won't block
+        the other stream from being read.
+
+        Returns:
+            CombinedStream: A stream object that combines stdout and stderr.
+
+        Example:
+            ```python
+            process = pm.exec("python3", "-c", "import sys; print('stdout'); print('stderr', file=sys.stderr)")
+
+            # Read combined output
+            for line in process.logs:
+                print(f"LOG: {line.strip()}")
+
+            # Or read all at once
+            all_logs = process.logs.read()
+            ```
+        """
+        # Cache to preserve state across multiple accesses
+        if hasattr(self, "_logs_stream"):
+            return self._logs_stream
+
+        class CombinedStream:
+            def __init__(self, process: "SandboxProcess"):
+                self.process = process
+                self._stdout = process.stdout
+                self._stderr = process.stderr
+                self._queue = []
+                self._streams = {
+                    "stdout": {"stream": self._stdout, "buffer": "", "exhausted": False},
+                    "stderr": {"stream": self._stderr, "buffer": "", "exhausted": False},
+                }
+
+            def _process_stream(self, stream_name):
+                """Process a single stream, adding any complete lines to the queue."""
+                stream_info = self._streams[stream_name]
+                if stream_info["exhausted"]:
+                    return
+
+                chunk = stream_info["stream"]._fetch_next_chunk()
+                if not chunk:
+                    exit_code, _ = self.process.status()
+                    if exit_code >= 0:  # Process has exited
+                        chunk = stream_info["stream"]._fetch_next_chunk()
+                    else:
+                        return
+
+                    if not chunk:
+                        if stream_info["buffer"]:
+                            self._queue.append(stream_info["buffer"])
+                            stream_info["buffer"] = ""
+                            return
+
+                        stream_info["exhausted"] = True
+                        return
+
+                stream_info["buffer"] += chunk
+
+                while "\n" in stream_info["buffer"]:  # Process any complete lines
+                    line, stream_info["buffer"] = stream_info["buffer"].split("\n", 1)
+                    self._queue.append(line + "\n")
+
+            def _fill_queue(self):
+                self._process_stream("stdout")
+                self._process_stream("stderr")
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                while True:
+                    # If queue is empty, try to fill it
+                    if not self._queue:
+                        self._fill_queue()
+                        # If still empty after trying to fill, we're done
+                        if not self._queue and all(s["exhausted"] for s in self._streams.values()):
+                            raise StopIteration
+
+                        # If queue is still empty but streams aren't exhausted, wait and try again
+                        if not self._queue:
+                            try:
+                                time.sleep(0.1)
+                                continue
+                            except KeyboardInterrupt:
+                                raise
+
+                    # Return the next line from the queue
+                    return self._queue.pop(0)
+
+            def read(self):
+                buffered_data = "".join(self._queue)
+                self._queue = []
+                for stream_info in self._streams.values():
+                    if stream_info["buffer"]:
+                        buffered_data += stream_info["buffer"]
+                        stream_info["buffer"] = ""
+
+                stdout_data = self._stdout.read()
+                stderr_data = self._stderr.read()
+                return buffered_data + stdout_data + stderr_data
+
+        self._logs_stream = CombinedStream(self)
+        return self._logs_stream
+
+    @property
+    def aio(self) -> "AsyncSandboxProcess":
+        """
+        Get an async interface for this process.
+
+        Returns:
+            AsyncSandboxProcess: An async wrapper providing non-blocking methods.
+
+        Example:
+            ```python
+            process = instance.process.exec("sleep", "10")
+            exit_code = await process.aio.wait()
+            async for line in process.aio.stdout:
+                print(line)
+            ```
+        """
+        if not hasattr(self, "_aio"):
+            self._aio = AsyncSandboxProcess(self)
+        return self._aio
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("_aio", None)
+        state.pop("_stdout_stream", None)
+        state.pop("_stderr_stream", None)
+        state.pop("_logs_stream", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+
+@dataclass
+class SandboxFileInfo:
+    """
+    Metadata of a file in the sandbox.
+
+    This class provides detailed information about files and directories
+    within the sandbox filesystem, including permissions, ownership,
+    and modification times.
+
+    Attributes:
+        name (str): The name of the file or directory.
+        is_dir (bool): Whether this is a directory.
+        size (int): The size of the file in bytes.
+        mode (int): The file mode (permissions and type).
+        mod_time (int): The modification time as a Unix timestamp.
+        permissions (int): The file permissions as an integer.
+        owner (str): The owner of the file.
+        group (str): The group owner of the file.
+
+    Example:
+        ```python
+        # Get file info
+        file_info = instance.fs.stat_file("/path/to/file.txt")
+        print(f"File: {file_info.name}")
+        print(f"Size: {file_info.size} bytes")
+        print(f"Owner: {file_info.owner}")
+        print(f"Permissions: {oct(file_info.permissions)}")
+        ```
+    """
+
+    name: str
+    is_dir: bool
+    size: int
+    mode: int
+    mod_time: int
+    permissions: int
+    owner: str
+    group: str
+
+    def __str__(self):
+        """
+        Return a string representation of the file info.
+
+        Returns:
+            str: A formatted string showing file information.
+        """
+        octal_perms = oct(self.permissions & 0o7777)
+        return f"SandboxFileInfo(name='{self.name}', is_dir={self.is_dir}, size={self.size}, mode={self.mode}, mod_time={self.mod_time}, permissions={octal_perms}, owner='{self.owner}', group='{self.group}')"
+
+
+@dataclass
+class SandboxFilePosition:
+    """
+    A position in a file.
+
+    Attributes:
+        line (int): The line number.
+        column (int): The column number.
+    """
+
+    line: int
+    column: int
+
+
+@dataclass
+class SandboxFileSearchRange:
+    """
+    A range in a file.
+
+    Attributes:
+        start (SandboxFilePosition): The start position.
+        end (SandboxFilePosition): The end position.
+    """
+
+    start: SandboxFilePosition
+    end: SandboxFilePosition
+
+
+@dataclass
+class SandboxFileSearchMatch:
+    """
+    A match in a file.
+
+    Attributes:
+        range (SandboxFileSearchRange): The range of the match.
+        content (str): The content of the match.
+    """
+
+    range: SandboxFileSearchRange
+    content: str
+
+
+@dataclass
+class SandboxFileSearchResult:
+    """
+    A search result in a file.
+
+    Attributes:
+        path (str): The path to the file.
+        matches (List[SandboxFileSearchMatch]): The matches in the file with the start and end position of the match.
+    """
+
+    path: str
+    matches: List[SandboxFileSearchMatch]
+
+
+class SandboxFileSystem:
+    """
+    File system interface for managing files within a sandbox.
+
+    This class provides a comprehensive API for file operations within
+    the sandbox, including uploading, downloading, listing, and managing
+    files and directories.
+
+    Attributes:
+        sandbox_instance (SandboxInstance): The sandbox instance this filesystem operates on.
+
+    Example:
+        ```python
+        # Get the filesystem interface
+        fs = instance.fs
+
+        # Upload a file
+        fs.upload_file("local_file.txt", "/remote_file.txt")
+
+        # List files in a directory
+        files = fs.list_files("/")
+        for file_info in files:
+            print(f"{file_info.name}: {file_info.size} bytes")
+
+        # Download a file
+        fs.download_file("/remote_file.txt", "downloaded_file.txt")
+        ```
+    """
+
+    def __init__(self, sandbox_instance: SandboxInstance):
+        self.sandbox_instance = sandbox_instance
+
+    def upload_file(self, local_path: str, sandbox_path: str):
+        """
+        Upload a local file to the sandbox.
+
+        This method reads a file from the local filesystem and uploads
+        it to the specified path within the sandbox.
+
+        Parameters:
+            local_path (str): The path to the local file to upload.
+            sandbox_path (str): The destination path within the sandbox.
+
+        Raises:
+            SandboxFileSystemError: If the upload fails.
+            FileNotFoundError: If the local file doesn't exist.
+
+        Example:
+            ```python
+            # Upload a Python script
+            fs.upload_file("my_script.py", "/workspace/script.py")
+
+            # Upload to a subdirectory
+            fs.upload_file("config.json", "/app/config/config.json")
+            ```
+        """
+        with open(local_path, "rb") as f:
+            content = f.read()
+
+            response = self.sandbox_instance.stub.sandbox_upload_file(
+                PodSandboxUploadFileRequest(
+                    container_id=self.sandbox_instance.container_id,
+                    container_path=sandbox_path,
+                    data=content,
+                    mode=644,
+                )
+            )
+
+            if not response.ok:
+                raise SandboxFileSystemError(
+                    message=response.error_msg,
+                    operation="upload_file",
+                    path=sandbox_path,
+                    container_id=self.sandbox_instance.container_id,
+                )
+
+    def write_bytes(self, sandbox_path: str, data: bytes, mode: int = 644):
+        """
+        Write bytes to a file in the sandbox.
+        """
+        response = self.sandbox_instance.stub.sandbox_upload_file(
+            PodSandboxUploadFileRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+                data=data,
+                mode=mode,
+            )
+        )
+        if not response.ok:
+            raise SandboxFileSystemError(
+                message=response.error_msg,
+                operation="write_bytes",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+
+    def write_text(self, sandbox_path: str, text: str, encoding: str = "utf-8", mode: int = 644):
+        """
+        Write text to a file in the sandbox.
+        """
+        self.write_bytes(sandbox_path, text.encode(encoding), mode=mode)
+
+    def download_file(self, sandbox_path: str, local_path: str):
+        """
+        Download a file from the sandbox to a local path.
+
+        This method downloads a file from the sandbox filesystem and
+        saves it to the specified local path.
+
+        Parameters:
+            sandbox_path (str): The path to the file within the sandbox.
+            local_path (str): The destination path on the local filesystem.
+
+        Raises:
+            SandboxFileSystemError: If the download fails.
+
+        Example:
+            ```python
+            # Download a log file
+            fs.download_file("/var/log/app.log", "local_app.log")
+
+            # Download to a specific directory
+            fs.download_file("/output/result.txt", "./results/result.txt")
+            ```
+        """
+        response = self.sandbox_instance.stub.sandbox_download_file(
+            PodSandboxDownloadFileRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+            )
+        )
+
+        if not response.ok:
+            raise SandboxFileSystemError(
+                message=response.error_msg,
+                operation="download_file",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+
+        with open(local_path, "wb") as f:
+            f.write(response.data)
+
+    def read_bytes(self, sandbox_path: str) -> bytes:
+        """
+        Read a file from the sandbox and return its bytes.
+        """
+        response = self.sandbox_instance.stub.sandbox_download_file(
+            PodSandboxDownloadFileRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+            )
+        )
+        if not response.ok:
+            raise SandboxFileSystemError(
+                message=response.error_msg,
+                operation="read_bytes",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+        return response.data
+
+    def read_text(self, sandbox_path: str, encoding: str = "utf-8") -> str:
+        """
+        Read a file from the sandbox and return text.
+        """
+        return self.read_bytes(sandbox_path).decode(encoding)
+
+    def stat_file(self, sandbox_path: str) -> "SandboxFileInfo":
+        """
+        Get the metadata of a file in the sandbox.
+
+        This method retrieves detailed information about a file or directory
+        within the sandbox, including size, permissions, ownership, and
+        modification time.
+
+        Parameters:
+            sandbox_path (str): The path to the file within the sandbox.
+
+        Returns:
+            SandboxFileInfo: Detailed information about the file.
+
+        Raises:
+            SandboxFileSystemError: If the file doesn't exist or stat fails.
+
+        Example:
+            ```python
+            # Get file information
+            file_info = fs.stat_file("/path/to/file.txt")
+            print(f"File size: {file_info.size} bytes")
+            print(f"Is directory: {file_info.is_dir}")
+            print(f"Modified: {file_info.mod_time}")
+            ```
+        """
+        response = self.sandbox_instance.stub.sandbox_stat_file(
+            PodSandboxStatFileRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+            )
+        )
+        if not response.ok:
+            raise SandboxFileSystemError(
+                message=response.error_msg,
+                operation="stat_file",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+
+        return SandboxFileInfo(
+            **{
+                "name": response.file_info.name,
+                "is_dir": response.file_info.is_dir,
+                "size": response.file_info.size,
+                "mode": response.file_info.mode,
+                "mod_time": response.file_info.mod_time,
+                "owner": response.file_info.owner,
+                "group": response.file_info.group,
+                "permissions": response.file_info.permissions,
+            }
+        )
+
+    def list_files(self, sandbox_path: str) -> List["SandboxFileInfo"]:
+        """
+        List the files in a directory in the sandbox.
+
+        This method returns information about all files and directories
+        within the specified directory in the sandbox.
+
+        Parameters:
+            sandbox_path (str): The path to the directory within the sandbox.
+
+        Returns:
+            List[SandboxFileInfo]: List of file information objects.
+
+        Raises:
+            SandboxFileSystemError: If the directory doesn't exist or listing fails.
+
+        Example:
+            ```python
+            # List files in the root directory
+            files = fs.list_files("/")
+            for file_info in files:
+                if file_info.is_dir:
+                    print(f"Directory: {file_info.name}")
+                else:
+                    print(f"File: {file_info.name} ({file_info.size} bytes)")
+
+            # List files in a specific directory
+            workspace_files = fs.list_files("/workspace")
+            ```
+        """
+        response = self.sandbox_instance.stub.sandbox_list_files(
+            PodSandboxListFilesRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+            )
+        )
+        if not response.ok:
+            raise SandboxFileSystemError(
+                message=response.error_msg,
+                operation="list_files",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+
+        file_infos = []
+        for file in response.files:
+            f = {
+                "name": file.name,
+                "is_dir": file.is_dir,
+                "size": file.size,
+                "mode": file.mode,
+                "mod_time": file.mod_time,
+                "owner": file.owner,
+                "group": file.group,
+                "permissions": file.permissions,
+            }
+            file_infos.append(SandboxFileInfo(**f))
+
+        return file_infos
+
+    def create_directory(self, sandbox_path: str):
+        """
+        Create a directory in the sandbox.
+
+        Parameters:
+            sandbox_path (str): The path where the directory should be created.
+
+        Raises:
+            SandboxFileSystemError: If the directory creation fails.
+        """
+        resp = self.sandbox_instance.stub.sandbox_create_directory(
+            PodSandboxCreateDirectoryRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+            )
+        )
+        if not resp.ok:
+            raise SandboxFileSystemError(
+                message=resp.error_msg,
+                operation="create_directory",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+
+    def delete_directory(self, sandbox_path: str):
+        """
+        Delete a directory in the sandbox.
+
+        Parameters:
+            sandbox_path (str): The path of the directory to delete.
+
+        Raises:
+            SandboxFileSystemError: If the directory deletion fails.
+        """
+        resp = self.sandbox_instance.stub.sandbox_delete_directory(
+            PodSandboxDeleteDirectoryRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+            )
+        )
+        if not resp.ok:
+            raise SandboxFileSystemError(
+                message=resp.error_msg,
+                operation="delete_directory",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+
+    def delete_file(self, sandbox_path: str):
+        r"""
+        Delete a file in the sandbox.
+
+        This method removes a file from the sandbox filesystem.
+
+        Parameters:
+            sandbox_path (str): The path to the file within the sandbox.
+
+        Raises:
+            SandboxFileSystemError: If the file doesn't exist or deletion fails.
+
+        Example:
+            ```python
+            # Delete a temporary file
+            fs.delete_file("/tmp/temp_file.txt")
+
+            # Delete a log file
+            fs.delete_file("/var/log/old_log.log")
+            ```
+        """
+        response = self.sandbox_instance.stub.sandbox_delete_file(
+            PodSandboxDeleteFileRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+            )
+        )
+
+        if not response.ok:
+            raise SandboxFileSystemError(
+                message=response.error_msg,
+                operation="delete_file",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+
+    def remove(self, sandbox_path: str):
+        """
+        Remove a file or directory from the sandbox.
+
+        Directories are removed with the backend directory-delete RPC, which may
+        require the directory to be empty.
+        """
+        info = self.stat_file(sandbox_path)
+        if info.is_dir:
+            return self.delete_directory(sandbox_path)
+        return self.delete_file(sandbox_path)
+
+    def replace_in_files(self, sandbox_path: str, old_string: str, new_string: str):
+        r"""
+        Replace a string in all files in a directory.
+
+        This method performs a find-and-replace operation on all files
+        within the specified directory, replacing occurrences of the
+        old string with the new string.
+
+        Parameters:
+            sandbox_path (str): The directory path to search in.
+            old_string (str): The string to find and replace.
+            new_string (str): The string to replace with.
+
+        Raises:
+            SandboxFileSystemError: If the operation fails.
+
+        Example:
+            ```python
+            # Replace a configuration value
+            fs.replace_in_files("/config", "old_host", "new_host")
+
+            # Update version numbers
+            fs.replace_in_files("/app", "1.0.0", "1.1.0")
+            ```
+        """
+        response = self.sandbox_instance.stub.sandbox_replace_in_files(
+            PodSandboxReplaceInFilesRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+                pattern=old_string,
+                new_string=new_string,
+            )
+        )
+
+        if not response.ok:
+            raise SandboxFileSystemError(
+                message=response.error_msg,
+                operation="replace_in_files",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+
+    def find_in_files(self, sandbox_path: str, pattern: str) -> List[SandboxFileSearchResult]:
+        r"""
+        Search file contents in the sandbox using a regular expression pattern.
+
+        This method scans files under the given directory and returns matches
+        for the provided regex pattern, including line/column ranges and the
+        matched text for each file.
+
+        Parameters:
+            sandbox_path (str): The directory path to search under.
+            pattern (str): A regular expression applied to file contents.
+
+        Returns:
+            List[SandboxFileSearchResult]: Per-file results with match ranges and text.
+
+        Raises:
+            SandboxFileSystemError: If the search fails.
+
+        Example:
+            ```python
+            # Find TODO comments
+            todos = fs.find_in_files("/workspace", r"\bTODO\b")
+
+            # Find imports of requests
+            imports = fs.find_in_files("/app", r"^import\s+requests")
+            ```
+        """
+        response = self.sandbox_instance.stub.sandbox_find_in_files(
+            PodSandboxFindInFilesRequest(
+                container_id=self.sandbox_instance.container_id,
+                container_path=sandbox_path,
+                pattern=pattern,
+            )
+        )
+
+        results = []
+        for result in response.results:
+            matches = []
+            for match in result.matches:
+                matches.append(
+                    SandboxFileSearchMatch(
+                        range=SandboxFileSearchRange(
+                            start=SandboxFilePosition(
+                                line=match.range.start.line,
+                                column=match.range.start.column,
+                            ),
+                            end=SandboxFilePosition(
+                                line=match.range.end.line,
+                                column=match.range.end.column,
+                            ),
+                        ),
+                        content=match.content,
+                    )
+                )
+            results.append(SandboxFileSearchResult(path=result.path, matches=matches))
+
+        if not response.ok:
+            raise SandboxFileSystemError(
+                message=response.error_msg,
+                operation="find_in_files",
+                path=sandbox_path,
+                container_id=self.sandbox_instance.container_id,
+            )
+
+        return results
+
+    @property
+    def aio(self) -> "AsyncSandboxFileSystem":
+        """
+        Get an async interface for this file system.
+
+        Returns:
+            AsyncSandboxFileSystem: An async wrapper providing non-blocking methods.
+
+        Example:
+            ```python
+            await instance.fs.aio.upload_file("local.txt", "/remote.txt")
+            files = await instance.fs.aio.list_files("/")
+            ```
+        """
+        if not hasattr(self, "_aio"):
+            self._aio = AsyncSandboxFileSystem(self)
+        return self._aio
+
+
+class DockerResult:
+    """
+    Result object for Docker operations that provides access to both output and logs.
+
+    Attributes:
+        process: The underlying SandboxProcess for streaming logs
+        success: Whether the operation succeeded
+        output: The primary output (container ID, image ID, etc.)
+
+    Example:
+        ```python
+        # Build with logs
+        result = sandbox.docker.build("myapp:v1", context=".")
+        for line in result.logs():
+            print(line)  # Stream build output
+
+        # Or just wait for completion
+        result.wait()
+        print(f"Build {'succeeded' if result.success else 'failed'}")
+
+        # Run container and get ID
+        result = sandbox.docker.run("nginx", detach=True)
+        result.wait()
+        print(f"Container ID: {result.output}")
+        ```
+    """
+
+    def __init__(self, process: "SandboxProcess", extract_output: callable = None):
+        self.process = process
+        self._extract_output = extract_output
+        self._waited = False
+        self._output = None
+        self._success = None
+        self._stdout = None
+        self._stderr = None
+
+    def wait(self) -> bool:
+        """Wait for operation to complete. Returns True if successful."""
+        if not self._waited:
+            exit_code = self.process.wait()
+            self._success = exit_code == 0
+            if self._success and self._extract_output:
+                self._output = self._extract_output(self.process)
+            self._waited = True
+        return self._success
+
+    def logs(self):
+        """
+        Stream logs line by line from both stdout and stderr.
+        Docker commands often output to stderr (e.g., build progress).
+        """
+        import threading
+        from queue import Empty, Queue
+
+        q = Queue()
+
+        def read_stream(stream, prefix=""):
+            try:
+                for line in stream:
+                    q.put((prefix, line))
+            except Exception:
+                # Stream closed or error reading
+                pass
+
+        # Read both stdout and stderr concurrently
+        stdout_thread = threading.Thread(target=read_stream, args=(self.process.stdout, ""))
+        stderr_thread = threading.Thread(target=read_stream, args=(self.process.stderr, ""))
+
+        stdout_thread.daemon = True
+        stderr_thread.daemon = True
+
+        stdout_thread.start()
+        stderr_thread.start()
+
+        # Yield lines as they arrive
+        threads_alive = True
+        while threads_alive or not q.empty():
+            try:
+                prefix, line = q.get(timeout=0.1)
+                yield line
+            except Empty:
+                # Check if threads are still alive
+                threads_alive = stdout_thread.is_alive() or stderr_thread.is_alive()
+                continue
+
+    @property
+    def output(self) -> str:
+        """Get the primary output (auto-waits if needed)."""
+        if not self._waited:
+            self.wait()
+        return self._output or ""
+
+    @property
+    def success(self) -> bool:
+        """Check if operation succeeded (auto-waits if needed)."""
+        if not self._waited:
+            self.wait()
+        return self._success
+
+    @property
+    def stdout(self) -> str:
+        """Get all stdout (auto-waits if needed)."""
+        if not self._waited:
+            self.wait()
+        if self._stdout is None:
+            self._stdout = self.process.stdout.read()
+        return self._stdout
+
+    @property
+    def stderr(self) -> str:
+        """Get all stderr (auto-waits if needed)."""
+        if not self._waited:
+            self.wait()
+        if self._stderr is None:
+            self._stderr = self.process.stderr.read()
+        return self._stderr
+
+
+class DockerComposeStack:
+    """Represents a running Docker Compose stack."""
+
+    def __init__(
+        self,
+        docker_manager: "SandboxDockerManager",
+        file: str,
+        cwd: Optional[str],
+        override_path: str,
+        service_names: List[str],
+    ):
+        self.docker = docker_manager
+        self.file = file
+        self.cwd = cwd
+        self.override_path = override_path
+        self.services = service_names
+
+    def logs(
+        self, service: Optional[str] = None, follow: bool = False, tail: Optional[int] = None
+    ) -> str:
+        """Get logs from compose stack or specific service."""
+        cmd = ["docker-compose", "-f", self.file, "-f", self.override_path, "logs"]
+        if follow:
+            cmd.append("-f")
+        if tail is not None:
+            cmd.extend(["--tail", str(tail)])
+        if service:
+            cmd.append(service)
+        result = self.docker._run(*cmd, cwd=self.cwd)
+        return result.stdout
+
+    def stop(self) -> None:
+        """Stop the compose stack."""
+        self.docker.compose_down(file=self.file, cwd=self.cwd)
+
+    def ps(self) -> str:
+        """List services in the stack."""
+        return self.docker.compose_ps(file=self.file, cwd=self.cwd)
+
+    def __repr__(self) -> str:
+        return f"DockerComposeStack(services={self.services})"
+
+
+class SandboxDockerManager:
+    """
+    Docker manager for sandbox operations with streaming log support.
+
+    Most operations return DockerResult objects that provide:
+    - Streaming logs via .logs()
+    - Automatic waiting via .wait()
+    - Access to output via .output property
+
+    Example:
+        ```python
+        sandbox = Sandbox(
+            docker_enabled=True,
+            image=Image().with_docker()
+        ).create()
+
+        # Build with streaming logs
+        result = sandbox.docker.build("myapp:v1", context=".")
+        for line in result.logs():
+            print(line)  # See build progress
+
+        # Or just wait for completion
+        result = sandbox.docker.build("myapp:v1", context=".")
+        if result.wait():
+            print("Build succeeded!")
+
+        # Pull and see logs
+        result = sandbox.docker.pull("nginx:latest")
+        print(result.stdout)  # Auto-waits and returns output
+
+        # Run container
+        result = sandbox.docker.run("nginx", name="web", detach=True)
+        container_id = result.output  # Auto-waits and returns container ID
+        ```
+    """
+
+    def __init__(self, sandbox_instance: SandboxInstance, daemon_timeout: int = 30):
+        self.sandbox_instance = sandbox_instance
+        self._daemon_timeout = daemon_timeout
+        self._daemon_ready = False
+        self._daemon_check_attempted = False
+        self._authenticated = False
+
+    def _ensure_ready(self):
+        """Ensure Docker daemon is ready. Only blocks when actually needed for docker commands."""
+        if self._daemon_ready:
+            return
+
+        # Mark that we've attempted a check to avoid interfering with non-docker operations
+        self._daemon_check_attempted = True
+
+        start, backoff = time.time(), 0.5
+        while time.time() - start < self._daemon_timeout:
+            try:
+                p = self.sandbox_instance.process.exec("docker", "info")
+                if p.wait() == 0:
+                    self._daemon_ready = True
+                    # Attempt authentication if credentials are in env
+                    self._auto_login()
+                    return
+            except Exception:
+                # Ignore errors during daemon check - we'll retry
+                pass
+            time.sleep(backoff)
+            backoff = min(backoff * 1.5, 2.0)
+
+        from beta9.exceptions import DockerDaemonNotReadyError
+
+        raise DockerDaemonNotReadyError(self._daemon_timeout)
+
+    def _auto_login(self):
+        """Automatically login to Docker if credentials are available in environment."""
+        if self._authenticated:
+            return
+
+        try:
+            # Check if DOCKER_USERNAME and DOCKER_PASSWORD are set
+            proc = self.sandbox_instance.process.exec("printenv", "DOCKER_USERNAME")
+            proc.wait()
+            username = proc.stdout.read().strip()
+
+            if username:
+                proc = self.sandbox_instance.process.exec("printenv", "DOCKER_PASSWORD")
+                proc.wait()
+                password = proc.stdout.read().strip()
+
+                if password:
+                    # Perform docker login
+                    self.login(username=username, password=password)
+        except BaseException:
+            # If auto-login fails, don't block - user can manually call login()
+            pass
+
+    def _exec(self, *cmd, cwd: Optional[str] = None) -> "SandboxProcess":
+        """Execute docker command."""
+        self._ensure_ready()
+        return self.sandbox_instance.process.exec(*cmd, cwd=cwd)
+
+    def _run(self, *cmd, cwd: Optional[str] = None):
+        """Execute docker command and return output (for simple operations)."""
+        from types import SimpleNamespace
+
+        from beta9.exceptions import DockerCommandError
+
+        p = self._exec(*cmd, cwd=cwd)
+        exit_code = p.wait()
+
+        if exit_code != 0:
+            stderr = p.stderr.read()
+            raise DockerCommandError(" ".join(cmd), exit_code, stderr)
+
+        stdout = p.stdout.read().strip()
+        return SimpleNamespace(stdout=stdout)
+
+    def _result(self, *cmd, extract_output: callable = None) -> DockerResult:
+        """Execute docker command and return a DockerResult (for operations with logs)."""
+        process = self._exec(*cmd)
+        return DockerResult(process, extract_output=extract_output)
+
+    # === Container Operations ===
+
+    def run(
+        self,
+        image: str,
+        command: Optional[Union[str, List[str]]] = None,
+        name: Optional[str] = None,
+        detach: bool = False,
+        remove: bool = False,
+        volumes: Optional[Dict[str, str]] = None,
+        env: Optional[Dict[str, str]] = None,
+        **kwargs,
+    ) -> DockerResult:
+        """
+        Run a Docker container.
+
+        Args:
+            image: Docker image (e.g. "nginx:latest")
+            command: Command to run INSIDE the container (e.g. ["sh", "-c", "echo hello"])
+                     This is NOT for docker flags - use the named parameters instead.
+            name: Container name
+            detach: Run in background
+            remove: Auto-remove when stopped
+            volumes: Volume mappings {"host_path": "container_path"} or {"host_path": "container_path:ro"}
+            env: Environment variables {"KEY": "value"}
+
+        Returns:
+            DockerResult: Result with container ID in .output property
+
+        Example:
+            ```python
+            # Run nginx with volume mount
+            result = sandbox.docker.run(
+                "nginx:latest",
+                volumes={"/tmp/html": "/usr/share/nginx/html:ro"},
+                detach=True
+            )
+            # Access nginx at http://localhost:80
+
+            # Run with environment variables
+            result = sandbox.docker.run(
+                "alpine",
+                command=["printenv", "MY_VAR"],
+                env={"MY_VAR": "hello"}
+            )
+
+            # Run and stream logs
+            result = sandbox.docker.run("alpine", command=["echo", "hello"])
+            for line in result.logs():
+                print(line)
+            ```
+        """
+        cmd = ["docker", "run"]
+        # Inner containers use the sandbox's network/PID namespaces so Docker
+        # commands work consistently under both runc and gVisor.
+        cmd.extend(_sandbox_docker_namespace_args())
+
+        if detach:
+            cmd.append("-d")
+
+        if remove:
+            cmd.append("--rm")
+
+        if name:
+            cmd.extend(["--name", name])
+
+        if volumes:
+            for hp, cp in volumes.items():
+                cmd.extend(["-v", f"{hp}:{cp}"])
+
+        if env:
+            for k, v in env.items():
+                cmd.extend(["-e", f"{k}={v}"])
+
+        cmd.append(image)
+
+        if command:
+            if isinstance(command, str):
+                cmd.append(command)
+            else:
+                cmd.extend(command)
+
+        # Extract container ID from output if detached
+        def extract_container_id(process):
+            return process.stdout.read().strip()
+
+        return self._result(*cmd, extract_output=extract_container_id if detach else None)
+
+    def ps(self, all: bool = False, quiet: bool = False) -> Union[List[str], str]:
+        """
+        List containers.
+
+        Args:
+            all: Show all containers (default: running only)
+            quiet: Only return container IDs
+
+        Returns:
+            List[str]: Container IDs if quiet=True
+            str: Formatted table if quiet=False
+        """
+        cmd = ["docker", "ps"]
+        if all:
+            cmd.append("-a")
+        if quiet:
+            cmd.append("-q")
+
+        output = self._run(*cmd).stdout
+        return output.split("\n") if quiet and output else output
+
+    def stop(self, container: str) -> bool:
+        """Stop a container. Returns True on success, False if container not found or already stopped."""
+        from beta9.exceptions import DockerCommandError
+
+        try:
+            self._run("docker", "stop", container)
+            return True
+        except DockerCommandError:
+            return False
+
+    def rm(self, container: str, force: bool = False) -> bool:
+        """Remove a container. Returns True on success, False if container not found."""
+        from beta9.exceptions import DockerCommandError
+
+        try:
+            cmd = ["docker", "rm"]
+            if force:
+                cmd.append("-f")
+            cmd.append(container)
+            self._run(*cmd)
+            return True
+        except DockerCommandError:
+            return False
+
+    def logs(self, container: str, follow: bool = False, tail: Optional[int] = None) -> str:
+        """
+        Get container logs.
+
+        Args:
+            container: Container name or ID
+            follow: Stream logs (default: False)
+            tail: Number of lines to show from the end (default: all)
+
+        Returns:
+            str: Container logs
+
+        Example:
+            ```python
+            logs = sandbox.docker.logs("my-container")
+            print(logs)
+            ```
+        """
+        cmd = ["docker", "logs"]
+        if follow:
+            cmd.append("-f")
+        if tail is not None:
+            cmd.extend(["--tail", str(tail)])
+        cmd.append(container)
+        result = self._run(*cmd)
+        return result.stdout
+
+    def exec(self, container: str, command: Union[str, List[str]], **kwargs) -> "SandboxProcess":
+        """Execute command in running container."""
+        cmd = ["docker", "exec", container]
+        if isinstance(command, str):
+            cmd.append(command)
+        else:
+            cmd.extend(command)
+        return self._exec(*cmd)
+
+    # === Image Operations ===
+
+    def pull(self, image: str, quiet: bool = False) -> DockerResult:
+        """
+        Pull an image.
+
+        Args:
+            image: Image to pull (e.g. "nginx:latest")
+            quiet: Suppress verbose output
+
+        Returns:
+            DockerResult: Result with streaming logs
+
+        Example:
+            ```python
+            # Pull and see progress
+            result = sandbox.docker.pull("nginx:latest")
+            for line in result.logs():
+                print(line)  # See pull progress
+
+            # Or just wait
+            result = sandbox.docker.pull("nginx:latest")
+            if result.success:
+                print("Pull succeeded!")
+            ```
+        """
+        # Ensure authentication before pull operations
+        if not self._authenticated:
+            self._auto_login()
+
+        cmd = ["docker", "pull"]
+        if quiet:
+            cmd.append("-q")
+        cmd.append(image)
+        return self._result(*cmd)
+
+    def build(
+        self,
+        tag: str,
+        context: str = ".",
+        dockerfile: Optional[str] = None,
+        build_args: Optional[Dict[str, str]] = None,
+        no_cache: bool = False,
+        quiet: bool = False,
+    ) -> DockerResult:
+        """
+        Build a Docker image.
+
+        Args:
+            tag: Image tag (e.g. "myapp:v1")
+            context: Build context path
+            dockerfile: Path to Dockerfile
+            build_args: Build arguments
+            no_cache: Don't use cache
+            quiet: Suppress output
+
+        Returns:
+            DockerResult: Result with streaming build logs
+
+        Example:
+            ```python
+            # Build and stream logs
+            result = sandbox.docker.build("myapp:v1", context=".")
+            for line in result.logs():
+                print(line)  # See build progress
+
+            # Or wait for completion
+            result = sandbox.docker.build("myapp:v1", context=".")
+            if result.success:
+                print("Build succeeded!")
+            else:
+                print(f"Build failed: {result.stderr}")
+            ```
+        """
+        # Ensure authentication before build operations
+        if not self._authenticated:
+            self._auto_login()
+
+        cmd = ["docker", "build", "-t", tag]
+
+        cmd.extend(["--network", DOCKER_SANDBOX_NETWORK_MODE])
+
+        if dockerfile:
+            cmd.extend(["-f", dockerfile])
+
+        if build_args:
+            for k, v in build_args.items():
+                cmd.extend(["--build-arg", f"{k}={v}"])
+
+        if no_cache:
+            cmd.append("--no-cache")
+
+        if quiet:
+            cmd.append("--quiet")
+
+        cmd.append(context)
+        return self._result(*cmd)
+
+    def images(self, quiet: bool = False) -> Union[List[str], str]:
+        """
+        List images.
+
+        Args:
+            quiet: Only return image IDs
+
+        Returns:
+            List[str]: Image IDs if quiet=True
+            str: Formatted table if quiet=False
+        """
+        cmd = ["docker", "images"]
+        if quiet:
+            cmd.append("-q")
+
+        output = self._run(*cmd).stdout
+        return output.split("\n") if quiet and output else output
+
+    def rmi(self, image: str, force: bool = False) -> bool:
+        """Remove an image. Returns True on success, False if image not found or in use."""
+        from beta9.exceptions import DockerCommandError
+
+        try:
+            cmd = ["docker", "rmi"]
+            if force:
+                cmd.append("-f")
+            cmd.append(image)
+            self._run(*cmd)
+            return True
+        except DockerCommandError:
+            return False
+
+    def push(self, image: str) -> bool:
+        """Push an image to registry. Returns True on success, False if not authenticated or network error."""
+        from beta9.exceptions import DockerCommandError
+
+        try:
+            self._run("docker", "push", image)
+            return True
+        except DockerCommandError:
+            return False
+
+    def tag(self, source: str, target: str) -> bool:
+        """Tag an image. Returns True on success, False if source image not found."""
+        from beta9.exceptions import DockerCommandError
+
+        try:
+            self._run("docker", "tag", source, target)
+            return True
+        except DockerCommandError:
+            return False
+
+    # === Authentication ===
+
+    def login(
+        self,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        registry: Optional[str] = None,
+    ) -> bool:
+        """
+        Login to a Docker registry.
+
+        Args:
+            username: Docker registry username. If not provided, reads from DOCKER_USERNAME env var.
+            password: Docker registry password. If not provided, reads from DOCKER_PASSWORD env var.
+            registry: Docker registry URL. If not provided, defaults to Docker Hub.
+
+        Returns:
+            bool: True if login succeeded, False otherwise.
+
+        Example:
+            ```python
+            # Login with explicit credentials
+            sandbox.docker.login(username="myuser", password="mypass")
+
+            # Login using environment variables (DOCKER_USERNAME, DOCKER_PASSWORD)
+            sandbox.docker.login()
+
+            # Login to a private registry
+            sandbox.docker.login(username="myuser", password="mypass", registry="registry.example.com")
+            ```
+        """
+        from beta9.exceptions import DockerCommandError
+
+        try:
+            # Get credentials from env if not provided
+            if not username:
+                proc = self.sandbox_instance.process.exec("printenv", "DOCKER_USERNAME")
+                proc.wait()
+                username = proc.stdout.read().strip()
+
+            if not password:
+                proc = self.sandbox_instance.process.exec("printenv", "DOCKER_PASSWORD")
+                proc.wait()
+                password = proc.stdout.read().strip()
+
+            if not username or not password:
+                return False
+
+            # Use docker login with password-stdin for security
+            # Pass password via stdin using process env to avoid shell escaping issues
+            registry_arg = f" {shlex.quote(registry)}" if registry else ""
+            login_cmd = (
+                f"docker login --username {shlex.quote(username)} --password-stdin{registry_arg}"
+            )
+
+            # Use printf instead of echo to handle special characters in password
+            cmd = ["sh", "-c", f"printf '%s' {shlex.quote(password)} | {login_cmd}"]
+
+            p = self._exec(*cmd)
+            exit_code = p.wait()
+
+            if exit_code == 0:
+                self._authenticated = True
+                return True
+            return False
+        except (DockerCommandError, Exception):
+            return False
+
+    # === Docker Compose ===
+
+    def _compose_file_path(self, file: str, cwd: Optional[str] = None) -> str:
+        return file if file.startswith("/") else f"{cwd or '.'}/{file}"
+
+    def _read_compose_services(
+        self, file: str, cwd: Optional[str] = None
+    ) -> Tuple[List[str], Set[str]]:
+        import os
+        import tempfile
+
+        import yaml
+
+        compose_path = self._compose_file_path(file, cwd)
+        service_names: List[str] = []
+        services_with_build: Set[str] = set()
+
+        try:
+            with tempfile.NamedTemporaryFile(mode="w+", suffix=".yml", delete=False) as tmp_file:
+                local_compose_path = tmp_file.name
+
+            try:
+                self.sandbox_instance.fs.download_file(compose_path, local_compose_path)
+                with open(local_compose_path, "r") as f:
+                    compose_data = yaml.safe_load(f.read())
+            finally:
+                if os.path.exists(local_compose_path):
+                    os.unlink(local_compose_path)
+        except Exception:
+            return service_names, services_with_build
+
+        services = compose_data.get("services") if isinstance(compose_data, dict) else None
+        if not isinstance(services, dict):
+            return service_names, services_with_build
+
+        service_names = list(services.keys())
+        services_with_build = {
+            name
+            for name, config in services.items()
+            if isinstance(config, dict) and "build" in config
+        }
+        return service_names, services_with_build
+
+    def _upload_text(self, content: str, remote_path: str, suffix: str = "") -> None:
+        import os
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False) as tmp_file:
+            tmp_file.write(content)
+            tmp_file.flush()
+            local_path = tmp_file.name
+
+        try:
+            self.sandbox_instance.fs.upload_file(local_path, remote_path)
+        finally:
+            if os.path.exists(local_path):
+                os.unlink(local_path)
+
+    def _create_compose_override(self, file: str, cwd: Optional[str] = None) -> str:
+        """
+        Create gVisor-compatible compose override file.
+
+        Args:
+            file: Path to docker-compose file
+            cwd: Working directory
+
+        Returns:
+            str: Path to override file in sandbox
+        """
+        import yaml
+
+        service_names, services_with_build = self._read_compose_services(file, cwd)
+        override_path = DOCKER_COMPOSE_OVERRIDE_PATH
+        override = {"services": {}}
+
+        for service_name in service_names or ["default"]:
+            service = {
+                "network_mode": DOCKER_SANDBOX_NETWORK_MODE,
+                "pid": DOCKER_SANDBOX_PID_MODE,
+            }
+
+            if len(service_names) > 1:
+                service["extra_hosts"] = [
+                    f"{other_service}:127.0.0.1" for other_service in service_names
+                ]
+
+            if service_name in services_with_build or not service_names:
+                service["build"] = {"network": DOCKER_SANDBOX_NETWORK_MODE}
+
+            override["services"][service_name] = service
+
+        override_content = yaml.safe_dump(override, sort_keys=False)
+        self._upload_text(override_content, override_path, suffix=".yml")
+
+        return override_path
+
+    def compose_up(
+        self,
+        file: str = "docker-compose.yml",
+        detach: bool = True,
+        build: bool = False,
+        cwd: Optional[str] = None,
+    ) -> "DockerComposeStack":
+        """
+        Start services from docker-compose file.
+
+        Note: Automatically configures host networking and host PID mode for gVisor
+        compatibility. All services will use the sandbox network, so ports are directly
+        accessible.
+
+        Args:
+            file: Path to docker-compose file (default: "docker-compose.yml")
+            detach: Run in background (default: True)
+            build: Build images before starting (default: False)
+            cwd: Working directory to run compose from (default: None, uses sandbox's current directory)
+
+        Returns:
+            DockerComposeStack: Object representing the running stack
+
+        Example:
+            ```python
+            # Start services
+            stack = sandbox.docker.compose_up()
+
+            # Get logs
+            logs = stack.logs("web")
+            print(logs)
+
+            # Stop stack
+            stack.stop()
+            ```
+        """
+        if not self._authenticated:
+            self._auto_login()
+
+        override_path = self._create_compose_override(file, cwd)
+        service_names, _ = self._read_compose_services(file, cwd)
+
+        cmd = ["docker-compose", "-f", file, "-f", override_path, "up"]
+        if detach:
+            cmd.append("-d")
+        if build:
+            cmd.append("--build")
+
+        self._run(*cmd, cwd=cwd)
+        return DockerComposeStack(self, file, cwd, override_path, service_names)
+
+    def compose_down(
+        self,
+        file: str = "docker-compose.yml",
+        volumes: bool = False,
+        cwd: Optional[str] = None,
+    ) -> bool:
+        """
+        Stop and remove compose services.
+
+        Args:
+            file: Path to docker-compose file (default: "docker-compose.yml")
+            volumes: Also remove volumes (default: False)
+            cwd: Working directory to run compose from (default: None)
+
+        Returns:
+            bool: True on success, False if compose file not found.
+        """
+        from beta9.exceptions import DockerCommandError
+
+        try:
+            override_path = self._create_compose_override(file, cwd)
+            cmd = ["docker-compose", "-f", file, "-f", override_path, "down"]
+            if volumes:
+                cmd.append("-v")
+            self._run(*cmd, cwd=cwd)
+            return True
+        except DockerCommandError:
+            return False
+
+    def compose_logs(
+        self,
+        file: str = "docker-compose.yml",
+        follow: bool = False,
+        cwd: Optional[str] = None,
+    ) -> "SandboxProcess":
+        """
+        View compose service logs.
+
+        Args:
+            file: Path to docker-compose file (default: "docker-compose.yml")
+            follow: Follow log output (default: False)
+            cwd: Working directory to run compose from (default: None)
+
+        Returns:
+            SandboxProcess: Process object for streaming logs
+        """
+        cmd = ["docker-compose", "-f", file, "logs"]
+        if follow:
+            cmd.append("-f")
+
+        if cwd:
+            return self.sandbox_instance.process.exec(*cmd, cwd=cwd)
+        return self._exec(*cmd)
+
+    def compose_ps(self, file: str = "docker-compose.yml", cwd: Optional[str] = None) -> str:
+        """List compose services."""
+        override_path = self._create_compose_override(file, cwd)
+        cmd = ["docker-compose", "-f", file, "-f", override_path, "ps"]
+        result = self._run(*cmd, cwd=cwd)
+        return result.stdout
+
+    def compose_build(
+        self,
+        file: str = "docker-compose.yml",
+        no_cache: bool = False,
+        pull: bool = False,
+        cwd: Optional[str] = None,
+    ) -> "SandboxProcess":
+        """
+        Build or rebuild services from docker-compose file.
+
+        Args:
+            file: Path to docker-compose file (default: "docker-compose.yml")
+            no_cache: Don't use cache when building (default: False)
+            pull: Always pull newer versions of images (default: False)
+            cwd: Working directory to run compose from (default: None)
+
+        Returns:
+            SandboxProcess: Process object for the compose build command
+
+        Example:
+            ```python
+            # Build services
+            process = sandbox.docker.compose_build()
+            process.wait()
+
+            # Build without cache
+            process = sandbox.docker.compose_build(no_cache=True, cwd=\"/workspace/myapp\")
+            for line in process.logs:
+                print(line)
+            ```
+        """
+
+        # Ensure authentication before compose build operations
+        if not self._authenticated:
+            self._auto_login()
+
+        cmd = ["docker-compose", "-f", file, "build"]
+
+        if no_cache:
+            cmd.append("--no-cache")
+        if pull:
+            cmd.append("--pull")
+
+        env = {}
+
+        if cwd:
+            return self.sandbox_instance.process.exec(*cmd, cwd=cwd, env=env)
+
+        return self.sandbox_instance.process.exec(*cmd, env=env)
+
+    # === Volumes ===
+
+    def volume_create(self, name: str) -> bool:
+        """Create a volume. Returns True on success, False if volume already exists."""
+        from beta9.exceptions import DockerCommandError
+
+        try:
+            self._run("docker", "volume", "create", name)
+            return True
+        except DockerCommandError:
+            return False
+
+    def volume_rm(self, name: str, force: bool = False) -> bool:
+        """Remove a volume. Returns True on success, False if volume not found or in use."""
+        from beta9.exceptions import DockerCommandError
+
+        try:
+            cmd = ["docker", "volume", "rm"]
+            if force:
+                cmd.append("-f")
+            cmd.append(name)
+            self._run(*cmd)
+            return True
+        except DockerCommandError:
+            return False
+
+    def volume_ls(self, quiet: bool = False) -> Union[List[str], str]:
+        """List volumes."""
+        cmd = ["docker", "volume", "ls"]
+        if quiet:
+            cmd.append("-q")
+        output = self._run(*cmd).stdout
+        return output.split("\n") if quiet and output else output
+
+    @property
+    def aio(self) -> "AsyncSandboxDockerManager":
+        """
+        Get an async interface for this Docker manager.
+
+        Returns:
+            AsyncSandboxDockerManager: An async wrapper providing non-blocking methods.
+
+        Example:
+            ```python
+            result = await instance.docker.aio.build("myapp:v1", context=".")
+            async for line in result.logs():
+                print(line)
+            ```
+        """
+        if not hasattr(self, "_aio"):
+            self._aio = AsyncSandboxDockerManager(self)
+        return self._aio
+
+
+# =============================================================================
+# Async Classes
+# =============================================================================
+
+
+class AsyncSandboxProcessStream:
+    """
+    Async stream-like interface for reading process output.
+
+    This class provides an async iterator interface for reading stdout or stderr
+    from a running process.
+
+    Example:
+        ```python
+        process = await instance.aio.process.exec("echo", "Hello\nWorld")
+
+        # Read line by line asynchronously
+        async for line in process.stdout:
+            print(f"Output: {line.strip()}")
+
+        # Read all output at once
+        all_output = await process.stdout.read()
+        ```
+    """
+
+    _STOP_SENTINEL = object()
+
+    def __init__(self, sync_stream: "SandboxProcessStream"):
+        self._sync = sync_stream
+
+    def __aiter__(self):
+        """Return an async iterator for reading the stream line by line."""
+        return self
+
+    def _get_next(self):
+        """Get next item, returning sentinel on StopIteration."""
+        try:
+            return self._sync.__next__()
+        except StopIteration:
+            return AsyncSandboxProcessStream._STOP_SENTINEL
+
+    async def __anext__(self):
+        """Get the next line from the stream asynchronously."""
+        result = await asyncio.to_thread(self._get_next)
+        if result is AsyncSandboxProcessStream._STOP_SENTINEL:
+            raise StopAsyncIteration
+        return result
+
+    async def read(self) -> str:
+        """Return whatever output is currently available in the stream."""
+        return await asyncio.to_thread(self._sync.read)
+
+
+class AsyncCombinedStream:
+    """
+    Async combined stream for reading both stdout and stderr.
+
+    Example:
+        ```python
+        async for line in process.logs:
+            print(line)
+        ```
+    """
+
+    _STOP_SENTINEL = object()
+
+    def __init__(self, sync_process: "SandboxProcess"):
+        self._sync_process = sync_process
+        self._sync_logs = None
+
+    def _get_sync_logs(self):
+        if self._sync_logs is None:
+            self._sync_logs = self._sync_process.logs
+        return self._sync_logs
+
+    def _get_next(self):
+        """Get next item, returning sentinel on StopIteration."""
+        try:
+            return self._get_sync_logs().__next__()
+        except StopIteration:
+            return AsyncCombinedStream._STOP_SENTINEL
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        result = await asyncio.to_thread(self._get_next)
+        if result is AsyncCombinedStream._STOP_SENTINEL:
+            raise StopAsyncIteration
+        return result
+
+    async def read(self) -> str:
+        """Read all combined output."""
+        sync_logs = self._get_sync_logs()
+        return await asyncio.to_thread(sync_logs.read)
+
+
+class AsyncSandboxProcess:
+    """
+    Async wrapper for a running process within a sandbox.
+
+    This class provides async control and monitoring capabilities for processes
+    running in the sandbox.
+
+    Example:
+        ```python
+        # Start a process
+        process = await instance.aio.process.exec("sleep", "10")
+
+        # Wait for completion asynchronously
+        exit_code = await process.wait()
+
+        # Stream output asynchronously
+        async for line in process.stdout:
+            print(line)
+        ```
+    """
+
+    def __init__(self, sync_process: "SandboxProcess"):
+        self._sync = sync_process
+
+    @property
+    def pid(self) -> int:
+        """The process ID."""
+        return self._sync.pid
+
+    @property
+    def exit_code(self) -> int:
+        """The exit code of the process (-1 if still running)."""
+        return self._sync.exit_code
+
+    @property
+    def cwd(self) -> str:
+        """The working directory."""
+        return self._sync.cwd
+
+    @property
+    def args(self) -> List[str]:
+        """The command arguments."""
+        return self._sync.args
+
+    @property
+    def env(self) -> Dict[str, str]:
+        """The environment variables."""
+        return self._sync.env
+
+    async def wait(self) -> int:
+        """
+        Wait for the process to complete asynchronously.
+
+        Returns:
+            int: The exit code of the completed process.
+
+        Example:
+            ```python
+            process = await instance.aio.process.exec("long_running_command")
+            exit_code = await process.wait()
+            if exit_code == 0:
+                print("Command completed successfully")
+            ```
+        """
+        return await asyncio.to_thread(self._sync.wait)
+
+    async def kill(self):
+        """
+        Kill the process asynchronously.
+
+        Raises:
+            SandboxProcessError: If the kill operation fails.
+        """
+        return await asyncio.to_thread(self._sync.kill)
+
+    async def status(self) -> Tuple[int, str]:
+        """
+        Get the status of the process asynchronously.
+
+        Returns:
+            Tuple[int, str]: A tuple containing (exit_code, status_string).
+        """
+        return await asyncio.to_thread(self._sync.status)
+
+    @property
+    def stdout(self) -> "AsyncSandboxProcessStream":
+        """
+        Get an async handle to the process's stdout.
+
+        Returns:
+            AsyncSandboxProcessStream: An async stream object for reading stdout.
+        """
+        # Cache to preserve buffer state across multiple accesses
+        if not hasattr(self, "_stdout_stream"):
+            self._stdout_stream = AsyncSandboxProcessStream(self._sync.stdout)
+        return self._stdout_stream
+
+    @property
+    def stderr(self) -> "AsyncSandboxProcessStream":
+        """
+        Get an async handle to the process's stderr.
+
+        Returns:
+            AsyncSandboxProcessStream: An async stream object for reading stderr.
+        """
+        # Cache to preserve buffer state across multiple accesses
+        if not hasattr(self, "_stderr_stream"):
+            self._stderr_stream = AsyncSandboxProcessStream(self._sync.stderr)
+        return self._stderr_stream
+
+    @property
+    def logs(self) -> "AsyncCombinedStream":
+        """
+        Returns an async combined stream of both stdout and stderr.
+
+        Returns:
+            AsyncCombinedStream: An async stream object that combines stdout and stderr.
+        """
+        # Cache to preserve state across multiple accesses
+        if not hasattr(self, "_logs_stream"):
+            self._logs_stream = AsyncCombinedStream(self._sync)
+        return self._logs_stream
+
+
+class AsyncSandboxProcessResponse:
+    """
+    Async response object containing the results of a completed process execution.
+
+    Attributes:
+        pid (int): The process ID of the executed command.
+        exit_code (int): The exit code of the process.
+        result (str): Combined stdout and stderr output as a string.
+    """
+
+    def __init__(self, sync_response: "SandboxProcessResponse"):
+        self.pid = sync_response.pid
+        self.exit_code = sync_response.exit_code
+        self.result = sync_response.result
+
+
+class AsyncSandboxProcessManager:
+    """
+    Async manager for executing and controlling processes within a sandbox.
+
+    This class provides an async interface for running commands and Python
+    code within the sandbox environment.
+
+    Example:
+        ```python
+        # Get the async process manager
+        pm = instance.aio.process
+
+        # Run Python code asynchronously
+        result = await pm.run_code("import sys; print(sys.version)")
+
+        # Run a shell command asynchronously
+        process = await pm.exec("ls", "-la")
+        await process.wait()
+
+        # List running processes
+        active_processes = await pm.list_processes()
+        ```
+    """
+
+    def __init__(self, sync_manager: "SandboxProcessManager"):
+        self._sync = sync_manager
+
+    async def run_code(
+        self,
+        code: str,
+        blocking: bool = True,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+    ) -> Union["AsyncSandboxProcessResponse", "AsyncSandboxProcess"]:
+        """
+        Run Python code in the sandbox asynchronously.
+
+        Parameters:
+            code (str): The Python code to execute.
+            blocking (bool): Whether to wait for the process to complete.
+            cwd (Optional[str]): The working directory to run the code in.
+            env (Optional[Dict[str, str]]): Environment variables to set.
+
+        Returns:
+            Union[AsyncSandboxProcessResponse, AsyncSandboxProcess]:
+                - AsyncSandboxProcessResponse if blocking=True
+                - AsyncSandboxProcess if blocking=False
+        """
+        result = await asyncio.to_thread(
+            self._sync.run_code, code, blocking=blocking, cwd=cwd, env=env
+        )
+        if blocking:
+            return AsyncSandboxProcessResponse(result)
+        return AsyncSandboxProcess(result)
+
+    async def exec(
+        self,
+        *args,
+        cwd: Optional[str] = "/workspace",
+        env: Optional[Dict[str, str]] = None,
+    ) -> "AsyncSandboxProcess":
+        """
+        Run an arbitrary command in the sandbox asynchronously.
+
+        Parameters:
+            *args: The command and its arguments to execute.
+            cwd (Optional[str]): The working directory to run the command in.
+            env (Optional[Dict[str, str]]): Environment variables to set.
+
+        Returns:
+            AsyncSandboxProcess: An async process object.
+
+        Example:
+            ```python
+            process = await pm.exec("ls", "-la")
+            await process.wait()
+            output = await process.stdout.read()
+            ```
+        """
+        sync_process = await asyncio.to_thread(self._sync.exec, *args, cwd=cwd, env=env)
+        return AsyncSandboxProcess(sync_process)
+
+    async def list_processes(self) -> Dict[int, "AsyncSandboxProcess"]:
+        """
+        List all processes running in the sandbox asynchronously.
+
+        Returns:
+            Dict[int, AsyncSandboxProcess]: Dictionary of async process objects, indexed by PID.
+        """
+        sync_processes = await asyncio.to_thread(self._sync.list_processes)
+        return {pid: AsyncSandboxProcess(proc) for pid, proc in sync_processes.items()}
+
+    async def get_process(self, pid: int) -> "AsyncSandboxProcess":
+        """
+        Get a process by its PID asynchronously.
+
+        Parameters:
+            pid (int): The process ID to look up.
+
+        Returns:
+            AsyncSandboxProcess: The async process object for the given PID.
+
+        Raises:
+            SandboxProcessError: If the process is not found.
+        """
+        sync_process = await asyncio.to_thread(self._sync.get_process, pid)
+        return AsyncSandboxProcess(sync_process)
+
+
+class AsyncSandboxFileSystem:
+    """
+    Async file system interface for managing files within a sandbox.
+
+    This class provides an async API for file operations within the sandbox,
+    including uploading, downloading, listing, and managing files and directories.
+
+    Example:
+        ```python
+        fs = instance.aio.fs
+
+        # Upload a file asynchronously
+        await fs.upload_file("local_file.txt", "/remote_file.txt")
+
+        # List files asynchronously
+        files = await fs.list_files("/")
+        for file_info in files:
+            print(f"{file_info.name}: {file_info.size} bytes")
+
+        # Download a file asynchronously
+        await fs.download_file("/remote_file.txt", "downloaded_file.txt")
+        ```
+    """
+
+    def __init__(self, sync_fs: "SandboxFileSystem"):
+        self._sync = sync_fs
+
+    async def upload_file(self, local_path: str, sandbox_path: str):
+        """
+        Upload a local file to the sandbox asynchronously.
+
+        Parameters:
+            local_path (str): The path to the local file to upload.
+            sandbox_path (str): The destination path within the sandbox.
+
+        Raises:
+            SandboxFileSystemError: If the upload fails.
+        """
+        return await asyncio.to_thread(self._sync.upload_file, local_path, sandbox_path)
+
+    async def write_bytes(self, sandbox_path: str, data: bytes, mode: int = 644):
+        """
+        Write bytes to a sandbox file asynchronously.
+        """
+        return await asyncio.to_thread(self._sync.write_bytes, sandbox_path, data, mode)
+
+    async def write_text(
+        self, sandbox_path: str, text: str, encoding: str = "utf-8", mode: int = 644
+    ):
+        """
+        Write text to a sandbox file asynchronously.
+        """
+        return await asyncio.to_thread(self._sync.write_text, sandbox_path, text, encoding, mode)
+
+    async def download_file(self, sandbox_path: str, local_path: str):
+        """
+        Download a file from the sandbox asynchronously.
+
+        Parameters:
+            sandbox_path (str): The path to the file within the sandbox.
+            local_path (str): The destination path on the local filesystem.
+
+        Raises:
+            SandboxFileSystemError: If the download fails.
+        """
+        return await asyncio.to_thread(self._sync.download_file, sandbox_path, local_path)
+
+    async def read_bytes(self, sandbox_path: str) -> bytes:
+        """
+        Read bytes from a sandbox file asynchronously.
+        """
+        return await asyncio.to_thread(self._sync.read_bytes, sandbox_path)
+
+    async def read_text(self, sandbox_path: str, encoding: str = "utf-8") -> str:
+        """
+        Read text from a sandbox file asynchronously.
+        """
+        return await asyncio.to_thread(self._sync.read_text, sandbox_path, encoding)
+
+    async def stat_file(self, sandbox_path: str) -> "SandboxFileInfo":
+        """
+        Get the metadata of a file in the sandbox asynchronously.
+
+        Parameters:
+            sandbox_path (str): The path to the file within the sandbox.
+
+        Returns:
+            SandboxFileInfo: Detailed information about the file.
+
+        Raises:
+            SandboxFileSystemError: If the file doesn't exist or stat fails.
+        """
+        return await asyncio.to_thread(self._sync.stat_file, sandbox_path)
+
+    async def list_files(self, sandbox_path: str) -> List["SandboxFileInfo"]:
+        """
+        List the files in a directory in the sandbox asynchronously.
+
+        Parameters:
+            sandbox_path (str): The path to the directory within the sandbox.
+
+        Returns:
+            List[SandboxFileInfo]: List of file information objects.
+
+        Raises:
+            SandboxFileSystemError: If the directory doesn't exist or listing fails.
+        """
+        return await asyncio.to_thread(self._sync.list_files, sandbox_path)
+
+    async def create_directory(self, sandbox_path: str):
+        """
+        Create a directory in the sandbox asynchronously.
+
+        Parameters:
+            sandbox_path (str): The path where the directory should be created.
+
+        Raises:
+            SandboxFileSystemError: If the directory creation fails.
+        """
+        return await asyncio.to_thread(self._sync.create_directory, sandbox_path)
+
+    async def delete_directory(self, sandbox_path: str):
+        """
+        Delete a directory in the sandbox asynchronously.
+
+        Parameters:
+            sandbox_path (str): The path of the directory to delete.
+
+        Raises:
+            SandboxFileSystemError: If the directory deletion fails.
+        """
+        return await asyncio.to_thread(self._sync.delete_directory, sandbox_path)
+
+    async def delete_file(self, sandbox_path: str):
+        """
+        Delete a file in the sandbox asynchronously.
+
+        Parameters:
+            sandbox_path (str): The path to the file within the sandbox.
+
+        Raises:
+            SandboxFileSystemError: If the file doesn't exist or deletion fails.
+        """
+        return await asyncio.to_thread(self._sync.delete_file, sandbox_path)
+
+    async def remove(self, sandbox_path: str):
+        """
+        Remove a sandbox file or directory asynchronously.
+        """
+        return await asyncio.to_thread(self._sync.remove, sandbox_path)
+
+    async def replace_in_files(self, sandbox_path: str, old_string: str, new_string: str):
+        """
+        Replace a string in all files in a directory asynchronously.
+
+        Parameters:
+            sandbox_path (str): The directory path to search in.
+            old_string (str): The string to find and replace.
+            new_string (str): The string to replace with.
+
+        Raises:
+            SandboxFileSystemError: If the operation fails.
+        """
+        return await asyncio.to_thread(
+            self._sync.replace_in_files, sandbox_path, old_string, new_string
+        )
+
+    async def find_in_files(
+        self, sandbox_path: str, pattern: str
+    ) -> List["SandboxFileSearchResult"]:
+        """
+        Search file contents in the sandbox using a regex pattern asynchronously.
+
+        Parameters:
+            sandbox_path (str): The directory path to search under.
+            pattern (str): A regular expression applied to file contents.
+
+        Returns:
+            List[SandboxFileSearchResult]: Per-file results with match ranges and text.
+
+        Raises:
+            SandboxFileSystemError: If the search fails.
+        """
+        return await asyncio.to_thread(self._sync.find_in_files, sandbox_path, pattern)
+
+
+class AsyncDockerResult:
+    """
+    Async result object for Docker operations.
+
+    Example:
+        ```python
+        result = await sandbox.aio.docker.build("myapp:v1", context=".")
+        async for line in result.logs():
+            print(line)
+        if await result.wait():
+            print("Build succeeded!")
+        ```
+    """
+
+    def __init__(self, sync_result: "DockerResult"):
+        self._sync = sync_result
+
+    async def wait(self) -> bool:
+        """Wait for operation to complete asynchronously. Returns True if successful."""
+        return await asyncio.to_thread(self._sync.wait)
+
+    async def logs(self):
+        """
+        Async generator for streaming logs line by line.
+
+        Yields log lines as they become available, providing true streaming behavior.
+        """
+        queue: asyncio.Queue = asyncio.Queue()
+        sentinel = object()  # Marker for end of stream
+        loop = asyncio.get_running_loop()
+
+        def _producer():
+            """Run in thread: iterate sync generator and push to queue."""
+            try:
+                for line in self._sync.logs():
+                    loop.call_soon_threadsafe(queue.put_nowait, line)
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, sentinel)
+
+        # Start producer in background thread
+        producer_task = loop.run_in_executor(None, _producer)
+
+        # Consume from queue, yielding items as they arrive
+        try:
+            while True:
+                item = await queue.get()
+                if item is sentinel:
+                    break
+                yield item
+        finally:
+            # Ensure producer completes
+            await producer_task
+
+    @property
+    async def output(self) -> str:
+        """Get the primary output (auto-waits if needed)."""
+        return await asyncio.to_thread(lambda: self._sync.output)
+
+    @property
+    async def success(self) -> bool:
+        """Check if operation succeeded (auto-waits if needed)."""
+        return await asyncio.to_thread(lambda: self._sync.success)
+
+    @property
+    async def stdout(self) -> str:
+        """Get all stdout (auto-waits if needed)."""
+        return await asyncio.to_thread(lambda: self._sync.stdout)
+
+    @property
+    async def stderr(self) -> str:
+        """Get all stderr (auto-waits if needed)."""
+        return await asyncio.to_thread(lambda: self._sync.stderr)
+
+
+class AsyncDockerComposeStack:
+    """Async wrapper for a running Docker Compose stack."""
+
+    def __init__(self, sync_stack: "DockerComposeStack"):
+        self._sync = sync_stack
+
+    @property
+    def services(self) -> List[str]:
+        """List of service names in the stack."""
+        return self._sync.services
+
+    async def logs(
+        self, service: Optional[str] = None, follow: bool = False, tail: Optional[int] = None
+    ) -> str:
+        """Get logs from compose stack or specific service asynchronously."""
+        return await asyncio.to_thread(self._sync.logs, service, follow, tail)
+
+    async def stop(self) -> None:
+        """Stop the compose stack asynchronously."""
+        return await asyncio.to_thread(self._sync.stop)
+
+    async def ps(self) -> str:
+        """List services in the stack asynchronously."""
+        return await asyncio.to_thread(self._sync.ps)
+
+
+class AsyncSandboxDockerManager:
+    """
+    Async Docker manager for sandbox operations.
+
+    Most operations return AsyncDockerResult objects that provide:
+    - Streaming logs via async iteration
+    - Automatic waiting via await .wait()
+    - Access to output via await .output
+
+    Example:
+        ```python
+        sandbox = Sandbox(
+            docker_enabled=True,
+            image=Image().with_docker()
+        ).create()
+
+        # Build with streaming logs
+        result = await sandbox.aio.docker.build("myapp:v1", context=".")
+        async for line in result.logs():
+            print(line)
+
+        # Pull and see result
+        result = await sandbox.aio.docker.pull("nginx:latest")
+        if await result.wait():
+            print("Pull succeeded!")
+
+        # Run container
+        result = await sandbox.aio.docker.run("nginx", name="web", detach=True)
+        container_id = await result.output
+        ```
+    """
+
+    def __init__(self, sync_docker: "SandboxDockerManager"):
+        self._sync = sync_docker
+
+    # === Container Operations ===
+
+    async def run(
+        self,
+        image: str,
+        command: Optional[Union[str, List[str]]] = None,
+        name: Optional[str] = None,
+        detach: bool = False,
+        remove: bool = False,
+        volumes: Optional[Dict[str, str]] = None,
+        env: Optional[Dict[str, str]] = None,
+        **kwargs,
+    ) -> "AsyncDockerResult":
+        """
+        Run a Docker container asynchronously.
+
+        Args:
+            image: Docker image (e.g. "nginx:latest")
+            command: Command to run INSIDE the container
+            name: Container name
+            detach: Run in background
+            remove: Auto-remove when stopped
+            volumes: Volume mappings {"host_path": "container_path"}
+            env: Environment variables {"KEY": "value"}
+
+        Returns:
+            AsyncDockerResult: Result with container ID in .output property
+        """
+        sync_result = await asyncio.to_thread(
+            self._sync.run,
+            image,
+            command=command,
+            name=name,
+            detach=detach,
+            remove=remove,
+            volumes=volumes,
+            env=env,
+            **kwargs,
+        )
+        return AsyncDockerResult(sync_result)
+
+    async def ps(self, all: bool = False, quiet: bool = False) -> Union[List[str], str]:
+        """List containers asynchronously."""
+        return await asyncio.to_thread(self._sync.ps, all=all, quiet=quiet)
+
+    async def stop(self, container: str) -> bool:
+        """Stop a container asynchronously."""
+        return await asyncio.to_thread(self._sync.stop, container)
+
+    async def rm(self, container: str, force: bool = False) -> bool:
+        """Remove a container asynchronously."""
+        return await asyncio.to_thread(self._sync.rm, container, force=force)
+
+    async def logs(self, container: str, follow: bool = False, tail: Optional[int] = None) -> str:
+        """Get container logs asynchronously."""
+        return await asyncio.to_thread(self._sync.logs, container, follow=follow, tail=tail)
+
+    async def exec(
+        self, container: str, command: Union[str, List[str]], **kwargs
+    ) -> "AsyncSandboxProcess":
+        """Execute command in running container asynchronously."""
+        sync_process = await asyncio.to_thread(self._sync.exec, container, command, **kwargs)
+        return AsyncSandboxProcess(sync_process)
+
+    # === Image Operations ===
+
+    async def pull(self, image: str, quiet: bool = False) -> "AsyncDockerResult":
+        """Pull an image asynchronously."""
+        sync_result = await asyncio.to_thread(self._sync.pull, image, quiet=quiet)
+        return AsyncDockerResult(sync_result)
+
+    async def build(
+        self,
+        tag: str,
+        context: str = ".",
+        dockerfile: Optional[str] = None,
+        build_args: Optional[Dict[str, str]] = None,
+        no_cache: bool = False,
+        quiet: bool = False,
+    ) -> "AsyncDockerResult":
+        """Build a Docker image asynchronously."""
+        sync_result = await asyncio.to_thread(
+            self._sync.build,
+            tag,
+            context=context,
+            dockerfile=dockerfile,
+            build_args=build_args,
+            no_cache=no_cache,
+            quiet=quiet,
+        )
+        return AsyncDockerResult(sync_result)
+
+    async def images(self, quiet: bool = False) -> Union[List[str], str]:
+        """List images asynchronously."""
+        return await asyncio.to_thread(self._sync.images, quiet=quiet)
+
+    async def rmi(self, image: str, force: bool = False) -> bool:
+        """Remove an image asynchronously."""
+        return await asyncio.to_thread(self._sync.rmi, image, force=force)
+
+    async def push(self, image: str) -> bool:
+        """Push an image to registry asynchronously."""
+        return await asyncio.to_thread(self._sync.push, image)
+
+    async def tag(self, source: str, target: str) -> bool:
+        """Tag an image asynchronously."""
+        return await asyncio.to_thread(self._sync.tag, source, target)
+
+    # === Authentication ===
+
+    async def login(
+        self,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        registry: Optional[str] = None,
+    ) -> bool:
+        """Login to a Docker registry asynchronously."""
+        return await asyncio.to_thread(
+            self._sync.login, username=username, password=password, registry=registry
+        )
+
+    # === Docker Compose ===
+
+    async def compose_up(
+        self,
+        file: str = "docker-compose.yml",
+        detach: bool = True,
+        build: bool = False,
+        cwd: Optional[str] = None,
+    ) -> "AsyncDockerComposeStack":
+        """Start services from docker-compose file asynchronously."""
+        sync_stack = await asyncio.to_thread(
+            self._sync.compose_up, file=file, detach=detach, build=build, cwd=cwd
+        )
+        return AsyncDockerComposeStack(sync_stack)
+
+    async def compose_down(
+        self,
+        file: str = "docker-compose.yml",
+        volumes: bool = False,
+        cwd: Optional[str] = None,
+    ) -> bool:
+        """Stop and remove compose services asynchronously."""
+        return await asyncio.to_thread(self._sync.compose_down, file=file, volumes=volumes, cwd=cwd)
+
+    async def compose_logs(
+        self,
+        file: str = "docker-compose.yml",
+        follow: bool = False,
+        cwd: Optional[str] = None,
+    ) -> "AsyncSandboxProcess":
+        """View compose service logs asynchronously."""
+        sync_process = await asyncio.to_thread(
+            self._sync.compose_logs, file=file, follow=follow, cwd=cwd
+        )
+        return AsyncSandboxProcess(sync_process)
+
+    async def compose_ps(self, file: str = "docker-compose.yml", cwd: Optional[str] = None) -> str:
+        """List compose services asynchronously."""
+        return await asyncio.to_thread(self._sync.compose_ps, file=file, cwd=cwd)
+
+    async def compose_build(
+        self,
+        file: str = "docker-compose.yml",
+        no_cache: bool = False,
+        pull: bool = False,
+        cwd: Optional[str] = None,
+    ) -> "AsyncSandboxProcess":
+        """Build or rebuild services from docker-compose file asynchronously."""
+        sync_process = await asyncio.to_thread(
+            self._sync.compose_build, file=file, no_cache=no_cache, pull=pull, cwd=cwd
+        )
+        return AsyncSandboxProcess(sync_process)
+
+    # === Volumes ===
+
+    async def volume_create(self, name: str) -> bool:
+        """Create a volume asynchronously."""
+        return await asyncio.to_thread(self._sync.volume_create, name)
+
+    async def volume_rm(self, name: str, force: bool = False) -> bool:
+        """Remove a volume asynchronously."""
+        return await asyncio.to_thread(self._sync.volume_rm, name, force=force)
+
+    async def volume_ls(self, quiet: bool = False) -> Union[List[str], str]:
+        """List volumes asynchronously."""
+        return await asyncio.to_thread(self._sync.volume_ls, quiet=quiet)
+
+
+class AsyncSandboxInstance:
+    """
+    Async wrapper for a sandbox instance.
+
+    This class provides async access to sandbox operations including
+    process management, file system operations, Docker management, and lifecycle management.
+
+    Attributes:
+        container_id (str): The unique ID of the sandbox container.
+        fs (AsyncSandboxFileSystem): Async file system interface.
+        process (AsyncSandboxProcessManager): Async process management interface.
+        docker (AsyncSandboxDockerManager): Async Docker management interface.
+
+    Example:
+        ```python
+        # Create a sandbox instance and access async interface
+        instance = sandbox.create()
+
+        # Use async file operations
+        await instance.aio.fs.upload_file("local_file.txt", "/remote_file.txt")
+
+        # Run processes asynchronously
+        result = await instance.aio.process.run_code("import os; print(os.getcwd())")
+
+        # Use Docker asynchronously
+        await instance.aio.docker.run("nginx:latest", detach=True)
+
+        # Terminate asynchronously
+        await instance.aio.terminate()
+        ```
+    """
+
+    def __init__(self, sync_instance: "SandboxInstance"):
+        self._sync = sync_instance
+        self.fs = AsyncSandboxFileSystem(sync_instance.fs)
+        self.process = AsyncSandboxProcessManager(sync_instance.process)
+        self.docker = AsyncSandboxDockerManager(sync_instance.docker)
+
+    @property
+    def container_id(self) -> str:
+        """The unique ID of the sandbox container."""
+        return self._sync.container_id
+
+    @property
+    def stub_id(self) -> str:
+        """The stub ID."""
+        return self._sync.stub_id
+
+    @property
+    def ok(self) -> bool:
+        """Whether the sandbox was created successfully."""
+        return self._sync.ok
+
+    @property
+    def error_msg(self) -> str:
+        """Error message if creation failed."""
+        return self._sync.error_msg
+
+    async def terminate(self) -> bool:
+        """
+        Terminate the container associated with this sandbox instance asynchronously.
+
+        Returns:
+            bool: True if the container was terminated successfully.
+
+        Example:
+            ```python
+            success = await instance.aio.terminate()
+            if success:
+                print("Sandbox terminated successfully")
+            ```
+        """
+        return await asyncio.to_thread(self._sync.terminate)
+
+    async def create_image_from_filesystem(self) -> str:
+        """
+        Save the current sandbox filesystem state and create an image asynchronously.
+
+        Returns:
+            str: The image ID.
+        """
+        return await asyncio.to_thread(self._sync.create_image_from_filesystem)
+
+    async def snapshot_memory(self) -> str:
+        """
+        Create a memory snapshot of the sandbox asynchronously.
+
+        Returns:
+            str: The checkpoint ID.
+        """
+        return await asyncio.to_thread(self._sync.snapshot_memory)
+
+    def sandbox_id(self) -> str:
+        """
+        Get the ID of the sandbox.
+
+        Returns:
+            str: The container ID of the sandbox.
+        """
+        return self._sync.sandbox_id()
+
+    async def status(self) -> Tuple[int, str]:
+        """
+        Get the current sandbox status asynchronously.
+        """
+        return await asyncio.to_thread(self._sync.status)
+
+    async def poll(self) -> Optional[int]:
+        """
+        Return the sandbox exit code if it has exited, otherwise None.
+        """
+        return await asyncio.to_thread(self._sync.poll)
+
+    async def wait(self, timeout: Optional[float] = None) -> int:
+        """
+        Wait for the sandbox to exit asynchronously.
+        """
+        return await asyncio.to_thread(self._sync.wait, timeout)
+
+    async def update_ttl(self, ttl: int):
+        """
+        Update the keep warm setting of the sandbox asynchronously.
+
+        Parameters:
+            ttl (int): The number of seconds to keep the sandbox alive.
+                      Use -1 for sandboxes that never timeout.
+
+        Raises:
+            SandboxProcessError: If the TTL update fails.
+        """
+        return await asyncio.to_thread(self._sync.update_ttl, ttl)
+
+    async def expose_port(self, port: int) -> str:
+        """
+        Dynamically expose a port to the internet asynchronously.
+
+        Parameters:
+            port (int): The port number to expose within the sandbox.
+
+        Returns:
+            str: The public URL for accessing the exposed port.
+
+        Raises:
+            SandboxProcessError: If port exposure fails.
+        """
+        return await asyncio.to_thread(self._sync.expose_port, port)
+
+    async def update_network_permissions(
+        self, block_network: bool = False, allow_list: Optional[List[str]] = None
+    ) -> None:
+        """
+        Dynamically update network permissions for the sandbox asynchronously.
+
+        Parameters:
+            block_network (bool): If True, blocks all outbound network access.
+            allow_list (Optional[List[str]]): List of CIDR ranges to allow.
+
+        Raises:
+            SandboxProcessError: If the network permissions update fails.
+        """
+        return await asyncio.to_thread(
+            self._sync.update_network_permissions,
+            block_network=block_network,
+            allow_list=allow_list,
+        )
+
+    async def list_urls(self) -> Dict[int, str]:
+        """
+        List all exposed URLs in the sandbox asynchronously.
+
+        Returns:
+            Dict[int, str]: A dictionary of exposed URLs, organized by port.
+
+        Raises:
+            SandboxConnectionError: If listing URLs fails.
+        """
+        return await asyncio.to_thread(self._sync.list_urls)

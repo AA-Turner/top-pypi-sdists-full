@@ -123,7 +123,7 @@ class CostMetricConfiguration(APIObject):
 
     @classmethod
     def get(cls, cost_metric_configuration_id: str) -> CostMetricConfiguration:
-        """Get cost metric configuration by ID."""
+        """Returns the cost metric configuration by ID."""
         response_data = cls._client.get(f"{cls._client.domain}/{cls._path}/{cost_metric_configuration_id}/")
         return cls.from_server_data(response_data.json())
 

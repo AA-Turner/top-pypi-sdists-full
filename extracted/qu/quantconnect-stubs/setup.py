@@ -17,7 +17,7 @@ This line imports [all common QuantConnect members](https://github.com/QuantConn
 
 setup(
     name="quantconnect-stubs",
-    version="18042",
+    version="18048",
     description="Type stubs for QuantConnect's Lean",
     author="QuantConnect",
     author_email="support@quantconnect.com",

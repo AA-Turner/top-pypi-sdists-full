@@ -1,0 +1,808 @@
+"""Typed contracts for Handler operations.
+
+Provides Pydantic models for the three core handler operations:
+- Authentication (test_auth)
+- Preflight checks (preflight_check)
+- Metadata discovery (fetch_metadata)
+
+Plus supporting types for credentials, log streaming, and file uploads.
+
+These are HTTP boundary types — Pydantic BaseModel gives boundary validation
+on ingress (``model_validate``), direct JSON serialization on egress
+(``model_dump``), and automatic OpenAPI schema generation.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic.alias_generators import to_camel
+
+from application_sdk.contracts.base import SerializableEnum
+from application_sdk.credentials.spec import AgentCredentialSpec
+from application_sdk.credentials.utils import parse_credentials_extra
+from application_sdk.errors.base import AppError
+from application_sdk.errors.wire import FailureDetails
+
+
+class _DictLikeConfigBase(BaseModel):
+    """Shared implementation for the connection / metadata config bases.
+
+    Provides the dict / Mapping protocol so existing callers that consumed
+    the previous ``dict[str, Any]`` field do not need to change.  Supported::
+
+        cfg["k"]                  cfg.get("k", default)   "k" in cfg
+        cfg.keys()                cfg.values()            cfg.items()
+        len(cfg)                  for k, v in cfg: ...
+
+    ``__getitem__`` lookups try declared field names, then aliases, then
+    ``model_extra``.  Iteration delegates to Pydantic's native
+    :meth:`BaseModel.__iter__`, which yields all declared fields plus
+    extras.
+
+    Not intended to be subclassed directly — use
+    :class:`BaseConnectionConfig` or :class:`BaseMetadataConfig`.
+    """
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    def __getitem__(self, key: str) -> Any:
+        if key in type(self).model_fields:
+            return getattr(self, key)
+        for name, field_info in type(self).model_fields.items():
+            if field_info.alias == key:
+                return getattr(self, name)
+        if self.model_extra and key in self.model_extra:
+            return self.model_extra[key]
+        # conformance: ignore[E007] __getitem__ must raise KeyError per Mapping protocol; callers use get() for safe access
+        # conformance: ignore[E012] KeyError is required by the Mapping/__getitem__ protocol; tests/unit/handler/test_contracts.py:295 asserts KeyError
+        raise KeyError(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Dict-style accessor with default — mirrors ``dict.get``."""
+        try:
+            return self[key]
+        except KeyError:
+            # conformance: ignore[E007] KeyError is expected control-flow; logging every dict.get() miss would be noisy
+            return default
+
+    def __contains__(self, key: object) -> bool:
+        if not isinstance(key, str):
+            return False
+        try:
+            self[key]
+        # conformance: ignore[E012] KeyError is required by the Mapping/__contains__ protocol; AppError would break stdlib interop
+        except KeyError:
+            # conformance: ignore[E007] __contains__ returning False on KeyError is expected protocol behaviour; not an error condition
+            return False
+        return True
+
+    def keys(self) -> list[str]:
+        """Mirrors ``dict.keys`` over declared fields plus extras."""
+        return [k for k, _ in self]
+
+    def values(self) -> list[Any]:
+        """Mirrors ``dict.values`` over declared fields plus extras."""
+        return [v for _, v in self]
+
+    def items(self) -> list[tuple[str, Any]]:
+        """Mirrors ``dict.items`` over declared fields plus extras."""
+        return [(k, v) for k, v in self]
+
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
+
+
+class BaseConnectionConfig(_DictLikeConfigBase):
+    """Base type for preflight and metadata connection configuration.
+
+    Replaces ``dict[str, Any]`` as the type of ``PreflightInput.connection_config``
+    and ``MetadataInput.connection_config``.  ``extra="allow"`` keeps raw-dict
+    inputs from breaking on ingress; apps should subclass and declare fields
+    with **real types** instead of carrying forward stringified JSON::
+
+        class MyAppConnectionConfig(BaseConnectionConfig):
+            include_filter: dict[str, list[str]] = Field(
+                default_factory=dict, alias="include-filter"
+            )
+            exclude_filter: dict[str, list[str]] = Field(
+                default_factory=dict, alias="exclude-filter"
+            )
+
+    The subclass can then be used directly in the handler::
+
+        async def preflight_check(self, input: PreflightInput) -> PreflightOutput:
+            config = MyAppConnectionConfig.model_validate(
+                input.connection_config.model_dump()
+            )
+
+    If the UI is generated from the contract toolkit (app.pkl), the subclass
+    fields should mirror the ``uiConfig.tasks[*].inputs`` entries so the
+    generated preflight metadata contract stays aligned with the UI contract.
+
+    .. note::
+
+        **Consumption is dict-compatible.**  In addition to attribute access
+        (``cfg.host``), the full Mapping protocol from the old
+        ``dict[str, Any]`` type continues to work — no caller-side
+        migration needed::
+
+            cfg["host"]               # KeyError if absent
+            cfg.get("host", default)  # safe accessor with default
+            "host" in cfg             # membership test
+            cfg.keys() / .values() / .items()
+            len(cfg)
+            for k, v in cfg: ...
+
+        Lookups try declared field names first, then aliases, then extras.
+    """
+
+
+class BaseMetadataConfig(_DictLikeConfigBase):
+    """Base type for form-level metadata forwarded alongside preflight credentials.
+
+    Captures the UI form state sent by the frontend (extraction type, filter
+    keys, user-entered prefixes, etc.).  Apps subclass this to declare fields
+    with **real types**::
+
+        class MyAppMetadataConfig(BaseMetadataConfig):
+            include_filter: dict[str, list[str]] = Field(
+                default_factory=dict, alias="include-filter"
+            )
+            exclude_filter: dict[str, list[str]] = Field(
+                default_factory=dict, alias="exclude-filter"
+            )
+
+    If the UI is generated from the contract toolkit (app.pkl), the subclass
+    fields should mirror the ``uiConfig.tasks[*].inputs`` entries so the
+    generated metadata contract stays aligned with the UI contract.
+
+    Dict-style consumption (``cfg["k"]``, ``cfg.get(...)``, ``"k" in cfg``) is
+    backward-compatible — see :class:`BaseConnectionConfig` for details.
+    """
+
+
+class HandlerCredential(BaseModel):
+    """A single credential key-value pair for HTTP handler inputs.
+
+    Credentials are always transmitted as opaque key/value strings.
+    Interpretation (e.g., as OAuth token, API key, password) is the
+    handler's responsibility.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    """Credential key (e.g., 'api_key', 'username')."""
+
+    value: str
+    """Credential value (sensitive — never log this directly)."""
+
+    @classmethod
+    def list_from_raw(cls, creds_dict: dict[str, Any]) -> list[HandlerCredential]:
+        """Build a credential list from a raw resolved credential dict.
+
+        Produces the same v3 ``[{key, value}]`` shape Heracles sends on the
+        HTTP path, so a handler's ``input.credentials`` round-trips identically
+        whether creds arrive over HTTP or are resolved inside the injected
+        preflight gate. Nested ``extra`` keys flatten to ``extra.<k>``.
+        """
+        return [
+            cls(key=pair["key"], value=pair["value"])
+            for pair in flatten_credentials_to_pairs(creds_dict)
+        ]
+
+
+def _serialize_credential_value(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    return json.dumps(value)
+
+
+def flatten_credentials_to_pairs(creds_dict: dict[str, Any]) -> list[dict[str, str]]:
+    """Flatten a credential dict to v3 ``[{key, value}]`` pairs.
+
+    Nested ``extra`` is hoisted to ``extra.<k>`` keys. Shared by the HTTP
+    preflight path (heracles-normalized requests) and the injected gate's
+    resolved-credential conversion so both emit identical shapes.
+
+    These pairs are the only credential view a gate-side handler ever sees, so
+    ``extra`` is decoded through :func:`parse_credentials_extra` — the same
+    decoder the runtime clients use — rather than shape-matched here. Anything
+    the runtime client can resolve out of ``extra`` must therefore also be
+    reachable in this view; a second, narrower reader is how the two views
+    drift apart and the gate starts blocking on params the extraction path
+    would have found.
+
+    ``strict=False``: flattening runs on the HTTP request path and inside the
+    injected gate, neither of which has a caller positioned to act on a parse
+    failure. An unusable ``extra`` is dropped here and the runtime client
+    raises the typed error on its own path.
+    """
+    pairs: list[dict[str, str]] = []
+    extra = parse_credentials_extra(creds_dict, strict=False)
+    for key, value in creds_dict.items():
+        if key == "extra" or value is None:
+            continue
+        pairs.append({"key": key, "value": _serialize_credential_value(value)})
+    for key, value in extra.items():
+        if value is not None:
+            pairs.append(
+                {"key": f"extra.{key}", "value": _serialize_credential_value(value)}
+            )
+    return pairs
+
+
+class AuthStatus(SerializableEnum):
+    """Result of an authentication attempt."""
+
+    SUCCESS = "success"
+    FAILED = "failed"
+    EXPIRED = "expired"
+    INVALID_CREDENTIALS = "invalid_credentials"
+
+    @property
+    def http_status(self) -> int:
+        """HTTP status code that should accompany this auth result."""
+        return _AUTH_STATUS_HTTP_CODES[self]
+
+    @property
+    def is_success(self) -> bool:
+        """Whether this status represents a successful authentication."""
+        return self.http_status < 400
+
+
+# Placed outside the class because StrEnum treats class-level dicts as
+# member values.  Kept right next to AuthStatus so that adding a new
+# member without updating this map fails loudly at runtime.
+_AUTH_STATUS_HTTP_CODES: dict[AuthStatus, int] = {
+    AuthStatus.SUCCESS: 200,
+    AuthStatus.FAILED: 401,
+    AuthStatus.EXPIRED: 401,
+    AuthStatus.INVALID_CREDENTIALS: 401,
+}
+
+
+class AuthInput(BaseModel):
+    """Input for the test_auth handler operation."""
+
+    credentials: list[HandlerCredential] = []
+    """Credentials to authenticate with."""
+
+    connection_id: str = ""
+    """Optional connection ID for context."""
+
+    entrypoint: str = ""
+    """Bare entry-point name (e.g. ``asset-export-advanced``) — authoritative
+    when present. The orchestrator resolves it from the Global Marketplace app
+    catalog and sends it explicitly, so dispatch is an exact lookup with no
+    parsing of ``entrypoint_ref``. Empty for single-entrypoint apps and for
+    older orchestrators that send only ``entrypoint_ref`` (the transitional
+    suffix-match fallback)."""
+
+    entrypoint_ref: str = Field(
+        default="",
+        validation_alias=AliasChoices("entrypoint_ref", "connector"),
+        serialization_alias="connector",
+    )
+    """App-qualified entry-point reference (``{app_name}-{entrypoint.name}``).
+
+    Legacy connector wire value (bundle-prefixed), carried as the ``connector``
+    key. **Informational only** — per-entrypoint routing uses the exact
+    :attr:`entrypoint` field; this is no longer parsed for dispatch. Retained
+    for back-compat and for handlers that still read it."""
+
+    timeout_seconds: int = 30
+    """Maximum seconds to wait for auth response."""
+
+    agent_json: AgentCredentialSpec | None = Field(
+        default=None,
+        validation_alias=AliasChoices("agent_json", "agentJson", "agent-json"),
+    )
+    """Optional agent-shape credential *reference* (SDR / customer-infra only).
+
+    SDR connectors receive their credential as an agent-json reference: the real
+    secret lives in the customer's Dapr / K8s secret store and only the worker
+    can dereference it (``secret-path``). When set, the SDR Temporal activity
+    resolves this reference to concrete :attr:`credentials` *before* the handler
+    runs (``AgentCredentialSpec`` → ``CredentialRef`` → ``CredentialResolver``),
+    exactly as the injected preflight gate does. ``None`` on the HTTP / direct
+    path, where :attr:`credentials` already carries resolved values.
+    Backward-compatible: absent ⇒ behavior is unchanged."""
+
+
+class AuthOutput(BaseModel):
+    """Output from the test_auth handler operation."""
+
+    status: AuthStatus
+    """Authentication result status."""
+
+    message: str = ""
+    """Human-readable status message."""
+
+    identities: list[str] = []
+    """Verified identities (e.g., usernames, roles)."""
+
+    scopes: list[str] = []
+    """Authorized scopes or permissions."""
+
+    expires_at: str = ""
+    """ISO-8601 expiry timestamp (empty if no expiry)."""
+
+
+class PreflightStatus(SerializableEnum):
+    """Overall preflight verdict — decides the gate.
+
+    ``NOT_READY`` blocks the run only when the app has opted into hard mode
+    (``preflight_gate_mode = "hard"``); the default posture is soft, where a
+    ``NOT_READY`` verdict is reported (``outcome="would_block"``) but the run
+    proceeds. ``READY`` and ``PARTIAL`` always proceed. ``PARTIAL`` is
+    display-only (some advisory check failed but the run may continue). Also
+    surfaced to the Sage UI, the connector-pulse dashboard, and the Automation
+    Engine event.
+    """
+
+    READY = "ready"
+    NOT_READY = "not_ready"
+    PARTIAL = "partial"
+
+
+class PreflightCheck(BaseModel):
+    """Result of a single preflight check."""
+
+    name: str = Field(..., min_length=1)
+    """Check name (e.g., 'connectivity', 'permissions')."""
+
+    passed: bool = False
+    """Whether the check passed."""
+
+    message: str = ""
+    """Deprecated: prefer :attr:`error`. Human-facing line shown when ``error``
+    is unset. If ``error`` is set, its ``message``/``suggested_action`` win and
+    this is ignored. Kept for handlers not yet migrated to typed errors."""
+
+    error: FailureDetails | None = None
+    """Typed failure for a failed check — set only on failed checks.
+
+    Pass a wire ``FailureDetails``, e.g.
+    ``AuthError(message=..., suggested_action=..., cause=exc).to_failure_details()``
+    — the statically-typed form. A bare ``AppError`` instance is also accepted at
+    runtime (a field validator coerces it), but type-checkers require the explicit
+    ``.to_failure_details()`` call. Carries category / code / audience / retryable
+    / suggested_action and a redacted, capped ``cause_repr``. Takes precedence over
+    :attr:`message`. Ignored on a passed check."""
+
+    duration_ms: float = 0.0
+    """How long the check took in milliseconds."""
+
+    @field_validator("error", mode="before")
+    @classmethod
+    def _coerce_error(cls, value: Any) -> Any:
+        if isinstance(value, AppError):
+            return value.to_failure_details()
+        return value
+
+    @property
+    def resolved_message(self) -> str:
+        """Message under the precedence rule: a failed check's ``error`` wins."""
+        if self.error is not None and not self.passed:
+            return self.error.message
+        return self.message
+
+    @property
+    def resolved_suggested_action(self) -> str:
+        """Suggested action from a failed check's ``error``; empty otherwise."""
+        if self.error is not None and not self.passed:
+            return self.error.suggested_action or ""
+        return ""
+
+
+class PreflightInput(BaseModel):
+    """Input for the preflight_check handler operation."""
+
+    credentials: list[HandlerCredential] = []
+    """Credentials to use during preflight."""
+
+    credentials_by_name: dict[str, list[HandlerCredential]] = Field(
+        default_factory=dict
+    )
+    """Resolved credentials grouped by ref name for multi-credential apps.
+
+    Keyed by the app's declared ``ExtractionInput.preflight_credential_refs`` name;
+    each group has the same flat ``[{key, value}]`` shape as :attr:`credentials`.
+    Populated only on the gate path for multi-credential apps; empty on the
+    single-credential and HTTP/SDR paths, which use :attr:`credentials`."""
+
+    entrypoint: str = ""
+    """Bare entry-point name (e.g. ``asset-export-advanced``) — authoritative
+    when present. The orchestrator resolves it from the Global Marketplace app
+    catalog and sends it explicitly, so dispatch is an exact lookup with no
+    parsing of ``entrypoint_ref``. Empty for single-entrypoint apps and for
+    older orchestrators that send only ``entrypoint_ref`` (the transitional
+    suffix-match fallback)."""
+
+    entrypoint_ref: str = Field(
+        default="",
+        validation_alias=AliasChoices("entrypoint_ref", "connector"),
+        serialization_alias="connector",
+    )
+    """App-qualified entry-point reference (``{app_name}-{entrypoint.name}``).
+
+    Legacy connector wire value (bundle-prefixed), carried as the ``connector``
+    key. **Informational only** — per-entrypoint routing uses the exact
+    :attr:`entrypoint` field; this is no longer parsed for dispatch. Retained
+    for back-compat and for handlers that still read it."""
+
+    connection_config: BaseConnectionConfig = Field(
+        default_factory=BaseConnectionConfig
+    )
+    """Connection configuration (host, port, database, etc.).
+
+    Pass a :class:`BaseConnectionConfig` subclass for strong typing.  Raw dicts
+    are accepted for backward compatibility via ``extra="allow"``.
+    """
+
+    metadata: BaseMetadataConfig = Field(default_factory=BaseMetadataConfig)
+    """Form-level metadata forwarded by heracles alongside the credential.
+
+    Contains the full UI form state (extraction type, source, user-entered
+    prefixes, filter keys, etc.) as sent by the frontend.  Handlers that need
+    form fields unavailable in the credential body can read them here.
+    All other handlers can ignore this field safely.
+
+    Pass a :class:`BaseMetadataConfig` subclass for strong typing.  Raw dicts
+    are accepted for backward compatibility via ``extra="allow"``.
+    """
+
+    checks_to_run: list[str] = []
+    """Specific checks to run (empty = run all)."""
+
+    timeout_seconds: int = 60
+    """Maximum seconds the handler has to run all checks.
+
+    On the injected gate path this carries the *enforced* per-attempt budget
+    (the gate activity's ``start_to_close``), so a handler that sizes its checks
+    to this value stays inside the real deadline — design them to finish within
+    it, with headroom. Advisory on the HTTP ``/check`` and SDR paths, which are
+    not bounded by the gate activity timeout."""
+
+    agent_json: AgentCredentialSpec | None = Field(
+        default=None,
+        validation_alias=AliasChoices("agent_json", "agentJson", "agent-json"),
+    )
+    """Optional agent-shape credential *reference* (SDR / customer-infra only).
+
+    SDR connectors receive their credential as an agent-json reference: the real
+    secret lives in the customer's Dapr / K8s secret store and only the worker
+    can dereference it (``secret-path``). When set, the SDR Temporal activity
+    resolves this reference to concrete :attr:`credentials` *before* the handler
+    runs (``AgentCredentialSpec`` → ``CredentialRef`` → ``CredentialResolver``),
+    exactly as the injected preflight gate does. ``None`` on the HTTP / direct
+    path, where :attr:`credentials` already carries resolved values.
+    Backward-compatible: absent ⇒ behavior is unchanged."""
+
+
+class PreflightOutput(BaseModel):
+    """Output from the preflight_check handler operation."""
+
+    status: PreflightStatus
+    """Overall verdict — decides the gate. ``NOT_READY`` blocks the run only in
+    hard mode (per-app opt-in); the default soft posture reports it and
+    proceeds. ``READY``/``PARTIAL`` proceed. The handler computes this itself."""
+
+    checks: list[PreflightCheck] = []
+    """Individual check results (display + failure attribution)."""
+
+    message: str = ""
+    """Human-readable summary. Seeds the gate's abort reason when set."""
+
+    error: FailureDetails | None = None
+    """Typed aggregate failure — the reason the overall verdict is NOT_READY,
+    mirroring :attr:`PreflightCheck.error`. Lets the aggregate reason carry
+    category / audience / suggested_action / evidence instead of degrading to the
+    bare :attr:`message` string. Additive and optional: handlers that set only
+    ``message`` are unaffected, and the gate prefers this when present. A bare
+    ``AppError`` assigned here is coerced via :meth:`AppError.to_failure_details`.
+
+    Populated by the SDR preflight when it downgrades a READY verdict to
+    NOT_READY on a blocking infra-access row (secret store, object store,
+    deployment reachability) — pinned to the first such failure so the banner
+    is not a non-fatal row. Left ``None`` when the verdict is PARTIAL or when
+    only non-fatal rows failed; the gate then falls back to a failed check's
+    own error, then to ``message``."""
+
+    total_duration_ms: float = 0.0
+    """Total time for all checks in milliseconds."""
+
+    @field_validator("error", mode="before")
+    @classmethod
+    def _coerce_error(cls, value: Any) -> Any:
+        if isinstance(value, AppError):
+            return value.to_failure_details()
+        return value
+
+    @property
+    def resolved_message(self) -> str:
+        """Aggregate message under the precedence rule: ``error`` wins when set."""
+        if self.error is not None:
+            return self.error.message
+        return self.message
+
+
+# ---------------------------------------------------------------------------
+# Metadata object models — one per frontend widget type
+# ---------------------------------------------------------------------------
+
+
+class SqlMetadataObject(BaseModel):
+    """A row for the **sqltree** frontend widget.
+
+    The sqltree widget expects a flat list of catalog/schema pairs.
+    The frontend groups them into a tree (catalogs → schemas).
+    """
+
+    TABLE_CATALOG: str
+    """Database / catalog name."""
+
+    TABLE_SCHEMA: str
+    """Schema name."""
+
+
+class ApiMetadataObject(BaseModel):
+    """A node for the **apitree** frontend widget.
+
+    Supports arbitrarily nested hierarchies — each node can contain
+    child nodes via the ``children`` field.
+    """
+
+    value: str
+    """Unique identifier for this node (used as the selection value)."""
+
+    title: str
+    """Display label shown in the tree UI."""
+
+    node_type: str = ""
+    """Optional type discriminator (e.g., 'tag', 'project', 'folder')."""
+
+    children: list[ApiMetadataObject] = []
+    """Child nodes (empty for leaf nodes)."""
+
+
+# Resolve the recursive forward reference for ApiMetadataObject.children
+ApiMetadataObject.model_rebuild()
+
+
+# ---------------------------------------------------------------------------
+# Metadata input / output contracts
+# ---------------------------------------------------------------------------
+
+
+class MetadataInput(BaseModel):
+    """Input for the fetch_metadata handler operation."""
+
+    credentials: list[HandlerCredential] = []
+    """Credentials to use for metadata discovery."""
+
+    entrypoint: str = ""
+    """Bare entry-point name (e.g. ``asset-export-advanced``) — authoritative
+    when present. The orchestrator resolves it from the Global Marketplace app
+    catalog and sends it explicitly, so dispatch is an exact lookup with no
+    parsing of ``entrypoint_ref``. Empty for single-entrypoint apps and for
+    older orchestrators that send only ``entrypoint_ref`` (the transitional
+    suffix-match fallback)."""
+
+    entrypoint_ref: str = Field(
+        default="",
+        validation_alias=AliasChoices("entrypoint_ref", "connector"),
+        serialization_alias="connector",
+    )
+    """App-qualified entry-point reference (``{app_name}-{entrypoint.name}``).
+
+    Legacy connector wire value (bundle-prefixed), carried as the ``connector``
+    key. **Informational only** — per-entrypoint routing uses the exact
+    :attr:`entrypoint` field; this is no longer parsed for dispatch. Retained
+    for back-compat and for handlers that still read it."""
+
+    metadata_template_key: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "metadata_template_key", "metadataTemplateKey", "type"
+        ),
+    )
+    """Metadata source routing key for multi-source metadata widgets (e.g.
+    ``tags`` / ``connectors`` / ``typenames``).
+
+    Wire compatibility: the orchestrator sends this as ``metadataTemplateKey``
+    (with a ``type`` mirror added by its app client); both are accepted here via
+    the validation alias, so the routing key lands in its documented home rather
+    than being punned into :attr:`object_filter`. The metadata route still
+    mirrors it onto ``object_filter`` when that is empty, for handlers that read
+    the legacy field."""
+
+    connection_config: BaseConnectionConfig = Field(
+        default_factory=BaseConnectionConfig
+    )
+    """Connection configuration.
+
+    Pass a :class:`BaseConnectionConfig` subclass for strong typing.  Raw dicts
+    are accepted for backward compatibility via ``extra="allow"``.
+    """
+
+    object_filter: str = ""
+    """Filter pattern (e.g., 'public.*', 'mydb.myschema.*')."""
+
+    include_fields: bool = True
+    """Whether to include field/column details."""
+
+    max_objects: int = 1000
+    """Maximum number of objects to return."""
+
+    timeout_seconds: int = 120
+    """Maximum seconds to wait for metadata fetch."""
+
+    agent_json: AgentCredentialSpec | None = Field(
+        default=None,
+        validation_alias=AliasChoices("agent_json", "agentJson", "agent-json"),
+    )
+    """Optional agent-shape credential *reference* (SDR / customer-infra only).
+
+    SDR connectors receive their credential as an agent-json reference: the real
+    secret lives in the customer's Dapr / K8s secret store and only the worker
+    can dereference it (``secret-path``). When set, the SDR Temporal activity
+    resolves this reference to concrete :attr:`credentials` *before* the handler
+    runs (``AgentCredentialSpec`` → ``CredentialRef`` → ``CredentialResolver``),
+    exactly as the injected preflight gate does. ``None`` on the HTTP / direct
+    path, where :attr:`credentials` already carries resolved values.
+    Backward-compatible: absent ⇒ behavior is unchanged."""
+
+
+class MetadataOutput(BaseModel):
+    """Base output from the fetch_metadata handler operation.
+
+    Do not instantiate directly — use ``SqlMetadataOutput`` or
+    ``ApiMetadataOutput`` instead.  This base class exists so the
+    handler return type (``MetadataOutput``) covers both subtypes
+    via ``isinstance``.
+    """
+
+    objects: list[Any] = []
+    """Metadata objects. Subclasses narrow this type."""
+
+
+class SqlMetadataOutput(MetadataOutput):
+    """Metadata output for SQL connectors (sqltree widget).
+
+    Each object is a flat ``{TABLE_CATALOG, TABLE_SCHEMA}`` row.
+    The frontend groups rows into a catalog → schema tree.
+
+    Example::
+
+        SqlMetadataOutput(objects=[
+            SqlMetadataObject(TABLE_CATALOG="DEFAULT", TABLE_SCHEMA="FINANCE"),
+            SqlMetadataObject(TABLE_CATALOG="DEFAULT", TABLE_SCHEMA="SALES"),
+        ])
+    """
+
+    objects: list[SqlMetadataObject] = []  # type: ignore[assignment]
+    """Discovered catalog/schema pairs."""
+
+
+class ApiMetadataOutput(MetadataOutput):
+    """Metadata output for BI / API connectors (apitree widget).
+
+    Each object is a ``{value, title, node_type, children}`` tree node.
+    The backend builds the full hierarchy; the frontend renders it as-is.
+
+    Example::
+
+        ApiMetadataOutput(objects=[
+            ApiMetadataObject(
+                value="tag-1", title="Finance", node_type="tag",
+                children=[
+                    ApiMetadataObject(value="tag-1a", title="Revenue", node_type="tag"),
+                ],
+            ),
+        ])
+    """
+
+    objects: list[ApiMetadataObject] = []  # type: ignore[assignment]
+    """Top-level tree nodes."""
+
+
+class EventFilterRule(BaseModel):
+    """A single filter rule for matching incoming Dapr cloud events."""
+
+    model_config = ConfigDict(frozen=True)
+
+    path: str
+    """CEL path to evaluate (e.g., 'event.data.type')."""
+
+    operator: str
+    """Comparison operator (e.g., '==')."""
+
+    value: str
+    """Expected value (e.g., 'metadata_extraction')."""
+
+
+class EventTriggerConfig(BaseModel):
+    """Configuration for an event-triggered workflow."""
+
+    model_config = ConfigDict(frozen=True)
+
+    event_id: str
+    """Unique identifier used as the route segment (e.g., 'my-trigger')."""
+
+    event_type: str
+    """Dapr topic / event type (e.g., 'metadata_extraction')."""
+
+    event_name: str
+    """Logical event name used in subscription filter rules."""
+
+    event_filters: list[EventFilterRule] = []
+    """Additional CEL filter rules applied to the event."""
+
+
+class SubscriptionConfig(BaseModel):
+    """Configuration for a Dapr pub/sub subscription with a custom handler."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    component_name: str
+    """Dapr pubsub component name."""
+
+    topic: str
+    """Topic to subscribe to."""
+
+    route: str
+    """Route path segment served at /subscriptions/v1/{route}."""
+
+    handler: Callable[..., Awaitable[Any]]
+    """Async callback invoked when a message arrives on this topic."""
+
+    bulk_enabled: bool = False
+    """Enable bulk subscribe for higher throughput."""
+
+    bulk_max_messages: int = 100
+    """Maximum messages per bulk batch."""
+
+    bulk_max_await_ms: int = 40
+    """Maximum milliseconds to wait for a full bulk batch."""
+
+    dead_letter_topic: str | None = None
+    """Optional dead-letter topic for failed messages."""
+
+
+class CloudEventEnvelope(BaseModel):
+    """Minimal representation of a Dapr CloudEvent envelope."""
+
+    id: str
+    source: str
+    specversion: str
+    type: str
+    time: str
+    topic: str
+    data: dict[str, Any]
+    datacontenttype: str = "application/json"
+
+
+class FileUploadResponse(BaseModel):
+    """Response from a file upload operation."""
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
+    id: str = ""
+    version: str = "1"
+    is_active: bool = True
+    created_at: int = 0
+    updated_at: int = 0
+    file_name: str = ""
+    raw_name: str = ""
+    key: str = ""
+    extension: str = ""
+    content_type: str = ""
+    file_size: int = 0
+    is_uploaded: bool = False
+    uploaded_at: str = ""

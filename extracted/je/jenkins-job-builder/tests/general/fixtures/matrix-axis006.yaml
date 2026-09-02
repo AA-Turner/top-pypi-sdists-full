@@ -1,0 +1,9 @@
+name: matrix-test006
+project-type: matrix
+axes:
+    - axis:
+        type: elastic
+        label: workers
+        name: label
+        ignore-offline-nodes: true
+        once-per-label: false

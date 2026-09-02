@@ -1,3 +1,6 @@
+# recirculation - https://arxiv.org/abs/2608.17981
+# full-bandwidth transformer - https://arxiv.org/abs/2608.08888v1
+
 from __future__ import annotations
 
 import torch
@@ -24,8 +27,6 @@ def cast_tuple(t, length = 1):
 def logit(p):
     return torch.log(torch.tensor(p) / (1 - p)).item()
 
-# recirculation
-# https://arxiv.org/abs/2608.17981
 # leak residual from a deep layer (source) down to a shallow one (dest), alpha-convex mixture
 # multiple routes as tuples, e.g. (7, 8) -> (2, 3); or learn per-token coefficients with a small mlp (adaptive, section 4.6)
 

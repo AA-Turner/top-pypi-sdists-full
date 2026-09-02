@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-regex"
-version = "2026.8.31.20260831"
+version = "2026.8.31.20260901"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for regex"
@@ -31,7 +31,7 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`f40e0da70e10e818692c3a771d5d5ac7010042f9`](https://github.com/python/typeshed/commit/f40e0da70e10e818692c3a771d5d5ac7010042f9).
+[`cf09d2a4d7614f648e9109dce609887499a7c6ee`](https://github.com/python/typeshed/commit/cf09d2a4d7614f648e9109dce609887499a7c6ee).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

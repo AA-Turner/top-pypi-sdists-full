@@ -1,0 +1,893 @@
+"""Configuration management for django-tailwind-cli.
+
+This module handles all configuration aspects of the Tailwind CSS integration,
+including version management, path resolution, and Django settings validation.
+
+Configuration Settings:
+    The following Django settings are recognized:
+
+    Core Settings:
+        STATICFILES_DIRS (required): List of directories for static files
+            Example: STATICFILES_DIRS = [BASE_DIR / 'assets']
+
+        TAILWIND_CLI_VERSION (optional): Tailwind CSS version to use
+            Default: 'latest'
+            Example: TAILWIND_CLI_VERSION = '4.1.3'
+            Special: 'latest' fetches newest version from GitHub
+
+    Path Settings:
+        TAILWIND_CLI_PATH (optional): Path to CLI binary or directory
+            Default: '.django_tailwind_cli' (in project root)
+            Example: TAILWIND_CLI_PATH = '/usr/local/bin/tailwindcss'
+
+        TAILWIND_CLI_SRC_CSS (optional): Input CSS file path (single-file mode)
+            Default: '.django_tailwind_cli/source.css' (auto-created)
+            Example: TAILWIND_CLI_SRC_CSS = 'src/styles/main.css'
+            Note: Cannot be used with TAILWIND_CLI_CSS_MAP
+
+        TAILWIND_CLI_DIST_CSS (optional): Output CSS file path (single-file mode)
+            Default: 'css/tailwind.css' (relative to STATICFILES_DIRS[0])
+            Example: TAILWIND_CLI_DIST_CSS = 'dist/main.css'
+            Note: Cannot be used with TAILWIND_CLI_CSS_MAP
+
+        TAILWIND_CLI_CSS_MAP (optional): Multiple CSS entry points (multi-file mode)
+            Default: None (uses single-file mode)
+            Example: TAILWIND_CLI_CSS_MAP = [
+                ('admin.css', 'admin.output.css'),
+                ('web.css', 'web.output.css'),
+            ]
+            Note: Cannot be used with TAILWIND_CLI_SRC_CSS or TAILWIND_CLI_DIST_CSS
+
+    Advanced Settings:
+        TAILWIND_CLI_USE_DAISY_UI (optional): Enable DaisyUI components
+            Default: False
+            Example: TAILWIND_CLI_USE_DAISY_UI = True
+
+        TAILWIND_CLI_SRC_REPO (optional): Custom Tailwind CLI repository
+            Default: 'tailwindlabs/tailwindcss' (or DaisyUI variant)
+            Example: TAILWIND_CLI_SRC_REPO = 'custom/tailwind-fork'
+
+        TAILWIND_CLI_ASSET_NAME (optional): CLI asset name for downloads
+            Default: 'tailwindcss' (or 'tailwindcss-extra' for DaisyUI)
+            Example: TAILWIND_CLI_ASSET_NAME = 'tailwind-custom'
+
+        TAILWIND_CLI_AUTOMATIC_DOWNLOAD (optional): Auto-download CLI
+            Default: True
+            Example: TAILWIND_CLI_AUTOMATIC_DOWNLOAD = False
+
+        TAILWIND_CLI_AUTO_SOURCE_EXTERNAL_APPS (optional): Auto @source
+            Default: False (opt-in)
+            Example: TAILWIND_CLI_AUTO_SOURCE_EXTERNAL_APPS = True
+            Note: When enabled AND the default source.css is auto-generated,
+                  scan INSTALLED_APPS for Django apps that live outside both
+                  BASE_DIR and site-packages (typically editable-installed
+                  user packages), and emit an @source directive for each.
+                  This makes Tailwind CSS scan templates of those apps even
+                  though they sit outside its default CWD walk. Opt-in
+                  because it inserts extra directives into the generated
+                  source.css and expands Tailwind's scan scope — users who
+                  don't need it should see no behavior change.
+
+        TAILWIND_CLI_USE_SYSTEM_BINARY (optional): Use a CLI on PATH
+            Default: False
+            Example: TAILWIND_CLI_USE_SYSTEM_BINARY = True
+            Note: Mutually exclusive with TAILWIND_CLI_PATH. When enabled,
+                  the binary is resolved via shutil.which() and the
+                  automatic download is skipped.
+
+        TAILWIND_CLI_SYSTEM_BINARY_NAME (optional): Name for PATH lookup
+            Default: "tailwindcss" (or "tailwindcss-extra" with DaisyUI)
+            Example: TAILWIND_CLI_SYSTEM_BINARY_NAME = "my-tailwindcss"
+
+        TAILWIND_CLI_REQUEST_TIMEOUT (optional): Network request timeout
+            Default: 10 (seconds)
+            Example: TAILWIND_CLI_REQUEST_TIMEOUT = 30
+
+Examples of complete settings configuration:
+
+    # Minimal configuration
+    STATICFILES_DIRS = [BASE_DIR / 'assets']
+
+    # Production configuration
+    STATICFILES_DIRS = [BASE_DIR / 'static']
+    TAILWIND_CLI_VERSION = '4.1.3'  # Pin to specific version
+    TAILWIND_CLI_DIST_CSS = 'css/app.css'
+
+    # Development with DaisyUI
+    STATICFILES_DIRS = [BASE_DIR / 'assets']
+    TAILWIND_CLI_USE_DAISY_UI = True
+    TAILWIND_CLI_SRC_CSS = 'src/styles/main.css'
+
+    # Custom CLI setup
+    STATICFILES_DIRS = [BASE_DIR / 'static']
+    TAILWIND_CLI_PATH = '/opt/tailwindcss/bin/tailwindcss'
+    TAILWIND_CLI_AUTOMATIC_DOWNLOAD = False
+
+    # Multiple CSS entry points (e.g., admin + public website)
+    STATICFILES_DIRS = [BASE_DIR / 'assets']
+    TAILWIND_CLI_CSS_MAP = [
+        ('admin.css', 'admin.output.css'),    # Admin panel styles
+        ('web.css', 'web.output.css'),        # Public website styles
+    ]
+"""
+
+import functools
+import os
+import platform
+import re
+import shutil
+import subprocess
+import tempfile
+import time
+import warnings
+from dataclasses import dataclass
+from pathlib import Path
+from typing import NamedTuple
+
+from django_tailwind_cli.utils import http
+from django.conf import settings
+from semver import Version
+
+
+class ConfigurationError(ValueError):
+    """A Django setting is missing or contradicts another one.
+
+    Subclasses ``ValueError`` on purpose: everything that already catches one — the system check
+    in ``checks.py``, and the tests — keeps working, while the commands can tell a user's
+    misconfiguration apart from a bug in this package and say so.
+    """
+
+
+FALLBACK_VERSION = "4.1.3"
+
+
+class CSSEntry(NamedTuple):
+    """A CSS source and destination path pair."""
+
+    name: str  # Unique identifier derived from source filename (e.g., "admin", "web")
+    src_css: Path  # Absolute path to source CSS file
+    dist_css: Path  # Absolute path to output CSS file
+    dist_css_base: str  # Relative path for template tag (e.g., "admin.output.css")
+
+
+@dataclass
+class Config:
+    version_str: str
+    version: Version
+    cli_path: Path
+    download_url: str
+    css_entries: list[CSSEntry]
+    overwrite_default_config: bool = True
+    automatic_download: bool = True
+    use_daisy_ui: bool = False
+    uses_system_binary: bool = False
+    auto_source_external_apps: bool = False
+    # False when the binary is not ours: a system binary from PATH, or a file the user placed at
+    # TAILWIND_CLI_PATH. Such a binary carries no version in its name, so the only way to notice a
+    # TAILWIND_CLI_VERSION bump is to ask the binary itself.
+    manages_cli_binary: bool = True
+
+    # Backward compatibility properties
+    @property
+    def src_css(self) -> Path:
+        """Return first source CSS path for backward compatibility."""
+        return self.css_entries[0].src_css if self.css_entries else Path()
+
+    @property
+    def dist_css(self) -> Path:
+        """Return first dist CSS path for backward compatibility."""
+        return self.css_entries[0].dist_css if self.css_entries else Path()
+
+    @property
+    def dist_css_base(self) -> str:
+        """Return first dist CSS base for backward compatibility."""
+        return self.css_entries[0].dist_css_base if self.css_entries else ""
+
+    def get_watch_cmd(self, entry: CSSEntry) -> list[str]:
+        """Generate watch command for a specific CSS entry."""
+        return [
+            str(self.cli_path),
+            "--input",
+            str(entry.src_css),
+            "--output",
+            str(entry.dist_css),
+            "--watch",
+        ]
+
+    def get_build_cmd(self, entry: CSSEntry, *, minify: bool = True) -> list[str]:
+        """Generate build command for a specific CSS entry."""
+        cmd = [
+            str(self.cli_path),
+            "--input",
+            str(entry.src_css),
+            "--output",
+            str(entry.dist_css),
+        ]
+        if minify:
+            cmd.append("--minify")
+        return cmd
+
+    @property
+    def watch_cmd(self) -> list[str]:
+        """Return watch command for first entry (backward compatibility)."""
+        return self.get_watch_cmd(self.css_entries[0])
+
+    @property
+    def build_cmd(self) -> list[str]:
+        """Return build command for first entry (backward compatibility)."""
+        return self.get_build_cmd(self.css_entries[0])
+
+
+class PlatformInfo(NamedTuple):
+    """Platform information for CLI binary selection."""
+
+    system: str
+    machine: str
+    extension: str
+
+
+class VersionCache(NamedTuple):
+    """Cached version information."""
+
+    version_str: str
+    version: Version
+    timestamp: float
+
+
+def _validate_required_settings() -> None:
+    """Validate that required Django settings are configured.
+
+    Raises:
+        ValueError: If required settings are missing or invalid.
+    """
+    if settings.STATICFILES_DIRS is None or len(settings.STATICFILES_DIRS) == 0:
+        raise ConfigurationError(
+            "STATICFILES_DIRS is empty. Please add a path to your static files. "
+            "Add STATICFILES_DIRS = [BASE_DIR / 'assets'] to your Django settings."
+        )
+
+    # Validate TAILWIND_CLI_ASSET_NAME if set
+    asset_name = getattr(settings, "TAILWIND_CLI_ASSET_NAME", None)
+    if asset_name is not None and not asset_name:
+        raise ConfigurationError(
+            "TAILWIND_CLI_ASSET_NAME must not be empty. Either remove the setting or provide a valid asset name."
+        )
+
+    # Validate TAILWIND_CLI_DIST_CSS if set
+    dist_css = getattr(settings, "TAILWIND_CLI_DIST_CSS", None)
+    if dist_css is not None and not dist_css:
+        raise ConfigurationError(
+            "TAILWIND_CLI_DIST_CSS must not be empty. Either remove the setting or provide a valid CSS path."
+        )
+
+    # Validate TAILWIND_CLI_SRC_REPO if set
+    src_repo = getattr(settings, "TAILWIND_CLI_SRC_REPO", None)
+    if src_repo is not None and not src_repo:
+        raise ConfigurationError(
+            "TAILWIND_CLI_SRC_REPO must not be empty. Either remove the setting or provide a valid repository URL."
+        )
+
+    # Validate system-binary settings
+    _validate_system_binary_settings()
+
+    # Validate mutual exclusivity of CSS settings
+    _validate_css_settings()
+
+
+def _validate_system_binary_settings() -> None:
+    """Validate TAILWIND_CLI_USE_SYSTEM_BINARY and friends.
+
+    Raises:
+        ValueError: If configuration is inconsistent or invalid.
+    """
+    use_system_binary = getattr(settings, "TAILWIND_CLI_USE_SYSTEM_BINARY", False)
+    binary_name = getattr(settings, "TAILWIND_CLI_SYSTEM_BINARY_NAME", None)
+
+    if binary_name is not None and not binary_name:
+        raise ConfigurationError(
+            "TAILWIND_CLI_SYSTEM_BINARY_NAME must not be empty. "
+            "Either remove the setting or provide a valid binary name."
+        )
+
+    if use_system_binary and getattr(settings, "TAILWIND_CLI_PATH", None):
+        raise ConfigurationError(
+            "Cannot use TAILWIND_CLI_USE_SYSTEM_BINARY together with TAILWIND_CLI_PATH. "
+            "Choose one: either point TAILWIND_CLI_PATH at a specific binary, or set "
+            "TAILWIND_CLI_USE_SYSTEM_BINARY = True to look up the binary on PATH."
+        )
+
+
+def _validate_css_settings() -> None:
+    """Validate CSS configuration settings for mutual exclusivity.
+
+    Raises:
+        ValueError: If both single-file and multi-file configurations are present.
+    """
+    has_css_map = bool(getattr(settings, "TAILWIND_CLI_CSS_MAP", None))
+    has_src_css = bool(getattr(settings, "TAILWIND_CLI_SRC_CSS", None))
+    has_dist_css = bool(getattr(settings, "TAILWIND_CLI_DIST_CSS", None))
+
+    if has_css_map and (has_src_css or has_dist_css):
+        raise ConfigurationError(
+            "Cannot use TAILWIND_CLI_CSS_MAP together with TAILWIND_CLI_SRC_CSS or TAILWIND_CLI_DIST_CSS. "
+            "Use either the single-file configuration (SRC_CSS/DIST_CSS) or the multi-file configuration "
+            "(CSS_MAP), but not both."
+        )
+
+    # Validate CSS_MAP format if provided
+    if has_css_map:
+        css_map_raw = getattr(settings, "TAILWIND_CLI_CSS_MAP", None)
+        if not isinstance(css_map_raw, (list, tuple)):
+            raise ConfigurationError("TAILWIND_CLI_CSS_MAP must be a list or tuple of (source, destination) pairs.")
+
+        css_map: list[tuple[str, str]] | tuple[tuple[str, str], ...] = css_map_raw  # pyright: ignore[reportUnknownVariableType]
+        names_seen: set[str] = set()
+        dists_seen: set[str] = set()
+        for i, entry in enumerate(css_map):
+            # Runtime validation - pyright sees typed entry, but we validate for user input
+            if not isinstance(entry, (list, tuple)) or len(entry) != 2:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise ConfigurationError(
+                    f"TAILWIND_CLI_CSS_MAP entry {i} must be a (source, destination) pair, got {entry!r}."
+                )
+            src: str = str(entry[0])
+            dist: str = str(entry[1])
+            if not src or not dist:
+                raise ConfigurationError(f"TAILWIND_CLI_CSS_MAP entry {i} has empty source or destination path.")
+
+            # Check for unique names
+            name = Path(src).stem
+            if name in names_seen:
+                raise ConfigurationError(
+                    f"TAILWIND_CLI_CSS_MAP has duplicate entry name '{name}'. "
+                    "Each source file must have a unique name (stem of filename)."
+                )
+            names_seen.add(name)
+
+            # Two entries writing one file is silently lossy rather than an error: the first build
+            # updates the output, the mtime check then finds the second entry up to date, and it is
+            # reported as built without ever having run. Compare normalised paths, because
+            # './out.css' and 'out.css' are two spellings of one file once the destination is
+            # joined onto the static dir, and the raw strings do not collide.
+            normalised_dist = os.path.normpath(dist)
+            if normalised_dist in dists_seen:
+                raise ConfigurationError(
+                    f"TAILWIND_CLI_CSS_MAP has duplicate destination '{dist}'. "
+                    "Each entry must write its own output file."
+                )
+            dists_seen.add(normalised_dist)
+
+
+def get_platform_info() -> PlatformInfo:
+    """Get platform information for CLI binary selection.
+
+    Returns:
+        PlatformInfo: Platform details needed for binary selection.
+    """
+    system = platform.system().lower()
+    system = "macos" if system == "darwin" else system
+
+    machine = platform.machine().lower()
+    if machine in ["x86_64", "amd64"]:
+        machine = "x64"
+    elif machine == "aarch64":
+        machine = "arm64"
+
+    extension = ".exe" if system == "windows" else ""
+
+    return PlatformInfo(system=system, machine=machine, extension=extension)
+
+
+def _get_cache_path() -> Path:
+    """Get the path for version cache file.
+
+    Returns:
+        Path: Path to the version cache file.
+    """
+    cache_dir = Path(tempfile.gettempdir()) / ".django-tailwind-cli"
+    cache_dir.mkdir(exist_ok=True)
+    return cache_dir / "version_cache.txt"
+
+
+def _load_cached_version(repo_url: str) -> VersionCache | None:
+    """Load cached version information.
+
+    Args:
+        repo_url: Repository URL to match against cache.
+
+    Returns:
+        VersionCache if valid cache exists, None otherwise.
+    """
+    cache_path = _get_cache_path()
+
+    if not cache_path.exists():
+        return None
+
+    try:
+        with cache_path.open("r") as f:
+            lines = f.readlines()
+            if len(lines) >= 3:
+                cached_repo = lines[0].strip()
+                version_str = lines[1].strip()
+                timestamp = float(lines[2].strip())
+
+                # Cache is valid for 1 hour
+                if cached_repo == repo_url and (time.time() - timestamp) < 3600:
+                    return VersionCache(
+                        version_str=version_str, version=Version.parse(version_str), timestamp=timestamp
+                    )
+    except (OSError, ValueError, IndexError):
+        # Ignore cache read errors
+        pass
+
+    return None
+
+
+def _save_cached_version(repo_url: str, version_str: str) -> None:
+    """Save version information to cache.
+
+    Args:
+        repo_url: Repository URL.
+        version_str: Version string to cache.
+    """
+    cache_path = _get_cache_path()
+
+    try:
+        with cache_path.open("w") as f:
+            f.write(f"{repo_url}\n{version_str}\n{time.time()}\n")
+    except OSError:  # pragma: no cover
+        # Ignore cache write errors
+        pass
+
+
+def _parse_configured_version(version_str: str) -> Version:
+    """Parse TAILWIND_CLI_VERSION, reporting a typo as the misconfiguration it is.
+
+    semver raises a bare ValueError, which would reach the user as an unexpected error with a
+    traceback rather than as the setting they need to correct.
+    """
+    try:
+        return Version.parse(version_str)
+    except ValueError as e:
+        raise ConfigurationError(
+            f"TAILWIND_CLI_VERSION is not a valid version: {version_str!r}. "
+            "Use 'latest' or a full version like '4.1.3'."
+        ) from e
+
+
+def get_version() -> tuple[str, Version]:
+    """
+    Retrieves the version of Tailwind CSS specified in the Django settings or fetches the latest
+    version from the Tailwind CSS GitHub repository.
+
+    Returns:
+        tuple[str, Version]: A tuple containing the version string and the parsed Version object.
+
+    Raises:
+        ValueError: If the TAILWIND_CLI_SRC_REPO setting is None when the version is set to
+        "latest".
+    """
+    use_daisy_ui = getattr(settings, "TAILWIND_CLI_USE_DAISY_UI", False)
+    version_str = getattr(settings, "TAILWIND_CLI_VERSION", "latest")
+    repo_url = getattr(
+        settings,
+        "TAILWIND_CLI_SRC_REPO",
+        "tailwindlabs/tailwindcss" if not use_daisy_ui else "dobicinaitis/tailwind-cli-extra",
+    )
+    if not repo_url:
+        raise ConfigurationError("TAILWIND_CLI_SRC_REPO must not be None.")
+
+    if version_str == "latest":
+        # Try to load from cache first
+        cached = _load_cached_version(repo_url)
+        if cached:
+            return cached.version_str, cached.version
+
+        # Fetch latest version from GitHub
+        timeout = getattr(settings, "TAILWIND_CLI_REQUEST_TIMEOUT", 10)
+        try:
+            success, location = http.fetch_redirect_location(
+                f"https://github.com/{repo_url}/releases/latest/", timeout=timeout
+            )
+            if success and location:
+                version_str = location.rstrip("/").split("/")[-1].replace("v", "")
+                # Cache the result
+                _save_cached_version(repo_url, version_str)
+                return version_str, Version.parse(version_str)
+        except (http.RequestError, ValueError):
+            # Network or parsing error, fall back to cached or default
+            pass
+
+        return FALLBACK_VERSION, Version.parse(FALLBACK_VERSION)
+    elif repo_url == "tailwindlabs/tailwindcss":
+        version = _parse_configured_version(version_str)
+        if version.major < 4:
+            raise ConfigurationError(
+                "Tailwind CSS 3.x is not supported by this version. Use version 2.21.1 if you want to use Tailwind 3."
+            )
+        return version_str, version
+    else:
+        return version_str, _parse_configured_version(version_str)
+
+
+_VERSION_PATTERN = re.compile(r"tailwindcss v(\d+\.\d+\.\d+)")
+
+
+@functools.cache
+def detect_binary_version(cli_path: Path) -> Version | None:
+    """Detect the version of a Tailwind CSS CLI binary.
+
+    Runs ``<cli_path> --help`` and parses the version from the first line of
+    stdout. Returns None on any failure (timeout, non-zero exit, unparseable
+    output) — callers are expected to treat None as "unknown" and skip any
+    version comparisons rather than raising.
+
+    Note: ``--version`` is intentionally not used because the Tailwind CLI
+    interprets unknown flags as a build invocation, which would run a full
+    CSS build instead of reporting the version.
+
+    Args:
+        cli_path: Path to the CLI binary.
+
+    Returns:
+        Parsed Version on success, None on any failure.
+    """
+    try:
+        result = subprocess.run(
+            [str(cli_path), "--help"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    match = _VERSION_PATTERN.search(result.stdout)
+    if not match:
+        return None
+
+    try:
+        return Version.parse(match.group(1))
+    except ValueError:
+        return None
+
+
+def _resolve_system_binary(binary_name: str) -> Path:
+    """Resolve a binary on the user's PATH.
+
+    Args:
+        binary_name: Name of the executable to look up (e.g. "tailwindcss").
+
+    Returns:
+        Absolute path to the binary.
+
+    Raises:
+        ValueError: If the binary cannot be found on PATH.
+    """
+    found = shutil.which(binary_name)
+    if not found:
+        raise ConfigurationError(
+            f"TAILWIND_CLI_USE_SYSTEM_BINARY is enabled, but the binary {binary_name!r} "
+            "could not be found on PATH. Install it (e.g. 'brew install tailwindcss') "
+            "or disable TAILWIND_CLI_USE_SYSTEM_BINARY to use the automatic download instead."
+        )
+    return Path(found)
+
+
+def _get_system_binary_name(*, use_daisy_ui: bool) -> str:
+    """Return the system binary name to look up via shutil.which.
+
+    Args:
+        use_daisy_ui: Whether DaisyUI support is enabled.
+
+    Returns:
+        Binary name — honours the explicit TAILWIND_CLI_SYSTEM_BINARY_NAME
+        override if set, otherwise picks a DaisyUI-aware default.
+    """
+    override = getattr(settings, "TAILWIND_CLI_SYSTEM_BINARY_NAME", None)
+    if override:
+        return override
+    return "tailwindcss-extra" if use_daisy_ui else "tailwindcss"
+
+
+def _resolve_cli_path(platform_info: PlatformInfo, version_str: str, asset_name: str) -> tuple[Path, bool]:
+    """Resolve the CLI executable path.
+
+    Args:
+        platform_info: Platform information.
+        version_str: Version string.
+        asset_name: Asset name for the CLI.
+
+    Returns:
+        tuple: The resolved path, and whether this library manages the file behind it.
+    """
+    cli_path = getattr(settings, "TAILWIND_CLI_PATH", None)
+    if not cli_path:
+        cli_path = ".django_tailwind_cli"
+
+    cli_path = Path(cli_path)
+    if not cli_path.is_absolute():
+        cli_path = Path(settings.BASE_DIR) / cli_path
+
+    if cli_path.exists() and cli_path.is_file() and os.access(cli_path, os.X_OK):
+        # The user put an executable at this exact path; we use it as it is.
+        return cli_path.expanduser().resolve(), False
+    return (
+        cli_path.expanduser()
+        / f"{asset_name}-{platform_info.system}-{platform_info.machine}-{version_str}{platform_info.extension}"
+    ), True
+
+
+def _absolute(path: Path) -> Path:
+    """Normalise ``path`` for comparison without touching the filesystem.
+
+    Resolves a relative path against the working directory the way Django resolves a relative
+    ``STATICFILES_DIRS`` entry, and collapses ``..`` segments. Unlike ``Path.resolve()`` this costs
+    no syscalls, so it is safe on the render path.
+    """
+    return Path(os.path.abspath(path))
+
+
+def _staticfiles_dir_path(entry: str | tuple[str, str] | list[str] | Path) -> Path:
+    """Return the filesystem path of a STATICFILES_DIRS entry.
+
+    An entry is either a path or a ``(prefix, path)`` pair for a prefixed directory. Django's
+    ``FileSystemFinder`` accepts that pair as a list or a tuple, so both are unpacked here.
+
+    The path is returned as configured — relative stays relative, because ``dist_css`` is built
+    from it and is handed to the Tailwind CLI as ``--output``.
+    """
+    if isinstance(entry, (list, tuple)):
+        entry = entry[1]
+    return Path(entry)
+
+
+def _get_staticfile_path() -> str:
+    """Get the base path for static files from STATICFILES_DIRS.
+
+    Returns:
+        str: Path to the first staticfiles directory.
+    """
+    return str(_staticfiles_dir_path(settings.STATICFILES_DIRS[0]))
+
+
+def _resolve_src_css(src: str | Path) -> Path:
+    """Resolve a configured source CSS path.
+
+    A leading ``~`` is a home directory, as it already is for ``TAILWIND_CLI_PATH``. Everything
+    still relative afterwards is resolved against ``BASE_DIR``.
+    """
+    src_path = Path(src).expanduser()
+    if not src_path.is_absolute():
+        src_path = Path(settings.BASE_DIR) / src_path
+    return src_path
+
+
+def _resolve_css_paths() -> tuple[list[CSSEntry], bool]:
+    """Resolve CSS input and output paths.
+
+    Supports two configuration modes:
+    1. Multi-file mode: TAILWIND_CLI_CSS_MAP = [('admin.css', 'admin.output.css'), ...]
+    2. Single-file mode: TAILWIND_CLI_SRC_CSS and TAILWIND_CLI_DIST_CSS
+
+    Returns:
+        tuple: (list of CSSEntry, overwrite_default_config flag)
+
+    Raises:
+        ValueError: If TAILWIND_CLI_DIST_CSS is None in single-file mode.
+    """
+    staticfile_path = _get_staticfile_path()
+
+    # Check for multi-file configuration
+    css_map_raw = getattr(settings, "TAILWIND_CLI_CSS_MAP", None)
+    if css_map_raw:
+        # Type assertion after validation in _validate_css_settings()
+        css_map: list[tuple[str, str]] = css_map_raw
+        entries: list[CSSEntry] = []
+        for src, dist in css_map:
+            src_path = _resolve_src_css(src)
+
+            dist_path = Path(staticfile_path) / dist
+
+            # Derive name from source filename without extension
+            name = Path(src).stem
+
+            entries.append(
+                CSSEntry(
+                    name=name,
+                    src_css=src_path,
+                    dist_css=dist_path,
+                    dist_css_base=str(dist),
+                )
+            )
+
+        # Multi-file mode never overwrites default config
+        return entries, False
+
+    # Single-file mode (existing behavior)
+    dist_css_base = getattr(settings, "TAILWIND_CLI_DIST_CSS", "css/tailwind.css")
+    if not dist_css_base:
+        raise ConfigurationError(
+            "TAILWIND_CLI_DIST_CSS must not be None. Either remove the setting or provide a valid CSS path."
+        )
+
+    dist_css = Path(staticfile_path) / dist_css_base
+
+    # Resolve source CSS path
+    src_css = getattr(settings, "TAILWIND_CLI_SRC_CSS", None)
+    if not src_css:
+        src_css = ".django_tailwind_cli/source.css"
+        overwrite_default_config = True
+    else:
+        overwrite_default_config = False
+
+    src_css = _resolve_src_css(src_css)
+
+    # Create single entry with default name
+    entry = CSSEntry(
+        name="tailwind",
+        src_css=src_css,
+        dist_css=dist_css,
+        dist_css_base=str(dist_css_base),
+    )
+
+    return [entry], overwrite_default_config
+
+
+def _get_repository_settings(*, use_daisy_ui: bool) -> tuple[str, str]:
+    """Get repository URL and asset name based on DaisyUI setting.
+
+    Args:
+        use_daisy_ui: Whether DaisyUI support is enabled.
+
+    Returns:
+        tuple: (repo_url, asset_name)
+
+    Raises:
+        ValueError: If TAILWIND_CLI_ASSET_NAME is None.
+    """
+    if use_daisy_ui:
+        default_repo = "dobicinaitis/tailwind-cli-extra"
+        default_asset = "tailwindcss-extra"
+    else:
+        default_repo = "tailwindlabs/tailwindcss"
+        default_asset = "tailwindcss"
+
+    repo_url = getattr(settings, "TAILWIND_CLI_SRC_REPO", default_repo)
+    asset_name = getattr(settings, "TAILWIND_CLI_ASSET_NAME", default_asset)
+
+    # Validate asset name
+    if not asset_name:
+        raise ConfigurationError(
+            "TAILWIND_CLI_ASSET_NAME must not be None. Either remove the setting or provide a valid asset name."
+        )
+
+    return repo_url, asset_name
+
+
+def get_config() -> Config:
+    """Get Tailwind CLI configuration.
+
+    Returns:
+        Config: Complete configuration object.
+
+    Raises:
+        ValueError: If required settings are missing or invalid.
+    """
+    # Validate required settings
+    _validate_required_settings()
+
+    # Get basic settings
+    use_daisy_ui = getattr(settings, "TAILWIND_CLI_USE_DAISY_UI", False)
+    automatic_download = getattr(settings, "TAILWIND_CLI_AUTOMATIC_DOWNLOAD", True)
+    uses_system_binary = bool(getattr(settings, "TAILWIND_CLI_USE_SYSTEM_BINARY", False))
+    auto_source_external_apps = bool(getattr(settings, "TAILWIND_CLI_AUTO_SOURCE_EXTERNAL_APPS", False))
+
+    # Get platform information
+    platform_info = get_platform_info()
+
+    # Get version information
+    version_str, version = get_version()
+
+    # Get repository and asset settings
+    repo_url, asset_name = _get_repository_settings(use_daisy_ui=use_daisy_ui)
+
+    # Resolve paths
+    if uses_system_binary:
+        binary_name = _get_system_binary_name(use_daisy_ui=use_daisy_ui)
+        cli_path = _resolve_system_binary(binary_name)
+        # System binary mode implies auto-download is off — we never downloaded it.
+        automatic_download = False
+        # The version comparison runs a subprocess, so it belongs on the command path, not here:
+        # get_config() is uncached and the template tag calls it on every render.
+        manages_cli_binary = False
+    else:
+        cli_path, manages_cli_binary = _resolve_cli_path(platform_info, version_str, asset_name)
+
+    css_entries, overwrite_default_config = _resolve_css_paths()
+
+    # Build download URL
+    download_url = (
+        f"https://github.com/{repo_url}/releases/download/v{version_str}/"
+        f"{asset_name}-{platform_info.system}-{platform_info.machine}{platform_info.extension}"
+    )
+
+    return Config(
+        version_str=version_str,
+        version=version,
+        cli_path=cli_path,
+        download_url=download_url,
+        css_entries=css_entries,
+        overwrite_default_config=overwrite_default_config,
+        automatic_download=automatic_download,
+        use_daisy_ui=use_daisy_ui,
+        uses_system_binary=uses_system_binary,
+        auto_source_external_apps=auto_source_external_apps,
+        manages_cli_binary=manages_cli_binary,
+    )
+
+
+def find_src_css_in_static_dirs() -> list[tuple[Path, Path]]:
+    """Return every (source CSS, static directory) pair where the source would be collected.
+
+    A source CSS below one of the ``STATICFILES_DIRS`` entries gets collected by ``collectstatic``,
+    and a manifest storage backend then rewrites the ``@import "tailwindcss";`` it contains into a
+    reference to a static file that does not exist.
+
+    Paths are normalised lexically rather than with ``Path.resolve()``: a source CSS reachable only
+    through a symlinked static directory is missed, which is the price for touching no filesystem.
+
+    Raises:
+        ValueError: If the configuration cannot be resolved at all.
+    """
+    _validate_required_settings()
+    css_entries, _ = _resolve_css_paths()
+    static_dirs = [_absolute(_staticfiles_dir_path(entry)) for entry in settings.STATICFILES_DIRS]
+
+    offenders: list[tuple[Path, Path]] = []
+    for entry in css_entries:
+        src_css = _absolute(entry.src_css)
+        offending_dir = next((d for d in static_dirs if src_css.is_relative_to(d)), None)
+        if offending_dir is not None:
+            offenders.append((src_css, offending_dir))
+    return offenders
+
+
+def maybe_warn_version_mismatch(cli_path: Path, configured_version: str) -> None:
+    """Warn when a binary this library did not download reports a different version.
+
+    That is either a system binary found on PATH, or a ``TAILWIND_CLI_PATH`` pointing straight at an
+    executable. Both are the user's file, so the mismatch is reported rather than resolved by
+    replacing it.
+
+    No warning is emitted when:
+    - TAILWIND_CLI_VERSION is 'latest' (user has no explicit expectation).
+    - Version detection fails (subprocess error, unparseable output).
+    - The versions match.
+
+    Args:
+        cli_path: Path to the binary.
+        configured_version: Version string as resolved by get_version().
+    """
+    # When the user set VERSION='latest', they accepted whatever is installed.
+    if getattr(settings, "TAILWIND_CLI_VERSION", "latest") == "latest":
+        return
+
+    detected = detect_binary_version(cli_path)
+    if detected is None:
+        return
+
+    if str(detected) == configured_version:
+        return
+
+    warnings.warn(
+        f"TAILWIND_CLI_VERSION is set to {configured_version}, but the binary at "
+        f"{cli_path} reports version {detected}. Using it anyway — this file was not downloaded "
+        "by django-tailwind-cli and is left as it is. Update TAILWIND_CLI_VERSION or the binary "
+        "to silence this warning.",
+        UserWarning,
+        stacklevel=2,
+    )

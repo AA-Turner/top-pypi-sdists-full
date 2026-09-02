@@ -1,1 +1,0 @@
-"""Stylelint plugin tests."""

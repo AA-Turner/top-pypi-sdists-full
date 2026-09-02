@@ -10,10 +10,11 @@ from unittest import mock
 import pytest
 
 from .. import crypto, objects, orm, roles
-from ..emptyclass import EmptyClass
 from ..user import User
 from ..utils import utcnow
 from .mocking import MockSpawner
+
+pytestmark = pytest.mark.db
 
 
 def assert_not_found(db, ORMType, id):
@@ -229,9 +230,7 @@ async def test_spawn_fails(db):
         async def start(self):
             raise RuntimeError("Split the party")
 
-    user = User(
-        orm_user, {'spawner_class': BadSpawner, 'config': None, 'statsd': EmptyClass()}
-    )
+    user = User(orm_user, {'spawner_class': BadSpawner, 'config': None})
 
     with pytest.raises(RuntimeError) as exc:
         await user.spawn()

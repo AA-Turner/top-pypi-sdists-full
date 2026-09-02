@@ -1,0 +1,75 @@
+name: Release Gate
+
+# Blocks release PRs (auto-labeled `release` by the SDK release-version-bump
+# workflow) from being merged until a reviewer adds the `e2e` label, which
+# triggers the full e2e tests as the final gate before a release is cut.
+#
+# All other PRs pass this check immediately — it exists solely to gate the
+# auto-created bump-version PRs without requiring `e2e` on every PR.
+#
+# Branch-protection target: "Release Gate"
+# Add this alongside "tests / Tests Gate" in branch protection so that:
+# (a) this check blocks release PRs missing the label, and (b) the
+# Tests Gate check enforces that unit, integration, and e2e tests all pass.
+#
+# Those two strings are shaped differently because a ruleset's
+# required_status_checks `context` is the check-run name, which never includes
+# the workflow name:
+#   * an inline job  → just the job's `name:`               ("Release Gate")
+#   * a job that `uses:` a reusable → "<caller job id> / <called job name>"
+#     ("tests / Tests Gate" — `tests:` is the job in tests.yaml that calls
+#     tests-reusable.yaml, whose gate job is named "Tests Gate")
+# The UI's checks list shows the workflow name as an extra leading segment;
+# that display form is not what the API matches on, and a context that matches
+# no check silently protects nothing.
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled, reopened]
+    branches: [main]
+  # A merge queue evaluates required contexts against the `merge_group` event
+  # on the gh-readonly-queue/<base>/pr-N-<sha> ref, not against the pull
+  # request. Without this trigger no "Release Gate" check-run is ever created
+  # for the merge group, so the required context sits at "Expected — waiting
+  # for status to be reported" forever and the queue never drains (FND-851).
+  # Same shape as release-files-guard.yaml and sdk-gate.yaml in
+  # application-sdk, which are the two in-repo guards of this kind.
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  release-gate:
+    name: Release Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify release readiness
+        # `github.event.pull_request` does not exist on `merge_group`, so the
+        # label lookup can only run on the pull_request event. A skipped step
+        # still leaves the job successful, and that success is what reports
+        # the green context to the queue. Nothing is lost by passing here: a
+        # release PR missing `e2e` fails this gate on the PR itself and so
+        # never becomes eligible to enter the queue.
+        if: github.event_name == 'pull_request'
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+          has_release=$(echo "$LABELS" | jq 'index("release") != null')
+          has_e2e=$(echo "$LABELS" | jq 'index("e2e") != null')
+
+          if [[ "$has_release" != "true" ]]; then
+            echo "Not a release PR — gate passes."
+            exit 0
+          fi
+
+          if [[ "$has_e2e" != "true" ]]; then
+            echo "::error::Release PR requires the 'e2e' label before merging. Add it to trigger e2e tests; this gate unblocks once the label is present and the tests pass."
+            exit 1
+          fi
+
+          echo "Release PR has both 'release' and 'e2e' labels — gate passes."
+          echo "Test pass/fail is enforced separately by 'tests / Tests Gate'."

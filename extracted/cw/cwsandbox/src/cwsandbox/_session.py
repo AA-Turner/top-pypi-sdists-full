@@ -10,20 +10,26 @@ import logging
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
+from cwsandbox._auth import AuthConfig
 from cwsandbox._defaults import DEFAULT_BASE_URL, SandboxDefaults, _resolve_selector
 from cwsandbox._function import RemoteFunction
 from cwsandbox._loop_manager import _LoopManager
 from cwsandbox._types import (
+    Container,
+    DataPlaneMode,
     ExecOutcome,
     FileSystemSnapshotOptions,
     ImagePullCredentials,
     NetworkOptions,
+    ObjectStorageAccess,
     OperationRef,
     PlacementMode,
     PlacementSpillover,
+    RegisteredVolumeOptions,
     ResourceOptions,
     ScratchVolumeOptions,
     Secret,
+    SecurityContext,
     Service,
 )
 from cwsandbox._wandb import WandbReporter
@@ -56,6 +62,8 @@ class Session:
               and an active wandb run exists.
             - []: Disable all reporting.
             - ["wandb"]: Explicitly enable wandb reporting.
+        auth: Authentication strategy, resolved headers, or provider. Overrides
+            ``defaults.auth`` when provided.
 
     Metrics are automatically tracked when exec() completes on any sandbox
     associated with this session. Use log_metrics(step=N) to log metrics
@@ -106,6 +114,8 @@ class Session:
         self,
         defaults: SandboxDefaults | Mapping[str, Any] | None = None,
         report_to: list[str] | None = None,
+        *,
+        auth: AuthConfig | None = None,
     ) -> None:
         if isinstance(defaults, SandboxDefaults):
             self._defaults = defaults
@@ -115,6 +125,8 @@ class Session:
             raise TypeError(
                 f"defaults must be SandboxDefaults, Mapping, or None, got {type(defaults).__name__}"
             )
+        if auth is not None:
+            self._defaults = self._defaults.with_overrides(auth=auth)
         self._sandboxes: dict[int, Sandbox] = {}
         self._closed = False
         self._loop_manager = _LoopManager.get()
@@ -333,16 +345,27 @@ class Session:
         mounted_files: list[dict[str, Any]] | None = None,
         network: NetworkOptions | dict[str, Any] | None = None,
         services: list[Service] | tuple[Service, ...] | None = None,
-        volumes: list[ScratchVolumeOptions] | tuple[ScratchVolumeOptions, ...] | None = None,
+        volumes: (
+            list[ScratchVolumeOptions | RegisteredVolumeOptions | dict[str, Any]]
+            | tuple[ScratchVolumeOptions | RegisteredVolumeOptions | dict[str, Any], ...]
+            | None
+        ) = None,
         file_system_snapshot: FileSystemSnapshotOptions | dict[str, Any] | None = None,
         placement_mode: PlacementMode | str | None = None,
         placement_spillover: PlacementSpillover | str | None = None,
         template_id: str | None = None,
         image_pull_credentials: ImagePullCredentials | dict[str, Any] | None = None,
+        runtime_class: str | None = None,
+        security_context: SecurityContext | dict[str, Any] | None = None,
+        working_dir: str | None = None,
+        object_storage_access: ObjectStorageAccess | dict[str, Any] | None = None,
         environment_variables: dict[str, str] | None = None,
         annotations: dict[str, str] | None = None,
         secrets: Sequence[Secret | dict[str, Any]] | None = None,
         request_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str | None = None,
+        auth: AuthConfig | None = None,
+        containers: Sequence[Container | Mapping[str, Any]] | None = None,
         **kwargs: Any,
     ) -> Sandbox:
         """Create an unstarted sandbox with session defaults.
@@ -379,6 +402,9 @@ class Session:
             max_timeout_seconds: Removed in 1.x; use ``request_timeout_seconds``.
             request_timeout_seconds: Client-side HTTP timeout for sandbox RPCs.
                 Defaults to the session's ``SandboxDefaults.request_timeout_seconds``.
+            data_plane_mode: Override the session's data-plane transport policy.
+            auth: Authentication strategy, resolved headers, or provider. Overrides
+                the session default for this sandbox.
             environment_variables: Environment variables to inject into the sandbox.
                 Merges with and overrides matching keys from the session defaults.
                 Use for non-sensitive config only.
@@ -387,6 +413,11 @@ class Session:
                 Use for non-sensitive metadata only.
             secrets: Secrets to inject as environment variables.
                 Merged with session defaults (defaults first, then this list).
+            containers: Multi-container spec. Mutually exclusive with
+                single-container kwargs. Replaces session
+                ``defaults.secrets``, ``environment_variables``,
+                ``security_context``, and ``working_dir``; put those on
+                each ``Container``. Not used by ``@session.function()``.
 
         Returns:
             An unstarted Sandbox registered with the session.
@@ -453,10 +484,17 @@ class Session:
             placement_spillover=placement_spillover,
             template_id=template_id,
             image_pull_credentials=image_pull_credentials,
+            runtime_class=runtime_class,
+            security_context=security_context,
+            working_dir=working_dir,
+            object_storage_access=object_storage_access,
             environment_variables=environment_variables,
             annotations=annotations,
             secrets=secrets,
             request_timeout_seconds=effective_request_timeout,
+            data_plane_mode=data_plane_mode,
+            auth=auth,
+            containers=containers,
             defaults=self._defaults,
             _session=self,
         )
@@ -475,6 +513,7 @@ class Session:
         runner_ids: builtins.list[str] | None = None,
         show_terminated: bool = False,
         adopt: bool = False,
+        volume_ids: builtins.list[str] | tuple[str, ...] | None = None,
     ) -> OperationRef[builtins.list[Sandbox]]:
         """List sandboxes, optionally adopting them into this session.
 
@@ -494,6 +533,7 @@ class Session:
             profile_ids: Removed in 1.x; passing a value raises ``TypeError``.
             profile_names: Removed in 1.x; passing a value raises ``TypeError``.
             runner_ids: Filter by runner IDs (defaults to session's runner_ids if set)
+            volume_ids: Filter to sandboxes attached to these registered Volume IDs
             show_terminated: If True, include terminal sandboxes (completed,
                 failed, terminated). Defaults to False.
             adopt: If True, register discovered sandboxes with this session
@@ -532,6 +572,7 @@ class Session:
                 runner_ids=runner_ids,
                 show_terminated=show_terminated,
                 adopt=adopt,
+                volume_ids=volume_ids,
             )
         )
         return OperationRef(future)
@@ -546,6 +587,7 @@ class Session:
         runner_ids: builtins.list[str] | None = None,
         show_terminated: bool = False,
         adopt: bool = False,
+        volume_ids: builtins.list[str] | tuple[str, ...] | None = None,
     ) -> builtins.list[Sandbox]:
         """Internal async: List sandboxes, optionally adopting them into this session."""
         from cwsandbox._sandbox import Sandbox
@@ -565,12 +607,15 @@ class Session:
             profile_names=effective_profile_names,
             runner_ids=effective_runner_ids,
             show_terminated=show_terminated,
+            volume_ids=volume_ids,
             base_url=None
             if self._defaults.base_url == DEFAULT_BASE_URL
             else self._defaults.base_url,
+            auth=self._defaults.auth,
             timeout_seconds=self._defaults.request_timeout_seconds,
             poll_retry_budget_seconds=self._defaults.poll_retry_budget_seconds,
             poll_rpc_timeout_seconds=self._defaults.poll_rpc_timeout_seconds,
+            data_plane_mode=self._defaults.data_plane_mode,
         )
 
         if adopt:
@@ -627,9 +672,11 @@ class Session:
             base_url=None
             if self._defaults.base_url == DEFAULT_BASE_URL
             else self._defaults.base_url,
+            auth=self._defaults.auth,
             timeout_seconds=self._defaults.request_timeout_seconds,
             poll_retry_budget_seconds=self._defaults.poll_retry_budget_seconds,
             poll_rpc_timeout_seconds=self._defaults.poll_rpc_timeout_seconds,
+            data_plane_mode=self._defaults.data_plane_mode,
         )
 
         if adopt:
@@ -682,13 +729,20 @@ class Session:
         mounted_files: Sequence[dict[str, Any]] | None = None,
         network: NetworkOptions | dict[str, Any] | None = None,
         services: Sequence[Service] | None = None,
-        volumes: Sequence[ScratchVolumeOptions] | None = None,
+        volumes: (
+            Sequence[ScratchVolumeOptions | RegisteredVolumeOptions | dict[str, Any]] | None
+        ) = None,
         file_system_snapshot: FileSystemSnapshotOptions | dict[str, Any] | None = None,
         placement_mode: PlacementMode | str | None = None,
         placement_spillover: PlacementSpillover | str | None = None,
+        runtime_class: str | None = None,
+        security_context: SecurityContext | dict[str, Any] | None = None,
+        working_dir: str | None = None,
+        object_storage_access: ObjectStorageAccess | dict[str, Any] | None = None,
         environment_variables: dict[str, str] | None = None,
         annotations: dict[str, str] | None = None,
         request_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str | None = None,
         **kwargs: Any,
     ) -> Callable[[Callable[P, R]], RemoteFunction[P, R]]:
         """Decorator to execute a Python function in a sandbox.
@@ -722,6 +776,7 @@ class Session:
             max_timeout_seconds: Removed in 1.x; use ``request_timeout_seconds``.
             request_timeout_seconds: Client-side HTTP timeout for sandbox RPCs.
                 Defaults to the session's ``SandboxDefaults.request_timeout_seconds``.
+            data_plane_mode: Override the session's data-plane transport policy.
             environment_variables: Environment variables to inject into the sandbox.
                 Merges with and overrides matching keys from the session defaults.
                 Use for non-sensitive config only.
@@ -785,9 +840,14 @@ class Session:
                 file_system_snapshot=file_system_snapshot,
                 placement_mode=placement_mode,
                 placement_spillover=placement_spillover,
+                runtime_class=runtime_class,
+                security_context=security_context,
+                working_dir=working_dir,
+                object_storage_access=object_storage_access,
                 environment_variables=environment_variables,
                 annotations=annotations,
                 request_timeout_seconds=request_timeout_seconds,
+                data_plane_mode=data_plane_mode,
             )
 
         return decorator

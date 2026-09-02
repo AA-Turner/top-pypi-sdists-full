@@ -19,20 +19,30 @@ import grpc.aio
 import pytest
 
 from cwsandbox import (
+    AuthHeaders,
+    AuthStrategy,
+    CidrBlock,
     EgressRule,
     Endpoint,
     EndpointAuth,
     EndpointKind,
+    HttpsEndpointStatus,
     ImagePullCredentials,
+    IngressRule,
     NetworkOptions,
+    ObjectStorageAccess,
+    ObjectStoragePermission,
     PlacementMode,
+    RegisteredVolumeOptions,
     Sandbox,
     SandboxDefaults,
     ScratchVolumeOptions,
     Secret,
+    SecurityContext,
     Service,
     ServiceProtocol,
     ServiceVisibility,
+    StorageMedium,
 )
 from cwsandbox._sandbox import (
     SandboxStatus,
@@ -337,6 +347,7 @@ class TestSandboxRun:
     """Tests for Sandbox.run factory method."""
 
     @staticmethod
+    @staticmethod
     def _run_with_mock_stub(*args: str, **kwargs: Any) -> tuple[Sandbox, MagicMock]:
         mock_stub = MagicMock()
         mock_stub.CreateSandbox = AsyncMock(return_value=_create_sandbox_response("matrix-id"))
@@ -473,6 +484,7 @@ class TestSandboxRun:
         assert spec.services[0].HasField("endpoint")
         assert spec.services[0].endpoint.kind == sandbox_pb2.ENDPOINT_KIND_HTTPS
         assert spec.services[0].endpoint.auth == sandbox_pb2.ENDPOINT_AUTH_OPEN
+        assert spec.services[0].endpoint.request_timeout_seconds == 0
         sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
 
     def test_create_request_maps_https_open_endpoint_from_nested_dict(self) -> None:
@@ -495,6 +507,59 @@ class TestSandboxRun:
         assert request.sandbox.spec.services[0].HasField("endpoint")
         assert ep.kind == sandbox_pb2.ENDPOINT_KIND_HTTPS
         assert ep.auth == sandbox_pb2.ENDPOINT_AUTH_OPEN
+        assert ep.request_timeout_seconds == 0
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_request_maps_https_request_timeout_seconds(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_with_mock_stub(
+            "sleep",
+            "infinity",
+            request_timeout_seconds=45,
+            services=[
+                Service(
+                    name="web",
+                    port=8080,
+                    visibility=ServiceVisibility.PUBLIC,
+                    endpoint=Endpoint(
+                        kind=EndpointKind.HTTPS,
+                        auth=EndpointAuth.OPEN,
+                        request_timeout_seconds=120,
+                    ),
+                ),
+            ],
+        )
+
+        request = stub.CreateSandbox.call_args.args[0]
+        ep = request.sandbox.spec.services[0].endpoint
+        assert ep.kind == sandbox_pb2.ENDPOINT_KIND_HTTPS
+        assert ep.auth == sandbox_pb2.ENDPOINT_AUTH_OPEN
+        assert ep.request_timeout_seconds == 120
+        assert stub.CreateSandbox.call_args.kwargs["timeout"] == 45
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_request_maps_https_request_timeout_seconds_from_nested_dict(
+        self,
+    ) -> None:
+        sandbox, stub = self._run_with_mock_stub(
+            "sleep",
+            "infinity",
+            services=[
+                {
+                    "port": 8080,
+                    "visibility": "public",
+                    "endpoint": {
+                        "kind": "https",
+                        "auth": "open",
+                        "request_timeout_seconds": 120,
+                    },
+                }
+            ],
+        )
+
+        ep = stub.CreateSandbox.call_args.args[0].sandbox.spec.services[0].endpoint
+        assert ep.request_timeout_seconds == 120
         sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
 
     def test_create_request_maps_scratch_volume(self) -> None:
@@ -518,6 +583,162 @@ class TestSandboxRun:
         assert mount.volume == "cache"
         assert mount.mount_path == "/cache"
         sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_request_maps_scratch_volume_medium_sub_path_and_read_only(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_with_mock_stub(
+            volumes=[
+                ScratchVolumeOptions(
+                    name="tmp",
+                    mount_path="/tmp/vol",
+                    medium=StorageMedium.MEMORY,
+                    sub_path="nested/dir",
+                    read_only=True,
+                )
+            ]
+        )
+
+        request = stub.CreateSandbox.call_args.args[0]
+        volume = request.sandbox.spec.volumes[0]
+        mount = request.sandbox.spec.containers[0].volume_mounts[0]
+        assert volume.scratch.medium == sandbox_pb2.STORAGE_MEDIUM_MEMORY
+        assert mount.sub_path == "nested/dir"
+        assert mount.read_only is True
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_request_maps_registered_volume(self) -> None:
+        sandbox, stub = self._run_with_mock_stub(
+            volumes=[
+                RegisteredVolumeOptions(
+                    name="data",
+                    volume_id="vol-123",
+                    mount_path="/data",
+                    sub_path="runs/1",
+                    read_only=True,
+                )
+            ]
+        )
+
+        request = stub.CreateSandbox.call_args.args[0]
+        volume = request.sandbox.spec.volumes[0]
+        mount = request.sandbox.spec.containers[0].volume_mounts[0]
+        assert volume.name == "data"
+        assert volume.volume_id == "vol-123"
+        assert mount.sub_path == "runs/1"
+        assert mount.read_only is True
+        assert sandbox._scratch_volume_names == ()
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_request_maps_runtime_class_security_context_working_dir_osa(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_with_mock_stub(
+            runtime_class="gvisor",
+            working_dir="/app",
+            security_context=SecurityContext(
+                privileged=True,
+                run_as_user=1000,
+                capabilities_add=["SYS_PTRACE"],
+            ),
+            object_storage_access=ObjectStorageAccess(
+                buckets=["bucket-a"],
+                permission=ObjectStoragePermission.READ,
+                object_prefix="prefix/",
+            ),
+        )
+
+        request = stub.CreateSandbox.call_args.args[0]
+        spec = request.sandbox.spec
+        container = spec.containers[0]
+        assert spec.runtime_class == "gvisor"
+        assert container.working_dir == "/app"
+        assert container.security_context.privileged is True
+        assert container.security_context.run_as_user == 1000
+        assert list(container.security_context.capabilities_add) == ["SYS_PTRACE"]
+        assert list(spec.object_storage_access.buckets) == ["bucket-a"]
+        assert spec.object_storage_access.permission == sandbox_pb2.OBJECT_STORAGE_PERMISSION_READ
+        assert spec.object_storage_access.object_prefix == "prefix/"
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_request_maps_full_egress_and_ingress(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_with_mock_stub(
+            network=NetworkOptions(
+                egress=[
+                    EgressRule(dns_name="pypi.org"),
+                    EgressRule(cidr=CidrBlock(cidr="10.0.0.0/8", except_cidrs=["10.1.0.0/16"])),
+                    EgressRule(any=True, ports=[443]),
+                ],
+                ingress=[IngressRule(cidr="192.168.0.0/16", ports=[8080])],
+            )
+        )
+
+        request = stub.CreateSandbox.call_args.args[0]
+        net = request.sandbox.spec.network
+        assert net.egress[0].dns_name == "pypi.org"
+        assert net.egress[1].cidr.cidr == "10.0.0.0/8"
+        assert list(getattr(net.egress[1].cidr, "except")) == ["10.1.0.0/16"]
+        assert net.egress[2].any is True
+        assert net.egress[2].ports[0].port == 443
+        assert net.ingress[0].cidr.cidr == "192.168.0.0/16"
+        assert net.ingress[0].ports[0].port == 8080
+        assert sandbox_pb2.TENANT_SCOPE_UNSPECIFIED is not None
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_uses_defaults_for_runtime_class_and_security_context(self) -> None:
+        sandbox, stub = self._run_with_mock_stub(
+            defaults=SandboxDefaults(
+                runtime_class="gvisor",
+                security_context=SecurityContext(privileged=True),
+                working_dir="/work",
+            )
+        )
+
+        request = stub.CreateSandbox.call_args.args[0]
+        assert request.sandbox.spec.runtime_class == "gvisor"
+        assert request.sandbox.spec.containers[0].security_context.privileged is True
+        assert request.sandbox.spec.containers[0].working_dir == "/work"
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_echoes_runtime_class_volumes_and_network_status(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        response = sandbox_pb2.Sandbox(
+            sandbox_id="echo-id",
+            spec=sandbox_pb2.SandboxSpec(
+                volumes=[sandbox_pb2.SandboxVolume(name="data", volume_id="vol-1")]
+            ),
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_PENDING,
+                effective_runtime_class="gvisor",
+                attached_volume_ids=["vol-1"],
+                effective_egress=[
+                    sandbox_pb2.EgressRule(dns_name="pypi.org"),
+                    sandbox_pb2.EgressRule(any=True),
+                ],
+                effective_ingress=[sandbox_pb2.IngressRule(any=True)],
+            ),
+        )
+        mock_stub = MagicMock()
+        mock_stub.CreateSandbox = AsyncMock(return_value=response)
+
+        async def ensure_client(sandbox: Sandbox) -> None:
+            sandbox._channel = MagicMock()
+            sandbox._channel.close = AsyncMock()
+            sandbox._stub = mock_stub
+
+        with patch.object(Sandbox, "_ensure_client", ensure_client):
+            sandbox = Sandbox.run(runtime_class="gvisor")
+
+        assert sandbox.effective_runtime_class == "gvisor"
+        assert sandbox.attached_volume_ids == ("vol-1",)
+        assert sandbox.dns_egress_names == ("pypi.org",)
+        assert sandbox.effective_egress[0].dns_name == "pypi.org"
+        assert sandbox.effective_egress[1].any is True
+        assert sandbox.effective_ingress[0].any is True
+        sandbox._state = _Terminal(sandbox_id="echo-id", status=SandboxStatus.COMPLETED)
 
     def test_create_request_maps_image_pull_credentials(self) -> None:
         sandbox, stub = self._run_with_mock_stub(
@@ -591,7 +812,6 @@ class TestSandboxRun:
 
         request = stub.CreateSandboxFromTemplate.call_args.args[0]
         assert list(request.overrides.containers) == []
-        assert request.overrides.primary_container == ""
         assert request.overrides.ListFields() == []
         sandbox._state = _Terminal(sandbox_id="template-id", status=SandboxStatus.COMPLETED)
 
@@ -625,20 +845,65 @@ class TestSandboxRun:
         assert request.overrides.services[0].HasField("endpoint")
         assert request.overrides.services[0].endpoint.kind == sandbox_pb2.ENDPOINT_KIND_HTTPS
         assert request.overrides.services[0].endpoint.auth == sandbox_pb2.ENDPOINT_AUTH_OPEN
+        assert request.overrides.services[0].endpoint.request_timeout_seconds == 0
+        sandbox._state = _Terminal(sandbox_id="template-id", status=SandboxStatus.COMPLETED)
+
+    def test_run_from_template_maps_https_request_timeout_seconds(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_with_mock_stub(
+            template_id="template-123",
+            request_timeout_seconds=45,
+            services=[
+                Service(
+                    port=8080,
+                    visibility=ServiceVisibility.PUBLIC,
+                    endpoint=Endpoint(
+                        kind=EndpointKind.HTTPS,
+                        auth=EndpointAuth.OPEN,
+                        request_timeout_seconds=120,
+                    ),
+                )
+            ],
+        )
+
+        request = stub.CreateSandboxFromTemplate.call_args.args[0]
+        ep = request.overrides.services[0].endpoint
+        assert ep.kind == sandbox_pb2.ENDPOINT_KIND_HTTPS
+        assert ep.auth == sandbox_pb2.ENDPOINT_AUTH_OPEN
+        assert ep.request_timeout_seconds == 120
+        assert stub.CreateSandboxFromTemplate.call_args.kwargs["timeout"] == 45
         sandbox._state = _Terminal(sandbox_id="template-id", status=SandboxStatus.COMPLETED)
 
     def test_run_from_template_args_without_image_raises(self) -> None:
         with pytest.raises(TypeError, match="require container_image"):
             Sandbox.run_from_template("template-123", "-c", "echo ready")
 
-    def test_run_from_template_args_without_command_raises(self) -> None:
-        with pytest.raises(TypeError, match="args require command"):
-            Sandbox.run_from_template(
+    def test_run_from_template_args_without_command_are_honored(self) -> None:
+        stub = MagicMock()
+        stub.CreateSandbox = AsyncMock(return_value=_create_sandbox_response())
+        stub.CreateSandboxFromTemplate = AsyncMock(
+            return_value=_create_sandbox_response("template-id")
+        )
+
+        async def ensure_client(sandbox: Sandbox) -> None:
+            sandbox._channel = MagicMock()
+            sandbox._channel.close = AsyncMock()
+            sandbox._stub = stub
+
+        with patch.object(Sandbox, "_ensure_client", ensure_client):
+            sandbox = Sandbox.run_from_template(
                 "template-123",
                 "-c",
                 "echo ready",
                 container_image="python:3.11",
             )
+
+        request = stub.CreateSandboxFromTemplate.call_args.args[0]
+        assert request.overrides.containers[0].image == "python:3.11"
+        assert not request.overrides.containers[0].command
+        assert list(request.overrides.containers[0].args) == ["-c", "echo ready"]
+        sandbox._state = _Terminal(sandbox_id="template-id", status=SandboxStatus.COMPLETED)
 
     def test_run_from_template_command_without_image_raises(self) -> None:
         with pytest.raises(TypeError, match="require container_image"):
@@ -659,6 +924,24 @@ class TestSandboxRun:
                     name="registry-creds",
                 ),
             )
+
+    def test_run_from_template_security_context_without_image_raises(self) -> None:
+        with pytest.raises(TypeError, match="require container_image"):
+            Sandbox.run_from_template(
+                "template-123",
+                security_context=SecurityContext(privileged=True),
+            )
+
+    def test_run_from_template_maps_runtime_class_without_image(self) -> None:
+        sandbox, stub = self._run_with_mock_stub(
+            template_id="template-123",
+            runtime_class="gvisor",
+        )
+
+        request = stub.CreateSandboxFromTemplate.call_args.args[0]
+        assert request.overrides.runtime_class == "gvisor"
+        assert not request.overrides.containers
+        sandbox._state = _Terminal(sandbox_id="template-id", status=SandboxStatus.COMPLETED)
 
     def test_run_from_template_maps_image_pull_credentials(self) -> None:
         sandbox, stub = self._run_with_mock_stub(
@@ -1219,13 +1502,53 @@ class TestSandboxAuth:
             mock_resolve.return_value = (("authorization", "Bearer test-api-key"),)
             await sandbox._ensure_client()
 
-            mock_resolve.assert_called_once()
+            mock_resolve.assert_called_once_with(None, base_url=sandbox._base_url)
             mock_create_channel.assert_called_once()
             # Verify no interceptors arg passed to create_channel
             call_args = mock_create_channel.call_args
             assert len(call_args[0]) == 2  # only target, is_secure
             assert sandbox._auth_metadata == (("authorization", "Bearer test-api-key"),)
             mock_stub_class.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_auth_provider_is_scoped_to_each_sandbox(self) -> None:
+        """Two sandboxes can resolve different auth without global state."""
+
+        class Provider:
+            def __init__(self, value: str) -> None:
+                self.value = value
+                self.base_urls: list[str] = []
+
+            def resolve_auth(self, *, base_url: str) -> AuthHeaders:
+                self.base_urls.append(base_url)
+                return AuthHeaders(
+                    headers={"X-Test-Auth": self.value},
+                    strategy="test",
+                )
+
+        first_provider = Provider("first")
+        second_provider = Provider("second")
+        first = Sandbox(command="sleep", args=["infinity"], auth=first_provider)
+        second = Sandbox(command="sleep", args=["infinity"], auth=second_provider)
+
+        with (
+            patch("cwsandbox._sandbox.create_channel"),
+            patch("cwsandbox._sandbox.sandbox_pb2_grpc.SandboxServiceStub"),
+        ):
+            await first._ensure_client()
+            await second._ensure_client()
+
+        assert first._auth_metadata == (("x-test-auth", "first"),)
+        assert second._auth_metadata == (("x-test-auth", "second"),)
+        assert first_provider.base_urls == [first._base_url]
+        assert second_provider.base_urls == [second._base_url]
+
+    def test_default_auth_strategy_is_coreweave(self) -> None:
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+
+        assert sandbox._auth is None
+        assert SandboxDefaults().auth is None
+        assert AuthStrategy.COREWEAVE_API_KEY.value == "coreweave_api_key"
 
     @pytest.mark.asyncio
     async def test_auth_metadata_passed_to_start_rpc(self, mock_api_key: str) -> None:
@@ -1856,6 +2179,55 @@ class TestSandboxFileOperationFallback:
         assert init_commands == [["/bin/sh", "-c", "cat >/tmp/test"]]
         assert "base64" not in " ".join(init_commands[0])
 
+    def test_binary_stream_exec_rechunks_async_source(self) -> None:
+        from cwsandbox._defaults import STDIN_CHUNK_SIZE
+        from cwsandbox._proto import sandbox_pb2 as streaming_pb2
+
+        sandbox = self._setup_running_sandbox()
+        payload = b"x" * (STDIN_CHUNK_SIZE + 7)
+        stdin_chunks: list[bytes] = []
+        close_event = asyncio.Event()
+
+        async def source() -> AsyncIterator[bytes]:
+            yield payload
+
+        def on_write(request: Any) -> None:
+            if request.HasField("stdin"):
+                stdin_chunks.append(bytes(request.stdin))
+            elif request.HasField("close"):
+                close_event.set()
+
+        async def response_generator() -> AsyncIterator[Any]:
+            yield streaming_pb2.ExecStreamResponse(ready=streaming_pb2.ExecStreamReady())
+            await asyncio.wait_for(close_event.wait(), timeout=5.0)
+            yield streaming_pb2.ExecStreamResponse(exit=streaming_pb2.ExecStreamExit(exit_code=0))
+
+        mock_call = MockBidirectionalStreamCall(
+            response_generator=response_generator,
+            on_write=on_write,
+        )
+        mock_channel, mock_stub = create_mock_channel_and_stub_bidirectional(mock_call)
+        sandbox._streaming_channel = mock_channel
+
+        with (
+            patch.object(sandbox, "_wait_until_running_async", new_callable=AsyncMock),
+            patch(
+                "cwsandbox._sandbox.sandbox_pb2_grpc.SandboxServiceStub",
+                return_value=mock_stub,
+            ),
+        ):
+            sandbox._loop_manager.run_sync(
+                sandbox._exec_streaming_binary_async(
+                    ["/bin/sh", "-c", "cat >/tmp/test"],
+                    stdin=source(),
+                    timeout_seconds=5.0,
+                    operation="Write file",
+                )
+            )
+
+        assert b"".join(stdin_chunks) == payload
+        assert [len(chunk) for chunk in stdin_chunks] == [STDIN_CHUNK_SIZE, 7]
+
     def test_read_fallback_nonzero_maps_to_file_error(self) -> None:
         sandbox = self._setup_running_sandbox()
 
@@ -2138,6 +2510,7 @@ class TestSandboxFileTooLarge:
             timeout_seconds: float | None = None,
             operation: str,
             filepath: str | None = None,
+            container: str | None = None,
         ) -> tuple[int, bytes, bytes]:
             if hasattr(stdin, "__aiter__"):
                 async for chunk in stdin:  # type: ignore[union-attr]
@@ -2173,6 +2546,7 @@ class TestSandboxFileTooLarge:
             timeout_seconds: float | None = None,
             operation: str,
             filepath: str | None = None,
+            container: str | None = None,
         ) -> tuple[int, bytes, bytes]:
             raise SandboxStreamBackpressureError(
                 "output stream ended early; not read fast enough",
@@ -2217,6 +2591,7 @@ class TestSandboxFileTooLarge:
             timeout_seconds: float | None = None,
             operation: str,
             filepath: str | None = None,
+            container: str | None = None,
         ) -> tuple[int, bytes, bytes]:
             if hasattr(stdin, "__aiter__"):
                 async for _chunk in stdin:  # type: ignore[union-attr]
@@ -2323,6 +2698,7 @@ class TestSandboxFileTooLarge:
             timeout_seconds: float | None = None,
             operation: str,
             filepath: str | None = None,
+            container: str | None = None,
         ) -> tuple[int, bytes, bytes]:
             if hasattr(stdin, "__aiter__"):
                 async for chunk in stdin:  # type: ignore[union-attr]
@@ -2465,6 +2841,7 @@ class TestSandboxFileTooLarge:
             timeout_seconds: float | None = None,
             operation: str,
             filepath: str | None = None,
+            container: str | None = None,
         ) -> tuple[int, bytes, bytes]:
             async for chunk in stdin:  # type: ignore[union-attr]
                 seen_chunks.append(bytes(chunk))
@@ -2873,7 +3250,9 @@ class TestSandboxReadFileStreaming:
         sandbox = self._setup_running_sandbox()
         captured: dict[str, float] = {}
 
-        async def fake_stat(filepath: str, timeout: float) -> int | None:
+        async def fake_stat(
+            filepath: str, timeout: float, *, container: str | None = None
+        ) -> int | None:
             captured["timeout"] = timeout
             return None
 
@@ -4066,6 +4445,27 @@ class TestSandboxList:
 
             call_args = mock_stub.ListSandboxes.call_args[0][0]
             assert call_args.show_terminated is True
+
+    @pytest.mark.asyncio
+    async def test_list_volume_ids_passes_field(self, mock_api_key: str) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        mock_channel = MagicMock()
+        mock_channel.close = AsyncMock()
+        mock_stub = MagicMock()
+        mock_stub.ListSandboxes = AsyncMock(
+            return_value=sandbox_pb2.ListSandboxesResponse(sandboxes=[])
+        )
+
+        with (
+            patch("cwsandbox._sandbox.parse_grpc_target", return_value=("test:443", True)),
+            patch("cwsandbox._sandbox.create_channel", return_value=mock_channel),
+            patch("cwsandbox._sandbox.sandbox_pb2_grpc.SandboxServiceStub", return_value=mock_stub),
+        ):
+            await Sandbox.list(volume_ids=["vol-1", "vol-2"])
+
+            call_args = mock_stub.ListSandboxes.call_args[0][0]
+            assert list(call_args.volume_ids) == ["vol-1", "vol-2"]
 
     @pytest.mark.asyncio
     async def test_list_show_terminated_default_false(self, mock_api_key: str) -> None:
@@ -6180,6 +6580,130 @@ class TestStoppingStateTransitions:
         sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
 
         assert sandbox.service_urls == ()
+
+    def test_apply_sandbox_info_echoes_https_endpoint_status(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_RUNNING,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8080,
+                        name="web",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_HTTPS,
+                            auth=sandbox_pb2.ENDPOINT_AUTH_OPEN,
+                            url="https://8080-sb-1.example",
+                            request_timeout_seconds=120,
+                        ),
+                    ),
+                    sandbox_pb2.ServiceStatus(
+                        port=9090,
+                        name="ready",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_HTTPS,
+                            auth=sandbox_pb2.ENDPOINT_AUTH_OPEN,
+                            url="https://9090-sb-1.example",
+                            request_timeout_seconds=15,
+                        ),
+                    ),
+                    sandbox_pb2.ServiceStatus(
+                        port=7070,
+                        name="plain",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                    ),
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                            url="8443-sb-1.example:443",
+                        ),
+                    ),
+                ],
+            ),
+        )
+        sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
+
+        assert sandbox.service_endpoints == (
+            HttpsEndpointStatus(
+                port=8080,
+                name="web",
+                kind=EndpointKind.HTTPS,
+                auth=EndpointAuth.OPEN,
+                url="https://8080-sb-1.example",
+                request_timeout_seconds=120,
+            ),
+            HttpsEndpointStatus(
+                port=9090,
+                name="ready",
+                kind=EndpointKind.HTTPS,
+                auth=EndpointAuth.OPEN,
+                url="https://9090-sb-1.example",
+                request_timeout_seconds=15,
+            ),
+        )
+
+    def test_apply_sandbox_info_keeps_https_timeout_when_url_suppressed(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+        sandbox._service_endpoints = (
+            HttpsEndpointStatus(
+                port=8080,
+                name="web",
+                kind=EndpointKind.HTTPS,
+                auth=EndpointAuth.OPEN,
+                url="https://8080-sb-1.example",
+                request_timeout_seconds=120,
+            ),
+        )
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_COMPLETED,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8080,
+                        name="web",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_HTTPS,
+                            auth=sandbox_pb2.ENDPOINT_AUTH_OPEN,
+                            url="",
+                            request_timeout_seconds=120,
+                        ),
+                    )
+                ],
+            ),
+        )
+        sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
+
+        assert sandbox.service_urls == ()
+        assert sandbox.service_endpoints == (
+            HttpsEndpointStatus(
+                port=8080,
+                name="web",
+                kind=EndpointKind.HTTPS,
+                auth=EndpointAuth.OPEN,
+                url="",
+                request_timeout_seconds=120,
+            ),
+        )
 
     def test_stopping_to_running_rejected(self) -> None:
         """_Stopping -> _Running is rejected (stale poll response)."""

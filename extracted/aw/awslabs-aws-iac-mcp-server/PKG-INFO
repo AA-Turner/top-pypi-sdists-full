@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: awslabs.aws-iac-mcp-server
-Version: 1.0.24
+Version: 1.0.25
 Summary: An Infrastructure as Code MCP server that provides CloudFormation template validation, compliance checking, and deployment troubleshooting capabilities.
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/aws-iac-mcp-server/
@@ -24,7 +24,7 @@ Requires-Python: >=3.10
 Requires-Dist: boto3>=1.40.76
 Requires-Dist: botocore>=1.34.0
 Requires-Dist: cfn-lint>=0.83.0
-Requires-Dist: fastmcp>=3.2.0
+Requires-Dist: fastmcp<4,>=3.2.0
 Requires-Dist: guardpycfn>=0.1.0
 Requires-Dist: loguru>=0.7.0
 Requires-Dist: mcp[cli]>=1.23.0

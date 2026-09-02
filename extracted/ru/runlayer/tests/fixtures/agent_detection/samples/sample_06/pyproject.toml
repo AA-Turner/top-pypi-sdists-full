@@ -1,0 +1,8 @@
+[project]
+name = "pydantic-ai-python-agent"
+version = "0.1.0"
+description = "Minimal PydanticAI agent with tools (framework detection corpus)."
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic-ai>=0.0.14",
+]

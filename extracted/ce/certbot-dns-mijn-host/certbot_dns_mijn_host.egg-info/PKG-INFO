@@ -1,0 +1,117 @@
+Metadata-Version: 2.4
+Name: certbot-dns-mijn-host
+Version: 0.0.10
+Summary: Certbot DNS plugin for mijn.host service, enabling the automation of DNS-01 challenges for issuing wildcard SSL certificates. This plugin simplifies the process of obtaining and renewing SSL certificates by integrating directly with the DNS API of mijn.host Service, making it ideal for system administrators and DevOps professionals managing secure web services.
+Home-page: https://pypi.org/project/certbot-dns-mijn-host/
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Plugins
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Internet :: Name Service (DNS)
+Classifier: Topic :: Security
+Classifier: Topic :: Security :: Cryptography
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: System :: Systems Administration
+Classifier: Topic :: Utilities
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: certbot>=2.11.0
+Requires-Dist: requests>=2.20.0
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+<a href="https://mijn.host" target="_blank">
+    <center>
+        <img src="https://assets.eu.apidog.com/app/apidoc-image/custom/20240626/f1508b02-a360-4b89-b7a9-b939a9180c0e.png"
+        alt="mijn.host"
+        />
+    </center>
+</a>
+
+# [mijn.host](https://mijn.host) DNS Certbot Authenticator Plugin
+
+The [mijn.host](https://mijn.host) DNS Certbot Plugin automates SSL/TLS certificate creation by enabling DNS-01 challenges using the mijn.host API. This plugin is designed to work with the Certbot tool, allowing seamless integration for automated certificate management.
+
+## Requirements
+
+To use the plugin, you'll need the following:
+
+- A mijn.host account
+- An API key from mijn.host
+
+## Installation
+
+You can install the plugin using `pip`:
+
+```bash
+pip install certbot-dns-mijn-host
+```
+
+## Arguments
+
+| Argument                            | Example           | Description                                                                                     |
+| ----------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
+| --authenticator                     | dns-mijn-host     | Specifies that Certbot should use this plugin. Use dns-mijnhost as the value.                   |
+| --dns-mijn-host-credentials         | ./credentials.ini | Points to the credentials file containing your mijn.host API key. Required.                     |
+| --dns-mijn-host-propagation-seconds | 60                | Sets the wait time in seconds before Certbot checks the TXT record. The default is 120 seconds. |
+
+## Credentials File
+
+```ini
+dns_mijn_host_api_key = YOUR_API_KEY
+```
+
+Make sure the file is stored securely and not accessible by unauthorized users.
+
+## Example usage
+
+```bash
+certbot certonly \
+  --authenticator dns-mijn-host \
+  --dns-mijn-host-credentials /path/to/credentials.ini \
+  --dns-mijn-host-propagation-seconds 60 \
+  --agree-tos \
+  --rsa-key-size 4096 \
+  -d 'example.com' \
+  -d '*.example.com'
+```
+
+The plugin will create a TXT record for the DNS-01 challenge in your mijn.host DNS zone. After the challenge is verified, the plugin will delete the TXT record.
+
+## Local Development
+
+For local development and testing, it’s recommended to use a Python virtual environment:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python setup.py sdist bdist_wheel
+pip install -e .
+```
+
+This will install the plugin in the local environment, allowing you to make changes without reinstalling.
+
+When running Certbot locally, you may need to specify --logs-dir, --config-dir, and --work-dir to avoid permission issues with global directories.
+
+## Support
+
+If you encounter issues or have suggestions, please open an issue on the GitHub repository.
+
+## License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](./LICENSE) file for details.
+
+## Related Plugins
+
+If you need to use a different DNS service, check out the [Certbot DNS plugins](https://eff-certbot.readthedocs.io/en/latest/using.html#dns-plugins) for other providers.

@@ -32,17 +32,17 @@ class RocCurveThresholdMixin:  # pylint: disable=missing-class-docstring
             raise ValueError("threshold must be from [0, 1] interval")
 
     def estimate_threshold(self, threshold: float) -> RocCurveEstimatedMetric:
-        """Return metrics estimation for given threshold.
+        """Return the metrics estimation for the given threshold.
 
         Parameters
         ----------
         threshold : float from [0, 1] interval
-            Threshold we want estimation for
+            The threshold for which estimation is requested.
 
         Returns
         -------
         dict
-            Dictionary of estimated metrics in form of {metric_name: metric_value}.
+            A dictionary of estimated metrics in form of {metric_name: metric_value}.
             Metrics are 'accuracy', 'f1_score', 'false_negative_score', 'true_negative_score',
             'true_negative_rate', 'matthews_correlation_coefficient', 'true_positive_score',
             'positive_predictive_value', 'false_positive_score', 'false_positive_rate',
@@ -51,7 +51,7 @@ class RocCurveThresholdMixin:  # pylint: disable=missing-class-docstring
         Raises
         ------
         ValueError
-            Given threshold isn't from [0, 1] interval
+            Given threshold isn't from [0, 1] interval.
         """
         if self.roc_points is None:
             raise ValueError("ROC points must be set to estimate threshold.")
@@ -65,11 +65,11 @@ class RocCurveThresholdMixin:  # pylint: disable=missing-class-docstring
             roc_points_with_bigger_threshold = [
                 roc_point for roc_point in self.roc_points if roc_point["threshold"] > threshold
             ]
-            estimated_roc_point = sorted(roc_points_with_bigger_threshold, key=lambda rp: rp["threshold"])[0]
+            estimated_roc_point = min(roc_points_with_bigger_threshold, key=lambda rp: rp["threshold"])
         return estimated_roc_point
 
     def get_best_f1_threshold(self) -> float:
-        """Return value of threshold that corresponds to max F1 score.
+        """Return the value of threshold that corresponds to max F1 score.
         This is threshold that will be preselected in DataRobot when you open "ROC curve" tab.
 
         Returns
@@ -127,16 +127,16 @@ class RocCurve(APIObject, RocCurveThresholdMixin):
     Attributes
     ----------
     source : str
-        ROC curve data source. Can be 'validation', 'crossValidation' or 'holdout'.
+        ROC curve data source. Can be ``validation``, ``crossValidation``, or ``holdout``.
     roc_points : list of dict
-        List of precalculated metrics associated with thresholds for ROC curve.
+        A list of precalculated metrics associated with thresholds for ROC curve.
     negative_class_predictions : list of float
-        List of predictions from example for negative class
+        A list of predictions from example for negative class.
     positive_class_predictions : list of float
-        List of predictions from example for positive class
+        A list of predictions from example for positive class.
     source_model_id : str
         ID of the model this ROC curve represents; in some cases,
-        insights from the parent of a frozen model may be used
+        insights from the parent of a frozen model may be used.
     data_slice_id: str
         ID of the data slice this ROC curve represents.
     """
@@ -180,8 +180,8 @@ class RocCurve(APIObject, RocCurveThresholdMixin):
             The directly translated dict of JSON from the server. No casing fixes have
             taken place.
         keep_attrs : iterable
-            List, set or tuple of the dotted namespace notations for attributes to keep within the
-            object structure even if their values are None
+            A list, set, or tuple of the dotted namespace notations for attributes to keep within the
+            object structure even if their values are None.
         use_insights_format : Optional[bool]
             Whether to repack the data from the format used in the GET `/insights/RocCur/` URL
             to the format used in the legacy URL.
@@ -251,8 +251,8 @@ class SlicedRocCurve(RocCurve):
             The directly translated dict of JSON from the server. No casing fixes have
             taken place.
         keep_attrs : iterable
-            List, set or tuple of the dotted namespace notations for attributes to keep within the
-            object structure even if their values are None
+            A list, set, or tuple of the dotted namespace notations for attributes to keep within the
+            object structure even if their values are None.
         use_insights_format : Optional[bool]
             Whether to repack the data from the format used in the GET `/insights/liftChart/` URL
             to the format used in the legacy URL.
@@ -272,22 +272,22 @@ class LabelwiseRocCurve(RocCurve):
     Attributes
     ----------
     source : str
-        ROC curve data source. Can be 'validation', 'crossValidation' or 'holdout'.
+        ROC curve data source. Can be ``validation``, ``crossValidation``, or ``holdout``.
     roc_points : list of dict
-        List of precalculated metrics associated with thresholds for ROC curve.
+        A list of precalculated metrics associated with thresholds for ROC curve.
     negative_class_predictions : list of float
-        List of predictions from example for negative class
+        A list of predictions from example for negative class.
     positive_class_predictions : list of float
-        List of predictions from example for positive class
+        A list of predictions from example for positive class.
     source_model_id : str
         ID of the model this ROC curve represents; in some cases,
-        insights from the parent of a frozen model may be used
+        insights from the parent of a frozen model may be used.
     label : str
-        Label name for
+        The label name.
     kolmogorov_smirnov_metric : float
-        Kolmogorov-Smirnov metric value for label
+        The Kolmogorov-Smirnov metric value for label.
     auc : float
-        AUC metric value for label
+        The AUC metric value for label.
     """
 
     _converter = (

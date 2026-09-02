@@ -1,0 +1,111 @@
+# nfpm config for the Runlayer AI Watch Linux packages (.deb + .rpm).
+# https://nfpm.goreleaser.com/configuration/
+#
+# Built from the PyInstaller onedir bundle (dist/aiwatch/). The whole bundle
+# is installed under /usr/lib/runlayer/aiwatch and a /usr/bin/aiwatch symlink
+# puts the binary on PATH. ${VERSION} is expanded from the environment by nfpm
+# at build time (set by build_aiwatch_packages.sh from pyproject.toml).
+#
+# Detect-only product mode: NOTHING executes at install time. There are deliberately
+# no maintainer scripts (no scripts: block) — cron/cronie poll /etc/cron.d
+# file mtimes, so dropping the scan/update cron entry is enough; no-scripts also
+# keeps install-time behavior easy to review.
+#
+# /etc/cron.d/runlayer-aiwatch is PLAIN content, NOT type config: conffile
+# semantics (kept on uninstall, prompted/preserved on upgrade) are wrong for a
+# cron entry — it must be removed on uninstall and replaced on upgrade so a
+# stale schedule never keeps firing. cron.d also requires non-group-writable
+# 0644 root:root or cron silently skips the file.
+#
+# /etc/runlayer/aiwatch/credentials is 0600 root-only: it carries the org API
+# key, which must never live in the world-readable config.json (unprivileged
+# per-user scan children read config.json for managed settings).
+name: runlayer-aiwatch
+arch: amd64
+platform: linux
+version: ${VERSION}
+version_schema: none
+section: utils
+priority: optional
+maintainer: Runlayer <engineering@runlayer.com>
+description: |
+  Runlayer AI Watch — Detect-only shadow-AI scanner. Scans all users for
+  AI agents, MCP servers, skills, and plugins on a cron schedule and
+  reports findings to the Runlayer gateway. No enforcement.
+vendor: Runlayer Inc.
+homepage: https://runlayer.com
+license: Apache-2.0
+
+overrides:
+  deb:
+    depends:
+      # Control-file alternatives pass through verbatim: any cron provider works.
+      - "cron | cron-daemon | cronie"
+  rpm:
+    depends:
+      # A hard `cron` Requires breaks the RHEL family; cronie is the provider there.
+      - cronie
+
+contents:
+  - dst: /var/lib/runlayer
+    type: dir
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - dst: /var/lib/runlayer/aiwatch
+    type: dir
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: ./dist/aiwatch
+    dst: /usr/lib/runlayer/aiwatch
+    type: tree
+  - src: /usr/lib/runlayer/aiwatch/aiwatch
+    dst: /usr/bin/aiwatch
+    type: symlink
+  - src: ./packaging/linux/run-aiwatch-scan.sh
+    dst: /usr/lib/runlayer/run-aiwatch-scan.sh
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: ./packaging/linux/run-aiwatch-update.sh
+    dst: /usr/lib/runlayer/run-aiwatch-update.sh
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  # Plain content on purpose — see header comment (not a conffile).
+  - src: ./packaging/linux/cron.d-runlayer-aiwatch
+    dst: /etc/cron.d/runlayer-aiwatch
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+  # On-device version record for MDM inventory (read without exec'ing aiwatch).
+  # Generated at build time by build_aiwatch_packages.sh (embeds the version), so
+  # src lives under build/ not packaging/. Plain content like cron.d — NOT a
+  # conffile — so it's replaced on upgrade and removed on uninstall.
+  - src: ./build/aiwatch-version.json
+    dst: /etc/runlayer/aiwatch/version.json
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+  - src: ./packaging/linux/aiwatch-config.json
+    dst: /etc/runlayer/aiwatch/config.json
+    type: config|noreplace
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+  # 0600 root-only — carries the org API key; see header comment.
+  - src: ./packaging/linux/aiwatch-credentials.example
+    dst: /etc/runlayer/aiwatch/credentials
+    type: config|noreplace
+    file_info:
+      mode: 0600
+      owner: root
+      group: root

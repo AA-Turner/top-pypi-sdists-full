@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+      url: "https://pypi.org/p/ANARCI"
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+
+      - id: prerelease-check
+        run: |
+          regex='((a|b|rc)([[:digit:]]+\.post)?|\.dev)[[:digit:]]+$'
+
+          if grep -E "$regex" <<<"$GITHUB_REF"; then
+            echo prerelease=true >> $GITHUB_OUTPUT
+          else
+            echo prerelease=false >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_REF: ${{ github.ref }}
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: "dist/*"
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: ${{ steps.prerelease-check.outputs.prerelease == 'true' }}

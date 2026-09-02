@@ -518,10 +518,30 @@ async def _upload_workflow_graphs(
                     exc_info=exc,
                 )
 
+        graph_payload = None
+        if graph_data is not None and not config.worker.graph.dataflow_views_enabled:
+            graph_payload = graph_data.to_dict()
+        elif graph_data is not None:
+            # Imported here, not at function top, so the kill-switch also avoids
+            # paying libcst's import cost.
+            from mistralai.workflows.core._dataflow import expand_views
+
+            # libcst parsing is CPU-bound and this task runs on the worker's loop
+            # while Temporal pollers are starting; keep it off the loop.
+            views = await asyncio.to_thread(expand_views, graph_data.to_dict(include_sources=True))
+            # The analyser needs the source text; the graphs API must never see it.
+            for view in views:
+                view.pop("sources", None)
+            # The control-flow view stays at the top level for clients that predate
+            # `views`; `views` carries only the additional renderings, so the
+            # control-flow graph is not serialised twice.
+            control_flow, *extra_views = views
+            graph_payload = {**control_flow, "views": extra_views}
+
         payload = {
             "workflow_registration_id": str(ref.workflow_registration_id),
             "version": _GRAPH_PAYLOAD_VERSION,
-            "graph_data": graph_data.to_dict() if graph_data is not None else None,
+            "graph_data": graph_payload,
             "error": error,
         }
 

@@ -224,12 +224,12 @@ class ComplianceDocTemplate(APIObject):
         Parameters
         ----------
         template_type : str or None
-            Type of the template. Currently supported values are "normal" and "time_series"
+            The template type. Currently supported values are ``normal`` and ``time_series``.
 
         Returns
         -------
         template : ComplianceDocTemplate
-            the default template object with ``sections`` attribute populated with default sections.
+            The default template object with ``sections`` attribute populated with default sections.
         """
         query_params = {"type": template_type} if template_type else None
         project_type = ComplianceDocTemplateType.to_project_type(template_type)
@@ -265,9 +265,9 @@ class ComplianceDocTemplate(APIObject):
         Parameters
         ----------
         name : str
-            the name of the template, which must be unique.
+            The name of the template, which must be unique.
         path : str
-            the path to find the JSON file at
+            The path to find the JSON file at.
         project_type : ComplianceDocTemplateProjectType
             The project type of the template.
 
@@ -298,7 +298,7 @@ class ComplianceDocTemplate(APIObject):
         name : str
             The name of the template, which must be unique.
         sections : list
-            List of section objects
+            A list of section objects.
         project_type : ComplianceDocTemplateProjectType
             The project type of the template.
 
@@ -318,12 +318,12 @@ class ComplianceDocTemplate(APIObject):
         Parameters
         ----------
         template_id :  str
-            the ID of the template to retrieve
+            The ID of the template to retrieve.
 
         Returns
         -------
         template : ComplianceDocTemplate
-            the retrieved template
+            The retrieved template.
         """
         return cls.from_location(make_url(cls._root_path, template_id))
 
@@ -340,8 +340,8 @@ class ComplianceDocTemplate(APIObject):
         Parameters
         ----------
         name_part : str or None
-            Return only the templates with names matching specified string. The matching is
-            case-insensitive.
+            If specified, returns only the templates with names matching the specified string. The
+            matching is case-insensitive.
         limit : int
             The number of records to return. The server will use a (possibly finite) default if not
             specified.
@@ -365,14 +365,14 @@ class ComplianceDocTemplate(APIObject):
         return cast(List["ComplianceDocTemplate"], [cls.from_server_data(item) for item in r_data["data"]])
 
     def sections_to_json_file(self, path: str, indent: int = 2) -> None:
-        """Save sections of the template to a json file at the specified path
+        """Saves the template sections to a JSON file at the specified path.
 
         Parameters
         ----------
         path : str
-            the path to save the file to
+            The path to save the file to.
         indent : int
-            indentation to use in the json file.
+            Indentation to use in the JSON file.
         """
         with open(path, "w") as f:  # pylint: disable=unspecified-encoding
             f.write(json.dumps(self.sections, indent=indent))
@@ -390,11 +390,11 @@ class ComplianceDocTemplate(APIObject):
         Parameters
         ----------
         name : Optional[str]
-            the new name for the template
+            The new name for the template.
         sections : list of dicts
             The list of sections within the template.
         project_type : ComplianceDocTemplateProjectType
-            The project type of the template
+            The project type of the template.
         """
         payload: Dict[str, Union[str, List[Section]]] = {}
         if name is not None:

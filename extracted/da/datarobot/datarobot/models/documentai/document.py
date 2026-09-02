@@ -69,7 +69,7 @@ class DocumentPageFile(APIObject):
         The number of bytes of the document thumbnail image. Accessing this may
         require a server request and an associated delay in fetching the resource.
     mime_type : str
-        The mime image type of the document thumbnail. Example: `'image/png'`
+        The mime image type of the document thumbnail. Example: `'image/png'`.
     """
 
     _bytes_path = "projects/{project_id}/documentPages/{document_page_id}/file/"
@@ -195,7 +195,7 @@ class DocumentThumbnail(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List[DocumentThumbnail]:
-        """Get document thumbnails from a project.
+        """Returns the document thumbnails from a project.
 
         Parameters
         ----------
@@ -368,20 +368,21 @@ class DocumentTextExtractionSampleDocument(APIObject):
         cls, model_id: str, feature_name: str, document_task: Optional[str] = None
     ) -> List[DocumentTextExtractionSampleDocument]:
         """
-        List available documents with document text extraction samples.
+        Returns a list of available documents with document text extraction samples.
 
         Parameters
         ----------
         model_id: str
             The identifier for the model.
         feature_name: str
-            The name of the feature,
+            The name of the feature.
         document_task: Optional[str]
             The document blueprint task.
 
         Returns
         -------
         List[DocumentTextExtractionSampleDocument]
+            A list of ``DocumentTextExtractionSampleDocument`` objects.
         """
         list_documents_path = cls._documents_path.format(model_id=model_id)
         params = dict(feature_name=feature_name)
@@ -398,9 +399,9 @@ class DocumentTextExtractionSamplePage(APIObject):
     Attributes
     ----------
     page_index: int
-        Index of the page inside the document
+        Index of the page inside the document.
     document_index: int
-        Index of the document inside the dataset
+        Index of the document inside the dataset.
     feature_name: str
         The name of the feature that the document text extraction sample belongs to.
     document_page_id: str

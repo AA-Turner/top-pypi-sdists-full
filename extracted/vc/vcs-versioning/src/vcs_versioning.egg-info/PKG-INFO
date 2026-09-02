@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vcs-versioning
-Version: 2.3.1
+Version: 2.3.2
 Summary: the blessed package to manage your versions by vcs metadata
 Author-email: Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>
 License: MIT

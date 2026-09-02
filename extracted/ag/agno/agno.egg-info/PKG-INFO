@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 3.0.4
+Version: 3.0.5
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -316,7 +316,7 @@ Requires-Dist: ibm-watsonx-ai; extra == "ibm"
 Provides-Extra: infinity
 Requires-Dist: infinity_client; extra == "infinity"
 Provides-Extra: litellm
-Requires-Dist: litellm<=1.82.6; extra == "litellm"
+Requires-Dist: litellm>=1.83.0; extra == "litellm"
 Provides-Extra: lmstudio
 Requires-Dist: lmstudio; extra == "lmstudio"
 Provides-Extra: meta
@@ -576,6 +576,7 @@ Requires-Dist: agno[cohere]; extra == "models"
 Requires-Dist: agno[google]; extra == "models"
 Requires-Dist: agno[groq]; extra == "models"
 Requires-Dist: agno[ibm]; extra == "models"
+Requires-Dist: agno[litellm]; extra == "models"
 Requires-Dist: agno[lmstudio]; extra == "models"
 Requires-Dist: agno[meta]; extra == "models"
 Requires-Dist: agno[mistral]; extra == "models"
@@ -590,6 +591,7 @@ Requires-Dist: agno[browserbase]; extra == "tools"
 Requires-Dist: agno[cartesia]; extra == "tools"
 Requires-Dist: agno[code]; extra == "tools"
 Requires-Dist: agno[confluence]; extra == "tools"
+Requires-Dist: agno[crawl4ai]; extra == "tools"
 Requires-Dist: agno[daytona]; extra == "tools"
 Requires-Dist: agno[ddg]; extra == "tools"
 Requires-Dist: agno[docling]; extra == "tools"

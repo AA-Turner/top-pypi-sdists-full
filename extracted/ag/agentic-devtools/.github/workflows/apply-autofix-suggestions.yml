@@ -1,0 +1,108 @@
+name: Apply Autofix Suggestions (Browser)
+run-name: Apply Autofix Suggestions (PR #${{ inputs.pr_number }})
+
+# Opt-in, browser-driven application of Copilot autofix suggestions for the
+# SWICA GitHub EMU/SSO tenant. SEPARATE from ai-pr-loop.yml — this workflow is
+# never invoked by the AI PR Loop and is gated behind ENABLE_BROWSER_APPLY_SUGGESTIONS.
+#
+# CI RUNNER NOTE: SWICA conditional access blocks GitHub-hosted runners from
+# completing the IdP login even with a correct password + TOTP. This workflow
+# MUST run on a SELF-HOSTED runner (the same class of agent that runs Cypress E2E).
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to apply Copilot autofix suggestions to'
+        required: true
+        type: string
+      dry_run:
+        description: 'Count suggestions without committing (safety valve)'
+        required: false
+        type: choice
+        default: 'true'
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: apply-autofix-suggestions-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  apply-autofix-suggestions:
+    # Self-hosted only — see CI RUNNER NOTE above.
+    runs-on: [self-hosted]
+    defaults:
+      run:
+        shell: bash
+    timeout-minutes: 20
+    # Default-off: only runs when the repository variable is explicitly enabled.
+    if: ${{ vars.ENABLE_BROWSER_APPLY_SUGGESTIONS == 'true' }}
+    steps:
+      - name: Resolve PR head ref
+        id: dispatch-pr
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          PR_NUMBER_INPUT: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          pr_number="$PR_NUMBER_INPUT"
+          if [[ ! "$pr_number" =~ ^[0-9]+$ ]]; then
+            echo "::error::workflow_dispatch input pr_number must be a numeric pull request number"
+            exit 1
+          fi
+          head_ref="$(gh pr view "$pr_number" --repo "${{ github.repository }}" --json headRefName --jq '.headRefName')"
+          echo "head_ref=$head_ref" >> "$GITHUB_OUTPUT"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.dispatch-pr.outputs.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.SPECKIT_PR_TOKEN }}
+      - name: Configure git identity
+        run: |
+          git config user.name "AMARSNIK_swica"
+          git config user.email "AMARSNIK_swica@users.noreply.github.com"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        continue-on-error: true
+        with:
+          version: "0.7 - 0.11"
+      - name: Install agentic-devtools with browser extra
+        run: |
+          if command -v uv >/dev/null 2>&1; then
+            uv pip install --system ".[browser]"
+          else
+            python -m pip install --upgrade pip
+            python -m pip install ".[browser]"
+          fi
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Apply autofix suggestions via browser
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          ENABLE_BROWSER_APPLY_SUGGESTIONS: 'true'
+          GH_BROWSER_USERNAME: ${{ secrets.GH_BROWSER_USERNAME }}
+          GH_BROWSER_PASSWORD: ${{ secrets.GH_BROWSER_PASSWORD }}
+          GH_BROWSER_2FA_SECRET: ${{ secrets.GH_BROWSER_2FA_SECRET }}
+          # Optional: override the GitHub EMU enterprise slug (default: swica).
+          AGDT_BROWSER_GH_ENTERPRISE: ${{ vars.AGDT_BROWSER_GH_ENTERPRISE }}
+        run: |
+          dry_run_flag=""
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            dry_run_flag="--dry-run"
+          fi
+          agdt-apply-pr-thread-autofix-suggestions \
+            --pr "${{ inputs.pr_number }}" \
+            --strategy browser \
+            ${dry_run_flag}

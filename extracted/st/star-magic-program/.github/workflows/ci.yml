@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  fidelity-gate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Import check (registry + calculator)
+        run: |
+          python -c "import uqff_registry_primitives as P; print(f'registry: {len([n for n in dir(P) if n.isupper() and not n.startswith(\"_\")])} constants')"
+          python -c "import uqff_calculator as C; print(f'calculator wired_count: {C.wired_count()}')"
+
+      - name: Run fidelity gate
+        run: |
+          python uqff_fidelity_tests.py
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build sdist and wheel
+        run: |
+          python -m build
+
+      - name: Twine check
+        run: |
+          twine check dist/*

@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Each slurm cluster has its own flavour, below we provide some defaults that might meet one's needs.
+type: slurm # Executor is chosen based on this field
+hostname: ??? # SLURM headnode (login) hostname (required)
+username: ${oc.env:USER} # Defaults to $USER env var
+account: ??? # SLURM account allocation (required)
+output_dir: ??? # Absolute path accessible on compute nodes (required)
+partition: batch
+cpu_partition: null  # CPU-only partition for export jobs. Falls back to execution.partition when null.
+num_nodes: 1             # Total SLURM nodes (num_nodes_per_instance = num_nodes / num_instances)
+num_instances: 1         # Number of independent deployment instances
+ntasks_per_node: 1
+gres: gpu:8
+walltime: 01:00:00
+max_walltime: "120:00:00" # Maximum total runtime across all resumes. Set to null for unlimited.
+endpoint_readiness_timeout: null
+subproject: nemo-evaluator-launcher
+sbatch_comment: null # Optional comment for SLURM job (translates to #SBATCH --comment='...')
+sbatch_extra_flags: # Extra #SBATCH flags as key-value pairs (e.g. {switches: 1, constraint: h100}). String values with spaces are automatically quoted. Use true/false for boolean flags, null to omit a flag.
+  exclusive: true  # Request exclusive node access; set to false to allow node sharing
+
+# Deployment-specific SLURM configuration
+deployment:
+  n_tasks: ${execution.num_nodes}  # total deployment srun tasks across all instances; executor divides by num_instances per srun. Override if your deployment requires more tasks per node (e.g. ntasks_per_node > 1).
+
+mounts:
+  deployment: {}
+  evaluation: {}
+  auxiliary: {}  # keyed by auxiliary deployment name, e.g. auxiliary.judge: {/host/path: /container/path}
+  mount_home: true
+
+proxy:
+  type: haproxy
+  image: haproxy:latest
+  config:
+    haproxy_port: 5009
+    health_check_path: /health
+    health_check_status: 200

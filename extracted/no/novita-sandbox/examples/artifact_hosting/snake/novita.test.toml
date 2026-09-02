@@ -1,0 +1,16 @@
+# This is a config for Novita Agent Sandbox template.
+# You can use template ID (b3gw9atnsah6wr9sxvh1) or template name (snake) to create a sandbox:
+
+# Python SDK
+# from novita_sandbox.core import Sandbox, AsyncSandbox
+# sandbox = Sandbox.create("snake") # Sync sandbox
+# sandbox = await AsyncSandbox.create("snake") # Async sandbox
+
+# JS SDK
+# import { Sandbox } from 'novita-sandbox'
+# const sandbox = await Sandbox.create('snake')
+
+team_id = "06c59bc9-f76d-4c2c-a0d7-e96e8520a65e"
+dockerfile = "novita.Dockerfile"
+template_name = "snake"
+template_id = "b3gw9atnsah6wr9sxvh1"

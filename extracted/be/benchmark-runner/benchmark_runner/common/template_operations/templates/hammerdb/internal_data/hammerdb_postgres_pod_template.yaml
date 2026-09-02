@@ -1,0 +1,255 @@
+{%- if storage_type == 'lso' %}
+apiVersion: local.storage.openshift.io/v1
+kind: LocalVolume
+metadata:
+  name: local-disks
+  namespace: openshift-local-storage
+spec:
+  nodeSelector:
+    nodeSelectorTerms:
+    - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - {{ lso_node }}
+  storageClassDevices:
+    - storageClassName: local-sc
+      volumeMode: Filesystem
+      fsType: ext4
+      devicePaths:
+        - /dev/disk/by-id/{{ lso_disk_id }}
+---
+{%- endif %}
+{%- if storage_type == 'lso' or odf_pvc == True %}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+    {% if scale -%}
+    name: postgres-persistent-storage-{{ scale }}
+    {%- else -%}
+    name: postgres-persistent-storage
+    {%- endif %}
+    namespace: benchmark-runner
+spec:
+    {%- if storage_type == 'lso' %}
+    storageClassName: local-sc
+    {%- else %}
+    storageClassName: ocs-storagecluster-ceph-rbd
+    {%- endif %}
+    accessModes: [ "ReadWriteOnce" ]
+    volumeMode: Filesystem
+    resources:
+      requests:
+        storage: {{ data_storage }}
+---
+{%- endif %}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  {% if scale -%}
+  name: postgres-custom-config-{{ scale }}
+  {%- else -%}
+  name: postgres-custom-config
+  {%- endif %}
+  namespace: benchmark-runner
+data:
+  custom.pg_hba.conf: |
+    # TYPE  DATABASE        USER            ADDRESS                 METHOD
+    # "local" is for Unix domain socket connections only
+    local   all             all                                     trust
+    # IPv4 local connections:
+    host    all             all             all            trust
+  custom.perf.conf: |
+    autovacuum = 'off'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {% if scale -%}
+  name: postgres-deployment-{{ scale }}
+  {%- else -%}
+  name: postgres-deployment
+  {%- endif %}
+  namespace: benchmark-runner
+spec:
+  selector:
+    matchLabels:
+      {% if scale -%}
+      app: postgres-{{ scale }}
+      {%- else -%}
+      app: postgres
+      {%- endif %}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        {% if scale -%}
+        app: postgres-{{ scale }}
+        {%- else -%}
+        app: postgres
+        {%- endif %}
+        type: postgres-database-server
+    spec:
+      {%- if pin_node2 %}
+      nodeSelector:
+        kubernetes.io/hostname: "{{ pin_node2 }}"
+      {%- endif %}
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: postgres
+          image: {{ db_image_pod }}
+          imagePullPolicy: "IfNotPresent"
+          ports:
+            - containerPort: 5432
+          resources:
+            requests:
+              cpu: {{ database_requests_cpu }}
+              memory: {{ database_requests_memory }}
+            limits:
+              cpu: {{ database_limits_cpu }}
+              memory: {{ database_limits_memory }}
+          env:
+            - name: POSTGRESQL_USER
+              value: "test"
+            - name: POSTGRESQL_PASSWORD
+              value: "test"
+            - name: POSTGRESQL_DATABASE
+              value: "test"
+            - name: POSTGRESQL_ADMIN_PASSWORD
+              value: "postgres"
+          volumeMounts:
+            - name: postgres-custom-config
+              mountPath: /var/lib/pgsql/data/pg_hba.conf
+              subPath: custom.pg_hba.conf
+            - name: postgres-custom-config
+              mountPath: /opt/app-root/src/postgresql-cfg/perf.conf
+              subPath: custom.perf.conf
+            {%- if storage_type == 'lso' or odf_pvc == True %}
+            - name: postgres-persistent-storage
+              mountPath: /var/lib/pgsql/data
+              readOnly: false
+            {%- endif %}
+      volumes:
+        - name: postgres-custom-config
+          configMap:
+            {% if scale -%}
+            name: postgres-custom-config-{{ scale }}
+            {%- else -%}
+            name: postgres-custom-config
+            {%- endif %}
+        {%- if storage_type == 'lso' or odf_pvc == True %}
+        - name: postgres-persistent-storage
+          persistentVolumeClaim:
+            {% if scale -%}
+            claimName: postgres-persistent-storage-{{ scale }}
+            {%- else -%}
+            claimName: postgres-persistent-storage
+            {%- endif %}
+        {%- endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  {% if scale -%}
+  name: postgres-deployment-{{ scale }}
+  {%- else -%}
+  name: postgres-deployment
+  {%- endif %}
+  namespace: benchmark-runner
+spec:
+  selector:
+    {% if scale -%}
+    app: postgres-{{ scale }}
+    {%- else -%}
+    app: postgres
+    {%- endif %}
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  {% if scale -%}
+  name: hammerdb-postgres-pod-{{ trunc_uuid }}-{{ scale }}
+  {%- else -%}
+  name: hammerdb-postgres-pod-{{ trunc_uuid }}
+  {%- endif %}
+  namespace: benchmark-runner
+  labels:
+    {% if scale -%}
+    app: hammerdb-postgres-pod-{{ trunc_uuid }}-{{ scale }}
+    {%- else -%}
+    app: hammerdb-postgres-pod-{{ trunc_uuid }}
+    {%- endif %}
+    benchmark-uuid: {{ uuid }}
+spec:
+  restartPolicy: Never
+  {%- if pin_node1 %}
+  nodeSelector:
+    kubernetes.io/hostname: "{{ pin_node1 }}"
+  {%- endif %}
+  volumes:
+    - name: hammerdb-creator
+      configMap:
+        name: hammerdb-postgres-creator
+        defaultMode: 0640
+    - name: hammerdb-workload
+      configMap:
+        name: hammerdb-postgres-workload
+        defaultMode: 0640
+    - name: hammerdb-postgres-results-parser
+      configMap:
+        name: hammerdb-postgres-results-parser
+        defaultMode: 0640
+  initContainers:
+    - name: wait-for-postgres
+      image: {{ hammerdb_image }}
+      command: ["/bin/sh", "-c"]
+      args:
+        - until python3 -c "import socket; s=socket.socket(); s.settimeout(2); s.connect(('$POSTGRES_HOST', 5432)); s.close()" 2>/dev/null; do echo "Waiting for PostgreSQL..."; sleep 3; done
+      env:
+        - name: POSTGRES_HOST
+          {% if scale -%}
+          value: "postgres-deployment-{{ scale }}"
+          {%- else -%}
+          value: "postgres-deployment"
+          {%- endif %}
+  containers:
+    - name: hammerdb
+      image: {{ hammerdb_image }}
+      imagePullPolicy: Always
+      env:
+        - name: POSTGRES_HOST
+          {% if scale -%}
+          value: "postgres-deployment-{{ scale }}"
+          {%- else -%}
+          value: "postgres-deployment"
+          {%- endif %}
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          cd /hammer
+          echo "=== STEP 1: CREATE DB ==="
+          ./hammerdbcli auto /creator/createdb_postgres.tcl 2>&1 | tee /tmp/hammerdb-createdb.log
+          echo "=== STEP 2: RUN WORKLOAD ==="
+          ./hammerdbcli auto /workload/workload_postgres.tcl 2>&1 | tee /tmp/hammerdb-workload.log
+          python3 /parse-results/parse_results.py
+      volumeMounts:
+        - name: hammerdb-creator
+          mountPath: /creator
+          readOnly: false
+        - name: hammerdb-workload
+          mountPath: /workload
+          readOnly: false
+        - name: hammerdb-postgres-results-parser
+          mountPath: /parse-results
+          readOnly: false
+      resources:
+        requests:
+          cpu: "{{ requests_cpu }}"
+          memory: "{{ requests_memory }}"
+        limits:
+          cpu: "{{ limits_cpu }}"
+          memory: "{{ limits_memory }}"

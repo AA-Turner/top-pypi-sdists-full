@@ -1,0 +1,27 @@
+- name: One child, capped
+  period: 2025
+  absolute_error_margin: 100
+  input:
+    benunit_count_children: 1
+    childcare_expenses: 9_000
+  output:
+    housing_benefit_applicable_income_childcare_element: 9_000
+
+- name: Two child, capped
+  period: 2025
+  absolute_error_margin: 100
+  input:
+    benunit_count_children: 2
+    childcare_expenses: 10_000
+  output:
+    housing_benefit_applicable_income_childcare_element: 10_000
+
+- name: No children
+  period: 2025
+  absolute_error_margin: 100
+  input:
+    benunit_count_children: 0
+    childcare_expenses: 30_000
+  output:
+    housing_benefit_applicable_income_childcare_element: 0
+

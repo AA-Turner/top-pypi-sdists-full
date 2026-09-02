@@ -1,0 +1,10 @@
+contracts_folder: contractsrenamed
+
+dependencies:
+  - OpenZeppelin/openzeppelin-contracts@3.1.0
+
+compiler:
+  solc:
+    version: 0.6.12
+    remappings:
+      - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@3.1.0"

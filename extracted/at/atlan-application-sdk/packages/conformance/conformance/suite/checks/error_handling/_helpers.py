@@ -1,0 +1,328 @@
+"""Shared AST helper functions used across E-series rule modules."""
+
+from __future__ import annotations
+
+import ast
+from collections.abc import Iterator
+
+from .._ast_common._exc_info import has_exc_info_traceback
+from ._constants import _BROAD_EXCEPT_TYPES, _LOG_METHODS, BUILTIN_RAISES
+
+
+def _get_name(node: ast.expr | ast.AST | None) -> str | None:
+    """Extract a simple name string from a Name, Attribute, or Subscript node."""
+    if node is None:
+        return None
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    if isinstance(node, ast.Subscript):
+        return _get_name(node.value)
+    return None
+
+
+def _raise_exc_name(exc: ast.expr) -> str | None:
+    """Get the exception class name from a raise-expression.
+
+    Handles both ``raise ValueError`` (Name) and ``raise ValueError(...)``
+    (Call wrapping a Name or Attribute).
+    """
+    if isinstance(exc, ast.Call):
+        return _get_name(exc.func)
+    return _get_name(exc)
+
+
+def _is_log_call_stmt(stmt: ast.stmt) -> bool:
+    """True if *stmt* is a bare ``logger.<method>(...)`` expression."""
+    if not isinstance(stmt, ast.Expr):
+        return False
+    call = stmt.value
+    if isinstance(call, ast.Await):
+        call = call.value
+    if not isinstance(call, ast.Call):
+        return False
+    func = call.func
+    return isinstance(func, ast.Attribute) and func.attr in _LOG_METHODS
+
+
+def _any_logging_in(stmts: list[ast.stmt]) -> bool:
+    """True if any logging call appears anywhere within *stmts*."""
+    for stmt in stmts:
+        if _is_log_call_stmt(stmt):
+            return True
+        for node in _iter_shallow(stmt):
+            if isinstance(node, ast.stmt) and _is_log_call_stmt(node):
+                return True
+    return False
+
+
+def _has_exc_info(call: ast.Call, exception_name: str | None = None) -> bool:
+    """True if *call* passes an ``exc_info`` value that carries a traceback.
+
+    Thin alias over :func:`_ast_common.has_exc_info_traceback`, shared with
+    L004 — ``exc_info=<the except-as binding>`` attaches the same traceback as
+    ``exc_info=True`` and must not read as a discarded stack trace here either.
+    """
+    return has_exc_info_traceback(call, exception_name)
+
+
+def _body_is_only_pass(stmts: list[ast.stmt]) -> bool:
+    """True if the body is exclusively Pass (ignoring docstring constants)."""
+    real = [
+        s
+        for s in stmts
+        if not (
+            isinstance(s, ast.Expr)
+            and isinstance(s.value, ast.Constant)
+            and isinstance(s.value.value, str)
+        )
+    ]
+    return len(real) == 1 and isinstance(real[0], ast.Pass)
+
+
+def _body_is_only_loop_control_no_logging(stmts: list[ast.stmt]) -> bool:
+    """True if body only has continue/break/pass with no logging."""
+    if _any_logging_in(stmts):
+        return False
+    real = [
+        s
+        for s in stmts
+        if not (
+            isinstance(s, ast.Expr)
+            and isinstance(s.value, ast.Constant)
+            and isinstance(s.value.value, str)
+        )
+    ]
+    return len(real) > 0 and all(
+        isinstance(s, (ast.Continue, ast.Break, ast.Pass)) for s in real
+    )
+
+
+def _is_gather_call(call: ast.Call) -> bool:
+    """True if *call* is ``asyncio.gather(...)`` or bare ``gather(...)``."""
+    func = call.func
+    if isinstance(func, ast.Attribute):
+        return (
+            func.attr == "gather"
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "asyncio"
+        )
+    if isinstance(func, ast.Name):
+        return func.id == "gather"
+    return False
+
+
+def is_broad_suppress(node: ast.Call) -> bool:
+    """True if *node* is ``contextlib.suppress(Exception|BaseException)``."""
+    name = _get_name(node.func)
+    if name != "suppress":
+        return False
+    for arg in node.args:
+        if _get_name(arg) in _BROAD_EXCEPT_TYPES:
+            return True
+    return False
+
+
+def is_builtin_raise(raise_node: ast.Raise) -> bool:
+    """True if this raise targets a name in BUILTIN_RAISES."""
+    if raise_node.exc is None:
+        return False
+    return _raise_exc_name(raise_node.exc) in BUILTIN_RAISES
+
+
+def _get_decorator_names(
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> frozenset[str]:
+    names: set[str] = set()
+    for dec in func.decorator_list:
+        # @decorator → Name; @decorator("arg") → Call whose func is Name/Attribute
+        if isinstance(dec, ast.Call):
+            n = _get_name(dec.func)
+        else:
+            n = _get_name(dec)
+        if n:
+            names.add(n)
+    return frozenset(names)
+
+
+def _inherits_logging_filter(cls: ast.ClassDef) -> bool:
+    for base in cls.bases:
+        n = _get_name(base)
+        if n == "Filter":
+            return True
+    return False
+
+
+def _find_filter_method(
+    cls: ast.ClassDef,
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    for item in cls.body:
+        if (
+            isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and item.name == "filter"
+        ):
+            return item
+    return None
+
+
+def _filter_body_wrapped(method: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """True if the filter() body is a single Try node (fully wrapped)."""
+    real = [
+        s
+        for s in method.body
+        if not (
+            isinstance(s, ast.Expr)
+            and isinstance(s.value, ast.Constant)
+            and isinstance(s.value.value, str)
+        )
+    ]
+    return len(real) == 1 and isinstance(real[0], ast.Try)
+
+
+def _message_kw_has_exc_text(kw_value: ast.expr, exc_binding: str | None) -> bool:
+    """True if a ``message=`` value embeds caught-exception text."""
+    if exc_binding is None:
+        return False
+    # f-string containing the exception binding name
+    if isinstance(kw_value, ast.JoinedStr):
+        for part in ast.walk(kw_value):
+            if isinstance(part, ast.FormattedValue):
+                inner = part.value
+                if isinstance(inner, ast.Name) and inner.id == exc_binding:
+                    return True
+                if (
+                    isinstance(inner, ast.Call)
+                    and _get_name(inner.func) in ("str", "repr")
+                    and inner.args
+                    and isinstance(inner.args[0], ast.Name)
+                    and inner.args[0].id == exc_binding
+                ):
+                    return True
+        return False
+    # str(exc) / repr(exc) directly
+    if isinstance(kw_value, ast.Call) and (
+        _get_name(kw_value.func) in ("str", "repr")
+        and kw_value.args
+        and (
+            isinstance(kw_value.args[0], ast.Name)
+            and kw_value.args[0].id == exc_binding
+        )
+    ):
+        return True
+    # BinOp concat referencing the binding
+    if isinstance(kw_value, ast.BinOp) and isinstance(kw_value.op, ast.Add):
+        for node in ast.walk(kw_value):
+            if isinstance(node, ast.Name) and node.id == exc_binding:
+                return True
+    return False
+
+
+def _iter_shallow(root: ast.AST) -> Iterator[ast.AST]:
+    """Yield descendants of *root* without crossing nested function/class defs."""
+    queue = list(ast.iter_child_nodes(root))
+    while queue:
+        node = queue.pop()
+        yield node
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            queue.extend(ast.iter_child_nodes(node))
+
+
+def _raise_preserves_trace(stmt: ast.Raise) -> bool:
+    """True when a ``raise`` keeps the original exception in the chain.
+
+    ``raise`` (bare), ``raise X(...)`` (implicit ``__context__`` chaining), and
+    ``raise X(...) from e`` (explicit ``__cause__``) all preserve the traceback.
+    Only ``raise X(...) from None`` deliberately discards the context, so it is
+    treated as trace-losing.
+    """
+    if isinstance(stmt.cause, ast.Constant) and stmt.cause.value is None:
+        return False
+    return True
+
+
+def _body_always_raises(body: list[ast.stmt]) -> bool:
+    """True when *body* is guaranteed to re-raise on every path (trace-preserving).
+
+    A top-level ``raise`` makes everything after it unreachable, so the block
+    always raises; an ``if``/``else`` whose branches both always-raise does too.
+    A ``raise`` that only appears inside a conditional without a matching ``else``
+    is not counted — the other path could still swallow. Any trace-losing
+    ``raise ... from None`` on the guaranteeing path disqualifies the body.
+    """
+    for stmt in body:
+        if isinstance(stmt, ast.Raise):
+            return _raise_preserves_trace(stmt)
+        if (
+            isinstance(stmt, ast.If)
+            and stmt.orelse
+            and _body_always_raises(stmt.body)
+            and _body_always_raises(stmt.orelse)
+        ):
+            return True
+    return False
+
+
+def _body_has_bypassing_exit(body: list[ast.stmt], *, loop_depth: int = 0) -> bool:
+    """True when some path through *body* leaves the handler without a
+    trace-preserving re-raise.
+
+    ``_body_always_raises`` only proves that *a* guaranteeing raise is reached;
+    it does not see a path that bypasses it. Bypasses:
+
+    * ``return`` — exits the enclosing function, swallowing the exception.
+    * ``raise ... from None`` — reaches a raise but discards the traceback.
+    * ``break`` / ``continue`` — only when they belong to a loop *outside* the
+      handler (``loop_depth == 0``): they escape to that outer loop and skip the
+      trailing raise, so the exception is swallowed. A ``break``/``continue``
+      controlling a loop *nested inside* the handler is ordinary loop control —
+      the handler's trailing raise still runs — and must not disqualify.
+
+    Recurses through compound statements (tracking loop nesting) but not into
+    nested ``def``/``class`` bodies, where a ``return`` belongs to the inner
+    scope. Conservative by design: over-firing merely re-introduces a
+    suppression, whereas under-firing hides a real swallow (WARN tier).
+    """
+    for stmt in body:
+        if isinstance(stmt, ast.Return):
+            return True
+        if isinstance(stmt, ast.Raise) and not _raise_preserves_trace(stmt):
+            return True
+        if isinstance(stmt, (ast.Break, ast.Continue)):
+            if loop_depth == 0:
+                return True
+            continue  # loop control for a loop nested in the handler
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue  # different scope — its return/raise is not a handler exit
+        if isinstance(stmt, (ast.For, ast.AsyncFor, ast.While)):
+            # break/continue inside the loop body target this loop, not the
+            # handler; the loop's ``else`` runs after the loop, so it stays at
+            # the handler's depth.
+            if _body_has_bypassing_exit(stmt.body, loop_depth=loop_depth + 1):
+                return True
+            if _body_has_bypassing_exit(stmt.orelse, loop_depth=loop_depth):
+                return True
+            continue
+        for block in _child_stmt_blocks(stmt):
+            if _body_has_bypassing_exit(block, loop_depth=loop_depth):
+                return True
+    return False
+
+
+def _child_stmt_blocks(stmt: ast.stmt) -> list[list[ast.stmt]]:
+    """Statement blocks of a non-loop compound statement (``if``/``with``/``try``/
+    ``match``), for depth-preserving recursion. Loops are handled separately so
+    their nesting can be tracked."""
+    blocks: list[list[ast.stmt]] = []
+    for field in ("body", "orelse", "finalbody"):
+        value = getattr(stmt, field, None)
+        if isinstance(value, list):
+            blocks.append(value)
+    # ast.TryStar (``except*``, PEP 654) is a separate node, not an ast.Try
+    # subclass — include its handlers too, or a swallow inside an except* group
+    # is invisible.
+    if isinstance(stmt, (ast.Try, ast.TryStar)):
+        blocks.extend(handler.body for handler in stmt.handlers)
+    if isinstance(stmt, ast.Match):
+        blocks.extend(case.body for case in stmt.cases)
+    return blocks

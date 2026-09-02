@@ -1,0 +1,40 @@
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+# Canonical floor: `build-system.requires` below.
+maturin = "^1.9.4"
+pytest = "^9.1.1"
+pytest-asyncio = "^1.4.0"
+
+[build-system]
+# `pyo3/extension-module` is deprecated and this crate no longer enables it: the
+#  feature dropped the link to `libpython`, which broke `cargo test`. `maturin`
+#  1.9.4 is the first release that turns extension-module linking on by itself.
+#  https://pyo3.rs/v0.29.0/faq.html#i-cant-run-cargo-test-or-i-cant-build-in-a-cargo-workspace-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
+requires = ["maturin>=1.9.4"]
+build-backend = "maturin"
+
+[project]
+name = "shazamio_core"
+readme = "README.md"
+authors = [{name = "dotX12", email = "dev@shitposting.team"}]
+maintainers = [{name = "Danipulok", email = "danipulok@gmail.com"}]
+# Must match the `abi3-py*` feature in `Cargo.toml`, which is where the floor is
+#  argued: that feature is what the extension links against, this is only what
+#  `pip` refuses to install on.
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+
+[tool.maturin]
+bindings = "pyo3"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Every test here awaits the extension, so marking each one adds nothing.
+asyncio_mode = "auto"

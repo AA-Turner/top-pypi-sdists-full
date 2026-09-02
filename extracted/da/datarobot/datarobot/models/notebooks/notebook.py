@@ -328,20 +328,20 @@ class Notebook(APIObject, BrowserMixin):
         use_cases: Optional[UseCaseLike] = None,
     ) -> List[Notebook]:
         """
-        List all Notebooks available to the user.
+        Returns a list of all Notebooks available to the user.
 
         Parameters
         ----------
         created_before : Optional[str]
-            List Notebooks created before a certain date. Optional.
+            Limits results to Notebooks created before a certain date. Optional.
         created_after : Optional[str]
-            List Notebooks created after a certain date. Optional.
+            Limits results to Notebooks created after a certain date. Optional.
         order_by : Optional[str]
             Property to sort returned Notebooks. Optional.
-            Supported properties are "name", "created", "updated", "tags", and "lastViewed".
+            Supported properties are "name", "created", "updated", "tags", and ``lastViewed``.
             Prefix the attribute name with a dash to sort in descending order,
-            e.g., order_by='-created'.
-            By default, the order_by parameter is None.
+            e.g., ``order_by``='-created'.
+            By default, the ``order_by`` parameter is None.
         tags : Optional[List[str]]
             A list of tags that returned Notebooks should be associated with. Optional.
         owners : Optional[List[str]]
@@ -640,7 +640,7 @@ class Notebook(APIObject, BrowserMixin):
         enabled_only: bool = False,
     ) -> List[NotebookScheduledJob]:
         """
-        List all NotebookScheduledJobs associated with the notebook.
+        Returns a list of all NotebookScheduledJobs associated with the notebook.
 
         Parameters
         ----------

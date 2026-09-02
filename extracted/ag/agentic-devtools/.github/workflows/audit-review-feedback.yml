@@ -1,0 +1,100 @@
+name: Audit Review Feedback
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: "Number of PRs to audit"
+        required: false
+        default: "10"
+
+jobs:
+  check-threshold:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    outputs:
+      threshold_met: ${{ steps.threshold.outputs.threshold_met }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -e .
+      - id: threshold
+        run: |
+          set +e
+          agdt-audit-on-pr-close --repo "${{ github.repository }}"
+          EXIT_CODE=$?
+          set -e
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            echo "threshold_met=true" >> "$GITHUB_OUTPUT"
+          elif [ "$EXIT_CODE" -eq 2 ]; then
+            echo "threshold_met=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Audit threshold check failed with exit code $EXIT_CODE" >&2
+            exit "$EXIT_CODE"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  run-audit:
+    needs: [check-threshold]
+    if: >-
+      always() && (
+        (github.event_name == 'workflow_dispatch') ||
+        (github.event_name == 'pull_request' &&
+         needs.check-threshold.outputs.threshold_met == 'true')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: pip install -e .
+      - name: Validate SPECKIT Token
+        env:
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+        run: |
+          if [[ -z "$SPECKIT_PR_TOKEN" ]]; then
+            echo "::error::SPECKIT_PR_TOKEN secret is not configured or empty. This PAT is required for audit tracking issue creation, batch branch push, and coding-agent evaluation dispatch."
+            exit 1
+          fi
+      - id: prepare
+        run: |
+          OUTPUT=$(agdt-audit-prepare \
+            --repo "${{ github.repository }}" \
+            --batch-size "${{ inputs.batch_size || '10' }}")
+          echo "$OUTPUT"
+          OUTPUT_DIR=$(echo "$OUTPUT" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('output_dir',''))")
+          BATCH_ID=$(echo "$OUTPUT" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('batch_id',''))")
+          PR_NUMBERS=$(echo "$OUTPUT" | python3 -c "import sys, json; d=json.load(sys.stdin); print(','.join(str(n) for n in d.get('pr_numbers',[])))")
+          echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+          echo "batch_id=$BATCH_ID" >> "$GITHUB_OUTPUT"
+          echo "pr_numbers=$PR_NUMBERS" >> "$GITHUB_OUTPUT"
+        env:
+          AGENTIC_DEVTOOLS_STATE_DIR: ${{ github.workspace }}
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+      - name: Dispatch evaluation agent
+        if: steps.prepare.outputs.output_dir != '' && steps.prepare.outputs.batch_id != ''
+        run: |
+          agdt-audit-dispatch-evaluation \
+            --repo "${{ github.repository }}" \
+            --batch-id "${{ steps.prepare.outputs.batch_id }}" \
+            --output-dir "${{ steps.prepare.outputs.output_dir }}" \
+            --pr-numbers "${{ steps.prepare.outputs.pr_numbers }}"
+        env:
+          SPECKIT_PR_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+      - name: Upload audit batch artifacts
+        if: steps.prepare.outputs.output_dir != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-batch-${{ github.run_id }}
+          path: ${{ steps.prepare.outputs.output_dir }}
+          retention-days: 7

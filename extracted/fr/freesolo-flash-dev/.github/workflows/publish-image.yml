@@ -1,0 +1,110 @@
+name: Publish flash image
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "flash/**"
+      - "Dockerfile"
+      # The base image COPYs the entrypoint out of this directory, so a change here changes the
+      # published image. Without this filter entry an entrypoint-only fix -- including a security
+      # fix to the secrets wrapper -- merges without rebuilding, and the tags keep serving the old
+      # script until some unrelated watched file happens to change.
+      - "deploy/infisical/entrypoint.sh"
+      - "pyproject.toml"
+      - "scripts/build_dev_dist.py"
+      - ".github/workflows/publish-image.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: publish-flash-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-flash-image:
+    name: Build and push flash control-plane image
+    # Upstream only -- see publish.yml. The push target `ghcr.io/freesolo-co/freesolo-flash` is in
+    # our org namespace, so a fork's GITHUB_TOKEN cannot write it: the build would burn ~10 minutes
+    # and then fail at the push. A fork that wants its own image builds it from the Dockerfile.
+    if: github.repository == 'freesolo-co/flash'
+    runs-on: ubuntu-latest
+    # 3min is the slowest run on record (40 runs, median 2min). 45 covers a cold layer cache
+    # rebuilding the control-plane image from scratch.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/freesolo-co/freesolo-flash
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags
+        id: tags
+        run: |
+          # main publishes :main + :latest; any other branch (dev) publishes
+          # :<branch>. every build also gets an immutable :sha-<short> tag.
+          short_sha="$(git rev-parse --short HEAD)"
+          branch="${GITHUB_REF_NAME}"
+          {
+            echo "tags<<EOF"
+            if [ "$branch" = "main" ]; then
+              echo "${IMAGE}:main"
+              echo "${IMAGE}:latest"
+            else
+              echo "${IMAGE}:${branch}"
+            fi
+            echo "${IMAGE}:sha-${short_sha}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # The checked-in source always ships CHANNEL="prod" (scripts/_channel.py) -- the PyPI
+      # dev-channel package (publish-dev.yml) already flips it via the same script before its
+      # own build. The Docker image build never did, so `:dev` shipped with CHANNEL="prod" and
+      # every channel-derived default (serving URL, control-plane URL, CLI/dist names) resolved
+      # to prod instead of dev. Apply the same full transform here, dev branch only -- :main must
+      # ship as checked in. --no-build applies the pyproject + channel rewrites together (they
+      # must move in lockstep: flash/__init__.py's __version__ resolves via
+      # importlib.metadata.version(DIST_NAME), so flipping CHANNEL alone leaves that lookup
+      # pointed at a distribution name nothing installed) and skips `uv build`, which this image
+      # doesn't need.
+      - name: Set up Python
+        if: github.ref_name == 'dev'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Apply dev-channel source transform for the dev image
+        if: github.ref_name == 'dev'
+        run: python3 scripts/build_dev_dist.py --no-build
+
+      # INSTALL_INFISICAL=true bakes the pinned Infisical CLI into the PUBLISHED images (:main,
+      # :latest, :dev) so a deployment can switch to vault-backed secrets by setting
+      # INFISICAL_CLIENT_ID, with no rebuild. It does NOT change how these images behave by
+      # default: the entrypoint stays a passthrough until that variable is set, so an image
+      # published here still runs on a plain --env-file. The Dockerfile defaults the argument
+      # to false, so `docker build .` from a checkout stays vendor-free.
+      - name: Build and push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            INSTALL_INFISICAL=true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=min

@@ -33,37 +33,37 @@ COMMAND_SCHEMAS: dict[str, str] = {
     "comfy cloud logout": "auth",
     "comfy cloud whoami": "auth",
     "comfy cloud status": "cloud_status",
-    "comfy build scan": "build",
-    "comfy build create": "build_create",
-    "comfy build list": "build_list",
-    "comfy build get": "build_get",
-    # `comfy build release` is the canonical subgroup; `comfy build version` is
-    # its hidden deprecated alias. Alias envelopes carry the canonical `build
-    # release ...` labels, but both spellings register here so an agent that
-    # looks up the old path still finds the contract (schema files keep their
-    # build_version_* names because user scripts pin them).
-    "comfy build release create": "build_version_create",
-    "comfy build release list": "build_version_list",
-    "comfy build release get": "build_version_get",
-    "comfy build release logs": "build_version_logs",
-    "comfy build release manifest": "build_version_manifest",
-    "comfy build version create": "build_version_create",
-    "comfy build version list": "build_version_list",
-    "comfy build version get": "build_version_get",
-    "comfy build version logs": "build_version_logs",
+    "comfy build init": "build_init",
+    "comfy build push": "build_push",
+    "comfy build pull": "build_pull",
+    "comfy build status": "build_status",
+    "comfy build ls": "build_ls",
+    "comfy build show": "build_show",
+    "comfy build release create": "build_release_create",
+    "comfy build release ls": "build_release_ls",
+    "comfy build release show": "build_release_show",
+    "comfy build release logs": "build_release_logs",
+    "comfy build release manifest": "build_release_manifest",
     "comfy build validate": "build_validate",
     "comfy build delete": "build_delete",
     "comfy build update": "build_update",
-    "comfy build resolve": "build_resolve",
-    "comfy build base-images": "build_base_images",
-    "comfy build build-targets": "build_build_targets",
-    "comfy build model-dirs": "build_model_dirs",
-    "comfy build version manifest": "build_version_manifest",
-    "comfy build artifact download": "build_artifact_download",
-    "comfy build blob list": "build_blob_list",
-    "comfy build blob upload": "build_blob_upload",
-    "comfy build from-snapshot": "build_from_snapshot",
-    "comfy build from-workflow": "build_from_workflow",
+    "comfy build refs resolve": "build_refs_resolve",
+    "comfy build refs base-images": "build_refs_base_images",
+    "comfy build refs build-targets": "build_refs_build_targets",
+    "comfy build refs model-dirs": "build_refs_model_dirs",
+    "comfy build blob ls": "build_blob_ls",
+    "comfy deploy up": "deploy_up",
+    "comfy deploy status": "deploy_status",
+    "comfy deploy ls": "deploy_ls",
+    "comfy deploy show": "deploy_show",
+    "comfy deploy logs": "deploy_logs",
+    "comfy deploy events": "deploy_events",
+    "comfy deploy scale": "deploy_scale",
+    "comfy deploy stop": "deploy_stop",
+    "comfy deploy start": "deploy_start",
+    "comfy deploy delete": "deploy_delete",
+    "comfy deploy run": "deploy_run",
+    "comfy deploy refs compute": "deploy_refs_compute",
     "comfy jobs ls": "jobs",
     "comfy jobs status": "jobs",
     "comfy jobs watch": "jobs",
@@ -131,6 +131,14 @@ COMMAND_SCHEMAS: dict[str, str] = {
     "comfy skill show": "skill",
     "comfy skill status": "skill",
     # model discovery (all asset types: checkpoints, loras, controlnets, vae, ...)
+    # Canonical spelling under the `model` noun.
+    "comfy model search": "models",
+    "comfy model show": "models",
+    "comfy model list-folders": "models",
+    "comfy model list-folder": "models",
+    # `comfy models` is the hidden, deprecated plural alias; the discovery
+    # envelopes still carry the `models …` form in `command`, so both spellings
+    # register (mirrors the `skill`/`skills` alias above).
     "comfy models search": "models",
     "comfy models show": "models",
     "comfy models list-folders": "models",
@@ -145,6 +153,11 @@ COMMAND_SCHEMAS: dict[str, str] = {
     # the help tree; agents resolve them through `command_schemas`).
     "comfy generate list": "generate_list",
     "comfy generate schema": "generate_schema",
+    # Terminal result of `comfy generate <model>` / `generate resume` /
+    # sync-mode creates: the partner payload wrapped as
+    # ``data.result`` (+ ``data.saved`` under --download). These are
+    # argv-tail paths too, so they have no help-tree node.
+    "comfy generate": "generate_result",
     # curated model-knowledge bundle
     "comfy knowledge status": "knowledge",
     "comfy knowledge resolve": "knowledge",

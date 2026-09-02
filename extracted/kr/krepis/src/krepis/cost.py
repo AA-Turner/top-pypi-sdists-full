@@ -1,0 +1,1244 @@
+"""
+LLM cost-pricing primitive for the Alpha Engine cost-telemetry stream.
+
+This module is the price-table side of the P1 "Per-run LLM cost telemetry as
+code artifact" workstream. The capture wrapper in
+the decision-capture wrapper records token counts on every LLM
+call; this module translates token counts × model × wall-clock time into a
+USD cost figure.
+
+**Design rule — tokens are immutable, dollars are derived.** Per the
+roadmap entry's scope, dollar amounts are NEVER persisted as the load-bearing
+analytics column. Every captured artifact stores token counts; cost is
+recomputed from the active rate card at query time. That way, if Anthropic
+changes pricing or a rate-card entry was wrong when it was first written,
+historical numbers can be repriced without rewriting captured data.
+
+``ModelMetadata.cost_usd`` exists as a derived convenience (handy for
+emails + dashboards that don't want to load the rate card on every read);
+it is overwritable by :func:`recompute_cost` and must not be treated as
+canonical.
+
+**Effective dates.** Each ``PriceCard`` carries an ``effective_from``
+date. :meth:`PriceTable.get` returns the card whose ``effective_from`` is
+the latest ≤ the query date — so a January call gets January rates even
+when the YAML has been updated for April rates. Cards for the same model
+must be ordered by ``effective_from`` ascending; the loader hard-fails on
+overlap or unsorted input per ``feedback_no_silent_fails``.
+
+**Public surface:**
+
+- :class:`PriceCard` — one (model_name, effective_from) → per-1M-token rate row.
+- :class:`PriceTable` — wraps a list of cards with effective-date lookup.
+- :class:`ToolFee` — one (tool_name, effective_from) → per-1K-request rate row,
+  for Anthropic server-side tools billed as flat per-request fees
+  (``web_search``, ``web_fetch``).
+- :class:`ToolFeeTable` — wraps a list of tool fees with effective-date
+  lookup (mirror of :class:`PriceTable`).
+- :func:`load_pricing` / :func:`load_tool_fees` — read external pricing
+  YAML into the respective table.
+- :func:`load_default_pricing` / :func:`load_default_tool_fees` — load
+  the packaged-default tables for consumers without an external YAML.
+- :func:`compute_cost` — pure math from token counts + price card +
+  optional server-tool request counts + matching tool fees.
+- :func:`recompute_cost` — recompute and overwrite ``cost_usd`` on a
+  ``ModelMetadata`` from a ``PriceTable``, optional ``ToolFeeTable``,
+  and a query date.
+- :func:`metadata_from_anthropic_message` — raw-Anthropic-SDK adapter;
+  maps a ``Message.usage`` (including ``server_tool_use`` request counts)
+  onto a ``ModelMetadata`` for consumers using the SDK directly (no
+  LangChain).
+- :exc:`PriceCardLookupError` — raised when no card matches a (model, date)
+  query OR a non-zero tool-request count has no matching fee (do not
+  swallow).
+
+Workstream design: ``alpha-engine-config/private-docs/ROADMAP.md`` line ~1708
+("Per-run LLM cost telemetry as code artifact").
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import date, datetime, timezone
+from importlib import resources
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Protocol
+
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from krepis.model_metadata import ModelMetadata
+
+# Anthropic SDK model IDs come in two forms: the family alias
+# (e.g. ``claude-haiku-4-5``) and the dated snapshot form
+# (e.g. ``claude-haiku-4-5-20251001``). ``Message.model`` returns the dated
+# form even when the caller requested the alias, but our pricing YAML is
+# keyed on the alias so a new snapshot date doesn't require a card refresh.
+_DATED_SNAPSHOT_SUFFIX_RE = re.compile(r"-\d{8}$")
+
+# OpenRouter model slugs carry an optional routing-variant suffix after a
+# colon (``deepseek/deepseek-v4-flash:floor``, ``...:online``, ``...:nitro``,
+# ``...:free``). The variant changes ROUTING, not the model, so pricing
+# cards are keyed on the bare slug and lookups strip the variant on miss —
+# the same shape as the Anthropic dated-snapshot strip above.
+_VARIANT_SUFFIX_RE = re.compile(r":[A-Za-z0-9_-]+$")
+
+
+def _strip_dated_snapshot_suffix(model_name: str) -> str:
+    return _DATED_SNAPSHOT_SUFFIX_RE.sub("", model_name)
+
+
+def _strip_variant_suffix(model_name: str) -> str:
+    return _VARIANT_SUFFIX_RE.sub("", model_name)
+
+if TYPE_CHECKING:
+    # Structural Protocol below describes the only attributes we touch on
+    # an Anthropic SDK ``Message`` — kept here so that ``anthropic`` does
+    # not have to be a hard dependency of this library. Consumers that
+    # call :func:`metadata_from_anthropic_message` install ``anthropic``
+    # in their own environment.
+    pass
+
+
+# ── Price card ────────────────────────────────────────────────────────────
+
+
+class PriceCard(BaseModel):
+    """One row of the price table — per-model, per-effective-date rate.
+
+    All prices are USD per 1,000,000 tokens. Cache-write and cache-read
+    prices follow Anthropic's prompt-caching semantics: tokens cached with
+    the default 5-minute TTL are billed at ~1.25× the input price, tokens
+    cached with the 1-hour TTL at ~2.0× the input price, and cache-read
+    tokens at ~0.10× the input price. The fields are stored explicitly
+    rather than derived from a multiplier so that future provider changes
+    (or the addition of non-Anthropic providers) don't require a math
+    change.
+
+    ``cache_create_per_1m`` is the 5-minute (default) cache-write rate.
+    ``cache_create_1h_per_1m`` is the 1-hour-TTL cache-write rate and is
+    OPTIONAL for backward compatibility: cards authored before the 1-hour
+    rate was modeled omit it, and 1-hour cache-write tokens then fall back
+    to the 5-minute rate (the pre-existing behavior). Populate it once a
+    model's 1-hour cache writes become a material spend share — see
+    :func:`compute_cost`.
+
+    A card applies to its model from ``effective_from`` until the next
+    card for the same model, exclusive on the new card's ``effective_from``
+    date.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_name: str
+    effective_from: date
+    input_per_1m: float = Field(ge=0.0)
+    output_per_1m: float = Field(ge=0.0)
+    cache_read_per_1m: float = Field(ge=0.0)
+    cache_create_per_1m: float = Field(ge=0.0)
+    # 1-hour-TTL cache-write rate (~2.0× input). Optional: when ``None`` a
+    # card prices 1-hour cache writes at ``cache_create_per_1m`` (the 5-min
+    # rate), preserving behavior for cards authored before this field
+    # existed. See ``compute_cost``'s ``cache_create_1h_tokens`` handling.
+    cache_create_1h_per_1m: float | None = Field(default=None, ge=0.0)
+
+
+# ── Errors ────────────────────────────────────────────────────────────────
+
+
+class PriceCardLookupError(LookupError):
+    """Raised when :meth:`PriceTable.get` finds no card matching the query.
+
+    Per ``feedback_no_silent_fails``, the cost path does not silently
+    return zero on missing models or out-of-range dates — that would
+    bury cost regressions. Callers may catch this if they want a
+    best-effort price (e.g. dashboard fallback), but the default is
+    hard-fail.
+    """
+
+
+class PriceTableLoadError(RuntimeError):
+    """Raised when ``model_pricing.yaml`` is malformed.
+
+    Structural validation: missing top-level key, unknown fields, or
+    cards for the same model not sorted ascending by ``effective_from``.
+    """
+
+
+# ── Price table ───────────────────────────────────────────────────────────
+
+
+class PriceTable(BaseModel):
+    """Ordered collection of :class:`PriceCard` rows with effective-date lookup.
+
+    Construction-time invariants (enforced by ``model_validator``):
+
+    1. Cards for the same model are sorted ascending by ``effective_from``.
+    2. No two cards for the same model share an ``effective_from`` date.
+
+    Lookups via :meth:`get` return the latest card whose ``effective_from``
+    is ≤ the query date; if no such card exists for the model, raises
+    :exc:`PriceCardLookupError`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    cards: list[PriceCard]
+
+    @model_validator(mode="after")
+    def _validate_card_ordering(self) -> "PriceTable":
+        seen_dates: dict[str, list[date]] = {}
+        for card in self.cards:
+            seen_dates.setdefault(card.model_name, []).append(card.effective_from)
+        for model_name, dates in seen_dates.items():
+            if len(set(dates)) != len(dates):
+                raise PriceTableLoadError(
+                    f"PriceTable: duplicate effective_from date for model "
+                    f"{model_name!r}: {dates}"
+                )
+            if dates != sorted(dates):
+                raise PriceTableLoadError(
+                    f"PriceTable: cards for model {model_name!r} are not "
+                    f"sorted ascending by effective_from: {dates}"
+                )
+        return self
+
+    def get(self, model_name: str, at: datetime | date) -> PriceCard:
+        """Return the active :class:`PriceCard` for ``model_name`` at ``at``.
+
+        ``at`` may be a ``datetime`` (UTC offsets accepted; only the date
+        component is used for lookup) or a ``date``. The returned card is
+        the one whose ``effective_from`` is the latest among cards ≤ ``at``.
+
+        Lookup tries the model name as-given first; on miss, retries with
+        any trailing ``-YYYYMMDD`` snapshot suffix stripped (the Anthropic
+        SDK returns the dated form in ``Message.model`` even when the
+        caller requested the family alias), then with any trailing
+        ``:variant`` routing suffix stripped (OpenRouter slugs like
+        ``deepseek/deepseek-v4-flash:floor`` — the variant changes routing,
+        not the model). The YAML stays keyed on the bare alias/slug either
+        way.
+
+        Raises :exc:`PriceCardLookupError` if no form matches.
+        """
+        query_date = at.date() if isinstance(at, datetime) else at
+
+        def _candidates_for(name: str) -> list[PriceCard]:
+            return [
+                c for c in self.cards
+                if c.model_name == name and c.effective_from <= query_date
+            ]
+
+        candidates = _candidates_for(model_name)
+        if not candidates:
+            alias = _strip_dated_snapshot_suffix(model_name)
+            if alias != model_name:
+                candidates = _candidates_for(alias)
+        if not candidates:
+            bare = _strip_variant_suffix(model_name)
+            if bare != model_name:
+                candidates = _candidates_for(bare)
+        if not candidates:
+            raise PriceCardLookupError(
+                f"No price card for model {model_name!r} active on {query_date}"
+            )
+        # cards are validated sorted ascending; latest active = last match.
+        return max(candidates, key=lambda c: c.effective_from)
+
+
+# ── Tool fee table ────────────────────────────────────────────────────────
+
+
+class ToolFee(BaseModel):
+    """One row of the tool-fee table — per-tool, per-effective-date rate.
+
+    Anthropic's server-side tools (web_search, web_fetch) are billed as
+    flat per-request fees, independent of which model invoked them. That
+    pricing dimension is conceptually separate from the per-token
+    :class:`PriceCard` rate, so it gets its own table to avoid duplicating
+    a global fee across every (model × effective_from) row.
+
+    Future server-side tools that adopt a per-request fee (e.g. anything
+    Anthropic adds to ``Message.usage.server_tool_use``) plug in here by
+    name, no schema change required.
+
+    Rate is published as USD per 1,000 requests to mirror Anthropic's
+    quoting convention ("$10 per 1,000 web search requests").
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    tool_name: str
+    effective_from: date
+    per_1k_requests_usd: float = Field(ge=0.0)
+
+
+class ToolFeeTable(BaseModel):
+    """Ordered collection of :class:`ToolFee` rows with effective-date lookup.
+
+    Mirrors :class:`PriceTable` semantics: cards-per-tool are sorted
+    ascending by ``effective_from``; :meth:`get` returns the latest active
+    card for a (tool_name, query_date). Raises :exc:`PriceCardLookupError`
+    on missing-tool or query-before-first-card per ``feedback_no_silent_fails``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    fees: list[ToolFee]
+
+    @model_validator(mode="after")
+    def _validate_fee_ordering(self) -> "ToolFeeTable":
+        seen_dates: dict[str, list[date]] = {}
+        for fee in self.fees:
+            seen_dates.setdefault(fee.tool_name, []).append(fee.effective_from)
+        for tool_name, dates in seen_dates.items():
+            if len(set(dates)) != len(dates):
+                raise PriceTableLoadError(
+                    f"ToolFeeTable: duplicate effective_from date for tool "
+                    f"{tool_name!r}: {dates}"
+                )
+            if dates != sorted(dates):
+                raise PriceTableLoadError(
+                    f"ToolFeeTable: fees for tool {tool_name!r} are not "
+                    f"sorted ascending by effective_from: {dates}"
+                )
+        return self
+
+    def get(self, tool_name: str, at: datetime | date) -> ToolFee:
+        """Return the active :class:`ToolFee` for ``tool_name`` at ``at``."""
+        query_date = at.date() if isinstance(at, datetime) else at
+        candidates = [
+            f for f in self.fees
+            if f.tool_name == tool_name and f.effective_from <= query_date
+        ]
+        if not candidates:
+            raise PriceCardLookupError(
+                f"No tool fee for tool {tool_name!r} active on {query_date}"
+            )
+        return max(candidates, key=lambda f: f.effective_from)
+
+
+# ── YAML loader ───────────────────────────────────────────────────────────
+
+
+_DEFAULT_PRICING_RESOURCE = "model_pricing.yaml"
+
+
+def load_default_pricing() -> PriceTable:
+    """Load the :class:`PriceTable` shipped inside this package.
+
+    Convenience entry point for consumers that don't maintain their own
+    operator-managed rate card (e.g. ``morning-signal`` or any other
+    non-alpha-engine app pulling in this library purely for cost
+    telemetry). Alpha-engine repos that need a separately-versioned card
+    (so an Anthropic price change can ship without a lib bump) should
+    keep calling :func:`load_pricing` with their own YAML path.
+
+    The default file lives at ``krepis/model_pricing.yaml`` and
+    is shipped as package data; updates ride normal lib version bumps.
+    """
+    with resources.files("krepis").joinpath(
+        _DEFAULT_PRICING_RESOURCE
+    ).open() as fh:
+        raw: Any = yaml.safe_load(fh)
+
+    if not isinstance(raw, dict) or "cards" not in raw:
+        raise PriceTableLoadError(
+            f"Packaged {_DEFAULT_PRICING_RESOURCE}: expected top-level "
+            f"mapping with 'cards' key; got {type(raw).__name__}"
+        )
+    if not isinstance(raw["cards"], list):
+        raise PriceTableLoadError(
+            f"Packaged {_DEFAULT_PRICING_RESOURCE}: 'cards' must be a "
+            f"list; got {type(raw['cards']).__name__}"
+        )
+
+    cards = [PriceCard.model_validate(entry) for entry in raw["cards"]]
+    return PriceTable(cards=cards)
+
+
+def load_default_tool_fees() -> ToolFeeTable:
+    """Load the :class:`ToolFeeTable` shipped inside this package.
+
+    Reads the ``tool_fees`` section of the packaged ``model_pricing.yaml``.
+    Hard-fails if the section is absent (per ``feedback_no_silent_fails``);
+    a caller wiring tool-fee accounting should never silently get an empty
+    table.
+
+    Companion to :func:`load_default_pricing`; both load from the same
+    YAML so a single packaged file covers both pricing dimensions.
+    """
+    with resources.files("krepis").joinpath(
+        _DEFAULT_PRICING_RESOURCE
+    ).open() as fh:
+        raw: Any = yaml.safe_load(fh)
+
+    if not isinstance(raw, dict) or "tool_fees" not in raw:
+        raise PriceTableLoadError(
+            f"Packaged {_DEFAULT_PRICING_RESOURCE}: expected top-level "
+            f"mapping with 'tool_fees' key; got {type(raw).__name__}"
+        )
+    if not isinstance(raw["tool_fees"], list):
+        raise PriceTableLoadError(
+            f"Packaged {_DEFAULT_PRICING_RESOURCE}: 'tool_fees' must be a "
+            f"list; got {type(raw['tool_fees']).__name__}"
+        )
+
+    fees = [ToolFee.model_validate(entry) for entry in raw["tool_fees"]]
+    return ToolFeeTable(fees=fees)
+
+
+def load_tool_fees(path: Path | str) -> ToolFeeTable:
+    """Load the ``tool_fees`` section of an external pricing YAML.
+
+    External-path counterpart of :func:`load_default_tool_fees` — same
+    contract, sourced from an operator-managed YAML. Used by
+    alpha-engine-research and any other consumer that needs to override
+    the packaged defaults (e.g. price change before next lib bump).
+
+    Expected YAML shape::
+
+        tool_fees:
+          - tool_name: web_search
+            effective_from: 2026-01-01
+            per_1k_requests_usd: 10.00
+          - tool_name: web_fetch
+            effective_from: 2026-01-01
+            per_1k_requests_usd: 0.00
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"pricing YAML not found at {path}")
+
+    with path.open() as fh:
+        raw: Any = yaml.safe_load(fh)
+
+    if not isinstance(raw, dict) or "tool_fees" not in raw:
+        raise PriceTableLoadError(
+            f"{path}: expected top-level mapping with 'tool_fees' key; "
+            f"got {type(raw).__name__}"
+        )
+    if not isinstance(raw["tool_fees"], list):
+        raise PriceTableLoadError(
+            f"{path}: 'tool_fees' must be a list; got "
+            f"{type(raw['tool_fees']).__name__}"
+        )
+
+    fees = [ToolFee.model_validate(entry) for entry in raw["tool_fees"]]
+    return ToolFeeTable(fees=fees)
+
+
+def load_pricing(path: Path | str) -> PriceTable:
+    """Load ``model_pricing.yaml`` from ``path`` into a :class:`PriceTable`.
+
+    Expected YAML shape::
+
+        # version: 1
+        cards:
+          - model_name: claude-haiku-4-5
+            effective_from: 2026-01-01
+            input_per_1m: 1.00
+            output_per_1m: 5.00
+            cache_read_per_1m: 0.10
+            cache_create_per_1m: 1.25
+          - model_name: claude-sonnet-4-6
+            effective_from: 2026-01-01
+            input_per_1m: 3.00
+            ...
+
+    Validation:
+
+    1. File must exist; missing file → :exc:`FileNotFoundError`.
+    2. Top-level must contain ``cards: [...]``.
+    3. Each card validated via :class:`PriceCard` (extra fields rejected).
+    4. Cards-per-model sorted ascending by ``effective_from`` (validator).
+
+    Returns the loaded :class:`PriceTable`. Hard-fails on any malformation
+    per ``feedback_no_silent_fails``.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"model_pricing.yaml not found at {path}")
+
+    with path.open() as fh:
+        raw: Any = yaml.safe_load(fh)
+
+    if not isinstance(raw, dict) or "cards" not in raw:
+        raise PriceTableLoadError(
+            f"{path}: expected top-level mapping with 'cards' key; "
+            f"got {type(raw).__name__}"
+        )
+    if not isinstance(raw["cards"], list):
+        raise PriceTableLoadError(
+            f"{path}: 'cards' must be a list; got {type(raw['cards']).__name__}"
+        )
+
+    cards = [PriceCard.model_validate(entry) for entry in raw["cards"]]
+    return PriceTable(cards=cards)
+
+
+# ── Cost math ─────────────────────────────────────────────────────────────
+
+
+_TOKENS_PER_PRICE_UNIT = 1_000_000
+
+
+_REQUESTS_PER_FEE_UNIT = 1_000
+
+
+def compute_cost(
+    *,
+    input_tokens: int,
+    output_tokens: int,
+    cache_read_tokens: int,
+    cache_create_tokens: int,
+    card: PriceCard,
+    cache_create_1h_tokens: int = 0,
+    tool_requests: dict[str, int] | None = None,
+    tool_fees: dict[str, ToolFee] | None = None,
+) -> float:
+    """Compute USD cost from token counts, a :class:`PriceCard`, and
+    optional server-tool request counts + their resolved :class:`ToolFee`
+    rows.
+
+    Pure math; no I/O. Caller is responsible for selecting the correct
+    cards via :meth:`PriceTable.get` and :meth:`ToolFeeTable.get` (both
+    know about effective dates).
+
+    Each token class is billed at its per-1M-token rate, summed; each
+    tool-request class is billed at its per-1K-request rate. Tool keys
+    must align between ``tool_requests`` and ``tool_fees`` — if a tool
+    has a non-zero request count but no matching fee, :exc:`PriceCardLookupError`
+    is raised (per ``feedback_no_silent_fails`` — a silent zero would
+    bury a real cost slice).
+
+    Cache-write tokens split by TTL: ``cache_create_tokens`` is the
+    5-minute (default-TTL) slice, billed at ``card.cache_create_per_1m``;
+    ``cache_create_1h_tokens`` is the 1-hour-TTL slice (Anthropic
+    ``usage.cache_creation.ephemeral_1h_input_tokens``), billed at
+    ``card.cache_create_1h_per_1m``. When the card omits the 1-hour rate
+    (``cache_create_1h_per_1m is None``) the 1-hour slice falls back to the
+    5-minute rate — preserving the pre-existing single-rate behavior for
+    cards authored before the 1-hour rate was modeled.
+    """
+    cache_create_1h_rate = (
+        card.cache_create_1h_per_1m
+        if card.cache_create_1h_per_1m is not None
+        else card.cache_create_per_1m
+    )
+    cost = (
+        input_tokens * card.input_per_1m
+        + output_tokens * card.output_per_1m
+        + cache_read_tokens * card.cache_read_per_1m
+        + cache_create_tokens * card.cache_create_per_1m
+        + cache_create_1h_tokens * cache_create_1h_rate
+    ) / _TOKENS_PER_PRICE_UNIT
+
+    if tool_requests:
+        for tool_name, count in tool_requests.items():
+            if count <= 0:
+                continue
+            if tool_fees is None or tool_name not in tool_fees:
+                raise PriceCardLookupError(
+                    f"{count} {tool_name} requests recorded but no matching "
+                    f"ToolFee provided to compute_cost. Pass tool_fees={{...}}."
+                )
+            cost += (
+                count * tool_fees[tool_name].per_1k_requests_usd
+                / _REQUESTS_PER_FEE_UNIT
+            )
+    return cost
+
+
+def _tool_request_counts(metadata: ModelMetadata) -> dict[str, int]:
+    """Pull non-zero server-tool request counts off a ``ModelMetadata``.
+
+    Centralizes the mapping between ``ModelMetadata`` field names and
+    tool-fee names. Fee names are provider-scoped for non-Anthropic
+    providers (``openrouter:web_search``) because the same logical tool
+    bills at different rates per provider — Anthropic web_search is
+    $10/1k requests, OpenRouter's server tool ~$5/1k. The bare names
+    (``web_search`` / ``web_fetch``) stay reserved for Anthropic so every
+    pre-multi-provider record and fee row keeps pricing identically.
+    """
+    prefix = "" if metadata.provider == "anthropic" else f"{metadata.provider}:"
+    return {
+        name: count
+        for name, count in (
+            (f"{prefix}web_search", metadata.web_search_requests),
+            (f"{prefix}web_fetch", metadata.web_fetch_requests),
+        )
+        if count > 0
+    }
+
+
+def recompute_cost(
+    metadata: ModelMetadata,
+    table: PriceTable,
+    *,
+    tool_fee_table: ToolFeeTable | None = None,
+    at: datetime | date | None = None,
+    overwrite: bool = True,
+) -> float:
+    """Recompute ``cost_usd`` for ``metadata`` against ``table``.
+
+    Returns the freshly computed USD cost. By default also overwrites
+    ``metadata.cost_usd`` in place (the field is treated as a derived
+    convenience — see module docstring).
+
+    Parameters
+    ----------
+    metadata
+        The :class:`ModelMetadata` whose tokens are priced.
+    table
+        Active price table.
+    at
+        Wall-clock date for price-card lookup. Defaults to ``datetime.
+        now(timezone.utc)`` — appropriate for live recompute paths.
+        Historical recompute (replay against a different rate card)
+        passes the original capture timestamp.
+    overwrite
+        If ``True`` (default), assigns the result to ``metadata.cost_usd``
+        before returning. Set to ``False`` for read-only repricing.
+
+    Parameters
+    ----------
+    tool_fee_table
+        Optional :class:`ToolFeeTable` for pricing server-tool requests
+        captured on ``metadata`` (``web_search_requests``,
+        ``web_fetch_requests``). Required if any non-zero request count
+        is present — :exc:`PriceCardLookupError` is raised otherwise (per
+        ``feedback_no_silent_fails``: silently dropping a real fee slice
+        would bury cost regressions). Pure-LLM consumers with no
+        server-tool usage can omit it.
+
+    Raises
+    ------
+    PriceCardLookupError
+        If ``table`` has no card for ``metadata.model_name`` active at
+        ``at``; or if a non-zero server-tool request count is recorded
+        without a matching :class:`ToolFee` in ``tool_fee_table``. Per
+        ``feedback_no_silent_fails`` — silent zero-pricing on a missing
+        model or tool would bury cost regressions.
+    """
+    when = at if at is not None else datetime.now(timezone.utc)
+    card = table.get(metadata.model_name, when)
+
+    tool_requests = _tool_request_counts(metadata)
+    tool_fees: dict[str, ToolFee] | None = None
+    if tool_requests:
+        if tool_fee_table is None:
+            raise PriceCardLookupError(
+                f"ModelMetadata has non-zero server-tool requests "
+                f"({tool_requests}) but no tool_fee_table was passed to "
+                f"recompute_cost. Pass tool_fee_table=... or zero the "
+                f"request counts."
+            )
+        tool_fees = {
+            name: tool_fee_table.get(name, when) for name in tool_requests
+        }
+
+    cost = compute_cost(
+        input_tokens=metadata.input_tokens,
+        output_tokens=metadata.output_tokens,
+        cache_read_tokens=metadata.cache_read_tokens,
+        cache_create_tokens=metadata.cache_create_tokens,
+        cache_create_1h_tokens=metadata.cache_create_1h_tokens,
+        card=card,
+        tool_requests=tool_requests or None,
+        tool_fees=tool_fees,
+    )
+    if overwrite:
+        metadata.cost_usd = cost
+    return cost
+
+
+# ── Anthropic SDK adapter ─────────────────────────────────────────────────
+
+
+class _AnthropicServerToolUsageLike(Protocol):
+    """Structural type for ``anthropic.types.ServerToolUsage``."""
+
+    web_search_requests: int
+    web_fetch_requests: int
+
+
+class _AnthropicCacheCreationLike(Protocol):
+    """Structural type for ``anthropic.types.CacheCreation``.
+
+    The per-TTL breakdown of cache-write tokens that the Anthropic SDK
+    exposes on ``Usage.cache_creation``. The scalar
+    ``Usage.cache_creation_input_tokens`` is the sum of these.
+    """
+
+    ephemeral_5m_input_tokens: int
+    ephemeral_1h_input_tokens: int
+
+
+class _AnthropicUsageLike(Protocol):
+    """Structural type for an Anthropic SDK ``Usage`` object.
+
+    Mirrors ``anthropic.types.Usage`` (input_tokens / output_tokens are
+    required; cache fields and server_tool_use are optional). Defined as
+    a Protocol so this module does not import ``anthropic`` at runtime —
+    consumers pass the SDK's actual ``Usage`` and duck-typing handles
+    the rest.
+    """
+
+    input_tokens: int
+    output_tokens: int
+    cache_read_input_tokens: int | None
+    cache_creation_input_tokens: int | None
+    cache_creation: _AnthropicCacheCreationLike | None
+    server_tool_use: _AnthropicServerToolUsageLike | None
+
+
+class _AnthropicMessageLike(Protocol):
+    """Structural type for an Anthropic SDK ``Message`` object."""
+
+    model: str
+    usage: _AnthropicUsageLike
+
+
+def metadata_from_anthropic_message(
+    msg: _AnthropicMessageLike,
+    *,
+    model_name: str | None = None,
+) -> ModelMetadata:
+    """Map an Anthropic SDK ``Message.usage`` onto a :class:`ModelMetadata`.
+
+    Raw-Anthropic-SDK counterpart to the LangChain callback handler in
+    ``alpha-engine-research/graph/llm_cost_tracker.py``. For consumers
+    that call ``client.messages.create()`` directly (no LangChain stack),
+    this is the canonical capture point — pass the returned ``Message``
+    and the adapter pulls out the four token classes the cost-telemetry
+    pipeline cares about.
+
+    Parameters
+    ----------
+    msg
+        Any object shaped like ``anthropic.types.Message`` (must expose
+        ``model: str`` and ``usage`` with the four token-count attributes).
+        Not imported at runtime — the structural Protocol above is the
+        only contract.
+    model_name
+        Override for ``ModelMetadata.model_name``. Defaults to
+        ``msg.model`` — set this when the SDK reports a different
+        identifier than the one cataloged in your price table (e.g.
+        dated suffixes, model aliases).
+
+    Returns
+    -------
+    ModelMetadata
+        With ``model_name`` populated, token counts from ``msg.usage``
+        (cache fields zero-defaulted when the SDK returns ``None``), and
+        ``cost_usd=0.0``. Call :func:`recompute_cost` with a
+        :class:`PriceTable` to fill the cost.
+
+    Notes
+    -----
+    Server-tool request counts (``usage.server_tool_use.web_search_requests``
+    and ``.web_fetch_requests``) ARE captured into ``ModelMetadata``.
+    They are flat per-request fees, billed via :class:`ToolFee` rather
+    than the per-1M-token rates on :class:`PriceCard`. Pass a
+    :class:`ToolFeeTable` to :func:`recompute_cost` to price them.
+
+    Cache-write tokens are split by TTL. The Anthropic SDK reports the
+    total on the scalar ``usage.cache_creation_input_tokens`` and the
+    per-TTL breakdown on ``usage.cache_creation`` (a ``CacheCreation`` with
+    ``ephemeral_5m_input_tokens`` + ``ephemeral_1h_input_tokens``). We map
+    the 1-hour slice onto ``ModelMetadata.cache_create_1h_tokens`` and the
+    remainder (total − 1-hour) onto ``cache_create_tokens`` (the 5-minute
+    slice). When the SDK omits the breakdown (older versions with no
+    ``cache_creation`` object, or no 1-hour caching), the 1-hour slice is
+    zero and all cache-write tokens land in ``cache_create_tokens`` — the
+    pre-existing behavior.
+    """
+    u = msg.usage
+    stu = getattr(u, "server_tool_use", None)
+
+    cache_create_total = getattr(u, "cache_creation_input_tokens", None) or 0
+    cache_creation = getattr(u, "cache_creation", None)
+    cache_create_1h = (
+        getattr(cache_creation, "ephemeral_1h_input_tokens", 0) or 0
+    ) if cache_creation is not None else 0
+    # The scalar total is the sum of the per-TTL slices; derive the 5-min
+    # slice by subtracting the 1-hour slice. ``max(..., 0)`` guards against
+    # an inconsistent payload where the total is absent but the breakdown
+    # is present (so the 5-min slice never goes negative).
+    cache_create_5m = max(cache_create_total - cache_create_1h, 0)
+
+    return ModelMetadata(
+        model_name=model_name if model_name is not None else msg.model,
+        input_tokens=u.input_tokens,
+        output_tokens=u.output_tokens,
+        cache_read_tokens=getattr(u, "cache_read_input_tokens", None) or 0,
+        cache_create_tokens=cache_create_5m,
+        cache_create_1h_tokens=cache_create_1h,
+        web_search_requests=(getattr(stu, "web_search_requests", 0) or 0)
+            if stu is not None else 0,
+        web_fetch_requests=(getattr(stu, "web_fetch_requests", 0) or 0)
+            if stu is not None else 0,
+    )
+
+
+# ── Capture chokepoint (v0.33.0) ──────────────────────────────────────────
+
+
+def record_anthropic_call(
+    msg: _AnthropicMessageLike,
+    *,
+    model_name: str | None = None,
+    pricing: PriceTable | None = None,
+    tool_fees: ToolFeeTable | None = None,
+    at: datetime | date | None = None,
+    extra_fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Map an Anthropic SDK ``Message`` → priced JSONL-ready cost record.
+
+    Single chokepoint for raw-SDK consumers (morning-signal, alpha-engine
+    /executor, alpha-engine-data, et al.). Returns a flat dict ready for
+    ``json.dumps``; the caller chooses the sink (local file / S3 /
+    CloudWatch). No I/O performed here — pure mapper.
+
+    Per ``[[feedback_lift_invariants_to_chokepoint_after_second_recurrence]]``
+    — extracted from morning-signal v0.32.0's ``cost_telemetry.record_call_cost``
+    after data + executor became the 2nd + 3rd consumers needing the same
+    shape. Composes with :func:`metadata_from_anthropic_message` (token-count
+    extraction) + :func:`recompute_cost` (USD pricing) into the single call
+    a typical consumer wants.
+
+    Parameters
+    ----------
+    msg
+        Anthropic SDK ``Message`` (or anything matching
+        :class:`_AnthropicMessageLike`). Forwarded to
+        :func:`metadata_from_anthropic_message`.
+    model_name
+        Override for ``ModelMetadata.model_name``. Defaults to ``msg.model``.
+    pricing
+        :class:`PriceTable` for USD recompute. Defaults to
+        :func:`load_default_pricing` when ``None`` (packaged Anthropic rate
+        card). Pass an explicit table for operator-managed pricing.
+    tool_fees
+        :class:`ToolFeeTable` for server-tool fee recompute. Defaults to
+        :func:`load_default_tool_fees`. Pass an explicit table for
+        operator-managed fees.
+    at
+        Wall-clock date for price-card / tool-fee lookup. Defaults to
+        ``datetime.now(timezone.utc)``. Pass the original capture
+        timestamp for historical recompute.
+    extra_fields
+        Optional dict merged into the returned record AFTER the standard
+        fields. Consumers attach run-context (``run_id``, ``agent_id``,
+        ``sector_team_id``, ``edition``, ``date``, ...) here so the
+        JSONL row is self-describing without out-of-band metadata.
+
+    Returns
+    -------
+    dict
+        Flat dict with: ``ts`` (ISO-8601 UTC capture time), ``model``,
+        ``input_tokens``, ``output_tokens``, ``cache_read_tokens``,
+        ``cache_create_tokens`` (5-min slice), ``cache_create_1h_tokens``
+        (1-hour slice), ``web_search_requests``, ``web_fetch_requests``,
+        ``cost_usd`` (priced via ``recompute_cost``), plus any
+        ``extra_fields`` merged in.
+        Caller-owned field names take precedence over the standard set
+        when keys collide.
+
+    Raises
+    ------
+    PriceCardLookupError
+        Propagated from :func:`recompute_cost` if no price card matches
+        ``model_name`` at ``at``, or if the message records non-zero
+        server-tool requests with no matching :class:`ToolFee` in the
+        active table. Per ``[[feedback_no_silent_fails]]`` — a missing
+        card on a real call is a load-bearing error worth surfacing.
+    """
+    metadata = metadata_from_anthropic_message(msg, model_name=model_name)
+    table = pricing if pricing is not None else load_default_pricing()
+    fees = tool_fees if tool_fees is not None else load_default_tool_fees()
+    recompute_cost(metadata, table, tool_fee_table=fees, at=at)
+
+    record: dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "model": metadata.model_name,
+        "input_tokens": metadata.input_tokens,
+        "output_tokens": metadata.output_tokens,
+        "cache_read_tokens": metadata.cache_read_tokens,
+        "cache_create_tokens": metadata.cache_create_tokens,
+        "cache_create_1h_tokens": metadata.cache_create_1h_tokens,
+        "prompt_cache_miss_tokens": metadata.prompt_cache_miss_tokens,
+        "reasoning_tokens": metadata.reasoning_tokens,
+        "budget_escalations": metadata.budget_escalations,
+        "attempts": metadata.attempts,
+        "reasoning_tokens_max_attempt": metadata.reasoning_tokens_max_attempt,
+        "addressed_registry_id": metadata.addressed_registry_id,
+        "web_search_requests": metadata.web_search_requests,
+        "web_fetch_requests": metadata.web_fetch_requests,
+        "cost_usd": metadata.cost_usd,
+    }
+    if extra_fields:
+        record.update(extra_fields)
+    return _apply_contract_columns(record)
+
+
+# ── OpenAI-compatible SDK adapter ─────────────────────────────────────────
+
+
+class _OpenAIPromptTokensDetailsLike(Protocol):
+    """Structural type for ``openai.types.PromptTokensDetails``."""
+
+    cached_tokens: int | None
+
+
+class _OpenAIUsageLike(Protocol):
+    """Structural type for an OpenAI SDK ``CompletionUsage`` object.
+
+    ``cost`` and ``web_search_requests`` are OpenRouter extensions
+    (present when the request opts into usage accounting); absent on
+    plain OpenAI responses.
+    """
+
+    prompt_tokens: int
+    completion_tokens: int
+    prompt_tokens_details: _OpenAIPromptTokensDetailsLike | None
+
+
+class _OpenAICompletionLike(Protocol):
+    """Structural type for an OpenAI SDK ``ChatCompletion`` object."""
+
+    model: str
+    usage: _OpenAIUsageLike | None
+
+
+def metadata_from_claude_code_result(
+    result: dict[str, Any],
+    *,
+    model_name: str,
+    provider: str,
+    trust_reported_cost: bool = False,
+) -> ModelMetadata:
+    """Map a ``claude -p --output-format json`` result → :class:`ModelMetadata`.
+
+    Counterpart of :func:`metadata_from_anthropic_message` for the headless
+    CLI transport. The groom driver, the disposition audit, the reviewed-merge
+    sweep and the Overseer's incident agents all shell out to ``claude -p``
+    and already parse this dict — they read ``num_turns`` and
+    ``total_cost_usd`` and **discard ``usage``**, which is where the cache
+    fields live. The telemetry was never missing, only unread.
+
+    **``claude -p`` is a HARNESS, not a provider.** This is the distinction
+    that makes ``model_name`` and ``provider`` required rather than defaulted.
+    The groom sets ``ANTHROPIC_BASE_URL`` / ``ANTHROPIC_MODEL`` from
+    ``krepis.router``, so the CLI is an agent runtime — tool loop, file edits,
+    bash — driven by whatever model the router resolved: DeepSeek, GLM,
+    Anthropic. Defaulting either field would bake a Selection-plane fact into
+    a Transport-plane adapter, which is the exact leak
+    ``model-portability-policy.md`` §2 names, and it would mislabel every
+    non-Anthropic run in the cost stream. Pass what the router resolved.
+
+    ``usage`` carries the standard Anthropic wire shape regardless of who
+    served it — ``input_tokens``, ``output_tokens``,
+    ``cache_creation_input_tokens``, ``cache_read_input_tokens`` — because the
+    CLI speaks that protocol to whatever endpoint it is pointed at. Newer
+    builds may also emit ``modelUsage`` keyed by model id; when present it is
+    summed, since one headless run can span models (a subagent on a cheaper
+    tier) and the top-level ``usage`` may then describe only part of the run.
+
+    **``total_cost_usd`` is untrustworthy by default, and in more than one
+    way.** The CLI computes it from Anthropic's own price table:
+
+    * routed to a non-Anthropic model — the figure prices *another provider's*
+      tokens at Anthropic rates, so it is simply wrong;
+    * running on a Max subscription — it is a notional API-equivalent, not
+      money that reaches an invoice, since the run is paid in plan quota.
+
+    Either way, feeding it into a stream that gets summed inflates or
+    fabricates spend silently. Set ``trust_reported_cost=True`` only when the
+    CLI genuinely talked to Anthropic on a pay-per-token key. Otherwise cost
+    is recomputed from the price card for the *served* model, which is what
+    :func:`record_llm_call` does when ``provider_reported_cost_usd`` is None.
+    """
+    usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+
+    # `modelUsage` (newer CLI) is authoritative when present: a headless run
+    # that delegates to a subagent bills across more than one model, and the
+    # top-level `usage` can then account for only the primary.
+    per_model = result.get("modelUsage")
+    if isinstance(per_model, dict) and per_model:
+        totals: dict[str, int] = {}
+        for entry in per_model.values():
+            if not isinstance(entry, dict):
+                continue
+            for field in (
+                "input_tokens",
+                "output_tokens",
+                "cache_creation_input_tokens",
+                "cache_read_input_tokens",
+            ):
+                totals[field] = totals.get(field, 0) + int(entry.get(field) or 0)
+        if totals:
+            usage = totals
+
+    reported_cost = result.get("total_cost_usd") if trust_reported_cost else None
+
+    return ModelMetadata(
+        model_name=model_name,
+        provider=provider,
+        input_tokens=int(usage.get("input_tokens") or 0),
+        output_tokens=int(usage.get("output_tokens") or 0),
+        cache_read_tokens=int(usage.get("cache_read_input_tokens") or 0),
+        cache_create_tokens=int(usage.get("cache_creation_input_tokens") or 0),
+        # Left 0 rather than derived. On an explicit-breakpoint model
+        # `input_tokens` IS the uncached remainder, so the hit rate is
+        # computable without it; on an automatic-prefix model served through
+        # this harness the CLI does not surface a miss count at all. Zero
+        # means "not reported" everywhere else in this schema, and inventing
+        # a value here would break that for one transport.
+        provider_reported_cost_usd=(
+            float(reported_cost) if reported_cost is not None else None
+        ),
+    )
+
+
+def metadata_from_openai_completion(
+    resp: _OpenAICompletionLike,
+    *,
+    model_name: str | None = None,
+    provider: str = "openai",
+) -> ModelMetadata:
+    """Map an OpenAI-compatible ``ChatCompletion.usage`` onto a
+    :class:`ModelMetadata`.
+
+    Counterpart of :func:`metadata_from_anthropic_message` for the openai
+    transport (OpenAI, OpenRouter, self-hosted vLLM — anything the
+    :class:`krepis.llm.LLMClient` openai transport talks to). Duck-typed
+    via the structural Protocols above; ``openai`` is never imported.
+
+    Field mapping: ``prompt_tokens`` → input, ``completion_tokens`` →
+    output, ``prompt_tokens_details.cached_tokens`` → cache_read (implicit
+    provider-side prompt caching — there is no cache-WRITE class on this
+    wire format). OpenRouter extensions when present: ``usage.cost`` →
+    ``provider_reported_cost_usd`` (the aggregator's actually-billed USD —
+    canonical under ``:floor`` routing) and ``usage.web_search_requests``
+    → ``web_search_requests``.
+    """
+    u = getattr(resp, "usage", None)
+    details = getattr(u, "prompt_tokens_details", None) if u is not None else None
+    completion_details = (
+        getattr(u, "completion_tokens_details", None) if u is not None else None
+    )
+    reported_cost = getattr(u, "cost", None) if u is not None else None
+    return ModelMetadata(
+        model_name=model_name if model_name is not None else resp.model,
+        provider=provider,
+        input_tokens=int(getattr(u, "prompt_tokens", 0) or 0) if u else 0,
+        output_tokens=int(getattr(u, "completion_tokens", 0) or 0) if u else 0,
+        # Cache reads arrive under two spellings on this wire format. The
+        # standard OpenAI location is ``prompt_tokens_details.cached_tokens``;
+        # DeepSeek reports ``prompt_cache_hit_tokens`` /
+        # ``prompt_cache_miss_tokens`` at the usage top level instead. Summing
+        # rather than preferring one mirrors ``krepis.llm._usage_from_openai``
+        # exactly — providers report one spelling or the other, never both, and
+        # matching the sibling function matters more here than the theoretical
+        # double-count, because a divergence between the two normalizers is its
+        # own defect class.
+        cache_read_tokens=(
+            (int(getattr(details, "cached_tokens", 0) or 0) if details is not None else 0)
+            + (int(getattr(u, "prompt_cache_hit_tokens", 0) or 0) if u else 0)
+        ),
+        # The miss half of the hit-rate denominator. Without it the rate is
+        # only approximable on automatic-prefix providers — see
+        # ``ModelMetadata.prompt_cache_miss_tokens``.
+        prompt_cache_miss_tokens=int(getattr(u, "prompt_cache_miss_tokens", 0) or 0)
+            if u else 0,
+        # The reasoning share of ``output_tokens`` — a SUBSET of it, never an
+        # addition, so recompute_cost must not price the two separately.
+        # Mirrors ``krepis.llm._usage_from_openai``, including the dict shape:
+        # a proxied provider can deliver this as raw JSON, and ``getattr`` on a
+        # dict silently returns the default (config#1659's failure mode).
+        reasoning_tokens=(
+            int(completion_details.get("reasoning_tokens", 0) or 0)
+            if isinstance(completion_details, dict)
+            else int(getattr(completion_details, "reasoning_tokens", 0) or 0)
+            if completion_details is not None
+            else 0
+        ),
+        web_search_requests=int(getattr(u, "web_search_requests", 0) or 0)
+            if u else 0,
+        provider_reported_cost_usd=float(reported_cost)
+            if reported_cost is not None else None,
+    )
+
+
+# ── Generalized capture chokepoint ────────────────────────────────────────
+
+
+def _metadata_from_llm_result(result: Any, *, model_name: str | None) -> ModelMetadata:
+    """Map a :class:`krepis.llm.LLMResult` onto a :class:`ModelMetadata`.
+
+    Duck-typed (``result.usage`` is a :class:`krepis.llm.LLMUsage`) so this
+    module keeps zero imports from :mod:`krepis.llm`.
+    """
+    u = result.usage
+    return ModelMetadata(
+        model_name=model_name if model_name is not None else result.model,
+        provider=result.provider,
+        input_tokens=u.input_tokens,
+        output_tokens=u.output_tokens,
+        cache_read_tokens=u.cache_read_tokens,
+        cache_create_tokens=u.cache_create_tokens,
+        cache_create_1h_tokens=u.cache_create_1h_tokens,
+        prompt_cache_miss_tokens=u.prompt_cache_miss_tokens,
+        reasoning_tokens=getattr(u, "reasoning_tokens", 0) or 0,
+        budget_escalations=getattr(u, "budget_escalations", 0) or 0,
+        attempts=getattr(u, "attempts", 0) or 0,
+        reasoning_tokens_max_attempt=getattr(u, "reasoning_tokens_max_attempt", 0) or 0,
+        addressed_registry_id=getattr(result, "registry_id", None),
+        web_search_requests=u.web_search_requests,
+        web_fetch_requests=u.web_fetch_requests,
+        provider_reported_cost_usd=u.provider_cost_usd,
+    )
+
+
+#: Schema version stamped onto every cost record (alpha-engine-config-I7393).
+#: Bump when a column is REMOVED or its meaning changes — additive columns do
+#: not need one, per the S3 contract-safety convention the aggregator follows
+#: (crucible-research scripts/aggregate_costs.py: "v1 rows predate the
+#: tool-fee columns; the aggregator treats missing as zero").
+#:
+#: Starts at 1, not 2: rows written before this constant existed carry NO
+#: schema_version at all, and the aggregator already treats absent as the
+#: earliest shape. Numbering these 1 keeps "absent" and "1" meaning the same
+#: thing rather than inventing a version nothing ever wrote.
+COST_RECORD_SCHEMA_VERSION = 1
+
+
+def _apply_contract_columns(record: "dict[str, Any]") -> "dict[str, Any]":
+    """Stamp the columns the fleet's cost contract declares, in place.
+
+    Called by EVERY record builder in this module. One helper rather than a
+    copy per builder, because two hand-maintained copies of a contract is how
+    `alpha-engine-config-I7393` started: three consumers declared
+    ``schema_version``/``run_id``/``agent_id``/``model_name`` and the builders
+    emitted none of them.
+
+    Additive only. ``model`` and ``callsite_id`` keep their original names, so
+    consumers reading historical rows are untouched; a rename would have fixed
+    the contract readers by breaking everyone else.
+
+    ``run_id`` is NOT set here — the sink owns it (`krepis.cost_sink`
+    partitions by it and stamps it at write time), because a builder has no
+    way to know it.
+    """
+    record.setdefault("schema_version", COST_RECORD_SCHEMA_VERSION)
+    if record.get("model") and "model_name" not in record:
+        record["model_name"] = record["model"]
+    if record.get("callsite_id") and "agent_id" not in record:
+        record["agent_id"] = record["callsite_id"]
+    return record
+
+
+def record_llm_call(
+    result_or_msg: Any,
+    *,
+    provider: str | None = None,
+    model_name: str | None = None,
+    pricing: PriceTable | None = None,
+    tool_fees: ToolFeeTable | None = None,
+    at: datetime | date | None = None,
+    extra_fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Map ANY supported LLM response → priced JSONL-ready cost record.
+
+    Provider-agnostic generalization of :func:`record_anthropic_call` (which
+    remains as the Anthropic-only entry point for existing consumers).
+    Accepts, detected structurally in this order:
+
+    1. A :class:`krepis.llm.LLMResult` (has ``provider`` + ``usage`` with
+       ``provider_cost_usd``) — the adapter path; preferred.
+    2. An OpenAI-compatible ``ChatCompletion`` (has ``choices``) —
+       ``provider`` defaults to ``"openai"``; pass ``provider="openrouter"``
+       for OpenRouter responses so tool fees resolve at OpenRouter rates.
+    3. An Anthropic ``Message`` (has ``content`` + token-count usage).
+
+    **Cost source selection**: when the provider reported its own USD cost
+    (OpenRouter ``usage.cost``) that figure is recorded verbatim with
+    ``cost_source: "provider_reported"`` — under ``:floor`` routing the
+    actually-billed backend price varies below our card ceilings, so the
+    aggregator's number is canonical. Otherwise cost is recomputed from
+    the active :class:`PriceTable` (``cost_source: "price_card"``). If
+    neither is available, :exc:`PriceCardLookupError` propagates — never
+    a silent zero (``feedback_no_silent_fails``).
+
+    Returns the same flat record shape as :func:`record_anthropic_call`
+    plus ``provider`` and ``cost_source``.
+    """
+    if hasattr(result_or_msg, "provider") and hasattr(result_or_msg, "usage") and (
+        hasattr(getattr(result_or_msg, "usage"), "provider_cost_usd")
+    ):
+        metadata = _metadata_from_llm_result(result_or_msg, model_name=model_name)
+    elif hasattr(result_or_msg, "choices"):
+        metadata = metadata_from_openai_completion(
+            result_or_msg,
+            model_name=model_name,
+            provider=provider if provider is not None else "openai",
+        )
+    else:
+        metadata = metadata_from_anthropic_message(
+            result_or_msg, model_name=model_name
+        )
+    if provider is not None:
+        metadata.provider = provider
+
+    # UNKNOWN usage is never 0. A streamed call gets its token counts from a
+    # final chunk the client explicitly asks for; a route that omits it leaves
+    # the counts incomplete, and pricing what did arrive would file a real call
+    # at an understated cost with nothing on the row saying so. Refusing to
+    # price it puts the gap in the ledger instead of hiding it there
+    # (alpha-engine-config-I8164). Ahead of both pricing branches deliberately:
+    # a provider-reported cost derived from the same absent usage is no more
+    # trustworthy than a recomputed one.
+    if bool(getattr(getattr(result_or_msg, "usage", None), "usage_unknown", False)):
+        metadata.cost_usd = None
+        cost_source = "usage_unreported"
+    elif metadata.provider_reported_cost_usd is not None:
+        metadata.cost_usd = metadata.provider_reported_cost_usd
+        cost_source = "provider_reported"
+    else:
+        table = pricing if pricing is not None else load_default_pricing()
+        fees = tool_fees if tool_fees is not None else load_default_tool_fees()
+        recompute_cost(metadata, table, tool_fee_table=fees, at=at)
+        cost_source = "price_card"
+
+    record: dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "provider": metadata.provider,
+        "model": metadata.model_name,
+        "input_tokens": metadata.input_tokens,
+        "output_tokens": metadata.output_tokens,
+        "cache_read_tokens": metadata.cache_read_tokens,
+        "cache_create_tokens": metadata.cache_create_tokens,
+        "cache_create_1h_tokens": metadata.cache_create_1h_tokens,
+        "prompt_cache_miss_tokens": metadata.prompt_cache_miss_tokens,
+        "reasoning_tokens": metadata.reasoning_tokens,
+        "budget_escalations": metadata.budget_escalations,
+        "attempts": metadata.attempts,
+        "reasoning_tokens_max_attempt": metadata.reasoning_tokens_max_attempt,
+        "addressed_registry_id": metadata.addressed_registry_id,
+        "web_search_requests": metadata.web_search_requests,
+        "web_fetch_requests": metadata.web_fetch_requests,
+        "cost_usd": metadata.cost_usd,
+        "cost_source": cost_source,
+    }
+    if cost_source == "usage_unreported":
+        # An explicit column, not an inference from a null cost: a consumer
+        # summing spend must be able to COUNT the calls it could not price,
+        # and "cost_usd is None" is also what a future unrelated bug looks
+        # like. The token fields stay as-is — partial counts are real data,
+        # they are simply not a complete basis for a price.
+        record["usage_unknown"] = True
+    if extra_fields:
+        record.update(extra_fields)
+    return _apply_contract_columns(record)

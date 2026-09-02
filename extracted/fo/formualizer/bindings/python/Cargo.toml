@@ -1,0 +1,64 @@
+[package]
+name = "formualizer-python"
+version = "0.8.4"
+publish = false
+edition = "2024"
+homepage = "https://github.com/PSU3D0/formualizer"
+license = "MIT OR Apache-2.0"
+description = "PyO3 bindings for the Formualizer spreadsheet engine"
+readme = "README.md"
+repository = "https://github.com/PSU3D0/formualizer"
+documentation = "https://pypi.org/project/formualizer/"
+keywords = ["spreadsheet", "excel", "formula", "python", "parser"]
+categories = ["api-bindings", "mathematics"]
+[lib]
+name = "formualizer_py"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Default to jemalloc on platforms that support it; the cfg-gate in
+# src/lib.rs ensures we silently fall back to the system allocator on
+# MSVC / wasm32 even when this feature is enabled.
+default = ["allocator-jemalloc"]
+# Enable engine/IO tracing spans from the Python wheel/venv build.
+# Usage:
+#  - maturin develop --release --features tracing
+#  - maturin develop --release --features tracing,tracing_chrome
+tracing = ["formualizer/tracing"]
+tracing_chrome = ["tracing", "formualizer/tracing_chrome"]
+# Swap the wheel's global allocator to jemalloc. This dramatically reduces
+# cross-call RSS retention on glibc by avoiding the per-thread-arena
+# fragmentation caused by per-call rayon worker pools (see issue #63).
+allocator-jemalloc = ["dep:tikv-jemallocator"]
+
+[dependencies]
+pyo3 = { workspace = true, features = ["chrono", "abi3-py310", "multiple-pymethods"] }
+chrono = { workspace = true }
+serde_json = { workspace = true }
+
+[target.'cfg(not(target_os = "emscripten"))'.dependencies]
+# `system-clock` is required for TODAY()/NOW() to read the wall clock. Without
+# it the engine falls back to the FixedClock at the UTC epoch and every
+# volatile date/time builtin answers 1970-01-01. The emscripten target below is
+# left as-is: ambient wall-clock time is not part of the portable wasm profile.
+formualizer = { path = "../../crates/formualizer", default-features = false, features = ["eval", "workbook", "sheetport", "parse", "calamine", "umya", "system-clock"] }
+pyo3-stub-gen = "0.23.0"
+
+# Pyodide 0.29's wasm-EH sysroot is pinned to Rust 1.86, while Calamine 0.36
+# requires Rust 1.88. Pyodide retains the Umya byte-oriented XLSX path and
+# reports the unavailable Calamine backend explicitly at runtime.
+[target.'cfg(target_os = "emscripten")'.dependencies]
+formualizer = { path = "../../crates/formualizer", default-features = false, features = ["eval", "workbook", "sheetport", "parse", "umya"] }
+
+# Optional jemalloc global allocator (see `allocator-jemalloc` feature).
+# The crate itself builds unconditionally on any platform, but we only
+# install it as `#[global_allocator]` where it is supported (not MSVC, not
+# wasm32); on other platforms the feature is a no-op and the system
+# allocator is used.
+[target.'cfg(not(any(target_env = "msvc", target_arch = "wasm32")))'.dependencies]
+# `disable_initial_exec_tls` is required because the wheel is a cdylib that
+# Python loads via dlopen() after program startup. Without it, jemalloc
+# requests initial-exec TLS which is only reserved for binaries/libraries
+# present at exec time and the import fails with "cannot allocate memory in
+# static TLS block" on glibc.
+tikv-jemallocator = { version = "0.6", optional = true, features = ["disable_initial_exec_tls"] }

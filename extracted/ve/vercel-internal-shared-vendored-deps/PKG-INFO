@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: vercel-internal-shared-vendored-deps
+Version: 0.1.1
+Summary: Shared vendored dependencies for Vercel Python packages
+License-Expression: MIT
+License-File: LICENSE
+License-File: vercel/internal/_vendor/LICENSE.anyio
+License-File: vercel/internal/_vendor/LICENSE.certifi
+License-File: vercel/internal/_vendor/LICENSE.h11.txt
+License-File: vercel/internal/_vendor/LICENSE.h2
+License-File: vercel/internal/_vendor/LICENSE.hpack
+License-File: vercel/internal/_vendor/LICENSE.httpcore.md
+License-File: vercel/internal/_vendor/LICENSE.httpx.md
+License-File: vercel/internal/_vendor/LICENSE.hyperframe
+License-File: vercel/internal/_vendor/LICENSE.idna.md
+License-File: vercel/internal/_vendor/LICENSE.typing-extensions
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# vercel-internal-shared-vendored-deps
+
+Shared vendored third-party dependencies for Vercel Python `-bundle` packages.

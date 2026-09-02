@@ -1,0 +1,227 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatch-vcs", "hatchling"]
+
+[project]
+name = "maketables"
+dynamic = ["version"]
+authors = [
+    {name = "Alexander Fischer", email = "alexander-fischer1801@t-online.de"},
+    {name = "Dirk Sliwka", email = "dirk.sliwka@uni-koeln.de"},
+]
+description = "A Python package for creating publication-ready tables from regression results (statsmodels, pyfixest, linearmodels), descriptive statistics, and balance tables with output to LaTeX, Word, and HTML/Great Tables"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+keywords = ["tables", "statistics", "regression", "econometrics", "latex", "publication", "pyfixest", "statsmodels"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+]
+
+
+dependencies = [
+    "numpy>=1.20.0",
+    "pandas>=1.3.0",
+    "great-tables>=0.2.0",
+    "tabulate>=0.9.0",
+    "python-docx>=0.8.11",
+    "ipython>=7.0.0",
+]
+
+[project.urls]
+Homepage = "https://py-econometrics.github.io/maketables/"
+Documentation = "https://py-econometrics.github.io/maketables/"
+Repository = "https://github.com/py-econometrics/maketables"
+Issues = "https://github.com/py-econometrics/maketables/issues"
+
+
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "syrupy>=4.0.0",
+    "pyfixest>=0.13.0",
+    "statsmodels>=0.13.0",
+    "linearmodels>=4.0",
+    "mypy>=1.0",
+    "pre-commit>=4.3.0,<5",
+    "quartodoc>=0.7.0",
+]
+docs = [
+    "sphinx>=5.0",
+    "sphinx-rtd-theme>=1.0",
+    "pyfixest>=0.13.0",
+    "statsmodels>=0.13.0",
+    "ipykernel>=6.0.0,<7",
+    "nbconvert>=7.0.0",
+    "pylatex>=1.4.2,<2",
+    "pyyaml>=6.0.0,<7",
+]
+pystata = [
+    "pystata>=0.0.1",
+    "stata-setup>=0.1.0",
+]
+
+linearmodels = [
+    "linearmodels>=4.0",
+    "statsmodels>=0.13.0",
+]
+
+lifelines = [
+    "lifelines>=0.27.0",
+]
+
+[tool.pixi.feature.dev.dependencies]
+quarto = ">=1.8.25,<2"
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+
+[tool.pixi.dependencies]
+python = "~=3.13.0"
+
+[tool.pixi.pypi-dependencies]
+maketables = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+docs = { features = ["docs"], solve-group = "default" }
+pystata = { features = ["pystata", "docs"], solve-group = "default" }
+linearmodels = { features = ["linearmodels", "docs"], solve-group = "default" }
+lifelines = { features = ["lifelines", "docs"], solve-group = "default" }
+publish = { features = ["publish"], solve-group = "default" }
+
+[tool.pixi.feature.dev.pypi-dependencies]
+maketables = { path = ".", editable = true, extras = ["dev"] }
+
+[tool.pixi.feature.dev.tasks]
+check = "pre-commit run --all-files"
+tests = "pytest tests/ -v"
+tests-update-snapshots = "pytest tests/ --snapshot-update -v"
+
+[tool.pytest.ini_options]
+pythonpath = ["tests"]
+
+[tool.pixi.feature.docs.tasks]
+run-all-notebooks = "jupyter nbconvert --execute --to notebook --inplace DTable.ipynb ETable.ipynb DocxTables.ipynb LatexTables.ipynb WritingPapers.ipynb getting-started.ipynb"
+docs-preview = "quarto preview"
+docs-install-tex = "quarto install tinytex"
+
+[tool.pixi.feature.publish.pypi-dependencies]
+build = ">=1.0"
+twine = ">=5.0"
+[tool.pixi.feature.publish.tasks]
+# Step 1: Clean old builds
+clean = { cmd = "python -c \"import shutil; import pathlib; [shutil.rmtree(p, ignore_errors=True) for p in [pathlib.Path('dist'), pathlib.Path('build')] + list(pathlib.Path('.').glob('*.egg-info'))]\"" }
+
+# Step 2: Build the package (depends on clean, so clean runs first)
+build = { cmd = "python -m build", depends-on = ["clean"] }
+
+# Step 3: Check the built package for errors
+check = { cmd = "twine check dist/*", depends-on = ["build"] }
+
+# Step 4a: Upload to TestPyPI (for testing)
+upload-test = { cmd = "twine upload --repository testpypi dist/*", depends-on = ["check"] }
+
+# Step 4b: Upload to PyPI (production)
+upload = { cmd = "twine upload dist/*", depends-on = ["check"] }
+
+[tool.ruff]
+line-length = 88
+fix = true
+
+target-version = "py310"
+
+[tool.ruff.lint]
+# docs: https://docs.astral.sh/ruff/rules/
+select = [
+  "B",   # bugbear
+  "F",   # Pyflakes
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "I",   # isort
+  "D",   # flake8-docstrings
+  "UP",  # pyupgrade
+  "SIM", # flake8-simplify
+  "RUF", # ruff,
+  "TRY", # tryceratops
+]
+
+ignore = [
+  # do not enable if formatting
+  # docs: https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+  "B028",   # No explicit `stacklevel` keyword argument found
+  "B904",   # Better exception handling
+  "W191",   # tab indentation
+  "E111",   # indentation
+  "E114",   # indentation
+  "E117",   # over indented
+  "D206",   # indent with spaces
+  "D300",   # triple single quotes
+  "E501",   # line length regulated by formatter
+  "D105",   # missing docstring in magic method
+  "D100",   # missing docstring in public module
+  "D104",   # missing docstring in public package
+  "SIM110", # Use all instead of `for` loop
+  "TRY003", # Avoid specifying long messages outside the exception class
+  "D205",   # 1 blank line required between summary line and description
+  "W505",   # Doc line too long
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D100", "D103"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 88
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 88
+
+[tool.mypy]
+
+[[tool.mypy.overrides]]
+module = [
+  "pandas.*",
+  "numpy.*",
+  "scipy.*",
+  "numba.*",
+  "lets_plot.*",
+  "formulaic.*",
+  "wildboottest.*",
+  "tabulate.*",
+  "joblib.*",
+  "narwhals.*",
+  "tqdm.*",
+]
+ignore_missing_imports = true
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/maketables/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["tests"]
+only-packages = true
+
+[tool.hatch.build.targets.wheel]
+only-include = ["src"]
+sources = ["src"]

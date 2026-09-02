@@ -1,0 +1,15 @@
+tests:
+  - tests/**/*
+
+core:
+  - typecats/**/*
+
+dependencies:
+  - pyproject.toml
+  - uv.lock
+
+internal:
+  - ./CHANGELOG.md
+
+documentation:
+  - ./README.md

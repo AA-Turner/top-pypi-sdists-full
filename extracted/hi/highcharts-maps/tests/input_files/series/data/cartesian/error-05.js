@@ -1,3 +1,0 @@
-{
-  z: 'invalid value'
-}

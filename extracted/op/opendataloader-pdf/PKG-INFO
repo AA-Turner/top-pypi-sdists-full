@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: opendataloader-pdf
-Version: 2.5.6
+Version: 2.5.7
 Summary: A Python wrapper for the opendataloader-pdf Java CLI.
 Project-URL: Homepage, https://github.com/opendataloader-project/opendataloader-pdf
 Author-email: opendataloader-project <open.dataloader@hancom.com>
@@ -9,7 +9,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Provides-Extra: hybrid
-Requires-Dist: docling[easyocr]>=2.91.0; extra == 'hybrid'
+Requires-Dist: docling[easyocr]>=2.94.0; extra == 'hybrid'
 Requires-Dist: fastapi>=0.136.1; extra == 'hybrid'
 Requires-Dist: python-multipart>=0.0.28; extra == 'hybrid'
 Requires-Dist: uvicorn>=0.46.0; extra == 'hybrid'

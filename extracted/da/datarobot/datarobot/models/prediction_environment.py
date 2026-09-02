@@ -136,12 +136,12 @@ class PredictionEnvironment(APIObject):
     @classmethod
     def list(cls) -> List[PredictionEnvironment]:
         """
-        Returns list of available external prediction environments.
+        Returns a list of available external prediction environments.
 
         Returns
         -------
         prediction_environments : list of PredictionEnvironment instances
-            contains a list of available prediction environments.
+            Contains a list of available prediction environments.
 
         Examples
         --------
@@ -161,17 +161,17 @@ class PredictionEnvironment(APIObject):
     @classmethod
     def get(cls, pe_id: str) -> PredictionEnvironment:
         """
-        Gets the PredictionEnvironment by id.
+        Gets the PredictionEnvironment by ID.
 
         Parameters
         ----------
         pe_id : str
-            the identifier of the PredictionEnvironment.
+            The identifier of the PredictionEnvironment.
 
         Returns
         -------
         prediction_environment : PredictionEnvironment
-            the requested prediction environment object.
+            The requested prediction environment object.
 
         Examples
         --------
@@ -228,7 +228,7 @@ class PredictionEnvironment(APIObject):
             When not provided, the default value is inferred based on platform, (DataRobot platform: DataRobot,
             Custom Models; All other platforms: DataRobot, Custom Models, External Models).
         is_managed_by_management_agent : boolean, optional
-            Determines if this prediction environment should be managed by the management agent. default: False
+            Determines if this prediction environment should be managed by the management agent. Default: False.
         datastore : DataStore|Optional[str]]
             The datastore object or ID of the data store connection configuration.
             Only applicable for external Prediction Environments managed by DataRobot.
@@ -239,7 +239,7 @@ class PredictionEnvironment(APIObject):
         Returns
         -------
         prediction_environment : PredictionEnvironment
-            the prediction environment was created
+            The created prediction environment.
 
         Raises
         ------

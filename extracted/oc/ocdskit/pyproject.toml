@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ocdskit"
+version = "1.7.0"
+authors = [{name = "Open Contracting Partnership", email = "data@open-contracting.org"}]
+description = "A suite of command-line tools for working with OCDS data"
+readme = "README.rst"
+license = {text = "BSD"}
+urls = {Homepage = "https://github.com/open-contracting/ocdskit"}
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "concepts",
+    "ijson>=2.5",
+    "jsonref",
+    "jsonschema",
+    "ocdsmerge>=0.6",
+    "ocdsextensionregistry>=0.6.7",
+]
+
+[project.optional-dependencies]
+erd = [
+    "graphviz",
+    "scikit-learn",
+]
+perf = [
+    "jsonschema-rs",
+    "orjson>=3",
+]
+test = [
+    "coverage",
+    "jsonpointer",
+    "libcove==0.32.1",
+    "pytest",
+    "pytest-benchmark",
+]
+
+[project.scripts]
+ocdskit = "ocdskit.__main__:main"
+
+[tool.setuptools.packages.find]
+exclude = [
+    "tests",
+    "tests.*",
+]
+
+[tool.ruff]
+line-length = 119
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN", "C901", "COM812", "D203", "D212", "D415", "EM", "ISC001", "PERF203", "PLR091", "Q000",
+    "D1", "D205",
+    "PLR2004",  # magic
+    "PTH",
+    "TRY003",  # errors
+    "D200",  # https://github.com/astral-sh/ruff/issues/6269
+]
+
+[tool.ruff.lint.flake8-builtins]
+builtins-ignorelist = ["copyright"]
+
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
+
+[tool.ruff.lint.per-file-ignores]
+"docs/conf.py" = ["D100", "INP001"]
+"tests/*" = [
+    "ARG001", "D", "FBT003", "INP001", "PLR2004", "S", "TRY003",
+]
+"*/commands/*" = ["T201"]  # print
+
+[tool.uv.pip]
+exclude-newer = "1 week"

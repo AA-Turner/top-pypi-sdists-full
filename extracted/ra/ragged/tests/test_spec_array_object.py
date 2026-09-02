@@ -1,0 +1,262 @@
+# BSD 3-Clause License; see https://github.com/scikit-hep/ragged/blob/main/LICENSE
+
+"""
+https://data-apis.org/array-api/latest/API_specification/array_object.html
+"""
+
+from __future__ import annotations
+
+import awkward as ak
+import numpy as np
+import pytest
+
+import ragged
+
+devices = ["cpu"]
+try:
+    import cupy as cp
+
+    devices.append("cuda")
+except ModuleNotFoundError:
+    cp = None
+
+
+def test_existence():
+    assert ragged.array is not None
+
+
+def test_item():
+    a = ragged.array(np.asarray(123)).item()
+    assert isinstance(a, int)
+    assert a == 123
+
+    a = ragged.array(np.asarray([123])).item()
+    assert isinstance(a, int)
+    assert a == 123
+
+    a = ragged.array(np.asarray([[123]])).item()
+    assert isinstance(a, int)
+    assert a == 123
+
+
+def test_contains():
+    a = ragged.array([[1, 2, 3], [], [4, 5]])
+    assert 4 in a
+    assert 6 not in a
+
+    b = a[0, 0]
+    assert 1 in b
+    assert 2 not in b
+
+
+def test_len():
+    assert len(ragged.array([1, 2, 3])) == 3
+    with pytest.raises(TypeError, match="unsized object"):
+        len(ragged.array(123))
+
+
+def test_iter():
+    a = list(ragged.array([1, 2, 3]))
+    assert isinstance(a[0], ragged.array)
+    assert isinstance(a[1], ragged.array)
+    assert isinstance(a[2], ragged.array)
+    assert a[0] == 1
+    assert a[1] == 2
+    assert a[2] == 3
+
+    b = list(ragged.array([[1], [2, 3]]))
+    assert isinstance(b[0], ragged.array)
+    assert isinstance(b[1], ragged.array)
+    assert b[0].tolist() == [1]
+    assert b[1].tolist() == [2, 3]
+
+    with pytest.raises(TypeError, match="0-d array"):
+        list(ragged.array(123))
+
+
+def test_namespace():
+    assert ragged.array(123).__array_namespace__() is ragged
+    assert (
+        ragged.array(123).__array_namespace__(api_version=ragged.__array_api_version__)
+        is ragged
+    )
+    with pytest.raises(NotImplementedError):
+        ragged.array(123).__array_namespace__(api_version="does not exist")
+
+
+def test_bool():
+    assert bool(ragged.array(True)) is True
+    assert bool(ragged.array(False)) is False
+
+
+def test_complex():
+    assert isinstance(complex(ragged.array(1.1 + 0.1j)), complex)
+    assert complex(ragged.array(1.1 + 0.1j)) == 1.1 + 0.1j
+
+
+@pytest.mark.parametrize("device", devices)
+def test_dlpack(device):
+    lib = np if device == "cpu" else cp
+
+    if not hasattr(lib, "from_dlpack"):
+        return
+
+    a = ragged.array(lib.arange(2 * 3 * 5).reshape(2, 3, 5), device=device)
+    assert a.device == device
+    assert isinstance(a._impl.layout.data, lib.ndarray)  # type: ignore[union-attr]
+
+    b = lib.from_dlpack(a)
+    assert isinstance(b, lib.ndarray)
+    assert b.shape == a.shape
+    assert b.dtype == a.dtype
+    assert b.tolist() == a.tolist()
+
+    a = ragged.array(lib.asarray(123), device=device)
+    assert a.device == device
+    assert isinstance(a._impl, lib.ndarray)
+
+    b = lib.from_dlpack(a)
+    assert isinstance(b, lib.ndarray)
+    assert b.shape == a.shape
+    assert b.dtype == a.dtype
+    assert b.item() == a.item() == 123
+
+
+def test_float():
+    assert isinstance(float(ragged.array(1.1)), float)
+    assert float(ragged.array(1.1)) == 1.1
+
+
+def test_getitem():
+    # slices are extensively tested in Awkward Array
+    a = ragged.array([[1, 2, 3], [4], [5, 6, 7, 8]])
+    assert a[..., 1:].tolist() == [[2, 3], [], [6, 7, 8]]  # type: ignore[comparison-overlap]
+
+
+def test_index():
+    assert isinstance(ragged.array(10).__index__(), int)
+    assert ragged.array(10).__index__() == 10
+
+
+def test_int():
+    assert isinstance(int(ragged.array(10)), int)
+    assert int(ragged.array(10)) == 10
+
+
+def test_reflected_operations():
+    # Test non-commutative reflected operations:
+    arr = ragged.array([[1, 2], [3]])
+
+    assert (arr - 5).tolist() == [[-4, -3], [-2]]
+    assert (5 - arr).tolist() == [[4, 3], [2]]
+
+    assert (arr / 2).tolist() == [[0.5, 1.0], [1.5]]
+    assert ak.almost_equal(((2 / arr).tolist()), ([[2.0, 1.0], [2 / 3]]))
+
+
+def test_mT_raises_unsorted():
+    arr = ragged.array([[1.1], [2.2, 3.3]])
+    msg = "Ragged dimension's lists must be sorted from longest to shortest, which is the only way that makes left-aligned ragged transposition possible."
+    with pytest.raises(ValueError, match=msg):
+        _ = arr.mT
+
+
+def test_mT_raises_less_2d():
+    arr = ragged.array([1.1])
+    print(arr.ndim)
+    msg = "Per Array API, input array must not have fewer than 2 dimensions to have a matrix transpose property."
+    with pytest.raises(ValueError, match=msg):
+        _ = arr.mT
+
+
+def test_T_raises_non_2d():
+    arr = ragged.array([1, 2, 3])
+    msg = "Per Array API, input array must be 2D to have a transpose property. Use permute_dims to reverse all axes"
+    with pytest.raises(ValueError, match=msg):
+        _ = arr.T
+
+
+def test_mT_success_rectangular():
+    """Standard 2x3 rectangular matrix should transpose to 3x2."""
+    data = [[1, 2, 3], [4, 5, 6]]
+    arr = ragged.array(data)
+
+    result = arr.mT
+    expected = [[1, 4], [2, 5], [3, 6]]
+
+    assert ak.to_list(result._impl) == expected
+    # Property: A_TT == A
+    assert ak.to_list(result.mT._impl) == data
+
+
+def test_mT_success_ragged_descending():
+    """Ragged matrix sorted descending should transpose correctly (left-aligned)."""
+    data = [[1.1, 2.2, 3.3], [4.4, 5.5], [6.6]]
+    arr = ragged.array(data)
+
+    result = arr.mT
+    # Row 0: first elements [1.1, 4.4, 6.6]
+    # Row 1: second elements [2.2, 5.5]
+    # Row 2: third elements [3.3]
+    expected = [[1.1, 4.4, 6.6], [2.2, 5.5], [3.3]]
+
+    assert ak.to_list(result._impl) == expected
+    # Verify invertibility
+    assert ak.to_list(result.mT._impl) == data
+
+
+def test_mT_empty_rows():
+    """Check behavior with empty lists (still technically descending)."""
+    data = [[1, 2], [], []]
+    arr = ragged.array(data)
+
+    result = arr.mT
+    # Col 0: [1] (from first row only)
+    # Col 1: [2] (from first row only)
+    expected = [[1], [2]]
+
+    assert ak.to_list(result._impl) == expected
+
+
+def test_T_success_rectangular():
+    """Verify .T works identically to .mT for a standard 2D matrix."""
+    data = [[10, 20, 30], [40, 50, 60]]
+    arr = ragged.array(data)
+
+    result = arr.T
+    expected = [[10, 40], [20, 50], [30, 60]]
+
+    assert ak.to_list(result._impl) == expected
+    # Property: (A.T).T == A
+    assert ak.to_list(result.T._impl) == data
+
+
+def test_T_success_ragged():
+    """Verify .T handles 2D ragged descending correctly."""
+    data = [[1, 2, 3], [4, 5], [6]]
+    arr = ragged.array(data)
+
+    result = arr.T
+    expected = [[1, 4, 6], [2, 5], [3]]
+
+    assert ak.to_list(result._impl) == expected
+
+
+def test_T_raises_3d():
+    """.T must raise an error for 3D stacks, unlike .mT."""
+    data = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+    arr = ragged.array(data)
+
+    # This should pass
+    _ = arr.mT
+
+    # This must fail
+    msg = "Per Array API, input array must be 2D to have a transpose property."
+    with pytest.raises(ValueError, match=msg):
+        _ = arr.T
+
+
+def test_T_consistency_with_mT():
+    """Verify .T and .mT return identical results for 2D."""
+    arr = ragged.array([[5, 4, 3], [2, 1, 0]])
+    assert ak.to_list(arr.T._impl) == ak.to_list(arr.mT._impl)

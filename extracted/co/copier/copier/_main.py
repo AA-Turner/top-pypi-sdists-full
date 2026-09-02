@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import stat
 import subprocess
 import sys
@@ -76,6 +77,7 @@ from ._types import (
 from ._user_data import AnswersMap, Question, load_answersfile_data
 from ._vcs import get_git, is_git_available
 from .errors import (
+    CleanupWarning,
     ConfigFileError,
     CopierAnswersInterrupt,
     ExtensionNotFoundError,
@@ -772,9 +774,14 @@ class Worker:
         # Note: This method is a cached property, it needs to be regenerated
         # when reusing an instance in different contexts.
         extra_context = {"_copier_operation": _operation.get()}
+        regex_linebreak = re.compile(r"\r\n|\r|\n")
         return self._path_matcher(
-            self._render_string(exclusion, extra_context=extra_context)
-            for exclusion in self.all_exclusions
+            chain.from_iterable(
+                regex_linebreak.split(
+                    self._render_string(exclusion, extra_context=extra_context),
+                )
+                for exclusion in self.all_exclusions
+            )
         )
 
     @cached_property
@@ -1289,7 +1296,17 @@ class Worker:
                     self._execute_tasks(self.template.tasks)
         except Exception:
             if not was_existing and self.cleanup_on_error:
-                rmtree(self.subproject.local_abspath)
+                try:
+                    rmtree(self.subproject.local_abspath)
+                except FileNotFoundError:
+                    pass  # Nothing was created yet, so nothing to clean up.
+                except OSError as cleanup_error:
+                    # Never raise: another exception is already being handled.
+                    warnings.warn(
+                        f"Failed to clean up {self.subproject.local_abspath}: "
+                        f"{cleanup_error}",
+                        CleanupWarning,
+                    )
             raise
         self._print_message(self.template.message_after_copy)
         if not self.quiet:

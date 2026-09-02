@@ -1,0 +1,30 @@
+name: Audit Reap Stale Labels
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      max_age_hours:
+        description: "Minimum in-progress label age (hours) before reaping"
+        required: false
+        default: "24"
+
+jobs:
+  reap-stale:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: pip install -e .
+      - name: Reap stale in-progress audit labels
+        run: |
+          agdt-audit-reap-stale \
+            --repo "${{ github.repository }}" \
+            --max-age-hours "${{ github.event.inputs.max_age_hours || '24' }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

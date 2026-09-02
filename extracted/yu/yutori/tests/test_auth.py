@@ -1,0 +1,814 @@
+"""Tests for the yutori.auth module."""
+
+from __future__ import annotations
+
+import base64
+import errno
+import hashlib
+import io
+import json
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlparse
+
+import httpx
+import pytest
+
+from yutori.auth.constants import (
+    AUTH_SIGN_IN_URL,
+    CALLBACK_HOST,
+    CLERK_CLIENT_ID,
+    CLERK_CONSENT_URL,
+    DEFAULT_AUTH_SIGN_IN_URL,
+    DEFAULT_CLERK_CONSENT_URL,
+    REDIRECT_PORT,
+    REDIRECT_URI,
+    build_auth_api_url,
+)
+from yutori.auth.credentials import clear_config, load_config, resolve_api_key, save_config
+from yutori.auth.flow import (
+    _build_key_name,
+    _CallbackHandler,
+    _CallbackResult,
+    _mask_key,
+    build_auth_url,
+    check_registration_status,
+    exchange_code_for_token,
+    generate_api_key,
+    generate_pkce,
+    get_auth_status,
+    register_user,
+    run_login_flow,
+)
+from yutori.auth.types import AuthStatus, LoginResult
+
+from ._client_fixtures import make_json_response, make_status_response
+
+# ---------------------------------------------------------------------------
+# PKCE
+# ---------------------------------------------------------------------------
+
+
+class TestPKCE:
+    def test_generate_pkce_returns_pair(self):
+        verifier, challenge = generate_pkce()
+        assert isinstance(verifier, str)
+        assert isinstance(challenge, str)
+        assert len(verifier) > 40
+
+    def test_generate_pkce_produces_valid_s256_challenge(self):
+        verifier, challenge = generate_pkce()
+        expected = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        assert challenge == expected
+
+    def test_generate_pkce_unique_each_call(self):
+        v1, c1 = generate_pkce()
+        v2, c2 = generate_pkce()
+        assert v1 != v2
+        assert c1 != c2
+
+
+# ---------------------------------------------------------------------------
+# build_auth_url
+# ---------------------------------------------------------------------------
+
+
+class TestBuildAuthUrl:
+    def test_contains_required_params(self):
+        url = build_auth_url("test_challenge", "test_state")
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        redirect_url = params["redirect_url"][0]
+        redirect_parsed = urlparse(redirect_url)
+        redirect_params = parse_qs(redirect_parsed.query)
+        sign_in_parsed = urlparse(AUTH_SIGN_IN_URL or DEFAULT_AUTH_SIGN_IN_URL)
+        consent_parsed = urlparse(CLERK_CONSENT_URL or DEFAULT_CLERK_CONSENT_URL)
+
+        assert parsed.scheme == sign_in_parsed.scheme
+        assert parsed.netloc == sign_in_parsed.netloc
+        assert parsed.path == sign_in_parsed.path
+        assert redirect_parsed.scheme == consent_parsed.scheme
+        assert redirect_parsed.netloc == consent_parsed.netloc
+        assert redirect_parsed.path == consent_parsed.path
+        assert redirect_params["response_type"] == ["code"]
+        assert redirect_params["client_id"] == [CLERK_CLIENT_ID]
+        assert redirect_params["redirect_uri"] == [REDIRECT_URI]
+        assert redirect_params["code_challenge"] == ["test_challenge"]
+        assert redirect_params["code_challenge_method"] == ["S256"]
+        assert redirect_params["state"] == ["test_state"]
+        assert redirect_params["scope"] == ["openid profile email"]
+
+    def test_uses_raw_clerk_authorize_url_for_custom_clerk_instance(self, monkeypatch):
+        monkeypatch.setattr("yutori.auth.flow.CLERK_INSTANCE_URL", "https://clerk.staging.yutori.com")
+        monkeypatch.setattr("yutori.auth.flow.AUTH_SIGN_IN_URL", None)
+        monkeypatch.setattr("yutori.auth.flow.CLERK_CONSENT_URL", None)
+
+        url = build_auth_url("test_challenge", "test_state")
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+
+        assert parsed.scheme == "https"
+        assert parsed.netloc == "clerk.staging.yutori.com"
+        assert parsed.path == "/oauth/authorize"
+        assert params["client_id"] == [CLERK_CLIENT_ID]
+        assert params["redirect_uri"] == [REDIRECT_URI]
+
+
+class TestBuildKeyName:
+    def test_build_key_name_uses_utc_date_and_default_source(self):
+        with patch("yutori.auth.flow.datetime") as mock_datetime:
+            mock_datetime.now.return_value = datetime(2026, 2, 9, 12, 0, 0, tzinfo=timezone.utc)
+            key_name = _build_key_name()
+
+        assert key_name == "2026-02-09-yutori-cli"
+        mock_datetime.now.assert_called_once_with(timezone.utc)
+
+    def test_build_key_name_allows_custom_source(self):
+        with patch("yutori.auth.flow.datetime") as mock_datetime:
+            mock_datetime.now.return_value = datetime(2026, 2, 9, 12, 0, 0, tzinfo=timezone.utc)
+            key_name = _build_key_name("yutori-mcp")
+
+        assert key_name == "2026-02-09-yutori-mcp"
+
+
+def _redirect_config_path(tmp_path, monkeypatch, *, patch_flow: bool = False, clear_env: bool = False):
+    """Redirect ``get_config_path()`` to a temp path and return it.
+
+    Always patches ``yutori.auth.credentials.get_config_path``. Pass
+    ``patch_flow=True`` to also patch the separate import in ``flow.py``, and
+    ``clear_env=True`` to delete ``YUTORI_API_KEY`` so it can't leak into the
+    test from the surrounding environment.
+    """
+    config_path = tmp_path / ".yutori" / "config.json"
+    monkeypatch.setattr("yutori.auth.credentials.get_config_path", lambda: config_path)
+    if patch_flow:
+        # Also patch the import in flow.py which imports _get_config_path
+        monkeypatch.setattr("yutori.auth.flow.get_config_path", lambda: config_path)
+    if clear_env:
+        monkeypatch.delenv("YUTORI_API_KEY", raising=False)
+    return config_path
+
+
+# ---------------------------------------------------------------------------
+# Credentials: save / load / clear / resolve
+# ---------------------------------------------------------------------------
+
+
+class TestCredentials:
+    @pytest.fixture(autouse=True)
+    def _use_tmp_config(self, tmp_path, monkeypatch):
+        """Redirect config path to a temp directory for all credential tests."""
+        self.config_path = _redirect_config_path(tmp_path, monkeypatch, patch_flow=True)
+        self.config_dir = self.config_path.parent
+
+    def test_save_and_load_round_trip(self):
+        save_config("yt-test-key-12345")
+        result = load_config()
+        assert result is not None
+        assert result["api_key"] == "yt-test-key-12345"
+
+    def test_save_creates_directory(self):
+        assert not self.config_dir.exists()
+        save_config("yt-key")
+        assert self.config_dir.exists()
+
+    def test_save_sets_file_permissions_0600(self):
+        save_config("yt-key")
+        file_mode = self.config_path.stat().st_mode & 0o777
+        assert file_mode == 0o600
+
+    def test_save_sets_directory_permissions_0700(self):
+        save_config("yt-key")
+        dir_mode = self.config_dir.stat().st_mode & 0o777
+        assert dir_mode == 0o700
+
+    def test_save_overwrites_existing(self):
+        save_config("yt-old-key")
+        save_config("yt-new-key")
+        result = load_config()
+        assert result["api_key"] == "yt-new-key"
+
+    def test_save_atomic_no_temp_files_left(self):
+        save_config("yt-key")
+        files = list(self.config_dir.iterdir())
+        assert len(files) == 1
+        assert files[0].name == "config.json"
+
+    def test_load_returns_none_for_missing_file(self):
+        assert load_config() is None
+
+    def test_load_returns_none_for_corrupt_json(self):
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.config_path.write_text("not valid json{{{")
+        assert load_config() is None
+
+    def test_load_returns_none_for_non_dict(self):
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.config_path.write_text(json.dumps(["not", "a", "dict"]))
+        assert load_config() is None
+
+    def test_clear_removes_file(self):
+        save_config("yt-key")
+        assert self.config_path.exists()
+        clear_config()
+        assert not self.config_path.exists()
+
+    def test_clear_no_error_when_missing(self):
+        clear_config()  # should not raise
+
+
+class TestResolveApiKey:
+    @pytest.fixture(autouse=True)
+    def _use_tmp_config(self, tmp_path, monkeypatch):
+        self.config_path = _redirect_config_path(tmp_path, monkeypatch, clear_env=True)
+
+    def test_explicit_param_wins(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "yt-env")
+        assert resolve_api_key("yt-explicit") == "yt-explicit"
+
+    def test_env_var_used_when_no_param(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "yt-env")
+        assert resolve_api_key() == "yt-env"
+        assert resolve_api_key(None) == "yt-env"
+
+    def test_config_file_used_when_no_env(self):
+        save_config("yt-stored")
+        assert resolve_api_key() == "yt-stored"
+
+    def test_returns_none_when_nothing_set(self):
+        assert resolve_api_key() is None
+        assert resolve_api_key(None) is None
+
+    def test_empty_string_param_falls_through(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "yt-env")
+        assert resolve_api_key("") == "yt-env"
+
+    def test_placeholder_param_falls_through(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "yt-env")
+        assert resolve_api_key("YOUR_API_KEY") == "yt-env"
+
+    def test_placeholder_env_falls_through_to_config(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "YOUR_API_KEY")
+        save_config("yt-stored")
+        assert resolve_api_key() == "yt-stored"
+
+    def test_placeholder_env_returns_none_without_config(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "YOUR_API_KEY")
+        assert resolve_api_key() is None
+
+    def test_placeholder_in_config_returns_none(self):
+        save_config("YOUR_API_KEY")
+        assert resolve_api_key() is None
+
+    def test_placeholder_with_whitespace_falls_through(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "  YOUR_API_KEY  ")
+        save_config("yt-stored")
+        assert resolve_api_key() == "yt-stored"
+
+    # A trailing newline (e.g. a key file read verbatim, or a CI secret with
+    # its newline) is an illegal HTTP header value; the key must come back
+    # stripped. (Note `$(cat file)` would NOT reproduce this — command
+    # substitution strips trailing newlines.)
+    def test_param_key_is_stripped(self):
+        assert resolve_api_key("yt-explicit\n") == "yt-explicit"
+
+    def test_env_key_is_stripped(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", " yt-env\n")
+        assert resolve_api_key() == "yt-env"
+
+    def test_stored_key_is_stripped(self):
+        save_config("yt-stored\n")
+        assert resolve_api_key() == "yt-stored"
+
+
+# ---------------------------------------------------------------------------
+# Callback handler
+# ---------------------------------------------------------------------------
+
+
+class TestCallbackHandler:
+    """Tests for the OAuth callback HTTP handler."""
+
+    def _make_handler(self, path: str, callback_result: _CallbackResult) -> _CallbackHandler:
+        """Create a handler with a fake request."""
+        _CallbackHandler.callback_result = callback_result
+
+        handler = _CallbackHandler.__new__(_CallbackHandler)
+        handler.path = path
+        handler.requestline = f"GET {path} HTTP/1.1"
+        handler.request_version = "HTTP/1.1"
+        handler.headers = {}
+        handler.wfile = io.BytesIO()
+        handler.client_address = ("127.0.0.1", 12345)
+
+        # Mock response methods
+        handler._headers_buffer = []
+        handler.send_response = MagicMock()
+        handler.send_header = MagicMock()
+        handler.end_headers = MagicMock()
+        handler.send_error = MagicMock()
+
+        return handler
+
+    def test_success_path(self):
+        result = _CallbackResult()
+        handler = self._make_handler("/callback?code=test_code&state=test_state", result)
+        handler.do_GET()
+
+        assert result.code == "test_code"
+        assert result.state == "test_state"
+        assert result.error is None
+        assert result.received.is_set()
+
+    def test_error_path(self):
+        result = _CallbackResult()
+        handler = self._make_handler("/callback?error=access_denied&error_description=User+denied", result)
+        handler.do_GET()
+
+        assert result.error == "User denied"
+        assert result.code is None
+        assert result.received.is_set()
+
+    def test_missing_code(self):
+        result = _CallbackResult()
+        handler = self._make_handler("/callback?state=test_state", result)
+        handler.do_GET()
+
+        assert result.error == "No authorization code received"
+        assert result.code is None
+        assert result.received.is_set()
+
+    def test_favicon_ignored(self):
+        result = _CallbackResult()
+        handler = self._make_handler("/favicon.ico", result)
+        handler.do_GET()
+
+        assert not result.received.is_set()
+        handler.send_response.assert_called_with(204)
+
+    def test_unknown_path_returns_404(self):
+        result = _CallbackResult()
+        handler = self._make_handler("/unknown", result)
+        handler.do_GET()
+
+        assert not result.received.is_set()
+        handler.send_error.assert_called_with(404)
+
+
+# ---------------------------------------------------------------------------
+# Token exchange and API key generation
+# ---------------------------------------------------------------------------
+
+
+class TestTokenExchange:
+    def test_exchange_code_for_token_success(self):
+        mock_response = make_json_response({"access_token": "jwt_token_123"})
+
+        with patch.object(httpx.Client, "post", return_value=mock_response) as mock_post:
+            token = exchange_code_for_token("auth_code", "verifier")
+            assert token == "jwt_token_123"
+            call_kwargs = mock_post.call_args
+            assert "oauth/token" in call_kwargs[0][0]
+            assert call_kwargs[1]["data"]["code"] == "auth_code"
+            assert call_kwargs[1]["data"]["code_verifier"] == "verifier"
+
+    def test_exchange_code_raises_on_error(self):
+        mock_response = make_status_response(401)
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "401", request=MagicMock(), response=MagicMock(status_code=401)
+        )
+
+        with patch.object(httpx.Client, "post", return_value=mock_response):
+            with pytest.raises(httpx.HTTPStatusError):
+                exchange_code_for_token("bad_code", "verifier")
+
+
+class TestGenerateApiKey:
+    def test_generate_api_key_success(self):
+        mock_response = make_json_response({"key": "yt-generated-key"})
+
+        with patch.object(httpx.Client, "post", return_value=mock_response) as mock_post:
+            key = generate_api_key("jwt_token", key_name="2026-02-09-yutori-cli")
+            assert key == "yt-generated-key"
+            call_kwargs = mock_post.call_args
+            assert "Bearer jwt_token" in call_kwargs[1]["headers"]["Authorization"]
+            assert call_kwargs[1]["json"] == {"name": "2026-02-09-yutori-cli"}
+
+    def test_generate_api_key_uses_build_auth_api_url(self):
+        mock_response = make_json_response({"key": "yt-key"})
+
+        with patch.object(httpx.Client, "post", return_value=mock_response) as mock_post:
+            generate_api_key("jwt")
+            url = mock_post.call_args[0][0]
+            assert url == build_auth_api_url("/client/generate_key")
+            assert mock_post.call_args[1]["json"] is None
+
+
+class TestRegistrationHelpers:
+    def test_check_registration_status_true(self):
+        mock_response = make_json_response({"is_registered": True})
+
+        with patch.object(httpx.Client, "get", return_value=mock_response) as mock_get:
+            assert check_registration_status("jwt_token") is True
+            assert mock_get.call_args[0][0] == build_auth_api_url("/client/registration-status")
+
+    def test_check_registration_status_false_on_error(self):
+        with patch.object(httpx.Client, "get", side_effect=httpx.HTTPError("boom")):
+            assert check_registration_status("jwt_token") is None
+
+    def test_check_registration_status_returns_none_for_non_dict_body(self):
+        # Regression: a 200 response with a non-dict body (e.g. a backend bug
+        # returning `[]` or `"ok"`) must return None, not propagate
+        # AttributeError through run_login_flow and fail the whole login.
+        for bad_body in ([], "ok", 42, None):
+            mock_response = make_json_response(bad_body)
+            with patch.object(httpx.Client, "get", return_value=mock_response):
+                assert check_registration_status("jwt_token") is None, (
+                    f"non-dict body {bad_body!r} should return None, not raise"
+                )
+
+    def test_check_registration_status_returns_none_when_key_missing(self):
+        mock_response = make_json_response({"some_other_field": True})
+        with patch.object(httpx.Client, "get", return_value=mock_response):
+            assert check_registration_status("jwt_token") is None
+
+    def test_register_user_posts_cli_source(self):
+        mock_response = make_status_response(200)
+
+        with patch.object(httpx.Client, "post", return_value=mock_response) as mock_post:
+            register_user("jwt_token")
+            call_kwargs = mock_post.call_args
+            assert call_kwargs[0][0] == build_auth_api_url("/client/register-api")
+            assert call_kwargs[1]["json"] == {"signup_source": "cli"}
+            assert "Bearer jwt_token" in call_kwargs[1]["headers"]["Authorization"]
+
+    def test_register_user_raises_httpstatuserror_on_bad_status(self):
+        mock_response = make_status_response(500)
+        mock_response.raise_for_status = MagicMock(
+            side_effect=httpx.HTTPStatusError("500", request=MagicMock(), response=mock_response)
+        )
+
+        with patch.object(httpx.Client, "post", return_value=mock_response):
+            with pytest.raises(httpx.HTTPStatusError):
+                register_user("jwt_token")
+
+
+# ---------------------------------------------------------------------------
+# run_login_flow (mocked — no real browser or server)
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def _patched_callback_server():
+    """Patch the local OAuth callback server/thread machinery (TCPServer, its
+    background Thread, and the browser launch) so tests can drive
+    run_login_flow's callback delivery without starting a real server or thread.
+
+    Yields (mock_thread, original_result) so callers can script how/whether the
+    callback delivers a code, state, and the `received` signal.
+    """
+
+    def fake_server_init(self, addr, handler):
+        pass
+
+    with (
+        patch("yutori.auth.flow.socketserver.TCPServer.__init__", fake_server_init),
+        patch("yutori.auth.flow.socketserver.TCPServer.serve_forever"),
+        patch("yutori.auth.flow.socketserver.TCPServer.shutdown"),
+        patch("yutori.auth.flow.socketserver.TCPServer.server_close"),
+        patch("yutori.auth.flow.webbrowser.open"),
+        patch("yutori.auth.flow.threading.Thread") as mock_thread_cls,
+    ):
+        mock_thread = MagicMock()
+        mock_thread_cls.return_value = mock_thread
+
+        original_result = _CallbackResult()
+        with patch("yutori.auth.flow._CallbackResult", return_value=original_result):
+            yield mock_thread, original_result
+
+
+@contextmanager
+def _successful_oauth_callback():
+    """Patch the local callback server/thread so run_login_flow observes a browser
+    callback that delivers a matching auth code and state, without starting a
+    real server or thread."""
+
+    with _patched_callback_server() as (mock_thread, original_result):
+        with patch("yutori.auth.flow.secrets.token_urlsafe", return_value="fixed_state"):
+
+            def side_effect(*args, **kwargs):
+                original_result.code = "auth_code"
+                original_result.state = "fixed_state"
+                original_result.received.set()
+
+            mock_thread.start.side_effect = side_effect
+            yield mock_thread
+
+
+class TestRunLoginFlow:
+    @patch("yutori.auth.flow.webbrowser.open")
+    @patch("yutori.auth.flow.generate_api_key", return_value="yt-new-key")
+    @patch("yutori.auth.flow.register_user")
+    @patch("yutori.auth.flow.check_registration_status", return_value=False)
+    @patch("yutori.auth.flow.exchange_code_for_token", return_value="jwt123")
+    @patch("yutori.auth.flow.save_config")
+    def test_successful_flow(self, mock_save, mock_exchange, mock_status, mock_register, mock_gen_key, mock_browser):
+        """Mock the callback result to simulate a successful flow."""
+        with _successful_oauth_callback():
+            result = run_login_flow()
+            assert result.success is True
+            assert result.api_key == "yt-new-key"
+            assert result.auth_url is not None
+            mock_save.assert_called_once_with("yt-new-key")
+            mock_register.assert_called_once_with("jwt123")
+            mock_gen_key.assert_called_once()
+            assert mock_gen_key.call_args.args[0] == "jwt123"
+            key_name = mock_gen_key.call_args.kwargs["key_name"]
+            assert key_name.endswith("-yutori-cli")
+            date_part = key_name[:10]
+            datetime.strptime(date_part, "%Y-%m-%d")
+
+    @patch("yutori.auth.flow.webbrowser.open")
+    @patch("yutori.auth.flow.generate_api_key", return_value="yt-new-key")
+    @patch("yutori.auth.flow.register_user")
+    @patch("yutori.auth.flow.check_registration_status", return_value=False)
+    @patch("yutori.auth.flow.exchange_code_for_token", return_value="jwt123")
+    @patch("yutori.auth.flow.save_config", side_effect=OSError("read-only file system"))
+    def test_save_failure_reports_orphaned_key(
+        self, mock_save, mock_exchange, mock_status, mock_register, mock_gen_key, mock_browser
+    ):
+        # The key exists server-side by the time save_config runs; the error
+        # must say so instead of surfacing a bare OSError.
+        with _successful_oauth_callback():
+            result = run_login_flow()
+
+        assert result.success is False
+        assert result.api_key == "yt-new-key"
+        assert "an API key was created" in result.error
+        assert "read-only file system" in result.error
+
+    @patch("yutori.auth.flow.webbrowser.open")
+    @patch("yutori.auth.flow.generate_api_key", return_value="yt-new-key")
+    @patch("yutori.auth.flow.register_user")
+    @patch("yutori.auth.flow.check_registration_status", return_value=False)
+    @patch("yutori.auth.flow.exchange_code_for_token", return_value="jwt123")
+    @patch("yutori.auth.flow.save_config")
+    @patch("yutori.auth.flow.logger.warning")
+    def test_callback_exception_is_ignored(
+        self,
+        mock_warning,
+        mock_save,
+        mock_exchange,
+        mock_status,
+        mock_register,
+        mock_gen_key,
+        mock_browser,
+    ):
+        with _successful_oauth_callback():
+            result = run_login_flow(on_registration_state=lambda _: (_ for _ in ()).throw(RuntimeError("boom")))
+
+        assert result.success is True
+        mock_warning.assert_called_once()
+
+    @patch("yutori.auth.flow.webbrowser.open")
+    @patch("yutori.auth.flow.generate_api_key")
+    @patch(
+        "yutori.auth.flow.register_user",
+        side_effect=httpx.HTTPStatusError(
+            "500 Server Error",
+            request=httpx.Request("POST", "https://example.com/client/register-api"),
+            response=httpx.Response(500, content=b"backend missing"),
+        ),
+    )
+    @patch("yutori.auth.flow.check_registration_status", return_value=False)
+    @patch("yutori.auth.flow.exchange_code_for_token", return_value="jwt123")
+    @patch("yutori.auth.flow.save_config")
+    def test_register_failure_stops_before_generate_key(
+        self,
+        mock_save,
+        mock_exchange,
+        mock_status,
+        mock_register,
+        mock_gen_key,
+        mock_browser,
+    ):
+        with _successful_oauth_callback():
+            result = run_login_flow()
+
+        assert result.success is False
+        # register_user raises httpx.HTTPStatusError per its docstring; the
+        # outer flow wraps it as "Authentication failed (<status>): <body>".
+        assert "Authentication failed (500)" in str(result.error)
+        assert "backend missing" in str(result.error)
+        mock_gen_key.assert_not_called()
+
+    def test_port_in_use(self):
+        # The errno must be set: a bare OSError("Address already in use") has
+        # errno=None and would silently exercise the generic fallback branch.
+        with patch(
+            "yutori.auth.flow.socketserver.TCPServer.__init__",
+            side_effect=OSError(errno.EADDRINUSE, "Address already in use"),
+        ):
+            result = run_login_flow()
+            assert result.success is False
+            assert "Close other applications" in result.error
+
+    def test_other_bind_error_names_the_callback_server(self):
+        with patch(
+            "yutori.auth.flow.socketserver.TCPServer.__init__",
+            side_effect=OSError(errno.EACCES, "Permission denied"),
+        ):
+            result = run_login_flow()
+            assert result.success is False
+            assert "callback server" in result.error
+            assert "Permission denied" in result.error
+
+    def test_timeout(self):
+        with _patched_callback_server() as (_, original_result):
+            # Don't set received, so wait() returns False after timeout=0
+            with patch.object(original_result.received, "wait", return_value=False):
+                result = run_login_flow()
+                assert result.success is False
+                assert "timed out" in result.error.lower()
+                assert result.auth_url is not None
+
+    def test_state_mismatch(self):
+        with _patched_callback_server() as (mock_thread, original_result):
+            with patch("yutori.auth.flow.secrets.token_urlsafe", return_value="expected_state"):
+
+                def side_effect(*args, **kwargs):
+                    original_result.code = "auth_code"
+                    original_result.state = "wrong_state"
+                    original_result.received.set()
+
+                mock_thread.start.side_effect = side_effect
+
+                result = run_login_flow()
+                assert result.success is False
+                assert "state mismatch" in result.error.lower()
+                assert result.auth_url is not None
+
+
+# ---------------------------------------------------------------------------
+# get_auth_status
+# ---------------------------------------------------------------------------
+
+
+class TestGetAuthStatus:
+    @pytest.fixture(autouse=True)
+    def _use_tmp_config(self, tmp_path, monkeypatch):
+        self.config_path = _redirect_config_path(tmp_path, monkeypatch, patch_flow=True, clear_env=True)
+
+    def test_authenticated_from_config_file(self):
+        save_config("yt-test-key-12345")
+        status = get_auth_status()
+        assert status.authenticated is True
+        assert status.source == "config_file"
+        assert "yt-t" in status.masked_key
+        assert "2345" in status.masked_key
+
+    def test_authenticated_from_env_var(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "yt-env-key-67890")
+        status = get_auth_status()
+        assert status.authenticated is True
+        assert status.source == "env_var"
+        assert "yt-e" in status.masked_key
+
+    def test_not_authenticated(self):
+        status = get_auth_status()
+        assert status.authenticated is False
+        assert status.masked_key is None
+
+    def test_env_var_takes_precedence_over_config_file(self, monkeypatch):
+        save_config("yt-config-key-abc")
+        monkeypatch.setenv("YUTORI_API_KEY", "yt-env-key-xyz")
+        status = get_auth_status()
+        assert status.source == "env_var"
+
+    def test_placeholder_env_var_treated_as_unauthenticated(self, monkeypatch):
+        monkeypatch.setenv("YUTORI_API_KEY", "YOUR_API_KEY")
+        status = get_auth_status()
+        assert status.authenticated is False
+
+    def test_placeholder_config_value_treated_as_unauthenticated(self):
+        save_config("YOUR_API_KEY")
+        status = get_auth_status()
+        assert status.authenticated is False
+
+    def test_non_string_api_key_in_config_treated_as_unauthenticated(self):
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        self.config_path.write_text(json.dumps({"api_key": 12345}))
+        status = get_auth_status()
+        assert status.authenticated is False
+
+
+# ---------------------------------------------------------------------------
+# _mask_key
+# ---------------------------------------------------------------------------
+
+
+class TestMaskKey:
+    def test_long_key_shows_prefix_and_suffix(self):
+        result = _mask_key("yt-abcdefghijklmnop")  # 20 chars
+        assert result == "yt-a...mnop"
+
+    def test_medium_key_shows_prefix_only(self):
+        result = _mask_key("yt-abcdefghijk")  # 14 chars (8-15 range)
+        assert result == "yt-a..."
+
+    def test_short_key_fully_masked(self):
+        result = _mask_key("short")  # 5 chars
+        assert result == "***"
+
+    def test_exactly_16_chars_shows_prefix_and_suffix(self):
+        result = _mask_key("1234567890abcdef")  # 16 chars
+        assert result == "1234...cdef"
+
+    def test_8_chars_shows_prefix_only(self):
+        result = _mask_key("12345678")  # 8 chars
+        assert result == "1234..."
+
+    def test_7_chars_fully_masked(self):
+        result = _mask_key("1234567")  # 7 chars
+        assert result == "***"
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+
+class TestConstants:
+    def test_callback_host_is_ipv4(self):
+        assert CALLBACK_HOST == "127.0.0.1"
+
+    def test_redirect_uri_uses_localhost(self):
+        assert "localhost" in REDIRECT_URI
+        assert str(REDIRECT_PORT) in REDIRECT_URI
+        assert "/callback" in REDIRECT_URI
+
+    def test_build_auth_api_url(self):
+        url = build_auth_api_url("/client/generate_key")
+        assert url.endswith("/v1/client/generate_key")
+
+
+# ---------------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------------
+
+
+class TestTypes:
+    def test_login_result_success(self):
+        r = LoginResult(success=True, api_key="yt-key")
+        assert r.success is True
+        assert r.api_key == "yt-key"
+        assert r.error is None
+
+    def test_login_result_failure(self):
+        r = LoginResult(success=False, error="something broke")
+        assert r.success is False
+        assert r.api_key is None
+        assert r.error == "something broke"
+
+    def test_login_result_auth_url_default_none(self):
+        r = LoginResult(success=True, api_key="yt-key")
+        assert r.auth_url is None
+
+    def test_login_result_auth_url_preserved(self):
+        r = LoginResult(success=False, error="timeout", auth_url="https://clerk.yutori.com/oauth/authorize?x=1")
+        assert r.auth_url == "https://clerk.yutori.com/oauth/authorize?x=1"
+
+    def test_auth_status_authenticated(self):
+        s = AuthStatus(
+            authenticated=True,
+            masked_key="yt-...abc",
+            source="config_file",
+            config_path="/home/.yutori/config.json",
+        )
+        assert s.authenticated is True
+        assert s.source == "config_file"
+
+    def test_auth_status_not_authenticated(self):
+        s = AuthStatus(authenticated=False)
+        assert s.authenticated is False
+        assert s.masked_key is None
+        assert s.source is None
+
+
+class TestAuthApiBaseUrlOverride:
+    def test_env_override_applies_and_is_sanitized(self, monkeypatch):
+        import importlib
+
+        from yutori.auth import constants
+
+        monkeypatch.setenv("YUTORI_API_BASE_URL", "https://api.example.test/v1/")
+        importlib.reload(constants)
+        try:
+            assert constants.build_auth_api_url("/client/generate_key") == (
+                "https://api.example.test/v1/client/generate_key"
+            )
+        finally:
+            # Restore module-level defaults for the rest of the suite.
+            monkeypatch.delenv("YUTORI_API_BASE_URL")
+            importlib.reload(constants)

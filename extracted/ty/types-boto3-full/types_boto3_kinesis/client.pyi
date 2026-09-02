@@ -115,6 +115,7 @@ __all__ = ("KinesisClient",)
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    DryRunOperationException: type[BotocoreClientError]
     ExpiredIteratorException: type[BotocoreClientError]
     ExpiredNextTokenException: type[BotocoreClientError]
     InternalFailureException: type[BotocoreClientError]

@@ -1,0 +1,1306 @@
+/*------------------------------------------------------------------------------
+-- This file is a part of the SciQLop Software
+-- Copyright (C) 2023, Plasma Physics Laboratory - CNRS
+--
+-- This program is free software; you can redistribute it and/or modify
+-- it under the terms of the GNU General Public License as published by
+-- the Free Software Foundation; either version 2 of the License, or
+-- (at your option) any later version.
+--
+-- This program is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+-- GNU General Public License for more details.
+--
+-- You should have received a copy of the GNU General Public License
+-- along with this program; if not, write to the Free Software
+-- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+-------------------------------------------------------------------------------*/
+/*-- Author : Alexis Jeandet
+-- Mail : alexis.jeandet@member.fsf.org
+----------------------------------------------------------------------------*/
+#include "SciQLopPlots/SciQLopPlot.hpp"
+#include "SciQLopPlots/Profiling.hpp"
+#include "SciQLopPlots/SciQLopTheme.hpp"
+#include "SciQLopPlots/Inspector/Model/Model.hpp"
+#include "SciQLopPlots/Items/SciQLopPlotItem.hpp"
+#include "SciQLopPlots/constants.hpp"
+#include <layoutelements/layoutelement-legend-group.h>
+#include <plottables/plottable-multigraph.h>
+#include <theme.h>
+
+#include <QFileInfo>
+#include <QSignalBlocker>
+#include <cmath>
+#include <cpp_utils/containers/algorithms.hpp>
+#include <limits>
+#include <utility>
+
+namespace _impl
+{
+
+
+SciQLopPlot::SciQLopPlot(QWidget* parent) : QCustomPlot { parent }
+{
+    using namespace Constants;
+    setAttribute(Qt::WA_OpaquePaintEvent);
+    this->addLayer(LayersNames::Spans, this->layer(LayersNames::Main), QCustomPlot::limAbove);
+    this->layer(LayersNames::Spans)->setMode(QCPLayer::lmBuffered);
+    this->layer(LayersNames::Spans)->setVisible(true);
+    this->addLayer(LayersNames::ColorMap, this->layer(LayersNames::Main), QCustomPlot::limBelow);
+    this->layer(LayersNames::ColorMap)->setMode(QCPLayer::lmBuffered);
+    this->layer(LayersNames::ColorMap)->setVisible(true);
+    this->setFocusPolicy(Qt::StrongFocus);
+    this->grabGesture(Qt::PinchGesture, Qt::DontStartGestureOnChildren);
+    this->grabGesture(Qt::PanGesture, Qt::DontStartGestureOnChildren);
+
+    m_crosshair = new SciQLopCrosshair(this);
+    this->setMouseTracking(true);
+    this->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables
+                          | QCP::iSelectAxes | QCP::iSelectLegend | QCP::iSelectItems
+                          | QCP::iMultiSelect);
+
+
+    connect(this->xAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), this,
+            [this](const QCPRange& range)
+            { if (!m_suppress_range_signals) Q_EMIT x_axis_range_changed({ range.lower, range.upper }); });
+    connect(this->xAxis2, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), this,
+            [this](const QCPRange& range)
+            { if (!m_suppress_range_signals) Q_EMIT x2_axis_range_changed({ range.lower, range.upper }); });
+    connect(this->yAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), this,
+            [this](const QCPRange& range)
+            { if (!m_suppress_range_signals) Q_EMIT y_axis_range_changed({ range.lower, range.upper }); });
+    connect(this->yAxis2, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), this,
+            [this](const QCPRange& range)
+            { if (!m_suppress_range_signals) Q_EMIT y2_axis_range_changed({ range.lower, range.upper }); });
+
+    m_color_scale = new QCPColorScale(this);
+    m_color_scale->setVisible(false);
+    // Number format + precision are managed adaptively by SciQLopPlotColorScaleAxis
+    // (precision 0 here would render closely-spaced linear ticks all identical).
+
+    connect(m_color_scale->axis(), QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), this,
+            [this](const QCPRange& range)
+            { if (!m_suppress_range_signals) Q_EMIT z_axis_range_changed({ range.lower, range.upper }); });
+
+    this->m_axes.append(new SciQLopPlotAxis(this->xAxis, this, false, "X Axis"));
+    this->m_axes.append(new SciQLopPlotAxis(this->yAxis, this, false, "Y Axis"));
+    this->m_axes.append(new SciQLopPlotAxis(this->xAxis2, this, false, "X Axis 2"));
+    this->m_axes.append(new SciQLopPlotAxis(this->yAxis2, this, false, "Y Axis 2"));
+    this->m_axes.append(new SciQLopPlotColorScaleAxis(this->m_color_scale, this, "Color Scale"));
+
+#ifdef QCUSTOMPLOT_USE_OPENGL
+    setOpenGl(true, 4);
+#endif
+    for (auto gesture : { Qt::PinchGesture })
+    {
+        grabGesture(gesture);
+    }
+}
+
+SciQLopPlot::~SciQLopPlot()
+{
+    for (auto plottable : m_plottables)
+    {
+        disconnect(plottable, nullptr, this, nullptr);
+    }
+    m_plottables.clear();
+    delete m_crosshair;
+}
+
+SciQLopPlottableInterface* SciQLopPlot::sqp_plottable(int index)
+{
+    if (m_plottables.isEmpty())
+        return nullptr;
+    if (index == -1 || index >= std::size(m_plottables))
+        index = std::size(m_plottables) - 1;
+    return m_plottables[index];
+}
+
+SciQLopPlottableInterface* SciQLopPlot::sqp_plottable(const QString& name)
+{
+    for (auto p : m_plottables)
+    {
+        if (p->objectName() == name)
+            return p;
+    }
+    return nullptr;
+}
+
+const QList<SciQLopPlottableInterface*>& SciQLopPlot::sqp_plottables() const
+{
+    return m_plottables;
+}
+
+SciQLopColorMap* SciQLopPlot::add_color_map(const QString& name, bool y_log_scale, bool z_log_scale)
+{
+    if (m_color_map == nullptr)
+    {
+        m_color_map = new SciQLopColorMap(
+            this, this->m_axes[0], this->m_axes[3],
+            static_cast<SciQLopPlotColorScaleAxis*>(this->m_axes[4]), name);
+        _ensure_colorscale_is_visible(m_color_map);
+        _register_plottable_wrapper(m_color_map);
+        return m_color_map;
+    }
+    return nullptr;
+}
+
+SciQLopHistogram2D* SciQLopPlot::add_histogram2d(const QString& name, int x_bins, int y_bins,
+                                                  bool x_bins_log, bool y_bins_log)
+{
+    auto hist = new SciQLopHistogram2D(
+        this, this->m_axes[0], this->m_axes[1],
+        static_cast<SciQLopPlotColorScaleAxis*>(this->m_axes[4]), name, x_bins, y_bins);
+    hist->set_x_bins_log(x_bins_log);
+    hist->set_y_bins_log(y_bins_log);
+    _ensure_colorscale_is_visible(hist);
+    _register_plottable_wrapper(hist);
+    return hist;
+}
+
+SciQLopHistogram2DFunction* SciQLopPlot::add_histogram2d(GetDataPyCallable&& callable,
+                                                          const QString& name, int x_bins,
+                                                          int y_bins, bool x_bins_log,
+                                                          bool y_bins_log)
+{
+    auto hist = new SciQLopHistogram2DFunction(
+        this, this->m_axes[0], this->m_axes[1],
+        static_cast<SciQLopPlotColorScaleAxis*>(this->m_axes[4]), std::move(callable), name,
+        x_bins, y_bins);
+    hist->set_x_bins_log(x_bins_log);
+    hist->set_y_bins_log(y_bins_log);
+    _ensure_colorscale_is_visible(hist);
+    _register_plottable_wrapper(hist);
+    return hist;
+}
+
+SciQLopColorMapFunction* SciQLopPlot::add_color_map(GetDataPyCallable&& callable,
+                                                    const QString& name, bool y_log_scale,
+                                                    bool z_log_scale)
+{
+    if (m_color_map == nullptr)
+    {
+        m_color_map = new SciQLopColorMapFunction(
+            this, this->m_axes[0], this->m_axes[3],
+            static_cast<SciQLopPlotColorScaleAxis*>(this->m_axes[4]), std::move(callable),
+            name);
+        _ensure_colorscale_is_visible(m_color_map);
+        _register_plottable_wrapper(m_color_map);
+        return qobject_cast<SciQLopColorMapFunction*>(m_color_map);
+    }
+    return nullptr;
+}
+
+SciQLopColorMapRemote* SciQLopPlot::add_remote_color_map(const QString& name)
+{
+    if (m_color_map == nullptr)
+    {
+        auto* cmap = new SciQLopColorMapRemote(
+            this, this->m_axes[0], this->m_axes[3],
+            static_cast<SciQLopPlotColorScaleAxis*>(this->m_axes[4]), name);
+        m_color_map = cmap;
+        _ensure_colorscale_is_visible(m_color_map);
+        _register_plottable_wrapper(m_color_map);
+        return cmap;
+    }
+    return nullptr;
+}
+
+SciQLopHistogram2DRemote* SciQLopPlot::add_remote_histogram2d(const QString& name, int x_bins,
+                                                               int y_bins)
+{
+    auto* hist = new SciQLopHistogram2DRemote(
+        this, this->m_axes[0], this->m_axes[1],
+        static_cast<SciQLopPlotColorScaleAxis*>(this->m_axes[4]), name, x_bins, y_bins);
+    _ensure_colorscale_is_visible(hist);
+    _register_plottable_wrapper(hist);
+    return hist;
+}
+
+void SciQLopPlot::minimize_margins()
+{
+    plotLayout()->setMargins(QMargins(0, 0, 0, 0));
+    plotLayout()->setRowSpacing(0);
+    for (auto rect : axisRects())
+        rect->setMargins(QMargins(0, 0, 0, 0));
+
+    setContentsMargins(0, 0, 0, 0);
+    if (auto l = layout(); l != nullptr)
+    {
+        l->setSpacing(0);
+        l->setContentsMargins(0, 0, 0, 0);
+    }
+}
+
+QMargins SciQLopPlot::minimal_axis_margins()
+{
+    return QMargins(_minimal_margin(QCP::msLeft), _minimal_margin(QCP::msTop),
+                    _minimal_margin(QCP::msRight), _minimal_margin(QCP::msBottom));
+}
+
+void SciQLopPlot::replot(RefreshPriority priority)
+{
+    PROFILE_HERE_N("plot.replot");
+    QCustomPlot::replot(priority);
+}
+
+void SciQLopPlot::mousePressEvent(QMouseEvent* event)
+{
+    QCustomPlot::mousePressEvent(event);
+}
+
+void SciQLopPlot::mouseMoveEvent(QMouseEvent* event)
+{
+    if (event->buttons() != Qt::NoButton)
+    {
+        QCustomPlot::mouseMoveEvent(event);
+        return;
+    }
+    QCustomPlot::mouseMoveEvent(event);
+    // Throttle hover updates — plottableAt + itemAt + selectTest + overlay
+    // replot are expensive at 1000+ Hz.  60 Hz is plenty for a tooltip.
+    if (m_hover_throttle_timer.isValid() && m_hover_throttle_timer.elapsed() < 16)
+        return;
+    m_hover_throttle_timer.start();
+    _update_mouse_cursor(event);
+    m_crosshair->update_at_pixel(event->pos());
+    if (!std::isnan(m_crosshair->current_key()))
+        emit hover_x_changed(m_crosshair->current_key());
+}
+
+void SciQLopPlot::enterEvent(QEnterEvent* event)
+{
+    event->accept();
+    QCustomPlot::enterEvent(event);
+}
+
+void SciQLopPlot::leaveEvent(QEvent* event)
+{
+    m_crosshair->hide();
+    emit hover_x_changed(std::numeric_limits<double>::quiet_NaN());
+    event->accept();
+    QCustomPlot::leaveEvent(event);
+}
+
+void SciQLopPlot::mouseReleaseEvent(QMouseEvent* event)
+{
+    QCustomPlot::mouseReleaseEvent(event);
+}
+
+void SciQLopPlot::_wheel_zoom(QCPAxis* axis, const double wheelSteps, const QPointF& pos)
+{
+    const auto factor = qPow(axis->axisRect()->rangeZoomFactor(axis->orientation()), wheelSteps);
+    axis->scaleRange(factor,
+                     axis->pixelToCoord(axis->orientation() == Qt::Horizontal ? pos.x() : pos.y()));
+}
+
+void SciQLopPlot::_pinch_zoom(QPinchGesture* gesture)
+{
+    QPinchGesture::ChangeFlags changeFlags = gesture->changeFlags();
+    if (changeFlags & QPinchGesture::ScaleFactorChanged)
+    {
+        auto axis = this->xAxis;
+        if (gesture->scaleFactor() != 0.)
+            axis->scaleRange(1. / gesture->scaleFactor(),
+                             axis->pixelToCoord(gesture->centerPoint().x()));
+        this->replot(rpQueuedReplot);
+    }
+}
+
+#ifdef Q_OS_LINUX
+void SciQLopPlot::_native_pinch_zoom(QNativeGestureEvent* event)
+{
+    if (event->gestureType() != Qt::ZoomNativeGesture)
+        return;
+    const auto factor = 1. + event->value();
+    if (factor != 0.)
+    {
+        auto axis = this->xAxis;
+        axis->scaleRange(1. / factor, axis->pixelToCoord(event->position().x()));
+        this->replot(rpQueuedReplot);
+    }
+}
+#endif
+
+int SciQLopPlot::_minimal_margin(QCP::MarginSide side)
+{
+    return 0;
+}
+
+void SciQLopPlot::_wheel_pan(QCPAxis* axis, const double wheelSteps)
+{
+    if (axis->scaleType() == QCPAxis::stLinear)
+    {
+        axis->moveRange(wheelSteps * m_scroll_factor * QApplication::wheelScrollLines() / 100.
+                        * axis->range().size());
+    }
+    else
+    {
+        auto size = log10(axis->range().upper) - log10(axis->range().lower);
+        if (wheelSteps > 0)
+            axis->moveRange(std::pow(
+                10, wheelSteps * m_scroll_factor * QApplication::wheelScrollLines() / 100. * size));
+        else
+            axis->moveRange(1.
+                            / std::pow(10,
+                                       -wheelSteps * m_scroll_factor
+                                           * QApplication::wheelScrollLines() / 100. * size));
+    }
+}
+
+inline double _signed_length(const QPoint& p)
+{
+    auto sign = p.y() - p.x();
+    return sign < 0 ? -p.manhattanLength() : p.manhattanLength();
+}
+
+void SciQLopPlot::wheelEvent(QWheelEvent* event)
+{
+    const auto pos = event->position();
+    const auto wheelSteps = _signed_length(event->angleDelta()) / 120.0;
+    auto* ar = this->axisRect();
+
+    // Check axes directly — avoids layerableListAt() which triggers expensive
+    // selectTest() on every plottable (O(N) per data point in QCPGraph2).
+    for (auto axisType : { QCPAxis::atBottom, QCPAxis::atLeft, QCPAxis::atTop, QCPAxis::atRight })
+    {
+        auto* ax = ar->axis(axisType);
+        if (ax && ax->selectTest(pos, false) >= 0)
+        {
+            this->_wheel_zoom(ax, wheelSteps, pos);
+            event->accept();
+            this->replot(rpQueuedReplot);
+            return;
+        }
+    }
+
+    if (ar->rect().contains(pos.toPoint()))
+    {
+        if (event->modifiers().testFlags(Qt::ShiftModifier | Qt::ControlModifier))
+            this->_wheel_pan(ar->axis(QCPAxis::atLeft), wheelSteps);
+        else if (event->modifiers().testFlag(Qt::ControlModifier))
+            this->_wheel_zoom(ar->axis(QCPAxis::atBottom), wheelSteps, pos);
+        else if (event->modifiers().testFlag(Qt::ShiftModifier))
+            this->_wheel_zoom(ar->axis(QCPAxis::atLeft), wheelSteps, pos);
+        else
+            this->_wheel_pan(ar->axis(QCPAxis::atBottom), wheelSteps);
+        this->replot(rpQueuedReplot);
+        event->accept();
+        return;
+    }
+
+    // Color scale: zoom directly instead of going through layerableListAt()
+    // which calls selectTest() on every plottable.
+    if (m_color_scale && m_color_scale->visible()
+        && m_color_scale->selectTest(pos, false) >= 0)
+    {
+        auto* colorAxis = m_color_scale->axis();
+        if (colorAxis)
+        {
+            this->_wheel_zoom(colorAxis, wheelSteps, pos);
+            this->replot(rpQueuedReplot);
+        }
+        event->accept();
+        return;
+    }
+
+    QCustomPlot::wheelEvent(event);
+}
+
+void SciQLopPlot::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Escape)
+    {
+        auto items = selectedItems();
+        for (auto item : items)
+        {
+            item->setSelected(false);
+        }
+        for (auto g : selectedGraphs())
+        {
+            g->setSelection(QCPDataSelection());
+        }
+        for (auto l : selectedLegends())
+        {
+            l->setSelectedParts(QCPLegend::SelectablePart::spNone);
+        }
+        for (auto a : selectedPlottables())
+        {
+            a->setSelection(QCPDataSelection());
+        }
+        for (auto ax : selectedAxes())
+        {
+            ax->setSelectedParts(QCPAxis::spNone);
+        }
+        this->replot(rpQueuedReplot);
+    }
+    QCustomPlot::keyPressEvent(event);
+}
+
+bool SciQLopPlot::event(QEvent* event)
+{
+    auto r = QCustomPlot::event(event);
+    if (event->type() == QEvent::ToolTip)
+    {
+        return this->_handle_tool_tip(event);
+    }
+    if (event->type() == QEvent::Gesture)
+    {
+        QGestureEvent* gestureEvent = static_cast<QGestureEvent*>(event);
+        if (QGesture* gesture = gestureEvent->gesture(Qt::PinchGesture); gesture != nullptr)
+        {
+            if (auto p = dynamic_cast<QPinchGesture*>(gesture); p != nullptr)
+            {
+                _pinch_zoom(p);
+                event->accept();
+            }
+        }
+        return true;
+    }
+#ifdef Q_OS_LINUX
+    if (event->type() == QEvent::NativeGesture)
+    {
+        _native_pinch_zoom(static_cast<QNativeGestureEvent*>(event));
+        event->accept();
+        return true;
+    }
+#endif
+    return r;
+}
+
+void SciQLopPlot::resizeEvent(QResizeEvent* event)
+{
+    // QRhiWidget::initialize() already runs before resizeEvent on every resize,
+    // handling pipeline invalidation, viewport update, and an immediate replot.
+    // Calling QCustomPlot::resizeEvent would do a redundant second immediate
+    // replot — very expensive during continuous splitter drag.
+    setViewport(rect());
+    replot(rpQueuedReplot);
+    Q_EMIT resized(event->size());
+}
+
+void SciQLopPlot::set_crosshair_enabled(bool enabled)
+{
+    m_crosshair->set_enabled(enabled);
+}
+
+bool SciQLopPlot::crosshair_enabled() const
+{
+    return m_crosshair->enabled();
+}
+
+void SciQLopPlot::show_crosshair_at_key(double key)
+{
+    if (!m_crosshair->enabled())
+        return;
+    m_crosshair->update_at_key(key);
+}
+
+void SciQLopPlot::hide_crosshair()
+{
+    m_crosshair->hide();
+}
+
+bool SciQLopPlot::_update_mouse_cursor(QMouseEvent* event)
+{
+    const auto item = itemAt(event->pos(), false);
+    if (auto sciItem = dynamic_cast<impl::SciQLopPlotItemBase*>(item); sciItem != nullptr)
+    {
+        this->setCursor(sciItem->cursor(event));
+        return true;
+    }
+    this->setCursor(Qt::ArrowCursor);
+    return false;
+}
+
+bool SciQLopPlot::_handle_tool_tip(QEvent* event)
+{
+    QHelpEvent* helpEvent = static_cast<QHelpEvent*>(event);
+    {
+        auto itm = itemAt(helpEvent->pos(), false);
+        if (itm)
+        {
+            if (auto itm_with_tt = dynamic_cast<impl::SciQlopItemWithToolTip*>(itm); itm_with_tt)
+            {
+                QToolTip::showText(helpEvent->globalPos(), itm_with_tt->tooltip());
+                return true;
+            }
+        }
+    }
+    QToolTip::hideText();
+    return true;
+}
+
+void SciQLopPlot::_update_value_axis_visibility()
+{
+    // Colormaps read on yAxis2, so a colormap-only plot would draw a left axis
+    // nothing is scaled to. An empty plot keeps its axes: there is no data to
+    // contradict them yet.
+    bool used = m_plottables.isEmpty();
+    for (const auto* p : std::as_const(m_plottables))
+        used = used || p->y_axis() == m_axes[1];
+
+    // Only ever undo our own hiding: a caller who hid the axis on purpose must
+    // not have it reappear underneath them the next time a graph is added.
+    if (!used && m_axes[1]->visible())
+    {
+        m_value_axis_hidden_here = true;
+        m_axes[1]->set_visible(false);
+    }
+    else if (used && m_value_axis_hidden_here)
+    {
+        m_value_axis_hidden_here = false;
+        m_axes[1]->set_visible(true);
+    }
+}
+
+void SciQLopPlot::_register_plottable_wrapper(SciQLopPlottableInterface* plottable)
+{
+    m_plottables.append(plottable);
+    connect(plottable, &SciQLopGraphInterface::destroyed, this,
+            [this, plottable]()
+            {
+                m_plottables.removeOne(plottable);
+                if (m_color_map == plottable)
+                    m_color_map = nullptr;
+                _update_value_axis_visibility();
+                emit this->plotables_list_changed();
+            });
+    connect(plottable, &SciQLopGraphInterface::replot, this, [this]() { this->replot(); });
+    connect(this, &SciQLopPlot::resized, plottable,
+            &SciQLopPlottableInterface::parent_plot_resized);
+    _update_value_axis_visibility();
+    emit this->plotables_list_changed();
+}
+
+void _impl::SciQLopPlot::_ensure_colorscale_is_visible(SciQLopColorMap* cmap)
+{
+    if (!m_color_scale->visible())
+    {
+        m_color_scale->setVisible(true);
+        plotLayout()->addElement(0, 1, m_color_scale);
+        cmap->colorMap()->setColorScale(m_color_scale);
+        applyTheme();
+    }
+}
+
+void _impl::SciQLopPlot::_ensure_colorscale_is_visible(SciQLopHistogram2D* hist)
+{
+    if (!m_color_scale->visible())
+    {
+        m_color_scale->setVisible(true);
+        plotLayout()->addElement(0, 1, m_color_scale);
+        hist->histogram()->setColorScale(m_color_scale);
+        applyTheme();
+    }
+}
+
+QCPAbstractPlottable* SciQLopPlot::plottable(const QString& name) const
+{
+    for (auto plottable : mPlottables)
+    {
+        if (plottable->name() == name)
+            return plottable;
+    }
+    return nullptr;
+}
+
+}
+
+void SciQLopPlot::_configure_plotable(SciQLopGraphInterface* plottable, const QStringList& labels,
+                                      const QList<QColor>& colors, ::GraphType graph_type,
+                                      ::GraphMarkerShape marker)
+{
+    if (!plottable)
+        return;
+
+    if (!plottable->components().isEmpty())
+    {
+        _apply_component_style(plottable, colors, graph_type, marker, labels);
+    }
+    else
+    {
+        // Function/remote graphs create their components from the first data
+        // batch (lazily, in sync_components) — after this runs. Re-apply the
+        // per-component style once they exist, mirroring the static path which
+        // calls set_data (creating components) before _configure_plotable.
+        // The capture is by value on purpose: this lambda outlives the current
+        // stack frame (it runs on a later data_changed), so capturing labels /
+        // colors by reference would dangle.
+        auto conn = std::make_shared<QMetaObject::Connection>();
+        *conn = connect(
+            plottable, QOverload<>::of(&SciQLopGraphInterface::data_changed), this,
+            [this, plottable, colors, graph_type, marker, labels, conn]()
+            {
+                if (!plottable->components().isEmpty())
+                {
+                    _apply_component_style(plottable, colors, graph_type, marker, labels);
+                    QObject::disconnect(*conn);
+                }
+            });
+    }
+    connect(
+        plottable, QOverload<>::of(&SciQLopGraphInterface::data_changed), this,
+        [this]()
+        {
+            if (this->m_auto_scale)
+                this->rescale_axes();
+        },
+        Qt::QueuedConnection);
+    connect(
+        plottable, &SciQLopGraphInterface::request_rescale, this,
+        [this]() { this->rescale_axes(); }, Qt::QueuedConnection);
+}
+
+void SciQLopPlot::_apply_component_style(SciQLopGraphInterface* plottable,
+                                         const QList<QColor>& colors, ::GraphType graph_type,
+                                         ::GraphMarkerShape marker, const QStringList& labels)
+{
+    const auto components = plottable->components();
+    if (components.isEmpty())
+        return;
+    if (std::size(colors) == std::size(components))
+    {
+        plottable->set_colors(colors);
+    }
+    else
+    {
+        for (auto& component : components)
+        {
+            component->set_color(m_color_palette[m_color_palette_index]);
+            m_color_palette_index = (m_color_palette_index + 1) % std::size(m_color_palette);
+        }
+    }
+    for (auto& component : components)
+    {
+        component->set_marker_shape(marker);
+        if (graph_type == ::GraphType::Scatter)
+            component->set_line_style(::GraphLineStyle::NoLine);
+    }
+    _apply_component_labels(plottable, labels);
+}
+
+void SciQLopPlot::_apply_component_labels(SciQLopGraphInterface* plottable,
+                                          const QStringList& labels)
+{
+    const auto count = static_cast<int>(std::size(plottable->components()));
+    if (count == 0)
+        return;
+    if (labels.size() == count)
+    {
+        plottable->set_labels(labels);
+        return;
+    }
+    // No (or mismatched) explicit labels: derive component names from the graph's
+    // base name so multi-component callbacks don't render with empty/duplicate
+    // names. Only when the caller actually named the graph — never propagate the
+    // auto-generated placeholder id ("Line0", …), which is meaningless to users.
+    if (!plottable->has_user_name())
+        return;
+    const QString base = plottable->name();
+    if (base.isEmpty())
+        return;
+    QStringList derived;
+    if (count == 1)
+        derived << base;
+    else
+        for (int i = 0; i < count; ++i)
+            derived << QStringLiteral("%1[%2]").arg(base).arg(i);
+    plottable->set_labels(derived);
+}
+
+SciQLopPlot::SciQLopPlot(QWidget* parent) : SciQLopPlotInterface(parent)
+{
+    m_impl = new _impl::SciQLopPlot(this);
+
+    this->m_time_axis = new SciQLopPlotDummyAxis(this);
+    connect(this->m_time_axis, &SciQLopPlotDummyAxis::range_changed, this,
+            &SciQLopPlot::time_axis_range_changed);
+
+    // connect(m_impl, &_impl::SciQLopPlot::x2_axis_range_changed, this,
+    //    &SciQLopPlot::time_axis_range_changed);
+
+    this->setLayout(new QVBoxLayout);
+    this->layout()->addWidget(m_impl);
+    connect(m_impl, &_impl::SciQLopPlot::x_axis_range_changed, this,
+            &SciQLopPlot::x_axis_range_changed);
+    connect(m_impl, &_impl::SciQLopPlot::x2_axis_range_changed, this,
+            &SciQLopPlot::x2_axis_range_changed);
+    connect(m_impl, &_impl::SciQLopPlot::y_axis_range_changed, this,
+            &SciQLopPlot::y_axis_range_changed);
+    connect(m_impl, &_impl::SciQLopPlot::y2_axis_range_changed, this,
+            &SciQLopPlot::y2_axis_range_changed);
+    connect(m_impl, &_impl::SciQLopPlot::z_axis_range_changed, this,
+            &SciQLopPlot::z_axis_range_changed);
+
+    connect(m_impl, &_impl::SciQLopPlot::scroll_factor_changed, this,
+            &SciQLopPlot::scroll_factor_changed);
+
+    connect(m_impl, &_impl::SciQLopPlot::plotables_list_changed, this,
+            &SciQLopPlot::graph_list_changed);
+
+    connect(m_impl, &_impl::SciQLopPlot::hover_x_changed, this,
+            &SciQLopPlot::cursor_time_changed);
+
+    // Forward resize notifications: the impl emits resized(QSize) but the
+    // wrapper's public signal is the no-arg resized() from
+    // SciQLopPlotInterface — the one Python sees and the one
+    // SciQLopNDProjectionPlot's equal-aspect enforcement listens to.
+    connect(m_impl, &_impl::SciQLopPlot::resized, this,
+            [this](QSize) { Q_EMIT resized(); });
+
+    set_axes_to_rescale(
+        QList<SciQLopPlotAxisInterface*> { x_axis(), x2_axis(), y_axis(), y2_axis(), z_axis() });
+    this->m_legend = new SciQLopPlotLegend(m_impl->legend, this);
+    m_legend->set_visible(true);
+    this->minimize_margins();
+}
+
+SciQLopPlot::~SciQLopPlot()
+{
+    while (plottables().size() > 0)
+    {
+        delete plottable(0);
+    }
+}
+
+SciQLopHistogram2D* SciQLopPlot::add_histogram2d(const QString& name, int x_bins, int y_bins,
+                                                  bool x_bins_log, bool y_bins_log)
+{
+    auto hist = m_impl->add_histogram2d(name, x_bins, y_bins, x_bins_log, y_bins_log);
+    if (hist)
+    {
+        _configure_color_map(hist, y_bins_log, false);
+    }
+    return hist;
+}
+
+SciQLopHistogram2DFunction* SciQLopPlot::add_histogram2d(GetDataPyCallable&& callable,
+                                                          const QString& name, int x_bins,
+                                                          int y_bins, bool x_bins_log,
+                                                          bool y_bins_log)
+{
+    auto hist = m_impl->add_histogram2d(std::move(callable), name, x_bins, y_bins,
+                                        x_bins_log, y_bins_log);
+    if (hist)
+    {
+        _configure_color_map(hist, y_bins_log, false);
+        _connect_callable_sync(hist, nullptr);
+    }
+    return hist;
+}
+
+SciQLopWaterfallGraph* SciQLopPlot::add_waterfall(const QString& name, const QStringList& labels,
+                                                   const QList<QColor>& colors)
+{
+    auto* wf = m_impl->add_plottable<SciQLopWaterfallGraph>(labels);
+    if (wf)
+    {
+        wf->set_name(name);
+        if (!colors.isEmpty())
+            wf->set_colors(colors);
+    }
+    return wf;
+}
+
+SciQLopWaterfallGraphFunction* SciQLopPlot::add_waterfall(GetDataPyCallable callable,
+                                                          const QString& name,
+                                                          const QStringList& labels,
+                                                          const QList<QColor>& colors)
+{
+    auto* wf = m_impl->add_plottable<SciQLopWaterfallGraphFunction>(std::move(callable), labels);
+    if (wf)
+    {
+        wf->set_name(name);
+        if (!colors.isEmpty())
+            wf->set_colors(colors);
+        _connect_callable_sync(wf, nullptr);
+    }
+    return wf;
+}
+
+SciQLopLineGraphRemote* SciQLopPlot::add_remote_line_graph(const QStringList& labels,
+                                                           QVariantMap metaData)
+{
+    auto* g = m_impl->add_plottable<SciQLopLineGraphRemote>(labels, metaData);
+    _configure_plotable(g, labels, {}, GraphType::Line, GraphMarkerShape::NoMarker);
+    connect(this->x_axis(), &SciQLopPlotAxisInterface::range_changed, g,
+            &SciQLopPlottableInterface::set_range);
+    return g;
+}
+
+SciQLopCurveRemote* SciQLopPlot::add_remote_curve(const QStringList& labels, QVariantMap metaData)
+{
+    auto* g = m_impl->add_plottable<SciQLopCurveRemote>(labels, metaData);
+    _configure_plotable(g, labels, {}, GraphType::ParametricCurve, GraphMarkerShape::NoMarker);
+    connect(this->x_axis(), &SciQLopPlotAxisInterface::range_changed, g,
+            &SciQLopPlottableInterface::set_range);
+    return g;
+}
+
+SciQLopWaterfallGraphRemote* SciQLopPlot::add_remote_waterfall(const QStringList& labels,
+                                                               QVariantMap metaData)
+{
+    auto* g = m_impl->add_plottable<SciQLopWaterfallGraphRemote>(labels, metaData);
+    _configure_plotable(g, labels, {}, GraphType::Waterfall, GraphMarkerShape::NoMarker);
+    connect(this->x_axis(), &SciQLopPlotAxisInterface::range_changed, g,
+            &SciQLopPlottableInterface::set_range);
+    return g;
+}
+
+SciQLopColorMapRemote* SciQLopPlot::add_remote_color_map(const QString& name)
+{
+    auto* g = m_impl->add_remote_color_map(name);
+    if (g)
+    {
+        _configure_color_map(g, false, false);
+        connect(this->x_axis(), &SciQLopPlotAxisInterface::range_changed, g,
+                &SciQLopPlottableInterface::set_range);
+    }
+    return g;
+}
+
+SciQLopHistogram2DRemote* SciQLopPlot::add_remote_histogram2d(const QString& name, int x_bins,
+                                                               int y_bins, bool x_bins_log,
+                                                               bool y_bins_log)
+{
+    auto* hist = m_impl->add_remote_histogram2d(name, x_bins, y_bins);
+    if (hist)
+    {
+        hist->set_x_bins_log(x_bins_log);
+        hist->set_y_bins_log(y_bins_log);
+        _configure_color_map(hist, y_bins_log, false);
+        connect(this->x_axis(), &SciQLopPlotAxisInterface::range_changed, hist,
+                &SciQLopPlottableInterface::set_range);
+    }
+    return hist;
+}
+
+SciQLopOverlay* SciQLopPlot::overlay()
+{
+    if (!m_overlay)
+        m_overlay = new SciQLopOverlay(m_impl->overlay(), this);
+    return m_overlay;
+}
+
+void SciQLopPlot::set_scroll_factor(double factor) noexcept
+{
+    m_impl->set_scroll_factor(factor);
+    Q_EMIT scroll_factor_changed(factor);
+}
+
+double SciQLopPlot::scroll_factor() const noexcept
+{
+    return m_impl->scroll_factor();
+}
+
+void SciQLopPlot::enable_cursor(bool enable) noexcept
+{
+    set_crosshair_enabled(enable);
+}
+
+void SciQLopPlot::set_crosshair_enabled(bool enable)
+{
+    if (m_impl->crosshair_enabled() == enable)
+        return;
+    m_impl->set_crosshair_enabled(enable);
+    Q_EMIT crosshair_enabled_changed(enable);
+}
+
+bool SciQLopPlot::crosshair_enabled() const
+{
+    return m_impl->crosshair_enabled();
+}
+
+void SciQLopPlot::show_crosshair_at_key(double key)
+{
+    m_impl->show_crosshair_at_key(key);
+}
+
+void SciQLopPlot::hide_crosshair()
+{
+    m_impl->hide_crosshair();
+}
+
+double SciQLopPlot::crosshair_key() const
+{
+    return m_impl->crosshair()->current_key();
+}
+
+void SciQLopPlot::set_theme(SciQLopTheme* theme)
+{
+    if (m_theme)
+        disconnect(m_theme, nullptr, this, nullptr);
+
+    m_theme = theme;
+
+    if (theme && theme->qcp_theme())
+    {
+        m_impl->setTheme(theme->qcp_theme());
+        m_impl->crosshair()->apply_theme(theme->qcp_theme());
+        connect(theme->qcp_theme(), &QCPTheme::changed, this,
+                [this]() {
+                    if (m_theme && m_theme->qcp_theme())
+                        m_impl->crosshair()->apply_theme(m_theme->qcp_theme());
+                });
+        connect(theme, &SciQLopTheme::changed, this,
+                [this]() { apply_selection_style(); });
+        connect(theme, &QObject::destroyed, this, [this]() {
+            m_impl->setTheme(nullptr);
+            apply_selection_style();
+        });
+    }
+    else
+    {
+        m_impl->setTheme(nullptr);
+    }
+
+    apply_selection_style();
+}
+
+void SciQLopPlot::deselect_all()
+{
+    set_selected(false);
+    m_impl->deselectAll();
+    m_impl->replot(QCustomPlot::rpQueuedReplot);
+}
+
+void SciQLopPlot::minimize_margins()
+{
+    m_impl->minimize_margins();
+    setContentsMargins(0, 0, 0, 0);
+    if (auto l = layout(); l != nullptr)
+    {
+        l->setSpacing(0);
+        l->setContentsMargins(0, 0, 0, 0);
+    }
+}
+
+void SciQLopPlot::replot(bool immediate)
+{
+    PROFILE_HERE_N("plot.replot.dispatch");
+    if (immediate)
+        m_impl->replot();
+    else
+        m_impl->replot(QCustomPlot::rpQueuedReplot);
+}
+
+SciQLopGraphInterface* SciQLopPlot::plot_impl(const SciQLopPyBuffer& x, const SciQLopPyBuffer& y,
+                                              QStringList labels, QList<QColor> colors,
+                                              GraphType graph_type, GraphMarkerShape marker,
+                                              QVariantMap metaData)
+{
+    SQPQCPAbstractPlottableWrapper* plottable = nullptr;
+    switch (graph_type)
+    {
+        case GraphType::Line:
+        case GraphType::Scatter:
+            if (y.ndim() <= 1 || y.size(1) == 1)
+                plottable = m_impl->add_plottable<SciQLopSingleLineGraph>(labels, metaData);
+            else
+                plottable = m_impl->add_plottable<SciQLopLineGraph>(labels, metaData);
+            break;
+        case GraphType::ParametricCurve:
+            plottable = m_impl->add_plottable<SciQLopCurve>(labels, metaData);
+            break;
+        case GraphType::Waterfall:
+            plottable = m_impl->add_plottable<SciQLopWaterfallGraph>(labels, metaData);
+            break;
+        default:
+            throw std::runtime_error("Unsupported graph type");
+            break;
+    }
+    if (plottable)
+    {
+        plottable->set_data(std::move(x), std::move(y));
+        _configure_plotable(plottable, labels, colors, graph_type, marker);
+    }
+    return plottable;
+}
+
+SciQLopColorMapInterface* SciQLopPlot::plot_impl(const SciQLopPyBuffer& x, const SciQLopPyBuffer& y,
+                                                 const SciQLopPyBuffer& z, QString name, bool y_log_scale,
+                                                 bool z_log_scale, QVariantMap metaData)
+{
+    auto cm = m_impl->add_color_map(name, y_log_scale, z_log_scale);
+    if (!cm)
+        return nullptr;
+    cm->set_meta_data(metaData);
+    try
+    {
+        cm->set_data(std::move(x), std::move(y), std::move(z));
+    }
+    catch (...)
+    {
+        // set_data validates shapes after the colormap is already registered
+        // (m_color_map set, colorscale shown). Without unwinding, m_color_map
+        // stays non-null forever, so every later colormap plot() on this plot
+        // silently returns None. Deleting cm re-enters the destroyed handler
+        // that resets m_color_map, so the plot recovers for the next call.
+        delete cm;
+        throw;
+    }
+    _configure_color_map(cm, y_log_scale, z_log_scale);
+    return cm;
+}
+
+void SciQLopPlot::_configure_color_map(SciQLopColorMapInterface* cmap, bool y_log_scale,
+                                       bool z_log_scale)
+{
+    if (cmap)
+    {
+        {
+            auto y_axis = cmap->y_axis();
+            y_axis->set_log(y_log_scale);
+            y_axis->set_visible(true);
+        }
+        {
+            if (auto z_axis = static_cast<SciQLopPlotColorScaleAxis*>(cmap->z_axis()))
+            {
+                z_axis->set_log(z_log_scale);
+                z_axis->set_visible(true);
+            }
+        }
+        cmap->set_gradient(ColorGradient::Jet);
+        // request_rescale fires exactly once, on the true first data batch
+        // (SciQLopGraphInterface::check_first_data), and always means "do a
+        // full rescale now". data_changed fires on every batch, including
+        // that same first one, and free-runs into rescale_axes() again when
+        // auto_scale is on -- so the very first batch queues two full
+        // rescale_axes() calls (each one a genuine O(nz) z-range scan) for
+        // what is logically one event. skip_first_batch_data_changed_rescale
+        // is set by the request_rescale handler and consumed by the very
+        // next data_changed handler; both connections are queued on the same
+        // cmap object emitted from the same set_data() call, so Qt delivers
+        // them in emission order and the flag is always set before it's read.
+        auto skip_first_batch_data_changed_rescale = std::make_shared<bool>(false);
+        connect(
+            cmap, &SciQLopGraphInterface::request_rescale, this,
+            [this, skip_first_batch_data_changed_rescale]()
+            {
+                *skip_first_batch_data_changed_rescale = true;
+                this->rescale_axes();
+            },
+            Qt::QueuedConnection);
+        connect(
+            cmap, QOverload<>::of(&SciQLopColorMapInterface::data_changed), this,
+            [this, skip_first_batch_data_changed_rescale]()
+            {
+                if (*skip_first_batch_data_changed_rescale)
+                {
+                    *skip_first_batch_data_changed_rescale = false;
+                    return;
+                }
+                if (this->m_auto_scale)
+                    this->rescale_axes();
+            },
+            Qt::QueuedConnection);
+    }
+}
+
+void SciQLopPlot::_connect_callable_sync(SciQLopPlottableInterface* plottable, QObject* sync_with)
+{
+    if (SciQLopFunctionGraph* graph = dynamic_cast<SciQLopFunctionGraph*>(plottable))
+    {
+        if (sync_with != nullptr)
+        {
+            graph->observe(sync_with);
+        }
+        else
+        {
+            graph->observe(this->x_axis());
+        }
+    }
+}
+
+SciQLopGraphInterface* SciQLopPlot::plot_impl(GetDataPyCallable callable, QStringList labels,
+                                              QList<QColor> colors, GraphType graph_type,
+                                              GraphMarkerShape marker, QObject* sync_with,
+                                              QVariantMap metaData)
+{
+    SQPQCPAbstractPlottableWrapper* plottable = nullptr;
+    switch (graph_type)
+    {
+        case GraphType::Line:
+        case GraphType::Scatter:
+            // Size components from the callback's data, not the label count.
+            // SciQLopLineGraphFunction creates one component per data column on
+            // the first result, so a multi-component callback no longer collapses
+            // to (and gets rejected by) the single-line fast-path when labels are
+            // omitted. The per-component styling is (re)applied once those
+            // components exist, see _configure_plotable.
+            plottable = m_impl->add_plottable<SciQLopLineGraphFunction>(
+                std::move(callable), labels, metaData);
+            break;
+        case GraphType::ParametricCurve:
+            plottable = m_impl->add_plottable<SciQLopCurveFunction>(std::move(callable), labels,
+                                                                    metaData);
+            break;
+        case GraphType::Waterfall:
+            plottable = m_impl->add_plottable<SciQLopWaterfallGraphFunction>(
+                std::move(callable), labels, metaData);
+            break;
+        default:
+            break;
+    }
+    if (plottable)
+    {
+        _connect_callable_sync(plottable, sync_with);
+        _configure_plotable(plottable, labels, colors, graph_type, marker);
+    }
+    return plottable;
+}
+
+SciQLopColorMapInterface* SciQLopPlot::plot_impl(GetDataPyCallable callable, QString name,
+                                                 bool y_log_scale, bool z_log_scale,
+                                                 QObject* sync_with, QVariantMap metaData)
+{
+    SciQLopColorMapInterface* plotable = nullptr;
+    plotable = m_impl->add_color_map(std::move(callable), name, y_log_scale, z_log_scale);
+    if (plotable)
+    {
+        plotable->set_meta_data(metaData);
+        _configure_color_map(plotable, y_log_scale, z_log_scale);
+        _connect_callable_sync(plotable, sync_with);
+    }
+    return plotable;
+}
+
+SciQLopColorMapInterface* SciQLopPlot::plot_impl(const SciQLopPyBuffer& x, const SciQLopPyBuffer& y,
+                                                  QString name, int x_bins, int y_bins,
+                                                  bool x_bins_log, bool y_bins_log,
+                                                  QVariantMap metaData)
+{
+    auto* hist = m_impl->add_histogram2d(name, x_bins, y_bins, x_bins_log, y_bins_log);
+    if (hist)
+    {
+        hist->set_meta_data(metaData);
+        _configure_color_map(hist, y_bins_log, false);
+        hist->set_data(x, y);
+    }
+    return hist;
+}
+
+SciQLopColorMapInterface* SciQLopPlot::plot_impl(GetDataPyCallable callable, QString name,
+                                                  int x_bins, int y_bins,
+                                                  bool x_bins_log, bool y_bins_log,
+                                                  QObject* sync_with, QVariantMap metaData)
+{
+    auto* hist = m_impl->add_histogram2d(std::move(callable), name, x_bins, y_bins,
+                                         x_bins_log, y_bins_log);
+    if (hist)
+    {
+        hist->set_meta_data(metaData);
+        _configure_color_map(hist, y_bins_log, false);
+        _connect_callable_sync(hist, sync_with);
+    }
+    return hist;
+}
+
+void SciQLopPlot::toggle_selected_objects_visibility() noexcept
+{
+    for (auto item : m_impl->selectedItems())
+    {
+        item->setVisible(!item->visible());
+    }
+    replot();
+}
+
+SciQLopPlottableInterface* SciQLopPlot::plottable(int index)
+{
+    return m_impl->sqp_plottable(index);
+}
+
+SciQLopPlottableInterface* SciQLopPlot::plottable(const QString& name)
+{
+    return m_impl->sqp_plottable(name);
+}
+
+QList<SciQLopPlottableInterface*> SciQLopPlot::plottables() const noexcept
+{
+    return m_impl->sqp_plottables();
+}
+
+bool SciQLopPlot::save_pdf(const QString& filename, int width, int height)
+{
+    return m_impl->savePdf(filename, width, height);
+}
+
+bool SciQLopPlot::save_png(const QString& filename, int width, int height,
+                           double scale, int quality)
+{
+    return m_impl->savePng(filename, width, height, scale, quality);
+}
+
+bool SciQLopPlot::save_jpg(const QString& filename, int width, int height,
+                           double scale, int quality)
+{
+    return m_impl->saveJpg(filename, width, height, scale, quality);
+}
+
+bool SciQLopPlot::save_bmp(const QString& filename, int width, int height,
+                           double scale)
+{
+    return m_impl->saveBmp(filename, width, height, scale);
+}
+
+bool SciQLopPlot::save(const QString& filename, int width, int height,
+                       double scale, int quality)
+{
+    auto ext = QFileInfo(filename).suffix().toLower();
+    if (ext == "pdf")
+        return save_pdf(filename, width, height);
+    if (ext == "png")
+        return save_png(filename, width, height, scale, quality);
+    if (ext == "jpg" || ext == "jpeg")
+        return save_jpg(filename, width, height, scale, quality);
+    if (ext == "bmp")
+        return save_bmp(filename, width, height, scale);
+    return false;
+}
+
+void SciQLopPlot::set_equal_aspect_ratio(bool enabled) noexcept
+{
+    if (m_equal_aspect_ratio == enabled)
+        return;
+    m_equal_aspect_ratio = enabled;
+    if (enabled)
+    {
+        connect(m_impl->xAxis, qOverload<const QCPRange&>(&QCPAxis::rangeChanged),
+                this, &SciQLopPlot::_enforce_equal_aspect, Qt::UniqueConnection);
+        _enforce_equal_aspect();
+    }
+    else
+    {
+        disconnect(m_impl->xAxis, qOverload<const QCPRange&>(&QCPAxis::rangeChanged),
+                   this, &SciQLopPlot::_enforce_equal_aspect);
+    }
+    Q_EMIT equal_aspect_ratio_changed(enabled);
+}
+
+void SciQLopPlot::_enforce_equal_aspect()
+{
+    if (!m_equal_aspect_ratio)
+        return;
+
+    QSignalBlocker by(m_impl->yAxis);
+    m_impl->yAxis->setScaleRatio(m_impl->xAxis, 1.0);
+    m_impl->replot(QCustomPlot::rpQueuedReplot);
+}
+
+void SciQLopPlot::export_paint(QPainter* painter, const QRect& target,
+                               SciQLopExportTarget kind)
+{
+    auto* qcp = qcp_plot();
+    if (!qcp || target.isEmpty())
+        return;
+
+    painter->save();
+    painter->translate(target.topLeft());
+    if (kind == SciQLopExportTarget::Vector)
+        qcp->toPainter(static_cast<QCPPainter*>(painter), target.width(), target.height());
+    else
+        painter->drawPixmap(0, 0, qcp->toPixmap(target.width(), target.height()));
+    painter->restore();
+}

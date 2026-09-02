@@ -39,7 +39,8 @@ class TestPatchAnnotationRequest(unittest.TestCase):
                 label = '0',
                 confidence = 0.0,
                 reasoning = '',
-                payload = { }
+                payload = { },
+                metadata = { }
             )
         else:
             return PatchAnnotationRequest(

@@ -30,7 +30,7 @@ class IconikConfig(BaseModel):
     """ # noqa: E501
     provider_type: Optional[StrictStr] = 'iconik'
     credentials: IconikCredentials = Field(description="REQUIRED. Iconik App-ID + Auth-Token credentials.")
-    base_url: Optional[StrictStr] = Field(default=None, description="Iconik API base URL. Defaults to https://app.iconik.io. Override for on-premise Iconik installations.")
+    base_url: Optional[StrictStr] = Field(default=None, description="Iconik API base URL, https://app.iconik.io by default. Override for on-premise Iconik installations.")
     metadata_view_id: Optional[StrictStr] = Field(default=None, description="Iconik metadata view ID for fetching custom metadata fields. Found in: Iconik Admin > Metadata > Views. Set to 'none' to skip metadata view fetches entirely.")
     rate_limit_rps: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Max requests per second to the Iconik API (shared across all sync shards).")
     rate_limit_redis_url: Optional[StrictStr] = Field(default=None, description="Redis URL for distributed rate limiting across workers.")

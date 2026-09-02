@@ -18,7 +18,9 @@ def require_transformers() -> None:
     if importlib.util.find_spec("transformers") is None:
         raise ModuleNotFoundError(
             "The 'transformers' package is required for HuggingFace model integration. "
-            "Install it with: pip install dreadnode"
+            "It is part of the base dreadnode install, so this environment has an "
+            "incomplete one — reinstall the dreadnode package from wherever you "
+            "installed it."
         )
 
 

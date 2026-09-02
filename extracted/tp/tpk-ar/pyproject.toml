@@ -1,0 +1,31 @@
+[project]
+name = "tpk_ar"
+authors = [{ name = "Rudolf Kolbe", email = "rkolbe96@tuta.io" }]
+description = "A package for parsing type tree packages (TPK)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+dependencies = [
+    "typing_extensions; python_version<'3.11'"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+brotli = ["brotli"]
+lz4 = ["lz4"]
+full = ["brotli", "lz4"]
+tests = ["pytest", "tpk_ar[full]"]
+dev = ["ruff", "pyperf", "snakeviz", "tpk_ar[tests]"]
+
+[project.urls]
+"Homepage" = "https://github.com/K0lb3/tpk_ar"
+"Bug Tracker" = "https://github.com/K0lb3/tpk_ar/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "tpk_ar.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pyright]
+pythonVersion = "3.8"

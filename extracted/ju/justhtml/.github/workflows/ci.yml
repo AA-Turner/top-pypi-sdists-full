@@ -1,0 +1,132 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15-dev", "pypy3.11"]
+    env:
+      LC_ALL: C.UTF-8
+      PYTHONHASHSEED: "0"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Checkout html5lib-tests
+        run: |
+          cd ..
+          git clone --no-checkout https://github.com/html5lib/html5lib-tests.git
+          git -C html5lib-tests fetch origin 9fb614afaa42ce8787840f057b32084308e76549
+          git -C html5lib-tests checkout 9fb614afaa42ce8787840f057b32084308e76549
+          git -C html5lib-tests rev-parse HEAD
+
+      - name: Checkout WPT tree-construction tests
+        run: |
+          cd ..
+          git clone --filter=blob:none --sparse https://github.com/web-platform-tests/wpt.git
+          git -C wpt sparse-checkout set html/syntax/parsing/resources
+          git -C wpt rev-parse HEAD
+
+      - name: Setup test fixtures
+        run: |
+          cp -a ../html5lib-tests/tokenizer tests/html5lib-tests-tokenizer
+          cp -a ../wpt/html/syntax/parsing/resources tests/html5lib-tests-tree
+          cp -a ../html5lib-tests/serializer tests/html5lib-tests-serializer
+          cp -a ../html5lib-tests/encoding tests/html5lib-tests-encoding
+
+      - name: Run pre-commit
+        id: precommit
+        if: matrix.python-version == '3.14'
+        run: pre-commit run --show-diff-on-failure --color=always --all-files
+        env:
+          SKIP: mypy
+
+      - name: Run tests
+        id: run_tests
+        run: python run_tests.py
+
+      - name: Diagnose test failures (verbose)
+        if: always()
+        run: |
+          if [ "${{ steps.precommit.outcome }}" != "failure" ] && [ "${{ steps.run_tests.outcome }}" = "success" ]; then
+            echo "No failures detected; skipping verbose rerun."
+            exit 0
+          fi
+          python run_tests.py -v --no-write-summary
+
+      - name: Run mypy
+        if: matrix.python-version == '3.14'
+        run: mypy
+
+  test-pyodide:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel
+        run: |
+          pip install build
+          python -m build --wheel
+
+      - name: Test in Pyodide
+        run: |
+          npm install pyodide
+          cat > test_pyodide.js << 'SCRIPT'
+          const { loadPyodide } = require("pyodide");
+          const fs = require("fs");
+          const path = require("path");
+
+          async function main() {
+            const pyodide = await loadPyodide();
+            await pyodide.loadPackage("micropip");
+            const micropip = pyodide.pyimport("micropip");
+
+            // Find the wheel and install via file URL
+            const wheel = fs.readdirSync("dist").find(f => f.endsWith(".whl"));
+            const wheelPath = path.resolve("dist", wheel);
+            await micropip.install("file://" + wheelPath);
+
+            // Test basic parsing
+            const result = pyodide.runPython(
+              'from justhtml import JustHTML; doc = JustHTML("<html><body><p>Hello</p></body></html>"); doc.root.children[0].name'
+            );
+            if (result !== "html") {
+              throw new Error("Expected 'html', got '" + result + "'");
+            }
+            console.log("Pyodide test passed!");
+          }
+
+          main().catch(e => { console.error(e); process.exit(1); });
+          SCRIPT
+          node test_pyodide.js

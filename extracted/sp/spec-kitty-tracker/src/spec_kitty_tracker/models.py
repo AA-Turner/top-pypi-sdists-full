@@ -128,4 +128,3 @@ class Page(Generic[T]):
 class SyncCheckpoint:
     cursor: str | None = None
     updated_since: datetime | None = None
-

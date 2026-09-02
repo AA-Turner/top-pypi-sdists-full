@@ -44,7 +44,7 @@ RowLiteralType = Literal["ROW"]
 
 class RelationshipGraph:
     """
-    A graph showing related datasets. linkage_keys is a list of dataset ids that are related.
+    A graph showing related datasets. ``linkage_keys`` is a list of dataset IDs that are related.
     """
 
     _converter = t.Dict({
@@ -219,31 +219,31 @@ class ProjectOptions(AdvancedOptions, APIObject):
     Parameters
     ----------
     project_id : str
-        The project this belongs to
+        The project this belongs to.
     target : str
-        Column indicating the target of modeling
+        Column indicating the target of modeling.
     target_type : str
-        The user defined target_type, enum TargetType ['Multiclass', 'Binary', 'Regression']
+        The user-defined ``target_type``, ``enum`` TargetType ['Multiclass', 'Binary', 'Regression'].
     initial_mode : Optional[int]
         Choices: [AUTO=0, SEMI=1, MANUAL=2]
-        (see common.services.autopilot for the constants)
-    initial_num_workers : int, optionalma
-        The amount of workers that will be used during modeling
+        (see common.services.autopilot for the constants).
+    initial_num_workers : int, optional
+        The amount of workers that will be used during modeling.
     initial_gpu_workers : Optional[int]
-        The amount of gpu workers that will be used during modeling
+        The amount of GPU workers that will be used during modeling.
     auto_start : boolean, optional
-        Determines whether EDA2 and modeling will begin as  soon as EDA1 is finished.
+        Determines whether EDA2 and modeling will begin as soon as EDA1 is finished.
         Defaults to False.
     is_dirty : boolean, optional
-        Whether this set of project options has been altered by the user (or is the default)
+        Whether this set of project options has been altered by the user (or is the default).
     metric : Optional[str]
         The metric.
     weights : Optional[str]
-        Column used for weight during modeling
+        Column used for weight during modeling.
     blueprint_threshold : Optional[int]
-        Upper bound on running time of models in hours
+        Upper bound on running time of models in hours.
     blend_best_models : Optional[bool]
-        Blend best models during Autopulot run
+        Blend best models during Autopilot run.
     min_secondary_validation_model_count : Optional[int]
         Number of models to compute secondary validation scores (cv/all backtests)
         if over Autopilot default. To be used in when row count is larger
@@ -253,7 +253,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         reduced feature list models, retraining best model on higher sample size,
         computing insights and assigning "RECOMMENDED FOR DEPLOYMENT" label.
     scoring_code_only : Optional[bool]
-        Exclude blueprints that cannot be converted to scorable code
+        Exclude blueprints that cannot be converted to scorable code.
     shap_only_mode  : Optional[bool]
         Keep only models that support SHAP values during Autopilot run. Use SHAP based insights
         wherever possible. Defaults to False.
@@ -261,47 +261,47 @@ class ProjectOptions(AdvancedOptions, APIObject):
         Whether to allow blenders to be considered when a model is chosen to be prepared for
         deployment during an Autopilot run.
     run_leakage_removed_feature_list: Optional[bool]
-        Run Autopilot on feature list with target leakage removed
+        Run Autopilot on feature list with target leakage removed.
     seed : Optional[int]
-        The seed for the randomness algorithm during RandomCV
+        The seed for the randomness algorithm during RandomCV.
     smart_downsample_enabled : boolean, optional
-        Whether smart downsampling is enabled, defaults to False
+        Whether smart downsampling is enabled, defaults to False.
     smart_downsample_rate : Optional[float]
-        Percentage describing new size of majority class after downsampling
+        Percentage describing new size of majority class after downsampling.
     validation_type : Optional[str]
-        Type of validation, `CV` for Cross Validation or `TVH` for Train-Validation-Holdout
+        Type of validation, `CV` for Cross Validation or `TVH` for Train-Validation-Holdout.
     cv_method : Optional[str]
         Method of validation, `RandomCV`, `StratifiedCV`, `UserCV`, `GroupCV`, `DateCV`,
-        'DatetimeCV'
+        'DatetimeCV'.
     reps : Optional[int]
-        Relevant only for Cross Validation, Integer specifying number of validation folds
+        Relevant only for Cross Validation, Integer specifying number of validation folds.
     validation_pct : Optional[float]
-        Relevant only for TVH, percentage indicating size of validation partition
+        Relevant only for TVH, percentage indicating size of validation partition.
     holdout_pct : Optional[float]
-        Percentage indicating size of holdout partition
+        Percentage indicating size of holdout partition.
     user_partition_col : Optional[str]
-        Column used for user partitioning
+        Column used for user partitioning.
     cv_holdout_level : Optional[float]
         Value from partition column used for holdout level when CV is chosen, mutually exclusive
         with the next three.
     training_level : depends on column type, optional
-        Value from user partition column that corresponds to training partition
+        Value from user partition column that corresponds to training partition.
     validation_level : depends on column type, optional
-        Value from user partition column that corresponds to validation partition
+        Value from user partition column that corresponds to validation partition.
     holdout_level : depends on column type, optional
-        Value from user partition column that corresponds to holdout partition
+        Value from user partition column that corresponds to holdout partition.
     partition_key_cols : Optional[str]
-        Column used for group partitioning
+        Column used for group partitioning.
     feature_list_id : Optional[str]
-        Indicates what featurelist to use
+        Indicates what featurelist to use.
     accuracy_optimized_mb : boolean, optional
-        Whether accuracy-optimized metablueprint is enabled
+        Whether accuracy-optimized ``metablueprint`` is enabled.
     response_cap : Optional[float]
-        Cap value for responses
+        Cap value for responses.
     error_message : str, null, optional
-        Indicates if there's an error present on Aim UI
+        Indicates if there's an error present on Aim UI.
     datetime_partition_column: str, null, optional
-        The date column that will be used as a datetime partition column
+        The date column that will be used as a datetime partition column.
     validation_duration: str, null, optional
         The default validation duration for all backtests.
     disable_holdout: boolean, optional
@@ -312,31 +312,31 @@ class ProjectOptions(AdvancedOptions, APIObject):
         Used for feature discovery projects.
         Whether to enable supervised feature reduction step.
     holdout_start_date: str, null, optional
-        The holdout start date of the main fold
+        The holdout start date of the main fold.
     holdout_end_date: str, null, optional
-        The holdout end date of the main fold
+        The holdout end date of the main fold.
     holdout_duration: str, null, optional
         The holdout duration of the main fold.
     gap_duration: str, null, optional
         The duration of the gap between the training and the holdout of the main fold.
     number_of_backtests: int, null, optional
-        The number of backtests to use
+        The number of backtests to use.
     autopilot_data_selection_method: str, null, optional
         Whether models created via the autopilot will use
-        "rowCount" or "duration" as their dataSelectionMethod.
+        ``rowCount`` or "duration" as their dataSelectionMethod.
     autopilot_data_sampling_method: Optional[str]
-        Sampling method for selecting training data subsamples on autopilot iterations
+        Sampling method for selecting training data ``subsamples`` on autopilot iterations.
     backtests: array, BacktestSpecification, optional
         An array specifying the format of the backtests, as detailed below.
         If any backtest is left unspecified, default values will be supplied.
     use_time_series : Optional[bool]
-        Whether to use time-series with datetime partitioning
+        Whether to use time-series with datetime partitioning.
     default_to_a_priori : Optional[bool]
-        Whether to default to treating all features as a priori
+        Whether to default to treating all features as a priori.
     default_to_do_not_derive : Optional[bool]
-        Whether to default to treating all features as "do-not-derive"
+        Whether to default to treating all features as "do-not-derive".
     feature_settings : list of dict, optional
-        List of feature settings
+        A list of feature settings.
     feature_derivation_window_start : Optional[int]
         Used for time-series.  The offset (into the past) to the start of the feature derivation
         window.  Expected to be non-positive.
@@ -354,32 +354,33 @@ class ProjectOptions(AdvancedOptions, APIObject):
         Used for time-series.  The offset (into the future) to the end of the forecast
         window.  Expected to be non-negative.
     external_predictions : list of Optional[str]
-        List of columns with external predictions
+        A list of columns with external predictions.
     events_count : Optional[str]
-        Column with events count
+        Column with events count.
     multiseries_id_columns : list of Optional[str]
-        Columns with multiseries ids, aka cross sectional dimension
+        Columns with multiseries IDs, aka cross sectional dimension.
     calendar_id : ObjectId, optional
-        The id of the calendar in use in the project.
+        The ID of the calendar in use in the project.
     calendar_name : Optional[str]
         The name of the calendar for time-series projects.
     unsupervised_mode : Optional[bool]
         If True, unsupervised project (without target) will be created. False if omitted.
     unsupervised_type: Optional[str]
-        The type of unsupervised project: anomaly or clustering
+        The type of unsupervised project: anomaly or clustering.
     feature_engineering_graphs : array of dict, optional
-        An array specifying the Feature Engineering Graphs to be used
+        An array specifying the Feature Engineering Graphs to be used.
     relationships_configuration_id : string, optional
-        Identifier of Relationships Configuration to be used
-    primary_location_column : The primary geospatial column selected by the user
+        Identifier of Relationships Configuration to be used.
+    primary_location_column : str, optional
+        The primary geospatial column selected by the user.
     autopilot_with_feature_discovery: Optional[bool]
-        if true, autopilot will run on a feature list that includes features found via auto feature
-        discovery
+        If true, autopilot will run on a feature list that includes features found via auto feature
+        discovery.
     date_removal: Optional[bool]
-        if true, enable creating additional feature lists without dates
+        If true, enable creating additional feature lists without dates
         (does not apply to time-aware projects).
     feature_engineering_options : array of FeatureEngineeringOptions, optional
-        An array specifying the options for automated feature engineering
+        An array specifying the options for automated feature engineering.
     feature_engineering_prediction_point: str, null, optional
         For time-aware Feature Engineering, this parameter specifies the column from the
         primary dataset to use as the prediction point.
@@ -389,66 +390,66 @@ class ProjectOptions(AdvancedOptions, APIObject):
         between columns AxB, BxC, AxC, CxD. All others (AxD, BxD) will not be considered.
         If not specified - all possible interactions will be considered by model.
     allowed_pairwise_interaction_groups_filename: str
-        Filename that was used to upload allowed_pairwise_interaction_groups.
+        Filename that was used to upload ``allowed_pairwise_interaction_groups``.
         Necessary for persistence of UI/UX when you specify that parameter via file.
     model_splits: Optional[int]
-        set the cap on the number of jobs used when building models to control number of jobs in
-        the queue; also allows less downsampling for use of more post-processed data
+        Set the cap on the number of jobs used when building models to control number of jobs in
+        the queue; also allows less downsampling for use of more post-processed data.
     quantile_level: Optional[float]
         Only applicable to regression projects using the Quantile Loss metric.
         User-specified quantile level at which to optimize quantile loss; between 0 and 1.
     external_time_series_baseline_dataset_id: Optional[str]
-        Catalog dataset id for external prediction dataset used to generate new metrics with
-        external predictions as baseline
+        Catalog dataset ID for external prediction dataset used to generate new metrics with
+        external predictions as baseline.
     external_time_series_baseline_dataset_name: Optional[str]
-        The name of the time series baseline dataset name for the project
+        The name of the time series baseline dataset name for the project.
     preferable_target_value : Optional[str]
-        a target value that should be treated as a positive outcome for the prediction.
+        A target value that should be treated as a positive outcome for the prediction.
         For example if we want to check gender discrimination for giving a loan
         and our target named ``is_bad``, then the positive outcome for the prediction
         would be ``No``, which means that the loan is good and that's what we treat
         as a preferable result for the loaner.
         Used and required for Bias & Fairness calculation.
     protected_features : list of Optional[str]
-        list of the project features that are consumed as protected for calculated bias metrics.
+        A list of the project features that are consumed as protected for calculated bias metrics.
         Only categorical features are allowed.
         Used and required for Bias & Fairness calculation.
     fairness_metrics_set : str or None, optional
-        metric to use for bias calculation. One of common.enum.BiasMetric.
+        Metric to use for bias calculation. One of common.enum.BiasMetric.
         Used and required for Bias & Fairness calculation.
     fairness_threshold : float or None, optional
-        threshold value of the fairness metric. Can be in a range of ``[0:1]``.
+        Threshold value of the fairness metric. Can be in a range of ``[0:1]``.
         If the actual metric value is below the threshold, the user will be notified about that.
     bias_mitigation_feature_name : str of None, optional
         The feature from protected features that will be used in a bias mitigation task to
-        mitigate bias
+        mitigate bias.
     bias_mitigation_technique : str or None, optional
         One of BiasMitigationTechnique.
         The technique by which we'll mitigate bias, which will inform which bias mitigation task
-        we insert into blueprints and how
+        we insert into blueprints and how.
     include_bias_mitigation_feature_as_predictor_variable : bool or None, optional
         Whether we should also use the mitigation feature as in input to the modeler just like
         any other categorical used for training, i.e., do we want the model to "train on" this
-        feature in addition to using it for bias mitigation
+        feature in addition to using it for bias mitigation.
     min_clusters: Optional[int]
         The minimum number of clusters allowed when training clustering models.
     max_clusters: Optional[int]
-        The maximum number of clusters allowed when training clustering models
+        The maximum number of clusters allowed when training clustering models.
     segmentation_id_column: string, optional
         The segmentation column name or automated segmentation column name specified for the
-        project through the UI
+        project through the UI.
     segmentation_task_id: string, optional
-        The segmentation task id selected for segmenting the project
+        The segmentation task ID selected for segmenting the project.
     segmentation_model_package_id: string, optional
-        The model registry package id selected used for segmentation
+        The model registry package ID selected used for segmentation.
     segmentation_model_package_name: string, optional
-        The name of the model contained in the segmentation model registry package
+        The name of the model contained in the segmentation model registry package.
     segments_count: Optional[int]
-        The segments count for the segmented project
+        The segments count for the segmented project.
     allow_partial_history_time_series_predictions: Optional[bool]
-        Whether to allow time series predictions with partial history
+        Whether to allow time series predictions with partial history.
     exponentially_weighted_moving_alpha: Optional[float]
-        Discount factor (alpha) used for exponentially weighted moving features
+        Discount factor (alpha) used for exponentially weighted moving features.
     autopilot_cluster_list : list of int
         A list of integers where each value will be used as the number of
         clusters in Autopilot model(s) for unsupervised clustering projects.
@@ -461,11 +462,11 @@ class ProjectOptions(AdvancedOptions, APIObject):
         For multiclass additional settings can be specified to control aggregation of target
         values in final classes.
     class_mapping_aggregation_settings_enabled: Optional[bool]
-        Is the class mapping aggregation settings section enabled or not in UI
+        Is the class mapping aggregation settings section enabled or not in UI.
     datetime_partitioning_id: Optional[str]
-        Id of the datetime partitioning to use
+        ID of the datetime partitioning to use.
     use_gpu: Optional[bool]
-        Whether to allow GPU usage for the project
+        Whether to allow GPU usage for the project.
     document_text_extraction_task: Optional[str]
         The task name to use for text extraction for document features.
     document_text_extraction_language: Optional[str]

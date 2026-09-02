@@ -1,1 +1,0 @@
-from sage.algebras.quatalg.quaternion_algebra import QuaternionAlgebra

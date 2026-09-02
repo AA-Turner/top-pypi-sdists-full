@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import Collection, Iterator, Mapping
 from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar
 from urllib.parse import urljoin
 
 import requests
+import requests.auth
 from requests import Response
 from requests.adapters import HTTPAdapter
 from urllib3.exceptions import LocationParseError
@@ -21,7 +21,7 @@ from urllib3.util import Url, parse_url
 from urllib3.util.retry import Retry
 
 from .base import LazyObject
-from .const import API_URL, LOCALHOST_ADDRESSES, USER_AGENT
+from .const import API_URL, USER_AGENT
 from .exceptions import (
     WeblateDeniedError,
     WeblateException,
@@ -41,6 +41,14 @@ WeblateObject: TypeAlias = Project | Component | Translation | Unit
 LazyObjectT = TypeVar("LazyObjectT", bound=LazyObject)
 
 
+# pylint: disable-next=too-few-public-methods
+class _NoNetrcAuth(requests.auth.AuthBase):
+    """Prevent automatic authentication from ambient credential sources."""
+
+    def __call__(self, r: requests.PreparedRequest) -> requests.PreparedRequest:
+        return r
+
+
 class Weblate:
     """
     Weblate API wrapper object.
@@ -55,11 +63,13 @@ class Weblate:
     :param backoff_factor: Retry backoff factor passed to urllib3.
     :param timeout: HTTP request timeout in seconds.
     :param allow_insecure_http: Allow API keys over non-local ``http://`` URLs.
+    :param allow_insecure_ssl: Disable TLS certificate verification.
 
     When an API key is configured, non-local ``http://`` URLs are rejected by
     default. Use HTTPS, loopback HTTP for local development, or set
     ``allow_insecure_http`` only for legacy deployments where HTTPS is not
-    available.
+    available. Credentials embedded in API URLs are not supported; configure
+    an API key instead.
     """
 
     def __init__(
@@ -74,15 +84,18 @@ class Weblate:
         backoff_factor: float = 0,
         timeout: int = 300,
         allow_insecure_http: bool = False,
+        allow_insecure_ssl: bool = False,
     ) -> None:
         """Create the object, storing key, API URL, and request options."""
         self.session = requests.Session()
+        self.session.auth = _NoNetrcAuth()
         self.retry_total: int
         self.status_forcelist: Collection[int] | None
         self.allowed_methods: Collection[str]
         self.backoff_factor: float
         self.timeout: int
         self.allow_insecure_http: bool
+        self.allow_insecure_ssl: bool
         if config is not None:
             self.url, self.key = config.get_url_key()
             (
@@ -93,6 +106,7 @@ class Weblate:
                 self.timeout,
             ) = config.get_request_options()
             self.allow_insecure_http = config.get_allow_insecure_http()
+            self.allow_insecure_ssl = config.get_allow_insecure_ssl()
         else:
             self.key = key
             self.url = url
@@ -100,6 +114,7 @@ class Weblate:
             self.status_forcelist = status_forcelist
             self.timeout = timeout
             self.allow_insecure_http = allow_insecure_http
+            self.allow_insecure_ssl = allow_insecure_ssl
             self.allowed_methods = allowed_methods or [
                 "HEAD",
                 "GET",
@@ -139,11 +154,17 @@ class Weblate:
 
     @staticmethod
     def parse_request_url(url: str) -> Url:
-        """Parse a URL using the parser used by the HTTP transport."""
+        """Parse and validate a URL using the HTTP transport's parser."""
         try:
-            return parse_url(url)
+            parsed_url = parse_url(url)
         except LocationParseError as error:
             raise WeblateException("Invalid URL.") from error
+        if parsed_url.auth is not None:
+            raise WeblateException(
+                "Credentials embedded in URLs are not supported. "
+                "Configure an API key instead."
+            )
+        return parsed_url
 
     def validate_authenticated_transport(self) -> None:
         """Prevent sending API tokens over non-local cleartext HTTP."""
@@ -242,7 +263,7 @@ class Weblate:
                     try:
                         error_string = str(error.response.json())
                     # pylint: disable-next=broad-exception-caught
-                    except Exception:  # noqa: BLE001
+                    except Exception:  # ruff: ignore[blind-except]
                         error_string = ""
                     raise WeblateException(
                         f"HTTP error {status_code}: {reason} {error_string}"
@@ -298,11 +319,8 @@ class Weblate:
         headers = {"user-agent": USER_AGENT, "Accept": "application/json"}
         if self.key:
             headers["Authorization"] = f"Token {self.key}"
-        verify_ssl = self.should_verify_ssl(path)
+        verify_ssl = not self.allow_insecure_ssl
 
-        # Disable insecure warnings for localhost
-        if not verify_ssl:
-            logging.captureWarnings(True)
         json_data: RequestPayload | None
         if files:
             # multipart/form upload
@@ -341,7 +359,7 @@ class Weblate:
             if 300 <= response.status_code < 400:
                 raise requests.HTTPError("Server redirected", response=response)
         except requests.exceptions.RequestException as error:
-            log_failure_debug(method, path, error)
+            log_failure_debug(method, path, error, headers=headers)
             self.process_error(error)
             raise
         return response
@@ -527,9 +545,3 @@ class Weblate:
             "plural": plural,
         }
         return self.post("languages/", **data)
-
-    @classmethod
-    def should_verify_ssl(cls, path: str) -> bool:
-        """Checks if it should verify ssl certificates."""
-        url = cls.parse_request_url(path)
-        return url.host not in LOCALHOST_ADDRESSES

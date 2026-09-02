@@ -1,0 +1,138 @@
+from oxapy import (
+    Oxapy,
+    Router,
+    get,
+    post,
+    static_file,
+    Status,
+    Response,
+    Redirect,
+)
+import threading
+import pytest
+from pathlib import Path
+
+
+# App State
+class AppState:
+    def __init__(self):
+        self.counter = 0
+
+
+# Middleware
+def auth_middleware(request, next, **kw):
+    if "authorization" not in request.headers:
+        return Status.UNAUTHORIZED
+    request.user_name = "John Does"
+    return next(request, **kw)
+
+
+# Handlers
+@get("/hello/{name}")
+def hello(_request, name):
+    return Response({"message": f"Hello, {name}!"})
+
+
+@get("/count")
+def count_handler(request):
+    app_data = request.app_data
+    app_data.counter += 1
+    return {"count": app_data.counter}
+
+
+@get("/query")
+def query_handler(request):
+    param = request.query.get("param", "default")
+    return {"param": param}
+
+
+@post("/form")
+def form(request):
+    input_form = request.form
+    return {"username": input_form["username"], "email": input_form["email"]}
+
+
+@get("/protected")
+def protected_handler(request):
+    return f"Hello, {request.user_name}!"
+
+
+@get("/ping")
+def ping(_request):
+    return {"message": "pong"}
+
+
+@post("/ping")
+def ping_post(request):
+    body = request.json()
+    return {"message": "pong", "body": body}
+
+
+@post("/echo")
+def echo(request):
+    return {"echo": request.json()}
+
+
+@get("/redirect")
+def redirect_handler(_request):
+    return Redirect("/api/v1/ping")
+
+
+@post("/upload")
+def upload_handler(request):
+    files_info = {}
+    for name, file in request.files.items():
+        files_info[name] = {
+            "filename": file.name,
+            "content_type": file.content_type,
+            "size": len(file.content),
+        }
+    return {"files": files_info, "form": dict(request.form)}
+
+
+@get("/error")
+def error_handler(_request):
+    return Status.INTERNAL_SERVER_ERROR
+
+
+def main(static_dir: Path):
+    (
+        Oxapy(("127.0.0.1", 9999))
+        .app_data(AppState())
+        .attach(
+            Router("/api/v1")
+            .routes(
+                [
+                    ping,
+                    ping_post,
+                    echo,
+                    upload_handler,
+                    count_handler,
+                    form,
+                    hello,
+                    query_handler,
+                    redirect_handler,
+                    error_handler,
+                    static_file("/static", str(static_dir)),
+                ]
+            )
+            .middleware(auth_middleware)
+            .route(protected_handler)
+        )
+        .run()
+    )
+
+
+@pytest.fixture(scope="session")
+def static_files_dir(tmp_path_factory):
+    static_dir = tmp_path_factory.mktemp("static_test")
+    (static_dir / "index.html").write_text("<h1>Hello from static file</h1>")
+    return static_dir
+
+
+@pytest.fixture(scope="session")
+def oxapy_server(static_files_dir):
+    """Run a mock Oxapy HTTP server for integration tests."""
+    thread = threading.Thread(target=lambda: main(static_files_dir), daemon=True)
+    thread.start()
+    yield "http://127.0.0.1:9999"

@@ -1,0 +1,168 @@
+"""
+Django settings for nanodjango project
+"""
+
+from os import getenv
+from pathlib import Path
+from types import ModuleType
+
+from .app_meta import get_app_conf, get_app_module, get_templates
+from .constants import SQLITE_MEMORY, SQLITE_TMP
+
+app_conf = get_app_conf()
+
+# Find paths
+ND_APP_MODULE: ModuleType = get_app_module()
+if not ND_APP_MODULE or not ND_APP_MODULE.__file__:
+    raise ValueError("Invalid app module - incorrect initialisation")
+ND_FILEPATH: Path = Path(ND_APP_MODULE.__file__).absolute()
+ND_APP_NAME: str = ND_FILEPATH.stem
+if ND_APP_NAME == "__init__":  # support a nanodjango script as part of a bigger project
+    ND_APP_NAME: str = ND_FILEPATH.parent.stem
+BASE_DIR: Path = ND_FILEPATH.parent
+
+MIGRATION_MODULES = {ND_APP_NAME: app_conf.get("MIGRATIONS_DIR", "migrations")}
+
+# Standard Django settings
+SECRET_KEY = getenv("DJANGO_SECRET_KEY", "not-a-secret")
+DEBUG = True
+ALLOWED_HOSTS = ["*"]
+SITE_ID = 1
+
+# Application definition
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "whitenoise.runserver_nostatic",
+    "django.contrib.staticfiles",
+] + app_conf.get("EXTRA_APPS", [])
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "nanodjango.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [str(BASE_DIR / "templates")],
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+            "loaders": [
+                ("django.template.loaders.locmem.Loader", get_templates()),
+                "django.template.loaders.filesystem.Loader",
+                "django.template.loaders.app_directories.Loader",
+            ],
+        },
+    }
+]
+
+WSGI_APPLICATION = "nanodjango.wsgi.application"
+
+db_name = BASE_DIR / "db.sqlite3"
+db_options = {}
+
+if "SQLITE_DATABASE" in app_conf:
+    db_name = app_conf["SQLITE_DATABASE"]
+    if db_name == SQLITE_MEMORY:
+        # Use named shared-memory database so migrations persist
+        # across multiple connections. This allows the database to exist
+        # as long as at least one connection is open.
+        db_name = "file:nanodjango_memdb?mode=memory&cache=shared"
+        db_options = {"uri": True}
+    elif db_name == SQLITE_TMP:
+        # Use a temporary file unique to this process tree
+        # Check env var first so reloader children inherit the same path
+        import os
+        import tempfile
+
+        db_path = os.environ.get("NANODJANGO_SQLITE_TMP")
+        if not db_path:
+            db_path = str(
+                Path(tempfile.gettempdir())
+                / f"nanodjango_{ND_APP_NAME}_{os.getpid()}.sqlite3"
+            )
+            os.environ["NANODJANGO_SQLITE_TMP"] = db_path
+        db_name = db_path
+    else:
+        db_name = BASE_DIR / db_name
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": db_name,
+        "OPTIONS": db_options,
+    }
+}
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+
+# Internationalization
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_L10N = True
+USE_TZ = True
+
+# Static files
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+STATIC_ROOT = BASE_DIR / "static-collected"
+
+# Media files
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+STORAGES = {
+    # Django default:
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    # Whitenoise:
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+
+# nanodjango specific config
+
+# URL to serve admin site on
+#
+# If set, admin site will always be registered
+#
+# If not set, defaults to "/admin/" when the @app.admin decorator is used
+ADMIN_URL = None
+
+# URL to serve the API on, if @app.api is used
+API_URL = "api/"
+
+# Directory containing public files
+PUBLIC_DIR = BASE_DIR / "public"

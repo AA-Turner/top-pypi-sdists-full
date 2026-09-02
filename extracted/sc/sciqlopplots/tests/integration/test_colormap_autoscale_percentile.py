@@ -1,0 +1,363 @@
+"""Robust (percentile-based) autoscale for the colormap z (color) axis.
+
+A few extreme cells in a spectrogram blow out the color scale, especially on a
+log color axis. A percentile autoscale clamps the z range to e.g. the 2.5/97.5
+percentile of the *visible* data, making it robust against outliers. Default
+percentiles are 0/100, so the behaviour is identical to plain min/max unless
+configured.
+"""
+import time
+
+import pytest
+import numpy as np
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QGroupBox, QWidget
+
+from SciQLopPlots import SciQLopPlotRange, DelegateRegistry
+
+
+def _pump_events(n=50):
+    for _ in range(n):
+        QCoreApplication.processEvents()
+
+
+def _wait_histogram_ready(hist, timeout_s=5.0):
+    """Block until the histogram's async binning pipeline has published its grid.
+
+    Histogram2D bins points on a worker thread; ``z_percentile_range`` returns a
+    NaN range until ``pipeline().result()`` is available. Pumping a fixed number
+    of events races the worker on a loaded CI runner, so poll for a finite range
+    instead of guessing an event count.
+    """
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        r = hist.z_percentile_range(
+            SciQLopPlotRange(-6.0, 6.0), SciQLopPlotRange(-6.0, 6.0), 0.0, 100.0
+        )
+        if np.isfinite(r.stop()):
+            return
+        _pump_events()
+        time.sleep(0.01)
+    raise AssertionError("histogram grid not ready within timeout")
+
+
+def _make_colormap_with_outliers(plot):
+    """Colormap whose z is 0.5 everywhere except two extreme cells.
+
+    z is laid out x-outer (row-major, x is the slow axis): shape (nx, ny).
+    The +1e6 outlier sits at x-index 10 (x=10), the -1e6 at x-index 20 (x=20),
+    both well inside the y window.
+    """
+    nx, ny = 50, 40
+    x = np.linspace(0, 49, nx).astype(np.float64)
+    y = np.linspace(0, 39, ny).astype(np.float64)
+    z = np.full((nx, ny), 0.5, dtype=np.float64)
+    z[10, 5] = 1.0e6
+    z[20, 7] = -1.0e6
+    cmap = plot.colormap(x, y, z.ravel())
+    return cmap, x, y
+
+
+def _make_colormap_with_spread_and_outliers(plot):
+    """Colormap whose z is uniform noise in [-1, 1] plus two extreme cells.
+
+    Unlike `_make_colormap_with_outliers` (a single flat value), a 2.5/97.5
+    percentile clip here lands inside the spread rather than degenerating to
+    a zero-width range -- needed to exercise "percentile genuinely narrows
+    the range" as distinct from the D-08 zero-width-fallback case.
+    """
+    nx, ny = 50, 40
+    x = np.linspace(0, 49, nx).astype(np.float64)
+    y = np.linspace(0, 39, ny).astype(np.float64)
+    z = np.random.default_rng(3).uniform(-1.0, 1.0, size=(nx, ny))
+    z[10, 5] = 1.0e6
+    z[20, 7] = -1.0e6
+    cmap = plot.colormap(x, y, z.ravel())
+    return cmap, x, y
+
+
+class TestZPercentileRange:
+
+    def test_full_range_includes_outliers(self, plot):
+        cmap, x, y = _make_colormap_with_outliers(plot)
+        r = cmap.z_percentile_range(
+            SciQLopPlotRange(x[0], x[-1]), SciQLopPlotRange(y[0], y[-1]), 0.0, 100.0
+        )
+        assert r.start() == pytest.approx(-1.0e6)
+        assert r.stop() == pytest.approx(1.0e6)
+
+    def test_percentile_excludes_outliers(self, plot):
+        cmap, x, y = _make_colormap_with_outliers(plot)
+        r = cmap.z_percentile_range(
+            SciQLopPlotRange(x[0], x[-1]), SciQLopPlotRange(y[0], y[-1]), 2.5, 97.5
+        )
+        # two extremes out of 2000 cells are far below the 2.5% tails
+        assert abs(r.start()) < 1.0
+        assert abs(r.stop()) < 1.0
+
+    def test_visible_filter_excludes_out_of_range_cells(self, plot):
+        cmap, x, y = _make_colormap_with_outliers(plot)
+        # restrict visible x so the +1e6 cell (x=10) is outside; -1e6 (x=20) stays
+        r = cmap.z_percentile_range(
+            SciQLopPlotRange(15.0, 49.0), SciQLopPlotRange(y[0], y[-1]), 0.0, 100.0
+        )
+        assert r.stop() == pytest.approx(0.5)
+        assert r.start() == pytest.approx(-1.0e6)
+
+    def test_nan_and_inf_cells_ignored(self, plot):
+        nx, ny = 30, 20
+        x = np.linspace(0, 29, nx).astype(np.float64)
+        y = np.linspace(0, 19, ny).astype(np.float64)
+        z = np.full((nx, ny), 2.0, dtype=np.float64)
+        z[0, 0] = np.nan
+        z[1, 1] = np.inf
+        z[2, 2] = -np.inf
+        cmap = plot.colormap(x, y, z.ravel())
+        r = cmap.z_percentile_range(
+            SciQLopPlotRange(x[0], x[-1]), SciQLopPlotRange(y[0], y[-1]), 0.0, 100.0
+        )
+        assert np.isfinite(r.start()) and np.isfinite(r.stop())
+        assert r.start() == pytest.approx(2.0)
+        assert r.stop() == pytest.approx(2.0)
+
+
+class TestPercentileConfig:
+
+    def test_default_percentiles(self, plot, sample_colormap_data):
+        x, y, z = sample_colormap_data
+        cmap = plot.colormap(x, y, z)
+        assert cmap.autoscale_percentile_low() == 0.0
+        assert cmap.autoscale_percentile_high() == 100.0
+
+    def test_set_percentiles(self, plot, sample_colormap_data):
+        x, y, z = sample_colormap_data
+        cmap = plot.colormap(x, y, z)
+        cmap.set_autoscale_percentile_low(2.5)
+        cmap.set_autoscale_percentile_high(97.5)
+        assert cmap.autoscale_percentile_low() == 2.5
+        assert cmap.autoscale_percentile_high() == 97.5
+
+
+class TestRescaleRouting:
+
+    def test_rescale_uses_percentile_when_configured(self, plot):
+        # Uses the spread fixture, not _make_colormap_with_outliers: that
+        # fixture's z is flat (0.5) apart from two cells, so any percentile
+        # band strictly inside (0, 100) degenerates to a zero-width range
+        # and falls back to min/max (see the dedicated D-08 regression test
+        # below) rather than exercising a genuine percentile-narrowed range.
+        cmap, x, y = _make_colormap_with_spread_and_outliers(plot)
+        cmap.set_autoscale_percentile_low(2.5)
+        cmap.set_autoscale_percentile_high(97.5)
+        zaxis = cmap.z_axis()
+        zaxis.rescale()
+        r = zaxis.range()
+        assert abs(r.start()) < 1.0
+        assert abs(r.stop()) < 1.0
+
+    def test_rescale_falls_back_to_minmax_on_degenerate_percentile(self, plot):
+        """A tight percentile band (10/90) on this fixture's 0.5-dominated data
+        lands both cutoffs on the same value (0.5) -- a zero-width range.
+        z_rescale_range() only rejected NaN, so `rescale()` fed the colorbar
+        that degenerate range instead of falling through to the min/max
+        fallback (mirrors the value-axis path's zero-width guard). The
+        underlying QCPAxis::setRange silently rejects a zero-width range
+        (validRange requires size > minRange), but QCPColorScale::dataRange()
+        -- what z_axis().range() reports -- gets clobbered with it regardless.
+        """
+        cmap, x, y = _make_colormap_with_outliers(plot)
+        cmap.set_autoscale_percentile_low(10.0)
+        cmap.set_autoscale_percentile_high(90.0)
+        degenerate = cmap.z_percentile_range(
+            SciQLopPlotRange(x[0], x[-1]), SciQLopPlotRange(y[0], y[-1]), 10.0, 90.0
+        )
+        assert degenerate.start() == degenerate.stop() == pytest.approx(0.5), \
+            "test fixture assumption broken: expected a zero-width percentile band"
+
+        zaxis = cmap.z_axis()
+        zaxis.rescale()
+        r = zaxis.range()
+        assert r.start() != r.stop(), \
+            "colorbar rescale landed on the degenerate zero-width percentile range"
+        assert r.start() == pytest.approx(-1.0e6)
+        assert r.stop() == pytest.approx(1.0e6)
+
+
+def _make_histogram_with_spike(plot):
+    """Histogram whose counts are roughly uniform except one densely packed bin.
+
+    5000 points spread over [-5, 5]^2 give a low, even count per bin; an extra
+    3000 points piled at the origin make a single extreme-count bin.
+    """
+    rng = np.random.default_rng(7)
+    spread_x = rng.uniform(-5, 5, 5000)
+    spread_y = rng.uniform(-5, 5, 5000)
+    spike_x = rng.normal(0, 0.01, 3000)
+    spike_y = rng.normal(0, 0.01, 3000)
+    x = np.concatenate([spread_x, spike_x]).astype(np.float64)
+    y = np.concatenate([spread_y, spike_y]).astype(np.float64)
+    hist = plot.add_histogram2d("spike", 50, 50)
+    hist.set_data(x, y)
+    _pump_events()
+    plot.replot(True)
+    _pump_events()
+    _wait_histogram_ready(hist)
+    return hist
+
+
+class TestSharedColorScaleProviderOwnership:
+    """A colormap and a histogram2d on the same plot share one z (color-scale)
+    axis (SciQLopPlot's m_axes[4]); each installs its own rescale-range
+    provider on it via SciQLopColorMapBase::install_rescale_provider(), and
+    "last install wins" for which one is the active owner.
+
+    Regression for: ~SciQLopColorMapBase() nulled the shared provider slot
+    unconditionally, with no check of whether this plottable is the one that
+    currently owns it. Destroying the NON-owner plottable still cleared the
+    slot, silently degrading the survivor's (the actual owner's) z-axis
+    rescale from percentile-clipped to a plain min/max fallback.
+
+    The histogram2d's own async binning pipeline and the *second*
+    z-plottable added to a plot never getting wired into QCP's own
+    colorScale()-based min/max fallback (a separate, pre-existing gap in
+    _ensure_colorscale_is_visible, out of scope here) make "does the range
+    change at all" an unreliable signal by itself: with two z-plottables
+    sharing an axis, the legacy min/max fallback silently no-ops for
+    whichever one was added second, so a stale value can look unchanged for
+    reasons that have nothing to do with this fix. Reconfiguring the
+    survivor's OWN percentile to a value that would visibly narrow its
+    result -- and asserting the range actually reflects it -- is what
+    isolates "is the provider still installed" from that fallback gap.
+    """
+
+    def test_removing_histogram_does_not_disable_colormap_percentile(self, plot):
+        # histogram installed FIRST (starts as provider owner); colormap
+        # installed SECOND, which takes over ownership (last-install-wins).
+        hist = _make_histogram_with_spike(plot)
+        cmap, cx, cy = _make_colormap_with_spread_and_outliers(plot)
+        cmap.set_autoscale_percentile_low(2.5)
+        cmap.set_autoscale_percentile_high(97.5)
+
+        plot.x_axis().set_range(SciQLopPlotRange(float(cx[0]), float(cx[-1])))
+        plot.y_axis().set_range(SciQLopPlotRange(float(cy[0]), float(cy[-1])))
+
+        zaxis = cmap.z_axis()
+        zaxis.rescale()
+        before = zaxis.range()
+
+        plot.remove_plottable(hist)  # synchronous C++ delete of the NON-owner
+
+        # A materially different (tighter) percentile band on the surviving
+        # colormap: if its provider is still installed, this changes the
+        # rescaled range; if the destruction above wrongly cleared it, the
+        # (broken, no-op-for-a-second-z-plottable) legacy fallback leaves the
+        # range frozen at `before` regardless of this new config.
+        cmap.set_autoscale_percentile_low(10.0)
+        cmap.set_autoscale_percentile_high(90.0)
+        zaxis.rescale()
+        after = zaxis.range()
+
+        assert (after.start(), after.stop()) != (before.start(), before.stop()), (
+            "colormap's percentile rescale provider was cleared by an "
+            "unrelated histogram's destruction"
+        )
+        # 10/90 must clip at least as tight as 2.5/97.5 on this fixture.
+        assert after.start() >= before.start() - 1e-9
+        assert after.stop() <= before.stop() + 1e-9
+
+
+class TestHistogram2DPercentile:
+
+    def test_default_percentiles_on_histogram(self, plot):
+        hist = plot.add_histogram2d("h", 20, 20)
+        assert hist.autoscale_percentile_low() == 0.0
+        assert hist.autoscale_percentile_high() == 100.0
+
+    def test_full_range_includes_spike(self, plot):
+        hist = _make_histogram_with_spike(plot)
+        r = hist.z_percentile_range(
+            SciQLopPlotRange(-6.0, 6.0), SciQLopPlotRange(-6.0, 6.0), 0.0, 100.0
+        )
+        # the dense origin bin holds hundreds/thousands of points
+        assert r.stop() > 100.0
+
+    def test_percentile_excludes_spike(self, plot):
+        hist = _make_histogram_with_spike(plot)
+        full = hist.z_percentile_range(
+            SciQLopPlotRange(-6.0, 6.0), SciQLopPlotRange(-6.0, 6.0), 0.0, 100.0
+        )
+        clamped = hist.z_percentile_range(
+            SciQLopPlotRange(-6.0, 6.0), SciQLopPlotRange(-6.0, 6.0), 2.5, 97.5
+        )
+        assert np.isfinite(clamped.stop())
+        assert clamped.stop() < full.stop()
+
+    def test_rescale_uses_percentile_when_configured(self, plot):
+        hist = _make_histogram_with_spike(plot)
+        full_max = hist.z_percentile_range(
+            SciQLopPlotRange(-6.0, 6.0), SciQLopPlotRange(-6.0, 6.0), 0.0, 100.0
+        ).stop()
+        hist.set_autoscale_percentile_low(2.5)
+        hist.set_autoscale_percentile_high(97.5)
+        zaxis = hist.z_axis()
+        zaxis.rescale()
+        clamped_max = zaxis.range().stop()
+        assert np.isfinite(clamped_max)
+        assert clamped_max < full_max
+
+
+class TestInspectorUI:
+    """Color-scale percentile spinboxes live on the "Color Scale" (z) axis
+    delegate (PR #69), where users find them next to gradient/log/label.
+    They are NOT exposed on the colormap or histogram product nodes."""
+
+    def _delegate(self, target, qtbot):
+        delegate = DelegateRegistry.instance().create_delegate(target, None)
+        assert delegate is not None
+        qtbot.addWidget(delegate)
+        return delegate
+
+    def _group_titles(self, target, qtbot):
+        delegate = self._delegate(target, qtbot)  # keep alive across findChildren
+        return [g.title() for g in delegate.findChildren(QGroupBox)]
+
+    def test_z_axis_delegate_has_percentile_group_with_colormap(
+        self, plot, qtbot, sample_colormap_data
+    ):
+        x, y, z = sample_colormap_data
+        plot.colormap(x, y, z)
+        assert "Autoscale percentile" in self._group_titles(plot.z_axis(), qtbot)
+
+    def test_z_axis_delegate_exposes_range(self, plot, qtbot, sample_colormap_data):
+        # The colorbar (z) range must be settable from the inspector, like every
+        # other numeric axis. It was silently dropped when the Range group was
+        # first added (commit 3a9d1ad gated it behind color_scale() == nullptr).
+        x, y, z = sample_colormap_data
+        plot.colormap(x, y, z)
+        assert "Range" in self._group_titles(plot.z_axis(), qtbot)
+
+    def test_z_axis_delegate_exposes_auto_scale_toggle(
+        self, plot, qtbot, sample_colormap_data
+    ):
+        # Pairs with the Range group, mirroring value axes: turning auto-scale
+        # off lets a manually-typed colorbar range stick.
+        x, y, z = sample_colormap_data
+        plot.colormap(x, y, z)
+        delegate = self._delegate(plot.z_axis(), qtbot)
+        assert delegate.findChild(QWidget, "plot_auto_scale") is not None
+
+    def test_z_axis_delegate_has_percentile_group_with_histogram(self, plot, qtbot):
+        plot.add_histogram2d("h", 20, 20)
+        assert "Autoscale percentile" in self._group_titles(plot.z_axis(), qtbot)
+
+    def test_colormap_delegate_does_not_carry_percentile(
+        self, plot, qtbot, sample_colormap_data
+    ):
+        x, y, z = sample_colormap_data
+        cmap = plot.colormap(x, y, z)
+        # Old design parked it on the colormap node; the move is intentional.
+        assert "Autoscale percentile" not in self._group_titles(cmap, qtbot)
+
+    def test_histogram_delegate_does_not_carry_percentile(self, plot, qtbot):
+        hist = plot.add_histogram2d("h", 20, 20)
+        assert "Autoscale percentile" not in self._group_titles(hist, qtbot)

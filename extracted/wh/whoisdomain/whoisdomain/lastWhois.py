@@ -1,0 +1,47 @@
+"""
+Keep track of the original whois string for the last query request.
+
+it should be rewritten to use a static class or singleton
+it is re-initialized on each new request
+
+public access is only needed fow: get_last_raw_whois_data()
+
+"""
+
+import logging
+from typing import (
+    Any,
+)
+
+from .context.parameterContext import ParameterContext
+
+log = logging.getLogger(__name__)
+
+
+LastWhois: dict[str, Any] = {}
+
+
+def updateLastWhois(
+    dList: list[str],
+    whoisStr: str,
+    pc: ParameterContext,
+) -> None:
+    global LastWhois
+    LastWhois["Try"].append(
+        {
+            "Domain": ".".join(dList),
+            "rawData": whoisStr,
+            "server": pc.server,
+        },
+    )
+
+
+def initLastWhois() -> None:
+    global LastWhois
+    LastWhois = {}
+    LastWhois["Try"] = []  # init on start of query
+
+
+def get_last_raw_whois_data() -> dict[str, Any]:
+    global LastWhois
+    return LastWhois

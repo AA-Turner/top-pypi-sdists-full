@@ -1,6 +1,6 @@
 [package]
 name = "databricks-zerobus-ingest-sdk"
-version = "2.7.1"
+version = "2.8.0"
 authors = ["Databricks"]
 edition = "2021"
 rust-version = "1.70"
@@ -51,6 +51,8 @@ futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
+# Deterministic virtual time (start_paused / advance) for timing-sensitive tests.
+tokio = { workspace = true, features = ["test-util"] }
 # zeroparser e2e + bench dev-deps
 criterion = { version = "0.5", default-features = false, features = ["html_reports"] }
 plotters = { version = "0.3", default-features = false, features = ["svg_backend"] }
@@ -65,7 +67,7 @@ prost-build = { version = "0.14", optional = true }
 
 [features]
 default = []
-# Arrow Flight is in Beta
+# Arrow Flight support
 arrow-flight = ["dep:arrow-flight", "dep:arrow-array", "dep:arrow-schema", "dep:arrow-ipc", "dep:futures", "dep:tonic-types"]
 # Wrapper-only Arrow C Data importer. Not a supported public Rust SDK feature.
 internal-arrow-c-data = [

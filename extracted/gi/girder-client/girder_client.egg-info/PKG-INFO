@@ -1,0 +1,34 @@
+Metadata-Version: 2.4
+Name: girder-client
+Version: 5.0.17
+Summary: Python client for interacting with Girder servers
+Home-page: http://girder.readthedocs.org/en/latest/python-client.html
+Author: Kitware, Inc.
+Author-email: kitware@kitware.com
+License: Apache 2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Requires-Dist: click>=6.7
+Requires-Dist: diskcache
+Requires-Dist: requests>=2.4.2
+Requires-Dist: requests_toolbelt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Girder Python Client
+====================
+
+This is a set of python libraries and a command-line tool that can be used to
+interact with the REST API of a `Girder <http://girder.readthedocs.org>`_ server.
+
+Documentation for the client can be found at http://girder.readthedocs.org/en/latest/python-client.html.

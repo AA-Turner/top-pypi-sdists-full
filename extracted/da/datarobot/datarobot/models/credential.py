@@ -51,12 +51,12 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
     @classmethod
     def list(cls) -> List[Credential]:
         """
-        Returns list of available credentials.
+        Returns a list of available credentials.
 
         Returns
         -------
         credentials : list of Credential instances
-            contains a list of available credentials.
+            Contains a list of available credentials.
 
         Examples
         --------
@@ -81,12 +81,12 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         credential_id : str
-            the identifier of the credential.
+            The identifier of the credential.
 
         Returns
         -------
         credential : Credential
-            the requested credential.
+            The requested credential.
 
         Examples
         --------
@@ -106,12 +106,12 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         credential_id : str
-            the identifier of the credential.
+            The identifier of the credential.
 
         Returns
         -------
         credential : Credential
-            the requested credential.
+            The requested credential.
 
         Examples
         --------
@@ -137,18 +137,18 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         name : str
-            the name to use for this set of credentials.
+            The name to use for this set of credentials.
         user : str
-            the username to store for this set of credentials.
+            The username to store for this set of credentials.
         password : str
-            the password to store for this set of credentials.
+            The password to store for this set of credentials.
         description : Optional[str]
-            the description to use for this set of credentials.
+            The description to use for this set of credentials.
 
         Returns
         -------
         credential : Credential
-            the created credential.
+            The created credential.
 
         Examples
         --------
@@ -181,23 +181,23 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         description: Optional[str] = None,
     ) -> Credential:
         """
-        Creates the OAUTH credentials.
+        Creates the OAuth credentials.
 
         Parameters
         ----------
         name : str
-            the name to use for this set of credentials.
+            The name to use for this set of credentials.
         token: str
-            the OAUTH token
+            The OAuth token.
         refresh_token: str
-            The OAUTH token
+            The OAuth refresh token.
         description : Optional[str]
-            the description to use for this set of credentials.
+            The description to use for this set of credentials.
 
         Returns
         -------
         credential : Credential
-            the created credential.
+            The created credential.
 
         Examples
         --------
@@ -237,23 +237,23 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         name : str
-            the name to use for this set of credentials.
+            The name to use for this set of credentials.
         aws_access_key_id : Optional[str]
-            the AWS access key id.
+            The AWS access key ID.
         aws_secret_access_key : Optional[str]
-            the AWS secret access key.
+            The AWS secret access key.
         aws_session_token : Optional[str]
-            the AWS session token.
+            The AWS session token.
         config_id: Optional[str]
-            The ID of the saved shared secure configuration. If specified, cannot include awsAccessKeyId,
-            awsSecretAccessKey or awsSessionToken.
+            The ID of the saved shared secure configuration. If specified, cannot include
+            `awsAccessKeyId`, `awsSecretAccessKey`, or `awsSessionToken`.
         description : Optional[str]
-            the description to use for this set of credentials.
+            The description to use for this set of credentials.
 
         Returns
         -------
         credential : Credential
-            the created credential.
+            The created credential.
 
         Examples
         --------
@@ -294,16 +294,16 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         name : str
-            the name to use for this set of credentials.
+            The name to use for this set of credentials.
         azure_connection_string : str
-            the Azure connection string.
+            The Azure connection string.
         description : Optional[str]
-            the description to use for this set of credentials.
+            The description to use for this set of credentials.
 
         Returns
         -------
         credential : Credential
-            the created credential.
+            The created credential.
 
         Examples
         --------
@@ -341,24 +341,24 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         name : str
-            the name to use for this set of credentials.
+            The name to use for this set of credentials.
         user: Optional[str]
-            the Snowflake login name
+            The Snowflake login name.
         private_key: Optional[str]
-            the private key copied exactly from user private key file. Since it contains multiple
-            lines, when assign to a variable, put the key string inside triple-quotes
+            The private key copied exactly from user private key file. Since it contains multiple
+            lines, when assign to a variable, put the key string inside triple-quotes.
         passphrase: Optional[str]
-            the string used to encrypt the private key
+            The string used to encrypt the private key.
         config_id: Optional[str]
-            The ID of the saved shared secure configuration. If specified, cannot include user,
-            privateKeyStr or passphrase.
+            The ID of the saved shared secure configuration. If specified, cannot include `user`,
+            `privateKeyStr`, or `passphrase`.
         description : Optional[str]
-            the description to use for this set of credentials.
+            The description to use for this set of credentials.
 
         Returns
         -------
         credential : Credential
-            the created credential.
+            The created credential.
 
         Examples
         --------
@@ -399,16 +399,16 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         name : str
-            the name to use for this set of credentials.
+            The name to use for this set of credentials.
         databricks_access_token: Optional[str]
-            the Databricks personal access token
+            The Databricks personal access token.
         description : Optional[str]
-            the description to use for this set of credentials.
+            The description to use for this set of credentials.
 
         Returns
         -------
         credential : Credential
-            the created credential.
+            The created credential.
 
         Examples
         --------
@@ -446,21 +446,21 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         name : str
-            the name to use for this set of credentials.
+            The name to use for this set of credentials.
         client_id: Optional[str]
-            the client ID for Databricks Service Principal
+            The client ID for Databricks Service Principal.
         client_secret: Optional[str]
-            the client secret for Databricks Service Principal
+            The client secret for Databricks Service Principal.
         config_id: Optional[str]
-            The ID of the saved shared secure configuration. If specified, cannot include clientId
-            and clientSecret.
+            The ID of the saved shared secure configuration. If specified, cannot include `clientId`
+            or `clientSecret`.
         description : Optional[str]
-            the description to use for this set of credentials.
+            The description to use for this set of credentials.
 
         Returns
         -------
         credential : Credential
-            the created credential.
+            The created credential.
 
         Examples
         --------
@@ -518,7 +518,7 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Returns
         -------
         credential : Credential
-            the created credential.
+            The created credential.
 
         Examples
         --------
@@ -570,7 +570,7 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         oauth_scopes : List[str], optional
             The OAuth scopes.
         config_id: Optional[str]
-            The ID of the saved shared secure configuration. If specified, cannot include clientId,
+            The ID of the saved shared secure configuration. If specified, cannot include `clientId`,
             `clientSecret`, or `oauthScopes`.
         description : Optional[str]
             The description to use for the ADLS OAuth credentials.
@@ -614,7 +614,7 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         description: Optional[str] = None,
     ) -> Credential:
         """
-        Creates credentials for an external OAuth provider.
+        Creates the credentials for an external OAuth provider.
 
         Parameters
         ----------
@@ -729,16 +729,16 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         name : str
-            the name to use for this set of credentials.
+            The name to use for this set of credentials.
         gcp_key : str | dict
-            the GCP key in json format or parsed as dict.
+            The GCP key in JSON format or parsed as a dict.
         description : Optional[str]
-            the description to use for this set of credentials.
+            The description to use for this set of credentials.
 
         Returns
         -------
         credential : Credential
-            the created credential.
+            The created credential.
 
         Examples
         --------
@@ -768,7 +768,7 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         return cls.from_server_data(cls._client.post(cls._path, data=payload).json())
 
     def update(self, name: Optional[str] = None, description: Optional[str] = None, **kwargs: Any) -> None:
-        """Update the credential values of an existing credential. Updates this object in place.
+        """Update the credential values of an existing credential and update the credential object in place.
 
         .. versionadded:: v3.2
 

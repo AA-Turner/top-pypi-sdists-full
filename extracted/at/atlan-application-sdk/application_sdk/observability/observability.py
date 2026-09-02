@@ -1,0 +1,671 @@
+import asyncio
+import gzip
+import logging
+import os
+import shutil
+import threading
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from time import time
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
+
+if TYPE_CHECKING:
+    from application_sdk.storage.ops import BoundStore
+
+import orjson
+
+from application_sdk.constants import (
+    APPLICATION_NAME,
+    DEPLOYMENT_NAME,
+    DEPLOYMENT_OBJECT_STORE_NAME,
+    ENABLE_ATLAN_UPLOAD,
+    ENABLE_OBSERVABILITY_STORE_SINK,
+    LOG_FILE_NAME,
+    METRICS_FILE_NAME,
+    SIZING_FILE_NAME,
+    TRACES_FILE_NAME,
+    UPSTREAM_OBJECT_STORE_NAME,
+)
+from application_sdk.observability.utils import in_temporal_workflow
+
+# --- Path configuration ---
+# Structure: observability/<mode>/<signal>/year=.../hour=.../file.json.gz
+# SDR (ENABLE_ATLAN_UPLOAD=true):     sdr/logs/, sdr/metrics/, sdr/traces/
+# Non-SDR (ENABLE_ATLAN_UPLOAD=false): non-sdr/logs/, non-sdr/metrics/, non-sdr/traces/
+_OBS_MODE = "sdr" if ENABLE_ATLAN_UPLOAD else "non-sdr"
+
+# Map of signal type → local subdirectory (e.g., sdr/logs)
+LOCAL_OBS_SUBDIR_MAP = {
+    "logs": f"{_OBS_MODE}/logs",
+    "metrics": f"{_OBS_MODE}/metrics",
+    "traces": f"{_OBS_MODE}/traces",
+    # Must be added alongside the S3 prefix below: a signal in only one map writes
+    # to ``other/`` locally while uploading to ``sizing/``.
+    "sizing": f"{_OBS_MODE}/sizing",
+}
+
+# Map of signal type → S3 remote key prefix
+OBSERVABILITY_S3_PREFIX_MAP = {
+    "logs": f"artifacts/apps/observability/{_OBS_MODE}/logs",
+    "metrics": f"artifacts/apps/observability/{_OBS_MODE}/metrics",
+    "traces": f"artifacts/apps/observability/{_OBS_MODE}/traces",
+    # Its own prefix, not the "other" fallback: this dataset has to be selectable
+    # across tenants without filtering out everything else in "other".
+    "sizing": f"artifacts/apps/observability/{_OBS_MODE}/sizing",
+}
+
+
+T = TypeVar("T")
+
+
+@dataclass
+class _PartitionWriter:
+    """State for the single open gzip partition file inside ``_flush_records``.
+
+    Invariant: an instance is live (file open, local file on disk) from the moment
+    it is created until ``_upload_and_delete`` completes or the outer ``finally``
+    block of ``_flush_records`` cleans it up.  The local ``current_writer`` variable
+    being ``None`` is the signal that no partition file is currently open.
+    """
+
+    partition_path: str
+    local_path: str
+    remote_key: str
+    file: gzip.GzipFile
+
+
+class AtlanObservability(Generic[T], ABC):
+    """Base class for Atlan observability functionality.
+
+    This abstract base class provides core functionality for observability features
+    including buffering, flushing, and cleanup of observability data.
+
+    Features:
+    - Buffered record storage
+    - Periodic flushing to storage
+    - Data retention management
+    - Error handling and signal management
+    - Gzip-compressed NDJSON file storage
+    - Dapr object store integration
+
+    Attributes:
+        _last_cleanup_key: Key for tracking last cleanup time
+        _instances: List of all active instances
+    """
+
+    _last_cleanup_key = "last_cleanup_time"
+    _instances: ClassVar[list[Any]] = []
+    # Resolved once for the whole hierarchy. Both getters below read and write
+    # these through ``AtlanObservability`` explicitly rather than through
+    # ``cls``: a ``cls.<attr> = ...`` from a classmethod called on a *subclass*
+    # binds a subclass attribute that shadows the base one, so the cache would
+    # be per-subclass and anything swapping the base (test fixtures,
+    # ``_reset_for_testing``) would be silently ignored. Nothing here varies by
+    # subclass — the binding names are module constants and ``_components_dir``
+    # is defined only here — so one shared entry is also one resolution instead
+    # of one per adapter. Same reason ``_instances`` is appended via the base.
+    _deployment_store: ClassVar["BoundStore | None"] = None
+    _upstream_store: ClassVar["BoundStore | None"] = None
+
+    @classmethod
+    def _components_dir(cls) -> str:
+        # Honour ``DAPR_COMPONENTS_PATH`` so the embedded-Dapr local-dev path
+        # finds the auto-generated component YAMLs in the temp dir.
+        return os.environ.get("DAPR_COMPONENTS_PATH", "./components")
+
+    @classmethod
+    def _get_deployment_store(cls) -> "BoundStore":
+        if AtlanObservability._deployment_store is None:
+            from application_sdk.storage.binding import (  # noqa: PLC0415
+                create_store_from_binding_with_put_attrs,
+            )
+            from application_sdk.storage.ops import BoundStore  # noqa: PLC0415
+
+            store, put_attrs = create_store_from_binding_with_put_attrs(
+                DEPLOYMENT_OBJECT_STORE_NAME,
+                components_dir=cls._components_dir(),
+            )
+            AtlanObservability._deployment_store = BoundStore(store, put_attrs)
+        return AtlanObservability._deployment_store
+
+    @classmethod
+    def _get_upstream_store(cls) -> "BoundStore":
+        if AtlanObservability._upstream_store is None:
+            from application_sdk.storage.binding import (  # noqa: PLC0415 — deferred to break the observability→storage circular import
+                create_store_from_binding_with_put_attrs,
+            )
+            from application_sdk.storage.ops import BoundStore  # noqa: PLC0415
+
+            store, put_attrs = create_store_from_binding_with_put_attrs(
+                UPSTREAM_OBJECT_STORE_NAME,
+                components_dir=cls._components_dir(),
+            )
+            AtlanObservability._upstream_store = BoundStore(store, put_attrs)
+        return AtlanObservability._upstream_store
+
+    def __init__(
+        self,
+        batch_size: int,
+        flush_interval: int,
+        retention_days: int,
+        cleanup_enabled: bool,
+        data_dir: str,
+        file_name: str,
+    ):
+        """Initialize the observability base class."""
+        # Initialize instance variables
+        self._buffer: list[dict[str, object]] = []
+        self._buffer_lock = threading.Lock()
+        self._last_flush_time = time()
+        self._batch_size = batch_size
+        self._flush_interval = flush_interval
+        self._retention_days = retention_days
+        self._cleanup_enabled = cleanup_enabled
+        self.data_dir = data_dir
+        self.file_name = file_name
+        self._writer_seq = 0
+
+        # Ensure data directory exists
+        os.makedirs(data_dir, exist_ok=True)
+
+        # Register this instance
+        AtlanObservability._instances.append(self)
+
+    @classmethod
+    async def flush_all(cls) -> None:
+        """Flush all instances of AtlanObservability.
+
+        This method attempts to flush all registered instances,
+        logging any errors that occur during flushing.
+        """
+        for instance in cls._instances:
+            try:
+                await instance._flush_buffer(force=True)
+            except Exception:
+                logging.error("Error flushing instance", exc_info=True)
+
+    @classmethod
+    def _reset_for_testing(cls) -> None:
+        """Reset global state for test isolation.
+
+        This method should only be used in tests to allow fresh initialization
+        for each test case.
+        """
+        AtlanObservability._instances.clear()
+        AtlanObservability._deployment_store = None
+        AtlanObservability._upstream_store = None
+
+    def _get_signal_type(self) -> str:
+        """Map file_name to signal type (logs, metrics, traces, sizing).
+
+        Returns:
+            str: The signal type based on self.file_name
+        """
+        if self.file_name == LOG_FILE_NAME:
+            return "logs"
+        elif self.file_name == METRICS_FILE_NAME:
+            return "metrics"
+        elif self.file_name == TRACES_FILE_NAME:
+            return "traces"
+        elif self.file_name == SIZING_FILE_NAME:
+            return "sizing"
+        return "other"
+
+    def _store_sink_enabled(self) -> bool:
+        """Whether this signal writes to the object store. Overridable because the
+        shared switch covers three signals, so disabling it can silently drop one.
+        """
+        return ENABLE_OBSERVABILITY_STORE_SINK
+
+    def _get_partition_path(self, timestamp: datetime) -> str:
+        """Generate local partition path based on timestamp.
+
+        Uses signal-type-specific subdirectory (e.g., sdr-logs/, non-sdr-metrics/)
+        with hour-level partitioning. The full S3 prefix is applied separately
+        when computing the remote key for upload.
+
+        Args:
+            timestamp: The timestamp to generate partition path for
+
+        Returns:
+            str: The local partition path
+        """
+        signal_type = self._get_signal_type()
+        local_subdir = LOCAL_OBS_SUBDIR_MAP.get(signal_type, f"{_OBS_MODE}/other")
+
+        return os.path.join(
+            self.data_dir,
+            local_subdir,
+            f"year={timestamp.year}",
+            f"month={timestamp.month:02d}",
+            f"day={timestamp.day:02d}",
+            f"hour={timestamp.hour:02d}",
+        )
+
+    def _build_remote_key(self, partition_time: datetime, filename: str) -> str:
+        """Build the S3 remote key for a partition file.
+
+        Args:
+            partition_time: Timestamp used to derive the year/month/day/hour prefix.
+            filename: The local filename (e.g. ``<ts>_<seq>_<deployment>_<app>.json.gz``).
+
+        Returns:
+            str: The fully qualified S3 key, e.g.
+                ``artifacts/apps/observability/sdr/logs/year=2025/month=06/day=29/hour=14/<filename>``.
+        """
+        signal_type = self._get_signal_type()
+        s3_prefix = OBSERVABILITY_S3_PREFIX_MAP.get(
+            signal_type,
+            f"artifacts/apps/observability/{_OBS_MODE}/other",
+        )
+        return os.path.join(
+            s3_prefix,
+            f"year={partition_time.year}",
+            f"month={partition_time.month:02d}",
+            f"day={partition_time.day:02d}",
+            f"hour={partition_time.hour:02d}",
+            filename,
+        )
+
+    async def _upload_and_delete(self, local_path: str, remote_key: str) -> None:
+        """Upload *local_path* to object store(s) then remove the local file.
+
+        The deployment-store upload is non-fatal (failure is logged at WARNING and
+        the method continues). The upstream-store upload (when ``ENABLE_ATLAN_UPLOAD``
+        is true) is allowed to propagate — the caller handles it.  The local file is
+        always deleted in the ``finally`` block to prevent disk leaks.
+
+        Args:
+            local_path: Absolute path to the local ``.json.gz`` file.
+            remote_key: S3 key (from :meth:`_build_remote_key`) to upload to.
+        """
+        from application_sdk.storage import upload_file  # noqa: PLC0415
+
+        # write_sidecar=False: telemetry exports are not artifacts anyone
+        # downloads through the SDK, and the ingestion pipelines that read this
+        # prefix enumerate it directly — a `.sha256` next to every rotated
+        # `.json.gz` would double the object count there for no verification
+        # anyone performs. The upload-side size validation still applies.
+        try:
+            try:
+                await upload_file(
+                    remote_key,
+                    local_path,
+                    store=self._get_deployment_store(),
+                    write_sidecar=False,
+                )
+            except Exception:
+                logging.warning(
+                    "Deployment objectstore upload failed (non-fatal)",
+                    exc_info=True,
+                )
+
+            if ENABLE_ATLAN_UPLOAD:
+                await upload_file(
+                    remote_key,
+                    local_path,
+                    store=self._get_upstream_store(),
+                    write_sidecar=False,
+                )
+
+            logging.debug("Exported records → %s", remote_key)
+        finally:
+            if os.path.exists(local_path):
+                os.unlink(local_path)
+
+    @abstractmethod
+    def process_record(self, record: T) -> dict[str, Any]:
+        """Process a record into a dictionary format.
+
+        Args:
+            record: The record to process
+
+        Returns:
+            Dict[str, Any]: Dictionary representation of the record
+
+        This is an abstract method that must be implemented by subclasses.
+        """
+
+    @abstractmethod
+    def export_record(self, record: T) -> None:
+        """Export a record to external systems.
+
+        Args:
+            record: The record to export
+
+        This is an abstract method that must be implemented by subclasses.
+        """
+
+    async def _periodic_flush(self):
+        """Periodically flush the buffer to storage.
+
+        This coroutine:
+        - Performs initial flush
+        - Runs periodic flushes at configured intervals
+        - Handles task cancellation gracefully
+        - Ensures final flush on cancellation
+        """
+        try:
+            # Initial flush
+            await self._flush_buffer(force=True)
+
+            while True:
+                await asyncio.sleep(self._flush_interval)
+                await self._flush_buffer(force=True)
+        except asyncio.CancelledError:
+            # Handle task cancellation gracefully
+            await self._flush_buffer(force=True)
+        except Exception:
+            logging.error("Error in periodic flush", exc_info=True)
+
+    async def _flush_buffer(self, force=False):
+        """Flush the buffer to storage.
+
+        Args:
+            force (bool): Whether to force flush regardless of buffer size
+
+        This method:
+        - Safely copies and clears the buffer
+        - Flushes records if buffer is not empty
+        """
+        with self._buffer_lock:
+            if self._buffer:
+                # Swap rather than copy: O(1) instead of O(n) — the old list reference
+                # is handed off to the flusher while a fresh list starts accumulating.
+                buffer_copy = self._buffer
+                self._buffer = []
+            else:
+                buffer_copy = None
+        if buffer_copy:
+            await self._flush_records(buffer_copy)
+
+    async def _flush_records(self, records: list[dict[str, Any]]):
+        """Flush records to json.gz files and upload to object stores.
+
+        Args:
+            records: List of records to flush
+
+        Uses a **single-pass streaming writer** to reduce peak memory.  Rather than
+        grouping all records into a ``partition_records`` dict (which holds two copies
+        of the full batch at peak), the method opens one gzip file per active partition
+        and writes each record as an NDJSON line as it is consumed.  Only one record
+        and one gzip write buffer are alive at any moment — O(1) extra memory
+        regardless of batch size.
+
+        Records are assumed to arrive in emission order (chronologically), so
+        hour-partitions appear as contiguous runs.  If a rare cross-thread reorder
+        causes a stale partition to reappear mid-flush, a second uniquely-named
+        ``.json.gz`` file is written for that hour.  Uniqueness is jointly enforced by
+        the ``ts_ns`` wall-clock prefix and a per-instance monotonic ``_writer_seq``
+        counter, so two writers opened within the same clock tick (e.g. ~15 ms on
+        Windows) still produce distinct filenames.
+
+        - Writes gzip-compressed NDJSON (no pandas/pyarrow dependency)
+        - SDR path: ``artifacts/apps/observability/sdr/logs/``    (``ENABLE_ATLAN_UPLOAD=true``)
+        - Non-SDR path: ``artifacts/apps/observability/non-sdr/logs/``
+        - Uploads to customer bucket (DEPLOYMENT_OBJECT_STORE) always
+        - Uploads to Atlan bucket (UPSTREAM_OBJECT_STORE) when ``ENABLE_ATLAN_UPLOAD=true``
+        """
+        if not self._store_sink_enabled() or not records:
+            return
+
+        # Blocking file I/O, the object-store upload and the retention sweep's
+        # thread offload below are all illegal on Temporal's deterministic
+        # workflow loop — skip the store sink there; records are still exported
+        # via OTLP/console. Shares one predicate with SegmentClient.flush() so
+        # both guards answer "am I in a workflow" the same way; the previous
+        # ``workflow.unsafe.in_sandbox()`` check missed passed-through modules
+        # and unsandboxed workers. See utils.in_temporal_workflow.
+        if in_temporal_workflow():
+            return
+
+        # ``current_writer`` is non-None iff a gzip partition file is currently open.
+        # The _PartitionWriter dataclass bundles all four related state fields so they
+        # are always updated atomically — preventing the bug where an upload failure
+        # left current_partition_path pointing at the closed partition while
+        # current_file was None, causing the next same-partition record to call
+        # write() on None.
+        current_writer: _PartitionWriter | None = None
+
+        try:
+            for record in records:
+                try:
+                    record_time = datetime.fromtimestamp(record["timestamp"])
+                    partition_path = self._get_partition_path(record_time)
+
+                    if (
+                        current_writer is None
+                        or partition_path != current_writer.partition_path
+                    ):
+                        # Finalize the current partition before switching.
+                        if current_writer is not None:
+                            # Swap out before close+upload so the triggering record is
+                            # never dropped: current_writer=None first means the code
+                            # below always opens a fresh writer for the new partition,
+                            # even if the upload raises.  _upload_and_delete's own
+                            # finally unlinks the local file, so no disk leak on failure.
+                            prev_writer = current_writer
+                            current_writer = None
+                            try:
+                                prev_writer.file.close()
+                                await self._upload_and_delete(
+                                    prev_writer.local_path,
+                                    prev_writer.remote_key,
+                                )
+                            except Exception:
+                                logging.error(
+                                    "Error finalizing observability partition",
+                                    exc_info=True,
+                                )
+
+                        # Open a fresh gzip file for the new partition.
+                        os.makedirs(partition_path, exist_ok=True)
+                        # Lexi-sortable filename.
+                        # Use datetime.now() rather than time.time_ns(): the latter is
+                        # restricted inside Temporal's workflow sandbox (non-deterministic),
+                        # while datetime.now() is patched by the SDK to be safe there.
+                        # The monotonic _writer_seq counter is a tie-breaker for when
+                        # datetime.now() has insufficient resolution (e.g. ~15 ms on
+                        # Windows), which would otherwise produce duplicate filenames
+                        # when two partition switches happen within the same clock tick.
+                        ts_ns = int(datetime.now().timestamp() * 1e9)
+                        self._writer_seq += 1
+                        filename = f"{ts_ns}_{self._writer_seq:06d}_{DEPLOYMENT_NAME}_{APPLICATION_NAME}.json.gz"
+                        local_path = os.path.join(partition_path, filename)
+                        current_writer = _PartitionWriter(
+                            partition_path=partition_path,
+                            local_path=local_path,
+                            remote_key=self._build_remote_key(record_time, filename),
+                            file=gzip.open(local_path, "wb"),
+                        )
+
+                    current_writer.file.write(orjson.dumps(record) + b"\n")
+
+                except Exception:
+                    logging.error("Error writing observability record", exc_info=True)
+
+            # Finalize the last open partition.
+            if current_writer is not None:
+                try:
+                    current_writer.file.close()
+                    await self._upload_and_delete(
+                        current_writer.local_path,
+                        current_writer.remote_key,
+                    )
+                finally:
+                    current_writer = None
+
+            # Clean up old records if enabled
+            if self._cleanup_enabled:
+                await self._check_and_cleanup()
+
+        except Exception:
+            logging.error("Error flushing records batch", exc_info=True)
+
+        finally:
+            # Defensive: if an unexpected exception left the writer open, close its
+            # file handle and remove any orphaned local file to prevent leaks.
+            if current_writer is not None:
+                try:
+                    current_writer.file.close()
+                except Exception:
+                    logging.warning("Error closing orphaned gzip file", exc_info=True)
+                if os.path.exists(current_writer.local_path):
+                    os.unlink(current_writer.local_path)
+
+    async def _check_and_cleanup(self):
+        """Check if cleanup is needed and perform it if necessary.
+
+        This method:
+        - Checks last cleanup time from state store
+        - Performs cleanup if more than a day has passed
+        - Updates last cleanup time after successful cleanup
+        """
+        try:
+            from application_sdk.infrastructure.context import (  # noqa: PLC0415 — circular: infrastructure imports observability
+                get_infrastructure,
+            )
+
+            infra = get_infrastructure()
+            state_store = infra.state_store if infra else None
+
+            last_cleanup: str | None = None
+            if state_store:
+                state = await state_store.load(self._last_cleanup_key)
+                last_cleanup = state.get("value") if state else None
+
+            # If no last cleanup or it's been more than a day, perform cleanup
+            if not last_cleanup or (
+                datetime.now() - datetime.fromisoformat(last_cleanup)
+            ) > timedelta(days=1):
+                await self._cleanup_old_records()
+                # Update last cleanup time
+                if state_store:
+                    await state_store.save(
+                        self._last_cleanup_key,
+                        {"value": datetime.now().isoformat()},
+                    )
+        except Exception:
+            logging.error("Error checking cleanup status", exc_info=True)
+
+    async def _cleanup_old_records(self):
+        """Clean up records older than retention_days.
+
+        This method:
+        - Uses the centralized SDR path
+        - Walks through the partition directories
+        - Removes records older than retention period
+        - Updates or deletes files as needed
+        - Syncs changes with object store
+        """
+        try:
+            from application_sdk._runtime.offload import (  # noqa: PLC0415 — circular: offload imports observability.logger_adaptor, which imports this module
+                run_in_thread,
+            )
+            from application_sdk.storage import delete  # noqa: PLC0415
+
+            # Use local subdir (same as _get_partition_path)
+            signal_type = self._get_signal_type()
+            local_subdir = LOCAL_OBS_SUBDIR_MAP.get(signal_type, f"{_OBS_MODE}/other")
+            data_dir = os.path.join(self.data_dir, local_subdir)
+            if not os.path.exists(data_dir):
+                return
+
+            cutoff_date = datetime.now() - timedelta(days=self._retention_days)
+
+            # Walk through the partition directories
+            for year_dir in os.listdir(data_dir):
+                year_path = os.path.join(data_dir, year_dir)
+                if not os.path.isdir(year_path) or not year_dir.startswith("year="):
+                    continue
+
+                year = int(year_dir.split("=")[1])
+                if year < cutoff_date.year:
+                    # Delete entire year directory. Offloaded: a year of
+                    # partitions is an unbounded tree, and rmtree on the event
+                    # loop stalls every other coroutine for its full duration.
+                    await run_in_thread(shutil.rmtree, year_path)
+                    continue
+
+                for month_dir in os.listdir(year_path):
+                    month_path = os.path.join(year_path, month_dir)
+                    if not os.path.isdir(month_path) or not month_dir.startswith(
+                        "month="
+                    ):
+                        continue
+
+                    month = int(month_dir.split("=")[1])
+                    if year == cutoff_date.year and month < cutoff_date.month:
+                        await run_in_thread(shutil.rmtree, month_path)
+                        continue
+
+                    for day_dir in os.listdir(month_path):
+                        day_path = os.path.join(month_path, day_dir)
+                        if not os.path.isdir(day_path) or not day_dir.startswith(
+                            "day="
+                        ):
+                            continue
+
+                        day = int(day_dir.split("=")[1])
+                        partition_date = datetime(year, month, day)
+
+                        if partition_date.date() < cutoff_date.date():
+                            # Delete entire partition directory
+                            await run_in_thread(shutil.rmtree, day_path)
+
+                            # Delete from object store
+                            partition_key = os.path.relpath(day_path, self.data_dir)
+                            await delete(
+                                partition_key,
+                                store=self._get_deployment_store(),
+                            )
+                            if ENABLE_ATLAN_UPLOAD:
+                                await delete(
+                                    partition_key,
+                                    store=self._get_upstream_store(),
+                                )
+
+        except Exception:
+            logging.error("Error cleaning up old records", exc_info=True)
+
+    def add_record(self, record: T):
+        """Add a record to the buffer and process it.
+
+        Args:
+            record: The record to add
+
+        This method:
+        - Processes the record
+        - Adds it to the buffer
+        - Triggers flush if needed
+        - Exports the record
+        """
+        try:
+            # Process the record
+            processed_record = self.process_record(record)
+
+            # Add to buffer
+            with self._buffer_lock:
+                self._buffer.append(processed_record)
+                now = time()
+                if (
+                    len(self._buffer) >= self._batch_size
+                    or (now - self._last_flush_time) >= self._flush_interval
+                ):
+                    self._last_flush_time = now
+                    # Swap rather than copy: O(1) instead of O(n).
+                    buffer_copy = self._buffer
+                    self._buffer = []
+                else:
+                    buffer_copy = None
+
+            # Flush if needed
+            if buffer_copy is not None:
+                asyncio.create_task(self._flush_records(buffer_copy))
+
+            # Export the record
+            self.export_record(record)
+
+        except Exception:
+            logging.error("Error adding record", exc_info=True)

@@ -312,7 +312,8 @@ def list_(
     """Show sessions in your workspace.
 
     Args:
-        search: Free-text match across title, model, agent, and label values.
+        search: Free-text match across title, first-message preview,
+            model, agent, and label values.
         origin: Filter by session origin (``user``, ``eval``, ``worker``).
             Repeatable.
         label: ``key:value`` filter, repeatable. Same key combines with OR;

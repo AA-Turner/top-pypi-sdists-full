@@ -1,0 +1,85 @@
+[project]
+name = "riskcal"
+version = "1.5.1"
+requires-python = ">=3.10"
+description = "Compute f-DP trade-off curves and calibrate differentially private algorithms to operational privacy risk measures"
+authors = [
+    {name = "Bogdan Kulynych", email = "bogdan@kulyny.ch"},
+    {name = "Juan Felipe Gomez", email = "gomezjuan772@gmail.com"},
+]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["privacy", "differential privacy"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+]
+dependencies = [
+    "dp-accounting>=0.4.4,<1.0",
+    "scipy>=1.11.3",
+]
+
+[project.urls]
+Repository = "https://github.com/interpretable-dp/riskcal.git"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "sphinx-copybutton>=0.5.0",
+    "myst-parser>=2.0.0",
+    "nbsphinx>=0.9.0",
+    "ipython>=8.0.0",
+    "ipykernel>=6.0.0",
+    "linkify-it-py>=2.0.3",
+]
+
+[dependency-groups]
+dev = [
+    "cython>=0.29",
+    "ipdb>=0.13.13",
+    "jupyter>=1.1.1",
+    "opacus==1.4.0",
+    "pluggy>=1.6.0",
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
+    "pytest-codeblocks>=0.17.0",
+    "seaborn>=0.13.2",
+]
+docs = [
+    "ipykernel>=6.0.0",
+    "ipython>=8.0.0",
+    "linkify-it-py>=2.0.3",
+    "myst-parser>=2.0.0",
+    "nbsphinx>=0.9.0",
+    "sphinx>=7.0.0",
+    "sphinx-copybutton>=0.5.0",
+    "sphinx-rtd-theme>=2.0.0",
+]
+
+[tool.pytest.ini_options]
+addopts = ["-v", "--codeblocks"]
+testpaths = ["tests", "README.md"]
+
+[tool.uv]
+default-groups = []
+
+[tool.setuptools.package-data]
+"riskcal.analysis.rdp" = ["*.pyx"]
+
+[build-system]
+requires = ["setuptools>=64", "wheel", "Cython>=0.29", "numpy>=1.21"]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+build = "cp312-* cp313-*"
+skip = ["pp*", "*-manylinux_i686", "*-musllinux_*"]
+test-command = 'python -c "from riskcal.analysis.rdp import is_cython_available; assert is_cython_available()"'
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]
+before-test = "pip install 'scipy>=1.11.3' --only-binary=:all:"
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]

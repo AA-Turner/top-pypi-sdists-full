@@ -1,0 +1,1234 @@
+"""
+Git operations for CLI commands.
+
+This module provides the individual git operations:
+- Staging changes
+- Creating/amending commits
+- Pushing/publishing branches
+- Branch state detection
+"""
+
+import sys
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+from agentic_devtools.agdt_gitignore import AGDT_GITIGNORE_ENTRIES
+
+from .core import GitError, get_current_branch, run_git, run_git_capture, run_git_safe, temp_message_file
+from .transparency import print_commit_title_change, print_resolved_commit_message
+
+# Auto-generated files that must never be staged or committed.
+# After `git add .`, these are unstaged via `git reset HEAD <file>`.
+STAGE_EXCLUDE_FILES = [
+    "agentic_devtools/_version.py",
+]
+
+
+def _default_stage_runner(args: list[str], *, cwd: str | None = None) -> Any:
+    """Run ``git`` with the non-exiting helper used by the orchestration nodes."""
+    return run_git_safe(args, cwd=cwd)
+
+
+def _default_branch_lookup(runner: Any, cwd: str | None) -> str:
+    """Return the current branch for stage filtering.
+
+    When the default CLI runner is used without ``cwd``, preserve the historic
+    ``get_current_branch()`` behavior (including its detached-HEAD guard).
+    """
+    if runner is _default_stage_runner and cwd is None:
+        return get_current_branch()
+    result = runner(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
+    return (result.stdout or "").strip()
+
+
+def stage_changes(
+    dry_run: bool,
+    *,
+    runner: Any = None,
+    branch_lookup: Callable[[Any, str | None], str] | None = None,
+    cwd: str | None = None,
+) -> None:
+    """
+    Stage all changes (git add .), then unstage any auto-generated files.
+
+    Auto-generated files listed in STAGE_EXCLUDE_FILES are always unstaged
+    after the initial ``git add .`` so they are never included in commits.
+
+    On branches that do **not** end with ``-agdt``, every entry from
+    ``AGDT_GITIGNORE_ENTRIES`` is unstaged (as ``.agdt/{entry}``) to prevent
+    runtime state from being accidentally committed to code branches.
+
+    On ``-agdt`` branches, ``.agdt/.gitignore`` is deleted **before**
+    ``git add .`` so that previously-ignored runtime state files become
+    visible to git and are included in the commit.
+
+    Args:
+        dry_run: If True, only print what would happen
+        runner: Optional callable ``(args, *, cwd)`` used for git commands.
+            Defaults to :func:`run_git_safe`.
+        branch_lookup: Optional callable ``(runner, cwd) -> branch_name`` used
+            to determine whether the current branch ends with ``-agdt``.
+        cwd: Optional working directory forwarded to each git command.
+    """
+    if runner is None:
+        runner = _default_stage_runner
+    if branch_lookup is None:
+        branch_lookup = _default_branch_lookup
+
+    branch = branch_lookup(runner, cwd)
+    is_agdt_branch = branch.endswith("-agdt")
+
+    if dry_run:
+        print("[DRY RUN] Would stage all changes (git add .)")
+        for excluded in STAGE_EXCLUDE_FILES:
+            print(f"[DRY RUN] Would unstage auto-generated file: {excluded}")
+        if not is_agdt_branch:
+            for entry in AGDT_GITIGNORE_ENTRIES:
+                print(f"[DRY RUN] Would unstage .agdt/{entry} (not on -agdt branch)")
+        else:
+            print("[DRY RUN] Would remove .agdt/.gitignore (on -agdt branch)")
+            print("[DRY RUN] .agdt/ entries will stay staged (on -agdt branch)")
+        return
+
+    # On -agdt branches, remove .agdt/.gitignore BEFORE `git add .`
+    # so that previously-ignored state files become visible to git.
+    if is_agdt_branch:
+        try:
+            toplevel = runner(["rev-parse", "--show-toplevel"], cwd=cwd)
+            if toplevel.returncode == 0 and toplevel.stdout.strip():
+                gitignore_path = Path(toplevel.stdout.strip()) / ".agdt" / ".gitignore"
+                if gitignore_path.is_file():
+                    gitignore_path.unlink()
+                    print("Removed .agdt/.gitignore (on -agdt branch, state will be committed)")
+        except OSError as exc:
+            print(
+                f"Warning: Failed to remove .agdt/.gitignore "
+                f"(state files may remain ignored and not be committed): {exc}",
+                file=sys.stderr,
+            )
+
+    print("Staging all changes...")
+    add_result = runner(["add", "."], cwd=cwd)
+    if add_result.returncode != 0:
+        raise GitError(
+            add_result.returncode,
+            add_result.stderr.strip() or "git add . failed",
+            ["add", "."],
+        )
+
+    for excluded in STAGE_EXCLUDE_FILES:
+        result = runner(["reset", "HEAD", "--", excluded], cwd=cwd)
+        if result.returncode == 0 and result.stdout.strip():  # pragma: no cover
+            print(f"Unstaged auto-generated file: {excluded}")
+
+    if not is_agdt_branch:
+        for entry in AGDT_GITIGNORE_ENTRIES:
+            result = runner(["reset", "HEAD", "--", f".agdt/{entry}"], cwd=cwd)
+            if result.returncode == 0 and result.stdout.strip():  # pragma: no cover
+                print(f"Unstaged runtime state: .agdt/{entry}")
+
+    print("Changes staged.")
+
+
+def create_commit(message: str, dry_run: bool) -> None:
+    """
+    Create a commit with the given message.
+
+    Uses a temp file to handle multiline messages safely across platforms.
+    Prints the resolved commit message in canonical format for transparency.
+
+    Args:
+        message: The commit message
+        dry_run: If True, only print what would happen
+    """
+    print_resolved_commit_message(message)
+
+    if dry_run:
+        print("[DRY RUN] Would create commit with message:")
+        print("-" * 40)
+        print(message)
+        print("-" * 40)
+        return
+
+    print("Creating commit...")
+
+    with temp_message_file(message) as temp_path:
+        run_git("commit", "-F", temp_path)
+
+    print("Commit created successfully.")
+
+
+def amend_commit(message: str, dry_run: bool, old_title: str | None = None) -> None:
+    """
+    Amend the current commit with a new message.
+
+    Uses a temp file to handle multiline messages safely across platforms.
+    Prints the resolved commit message and, when ``old_title`` is provided,
+    a before/after title diff for transparency.
+
+    Args:
+        message: The new commit message
+        dry_run: If True, only print what would happen
+        old_title: The previous commit title (for diff logging). If provided,
+            a before/after title change is printed.
+    """
+    # Print title change if old_title is provided
+    if old_title is not None:
+        new_title = message.split("\n", 1)[0]
+        print_commit_title_change(old_title, new_title)
+
+    print_resolved_commit_message(message)
+
+    if dry_run:
+        print("[DRY RUN] Would amend commit with message:")
+        print("-" * 40)
+        print(message)
+        print("-" * 40)
+        return
+
+    print("Amending commit...")
+
+    with temp_message_file(message) as temp_path:
+        run_git("commit", "--amend", "-F", temp_path)
+
+    print("Commit amended successfully.")
+
+
+def publish_branch(dry_run: bool) -> None:
+    """
+    Push and set upstream for the current branch.
+
+    Args:
+        dry_run: If True, only print what would happen
+    """
+    branch = get_current_branch()
+
+    if dry_run:
+        print(f"[DRY RUN] Would publish branch '{branch}' (git push --set-upstream origin {branch})")
+        return
+
+    print(f"Publishing branch '{branch}'...")
+    run_git("push", "--set-upstream", "origin", branch)
+    print("Branch published successfully.")
+
+
+def force_push(dry_run: bool) -> None:
+    """
+    Force push with lease (safe force push).
+
+    Uses --force-with-lease to prevent overwriting others' changes.
+
+    Args:
+        dry_run: If True, only print what would happen
+    """
+    if dry_run:
+        print("[DRY RUN] Would force push (git push --force-with-lease)")
+        return
+
+    print("Force pushing changes...")
+    run_git("push", "--force-with-lease")
+    print("Changes pushed successfully.")
+
+
+def push(dry_run: bool) -> None:
+    """
+    Push to remote (regular push).
+
+    Args:
+        dry_run: If True, only print what would happen
+    """
+    if dry_run:
+        print("[DRY RUN] Would push changes (git push)")
+        return
+
+    print("Pushing changes...")
+    run_git("push")
+    print("Changes pushed successfully.")
+
+
+def get_last_commit_message() -> str | None:
+    """
+    Get the message of the last commit on the current branch.
+
+    Returns:
+        The commit message, or None if no commits exist
+    """
+    result = run_git("log", "-1", "--format=%B", check=False)
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def branch_has_commits_ahead_of_main(
+    main_branch: str = "main",
+    origin_main_fresh: bool = True,
+    cwd: str | None = None,
+) -> bool:
+    """Check if the current branch has commits ahead of the main branch.
+
+    When ``cwd`` is supplied the function uses the non-exiting
+    :func:`run_git_capture` so it is safe to call from orchestration nodes that
+    must not let ``SystemExit`` escape their boundary (FR-004/FR-007). The
+    process-CWD (``cwd=None``) path continues to use the exiting :func:`run_git`
+    for backwards compatibility with CLI callers.
+
+    Args:
+        main_branch: Name of the main branch (default: "main")
+        origin_main_fresh: When True (default), prefer the remote-tracking
+            ``origin/{main_branch}`` ref if it exists (existing behavior). When
+            False, the remote ref is treated as potentially stale, so the
+            comparison is made against the local ``{main_branch}`` ref instead —
+            used by node code when ``origin/main`` was NOT freshly fetched in the
+            same execution (FR-004).
+        cwd: When supplied, run all git commands in this directory using the
+            non-exiting :func:`run_git_capture` runner. Defaults to ``None``
+            (process CWD, exiting runner).
+
+    Returns:
+        True if current branch has commits not in main
+    """
+    if cwd is not None:
+        return _branch_has_commits_ahead_of_main_cwd(main_branch, origin_main_fresh, cwd)
+
+    current = get_current_branch()
+    if current == main_branch:
+        return False
+
+    if origin_main_fresh:
+        # Prefer freshly-fetched origin/main; fall back to local main.
+        result = run_git("rev-parse", "--verify", f"origin/{main_branch}", check=False)
+        if result.returncode != 0:
+            # Try without origin/
+            result = run_git("rev-parse", "--verify", main_branch, check=False)
+            if result.returncode != 0:
+                return False
+            ref = main_branch
+        else:
+            ref = f"origin/{main_branch}"
+    else:
+        # origin/main may be stale — compare against local main only.
+        result = run_git("rev-parse", "--verify", main_branch, check=False)
+        if result.returncode != 0:
+            return False
+        ref = main_branch
+
+    # Count commits ahead
+    result = run_git("rev-list", "--count", f"{ref}..HEAD", check=False)
+    if result.returncode != 0:
+        return False
+
+    try:
+        count = int(result.stdout.strip())
+        return count > 0
+    except ValueError:
+        return False
+
+
+def _branch_has_commits_ahead_of_main_cwd(
+    main_branch: str,
+    origin_main_fresh: bool,
+    cwd: str,
+) -> bool:
+    """CWD-aware, non-exiting implementation of :func:`branch_has_commits_ahead_of_main`.
+
+    Called when a ``cwd`` is provided; uses :func:`run_git_capture` so no
+    ``SystemExit`` can escape.
+    """
+    current = run_git_capture(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd).stdout.strip()
+    if current == main_branch:
+        return False
+
+    ref: str | None = None
+    if origin_main_fresh:
+        origin_ref = f"origin/{main_branch}"
+        if run_git_capture(["rev-parse", "--verify", origin_ref], cwd=cwd).returncode == 0:
+            ref = origin_ref
+        elif run_git_capture(["rev-parse", "--verify", main_branch], cwd=cwd).returncode == 0:
+            ref = main_branch
+    else:
+        if run_git_capture(["rev-parse", "--verify", main_branch], cwd=cwd).returncode == 0:
+            ref = main_branch
+
+    if ref is None:
+        return False
+
+    count_result = run_git_capture(["rev-list", "--count", f"{ref}..HEAD"], cwd=cwd)
+    if count_result.returncode != 0:
+        raise GitError(
+            count_result.returncode,
+            count_result.stderr.strip() if count_result.stderr else "",
+            ["rev-list", "--count", f"{ref}..HEAD"],
+        )
+    try:
+        return int(count_result.stdout.strip()) > 0
+    except ValueError:
+        return False
+
+
+def last_commit_contains_issue_key(issue_key: str) -> bool:
+    """
+    Check if the last commit message contains the given issue key.
+
+    Args:
+        issue_key: The Jira issue key to look for (e.g., "PROJECT-1234")
+
+    Returns:
+        True if the last commit message contains the issue key
+    """
+    message = get_last_commit_message()
+    if not message:
+        return False
+    return issue_key.upper() in message.upper()
+
+
+def should_amend_instead_of_commit(
+    issue_key: str | None = None,
+    origin_main_fresh: bool = True,
+    cwd: str | None = None,
+) -> bool:
+    """
+    Determine if we should amend the existing commit instead of creating a new one.
+
+    Logic:
+    - If branch has commits ahead of main → amend (single-commit policy)
+    - If branch has no commits ahead of main → new commit
+
+    The issue_key parameter is kept for API compatibility but no longer affects
+    the decision. We always amend when there are existing commits to maintain
+    a clean single-commit-per-feature history.
+
+    Args:
+        issue_key: Optional Jira issue key (kept for API compatibility, not used)
+        origin_main_fresh: Forwarded to :func:`branch_has_commits_ahead_of_main`.
+            When False, the ahead-of-main comparison falls back to local ``main``
+            instead of a potentially-stale ``origin/main`` (FR-004).
+        cwd: When supplied, forwarded to :func:`branch_has_commits_ahead_of_main`
+            so the ahead-of-main check runs in the issue worktree using the
+            non-exiting runner. This lets orchestration nodes drive smart-amend
+            detection through this shared policy helper (rather than calling
+            :func:`branch_has_commits_ahead_of_main` directly) so the CLI and
+            orchestration single-commit policy cannot drift (FR-004).
+
+    Returns:
+        True if should amend, False if should create new commit
+    """
+    # Has commits ahead of main → always amend (single-commit policy)
+    # No commits ahead of main → new commit
+    return branch_has_commits_ahead_of_main(origin_main_fresh=origin_main_fresh, cwd=cwd)
+
+
+def has_local_changes() -> bool:
+    """
+    Check if there are any local changes (staged or unstaged).
+
+    Returns:
+        True if there are uncommitted changes
+    """
+    # Check for staged changes
+    result = run_git("diff", "--cached", "--quiet", check=False)
+    if result.returncode != 0:
+        return True
+
+    # Check for unstaged changes
+    result = run_git("diff", "--quiet", check=False)
+    if result.returncode != 0:
+        return True
+
+    # Check for untracked files
+    result = run_git("ls-files", "--others", "--exclude-standard", check=False)
+    if result.returncode == 0 and result.stdout.strip():
+        return True
+
+    return False
+
+
+def local_branch_matches_origin() -> bool:
+    """
+    Check if the local branch matches the origin branch (no unpushed commits).
+
+    Returns:
+        True if local and origin are in sync
+    """
+    branch = get_current_branch()
+
+    # Check if origin branch exists
+    result = run_git("rev-parse", "--verify", f"origin/{branch}", check=False)
+    if result.returncode != 0:
+        # Origin branch doesn't exist - not in sync
+        return False
+
+    # Compare local and origin
+    result = run_git("rev-list", "--count", f"origin/{branch}..HEAD", check=False)
+    if result.returncode != 0:
+        return False
+
+    try:
+        ahead = int(result.stdout.strip())
+    except ValueError:
+        return False
+
+    result = run_git("rev-list", "--count", f"HEAD..origin/{branch}", check=False)
+    if result.returncode != 0:
+        return False
+
+    try:
+        behind = int(result.stdout.strip())
+    except ValueError:
+        return False
+
+    return ahead == 0 and behind == 0
+
+
+class BranchSafetyCheckResult:
+    """Result of checking if a branch is safe to recreate/delete."""
+
+    SAFE = "safe"
+    UNCOMMITTED_CHANGES = "uncommitted_changes"
+    DIVERGED_FROM_ORIGIN = "diverged_from_origin"
+    BRANCH_NOT_ON_ORIGIN = "branch_not_on_origin"
+    NOT_ON_BRANCH = "not_on_branch"
+
+    def __init__(self, status: str, message: str = "", branch_name: str = ""):
+        self.status = status
+        self.message = message
+        self.branch_name = branch_name
+
+    @property
+    def is_safe(self) -> bool:
+        """Check if it's safe to proceed with branch operations."""
+        return self.status == self.SAFE
+
+    @property
+    def has_local_work_at_risk(self) -> bool:
+        """Check if there's local work that could be lost."""
+        return self.status in (self.UNCOMMITTED_CHANGES, self.DIVERGED_FROM_ORIGIN)
+
+
+def check_branch_safe_to_recreate(branch_name: str) -> BranchSafetyCheckResult:
+    """
+    Check if a local branch is safe to delete/recreate.
+
+    This is used before PR review worktree setup to ensure we don't
+    destroy local work. A branch is safe to recreate if:
+    1. We're currently on that branch (or can switch to it)
+    2. There are no uncommitted changes
+    3. The local branch matches origin (same commit hash)
+
+    Args:
+        branch_name: Name of the branch to check
+
+    Returns:
+        BranchSafetyCheckResult indicating whether it's safe to proceed
+    """
+    # Check if the branch exists locally
+    result = run_git("rev-parse", "--verify", branch_name, check=False)
+    local_exists = result.returncode == 0
+
+    # Check if the branch exists on origin
+    result = run_git("rev-parse", "--verify", f"origin/{branch_name}", check=False)
+    origin_exists = result.returncode == 0
+
+    if not local_exists:
+        # Branch doesn't exist locally - safe to create from origin
+        if origin_exists:
+            return BranchSafetyCheckResult(
+                BranchSafetyCheckResult.SAFE,
+                f"Branch '{branch_name}' doesn't exist locally, will checkout from origin.",
+                branch_name,
+            )
+        else:
+            return BranchSafetyCheckResult(
+                BranchSafetyCheckResult.BRANCH_NOT_ON_ORIGIN,
+                f"Branch '{branch_name}' doesn't exist locally or on origin.",
+                branch_name,
+            )
+
+    # Branch exists locally - check if we're on it
+    current = get_current_branch()
+    if not current:  # pragma: no cover
+        return BranchSafetyCheckResult(
+            BranchSafetyCheckResult.NOT_ON_BRANCH,
+            "Detached HEAD state. Cannot safely check branch status.",
+            branch_name,
+        )
+
+    # If we're on a different branch, we need to be careful
+    if current != branch_name:  # pragma: no cover
+        # Check for uncommitted changes on current branch first
+        if has_local_changes():
+            return BranchSafetyCheckResult(
+                BranchSafetyCheckResult.UNCOMMITTED_CHANGES,
+                f"You have uncommitted changes on branch '{current}'.\n"
+                f"Please commit, stash, or discard them before proceeding.",
+                branch_name,
+            )
+
+        # We'd need to switch branches - check if target branch is safe
+        # Get local and origin commits for target branch
+        local_commit = run_git("rev-parse", branch_name, check=False)
+        origin_commit = run_git("rev-parse", f"origin/{branch_name}", check=False)
+
+        if local_commit.returncode != 0:
+            return BranchSafetyCheckResult(
+                BranchSafetyCheckResult.NOT_ON_BRANCH,
+                f"Cannot determine commit for local branch '{branch_name}'.",
+                branch_name,
+            )
+
+        if origin_commit.returncode != 0:
+            return BranchSafetyCheckResult(
+                BranchSafetyCheckResult.BRANCH_NOT_ON_ORIGIN,
+                f"Branch '{branch_name}' exists locally but not on origin.\nLocal work may be lost if we proceed.",
+                branch_name,
+            )
+
+        if local_commit.stdout.strip() != origin_commit.stdout.strip():
+            return BranchSafetyCheckResult(
+                BranchSafetyCheckResult.DIVERGED_FROM_ORIGIN,
+                f"Local branch '{branch_name}' has diverged from origin.\n"
+                f"Local commits may be lost if we proceed.\n"
+                f"Please push your local changes first, or use a different worktree.",
+                branch_name,
+            )
+
+        return BranchSafetyCheckResult(
+            BranchSafetyCheckResult.SAFE,
+            f"Branch '{branch_name}' is safe to use.",
+            branch_name,
+        )
+
+    # We're on the target branch - check for uncommitted changes
+    if has_local_changes():
+        return BranchSafetyCheckResult(
+            BranchSafetyCheckResult.UNCOMMITTED_CHANGES,
+            f"You have uncommitted changes on branch '{branch_name}'.\n"
+            f"Please commit, stash, or discard them before proceeding.",
+            branch_name,
+        )
+
+    # Check if local matches origin
+    if not origin_exists:  # pragma: no cover
+        return BranchSafetyCheckResult(
+            BranchSafetyCheckResult.BRANCH_NOT_ON_ORIGIN,
+            f"Branch '{branch_name}' exists locally but not on origin.\nLocal work may be lost if we proceed.",
+            branch_name,
+        )
+
+    local_commit = run_git("rev-parse", "HEAD", check=False)
+    origin_commit = run_git("rev-parse", f"origin/{branch_name}", check=False)
+
+    if local_commit.returncode != 0 or origin_commit.returncode != 0:  # pragma: no cover
+        return BranchSafetyCheckResult(
+            BranchSafetyCheckResult.NOT_ON_BRANCH,
+            "Cannot determine commit hashes for comparison.",
+            branch_name,
+        )
+
+    if local_commit.stdout.strip() != origin_commit.stdout.strip():
+        return BranchSafetyCheckResult(
+            BranchSafetyCheckResult.DIVERGED_FROM_ORIGIN,
+            f"Local branch '{branch_name}' has diverged from origin.\n"
+            f"Local commits may be lost if we proceed.\n"
+            f"Please push your local changes first.",
+            branch_name,
+        )
+
+    return BranchSafetyCheckResult(
+        BranchSafetyCheckResult.SAFE,
+        f"Branch '{branch_name}' is in sync with origin and safe to use.",
+        branch_name,
+    )
+
+
+def fetch_branch(branch_name: str, dry_run: bool = False) -> bool:
+    """
+    Fetch a specific branch from origin.
+
+    Args:
+        branch_name: Name of the branch to fetch
+        dry_run: If True, only print what would happen
+
+    Returns:
+        True if fetch succeeded, False otherwise
+    """
+    if dry_run:
+        print(f"[DRY RUN] Would fetch origin/{branch_name}")
+        return True
+
+    print(f"Fetching origin/{branch_name}...")
+    result = run_git("fetch", "origin", branch_name, check=False)
+    if result.returncode != 0:
+        print(f"Warning: Failed to fetch origin/{branch_name}")
+        if result.stderr:
+            print(result.stderr.strip())
+        return False
+
+    print(f"Fetched origin/{branch_name} successfully.")
+    return True
+
+
+def rename_local_branch(old_name: str, new_name: str) -> bool:
+    """
+    Rename a local git branch.
+
+    Args:
+        old_name: Current branch name
+        new_name: New branch name
+
+    Returns:
+        True if rename succeeded, False otherwise
+    """
+    result = run_git("branch", "-m", old_name, new_name, check=False)
+    if result.returncode != 0:
+        print(f"Failed to rename branch '{old_name}' to '{new_name}'.")
+        if result.stderr:
+            print(result.stderr.strip())
+        return False
+
+    print(f"Renamed branch '{old_name}' to '{new_name}'.")
+    return True
+
+
+def delete_local_branch(branch_name: str, force: bool = False) -> bool:
+    """
+    Delete a local git branch.
+
+    Args:
+        branch_name: Name of the branch to delete
+        force: If True, use -D (force delete) instead of -d (safe delete)
+
+    Returns:
+        True if deletion succeeded, False otherwise
+    """
+    flag = "-D" if force else "-d"
+    result = run_git("branch", flag, branch_name, check=False)
+    if result.returncode != 0:
+        print(f"Failed to delete branch '{branch_name}'.")
+        if result.stderr:
+            print(result.stderr.strip())
+        return False
+
+    print(f"Deleted branch '{branch_name}'.")
+    return True
+
+
+def get_short_commit_hash(ref: str) -> str | None:
+    """
+    Get the short commit hash for a git ref.
+
+    Args:
+        ref: A git ref (branch name, commit hash, tag, etc.)
+
+    Returns:
+        Short commit hash string, or None on failure
+    """
+    result = run_git("rev-parse", "--short", ref, check=False)
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def reset_branch_to_origin(branch_name: str, dry_run: bool = False) -> bool:
+    """
+    Reset the current branch to match origin/<branch_name>.
+
+    Verifies that HEAD is on ``branch_name`` before proceeding —
+    returns ``False`` with an actionable message if a different branch
+    is checked out.
+
+    Guards against data loss by:
+    - Checking for uncommitted or untracked working tree changes.
+    - Checking for unpushed local commits before performing the hard reset.
+
+    If any safety condition is detected, the reset is aborted with a
+    descriptive message so the reviewer can resolve manually.
+
+    Args:
+        branch_name: Name of the branch to reset to
+        dry_run: If True, only print what would happen
+
+    Returns:
+        True if reset succeeded, False otherwise
+    """
+    if dry_run:
+        print(f"[DRY RUN] Would reset to origin/{branch_name}")
+        return True
+
+    # Guard: check for uncommitted/untracked working tree changes
+    if has_local_changes():
+        print("Error: You have uncommitted local changes.")
+        print("Aborting reset to avoid losing work. Commit, stash, or discard your changes, then retry.")
+        return False
+
+    # Guard: verify we are on the expected branch
+    head_result = run_git("rev-parse", "--abbrev-ref", "HEAD", check=False)
+    if head_result.returncode == 0:
+        current_branch = head_result.stdout.strip()
+        if current_branch != branch_name:
+            print(f"Error: Expected to be on branch '{branch_name}' but HEAD is on '{current_branch}'.")
+            print("Aborting reset to avoid resetting the wrong branch.")
+            return False
+    else:
+        print("Warning: Could not determine current branch. Aborting reset as a safety precaution.")
+        if head_result.stderr:
+            print(f"  {head_result.stderr.strip()}")
+        return False
+
+    # Guard: check for unpushed local commits before hard reset
+    ahead_result = run_git("rev-list", "--count", f"origin/{branch_name}..HEAD", check=False)
+    if ahead_result.returncode == 0:
+        count_text = ahead_result.stdout.strip()
+        try:
+            ahead = int(count_text)
+        except ValueError:
+            print(f"Warning: Could not parse rev-list output ({count_text!r}), aborting reset as a safety precaution.")
+            return False
+        if ahead > 0:
+            print(f"Warning: Local branch has {ahead} unpushed commit(s) ahead of origin/{branch_name}.")
+            print("Aborting reset to avoid losing local work. Push or discard your local commits, then retry.")
+            return False
+    else:
+        print(f"Warning: Could not check for unpushed commits (rev-list exited {ahead_result.returncode}).")
+        if ahead_result.stderr:
+            print(f"  {ahead_result.stderr.strip()}")
+        print("Aborting reset as a safety precaution.")
+        return False
+
+    print(f"Resetting branch to origin/{branch_name}...")
+    result = run_git("reset", "--hard", f"origin/{branch_name}", check=False)
+    if result.returncode != 0:
+        print(f"Warning: Failed to reset to origin/{branch_name}")
+        if result.stderr:
+            print(result.stderr.strip())
+        return False
+
+    print(f"Reset to origin/{branch_name} successfully.")
+    return True
+
+
+def fetch_main(main_branch: str = "main", dry_run: bool = False) -> bool:
+    """
+    Fetch the latest from origin for the main branch.
+
+    Args:
+        main_branch: Name of the main branch (default: "main")
+        dry_run: If True, only print what would happen
+
+    Returns:
+        True if fetch succeeded, False otherwise
+    """
+    if dry_run:
+        print(f"[DRY RUN] Would fetch origin/{main_branch}")
+        return True
+
+    print(f"Fetching latest from origin/{main_branch}...")
+    result = run_git("fetch", "origin", main_branch, check=False)
+    if result.returncode != 0:
+        print(f"Warning: Failed to fetch origin/{main_branch}")
+        if result.stderr:
+            print(result.stderr.strip())
+        return False
+
+    print(f"Fetched origin/{main_branch} successfully.")
+    return True
+
+
+def get_commits_behind_main(main_branch: str = "main") -> int:
+    """
+    Get the number of commits the current branch is behind origin/main.
+
+    Args:
+        main_branch: Name of the main branch (default: "main")
+
+    Returns:
+        Number of commits behind, or 0 if unable to determine
+    """
+    result = run_git("rev-list", "--count", f"HEAD..origin/{main_branch}", check=False)
+    if result.returncode != 0:
+        return 0
+
+    try:
+        return int(result.stdout.strip())
+    except ValueError:
+        return 0
+
+
+class RebaseResult:
+    """Result of a rebase operation."""
+
+    SUCCESS = "success"
+    NO_REBASE_NEEDED = "no_rebase_needed"
+    CONFLICT = "conflict"
+    ERROR = "error"
+
+    def __init__(self, status: str, message: str = ""):
+        self.status = status
+        self.message = message
+
+    @property
+    def is_success(self) -> bool:
+        return self.status in (self.SUCCESS, self.NO_REBASE_NEEDED)
+
+    @property
+    def was_rebased(self) -> bool:
+        """Return True if a rebase actually occurred (history was rewritten)."""
+        return self.status == self.SUCCESS
+
+    @property
+    def needs_manual_resolution(self) -> bool:
+        return self.status == self.CONFLICT
+
+
+def rebase_onto_main(main_branch: str = "main", dry_run: bool = False) -> RebaseResult:
+    """
+    Rebase the current branch onto origin/main if there are new commits.
+
+    This performs a non-interactive rebase. If conflicts occur, the rebase
+    is automatically aborted and the user is instructed to resolve manually.
+
+    Args:
+        main_branch: Name of the main branch (default: "main")
+        dry_run: If True, only print what would happen
+
+    Returns:
+        RebaseResult indicating success, no rebase needed, conflict, or error
+    """
+    # Check how many commits we're behind
+    commits_behind = get_commits_behind_main(main_branch)
+
+    if commits_behind == 0:
+        print(f"Branch is already up-to-date with origin/{main_branch}.")
+        return RebaseResult(RebaseResult.NO_REBASE_NEEDED)
+
+    if dry_run:
+        print(f"[DRY RUN] Would rebase onto origin/{main_branch} ({commits_behind} commits behind)")
+        return RebaseResult(RebaseResult.SUCCESS)
+
+    print(f"Rebasing onto origin/{main_branch} ({commits_behind} commits behind)...")
+
+    # Perform rebase (non-interactive, no editor)
+    result = run_git(
+        "rebase",
+        f"origin/{main_branch}",
+        check=False,
+    )
+
+    if result.returncode == 0:
+        print("Rebase completed successfully.")
+        return RebaseResult(RebaseResult.SUCCESS)
+
+    # Rebase failed - check if it's a conflict
+    if "conflict" in result.stdout.lower() or "conflict" in result.stderr.lower():
+        # Abort the rebase
+        print("Rebase conflicts detected. Aborting rebase...")
+        abort_result = run_git("rebase", "--abort", check=False)
+
+        if abort_result.returncode != 0:
+            return RebaseResult(
+                RebaseResult.ERROR,
+                "Failed to abort rebase. Manual intervention required.",
+            )
+
+        return RebaseResult(
+            RebaseResult.CONFLICT,
+            f"Rebase onto origin/{main_branch} resulted in conflicts.\n"
+            f"Please resolve manually by either:\n"
+            f"  1. Rebase: git fetch origin {main_branch} && git rebase origin/{main_branch}\n"
+            f"     Then resolve conflicts and continue with: git rebase --continue\n"
+            f"  2. Merge: git fetch origin {main_branch} && git merge origin/{main_branch}\n"
+            f"     Then resolve conflicts if any and commit the merge.",
+        )
+
+    # Some other error
+    error_msg = result.stderr.strip() if result.stderr else result.stdout.strip()
+    # Try to abort in case rebase is in progress
+    run_git("rebase", "--abort", check=False)
+
+    return RebaseResult(RebaseResult.ERROR, f"Rebase failed: {error_msg}")
+
+
+class CheckoutResult:
+    """Result of a checkout operation."""
+
+    SUCCESS = "success"
+    UNCOMMITTED_CHANGES = "uncommitted_changes"
+    BRANCH_NOT_FOUND = "branch_not_found"
+    ERROR = "error"
+
+    def __init__(self, status: str, message: str = ""):
+        self.status = status
+        self.message = message
+
+    @property
+    def is_success(self) -> bool:
+        return self.status == self.SUCCESS
+
+    @property
+    def needs_user_action(self) -> bool:
+        return self.status in (self.UNCOMMITTED_CHANGES, self.BRANCH_NOT_FOUND)
+
+
+def checkout_branch(branch_name: str, dry_run: bool = False) -> CheckoutResult:
+    """
+    Checkout a git branch.
+
+    Args:
+        branch_name: Name of the branch to checkout
+        dry_run: If True, only print what would happen
+
+    Returns:
+        CheckoutResult indicating success or the type of failure
+    """
+    from .core import get_current_branch
+
+    # Check if already on the branch
+    try:
+        current = get_current_branch()
+        if current == branch_name:
+            print(f"Already on branch '{branch_name}'")
+            return CheckoutResult(CheckoutResult.SUCCESS)
+    except SystemExit:
+        pass  # Could be detached HEAD, continue with checkout
+
+    if dry_run:
+        print(f"[DRY RUN] Would checkout branch '{branch_name}'")
+        return CheckoutResult(CheckoutResult.SUCCESS)
+
+    # Check for uncommitted changes first
+    if has_local_changes():
+        return CheckoutResult(
+            CheckoutResult.UNCOMMITTED_CHANGES,
+            f"Cannot checkout branch '{branch_name}' - you have uncommitted changes.\n"
+            f"Please either:\n"
+            f"  1. Commit your changes: agdt-git-commit\n"
+            f"  2. Stash your changes: git stash\n"
+            f"  3. Discard changes: git checkout -- . && git clean -fd\n"
+            f"Then restart the workflow.",
+        )
+
+    print(f"Checking out branch '{branch_name}'...")
+
+    # First try to checkout existing local branch
+    result = run_git("checkout", branch_name, check=False)
+
+    if result.returncode == 0:
+        print(f"Checked out branch '{branch_name}' successfully.")
+        return CheckoutResult(CheckoutResult.SUCCESS)
+
+    # If local doesn't exist, try to checkout from origin
+    result = run_git("checkout", "-b", branch_name, f"origin/{branch_name}", check=False)
+
+    if result.returncode == 0:
+        print(f"Checked out branch '{branch_name}' from origin.")
+        return CheckoutResult(CheckoutResult.SUCCESS)
+
+    # Branch not found
+    error_msg = result.stderr.strip() if result.stderr else result.stdout.strip()
+
+    if "did not match any" in error_msg.lower() or "not found" in error_msg.lower():
+        return CheckoutResult(
+            CheckoutResult.BRANCH_NOT_FOUND,
+            f"Branch '{branch_name}' not found locally or on origin.\nPlease verify the branch name is correct.",
+        )
+
+    return CheckoutResult(CheckoutResult.ERROR, f"Checkout failed: {error_msg}")
+
+
+_GIT_STATUS_TO_CHANGE_TYPE: dict[str, str] = {
+    "A": "add",
+    "M": "edit",
+    "D": "delete",
+    "R": "rename",
+}
+
+
+def resolve_branch_diff_ref(main_branch: str = "main") -> str | None:
+    """Return the first valid branch diff range for ``main_branch``."""
+    for ref in (f"origin/{main_branch}...HEAD", f"{main_branch}...HEAD"):
+        result = run_git("diff", "--quiet", "--find-renames", ref, check=False)
+        if result.returncode in (0, 1):
+            return ref
+    return None
+
+
+def _get_file_change_types_for_ref(diff_ref: str) -> dict[str, str]:
+    """Return long-form change types for ``diff_ref``."""
+    result = run_git("diff", "--name-status", "--find-renames", "-z", diff_ref, check=False)
+    if result.returncode != 0:
+        return {}
+
+    _, change_types, _ = _parse_name_status_output(result.stdout)
+    return change_types
+
+
+def _get_rename_sources_for_ref(diff_ref: str) -> dict[str, str]:
+    """Return a mapping of ``{new_path: original_path}`` for renamed files in ``diff_ref``.
+
+    Uses ``--name-status --find-renames`` so the result is consistent with
+    :func:`_get_file_change_types_for_ref`.  Only ``R``-status entries are included;
+    all other change types are ignored.
+    """
+    result = run_git("diff", "--name-status", "--find-renames", "-z", diff_ref, check=False)
+    if result.returncode != 0:
+        return {}
+
+    _, _, rename_sources = _parse_name_status_output(result.stdout)
+    return rename_sources
+
+
+def _parse_name_status_output(stdout: str) -> tuple[list[str], dict[str, str], dict[str, str]]:
+    """Parse ``git diff --name-status`` output into paths, change types, and rename sources."""
+    changed_files: list[str] = []
+    change_types: dict[str, str] = {}
+    rename_sources: dict[str, str] = {}
+
+    if "\x00" in stdout:
+        fields = stdout.split("\x00")
+        if fields and fields[-1] == "":
+            fields.pop()
+        index = 0
+        while index < len(fields):
+            status = fields[index].strip()
+            index += 1
+            if not status:
+                continue
+
+            status_key = status[0].upper()
+            path = ""
+            if status_key in {"R", "C"}:
+                if index + 1 >= len(fields):
+                    index = min(index + 1, len(fields))
+                    continue
+                old_path = fields[index]
+                path = fields[index + 1]
+                index += 2
+                if status_key == "R":
+                    rename_sources[path] = old_path
+                    change_type = "rename"
+                else:
+                    change_type = _GIT_STATUS_TO_CHANGE_TYPE.get(status_key, "edit")
+            else:
+                if index >= len(fields):
+                    continue
+                path = fields[index]
+                index += 1
+                change_type = _GIT_STATUS_TO_CHANGE_TYPE.get(status_key, "edit")
+
+            if not path:
+                continue
+            if path not in change_types:
+                changed_files.append(path)
+            change_types[path] = change_type
+        return changed_files, change_types, rename_sources
+
+    for line in stdout.strip().split("\n") if stdout.strip() else []:
+        parts = line.strip().split("\t")
+        if len(parts) < 2:
+            continue
+
+        status = parts[0]
+
+        if status.startswith("R") and len(parts) >= 3:
+            path = parts[2]
+            change_type = "rename"
+            rename_sources[path] = parts[1]
+        else:
+            path = parts[1]
+            change_type = _GIT_STATUS_TO_CHANGE_TYPE.get(status[0].upper(), "edit")
+
+        if path not in change_types:
+            changed_files.append(path)
+        change_types[path] = change_type
+
+    return changed_files, change_types, rename_sources
+
+
+def get_branch_change_inventory(
+    main_branch: str = "main",
+) -> tuple[list[str], dict[str, str], dict[str, str], str | None, bool]:
+    """Return changed files, change types, rename sources, and diff ref for branch vs main."""
+    diff_ref = resolve_branch_diff_ref(main_branch)
+    if diff_ref is None:
+        return [], {}, {}, None, False
+
+    result = run_git("diff", "--name-status", "--find-renames", "-z", diff_ref, check=False)
+    if result.returncode != 0:
+        return [], {}, {}, diff_ref, False
+
+    changed_files, change_types, rename_sources = _parse_name_status_output(result.stdout)
+    return changed_files, change_types, rename_sources, diff_ref, True
+
+
+def get_rename_sources_on_branch(main_branch: str = "main") -> dict[str, str]:
+    """Return ``{new_path: original_path}`` for files renamed on the branch vs *main_branch*.
+
+    Uses the same diff range as :func:`get_file_change_types_on_branch` so the
+    two results are consistent.  Returns an empty dict when the diff cannot be
+    computed.
+
+    Args:
+        main_branch: Name of the main branch (default: ``"main"``).
+
+    Returns:
+        Dict mapping the destination path (preserved as emitted by git) to the
+        source path for every renamed file.  Files that were not renamed are
+        absent from the dict.
+    """
+    diff_ref = resolve_branch_diff_ref(main_branch)
+    if diff_ref is None:
+        return {}
+    return _get_rename_sources_for_ref(diff_ref)
+
+
+def get_file_change_types_on_branch(main_branch: str = "main") -> dict[str, str]:
+    """
+    Get a mapping of file paths to their change type for files changed on the branch vs main.
+
+    Uses the same three-dot diff range as :func:`get_files_changed_on_branch` so the
+    two results are consistent with each other.
+
+    Args:
+        main_branch: Name of the main branch (default: "main")
+
+    Returns:
+        Dict mapping file path (preserved as emitted by git) to long-form change type
+        (``"add"``, ``"edit"``, ``"delete"``, or ``"rename"``).
+        Returns an empty dict when the diff cannot be computed.
+    """
+    diff_ref = resolve_branch_diff_ref(main_branch)
+    if diff_ref is None:
+        print(f"Warning: Could not determine change types for files vs {main_branch}")
+        return {}
+    return _get_file_change_types_for_ref(diff_ref)
+
+
+def _get_files_changed_for_ref(diff_ref: str) -> list[str]:
+    """Return normalized changed-file paths for ``diff_ref``."""
+    result = run_git("diff", "--name-only", "-z", "--find-renames", diff_ref, check=False)
+    if result.returncode != 0:
+        return []
+
+    # -z makes git emit NUL-terminated records so paths are never C-quoted.
+    files = result.stdout.split("\0") if result.stdout else []
+    return [f.replace("\\", "/") for f in files if f]
+
+
+def get_files_changed_on_branch(main_branch: str = "main") -> list[str]:
+    """
+    Get the list of files that have been changed on the current branch vs main.
+
+    This returns files that are in commits ahead of main, not including
+    files from recently merged PRs or other changes on main.
+
+    Args:
+        main_branch: Name of the main branch (default: "main")
+
+    Returns:
+        List of file paths (normalized with forward slashes)
+    """
+    diff_ref = resolve_branch_diff_ref(main_branch)
+    if diff_ref is None:
+        print(f"Warning: Could not determine files changed vs {main_branch}")
+        return []
+    return _get_files_changed_for_ref(diff_ref)

@@ -1,0 +1,377 @@
+from pathlib import Path
+from unittest.mock import patch
+
+import click
+import pytest
+from click.testing import CliRunner
+
+from markdown_checker.checker import CheckResult
+from markdown_checker.cli import ListOfStrings
+from markdown_checker.cli import main
+from markdown_checker.models.url import MarkdownURL
+
+
+@pytest.fixture
+def runner():
+    return CliRunner()
+
+
+@pytest.fixture
+def resources_dir():
+    return Path(__file__).parent / "resources"
+
+
+def test_list_of_strings_parses_csv():
+    """Parses comma-separated values into a list."""
+    opt = ListOfStrings(["-t", "--test"], type=list[str])
+    result = opt.type_cast_value(None, "a,b,c")
+    assert result == ["a", "b", "c"]
+
+
+def test_list_of_strings_handles_list_input():
+    """Returns list input as-is."""
+    opt = ListOfStrings(["-t", "--test"], type=list[str])
+    result = opt.type_cast_value(None, ["a", "b"])
+    assert result == ["a", "b"]
+
+
+def test_list_of_strings_filters_empty():
+    """Filters out empty strings from CSV."""
+    opt = ListOfStrings(["-t", "--test"], type=list[str])
+    result = opt.type_cast_value(None, "a,,b,")
+    assert result == ["a", "b"]
+
+
+def test_list_of_strings_invalid_type_raises():
+    """Raises BadParameter for non-string non-list input."""
+    opt = ListOfStrings(["-t", "--test"], type=list[str])
+    with pytest.raises(click.BadParameter):
+        opt.type_cast_value(None, 12345)
+
+
+def test_cli_check_broken_paths(runner, resources_dir):
+    """Runs check_broken_paths on test resources without crashing."""
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_broken_paths"])
+    assert result.exit_code == 0
+    assert "Checked" in result.output
+
+
+def test_cli_check_urls_tracking(runner, resources_dir, tmp_path, monkeypatch):
+    """Runs check_urls_tracking on test resources without crashing."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_urls_tracking"])
+    # exit code 1 is expected when issues are found (sample files have URLs without tracking IDs)
+    assert result.exit_code in (0, 1)
+    assert "Checked" in result.output
+
+
+def test_cli_check_urls_locale(runner, resources_dir):
+    """Runs check_urls_locale on test resources."""
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_urls_locale"])
+    assert result.exit_code == 0
+    assert "Checked" in result.output
+
+
+def test_cli_check_paths_tracking(runner, resources_dir):
+    """Runs check_paths_tracking on test resources."""
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_paths_tracking"])
+    assert result.exit_code == 0
+    assert "Checked" in result.output
+
+
+def test_cli_missing_dir(runner):
+    """Fails with error when --dir is missing."""
+    result = runner.invoke(main, ["-f", "check_broken_paths"])
+    assert result.exit_code != 0
+
+
+def test_cli_invalid_func(runner, resources_dir):
+    """Fails with error when --func is invalid."""
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "nonexistent"])
+    assert result.exit_code != 0
+
+
+def test_cli_custom_extensions(runner, resources_dir):
+    """Runs with custom extensions filter."""
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_broken_paths", "-ext", ".md"])
+    assert result.exit_code == 0
+
+
+def test_cli_skip_files(runner, resources_dir):
+    """Runs with skip-files option."""
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_broken_paths", "-sf", "sample1.md"])
+    assert result.exit_code == 0
+
+
+def test_cli_custom_timeout(runner, resources_dir):
+    """Runs with custom timeout value."""
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_broken_paths", "-to", "5"])
+    assert result.exit_code == 0
+
+
+def test_cli_custom_retries(runner, resources_dir):
+    """Runs with custom retries value."""
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_broken_paths", "-rt", "1"])
+    assert result.exit_code == 0
+
+
+def test_cli_guide_url(runner, resources_dir, tmp_path, monkeypatch):
+    """Runs with guide URL and output file name options."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        main,
+        [
+            "-d",
+            str(resources_dir),
+            "-f",
+            "check_broken_paths",
+            "-gu",
+            "https://example.com/CONTRIBUTING.md",
+            "-o",
+            str(tmp_path / "test_output"),
+        ],
+    )
+    assert result.exit_code == 0
+
+
+def test_cli_version(runner):
+    """Displays version information."""
+    result = runner.invoke(main, ["--version"])
+    assert result.exit_code == 0
+    assert "1.2.2" in result.output
+
+
+def test_cli_ci_mode(runner, resources_dir, monkeypatch, tmp_path):
+    """In CI mode, file paths are formatted differently."""
+    monkeypatch.setenv("CI", "true")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        main,
+        ["-d", str(resources_dir), "-f", "check_broken_paths", "-o", str(tmp_path / "ci_output")],
+    )
+    assert result.exit_code == 0
+
+
+def test_cli_warning_only_run_does_not_print_compliant_message(runner, tmp_path, monkeypatch):
+    """Warning-only runs exit successfully without claiming all files are compliant."""
+    sample = tmp_path / "sample.md"
+    sample.write_text("# Sample\n")
+    warning_issue = MarkdownURL(
+        link="https://example.com",
+        line_number=1,
+        file_path=sample,
+        issue="was skipped due to rate limiting",
+        issue_level="warning",
+    )
+    check_result = CheckResult(issues=[(sample, [warning_issue])], links_checked=1)
+
+    with (
+        patch("markdown_checker.cli.run_check_on_files", return_value=check_result),
+        patch("markdown_checker.cli.write_report") as mock_write_report,
+    ):
+        result = runner.invoke(main, [str(sample), "-f", "check_broken_urls"])
+
+    assert result.exit_code == 0
+    assert "links had warnings" in result.output
+    assert "All files are compliant" not in result.output
+    mock_write_report.assert_not_called()
+
+
+def test_cli_local_issues_prints_all_issues_before_exiting(runner, tmp_path):
+    """Local mode prints every issue before exiting with an error."""
+    sample = tmp_path / "sample.md"
+    sample.write_text("# Sample\n")
+    error_issue = MarkdownURL(
+        link="https://broken.example.com",
+        line_number=1,
+        file_path=sample,
+        issue="is broken",
+        issue_level="error",
+    )
+    warning_issue = MarkdownURL(
+        link="https://rate-limited.example.com",
+        line_number=2,
+        file_path=sample,
+        issue="was skipped due to rate limiting",
+        issue_level="warning",
+    )
+    check_result = CheckResult(issues=[(sample, [error_issue, warning_issue])], links_checked=2)
+
+    with (
+        patch("markdown_checker.cli.run_check_on_files", return_value=check_result),
+        patch("markdown_checker.cli.write_report") as mock_write_report,
+    ):
+        result = runner.invoke(main, [str(sample), "-f", "check_broken_urls"])
+
+    assert result.exit_code == 1
+    assert "https://broken.example.com is broken." in result.output
+    assert "https://rate-limited.example.com was skipped due to rate limiting." in result.output
+    assert "All files are compliant" not in result.output
+    mock_write_report.assert_called_once()
+
+
+def test_cli_ci_issues_do_not_fall_through_to_success(runner, tmp_path, monkeypatch):
+    """CI mode emits annotations and does not print the success message when issues exist."""
+    monkeypatch.setenv("CI", "true")
+    sample = tmp_path / "sample.md"
+    sample.write_text("# Sample\n")
+    error_issue = MarkdownURL(
+        link="https://broken.example.com",
+        line_number=1,
+        file_path=sample,
+        issue="is broken",
+        issue_level="error",
+    )
+    check_result = CheckResult(issues=[(sample, [error_issue])], links_checked=1)
+
+    with (
+        patch("markdown_checker.cli.run_check_on_files", return_value=check_result),
+        patch("markdown_checker.cli.write_report") as mock_write_report,
+    ):
+        result = runner.invoke(main, [str(sample), "-f", "check_broken_urls"])
+
+    assert result.exit_code == 1
+    assert "::error file=" in result.output
+    assert "All files are compliant" not in result.output
+    mock_write_report.assert_called_once()
+
+
+def test_cli_src_single_file(runner, resources_dir):
+    """Runs check on a single file passed as SRC."""
+    sample = resources_dir / "sample1.md"
+    result = runner.invoke(main, [str(sample), "-f", "check_broken_paths"])
+    assert result.exit_code == 0
+    assert "Checked" in result.output
+    assert "1 files" in result.output
+
+
+def test_cli_src_multiple_files(runner, resources_dir):
+    """Runs check on multiple files passed as SRC."""
+    s1 = resources_dir / "sample1.md"
+    s2 = resources_dir / "sample2.md"
+    result = runner.invoke(main, [str(s1), str(s2), "-f", "check_broken_paths"])
+    assert result.exit_code == 0
+    assert "Checked" in result.output
+    assert "2 files" in result.output
+
+
+def test_cli_src_directory(runner, resources_dir):
+    """Passing a directory as SRC recursively discovers files."""
+    result = runner.invoke(main, [str(resources_dir), "-f", "check_broken_paths"])
+    assert result.exit_code == 0
+    assert "Checked" in result.output
+
+
+def test_cli_src_mixed_file_and_dir(runner, resources_dir, tmp_path):
+    """Passing both a file and a directory as SRC combines results."""
+    extra = tmp_path / "extra.md"
+    extra.write_text("# Extra\n[link](https://example.com)\n")
+    result = runner.invoke(main, [str(extra), str(resources_dir), "-f", "check_broken_paths"])
+    assert result.exit_code == 0
+    assert "Checked" in result.output
+
+
+def test_cli_src_filters_by_extension(runner, tmp_path):
+    """SRC files not matching --extensions are ignored."""
+    md_file = tmp_path / "valid.md"
+    md_file.write_text("# Hello\n")
+    txt_file = tmp_path / "ignored.txt"
+    txt_file.write_text("# Not checked\n")
+    result = runner.invoke(main, [str(md_file), str(txt_file), "-f", "check_broken_paths", "-ext", ".md"])
+    assert result.exit_code == 0
+    assert "1 files" in result.output
+
+
+def test_cli_src_takes_precedence_over_dir(runner, resources_dir, tmp_path):
+    """When SRC is provided, --dir is ignored."""
+    sample = resources_dir / "sample1.md"
+    result = runner.invoke(main, [str(sample), "-d", str(resources_dir), "-f", "check_broken_paths"])
+    assert result.exit_code == 0
+    assert "1 files" in result.output
+
+
+def test_cli_no_src_no_dir_fails(runner):
+    """Fails when neither SRC nor --dir is provided."""
+    result = runner.invoke(main, ["-f", "check_broken_paths"])
+    assert result.exit_code != 0
+
+
+def test_cli_func_from_pyproject(runner, resources_dir, tmp_path, monkeypatch):
+    """--func can be supplied only via pyproject.toml."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text('[tool.markdown-checker]\nfunc = "check_broken_paths"\n')
+    result = runner.invoke(main, ["-d", str(resources_dir)])
+    assert result.exit_code == 0
+    assert "Checked" in result.output
+
+
+def test_cli_no_func_anywhere_fails(runner, resources_dir, tmp_path, monkeypatch):
+    """Fails with Click's missing-option error when --func is absent from both CLI and pyproject.toml."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(main, ["-d", str(resources_dir)])
+    assert result.exit_code != 0
+    assert "Missing option" in result.output
+
+
+def test_cli_value_overrides_pyproject_value(runner, resources_dir, tmp_path, monkeypatch):
+    """A CLI-supplied option overrides the same option set in pyproject.toml."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[tool.markdown-checker]\ntimeout = 1\n")
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_broken_paths", "-to", "5"])
+    assert result.exit_code == 0
+
+
+def test_cli_pyproject_list_option(runner, resources_dir, tmp_path, monkeypatch):
+    """A list option (skip-files) can be set from a TOML array."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text('[tool.markdown-checker]\nskip-files = ["sample1.md"]\n')
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_broken_paths"])
+    assert result.exit_code == 0
+
+
+def test_cli_pyproject_bool_flag_overridden_by_cli(runner, tmp_path, monkeypatch):
+    """CLI boolean flag wins over pyproject.toml value."""
+    monkeypatch.chdir(tmp_path)
+    sample = tmp_path / "sample.md"
+    sample.write_text("# Sample\n")
+    (tmp_path / "pyproject.toml").write_text("[tool.markdown-checker]\nretry-on-429 = false\n")
+    check_result = CheckResult(issues=[], links_checked=0)
+    with patch("markdown_checker.cli.run_check_on_files", return_value=check_result) as mock_run:
+        result = runner.invoke(main, [str(sample), "-f", "check_broken_urls", "--retry-on-429"])
+    assert result.exit_code == 0
+    assert mock_run.call_args.kwargs["config"].retry_on_429 is True
+
+
+def test_cli_pyproject_invalid_value_surfaces_click_error(runner, resources_dir, tmp_path, monkeypatch):
+    """An out-of-range value in pyproject.toml surfaces Click's normal validation error."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[tool.markdown-checker]\ntimeout = 999\n")
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_broken_paths"])
+    assert result.exit_code != 0
+
+
+def test_cli_isolated_ignores_bad_pyproject(runner, resources_dir, tmp_path, monkeypatch):
+    """--isolated ignores pyproject.toml entirely, even an invalid one."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[tool.markdown-checker]\ntimout = 5\n")
+    result = runner.invoke(main, ["--isolated", "-d", str(resources_dir), "-f", "check_broken_paths"])
+    assert result.exit_code == 0
+
+
+def test_cli_unknown_pyproject_key_fails(runner, resources_dir, tmp_path, monkeypatch):
+    """An unknown key in pyproject.toml raises a clear usage error."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[tool.markdown-checker]\ntimout = 5\n")
+    result = runner.invoke(main, ["-d", str(resources_dir), "-f", "check_broken_paths"])
+    assert result.exit_code != 0
+    assert "Unknown key" in result.output
+
+
+def test_cli_explicit_config_file(runner, resources_dir, tmp_path, monkeypatch):
+    """--config points at an explicit TOML file, skipping discovery."""
+    monkeypatch.chdir(tmp_path)
+    custom = tmp_path / "custom.toml"
+    custom.write_text('[tool.markdown-checker]\nfunc = "check_broken_paths"\n')
+    result = runner.invoke(main, ["--config", str(custom), "-d", str(resources_dir)])
+    assert result.exit_code == 0
+    assert "Checked" in result.output

@@ -91,8 +91,9 @@ def nova_sonic_target(
     decodes to it). Streams it to Nova Sonic and returns a :class:`Message` with the
     model's spoken reply (audio) and its transcript (text).
 
-    Prerequisites (see docs): ``pip install "dreadnode[nova-sonic]"`` (Python >=3.12),
-    AWS credentials (env vars / profile / role), and Nova Sonic model access in the region.
+    Prerequisites: Python >=3.12 (the streaming dependencies ship with the core install
+    but carry that version marker), AWS credentials (env vars / profile / role), and Nova
+    Sonic model access in the region.
     """
     # Fail fast at construction so a missing dependency doesn't register a doomed
     # assessment that only errors mid-stream.

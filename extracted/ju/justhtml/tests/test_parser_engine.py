@@ -1,0 +1,2106 @@
+import sys
+import unittest
+from collections import Counter
+from dataclasses import replace
+from pathlib import Path
+
+from justhtml import JustHTML
+from justhtml.dom import DocumentFragment, Element, Template, Text
+from justhtml.parser.context import FragmentContext
+from justhtml.parser.engine import (
+    _AFTER_BODY,
+    _DEFAULT_SCOPE_BOUNDARIES,
+    _GENERAL_END_TAG_BOUNDARIES,
+    _P_SCOPE_BOUNDARIES,
+    _STACK_COUNT_THRESHOLD,
+    _TABLE_CONTEXT_BOUNDARIES,
+    _UNWRAP_BATCH_THRESHOLD,
+    ParseEngine,
+    _CountingStack,
+    _FormattingEntry,
+    _FormattingSegment,
+    can_compile_engine_plan,
+    compile_default_engine_plan,
+    compile_engine_plan,
+    compile_raw_engine_plan,
+)
+from justhtml.parser.options import ParserOptions
+from justhtml.sanitizer import DEFAULT_DOCUMENT_POLICY, DEFAULT_POLICY, SanitizationPolicy, UrlPolicy, UrlRule
+from justhtml.serializer import to_test_format
+from tests.harness.scaling import assert_scales_linearly
+from tests.harness.tree import TestRunner
+
+
+class _ParserEngineTestCase(unittest.TestCase):
+    def assert_parses_to(self, html: str, expected: str, **kwargs: object) -> JustHTML:
+        document = JustHTML(html, **kwargs)
+        assert document.to_html(pretty=False) == expected
+        return document
+
+
+class TestDocumentShellScaling(unittest.TestCase):
+    def test_comment_placement_scales_linearly(self) -> None:
+        prefixes = ("<!doctype html>", "<html>", "<head></head>")
+        for prefix in prefixes:
+            assert_scales_linearly(
+                lambda size, prefix=prefix: prefix + "<!---->" * size,
+                lambda source: JustHTML(source, sanitize=False),
+            )
+
+    def test_trailing_comments_scale_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: "<!doctype html><html><head></head><body></body></html>" + "<!---->" * size,
+            lambda source: JustHTML(source, sanitize=False),
+        )
+
+
+class TestForeignContentScaling(unittest.TestCase):
+    def test_deep_foreign_end_tag_searches_scale_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: "<div><svg><foreignObject><svg>" + "<g>" * size + "</div>" * size,
+            lambda source: JustHTML(source, sanitize=False),
+        )
+
+    def test_deep_foreign_parent_membership_scales_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: "<svg>" + "<g>" * size + "<div>x",
+            lambda source: JustHTML(source, sanitize=False),
+        )
+
+    def test_annotation_xml_integration_checks_scale_linearly(self) -> None:
+        def source(size: int) -> str:
+            attrs = " ".join(f"a{index}" for index in range(size))
+            return f"<math><annotation-xml {attrs} encoding=text/html>" + "<svg/>" * size
+
+        assert_scales_linearly(source, lambda html: JustHTML(html, sanitize=False))
+
+
+class TestSanitizerScaling(unittest.TestCase):
+    def test_nested_disallowed_wrappers_scale_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: "<section>x" * size,
+            lambda source: JustHTML(source),
+        )
+
+
+class TestSelectedContentSanitization(unittest.TestCase):
+    def test_projection_cannot_restore_dropped_foreign_content(self) -> None:
+        html = "<select><selectedcontent><option><svg onload=X><math href=javascript:X>"
+
+        assert JustHTML(html).to_html(pretty=False) == "<html><head></head><body></body></html>"
+        assert JustHTML(html, fragment=True).to_html(pretty=False) == ""
+
+        nested = "<select><selectedcontent><option><foo><b>safe</b><template><svg onload=X></template>"
+        assert JustHTML(nested).to_html(pretty=False) == "<html><head></head><body><b>safe</b></body></html>"
+
+    def test_projection_records_nested_template_sanitization(self) -> None:
+        source = Element("foo", {}, "html")
+        template = Template("template", namespace="html")
+        foreign = Element("svg", {"onload": "X"}, "svg")
+        assert template.template_content is not None
+        template.template_content.append_child(foreign)
+        source.append_child(template)
+        clone = source.clone_node(deep=True)
+        engine = ParseEngine("", fragment=True)
+
+        assert engine._subtree_size([template]) == 3
+        engine._record_projected_sanitization(source, clone, {foreign}, {source})
+
+        assert engine._nodes_to_unwrap == [clone]
+        assert len(engine._nodes_to_drop) == 1
+        assert engine._nodes_to_drop[0].name == "svg"
+
+    def test_projection_preserves_sanitized_allowed_content(self) -> None:
+        html = "<select><option selected><b>safe</b></option><selectedcontent></selectedcontent></select>"
+
+        assert JustHTML(html, sanitize=False, fragment=True).to_html(pretty=False) == (
+            "<select><option selected><b>safe</b></option><selectedcontent><b>safe</b></selectedcontent></select>"
+        )
+
+
+class TestSelectedContentScaling(unittest.TestCase):
+    def test_deep_selectedcontent_projection_scales_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: (
+                "<select><option selected>x</option>" + "<div><selectedcontent></selectedcontent>" * size + "</select>"
+            ),
+            lambda source: JustHTML(source, sanitize=False),
+        )
+
+    def test_wide_option_across_many_markers_scales_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: (
+                "<select><option selected>"
+                + "<b>x</b>" * size
+                + "</option>"
+                + "<selectedcontent></selectedcontent>" * size
+                + "</select>"
+            ),
+            lambda source: JustHTML(source, sanitize=False),
+            reusable=False,
+        )
+
+    def test_projection_budget_leaves_excess_markers_empty(self) -> None:
+        option = "<b>x</b>" * 20
+        html = "<select><option selected>" + option + "</option>" + "<selectedcontent></selectedcontent>" * 100
+
+        document = JustHTML(html, fragment=True, sanitize=False)
+        markers = document.query("selectedcontent")
+
+        assert markers[0].children
+        assert not markers[-1].children
+
+
+class TestActiveFormattingScaling(unittest.TestCase):
+    def test_detached_formatting_node_is_not_in_scope(self) -> None:
+        engine = ParseEngine("", fragment=True)
+        engine.parse()
+
+        assert not engine._has_node_in_scope(Element("b", {}, "html"), frozenset({"table"}))
+
+    def test_absent_formatting_end_tags_scale_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: "".join(f"<b id={index}>" for index in range(size)) + "</i>" * size,
+            lambda source: JustHTML(source, sanitize=False),
+        )
+
+    def test_adoption_reparenting_scales_linearly(self) -> None:
+        shapes = (
+            lambda size: "<a><div>" * size + "x",
+            lambda size: "<b><div></b>" * size,
+            lambda size: "<b><table>" + "<span>" * size + "</b>" * size,
+        )
+        for shape in shapes:
+            assert_scales_linearly(shape, lambda source: JustHTML(source, sanitize=False))
+
+    def test_adoption_cloning_a_nested_formatting_element_scales_linearly(self) -> None:
+        """A formatting element between the subject and the furthest block.
+
+        The inner loop clones it and writes the clone back into the middle of
+        the open-elements stack, once per repetition, on a stack that grows with
+        the input. The control has the same element count with nothing to clone.
+        """
+        assert_scales_linearly(lambda size: "<b><i><div></b>" * size, JustHTML)
+        assert_scales_linearly(lambda size: "<b><div></b>" * size, JustHTML)
+
+
+class TestDiagnosticScaling(unittest.TestCase):
+    def test_basic_error_collection_scales_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: "<x>" * size + "</missing>" * size + "</x>" * size,
+            lambda source: JustHTML(
+                source,
+                fragment=True,
+                sanitize=False,
+                collect_errors=True,
+            ),
+        )
+
+
+class TestFramesetDepth(unittest.TestCase):
+    def test_deep_frameset_eligibility_does_not_recurse(self) -> None:
+        limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(1_000)
+        try:
+            sources = (
+                "<div>" * 5_000 + "<frameset>",
+                "<svg>" * 5_000 + "</svg>" * 5_000 + "<frameset>",
+            )
+            for source in sources:
+                JustHTML(source, sanitize=False)
+        finally:
+            sys.setrecursionlimit(limit)
+
+
+class TestOpenElementStackScaling(unittest.TestCase):
+    def test_deep_ordinary_elements_scale_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: "<span>" * size + "x",
+            lambda source: JustHTML(source, sanitize=False),
+        )
+
+    def test_out_of_scope_end_tags_scale_linearly(self) -> None:
+        shapes = (
+            lambda size: "<x><div>" + "<span>" * size + "</x>" * size,
+            lambda size: "<p><button>" + "<b>" * size + "</p>" * size,
+        )
+        for shape in shapes:
+            assert_scales_linearly(shape, lambda source: JustHTML(source, sanitize=False))
+
+
+class TestTemplateLookupScaling(unittest.TestCase):
+    def test_parser_only_template_cleanup_scales_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: "<template>" * size + "x" + "</template>" * size,
+            JustHTML,
+        )
+
+    def test_foster_parenting_scales_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: "<!doctype html><table>" + "<br>" * size + "</table>",
+            lambda source: JustHTML(source, sanitize=False),
+        )
+
+    def test_deep_foster_template_lookups_scale_linearly(self) -> None:
+        shapes = (
+            lambda size: "<div>" * size + "<table>" + "<br>" * size + "</table>" + "</div>" * size,
+            lambda size: (
+                "<template>"
+                + "<div>" * size
+                + "<table>"
+                + "<br>" * size
+                + "</table>"
+                + "</div>" * size
+                + "</template>"
+            ),
+        )
+        for shape in shapes:
+            assert_scales_linearly(
+                shape,
+                lambda source: JustHTML(
+                    source,
+                    fragment=True,
+                    sanitize=False,
+                ),
+            )
+
+
+class TestCountingStack(unittest.TestCase):
+    QUERY_NAME_SETS = (
+        frozenset({"applet", "caption", "html", "table", "td", "th", "marquee", "object", "template"}),
+        frozenset({"button", "div", "p"}),
+        frozenset({"table", "template", "html"}),
+        frozenset({"missing"}),
+    )
+
+    @staticmethod
+    def _indexed_copy(nodes: list) -> _CountingStack:
+        """Build a stack that answers from the index regardless of its depth."""
+        stack = _CountingStack(nodes)
+        stack._build_position_index()
+        return stack
+
+    def assert_indexed_and_scanned_agree(self, nodes: list) -> None:
+        """The indexed and shallow-scan paths must answer identically.
+
+        Below the depth threshold the stack answers by scanning and keeps no
+        index, so every lookup has two implementations. A document must not
+        parse differently once its stack grows past that threshold, which means
+        the two have to be checked against each other rather than only against
+        the parser's output.
+        """
+        scanned = _CountingStack(nodes)
+        assert not scanned._indexed
+        indexed = self._indexed_copy(nodes)
+
+        for name in ("div", "p", "span", "template", "table", "g", "foreignObject", "missing"):
+            assert scanned.count_of(name) == indexed.count_of(name), name
+            assert scanned.last_index_of(name) == indexed.last_index_of(name), name
+            assert scanned.last_html_index_of(name) == indexed.last_html_index_of(name), name
+            assert scanned.last_html_index_of(name, parser_only=True) == indexed.last_html_index_of(
+                name, parser_only=True
+            ), name
+        for names in self.QUERY_NAME_SETS:
+            assert scanned.last_index_of_any(names) == indexed.last_index_of_any(names), names
+            assert scanned.last_html_index_of_any(names) == indexed.last_html_index_of_any(names), names
+        assert scanned.last_foreign_boundary_index() == indexed.last_foreign_boundary_index()
+        assert scanned.last_html_index() == indexed.last_html_index()
+        assert scanned.last_rendered_index() == indexed.last_rendered_index()
+        assert scanned.last_template_boundary_index() == indexed.last_template_boundary_index()
+        for node in nodes:
+            assert (node in scanned) == (node in indexed)
+            assert scanned.index_of_node(node) == indexed.index_of_node(node)
+        absent = Element("div", {}, "html")
+        assert (absent in scanned) == (absent in indexed)
+        assert scanned.index_of_node(absent) == indexed.index_of_node(absent)
+
+    def test_indexed_and_scanned_lookups_agree_on_varied_stacks(self) -> None:
+        candidates = [
+            lambda: Element("div", {}, "html"),
+            lambda: Element("p", {}, "html"),
+            lambda: Element("table", {}, "html"),
+            lambda: Element("td", {}, "html"),
+            lambda: Template("template", {}, namespace="html"),
+            lambda: Element("template", {}, "justhtml-parser-only"),
+            lambda: Element("g", {}, "svg"),
+            lambda: Element("foreignObject", {}, "svg"),
+            lambda: Element("desc", {}, "svg"),
+            lambda: Element("mtext", {}, "math"),
+            lambda: Element("annotation-xml", {"encoding": "text/html"}, "math"),
+            lambda: Element("annotation-xml", {"encoding": "other"}, "math"),
+            lambda: Element("span", {}, "svg"),
+        ]
+        # A deterministic spread of shapes: every rotation of the candidate list
+        # truncated to several lengths, so each node kind appears at the top, in
+        # the middle, and at the bottom of a stack.
+        for rotation in range(len(candidates)):
+            ordered = candidates[rotation:] + candidates[:rotation]
+            for length in (1, 2, 5, len(ordered)):
+                nodes = [DocumentFragment()] + [make() for make in ordered[:length]]
+                self.assert_indexed_and_scanned_agree(nodes)
+
+    def test_engine_scope_helpers_agree_across_indexed_and_scanned_stacks(self) -> None:
+        """The scope check keeps a shallow single-pass path beside the indexed one.
+
+        Both must give the same answer, or a document would parse differently
+        once its stack crossed the depth at which the index is built.
+        """
+        shapes = [
+            ["div", "p", "span"],
+            ["div", "button", "p", "b"],
+            ["table", "tbody", "tr", "td", "div", "p"],
+            ["div", "li", "div", "ul", "li"],
+            ["template", "div", "table", "p"],
+            ["h1", "div", "span"],
+            ["div", "svg:svg", "svg:foreignObject", "div", "svg:g"],
+            ["div", "math:math", "math:annotation-xml", "span"],
+            ["p", "svg:svg", "svg:g", "svg:g"],
+            ["div", "parser-only:template", "p", "span"],
+        ]
+
+        def build(names):
+            nodes = [DocumentFragment()]
+            for entry in names:
+                if entry.startswith("parser-only:"):
+                    nodes.append(Element(entry.split(":")[1], {}, "justhtml-parser-only"))
+                elif ":" in entry:
+                    namespace, local = entry.split(":")
+                    attrs = {"encoding": "text/html"} if local == "annotation-xml" else {}
+                    nodes.append(Element(local, attrs, namespace))
+                elif entry == "template":
+                    nodes.append(Template("template", {}, namespace="html"))
+                else:
+                    nodes.append(Element(entry, {}, "html"))
+            return nodes
+
+        boundary_sets = [
+            _P_SCOPE_BOUNDARIES,
+            _DEFAULT_SCOPE_BOUNDARIES,
+            _GENERAL_END_TAG_BOUNDARIES,
+            _TABLE_CONTEXT_BOUNDARIES,
+            frozenset({"template"}),
+        ]
+        probe_names = ["p", "div", "li", "span", "table", "td", "b", "g", "foreignObject", "missing"]
+
+        for shape in shapes:
+            nodes = build(shape)
+            scanned = _CountingStack(nodes)
+            assert not scanned._indexed
+            indexed = self._indexed_copy(nodes)
+
+            engine = ParseEngine("", fragment=True)
+            for name in probe_names:
+                for boundaries in boundary_sets:
+                    engine._stack = scanned
+                    scanned_result = engine._find_open_index_before_boundary(name, boundaries)
+                    engine._stack = indexed
+                    assert scanned_result == engine._find_open_index_before_boundary(name, boundaries), (
+                        shape,
+                        name,
+                        sorted(boundaries)[:3],
+                    )
+                for boundaries in boundary_sets:
+                    assert scanned.last_scope_boundary_index(boundaries) == indexed.last_scope_boundary_index(
+                        boundaries
+                    ), (shape, boundaries)
+
+            engine._stack = scanned
+            scanned_heading = engine._find_open_heading_index()
+            engine._stack = indexed
+            assert scanned_heading == engine._find_open_heading_index(), shape
+
+    def assert_index_matches_contents(self, stack: _CountingStack) -> None:
+        """Every ascending list the stack maintains must still describe it."""
+        html_expected: dict[str, list[int]] = {}
+        other_expected: dict[str, list[int]] = {}
+        rendered: list[int] = []
+        boundaries: list[int] = []
+        for index, node in enumerate(stack):
+            positions = html_expected if node.namespace in {None, "html"} else other_expected
+            positions.setdefault(node.name, []).append(index)
+            if node.namespace != "justhtml-parser-only":
+                rendered.append(index)
+            if node.namespace not in {None, "html", "justhtml-parser-only"} and _CountingStack._is_foreign_boundary(
+                node
+            ):
+                boundaries.append(index)
+        assert stack._html_positions == html_expected
+        assert stack._other_positions == other_expected
+        assert stack._rendered_positions == rendered
+        assert stack._foreign_boundaries == boundaries
+        assert stack._node_positions == {node: index for index, node in enumerate(stack)}
+
+    def test_middle_insert_records_the_new_node_in_every_index(self) -> None:
+        """A node inserted below the top belongs in the ascending lists too.
+
+        The adoption agency reparents a formatting element one slot above the
+        furthest block, so this path runs for every misnested formatting tag on
+        a stack deep enough to be indexed.
+        """
+        root = DocumentFragment()
+        filler = [Element("div", {}, "html") for _ in range(_STACK_COUNT_THRESHOLD)]
+        above = [Element("span", {}, "html"), Element("g", {}, "svg"), Element("span", {}, "html")]
+        stack = _CountingStack([root, *filler, *above])
+        assert stack._indexed
+
+        inserted = Element("b", {}, "html")
+        stack.insert(len(filler) + 1, inserted)
+        self.assert_index_matches_contents(stack)
+        assert stack.index_of_node(inserted) == len(filler) + 1
+        assert stack.last_index_of("span") == len(stack) - 1
+
+        # Removing a node renumbers the same span back down again.
+        stack.remove(inserted)
+        self.assert_index_matches_contents(stack)
+
+        # The three kinds of node the ascending lists treat differently: an
+        # ordinary rendered element, a foreign scope boundary, and a
+        # parser-only node that is in neither the rendered list nor the
+        # boundary list.
+        for node in (
+            Element("b", {}, "html"),
+            Element("foreignObject", {}, "svg"),
+            Element("template", {}, "justhtml-parser-only"),
+        ):
+            stack.insert(len(filler) + 1, node)
+            self.assert_index_matches_contents(stack)
+            assert stack.index_of_node(node) == len(filler) + 1
+        for node in reversed(stack[len(filler) + 1 : len(filler) + 4]):
+            stack.remove(node)
+            self.assert_index_matches_contents(stack)
+
+    def test_replacing_a_node_re_records_only_that_slot(self) -> None:
+        """Swapping one entry moves nothing, so the rest of the index stands."""
+        root = DocumentFragment()
+        filler = [Element("div", {}, "html") for _ in range(_STACK_COUNT_THRESHOLD)]
+        boundary = Element("foreignObject", {}, "svg")
+        stack = _CountingStack([root, *filler, boundary, Element("span", {}, "html")])
+        assert stack._indexed
+
+        replacement = Element("g", {}, "svg")
+        stack[len(filler) + 1] = replacement
+        self.assert_index_matches_contents(stack)
+        assert stack.index_of_node(replacement) == len(filler) + 1
+        assert stack.index_of_node(boundary) is None
+        assert stack.last_foreign_boundary_index() == -1
+
+        same_name = Element("g", {}, "svg")
+        stack[len(filler) + 1] = same_name
+        self.assert_index_matches_contents(stack)
+        assert stack.index_of_node(same_name) == len(filler) + 1
+
+    def test_insert_that_crosses_the_depth_threshold_builds_the_index(self) -> None:
+        """Growing past the threshold through `insert` must index, like `append`.
+
+        Every other path treats `_indexed` as proof that the position
+        index exists, so setting one without the other leaves the next push
+        reading attributes that were never assigned.
+        """
+        root = DocumentFragment()
+        stack = _CountingStack([root])
+        while len(stack) < _STACK_COUNT_THRESHOLD - 1:
+            stack.append(Element("div", {}, "html"))
+        assert not stack._indexed
+
+        stack.insert(1, Element("span", {}, "html"))
+        assert stack._indexed
+        self.assert_index_matches_contents(stack)
+
+        pushed = Element("b", {}, "html")
+        stack.append(pushed)
+        self.assert_index_matches_contents(stack)
+        assert stack.last_index_of("b") == len(stack) - 1
+
+    def test_misnested_formatting_below_deep_nesting_parses(self) -> None:
+        """Regression: the reparent above corrupted the index and then raised.
+
+        Ordinary markup, no adversarial size -- only enough nesting to put the
+        open-elements stack past the depth at which it is indexed.
+        """
+        document = JustHTML("<div>" * 30 + "<i><blockquote><ul></i>")
+        assert document.to_html(pretty=False).count("<ul>") == 1
+
+    def test_indexed_template_queries_skip_namesakes_in_each_namespace(self) -> None:
+        root = DocumentFragment()
+        filler = [Element("div", {}, "html") for _ in range(_STACK_COUNT_THRESHOLD)]
+        html_template = Template("template", {}, namespace="html")
+        html_namesake = Element("template", {}, "html")
+        parser_template = Element("template", {}, "justhtml-parser-only")
+        foreign_namesake = Element("template", {}, "svg")
+        stack = _CountingStack([root, *filler, html_template, html_namesake, parser_template, foreign_namesake])
+        engine = ParseEngine("", fragment=True)
+        engine._stack = stack
+
+        assert stack.last_html_index_of("div") == _STACK_COUNT_THRESHOLD
+        assert stack.last_html_index_of("template", parser_only=True) == len(stack) - 2
+        assert stack.last_template_boundary_index() == len(stack) - 2
+        assert engine._open_parser_only_template_index() == len(stack) - 2
+
+        namesakes = _CountingStack([root, *filler, html_namesake, foreign_namesake])
+        engine._stack = namesakes
+        assert namesakes.last_html_index_of("template", parser_only=True) == len(namesakes) - 2
+        assert namesakes.last_template_boundary_index() == -1
+        assert engine._open_parser_only_template_index() is None
+
+        no_namesakes = _CountingStack([root, *filler])
+        engine._stack = no_namesakes
+        assert engine._open_parser_only_template_index() is None
+
+    def test_indexed_parser_only_positions_follow_middle_mutations(self) -> None:
+        root = DocumentFragment()
+        filler = [Element("div", {}, "html") for _ in range(_STACK_COUNT_THRESHOLD)]
+        parser_template = Element("template", {}, "justhtml-parser-only")
+
+        discarded = _CountingStack([root, *filler, parser_template, Element("span", {}, "html")])
+        discarded.pop(-2)
+        assert discarded.last_rendered_index() == len(discarded) - 1
+
+        renumbered = _CountingStack([root, filler[0], parser_template, *filler[1:]])
+        renumbered.pop(1)
+        assert renumbered.index_of_node(parser_template) == 1
+
+    def test_adjusted_foreign_end_names_use_the_innermost_match(self) -> None:
+        root = DocumentFragment()
+        html = Element("div", {}, "html")
+        filler = [Element("g", {}, "svg") for _ in range(_STACK_COUNT_THRESHOLD)]
+
+        def stays_foreign(*tail: Element) -> bool:
+            engine = ParseEngine("", fragment=True)
+            engine._stack = _CountingStack([root, html, *filler, *tail])
+            return engine._end_tag_stays_in_foreign_context("altglyph", 0, 0)
+
+        assert stays_foreign(Element("altglyph", {}, "svg"))
+        assert stays_foreign(Element("altGlyph", {}, "svg"), Element("altglyph", {}, "svg"))
+        assert stays_foreign(Element("altglyph", {}, "svg"), Element("altGlyph", {}, "svg"))
+
+    def test_indexed_parser_only_template_lookup_skips_foreign_namesakes(self) -> None:
+        engine = ParseEngine("", fragment=True)
+        root = DocumentFragment()
+        foreign_template = Element("template", {}, "svg")
+        parser_template = Element("template", {}, "justhtml-parser-only")
+        engine._stack = _CountingStack(
+            [root]
+            + [Element("div", {}, "html") for _ in range(_STACK_COUNT_THRESHOLD)]
+            + [foreign_template, parser_template]
+        )
+
+        assert engine._open_parser_only_template_index() == len(engine._stack) - 1
+
+    def test_foster_parent_uses_the_trailing_table_anchor(self) -> None:
+        class NoSearchList(list):
+            def index(self, value, start=0, stop=None):
+                raise AssertionError("the trailing table anchor must not require a sibling search")
+
+        engine = ParseEngine("", fragment=True)
+        container = Element("div", {}, "html")
+        table = Element("table", {}, "html")
+        children = NoSearchList([table])
+        container.children = children
+        table.parent = container
+        engine._stack = _CountingStack([DocumentFragment(), container, table])
+
+        assert engine._foster_parent_for(table) == (container, 0)
+
+        following = Element("span", {}, "html")
+        container.children = [table, following]
+        following.parent = container
+        assert engine._foster_parent_for(table) == (container, 0)
+
+    def assert_counts_match(self, stack: _CountingStack) -> None:
+        expected = Counter(node.name for node in stack)
+        assert stack.count_of("p") == expected["p"]
+        assert stack.count_of("div") == expected["div"]
+        assert stack.count_of("span") == expected["span"]
+        assert stack.count_of("missing") == 0
+        # Counts are derived from the position lists rather than stored, so
+        # every name on the stack has to come back exact.
+        assert {name: stack.count_of(name) for name in expected} == dict(expected)
+
+    def test_shallow_stack_tracks_parser_mutations_without_a_name_map(self) -> None:
+        div = Element("div", {}, "html")
+        first_p = Element("p", {}, "html")
+        second_p = Element("p", {}, "html")
+        span = Element("span", {}, "html")
+        stack = _CountingStack([div, first_p])
+        assert not stack._indexed
+
+        stack.append(second_p)
+        stack.insert(1, span)
+        self.assert_counts_match(stack)
+
+        stack[1] = Element("span", {}, "html")
+        stack[1] = Element("p", {}, "html")
+        stack[1] = Element("div", {}, "html")
+        self.assert_counts_match(stack)
+
+        stack.remove(first_p)
+        stack.pop(0)
+        del stack[0]
+        stack.append(Element("p", {}, "html"))
+        stack.append(Element("span", {}, "html"))
+        del stack[:]
+        self.assert_counts_match(stack)
+
+    def test_deep_stack_keeps_the_position_index_after_shrinking(self) -> None:
+        stack = _CountingStack(Element("div", {}, "html") for _ in range(_STACK_COUNT_THRESHOLD))
+        assert stack._indexed
+
+        p = Element("p", {}, "html")
+        span = Element("span", {}, "html")
+        stack.append(p)
+        stack.insert(1, span)
+        stack[1] = Element("p", {}, "html")
+        stack.remove(p)
+        stack.append(Element("p", {}, "html"))
+        stack.pop()
+        del stack[-2:]
+        self.assert_counts_match(stack)
+
+        del stack[1:]
+        assert stack._indexed
+        stack.append(Element("span", {}, "html"))
+        self.assert_counts_match(stack)
+
+    def test_deep_stack_position_index_handles_boundaries_and_middle_mutations(self) -> None:
+        nodes = [Element("div", {}, "html") for _ in range(_STACK_COUNT_THRESHOLD)]
+        initially_foreign = _CountingStack([*nodes[:-1], Element("foreignObject", {}, "svg")])
+        assert initially_foreign.last_foreign_boundary_index() == len(initially_foreign) - 1
+        stack = _CountingStack(nodes)
+        plain_annotation = Element("annotation-xml", {}, "math")
+        html_annotation = Element("annotation-xml", {"other": "x", "ENCODING": "text/html"}, "math")
+        parser_template = Element("template", {}, "justhtml-parser-only")
+        html_template = Template("template", {}, namespace="html")
+
+        stack.append(plain_annotation)
+        assert stack.last_foreign_boundary_index() == -1
+        stack.append(html_annotation)
+        assert stack.last_foreign_boundary_index() == len(stack) - 1
+        stack.append(parser_template)
+        stack.append(html_template)
+        assert stack.last_html_index_of("template", parser_only=True) == len(stack) - 1
+        assert stack.last_template_boundary_index() == len(stack) - 1
+
+        stack.pop()
+        assert stack.last_template_boundary_index() == len(stack) - 1
+        stack.pop()
+        stack.pop()
+        assert stack.last_foreign_boundary_index() == -1
+        stack.pop(1)
+        del stack[1:3]
+        self.assert_counts_match(stack)
+
+        engine = ParseEngine("", fragment=True)
+        engine._stack = [DocumentFragment(), Element("div", {}, "html")]
+        assert engine._find_open_index("div") == 1
+        assert engine._find_open_index("missing") is None
+        assert engine._find_open_html_index("div") == 1
+        assert engine._find_open_index_in_current_scope("div") == 1
+        assert engine._find_open_index_in_current_scope("missing") is None
+        engine._stack = [DocumentFragment(), Template("template", {}, namespace="html")]
+        assert engine._find_open_index_in_current_scope("missing") is None
+
+        foreign = Element("foreignObject", {}, "svg")
+        mutations = _CountingStack([*nodes, foreign, Element("span", {}, "html")])
+        mutations.remove(nodes[-1])
+        assert mutations.last_foreign_boundary_index() == len(mutations) - 2
+        del mutations[-2]
+        assert mutations.last_foreign_boundary_index() == -1
+        del mutations[-1]
+        del mutations[1]
+        with self.assertRaises(ValueError):
+            mutations.remove(Element("missing", {}, "html"))
+        self.assert_counts_match(mutations)
+
+    def test_append_and_insert_activate_name_tracking_at_the_threshold(self) -> None:
+        shallow = [Element("div", {}, "html") for _ in range(_STACK_COUNT_THRESHOLD - 1)]
+
+        appended = _CountingStack(shallow)
+        appended.append(Element("span", {}, "html"))
+        self.assert_counts_match(appended)
+
+        inserted = _CountingStack(shallow)
+        inserted.insert(0, Element("p", {}, "html"))
+        self.assert_counts_match(inserted)
+
+    def test_deep_adoption_agency_keeps_name_tracking_exact(self) -> None:
+        engine = ParseEngine("<div>" * _STACK_COUNT_THRESHOLD + "<b><i><p>1</b>2</i>", fragment=True)
+        engine.parse()
+
+        assert engine._stack._indexed
+        self.assert_counts_match(engine._stack)
+
+    def test_compiled_end_tag_fast_paths_keep_shallow_and_deep_counts_exact(self) -> None:
+        for name in ("div", "h1"):
+            html = f"</{name}>"
+            stack = _CountingStack(
+                [DocumentFragment()]
+                + [Element("span", {}, "html") for _ in range(_STACK_COUNT_THRESHOLD - 2)]
+                + [Element(name, {}, "html")]
+            )
+            engine = ParseEngine(html, fragment=True)
+            engine._stack = stack
+
+            assert engine._parse_compiled_safe_end_tag(2, len(html)) == len(html)
+            self.assert_counts_match(stack)
+
+        html = "</p>"
+        stack = _CountingStack([DocumentFragment(), Element("p", {}, "html")])
+        engine = ParseEngine(html, fragment=True)
+        engine._stack = stack
+        engine._frameset_seen = True
+        engine._body_explicit = True
+
+        assert engine._parse_compiled_safe_end_tag(2, len(html)) == len(html)
+        assert stack._p_count == 0
+        self.assert_counts_match(stack)
+
+    def test_parser_metadata_helpers_allocate_for_text_and_unlocated_elements(self) -> None:
+        location_engine = ParseEngine("x", fragment=True, track_node_locations=True)
+        text = Text("x")
+        location_engine._set_origin(text, 0)
+        assert text.origin_location == (1, 1)
+
+        span_engine = ParseEngine("<p>", fragment=True, track_tag_spans=True)
+        element = Element("p", {}, "html")
+        span_engine._set_source_span(element, 0, 3)
+        assert element._source_html == "<p>"
+        assert element._start_tag_start == 0
+        assert element._start_tag_end == 3
+
+
+class TestParserSyntaxAndRecovery(_ParserEngineTestCase):
+    def test_malformed_markup_and_document_shell(self) -> None:
+        cases = [
+            ("abc<", "<html><head></head><body>abc&lt;</body></html>"),
+            ("a</!x>b", "<html><head></head><body>ab</body></html>"),
+            ("a<?x>b", "<html><head></head><body>ab</body></html>"),
+            ("a<!x>b", "<html><head></head><body>ab</body></html>"),
+            ("a<div", "<html><head></head><body>a</body></html>"),
+            ("<p>a</p", "<html><head></head><body><p>a</p></body></html>"),
+            ("<DIV CLASS=x>A</DIV>", '<html><head></head><body><div class="x">A</div></body></html>'),
+            (
+                "<!doctype html><html x=1><head><title>x</title></head><body y=2>z</body></html><!--t-->",
+                "<!DOCTYPE html><html><head><title>x</title></head><body>z</body></html>",
+            ),
+            ("<html><body>x</body><!--c--></html><!--d-->", "<html><head></head><body>x</body></html>"),
+        ]
+        for html, expected in cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected)
+
+    def test_processing_instruction_edges(self) -> None:
+        document = JustHTML("<?\ud83d\ude80\ud83dX\ud83d\ude80>", sanitize=False)
+        assert document.root.children[0].data == "?🚀\ud83dX🚀"
+
+    def test_processing_instruction_keeps_open_head_template_in_head(self) -> None:
+        document = JustHTML("<template><?pi>", sanitize=False)
+        assert to_test_format(document.root) == (
+            "| <html>\n|   <head>\n|     <template>\n|       content\n|         <?pi ?>\n|   <body>"
+        )
+
+    def test_rawtext_processing_instruction_branch(self) -> None:
+        script = Element("script", {}, "html")
+        engine = ParseEngine("<?x>", fragment=True, plan=compile_raw_engine_plan(fragment=True))
+        engine._doc = DocumentFragment()
+        engine._body = engine._doc
+        engine._stack = [engine._doc, script]
+
+        assert engine._parse_range(0, 4) == 4
+        assert script.children[0].data == "<?x>"
+
+        script = Element("script", {}, "html")
+        engine = ParseEngine("<?x", fragment=True, plan=compile_raw_engine_plan(fragment=True))
+        engine._doc = DocumentFragment()
+        engine._body = engine._doc
+        engine._stack = [engine._doc, script]
+
+        assert engine._parse_range(0, 3) == 3
+        assert script.children[0].data == "<?x"
+
+    def test_frameset_table_and_template_recovery(self) -> None:
+        cases = [
+            (
+                "<!doctype html><html><head></head><frameset><frame src=x></frameset></html>",
+                "<!DOCTYPE html><html><head></head></html>",
+            ),
+            (
+                "<!doctype html><frameset> x <noframes><p>fallback</p></noframes></frameset>",
+                "<!DOCTYPE html><html><head></head>  &lt;p&gt;fallback&lt;/p&gt;</html>",
+            ),
+            (
+                "<table>text<tr><td>A<td>B</table>tail",
+                "<html><head></head><body>text<table><tbody><tr><td>A</td><td>B</td></tr></tbody></table>"
+                "tail</body></html>",
+            ),
+            (
+                "<table><caption>x<table><tr><td>y</table>z",
+                "<html><head></head><body><table><caption>x"
+                "<table><tbody><tr><td>y</td></tr></tbody></table>z"
+                "</caption></table></body></html>",
+            ),
+            (
+                "<table><form><input type=hidden><tr><td>x</form></table>",
+                "<html><head></head><body><table><tbody><tr><td>x</td></tr></tbody></table></body></html>",
+            ),
+            (
+                "<template><table><tr><td>x</template>y",
+                "<html><head><table><tbody><tr><td>x</td></tr></tbody></table></head><body>y</body></html>",
+            ),
+            ("<template><select><option>x</template>y", "<html><head>x</head><body>y</body></html>"),
+        ]
+        for html, expected in cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected)
+
+
+class TestParserFormattingAndLists(_ParserEngineTestCase):
+    def test_formatting_lists_select_and_foreign_content(self) -> None:
+        cases = [
+            (
+                "<p><b><i>x</b>y</i>z",
+                "<html><head></head><body><p><b><i>x</i></b><i>y</i>z</p></body></html>",
+            ),
+            (
+                "<table><b><tr><td>x</b></table>",
+                "<html><head></head><body><b></b><table><tbody><tr><td>x</td></tr></tbody></table></body></html>",
+            ),
+            (
+                "<ul><li>a<li>b</ul><dl><dt>x<dd>y</dl>",
+                "<html><head></head><body><ul><li>a</li><li>b</li></ul>xy</body></html>",
+            ),
+            ("<select><option>a<optgroup><option selected>b</select>", "<html><head></head><body>ab</body></html>"),
+            ("<select><div>x</div><input><hr></select>", "<html><head></head><body><div>x</div><hr></body></html>"),
+            (
+                "<svg><g><foreignObject><p>x</p></foreignObject><font color=red>y</font></svg>",
+                "<html><head></head><body>y</body></html>",
+            ),
+            ("<svg><![CDATA[x<y]]><title><b>z</title></svg>", "<html><head></head><body></body></html>"),
+            (
+                "<math><mi><b>x</b></mi><annotation-xml encoding=text/html><p>y</p></annotation-xml></math>",
+                "<html><head></head><body></body></html>",
+            ),
+        ]
+        for html, expected in cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected)
+
+    def test_unique_active_formatting_signatures_use_the_direct_index(self) -> None:
+        class _NoIterationList(list):
+            def __iter__(self):
+                raise AssertionError("unique formatting signatures must not scan the active list")
+
+        engine = ParseEngine("".join(f"<b id={i}>" for i in range(10)), fragment=True)
+        engine._active_formatting = _NoIterationList()
+        engine.parse()
+
+        assert len(engine._active_formatting) == 10
+        assert len(engine._active_formatting_entries[-1]) == 10
+
+    def test_active_formatting_direct_index_retires_the_oldest_duplicate(self) -> None:
+        engine = ParseEngine("<b><b><b><b>", fragment=True)
+        engine.parse()
+        signature = ()
+
+        matches = engine._active_formatting_entries[-1][("b", signature)]
+
+        assert len(matches) == 3
+        assert all(entry.active for entry in matches)
+        assert (
+            sum(isinstance(entry, _FormattingEntry) and not entry.active for entry in engine._active_formatting) == 1
+        )
+        assert engine._find_active_formatting_duplicate("b", signature) is matches[0]
+
+    def test_active_formatting_signatures_ignore_attribute_order(self) -> None:
+        engine = ParseEngine("<b class=x id=y>" * 3 + "<b id=y class=x>", fragment=True)
+        engine.parse()
+        signature = frozenset({("class", "x"), ("id", "y")})
+
+        matches = engine._active_formatting_entries[-1][("b", signature)]
+
+        assert len(matches) == 3
+        assert engine._find_active_formatting_duplicate("b", signature) is matches[0]
+
+    def test_first_active_formatting_signature_is_deferred_until_indexed(self) -> None:
+        engine = ParseEngine("<b class=x>", fragment=True)
+        engine.parse()
+        entry = engine._active_formatting[-1]
+        assert isinstance(entry, _FormattingEntry)
+        segment = engine._active_formatting_entries[-1]
+
+        assert entry.signature is None
+        assert segment.pending is entry
+        assert segment == {}
+
+        engine._materialize_pending_active_formatting_entry()
+
+        signature = frozenset({("class", "x")})
+        assert entry.signature == signature
+        assert segment.pending is None
+        assert segment[("b", signature)] == [entry]
+
+    def test_pending_formatting_signature_uses_pre_projection_attributes(self) -> None:
+        self.assert_parses_to(
+            "<p><svg><b onclick=1><svg><b><svg><b><svg><b></p>y",
+            "<html><head></head><body><p><b><b><b><b></b></b></b></b></p><b><b><b><b>y</b></b></b></b></body></html>",
+        )
+
+    def test_active_formatting_retirement_compacts_in_batches(self) -> None:
+        engine = ParseEngine("<b>" * 70, fragment=True)
+        engine.parse()
+
+        assert engine._active_formatting_retired < 64
+        assert len(engine._active_formatting_entries[-1][("b", ())]) == 3
+
+        guarded = ParseEngine("", fragment=True)
+        segment = _FormattingSegment()
+        guarded._active_formatting = [
+            _FormattingEntry("b", {}, Element("b", {}, "html"), (), segment, active=index >= 64)
+            for index in range(129)
+        ]
+        guarded._active_formatting_retired = 64
+        guarded._compact_active_formatting_if_needed()
+
+        assert len(guarded._active_formatting) == 129
+        assert guarded._active_formatting_retired == 64
+
+    def test_active_formatting_retirement_removes_entries_from_their_marker_segment(self) -> None:
+        engine = ParseEngine("", fragment=True)
+        engine._stack = _CountingStack()
+        segment = _FormattingSegment()
+        engine._active_formatting_entries.append(segment)
+        entry = _FormattingEntry("b", {}, Element("b", {}, "html"), (), segment)
+        engine._active_formatting.append(entry)
+        segment[("b", ())] = [entry]
+        engine._push_active_formatting_marker()
+
+        engine._retire_active_formatting_entry(entry)
+
+        assert entry.active is False
+        assert engine._active_formatting_entries[0] == {}
+        assert engine._active_formatting_retired == 1
+
+        engine._clear_active_formatting_to_marker()
+        engine._clear_active_formatting_to_marker()
+
+        assert engine._active_formatting == []
+        assert engine._active_formatting_retired == 0
+
+    def test_active_formatting_index_is_allocated_on_first_use(self) -> None:
+        engine = ParseEngine("", fragment=True)
+        engine._stack = _CountingStack()
+
+        assert engine._active_formatting_entries == []
+
+        engine._clear_active_formatting_to_marker()
+
+        assert engine._active_formatting_entries == []
+
+    def test_active_formatting_tail_retirement_avoids_a_tombstone(self) -> None:
+        engine = ParseEngine("", fragment=True)
+        segment = _FormattingSegment()
+        engine._active_formatting_entries.append(segment)
+        entry = _FormattingEntry("b", {}, Element("b", {}, "html"), (), segment)
+        engine._active_formatting.append(entry)
+        segment[("b", ())] = [entry]
+
+        engine._retire_active_formatting_entry(entry)
+
+        assert entry.active is False
+        assert engine._active_formatting == []
+        assert engine._active_formatting_retired == 0
+        assert segment == {}
+
+    def test_compiled_well_nested_formatting_end_closes_the_live_tail(self) -> None:
+        engine = ParseEngine("<b>x</b>", fragment=True)
+
+        assert engine.parse().to_html(pretty=False) == "<b>x</b>"
+        assert engine._active_formatting == []
+        assert engine._active_formatting_entries == [{}]
+        assert JustHTML("<b></b><tt>x</tt>", fragment=True).to_html(pretty=False) == "<b></b>x"
+
+
+class TestParserFragmentsAndTextModes(_ParserEngineTestCase):
+    def test_text_modes_and_projected_attributes(self) -> None:
+        cases = [
+            (
+                "<style>a<b&c</style><script><!--<script>x</script>--></script>",
+                "<html><head></head><body></body></html>",
+            ),
+            ("<plaintext>a<b>&amp;", "<html><head></head><body>a&lt;b&gt;&amp;amp;</body></html>"),
+            ("<textarea>\n&amp;<b></textarea>", "<html><head></head><body>&amp;&lt;b&gt;</body></html>"),
+            ('<div A=1 a=2 bad="unterminated', "<html><head></head><body></body></html>"),
+            (
+                '<a href="//example.com" title=x onclick=y>x</a><img src="https://x">',
+                '<html><head></head><body><a href="https://example.com" title="x">x</a><img></body></html>',
+            ),
+        ]
+        for html, expected in cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected)
+
+    def test_fragment_context_modes(self) -> None:
+        cases = [
+            ("<tr><td>x<td>y", FragmentContext("tbody"), "<tr><td>x</td><td>y</td></tr>"),
+            ("<option>a<optgroup><option>b", FragmentContext("select"), "ab"),
+            ("<tr><td>x", FragmentContext("template"), "x"),
+            ("<![CDATA[x<y]]><g/>", FragmentContext("svg", "svg"), ""),
+            ("<head><title>x</title><body>y", FragmentContext("html"), "xy"),
+        ]
+        for html, context, expected in cases:
+            with self.subTest(html=html, context=context):
+                self.assert_parses_to(html, expected, fragment_context=context)
+
+    def test_fragment_unwraps_disallowed_template_contents(self) -> None:
+        self.assert_parses_to("<template>x</template>", "x", fragment=True)
+
+    def test_raw_div_fragment_ignores_head_wrapper(self) -> None:
+        self.assert_parses_to(
+            "<head><title>x</title></head>",
+            "<title>x</title>",
+            fragment=True,
+            sanitize=False,
+        )
+
+    def test_diagnostic_location_and_xml_modes(self) -> None:
+        located = self.assert_parses_to(
+            "<p a=1>x</p>",
+            '<html><head></head><body><p a="1">x</p></body></html>',
+            sanitize=False,
+            track_node_locations=True,
+        )
+        paragraph = located.query("p")[0]
+        assert paragraph.origin_location == (1, 1)
+
+        diagnosed = self.assert_parses_to(
+            "<!doctype><p>\0</x>",
+            "<!DOCTYPE><html><head></head><body><p></p></body></html>",
+            sanitize=False,
+            collect_errors=True,
+        )
+        assert [error.code for error in diagnosed.errors] == [
+            "unknown-doctype",
+            "unexpected-null-character",
+            "unexpected-end-tag",
+        ]
+
+        self.assert_parses_to(
+            "<!--a--b--><p>\0\x01</p>",
+            "<!--a- -b--><html><head></head><body><p>\x01</p></body></html>",
+            sanitize=False,
+            _parser_opts=ParserOptions(xml_coercion=True),
+        )
+
+    def test_scripting_disabled_head_noscript(self) -> None:
+        self.assert_parses_to(
+            "<head><noscript><link href=x><p>y</noscript></head>",
+            "<html><head></head><body><p>y</p></body></html>",
+            scripting_enabled=False,
+        )
+
+    def test_compiled_safe_start_and_end_recovery(self) -> None:
+        cases = [
+            ("</", "<html><head></head><body>&lt;/</body></html>"),
+            ("x</!y", "<html><head></head><body>x</body></html>"),
+            ("<DIV>x</DIV>", "<html><head></head><body><div>x</div></body></html>"),
+            ("</p>", "<html><head></head><body></body></html>"),
+            ("<div></body>x", "<html><head></head><body><div>x</div></body></html>"),
+            (
+                "<table><tr><td>x</body>y",
+                "<html><head></head><body><table><tbody><tr><td>xy</td></tr></tbody></table></body></html>",
+            ),
+            ("<head></head><title>x</title>", "<html><head><title>x</title></head><body></body></html>"),
+            (
+                "<table><colgroup></colgroup><tr><td>x",
+                "<html><head></head><body><table><tbody><tr><td>x</td></tr></tbody></table></body></html>",
+            ),
+            ("</h1>x", "<html><head></head><body>x</body></html>"),
+            ("x</p>y", "<html><head></head><body>x<p></p>y</body></html>"),
+            ("<audio><span></audio>x", "<html><head></head><body><span></span>x</body></html>"),
+            ("<head></br>x", "<html><head></head><body><br>x</body></html>"),
+            ("<head></div><title>x</title>", "<html><head><title>x</title></head><body></body></html>"),
+            ("<image src=x>", '<html><head></head><body><img src="x"></body></html>'),
+            ("<table><colgroup><col><div>x", "<html><head></head><body><table><div>x</div></table></body></html>"),
+            (
+                "<!doctype html><frameset></frameset><html x=1>",
+                "<!DOCTYPE html><html><head></head></html>",
+            ),
+            ("<head><div>x", "<html><head></head><body><div>x</div></body></html>"),
+            ("<head></head><div>x", "<html><head></head><body><div>x</div></body></html>"),
+            ("<div> </div><frameset><frame></frameset>", "<html><head></head></html>"),
+            ("<p>x</p><frameset>", "<html><head></head><body><p>x</p></body></html>"),
+            ("<frameset><noframes>a<b></noframes></frameset>", "<html><head></head>a&lt;b&gt;</html>"),
+            ("<frame><p>x", "<html><head></head><body><p>x</p></body></html>"),
+            ("<select><option>x<select><p>y", "<html><head></head><body>x<p>y</p></body></html>"),
+            ("<xmp>a<b>c</xmp>", "<html><head></head><body>a&lt;b&gt;c</body></html>"),
+            ("<button>a<button>b", "<html><head></head><body>ab</body></html>"),
+            (
+                "<table><table><tr><td>x",
+                "<html><head></head><body><table></table><table><tbody><tr><td>x</td></tr></tbody></table></body></html>",
+            ),
+            ("<div><caption>x", "<html><head></head><body><div>x</div></body></html>"),
+            ("<div><colgroup><col>x", "<html><head></head><body><div>x</div></body></html>"),
+            ("<div><tbody><tr><td>x", "<html><head></head><body><div>x</div></body></html>"),
+            ("<div><tr><td>x", "<html><head></head><body><div>x</div></body></html>"),
+            ("<div><td>x", "<html><head></head><body><div>x</div></body></html>"),
+            ("<pre>\nx</pre>", "<html><head></head><body><pre>x</pre></body></html>"),
+            ("<b><menuitem>x</b>", "<html><head></head><body><b>x</b></body></html>"),
+            (
+                "<table><b>x<div>y</div></b></table>",
+                "<html><head></head><body><b>x<div>y</div></b><table></table></body></html>",
+            ),
+        ]
+        for html, expected in cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected)
+
+    def test_additional_head_noscript_recovery(self) -> None:
+        cases = [
+            ("<head><noscript></noscript><title>x</title>", "<html><head></head><body><title>x</title></body></html>"),
+            ("<head><noscript></div>x</noscript>", "<html><head></head><body>x</body></html>"),
+            ("<head><noscript></br>x", "<html><head></head><body><br>x</body></html>"),
+        ]
+        for html, expected in cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected, scripting_enabled=False)
+
+    def test_additional_fragment_recovery(self) -> None:
+        cases = [
+            ("<div>x</body>y", FragmentContext("html"), "<div>x</div>y"),
+            ("x</p>y", FragmentContext("div"), "x<p></p>y"),
+            ("<col><div>x", FragmentContext("colgroup"), ""),
+            ("<colgroup><col><caption>x", FragmentContext("table"), "<caption>x</caption>"),
+            ("<tr><td>x<table><tr><td>y", FragmentContext("caption"), "xy<table></table>"),
+            (
+                "<td>x<tr><td>y<table><tr><td>z",
+                FragmentContext("tbody"),
+                "<tr><td>x</td></tr><tr><td>y<table><tbody><tr><td>z</td></tr></tbody></table></td></tr>",
+            ),
+            ("<td>x<tr><td>y", FragmentContext("tr"), "<td>x</td><td>y</td>"),
+            ("<frameset><frame></frameset>", FragmentContext("html"), ""),
+        ]
+        for html, context, expected in cases:
+            with self.subTest(html=html, context=context):
+                self.assert_parses_to(html, expected, fragment_context=context)
+
+
+class TestParserPolicyProjection(_ParserEngineTestCase):
+    def test_only_cached_default_policies_use_the_constructor_fast_path(self) -> None:
+        assert can_compile_engine_plan(DEFAULT_POLICY, fragment=True)
+        assert can_compile_engine_plan(DEFAULT_DOCUMENT_POLICY, fragment=False)
+        assert not can_compile_engine_plan(DEFAULT_POLICY, fragment=False)
+        assert not can_compile_engine_plan(DEFAULT_DOCUMENT_POLICY, fragment=True)
+        assert not can_compile_engine_plan(replace(DEFAULT_POLICY), fragment=True)
+
+    def test_url_projection_variants(self) -> None:
+        anchor_cases = [
+            ("", "<a>x</a>"),
+            ("\\bad", "<a>x</a>"),
+            ("#frag", '<a href="#frag">x</a>'),
+            ("//example.com", '<a href="https://example.com">x</a>'),
+            ("relative/path", '<a href="relative/path">x</a>'),
+            ("http://x", '<a href="http://x">x</a>'),
+            ("https:foo", '<a href="https:foo">x</a>'),
+            ("mailto:a@b", '<a href="mailto:a@b">x</a>'),
+            ("javascript:alert(1)", "<a>x</a>"),
+            ("\x01https://x", "<a>x</a>"),
+            ("https://é.example", '<a href="https://é.example">x</a>'),
+        ]
+        for value, expected_anchor in anchor_cases:
+            with self.subTest(tag="a", value=value):
+                self.assert_parses_to(
+                    f'<a href="{value}">x</a>',
+                    f"<html><head></head><body>{expected_anchor}</body></html>",
+                )
+
+        image_cases = [
+            ("", "<img>"),
+            ("\\bad", "<img>"),
+            ("#frag", '<img src="#frag">'),
+            ("//example.com", "<img>"),
+            ("relative/path", '<img src="relative/path">'),
+            ("http://x", "<img>"),
+            ("https:foo", "<img>"),
+            ("mailto:a@b", "<img>"),
+            ("javascript:alert(1)", "<img>"),
+            ("\x01https://x", "<img>"),
+            ("https://é.example", "<img>"),
+        ]
+        for value, expected_image in image_cases:
+            with self.subTest(tag="img", value=value):
+                self.assert_parses_to(
+                    f'<img src="{value}">',
+                    f"<html><head></head><body>{expected_image}</body></html>",
+                )
+
+    def test_policy_planner_fallbacks(self) -> None:
+        base = DEFAULT_DOCUMENT_POLICY
+        source = '<!--c--><custom><p onclick=x href=https://x style="color:red">x</p></custom>'
+        cases = [
+            (replace(base, unsafe_handling="collect"), "<html><head></head><body><p>x</p></body></html>"),
+            (
+                replace(base, disallowed_tag_handling="escape"),
+                "<html><head></head><body>&lt;!--c--&gt;&lt;custom&gt;<p>x</p>&lt;/custom&gt;</body></html>",
+            ),
+            (
+                replace(base, allowed_tags=frozenset(tag for tag in base.allowed_tags if tag != "body")),
+                "<html><head></head><p>x</p></html>",
+            ),
+            (replace(base, drop_comments=False), "<!--c--><html><head></head><body><p>x</p></body></html>"),
+            (
+                replace(base, force_link_rel=frozenset({"noopener"})),
+                "<html><head></head><body><p>x</p></body></html>",
+            ),
+            (
+                replace(
+                    base,
+                    allowed_tags=base.allowed_tags | {"style"},
+                    allowed_css_properties=frozenset({"color"}),
+                ),
+                "<html><head></head><body><p>x</p></body></html>",
+            ),
+            (
+                replace(base, allowed_tags=base.allowed_tags | {"svg"}),
+                "<html><head></head><body><p>x</p></body></html>",
+            ),
+            (
+                replace(base, allowed_tags=base.allowed_tags | {"custom"}),
+                "<html><head></head><body><custom><p>x</p></custom></body></html>",
+            ),
+            (
+                replace(base, allowed_tags=frozenset(tag for tag in base.allowed_tags if tag != "template")),
+                "<html><head></head><body><p>x</p></body></html>",
+            ),
+            (
+                replace(base, allowed_attributes={**base.allowed_attributes, "custom": {"class"}}),
+                "<html><head></head><body><p>x</p></body></html>",
+            ),
+            (
+                replace(
+                    base,
+                    allowed_attributes={
+                        **base.allowed_attributes,
+                        "p": set(base.allowed_attributes["*"]) | {"onclick"},
+                    },
+                ),
+                '<html><head></head><body><p onclick="x">x</p></body></html>',
+            ),
+            (
+                replace(
+                    base,
+                    allowed_attributes={
+                        **base.allowed_attributes,
+                        "p": set(base.allowed_attributes["*"]) | {"href"},
+                    },
+                ),
+                "<html><head></head><body><p>x</p></body></html>",
+            ),
+            (
+                replace(
+                    base,
+                    allowed_attributes={
+                        **base.allowed_attributes,
+                        "p": set(base.allowed_attributes["*"]) | {"style"},
+                    },
+                    allowed_css_properties=frozenset({"color"}),
+                ),
+                '<html><head></head><body><p style="color: red">x</p></body></html>',
+            ),
+        ]
+        for policy, expected in cases:
+            with self.subTest(policy=policy):
+                self.assert_parses_to(source, expected, policy=policy)
+
+        fragment_policy = replace(
+            DEFAULT_POLICY,
+            allowed_tags=frozenset(tag for tag in DEFAULT_POLICY.allowed_tags if tag != "template"),
+        )
+        self.assert_parses_to("<p>x</p>", "<p>x</p>", fragment=True, policy=fragment_policy)
+
+    def test_policy_planner_disallowed_template_leaves_colgroup_mode_for_body_content(self) -> None:
+        policy = replace(
+            DEFAULT_DOCUMENT_POLICY,
+            allowed_tags=(DEFAULT_DOCUMENT_POLICY.allowed_tags | {"colgroup", "div", "table"}) - {"template"},
+        )
+
+        self.assert_parses_to(
+            "<template><table><colgroup><div>x</template>",
+            "<html><head><div>x</div><table><colgroup></colgroup></table></head><body></body></html>",
+            policy=policy,
+        )
+
+
+class TestParserLowLevelModes(_ParserEngineTestCase):
+    def test_raw_text_and_fragment_modes(self) -> None:
+        raw_cases = [
+            ("<", "<html><head></head><body>&lt;</body></html>"),
+            ("</", "<html><head></head><body>&lt;/</body></html>"),
+            ("<div", "<html><head></head><body>&lt;div</body></html>"),
+            (
+                "<style>a\r\nb\fc\0</style>",
+                "<html><head><style>a\nb\fc�</style></head><body></body></html>",
+            ),
+            (
+                "<plaintext>a\r\nb\fc\0<q>",
+                "<html><head></head><body><plaintext>a\nb\fc�<q></plaintext></body></html>",
+            ),
+            (
+                "<script><!--<script>x</script>--></script>",
+                "<html><head><script><!--<script>x&lt;/script>--></script></head><body></body></html>",
+            ),
+            (
+                # "<script" followed directly by "</script>" is not a double-escape
+                # start, so the "</script>" closes the element.
+                "<script><!--<script</script>",
+                "<html><head><script><!--<script</script></head><body></body></html>",
+            ),
+            (
+                # "<!-->" closes the escaped comment, so the following "<script>"
+                # is plain script data and the "</script>" closes the element.
+                "<script><!--><script></script>",
+                "<html><head><script><!--><script></script></head><body></body></html>",
+            ),
+            (
+                # "</style/x" terminates the end-tag name with "/", closing the
+                # element at EOF with its attributes dropped.
+                "<style></style/x",
+                "<html><head><style></style></head><body></body></html>",
+            ),
+            (
+                "<html a=1><head b=2></head><body c=3>x</body></html><p>y",
+                '<html a="1"><head b="2"></head><body c="3">x<p>y</p></body></html>',
+            ),
+            ("<svg><g></svg><p>x", "<html><head></head><body><svg><g></g></svg><p>x</p></body></html>"),
+            ("<math><mi></math><p>x", "<html><head></head><body><math><mi></mi></math><p>x</p></body></html>"),
+            (
+                "<frameset><frame></frameset>",
+                "<html><head></head><frameset><frame></frame></frameset></html>",
+            ),
+        ]
+        for html, expected in raw_cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected, sanitize=False, track_node_locations=True)
+
+    def test_template_insertion_modes(self) -> None:
+        cases = [
+            ("<template><colgroup><col><col></colgroup></template>", "<html><head></head><body></body></html>"),
+            (
+                "<template><table><form><tr><td>x</table></template>",
+                "<html><head><table><tbody><tr><td>x</td></tr></tbody></table></head><body></body></html>",
+            ),
+            (
+                "<template><table><td>x</td></table></template>",
+                "<html><head><table><tbody><tr><td>x</td></tr></tbody></table></head><body></body></html>",
+            ),
+            (
+                "<template><table><tbody><tr><td>x</td></tr></tbody></table></template>",
+                "<html><head><table><tbody><tr><td>x</td></tr></tbody></table></head><body></body></html>",
+            ),
+            (
+                "<template><table><thead><tr><th>x<tbody><tr><td>y</table></template>",
+                "<html><head><table><thead><tr><th>x</th></tr></thead>"
+                "<tbody><tr><td>y</td></tr></tbody></table></head><body></body></html>",
+            ),
+            (
+                "<template><table><tr><td>x<tr><td>y</table></template>",
+                "<html><head><table><tbody><tr><td>x</td></tr><tr><td>y</td></tr></tbody></table>"
+                "</head><body></body></html>",
+            ),
+            (
+                "<template><table><tr><td>x</tbody><td>y</table></template>",
+                "<html><head>y<table><tbody><tr><td>x</td></tr></tbody></table></head><body></body></html>",
+            ),
+            (
+                "<template><table><caption>x<tbody><tr><td>y</table></template>",
+                "<html><head><table><caption>x</caption><tbody><tr><td>y</td></tr></tbody></table>"
+                "</head><body></body></html>",
+            ),
+            (
+                "<template><table><col><tbody><tr><td>x</table></template>",
+                "<html><head><table><tbody><tr><td>x</td></tr></tbody></table></head><body></body></html>",
+            ),
+            (
+                "<template><tbody><td>x<tfoot><tr><td>y</template>",
+                "<html><head><tbody><tr><td>x</td></tr></tbody><tfoot><tr><td>y</td></tr></tfoot>"
+                "</head><body></body></html>",
+            ),
+            (
+                "<template><tr><th>x</th><caption>y</template>",
+                "<html><head><tr><th>x</th></tr>y</head><body></body></html>",
+            ),
+            (
+                "<template><td>x</td><tr><td>y</template>",
+                "<html><head><td>x</td><td>y</td></head><body></body></html>",
+            ),
+            (
+                "<template><pre>\nx</pre><div>y</template>",
+                "<html><head><pre>x</pre><div>y</div></head><body></body></html>",
+            ),
+            ("<template><html><head><body>x</template>", "<html><head>x</head><body></body></html>"),
+            (
+                "<template><template><table><tr><td>x</template>y</template>",
+                "<html><head><table><tbody><tr><td>x</td></tr></tbody></table>y</head><body></body></html>",
+            ),
+        ]
+        for html, expected in cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected)
+
+
+class TestParserRecoveryRegressions(_ParserEngineTestCase):
+    def test_targeted_recovery_regressions(self) -> None:
+        default_cases = [
+            ("<script>x", "<html><head></head><body></body></html>"),
+            ("<table><template>x</table></template>", "<html><head></head><body><table>x</table></body></html>"),
+            (
+                "<table><template><tr><div></div></tr></template>",
+                "<html><head></head><body><table><tr></tr><div></div></table></body></html>",
+            ),
+            ("<svg><noframes>x</svg></noframes>", "<html><head></head><body></body></html>"),
+            ("<template><colgroup>x</colgroup></template>", "<html><head></head><body></body></html>"),
+            ("<table><colgroup>x</table></colgroup>", "<html><head></head><body>x<table></table></body></html>"),
+            ("<nobr/>", "<html><head></head><body></body></html>"),
+            ("<svg><plaintext>x</svg></plaintext>", "<html><head></head><body></body></html>"),
+            ("<noframes>x</noframes>", "<html><head>x</head><body></body></html>"),
+            ("<noframes/>", "<html><head></head><body></body></html>"),
+            ("<li><li>x</li></li>", "<html><head></head><body><li></li><li>x</li></body></html>"),
+            ("<dd><dd>x</dd></dd>", "<html><head></head><body>x</body></html>"),
+            ("<head><svg>x</head></svg>", "<html><head></head><body></body></html>"),
+            ("<nobr><p>x</nobr></p>", "<html><head></head><body><p>x</p></body></html>"),
+            ("<frameset><body>x</frameset></body>", "<html><head></head></html>"),
+        ]
+        for html, expected in default_cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected)
+
+        raw_cases = [
+            ("<h1>x</h1>", "<html><head></head><body><h1>x</h1></body></html>"),
+            ("<svg><b>x</svg></b>", "<html><head></head><body><svg></svg><b>x</b></body></html>"),
+        ]
+        for html, expected in raw_cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected, sanitize=False, track_node_locations=True)
+
+        fragment_cases = [
+            ("<svg>x", FragmentContext("table"), ""),
+            ("<p><plaintext>x</p></plaintext>", FragmentContext("table"), "<p></p>x&lt;/p&gt;&lt;/plaintext&gt;"),
+            ("<html>x</html>", FragmentContext("html"), "x"),
+            ("<frameset>x</frameset>", FragmentContext("html"), ""),
+            ("<h1><h1>x</h1></h1>", FragmentContext("tbody"), "<h1></h1><h1>x</h1>"),
+            ("<html><template>x</html></template>", FragmentContext("table"), "x"),
+            ("<span><frameset>x</span></frameset>", FragmentContext("html"), "<span>x</span>"),
+        ]
+        for html, context, expected in fragment_cases:
+            with self.subTest(html=html, context=context):
+                self.assert_parses_to(html, expected, fragment_context=context)
+
+    def test_malformed_recovery_edge_cases(self) -> None:
+        default_cases = [
+            ("<svg><div><frameset>x</svg></div></frameset>", "<html><head></head></html>"),
+            (
+                "<table><a><caption>x</table></a></caption>",
+                "<html><head></head><body><a></a><table><caption>x</caption></table></body></html>",
+            ),
+            ("<xmp>\r\f\0</xmp>", "<html><head></head><body>\n\f\0</body></html>"),
+            ('<nobr a\0b="unterminated>x</nobr>', "<html><head></head><body></body></html>"),
+            ("<plaintext>\r\f\0", "<html><head></head><body>\n\f�</body></html>"),
+            ("<x =x>", "<html><head></head><body></body></html>"),
+            ('<form a\0b="unterminated>x</form>', "<html><head></head><body></body></html>"),
+            ("<x a = >", "<html><head></head><body></body></html>"),
+            ("<x a", "<html><head></head><body></body></html>"),
+        ]
+        for html, expected in default_cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected)
+
+        self.assert_parses_to(
+            "<!DOCTYPE",
+            "<html><head></head><body>&lt;!DOCTYPE</body></html>",
+            sanitize=False,
+            track_node_locations=True,
+        )
+        self.assert_parses_to(
+            "<x a = >",
+            "<html><head></head><body><x a></x></body></html>",
+            sanitize=False,
+            track_node_locations=True,
+        )
+
+        raw_null_attr = JustHTML("<x a\0b=x\0>", sanitize=False, track_node_locations=True)
+        element = raw_null_attr.query("x")[0]
+        assert element.attrs == {"a�b": "x�"}
+
+        fragment_cases = [
+            ("<template><td><option>x</template></td></option>", FragmentContext("tbody"), "<tr><td>x</td></tr>"),
+            (
+                "<a><tbody><span>x</a></tbody></span>",
+                FragmentContext("table"),
+                "<a></a><a><span>x</span></a><tbody></tbody>",
+            ),
+            (
+                "<svg><table><caption>x</svg></table></caption>",
+                FragmentContext("table"),
+                "<table><caption>x</caption></table>",
+            ),
+            (
+                "<template><caption><td>x</template></caption></td>",
+                FragmentContext("table"),
+                "<caption><td>x</td></caption>",
+            ),
+            (
+                "<template><colgroup><plaintext>x</template></colgroup></plaintext>",
+                FragmentContext("table"),
+                "x&lt;/template&gt;&lt;/colgroup&gt;&lt;/plaintext&gt;",
+            ),
+            (
+                "<template><caption><tbody>x</template></caption></tbody>",
+                FragmentContext("table"),
+                "x<caption><tbody></tbody></caption>",
+            ),
+        ]
+        for html, context, expected in fragment_cases:
+            with self.subTest(html=html, context=context):
+                self.assert_parses_to(html, expected, fragment_context=context)
+
+
+class TestParserAttributeProjection(_ParserEngineTestCase):
+    def test_projected_attribute_scanners_share_fallback_semantics(self) -> None:
+        def project(raw, action=None):
+            engine = ParseEngine(raw, fragment=True)
+            return engine._parse_attrs_for_action(action or engine._tag_actions["a"], 0, len(raw))
+
+        assert project("") == ({}, False, 0, False)
+        assert project("\0=x>") == ({}, False, 4, True)
+        assert project(' bad="unterminated') == ({}, False, 18, False)
+        assert project(' title="&amp;\u200b">') == ({"title": "&"}, False, 16, True)
+        assert project(' href="https://é">')[0] == {"href": "https://é"}
+
+        engine = ParseEngine("", fragment=True)
+        action = engine._tag_actions["a"]
+        kind, rule, _ = action.url_attrs["href"]
+        slow_action = replace(
+            action,
+            url_attrs={"href": (kind, replace(rule, allowed_hosts={"example.com"}), None)},
+        )
+        assert project(' href="https://example.com">', slow_action)[0] == {"href": "https://example.com"}
+        assert project(' href="https://invalid.example">', slow_action)[0] == {}
+
+        self.assert_parses_to(
+            "<a bad=   x title=   y>z</a>",
+            '<html><head></head><body><a title="y">z</a></body></html>',
+        )
+
+    def test_foreign_integration_attribute_projection(self) -> None:
+        values = [
+            "",
+            "\\bad",
+            "#frag",
+            "//example.com",
+            "relative/path",
+            "http://x",
+            "https:foo",
+            "mailto:a@b",
+            "javascript:alert(1)",
+            "\x01https://x",
+            "https://é.example",
+        ]
+        for value in values:
+            html = (
+                "<svg><foreignObject>"
+                f'<a href="{value}" class=x onclick=y>x</a>'
+                f'<img src="{value}" alt=x>'
+                "</foreignObject></svg>"
+            )
+            with self.subTest(value=value):
+                self.assert_parses_to(html, "<html><head></head><body></body></html>")
+
+    def test_compiled_url_policy_variants(self) -> None:
+        base = DEFAULT_DOCUMENT_POLICY
+        base_rules = dict(base.url_policy.allow_rules)
+        base_anchor_rule = base_rules[("a", "href")]
+
+        variants = [
+            (replace(base_anchor_rule, allow_fragment=False), "#frag", "<a>x</a>"),
+            (
+                replace(base_anchor_rule, resolve_protocol_relative=None),
+                "//example.com",
+                "<a>x</a>",
+            ),
+            (
+                replace(base_anchor_rule, resolve_protocol_relative="ftp"),
+                "//example.com",
+                "<a>x</a>",
+            ),
+            (replace(base_anchor_rule, allow_relative=False), "relative/path", "<a>x</a>"),
+            (replace(base_anchor_rule, allow_relative=False), "https:foo", "<a>x</a>"),
+            (replace(base_anchor_rule, allowed_schemes={"https"}), "mailto:a@b", "<a>x</a>"),
+        ]
+        for rule, value, expected_anchor in variants:
+            rules = {**base_rules, ("a", "href"): rule}
+            policy = replace(base, url_policy=UrlPolicy(default_handling="allow", allow_rules=rules))
+            with self.subTest(rule=rule, value=value):
+                self.assert_parses_to(
+                    f'<a href="{value}">x</a>',
+                    f"<html><head></head><body>{expected_anchor}</body></html>",
+                    policy=policy,
+                )
+
+                self.assert_parses_to(
+                    f'<svg><foreignObject><a href="{value}">x</a></foreignObject></svg>',
+                    "<html><head></head><body></body></html>",
+                    policy=policy,
+                )
+
+    def test_compiled_engine_plan_applies_explicit_custom_attribute_url_rules(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"el-custom"},
+            allowed_attributes={"el-custom": {"data-url"}},
+            url_policy=UrlPolicy(allow_rules={("el-custom", "data-url"): UrlRule(allowed_schemes={"https"})}),
+        )
+        plan = compile_engine_plan(policy=policy, fragment=True)
+        engine = ParseEngine(
+            '<el-custom data-url="mailto:foo"></el-custom><el-custom data-url="https://example.com"></el-custom>',
+            fragment=True,
+            plan=plan,
+        )
+
+        assert engine.parse().to_html(pretty=False) == (
+            '<el-custom></el-custom><el-custom data-url="https://example.com"></el-custom>'
+        )
+
+    def test_compiled_engine_plan_unwraps_synthetic_paragraphs_and_breaks(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"template"},
+            allowed_attributes={"*": set()},
+        )
+        plan = compile_engine_plan(policy=policy, fragment=True)
+        engine = ParseEngine("x</p>y</br>z", fragment=True, plan=plan)
+
+        assert engine.parse().to_html(pretty=False) == "xyz"
+
+    def test_compiled_engine_plan_batches_many_disallowed_wrappers(self) -> None:
+        siblings = "<x>a</x><span>b</span>" * _UNWRAP_BATCH_THRESHOLD
+        assert JustHTML(siblings, fragment=True).to_html(pretty=False) == ("a<span>b</span>" * _UNWRAP_BATCH_THRESHOLD)
+
+        nested = "<x>" * _UNWRAP_BATCH_THRESHOLD + "z" + "</x>" * _UNWRAP_BATCH_THRESHOLD
+        assert JustHTML(nested, fragment=True).to_html(pretty=False) == "z"
+
+        engine = ParseEngine("", fragment=True)
+        engine._nodes_to_unwrap = [Element("x", {}, "html") for _ in range(_UNWRAP_BATCH_THRESHOLD)]
+        engine._unwrap_recorded_nodes()
+        assert engine._nodes_to_unwrap == []
+
+    def test_compiled_url_policy_falls_back_for_non_allowing_rules(self) -> None:
+        base = DEFAULT_DOCUMENT_POLICY
+        rules = dict(base.url_policy.allow_rules)
+        rules[("a", "href")] = replace(rules[("a", "href")], handling="strip")
+        policy = replace(base, url_policy=replace(base.url_policy, allow_rules=rules))
+        plan = compile_engine_plan(policy=policy, fragment=False)
+        action = plan.tag_actions["a"]
+        engine = ParseEngine('<a href="https://example.com">x</a>', fragment=False, plan=plan)
+
+        assert action.url_attrs["href"][2] is None
+        assert engine._sanitize_parsed_attrs(action, {"href": "https://example.com"}) == {}
+        assert engine.parse().to_html(pretty=False) == "<html><head></head><body><a>x</a></body></html>"
+
+    def test_full_start_tag_parser_recovers_null_before_action_lookup(self) -> None:
+        policy = SanitizationPolicy(
+            allowed_tags={"x\ufffd"},
+            allowed_attributes={"*": set()},
+        )
+        plan = replace(compile_engine_plan(policy=policy, fragment=True), raw_mode=True)
+        engine = ParseEngine("<x\0>y</x\0>", fragment=True, plan=plan)
+
+        assert engine.parse().to_html(pretty=False) == "<x\ufffd>y</x\ufffd>"
+
+    def test_deep_recovery_interactions(self) -> None:
+        self.assert_parses_to(
+            "<template type=hidden><nobr selected>x<select selected>\n"
+            "<tbody type=hidden></nobr></select>\n</template>",
+            "<html><head>x\n\n</head><body></body></html>",
+        )
+        self.assert_parses_to(
+            "<a href=x><rb a=1> <rtc><table class=x id=y><select href=x>x</table><ruby class=x id=y>&amp;",
+            '<html><head></head><body><a href="x"><rb a="1"> <rtc><select href="x">x</select>'
+            '<table class="x" id="y"></table><ruby class="x" id="y">&amp;</ruby></rtc></rb></a></body></html>',
+            sanitize=False,
+            track_node_locations=True,
+        )
+        self.assert_parses_to(
+            "<h1 type=hidden><ruby></ruby>\n<h2 href=x>x</h1>x<th a=1><svg type=hidden></th>",
+            '<html><head></head><body><h1 type="hidden"><ruby></ruby>\n</h1>'
+            '<h2 href="x">x</h2>x<svg type="hidden"></svg></body></html>',
+            sanitize=False,
+            track_node_locations=True,
+        )
+        self.assert_parses_to(
+            "<svg type=hidden></rp></svg><frameset class=x id=y> </ruby><rb href=x></span>\n",
+            "<html><head></head> \n</html>",
+        )
+        self.assert_parses_to(
+            "<th class=x><template class=x id=y></th>x<caption class=x id=y>x"
+            "<tr selected><address>&amp;<span href=x><ul type=hidden> ",
+            '&amp;<span><ul> </ul></span><tbody><tr><th class="x">x</th></tr></tbody>'
+            '<caption class="x" id="y">x<tr></tr></caption>',
+            fragment_context=FragmentContext("table"),
+        )
+        self.assert_parses_to(
+            "<tr selected> <svg href=x><table href=x></table><math a=1> </svg>\n</tr></math>\n<blockquote a=1>",
+            "<tbody><tr> </tr></tbody><table></table> \n\n<blockquote></blockquote>",
+            fragment_context=FragmentContext("table"),
+        )
+        self.assert_parses_to(
+            "<svg selected>\n<caption class=x id=y>&amp;<rtc a=1> <rb class=x id=y>"
+            "</rtc></svg> <rt href=x>\n<frameset href=x>x<h1 a=1>&amp;<math>x",
+            '<html><head></head><body><svg selected>\n<caption class="x" id="y">&amp;'
+            '<rtc a="1"> <rb class="x" id="y"></rb></rtc></caption></svg> '
+            '<rt href="x">\nx<h1 a="1">&amp;<math>x</math></h1></rt></body></html>',
+            sanitize=False,
+            track_node_locations=True,
+        )
+
+    def test_text_normalization_states(self) -> None:
+        cases = [
+            ("<p>a\r\nb</p>", "<html><head></head><body><p>a\nb</p></body></html>", {}),
+            ("<head>  x", "<html><head>  </head><body>x</body></html>", {}),
+            ("<head></head>  <body>x", "<html><head></head>  <body>x</body></html>", {}),
+            (
+                "<table><colgroup>  x<tr><td>y",
+                "<html><head></head><body>x<table>  <tbody><tr><td>y</td></tr></tbody></table></body></html>",
+                {},
+            ),
+            ("<table><colgroup>  x", "<html><head></head><body>x<table>  </table></body></html>", {}),
+            ("<pre>\nx", "<html><head></head><body><pre>x</pre></body></html>", {}),
+            (
+                "<head><noscript>  \n</noscript><p>x",
+                "<html><head>  \n</head><body><p>x</p></body></html>",
+                {"scripting_enabled": False},
+            ),
+            (
+                "<svg><g>a\0b</g></svg>",
+                "<html><head></head><body><svg><g>a�b</g></svg></body></html>",
+                {"sanitize": False},
+            ),
+        ]
+        for html, expected, kwargs in cases:
+            with self.subTest(html=html):
+                self.assert_parses_to(html, expected, **kwargs)
+
+        self.assert_parses_to(
+            "\n a\r\fb\0&amp;",
+            " a\n\fb�&amp;",
+            fragment_context=FragmentContext("textarea"),
+        )
+        self.assert_parses_to(
+            "<p>a\ufdd0b\ufffec</p>",
+            "<html><head></head><body><p>a�b�c</p></body></html>",
+            sanitize=False,
+            _parser_opts=ParserOptions(xml_coercion=True),
+        )
+
+    def test_frameset_and_attribute_recovery_edge_cases(self) -> None:
+        self.assert_parses_to(
+            "<button><frameset>",
+            "<html><head></head><body></body></html>",
+        )
+
+        self.assert_parses_to(
+            '<x/"><p>',
+            "<html><head></head><body><p></p></body></html>",
+        )
+        self.assert_parses_to(
+            "<x ?=y>",
+            "<html><head></head><body></body></html>",
+        )
+        self.assert_parses_to(
+            "<a =href=https://example.com>x</a>",
+            '<html><head></head><body><a href="https://example.com">x</a></body></html>',
+        )
+        self.assert_parses_to(
+            '<x/"><p>',
+            '<html><head></head><body><x "><p></p></x></body></html>',
+            sanitize=False,
+            track_node_locations=True,
+        )
+
+
+class TestParserEngineInternals(_ParserEngineTestCase):
+    def test_direct_engine_state_transitions(self) -> None:
+        raw_plan = compile_raw_engine_plan(fragment=False)
+        raw_fragment_plan = compile_raw_engine_plan(fragment=True)
+        default_plan = compile_default_engine_plan(fragment=False)
+
+        cases = [
+            (
+                ParseEngine("</body>x<!--c-->", fragment=False, plan=raw_plan),
+                "<html><head></head><body>x<!--c--></body></html>",
+            ),
+            (
+                ParseEngine("</body>x", fragment=False, plan=raw_plan),
+                "<html><head></head><body>x</body></html>",
+            ),
+            (
+                ParseEngine("<frameset></frameset></body>", fragment=False, plan=raw_plan),
+                "<html><head></head><frameset></frameset></html>",
+            ),
+            (
+                ParseEngine("<frameset><frame><frame>", fragment=False, plan=raw_plan),
+                "<html><head></head><frameset><frame></frame><frame></frame></frameset></html>",
+            ),
+            (
+                ParseEngine(
+                    "x<frameset>",
+                    fragment=True,
+                    fragment_context=FragmentContext("html"),
+                    plan=raw_fragment_plan,
+                ),
+                "<head></head><body>x</body>",
+            ),
+            (
+                ParseEngine("<input><frameset>", fragment=False, plan=raw_plan),
+                "<html><head></head><body><input></body></html>",
+            ),
+            (
+                ParseEngine("<button><frameset>", fragment=False, plan=default_plan),
+                "<html><head></head><body></body></html>",
+            ),
+            (
+                ParseEngine('<x/"><p>', fragment=False, plan=default_plan),
+                "<html><head></head><body><p></p></body></html>",
+            ),
+            (
+                ParseEngine("<x ?=y>", fragment=False, plan=raw_plan, track_node_locations=True),
+                '<html><head></head><body><x ?="y"></x></body></html>',
+            ),
+        ]
+
+        for engine, expected in cases:
+            with self.subTest(html=engine._html_input, fragment=engine._fragment):
+                assert engine.parse().to_html(pretty=False) == expected
+        self.assert_parses_to(
+            "<x ?=y>",
+            '<html><head></head><body><x ?="y"></x></body></html>',
+            sanitize=False,
+            track_node_locations=True,
+        )
+
+    def test_engine_private_helper_contracts(self) -> None:
+        raw_plan = compile_raw_engine_plan(fragment=False)
+        raw_fragment_plan = compile_raw_engine_plan(fragment=True)
+        default_plan = compile_default_engine_plan(fragment=False)
+        default_fragment_plan = compile_default_engine_plan(fragment=True)
+
+        comment_engine = ParseEngine("</body>x<!--c-->", fragment=False, plan=raw_plan)
+        comment_engine.parse()
+        comment_engine._after_document_mode = _AFTER_BODY
+        comment_engine._body_mode_seen = False
+        comment_engine._append_comment("c", source_pos=8)
+        self.assertEqual(comment_engine._after_document_mode, 0)
+        self.assertTrue(comment_engine._body_mode_seen)
+
+        text_engine = ParseEngine("</body>x", fragment=False, plan=raw_plan)
+        text_engine.parse()
+        text_engine._after_document_mode = _AFTER_BODY
+        text_engine._body_mode_seen = False
+        text_engine._stack = [text_engine._doc, text_engine._html]  # type: ignore[list-item]
+        text_engine._append_text("x", source_pos=7)
+        self.assertEqual(text_engine._after_document_mode, 0)
+        self.assertTrue(text_engine._body_mode_seen)
+
+        end_tag_engine = ParseEngine("</body>", fragment=False, plan=raw_plan)
+        end_tag_engine.parse()
+        end_tag_engine._frameset_seen = True
+        end_tag_engine._body_explicit = False
+        end_tag_engine._stack = [end_tag_engine._doc, end_tag_engine._html, end_tag_engine._head]  # type: ignore[list-item]
+        end_tag_engine._parse_end_tag(2, len(end_tag_engine._html_input))
+        self.assertEqual(end_tag_engine._after_document_mode, _AFTER_BODY)
+
+        frame_engine = ParseEngine("<frame>", fragment=False, plan=raw_plan)
+        frame_engine.parse()
+        frameset = Element("frameset", {}, "html")
+        frame_engine._append(frame_engine._html, frameset)
+        frame_engine._frameset_seen = True
+        frame_engine._body_explicit = False
+        frame_engine._stack = [frame_engine._doc, frame_engine._html, frameset]  # type: ignore[list-item]
+        frame_engine._parse_start_tag(1, len(frame_engine._html_input))
+        self.assertEqual([child.name for child in frameset.children], ["frame"])
+
+        blocked_frame_engine = ParseEngine("<frame>", fragment=False, plan=default_plan)
+        blocked_frame_engine.parse()
+        blocked_frameset = Element("frameset", {}, "html")
+        blocked_frame_engine._append(blocked_frame_engine._html, blocked_frameset)
+        blocked_frame_engine._frameset_seen = True
+        blocked_frame_engine._body_explicit = False
+        blocked_frame_engine._stack = [blocked_frame_engine._doc, blocked_frame_engine._html, blocked_frameset]  # type: ignore[list-item]
+        blocked_frame_engine._parse_start_tag(1, len(blocked_frame_engine._html_input))
+        self.assertEqual(blocked_frameset.children, [])
+
+        foreign_button_engine = ParseEngine("", fragment=True, plan=default_fragment_plan)
+        foreign_root = foreign_button_engine.parse()
+        foreign_parent = Element("svg", {}, "svg")
+        foreign_button_engine._append(foreign_root, foreign_parent)
+        foreign_button_engine._stack = type(foreign_button_engine._stack)([foreign_root, foreign_parent])
+        foreign_button_engine._html_input = "<button>"
+        foreign_button_engine._length = len(foreign_button_engine._html_input)
+        foreign_button_engine._foreign_context_seen = False
+        foreign_button_engine._parse_compiled_safe_start_tag(1, foreign_button_engine._length)
+        self.assertEqual([(child.name, child.namespace) for child in foreign_parent.children], [("button", "svg")])
+
+        skip_attrs_engine = ParseEngine('/">', fragment=False, plan=default_plan)
+        assert skip_attrs_engine._skip_attrs(0, len(skip_attrs_engine._html_input)) == ({}, False, 3, True)
+
+        parse_attrs_engine = ParseEngine('/">', fragment=False, plan=default_plan)
+        action = default_plan.tag_actions["a"]
+        assert parse_attrs_engine._parse_attrs_for_action(action, 0, len(parse_attrs_engine._html_input)) == (
+            {},
+            False,
+            3,
+            True,
+        )
+
+        fragment_engine = ParseEngine(
+            "",
+            fragment=True,
+            fragment_context=FragmentContext("html"),
+            plan=raw_fragment_plan,
+        )
+        fragment_engine.parse()
+        fragment_engine._append(fragment_engine._body, Element("input", {}, "html"))
+        self.assertFalse(fragment_engine._accept_fragment_frameset())
+
+        fragment_frameset_engine = ParseEngine(
+            " <frameset>",
+            fragment=True,
+            fragment_context=FragmentContext("html"),
+            plan=raw_fragment_plan,
+        )
+        fragment_frameset_engine.parse()
+        self.assertTrue(fragment_frameset_engine._frameset_seen)
+
+        parser_only_engine = ParseEngine("", fragment=False, plan=raw_plan)
+        parser_only_engine.parse()
+        parser_only_engine._append(parser_only_engine._body, Element("button", {}, "justhtml-parser-only"))
+        self.assertFalse(parser_only_engine._body_allows_frameset(parser_only_engine._body))
+
+        visible_input_engine = ParseEngine("", fragment=False, plan=raw_plan)
+        visible_input_engine.parse()
+        visible_input_engine._append(visible_input_engine._body, Element("input", {}, "html"))
+        self.assertFalse(visible_input_engine._body_allows_frameset(visible_input_engine._body))
+
+        parser_only_plan = compile_engine_plan(
+            policy=replace(
+                DEFAULT_DOCUMENT_POLICY,
+                allowed_tags=(DEFAULT_DOCUMENT_POLICY.allowed_tags | {"colgroup", "div", "table"}) - {"template"},
+            ),
+            fragment=False,
+        )
+        parser_only_colgroup_engine = ParseEngine("", fragment=False, plan=parser_only_plan)
+        parser_only_colgroup_engine.parse()
+        parser_only_colgroup_engine._html_input = "<div>"
+        parser_only_colgroup_engine._strict_ascii_fold = False
+        parser_only_colgroup_engine._length = len(parser_only_colgroup_engine._html_input)
+        parser_template = Element("template", {}, "justhtml-parser-only")
+        table = Element("table", {}, "html")
+        colgroup = Element("colgroup", {}, "html")
+        parser_only_colgroup_engine._append(parser_only_colgroup_engine._head, parser_template)
+        parser_only_colgroup_engine._append(parser_template, table)
+        parser_only_colgroup_engine._append(table, colgroup)
+        parser_only_colgroup_engine._stack = type(parser_only_colgroup_engine._stack)(
+            [
+                parser_only_colgroup_engine._doc,
+                parser_only_colgroup_engine._html,
+                parser_only_colgroup_engine._head,
+                parser_template,
+                table,
+                colgroup,
+            ]
+        )
+        parser_only_colgroup_engine._parser_only_template_depth = 1
+        parser_only_colgroup_engine._template_modes = ["colgroup"]
+
+        assert (
+            parser_only_colgroup_engine._parse_compiled_safe_start_tag(1, len(parser_only_colgroup_engine._html_input))
+            == 5
+        )
+        assert parser_only_colgroup_engine._current_template_mode() == "table"
+        assert [node.name for node in parser_only_colgroup_engine._stack] == [
+            "#document",
+            "html",
+            "head",
+            "template",
+            "table",
+            "div",
+        ]
+
+
+class TestParserDiagnosticModes(_ParserEngineTestCase):
+    def test_basic_error_collection_handles_repeated_duplicate_tag_names(self) -> None:
+        engine = ParseEngine("<x>" * 64 + "</x>" * 64, fragment=True, collect_errors=True)
+
+        engine._collect_basic_errors()
+
+        assert engine.errors == []
+
+    def test_basic_error_collection_handles_large_suffix_truncations(self) -> None:
+        engine = ParseEngine("<a>" + "<b>" * 64 + "</a>" + "</b>" * 64, fragment=True, collect_errors=True)
+
+        engine._collect_basic_errors()
+
+        assert [error.code for error in engine.errors] == ["unexpected-end-tag"] * 64
+
+    def test_basic_error_collection_respects_paragraph_scope_boundaries(self) -> None:
+        engine = ParseEngine("<p><object><div></p></object>", fragment=True, collect_errors=True)
+
+        engine._collect_basic_errors()
+
+        assert [(error.code, error.message) for error in engine.errors] == [
+            ("unexpected-end-tag", "Unexpected </object> end tag"),
+        ]
+
+    def test_upstream_inputs_across_diagnostic_modes(self) -> None:
+        config = {
+            "fail_fast": False,
+            "test_specs": [],
+            "exclude_html": None,
+            "filter_html": None,
+            "exclude_errors": None,
+            "filter_errors": None,
+            "exclude_files": None,
+        }
+        runner = TestRunner(Path("tests/html5lib-tests-tree"), config)
+
+        parsed = 0
+        for file_path, tests in runner.load_tests():
+            for index, test in enumerate(tests):
+                if not runner._should_run_test(file_path.name, index, test):
+                    continue
+                scripting_enabled = test.script_directive != "script-off"
+
+                located = JustHTML(
+                    test.data,
+                    fragment_context=test.fragment_context,
+                    scripting_enabled=scripting_enabled,
+                    sanitize=False,
+                    collect_errors=True,
+                    track_node_locations=True,
+                )
+                assert located.root is not None
+
+                xml = JustHTML(
+                    test.data,
+                    fragment_context=test.fragment_context,
+                    scripting_enabled=scripting_enabled,
+                    sanitize=False,
+                    _parser_opts=ParserOptions(xml_coercion=True),
+                )
+                assert xml.root is not None
+
+                projected = JustHTML(
+                    test.data,
+                    fragment_context=test.fragment_context,
+                    scripting_enabled=scripting_enabled,
+                    track_node_locations=True,
+                )
+                assert projected.root is not None
+                parsed += 1
+
+        assert parsed >= 1700

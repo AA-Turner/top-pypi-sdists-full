@@ -382,7 +382,7 @@ class CustomInferenceModel(_CustomModelBase):
         Target type of the custom inference model.
         Values: [`datarobot.TARGET_TYPE.BINARY`, `datarobot.TARGET_TYPE.REGRESSION`,
         `datarobot.TARGET_TYPE.MULTICLASS`, `datarobot.TARGET_TYPE.UNSTRUCTURED`,
-        `datarobot.TARGET_TYPE.ANOMALY`, `datarobot.TARGET_TYPE.TEXT_GENERATION`]
+        `datarobot.TARGET_TYPE.ANOMALY`, `datarobot.TARGET_TYPE.TEXT_GENERATION`].
     target_name: Optional[str]
         Target feature name.
         It is optional(ignored if provided) for `datarobot.TARGET_TYPE.UNSTRUCTURED`
@@ -412,9 +412,9 @@ class CustomInferenceModel(_CustomModelBase):
     created_by: str
         The username of a user who created the custom model.
     updated_at: str
-        ISO-8601 formatted timestamp of when the custom model was updated
+        ISO-8601 formatted timestamp of when the custom model was updated.
     created_at: str
-        ISO-8601 formatted timestamp of when the custom model was created
+        ISO-8601 formatted timestamp of when the custom model was created.
     network_egress_policy: datarobot.NETWORK_EGRESS_POLICY, optional
         Determines whether the given custom model is isolated, or can access the public network.
         Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`, `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
@@ -422,7 +422,7 @@ class CustomInferenceModel(_CustomModelBase):
         The maximum memory that might be allocated by the custom-model.
         If exceeded, the custom-model will be killed by k8s.
     replicas: Optional[int]
-        A fixed number of replicas that will be deployed in the cluster
+        A fixed number of replicas that will be deployed in the cluster.
     is_training_data_for_versions_permanently_enabled: Optional[bool]
         Whether training data assignment on the version level is permanently enabled for the model.
     """
@@ -493,7 +493,7 @@ class CustomInferenceModel(_CustomModelBase):
         search_for: Optional[str] = None,
         order_by: Optional[str] = None,
     ) -> List[CustomInferenceModel]:
-        """List custom inference models available to the user.
+        """Returns a list of custom inference models available to the user.
 
         .. versionadded:: v2.21
 
@@ -507,13 +507,13 @@ class CustomInferenceModel(_CustomModelBase):
             String for filtering custom inference models - only custom
             inference models that contain the string in name or description will
             be returned.
-            If not specified, all custom models will be returned
+            If not specified, all custom models will be returned.
         order_by: Optional[str]
             Property to sort custom inference models by.
             Supported properties are "created" and "updated".
             Prefix the attribute name with a dash to sort in descending order,
-            e.g., order_by='-created'.
-            By default, the order_by parameter is None which will result in
+            e.g., ``order_by``='-created'.
+            By default, the ``order_by`` parameter is None which will result in
             custom models being returned in order of creation time descending.
 
         Returns
@@ -524,15 +524,15 @@ class CustomInferenceModel(_CustomModelBase):
         Raises
         ------
         datarobot.errors.ClientError
-            If the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            If the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         return super().list(is_deployed, order_by, search_for)
 
     @classmethod
     def get(cls, custom_model_id: str) -> CustomInferenceModel:
-        """Get custom inference model by id.
+        """Returns the custom inference model by ID.
 
         .. versionadded:: v2.21
 
@@ -606,7 +606,7 @@ class CustomInferenceModel(_CustomModelBase):
             Target type of the custom inference model.
             Values: [`datarobot.TARGET_TYPE.BINARY`, `datarobot.TARGET_TYPE.REGRESSION`,
             `datarobot.TARGET_TYPE.MULTICLASS`, `datarobot.TARGET_TYPE.UNSTRUCTURED`,
-            `datarobot.TARGET_TYPE.TEXT_GENERATION`]
+            `datarobot.TARGET_TYPE.TEXT_GENERATION`].
         target_name: Optional[str]
             Target feature name.
             It is optional(ignored if provided) for `datarobot.TARGET_TYPE.UNSTRUCTURED` target type.
@@ -622,13 +622,13 @@ class CustomInferenceModel(_CustomModelBase):
             Custom inference model prediction threshold.
         class_labels: List[str], optional
             Custom inference model class labels for multiclass classification.
-            Cannot be used with class_labels_file.
+            Cannot be used with ``class_labels_file``.
         class_labels_file: Optional[str]
             Path to file containing newline separated class labels for multiclass classification.
-            Cannot be used with class_labels.
+            Cannot be used with ``class_labels``.
         network_egress_policy: datarobot.NETWORK_EGRESS_POLICY, optional
             Determines whether the given custom model is isolated, or can access the public network.
-            Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`, `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`]
+            Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`, `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
         maximum_memory: Optional[int]
             The maximum memory that might be allocated by the custom-model.
             If exceeded, the custom-model will be killed by k8s.
@@ -715,7 +715,7 @@ class CustomInferenceModel(_CustomModelBase):
         class_labels_file: Optional[str] = None,
         is_training_data_for_versions_permanently_enabled: Optional[bool] = None,
     ) -> None:
-        """Update custom inference model properties.
+        """Updates the custom inference model properties.
 
         .. versionadded:: v2.21
 
@@ -736,11 +736,11 @@ class CustomInferenceModel(_CustomModelBase):
         prediction_threshold: Optional[float]
             New custom inference model prediction threshold.
         class_labels: List[str], optional
-            custom inference model class labels for multiclass classification
-            Cannot be used with class_labels_file
+            Custom inference model class labels for multiclass classification.
+            Cannot be used with ``class_labels_file``.
         class_labels_file: Optional[str]
             Path to file containing newline separated class labels for multiclass classification.
-            Cannot be used with class_labels
+            Cannot be used with ``class_labels``.
         is_training_data_for_versions_permanently_enabled: Optional[bool]
             Permanently enable training data assignment on the version level for the current model,
             instead of training data assignment on the model level.
@@ -773,7 +773,7 @@ class CustomInferenceModel(_CustomModelBase):
     # We must leave this method here in order for the docs to properly be generated
     # pylint: disable-next=useless-super-delegation
     def refresh(self) -> None:
-        """Update custom inference model with the latest data from server.
+        """Updates the custom inference model with the latest data from server.
 
         .. versionadded:: v2.21
 
@@ -789,7 +789,7 @@ class CustomInferenceModel(_CustomModelBase):
     # We must leave this method here in order for the docs to properly be generated
     # pylint: disable-next=useless-super-delegation
     def delete(self) -> None:
-        """Delete custom inference model.
+        """Deletes the custom inference model.
 
         .. versionadded:: v2.21
 
@@ -832,9 +832,9 @@ class CustomInferenceModel(_CustomModelBase):
         Raises
         ------
         datarobot.errors.ClientError
-            If the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            If the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         payload = {"dataset_id": dataset_id, "partition_column": partition_column}
 
@@ -872,9 +872,9 @@ class CustomInferenceModel(_CustomModelBase):
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
 
         Examples
         --------

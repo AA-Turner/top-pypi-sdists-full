@@ -1,0 +1,126 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# Hive Netius System
+# Copyright (c) 2008-2024 Hive Solutions Lda.
+#
+# This file is part of Hive Netius System.
+#
+# Hive Netius System is free software: you can redistribute it and/or modify
+# it under the terms of the Apache License as published by the Apache
+# Foundation, either version 2.0 of the License, or (at your option) any
+# later version.
+#
+# Hive Netius System is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# Apache License for more details.
+#
+# You should have received a copy of the Apache License along with
+# Hive Netius System. If not, see <http://www.apache.org/licenses/>.
+
+"""netius.adapters.memory
+
+Storage adapter that keeps all values in memory using dictionaries
+indexed by key and by owner. Values are exposed through file like
+objects whose close callback writes the buffer back into the store,
+allowing transparent reads and updates. Suited for volatile data and
+testing where on-disk persistence is not required.
+"""
+
+__author__ = "João Magalhães <joamag@hive.pt>"
+""" The author(s) of the module """
+
+__copyright__ = "Copyright (c) 2008-2024 Hive Solutions Lda."
+""" The copyright for the module """
+
+__license__ = "Apache License, Version 2.0"
+""" The license for the module """
+
+import netius
+
+from . import base
+
+
+class MemoryAdapter(base.BaseAdapter):
+
+    def __init__(self):
+        base.BaseAdapter.__init__(self)
+        self.map = dict()
+        self.owners = dict()
+
+    def set(self, value, owner="nobody"):
+        map_o = self._ensure(owner)
+        key = self.generate()
+        value = netius.legacy.bytes(value)
+        item = dict(value=value, owner=owner)
+        self.map[key] = item
+        map_o[key] = item
+        return key
+
+    def get_file(self, key, mode="rb"):
+        if not key in self.map:
+            raise netius.NetiusError("Key not found")
+        item = self.map[key]
+        value = item["value"]
+        # the buffer has to be a writable one, as the closing of the file
+        # writes its contents back, and has to match the way the runtime
+        # represents a byte sequence, which under the oldest ones is the
+        # very same type that backs a native string
+        file = (
+            netius.legacy.BytesIO(value)
+            if netius.legacy.PYTHON_3
+            else netius.legacy.StringIO(value)
+        )
+        close = self._build_close(file, key)
+        file._close = file.close
+        file.close = close
+        return file
+
+    def delete(self, key, owner="nobody"):
+        item = self.map[key]
+        owner = item["owner"]
+        map_o = self._ensure(owner)
+        del self.map[key]
+        del map_o[key]
+
+    def append(self, key, value):
+        item = self.map[key]
+        _value = item["value"]
+        _value += netius.legacy.bytes(value)
+        item["value"] = _value
+
+    def truncate(self, key, count):
+        item = self.map[key]
+        _value = item["value"]
+        offset = count * -1
+        _value = _value[:offset]
+        item["value"] = _value
+
+    def size(self, key):
+        item = self.map[key]
+        _value = item["value"]
+        return len(_value)
+
+    def count(self, owner=None):
+        map = self._ensure(owner) if owner else self.map
+        return len(map)
+
+    def list(self, owner=None):
+        map = self._ensure(owner) if owner else self.map
+        return netius.legacy.keys(map)
+
+    def _ensure(self, owner):
+        map = self.owners.get(owner, {})
+        self.owners[owner] = map
+        return map
+
+    def _build_close(self, file, key):
+
+        def close():
+            value = file.getvalue()
+            item = self.map[key]
+            item["value"] = value
+            file._close()
+
+        return close

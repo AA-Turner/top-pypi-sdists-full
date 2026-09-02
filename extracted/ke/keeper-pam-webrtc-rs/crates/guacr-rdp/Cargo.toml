@@ -1,0 +1,65 @@
+[package]
+name = "guacr-rdp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "RDP protocol handler for guacr remote desktop"
+readme = "README.md"
+
+[dependencies]
+# Local dependencies
+guacr-handlers = { path = "../guacr-handlers" }
+
+# Workspace dependencies
+tokio.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+thiserror.workspace = true
+log.workspace = true
+
+ironrdp = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287", features = ["connector", "session", "graphics", "input", "cliprdr", "dvc", "rdpsnd"] }
+ironrdp-async = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287" }
+ironrdp-tokio = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287" }
+ironrdp-pdu = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287" }
+ironrdp-displaycontrol = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287" }
+ironrdp-egfx = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287" }
+ironrdp-dvc = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287" }
+crossbeam-queue.workspace = true
+flate2.workspace = true
+parking_lot = "0.12"
+tokio-rustls = "0.26"
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
+webpki-roots.workspace = true
+sha2.workspace = true
+x509-cert = "0.2"
+
+# Image processing (used by encode_jpeg and send_clearcodec_frame)
+image = "0.25.9"
+
+# Utilities
+base64.workspace = true
+
+guacr-encoder = { path = "../guacr-encoder" }
+guacr-terminal = { path = "../guacr-terminal" }
+guacr-protocol = { path = "../guacr-protocol" }
+
+# Video session recording: fMP4 + AES-256-GCM + WebSocket upload
+guacr-recorder = { path = "../guacr-recorder" }
+
+# Hardware encoding support comes from guacr-terminal (shared across protocols)
+guacr-threat-detection = { path = "../guacr-threat-detection", optional = true }
+uuid = { workspace = true, optional = true }
+
+# Drive redirection via IronRDP RDPDR
+ironrdp-rdpdr = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287", optional = true }
+ironrdp-rdpdr-native = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287", optional = true }
+ironrdp-svc = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287", optional = true }
+ironrdp-core = { git = "https://github.com/Devolutions/IronRDP.git", rev = "0047a287" }
+
+[features]
+default = []
+threat-detection = ["guacr-threat-detection", "uuid"]
+drive = ["ironrdp-rdpdr", "ironrdp-rdpdr-native", "ironrdp-svc"]
+# FFmpeg hardware H.264 encode (VAAPI/NVENC/QSV/MediaFoundation). Off by default;
+# software openh264 is the fallback. Enabled fleet-wide via the wheel's `ffmpeg` feature.
+ffmpeg = ["guacr-encoder/ffmpeg"]

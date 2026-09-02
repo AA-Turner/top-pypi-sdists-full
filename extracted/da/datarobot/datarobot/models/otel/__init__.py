@@ -9,3 +9,4 @@ from .metric_summary import OtelMetricSummary
 from .metric_values import OtelMetricBucketValue, OtelMetricValue
 from .metrics import OtelMetrics
 from .stats import OtelStats
+from .traces import OtelTrace, OtelTraceDetail, OtelTraceSpan, TraceTool

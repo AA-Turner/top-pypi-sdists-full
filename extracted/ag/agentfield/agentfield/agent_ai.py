@@ -1,0 +1,2203 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import re
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type, Union
+
+if TYPE_CHECKING:
+    from agentfield.multimodal_response import MultimodalResponse
+    from agentfield.tool_calling import ToolCallConfig
+
+import requests
+from agentfield.agent_utils import AgentUtils
+from agentfield.logger import log_debug, log_error, log_warn
+from agentfield.rate_limiter import StatelessRateLimiter
+from httpx import HTTPStatusError
+from pydantic import BaseModel, ValidationError
+
+# Lazy loading for heavy LLM libraries to reduce memory footprint
+# These are only imported when AI features are actually used
+_litellm = None
+_openai = None
+
+
+class _EmptyReasoningStructuredOutput(ValueError):
+    pass
+
+
+def _get_litellm():
+    """Lazy import of litellm - only loads when AI features are used."""
+    global _litellm
+    if _litellm is None:
+        try:
+            import litellm
+
+            litellm.suppress_debug_info = True
+            _litellm = litellm
+        except Exception:  # pragma: no cover
+
+            class _LiteLLMStub:
+                pass
+
+            _litellm = _LiteLLMStub()
+    return _litellm
+
+
+def _get_message_reasoning_content(response: Any) -> Optional[Any]:
+    """Return provider reasoning metadata when it is present on the message."""
+    try:
+        message = response.choices[0].message
+    except (AttributeError, IndexError, TypeError):
+        return None
+    return getattr(message, "reasoning_content", None)
+
+
+def _has_non_empty_reasoning_content(response: Any) -> bool:
+    reasoning_content = _get_message_reasoning_content(response)
+    if reasoning_content is None:
+        return False
+    if isinstance(reasoning_content, str):
+        return bool(reasoning_content.strip())
+    return bool(reasoning_content)
+
+
+def _is_empty_structured_result(parsed: BaseModel) -> bool:
+    """
+    Treat {} or values equal to schema defaults as empty structured output.
+    """
+    if not isinstance(parsed, BaseModel):
+        return False
+
+    explicitly_set = getattr(parsed, "model_fields_set", set())
+    if not explicitly_set:
+        return True
+
+    try:
+        return parsed == parsed.__class__()
+    except Exception:
+        return False
+
+
+def _increase_retry_max_tokens(params: Dict[str, Any]) -> None:
+    current = params.get("max_tokens")
+    if current is None:
+        params.pop("max_tokens", None)
+        return
+    if isinstance(current, int) and current > 0:
+        params["max_tokens"] = current * 2
+
+
+def _raise_if_empty_reasoning_structured_output(
+    response: Any, parsed: BaseModel
+) -> None:
+    if _has_non_empty_reasoning_content(response) and _is_empty_structured_result(
+        parsed
+    ):
+        raise _EmptyReasoningStructuredOutput(
+            "Empty structured response after non-empty reasoning_content"
+        )
+
+
+def _reset_litellm_http_clients(litellm_module: Any) -> None:
+    """
+    Reset litellm's cached httpx clients after a timeout.
+
+    Why this exists: when a litellm.acompletion call hangs and we cancel it,
+    the underlying httpx connection is left in a half-closed state. The next
+    call grabs the same pooled connection and hangs forever — a true deadlock
+    that py-spy reveals as 'all asyncio worker threads idle'.
+
+    By clearing litellm's module-level client caches we force the next call to
+    open a fresh pool, breaking the cycle. This is a defensive cleanup; harmless
+    if the pool is healthy.
+    """
+    if litellm_module is None:
+        return
+    try:
+        # Module-level client *instances* — must be replaced with None so the
+        # next call constructs a fresh AsyncHTTPHandler.
+        for attr in (
+            "module_level_client",
+            "module_level_aclient",
+            "aclient_session",
+            "client_session",
+        ):
+            if hasattr(litellm_module, attr):
+                try:
+                    setattr(litellm_module, attr, None)
+                except Exception:
+                    pass
+
+        # Dict-like caches — clear in place rather than replacing, since
+        # litellm holds the same dict reference internally.
+        for cache_attr in ("in_memory_llm_clients_cache",):
+            if hasattr(litellm_module, cache_attr):
+                try:
+                    cache = getattr(litellm_module, cache_attr)
+                    clear_fn = getattr(cache, "clear", None)
+                    if callable(clear_fn):
+                        clear_fn()
+                except Exception:
+                    pass
+
+        # litellm.llms.custom_httpx.http_handler holds class-level shared
+        # clients keyed by config. Best-effort: clear those caches too.
+        try:
+            from litellm.llms.custom_httpx import http_handler as _hh
+
+            for attr in ("_DEFAULT_ASYNC_HANDLER", "_DEFAULT_HANDLER", "httpx_client"):
+                if hasattr(_hh, attr):
+                    try:
+                        setattr(_hh, attr, None)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        log_warn(
+            "Reset litellm HTTP client cache after timeout — next call will use a fresh connection pool"
+        )
+    except Exception as exc:  # pragma: no cover
+        log_debug(f"litellm client reset failed: {exc}")
+
+
+_AI_TIMEOUT_RETRIES_DEFAULT = 2
+
+
+def _resolve_timeout_retries() -> int:
+    """How many times to retry an LLM call that hit the wall-clock safety-net
+    timeout. Precedence: env ``AGENTFIELD_AI_TIMEOUT_RETRIES``, then default (2).
+    These timeouts are usually a stalled connection rather than the model
+    genuinely needing the full window, so a retry on a fresh pool usually
+    succeeds. Set to 0 to disable."""
+    raw = os.environ.get("AGENTFIELD_AI_TIMEOUT_RETRIES")
+    if raw is not None:
+        try:
+            n = int(raw)
+            return n if n >= 0 else 0
+        except ValueError:
+            pass
+    return _AI_TIMEOUT_RETRIES_DEFAULT
+
+
+_PERMANENT_LLM_ERROR_MARKERS = (
+    "invalid_request_error",
+    "not supported",
+    "authentication",
+    "unauthorized",
+    "invalid api key",
+    "permission",
+    "no such model",
+    "model_not_found",
+    "context_length",
+    "maximum context",
+)
+_TRANSIENT_LLM_ERROR_MARKERS = (
+    "unable to get json response",
+    "internal server error",
+    "internalservererror",
+    "service unavailable",
+    "serviceunavailable",
+    "overloaded",
+    "bad gateway",
+    "gateway timeout",
+    "connection",
+    "econnreset",
+    "temporarily",
+    "try again",
+    "provider returned error",
+)
+
+
+def _is_transient_llm_error(exc: Exception) -> bool:
+    """Whether an LLM-call exception is a transient provider glitch worth
+    retrying (a malformed/garbage response, a 5xx, a dropped connection) versus
+    a permanent client error (bad request, auth, model-not-found, schema) that a
+    retry can never fix. Conservative: a clear permanent marker always wins."""
+    code = getattr(exc, "status_code", None)
+    if code is None:
+        resp = getattr(exc, "response", None)
+        code = getattr(resp, "status_code", None)
+    msg = str(exc).lower()
+    if any(p in msg for p in _PERMANENT_LLM_ERROR_MARKERS):
+        return False
+    if isinstance(code, int):
+        if code in (408, 409, 425, 429) or code >= 500:
+            return True
+        if 400 <= code < 500:
+            return False
+    return any(t in msg for t in _TRANSIENT_LLM_ERROR_MARKERS)
+
+
+async def _acompletion_with_timeout_retry(
+    litellm_module: Any, params: Dict[str, Any], timeout: float
+) -> Any:
+    """Run ``litellm.acompletion`` under an asyncio.wait_for safety net, retrying
+    on timeout AND on transient provider errors (malformed response, 5xx, dropped
+    connection). On each retry the cached HTTP clients are reset so the next
+    attempt opens a fresh connection pool. Permanent client errors (bad request,
+    auth, model-not-found) are NOT retried. Raises after the retries are
+    exhausted."""
+    retries = _resolve_timeout_retries()
+    for attempt in range(retries + 1):
+        try:
+            return await asyncio.wait_for(
+                litellm_module.acompletion(**params), timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            model_name = params.get("model", "unknown")
+            # Reset litellm's cached HTTP clients so the next call gets a fresh
+            # connection pool — the previous client likely holds a stuck
+            # connection that would hang forever.
+            _reset_litellm_http_clients(litellm_module)
+            if attempt < retries:
+                log_warn(
+                    f"LLM call to {model_name} timed out after {timeout}s; "
+                    f"retry {attempt + 1}/{retries} on a fresh connection pool"
+                )
+                await asyncio.sleep(min(2.0 * (attempt + 1), 8.0))
+                continue
+            raise TimeoutError(
+                f"LLM call to {model_name} timed out after {timeout}s "
+                f"(asyncio safety net) after {retries} retries"
+            )
+        except Exception as exc:
+            # Transient provider glitch (malformed/garbage response, 5xx, dropped
+            # connection): retry on a fresh pool. Permanent client errors (bad
+            # request, auth, model-not-found) propagate immediately.
+            if attempt < retries and _is_transient_llm_error(exc):
+                model_name = params.get("model", "unknown")
+                _reset_litellm_http_clients(litellm_module)
+                log_warn(
+                    f"LLM call to {model_name} hit a transient error "
+                    f"({type(exc).__name__}: {str(exc)[:80]}); retry "
+                    f"{attempt + 1}/{retries} on a fresh connection pool"
+                )
+                await asyncio.sleep(min(2.0 * (attempt + 1), 8.0))
+                continue
+            raise
+
+
+def _get_openai():
+    """Lazy import of openai - only loads when AI features are used."""
+    global _openai
+    if _openai is None:
+        try:
+            import openai
+
+            _openai = openai
+        except Exception:  # pragma: no cover
+
+            class _OpenAIStub:
+                class OpenAI:
+                    pass
+
+            _openai = _OpenAIStub()
+    return _openai
+
+
+# Backward compatibility: expose as module-level but with lazy loading
+class _LazyModule:
+    """Lazy module proxy that defers import until attribute access."""
+
+    def __init__(self, loader):
+        self._loader = loader
+        self._module = None
+
+    def __getattr__(self, name):
+        if self._module is None:
+            self._module = self._loader()
+        return getattr(self._module, name)
+
+
+litellm = _LazyModule(_get_litellm)
+openai = _LazyModule(_get_openai)
+
+
+def _strictify_openai_schema(schema: Any) -> Any:
+    """Make a Pydantic-generated JSON schema satisfy OpenAI's strict
+    structured-output rules.
+
+    OpenAI's ``response_format`` with ``strict: True`` requires every object to
+    (a) set ``additionalProperties: false`` and (b) list ALL of its properties in
+    ``required``. Pydantic's ``model_json_schema()`` emits neither, so OpenAI
+    rejects the request with::
+
+        BadRequestError: Invalid schema ... 'additionalProperties' is required
+        to be supplied and to be false.
+
+    This walks the entire schema — including ``$defs``/``definitions`` and nested
+    ``properties``/``items``/``anyOf`` — and returns a corrected copy. Forcing
+    every property into ``required`` is OpenAI's documented requirement for strict
+    mode (truly-optional fields should be modelled as nullable); it never makes a
+    previously-valid schema invalid.
+    """
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            node = {key: walk(value) for key, value in node.items()}
+            props = node.get("properties")
+            if isinstance(props, dict) and (
+                node.get("type") == "object" or "type" not in node
+            ):
+                node["additionalProperties"] = False
+                node["required"] = list(props.keys())
+            return node
+        if isinstance(node, list):
+            return [walk(item) for item in node]
+        return node
+
+    return walk(schema)
+
+
+class AgentAI:
+    """AI/LLM Integration functionality for AgentField Agent"""
+
+    def __init__(self, agent_instance):
+        """
+        Initialize AgentAI with a reference to the main agent instance.
+
+        Args:
+            agent_instance: The main Agent instance
+        """
+        self.agent = agent_instance
+        self._initialization_complete = False
+        self._rate_limiter = None
+        self._fal_provider_instance = None
+        self._minimax_provider_instance = None
+        self._openrouter_provider_instance = None
+        self._media_router_instance = None
+
+    @property
+    def _fal_provider(self):
+        """
+        Lazy-initialized Fal provider for image, audio, and video generation.
+
+        Returns:
+            FalProvider: Configured Fal.ai provider instance
+        """
+        if self._fal_provider_instance is None:
+            from agentfield.media_providers import FalProvider
+
+            self._fal_provider_instance = FalProvider(
+                api_key=self.agent.ai_config.fal_api_key
+            )
+        return self._fal_provider_instance
+
+    @property
+    def _openrouter_provider(self):
+        """
+        Lazy-initialized OpenRouter provider for audio, music, and image generation.
+
+        Returns:
+            OpenRouterProvider: Configured OpenRouter provider instance
+        """
+        if self._openrouter_provider_instance is None:
+            from agentfield.media_providers import OpenRouterProvider
+
+            self._openrouter_provider_instance = OpenRouterProvider()
+        return self._openrouter_provider_instance
+
+    @property
+    def _minimax_provider(self):
+        """Lazy-initialized MiniMax media provider."""
+        if self._minimax_provider_instance is None:
+            from agentfield.media_providers import MiniMaxProvider
+
+            config = self.agent.ai_config
+            api_key = getattr(config, "minimax_api_key", None)
+            base_url = getattr(config, "minimax_base_url", None)
+            self._minimax_provider_instance = MiniMaxProvider(
+                api_key=api_key if isinstance(api_key, str) else None,
+                base_url=base_url if isinstance(base_url, str) else None,
+            )
+        return self._minimax_provider_instance
+
+    @property
+    def _media_router(self):
+        """
+        Lazy-initialized MediaRouter for prefix-based provider dispatch.
+
+        Returns:
+            MediaRouter: Configured router with registered media providers
+        """
+        if self._media_router_instance is None:
+            from agentfield.media_providers import LiteLLMProvider
+            from agentfield.media_router import MediaRouter
+
+            router = MediaRouter()
+            router.register("fal-ai/", self._fal_provider)
+            router.register("fal/", self._fal_provider)
+            router.register("minimax/", self._minimax_provider)
+            router.register("openrouter/", self._openrouter_provider)
+            router.register("", LiteLLMProvider())  # catch-all fallback
+            self._media_router_instance = router
+        return self._media_router_instance
+
+    def _get_rate_limiter(self) -> StatelessRateLimiter:
+        """
+        Get or create the rate limiter instance based on current configuration.
+
+        Returns:
+            StatelessRateLimiter: Configured rate limiter instance
+        """
+        if self._rate_limiter is None:
+            config = self.agent.ai_config
+            self._rate_limiter = StatelessRateLimiter(
+                max_retries=config.rate_limit_max_retries,
+                base_delay=config.rate_limit_base_delay,
+                max_delay=config.rate_limit_max_delay,
+                jitter_factor=config.rate_limit_jitter_factor,
+                circuit_breaker_threshold=config.rate_limit_circuit_breaker_threshold,
+                circuit_breaker_timeout=config.rate_limit_circuit_breaker_timeout,
+            )
+        return self._rate_limiter
+
+    async def _ensure_model_limits_cached(self):
+        """
+        Ensure model limits are cached for the current model configuration.
+        This is called once during the first AI call to avoid startup delays.
+        """
+        if not self._initialization_complete:
+            try:
+                # Cache limits for the default model
+                await self.agent.ai_config.get_model_limits()
+
+                # Cache limits for multimodal models if different
+                if self.agent.ai_config.audio_model != self.agent.ai_config.model:
+                    await self.agent.ai_config.get_model_limits(
+                        self.agent.ai_config.audio_model
+                    )
+
+                if self.agent.ai_config.vision_model != self.agent.ai_config.model:
+                    await self.agent.ai_config.get_model_limits(
+                        self.agent.ai_config.vision_model
+                    )
+
+                self._initialization_complete = True
+
+            except Exception as e:
+                log_debug(f"Failed to cache model limits: {e}")
+                # Continue with fallback defaults
+                self._initialization_complete = True
+
+    async def ai(
+        self,
+        *args: Any,
+        system: Optional[str] = None,
+        user: Optional[str] = None,
+        schema: Optional[Type[BaseModel]] = None,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        stream: Optional[bool] = None,
+        response_format: Optional[Union[Literal["auto", "json", "text"], Dict]] = None,
+        context: Optional[Dict] = None,
+        memory_scope: Optional[List[str]] = None,
+        tools: Optional[
+            Union[
+                Literal["discover"],
+                ToolCallConfig,
+                Dict[str, Any],
+                List[Any],
+            ]
+        ] = None,
+        max_turns: Optional[int] = None,
+        max_tool_calls: Optional[int] = None,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ) -> Any:
+        """
+        Universal AI method supporting multimodal inputs with intelligent type detection.
+
+        This method provides a flexible interface for interacting with various LLMs,
+        supporting text, image, audio, and file inputs. It intelligently detects
+        input types and applies a hierarchical configuration system.
+
+        Args:
+            *args: Flexible inputs - text, images, audio, files, or mixed content.
+                   - str: Text content, URLs, or file paths (auto-detected).
+                   - bytes: Binary data (images, audio, documents).
+                   - dict: Structured input with explicit keys (e.g., {"image": "url"}).
+                   - list: Multimodal conversation or content list.
+
+            system (str, optional): System prompt for AI behavior.
+            user (str, optional): User message (alternative to positional args).
+            schema (Type[BaseModel], optional): Pydantic model for structured output validation.
+            model (str, optional): Override default model (e.g., "gpt-4", "claude-3").
+            temperature (float, optional): Creativity level (0.0-2.0).
+            max_tokens (int, optional): Maximum response length.
+            stream (bool, optional): Enable streaming response.
+            response_format (str, optional): Desired response format ('auto', 'json', 'text').
+            context (Dict, optional): Additional context data to pass to the LLM.
+            memory_scope (List[str], optional): Memory scopes to inject, drawn from the
+                four real scopes 'workflow', 'session', 'actor' and 'global'. Accepted
+                today but not yet applied to the prompt.
+            tools: Tool definitions for LLM tool calling. Accepts:
+                - "discover": auto-discover all tools from the control plane
+                - DiscoveryResponse: use pre-fetched discovery results
+                - list of capabilities: ReasonerCapability/SkillCapability/AgentCapability
+                - list of dicts: raw OpenAI-format tool schemas
+                - ToolCallConfig or dict: discover with filtering/progressive options
+            max_turns (int, optional): Maximum LLM turns in the tool-call loop (default: 10).
+            max_tool_calls (int, optional): Maximum total tool calls allowed (default: 25).
+            timeout (float, optional): Per-call timeout in seconds. Overrides agent's async_config.llm_call_timeout for this call only.
+            **kwargs: Additional provider-specific parameters to pass to the LLM.
+
+        Returns:
+            Any: The AI response - raw text, structured object (if schema), or a stream.
+
+        Examples:
+            # Simple text input
+            response = await app.ai("Summarize this document.")
+
+            # System and user prompts
+            response = await app.ai(
+                system="You are a helpful assistant.",
+                user="What is the capital of France?"
+            )
+
+            # Multimodal input with auto-detection (image URL and text)
+            response = await app.ai(
+                "Describe this image:",
+                "https://example.com/image.jpg"
+            )
+
+            # Multimodal input with file path (audio)
+            response = await app.ai(
+                "Transcribe this audio:",
+                "./audio.mp3"
+            )
+
+            # Structured output with Pydantic schema
+            class SentimentResult(BaseModel):
+                sentiment: str
+                confidence: float
+
+            result = await app.ai(
+                "Analyze the sentiment of 'I love this product!'",
+                schema=SentimentResult
+            )
+
+            # Override default AI configuration parameters
+            response = await app.ai(
+                "Generate a creative story.",
+                model="gpt-4-turbo",
+                temperature=0.9,
+                max_tokens=500,
+                stream=True
+            )
+
+            # Complex multimodal conversation
+            response = await app.ai([
+                {"role": "system", "content": "You are a visual assistant."},
+                {"role": "user", "content": "What do you see here?"},
+                "https://example.com/chart.png",
+                {"role": "user", "content": "Can you explain the trend?"}
+            ])
+        """
+        # Apply hierarchical configuration: Agent defaults < Method overrides < Runtime overrides
+        final_config = self.agent.ai_config.copy(deep=True)
+
+        # Default enable rate limit retry unless explicitly set to False
+        if (
+            not hasattr(final_config, "enable_rate_limit_retry")
+            or final_config.enable_rate_limit_retry is None
+        ):
+            final_config.enable_rate_limit_retry = True
+
+        # Apply method-level overrides
+        if model:
+            final_config.model = model
+        if temperature is not None:
+            final_config.temperature = temperature
+        if max_tokens is not None:
+            final_config.max_tokens = max_tokens
+        if stream is not None:
+            final_config.stream = stream
+        if response_format is not None:
+            if isinstance(response_format, str):
+                final_config.response_format = response_format
+
+        # TODO: Integrate memory injection based on memory_scope and self.memory_config
+        # For now, just pass context if provided
+        if context:
+            # This would be where memory data is merged into the context
+            pass
+
+        # Prepare messages for LiteLLM
+        messages = []
+
+        # If a schema is provided, augment the system prompt with strict schema adherence instructions and schema context
+        if schema:
+            # Generate a readable JSON schema string using the modern Pydantic API
+            try:
+                schema_dict = schema.model_json_schema()
+                schema_json = json.dumps(schema_dict, indent=2)
+            except Exception:
+                schema_json = str(schema)
+            schema_instruction = (
+                "IMPORTANT: You must exactly adhere to the output schema provided below. "
+                "Do not add or omit any fields. Output must be valid JSON matching the schema. "
+                "If a field is required in the schema, it must be present in the output. "
+                "If a field is not in the schema, do NOT include it in the output. "
+                "Here is the output schema you must follow:\n"
+                f"{schema_json}\n"
+                "Repeat: Output ONLY valid JSON matching the schema above. Do not include any extra text or explanation."
+            )
+            # Merge with any user-provided system prompt
+            if system:
+                system_prompt = f"{system}\n\n{schema_instruction}"
+            else:
+                system_prompt = schema_instruction
+            messages.append({"role": "system", "content": system_prompt})
+        else:
+            if system:
+                messages.append({"role": "system", "content": system})
+
+        # Handle flexible user input with intelligent processing. When both
+        # input styles are used, keep the positional multimodal content and
+        # append the keyword prompt to the final user message.
+        processed_content = self._process_multimodal_args(args) if args else []
+        if user and processed_content:
+            user_message = next(
+                (
+                    message
+                    for message in reversed(processed_content)
+                    if message.get("role") == "user"
+                ),
+                None,
+            )
+            if user_message is not None:
+                content = user_message.get("content")
+                if isinstance(content, list):
+                    content.append({"type": "text", "text": user})
+                else:
+                    user_message["content"] = [
+                        {"type": "text", "text": content},
+                        {"type": "text", "text": user},
+                    ]
+            else:
+                processed_content.append({"role": "user", "content": user})
+        elif user:
+            processed_content.append({"role": "user", "content": user})
+
+        messages.extend(processed_content)
+
+        litellm_module = litellm if hasattr(litellm, "acompletion") else None
+
+        # Ensure model limits are cached (done once per instance)
+        await self._ensure_model_limits_cached()
+
+        # Apply prompt trimming using LiteLLM's token-aware utility when available.
+        utils_module = (
+            getattr(litellm_module, "utils", None) if litellm_module else None
+        )
+        token_counter = (
+            getattr(utils_module, "token_counter", None) if utils_module else None
+        )
+        trim_messages = (
+            getattr(utils_module, "trim_messages", None) if utils_module else None
+        )
+
+        if token_counter is None:
+
+            def token_counter(model: str, messages: List[dict]) -> int:
+                return len(json.dumps(messages))
+
+        if trim_messages is None:
+
+            def trim_messages(
+                messages: List[dict], model: str, max_tokens: int
+            ) -> List[dict]:
+                return messages
+
+        # Determine model context length using multiple fallback strategies
+        model_context_length = None
+
+        # Strategy 1: Use explicit max_input_tokens from config
+        if hasattr(final_config, "max_input_tokens") and final_config.max_input_tokens:
+            model_context_length = final_config.max_input_tokens
+
+        # Strategy 3: Use fallback model mappings
+        if not model_context_length and hasattr(final_config, "_MODEL_CONTEXT_LIMITS"):
+            candidate_limit = final_config._MODEL_CONTEXT_LIMITS.get(final_config.model)
+            if candidate_limit:
+                model_context_length = candidate_limit
+
+        # Strategy 4: Conservative fallback with warning
+        if not model_context_length:
+            model_context_length = 10192  # More reasonable than 4096
+
+        # Calculate safe input token limit: context_length - max_output_tokens - buffer
+        output_tokens = (
+            final_config.max_tokens or 7096
+        )  # Default output if not specified
+        buffer_tokens = 100  # Small buffer for safety
+
+        safe_input_limit = max(
+            1000, model_context_length - output_tokens - buffer_tokens
+        )
+
+        # Validate the calculation makes sense
+        if safe_input_limit < 1000:
+            safe_input_limit = 1000
+
+        def has_untrimmable_media(messages_to_check: List[dict]) -> bool:
+            for message in messages_to_check:
+                content = message.get("content")
+                if not isinstance(content, list):
+                    continue
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") in {
+                        "input_audio",
+                        "file",
+                    }:
+                        return True
+            return False
+
+        skip_trimming = has_untrimmable_media(messages)
+
+        # Count actual prompt tokens using LiteLLM's token counter. LiteLLM's
+        # trimming utilities do not currently handle all media parts and can
+        # dump base64 payloads in their error logs, so media payloads pass
+        # through unchanged.
+        try:
+            actual_prompt_tokens = (
+                0
+                if skip_trimming
+                else token_counter(model=final_config.model, messages=messages)
+            )
+        except Exception as e:
+            log_debug(f"Could not count prompt tokens; skipping trimming: {e}")
+            actual_prompt_tokens = 0
+
+        # Only trim if necessary based on actual token count
+        if actual_prompt_tokens > safe_input_limit:
+            trimmed_messages = trim_messages(
+                messages, final_config.model, max_tokens=safe_input_limit
+            )
+            if len(trimmed_messages) != len(messages) or any(
+                m1 != m2 for m1, m2 in zip(messages, trimmed_messages)
+            ):
+                messages = trimmed_messages
+        else:
+            pass
+
+        # Prepare LiteLLM parameters using the config's method
+        # This leverages LiteLLM's standard environment variable handling and smart token management
+        litellm_params = final_config.get_litellm_params(
+            messages=messages,
+            **kwargs,  # Runtime overrides have highest priority
+        )
+
+        # Ensure messages are always included in the final params
+        litellm_params["messages"] = messages
+
+        # CRITICAL: Pass an HTTP-level timeout to litellm so httpx itself
+        # aborts the underlying socket, not just the asyncio coroutine wrapper.
+        # Without this, asyncio.wait_for cancels the coroutine but leaves the
+        # underlying httpx connection in a half-closed state. Subsequent calls
+        # then grab the stale pooled connection and hang forever — a silent
+        # deadlock that py-spy reveals as 'all worker threads idle'.
+        # litellm forwards `timeout` to httpx as a request-level timeout.
+        # Per-call `timeout` kwarg overrides the agent-wide async_config default.
+        if timeout is not None and timeout <= 0:
+            raise ValueError(f"timeout must be positive, got {timeout}")
+        effective_timeout = (
+            timeout
+            if timeout is not None
+            else getattr(self.agent.async_config, "llm_call_timeout", 120.0)
+        )
+        litellm_params.setdefault("timeout", effective_timeout)
+
+        if schema:
+            # Convert Pydantic model to JSON schema format for LiteLLM
+            # This workaround prevents "Object of type ModelMetaclass is not JSON serializable" error
+            # See: https://github.com/BerriAI/litellm/issues/6830
+            litellm_params["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    # OpenAI strict mode requires additionalProperties:false +
+                    # all-properties-required on every object; Pydantic emits
+                    # neither, so sanitize before sending (else BadRequestError).
+                    "schema": _strictify_openai_schema(schema.model_json_schema()),
+                    "name": schema.__name__,
+                    "strict": True,
+                },
+            }
+
+        # Tool-calling loop: if tools= is provided, enter the discover->call loop
+        if tools is not None:
+            # Streaming is not supported with tool-calling
+            if final_config.stream:
+                raise ValueError(
+                    "Streaming is not supported with tool-calling. "
+                    "Use tools= OR stream=True, not both."
+                )
+
+            from agentfield.tool_calling import (
+                ToolCallResponse,
+                _build_tool_config,
+                execute_tool_call_loop,
+            )
+
+            tool_schemas, tool_config, needs_lazy = _build_tool_config(
+                tools, self.agent
+            )
+
+            # Apply per-call overrides
+            if max_turns is not None:
+                tool_config.max_turns = max_turns
+            if max_tool_calls is not None:
+                tool_config.max_tool_calls = max_tool_calls
+
+            async def _tool_loop_completion(params):
+                """Make an LLM call with rate limiting and model fallbacks."""
+                if litellm_module is None:
+                    raise ImportError(
+                        "litellm is not installed. Please install it with `pip install litellm`."
+                    )
+
+                async def _make_call():
+                    # Ensure litellm/httpx itself enforces the timeout at the
+                    # socket level, so cancelled requests don't poison the
+                    # connection pool for subsequent calls.
+                    params.setdefault("timeout", effective_timeout)
+                    # asyncio.wait_for is a safety net at 2x the litellm timeout;
+                    # on timeout it resets the client pool and retries (a stalled
+                    # connection is the usual cause, not the model itself).
+                    return await _acompletion_with_timeout_retry(
+                        litellm_module, params, effective_timeout * 2
+                    )
+
+                async def _call_with_fallbacks():
+                    fallback_models = getattr(final_config, "fallback_models", None)
+                    if not fallback_models and getattr(
+                        final_config, "final_fallback_model", None
+                    ):
+                        fallback_models = [final_config.final_fallback_model]
+
+                    if fallback_models:
+                        all_models = [params.get("model", final_config.model)] + list(
+                            fallback_models
+                        )
+                        last_exception = None
+                        for m in all_models:
+                            try:
+                                params["model"] = m
+                                return await _make_call()
+                            except Exception as e:
+                                log_debug(
+                                    f"Tool loop: model {m} failed with {e}, trying next..."
+                                )
+                                last_exception = e
+                                continue
+                        if last_exception:
+                            raise last_exception
+                    return await _make_call()
+
+                if final_config.enable_rate_limit_retry:
+                    rate_limiter = self._get_rate_limiter()
+                    return await rate_limiter.execute_with_retry(_call_with_fallbacks)
+                return await _call_with_fallbacks()
+
+            resp, trace = await execute_tool_call_loop(
+                agent=self.agent,
+                messages=messages,
+                tools=tool_schemas,
+                config=tool_config,
+                needs_lazy_hydration=needs_lazy,
+                litellm_params=litellm_params,
+                make_completion=_tool_loop_completion,
+            )
+
+            if schema:
+                try:
+                    content = resp.choices[0].message.content
+                    json_data = json.loads(str(content))
+                    return schema(**json_data)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+            return ToolCallResponse(resp, trace)
+
+        # Define the LiteLLM call function for rate limiter
+        async def _make_litellm_call():
+            if litellm_module is None:
+                raise ImportError(
+                    "litellm is not installed. Please install it with `pip install litellm`."
+                )
+            # litellm/httpx already gets `timeout` via litellm_params (set
+            # earlier). asyncio.wait_for is a safety net at 2x; on timeout it
+            # resets the client pool and retries (a stalled connection is the
+            # usual cause, not the model itself).
+            return await _acompletion_with_timeout_retry(
+                litellm_module, litellm_params, effective_timeout * 2
+            )
+
+        async def _execute_with_fallbacks():
+            # Check for configured fallback models in AI config
+            fallback_models = getattr(final_config, "fallback_models", None)
+            if not fallback_models and getattr(
+                final_config, "final_fallback_model", None
+            ):
+                # If only a final model is provided, treat it as a fallback list of one
+                fallback_models = [final_config.final_fallback_model]
+
+            if fallback_models:
+                # Ensure each fallback call has a valid provider
+                all_models = [final_config.model] + list(fallback_models)
+                last_exception = None
+                for m in all_models:
+                    try:
+                        if "/" not in m:
+                            log_debug(
+                                f"Skipping model {m} - no provider specified in model name"
+                            )
+                            raise ValueError(
+                                f"Invalid model spec: '{m}'. Must include provider prefix, e.g. 'openai/gpt-4'."
+                            )
+                        litellm_params["model"] = m
+                        return await _make_litellm_call()
+                    except Exception as e:
+                        log_debug(
+                            f"Model {m} failed with {e}, trying next fallback if available..."
+                        )
+                        last_exception = e
+                        continue
+                # If all models fail, re-raise the last exception
+                if last_exception:
+                    raise last_exception
+            else:
+                # No fallbacks configured, just make the call
+                if "/" not in final_config.model:
+                    raise ValueError(
+                        f"Invalid model spec: '{final_config.model}'. Must include provider prefix, e.g. 'openai/gpt-4'."
+                    )
+                return await _make_litellm_call()
+
+        # Maximum retries for transient parse failures (malformed JSON from LLM)
+        max_parse_retries = 2
+        empty_reasoning_retry_used = False
+
+        async def _execute_and_parse():
+            """Execute LLM call and parse response. Raised ValueError triggers parse retry."""
+            if final_config.enable_rate_limit_retry:
+                rate_limiter = self._get_rate_limiter()
+                try:
+                    resp = await rate_limiter.execute_with_retry(
+                        _execute_with_fallbacks
+                    )
+                except Exception as e:
+                    log_debug(f"LiteLLM call failed after retries: {e}")
+                    raise
+            else:
+                try:
+                    resp = await _execute_with_fallbacks()
+                except HTTPStatusError as e:
+                    log_debug(
+                        f"LiteLLM HTTP call failed: {e.response.status_code} - {e.response.text}"
+                    )
+                    raise
+                except requests.exceptions.RequestException as e:
+                    log_debug(f"LiteLLM network call failed: {e}")
+                    if e.response is not None:
+                        log_debug(f"Response status: {e.response.status_code}")
+                        log_debug(f"Response text: {e.response.text}")
+                    raise
+                except Exception as e:
+                    log_debug(f"LiteLLM call failed: {e}")
+                    raise
+
+            if final_config.stream:
+                return resp
+
+            from .multimodal_response import detect_multimodal_response
+
+            multimodal_response = detect_multimodal_response(resp)
+
+            # Record usage in the tracker before schema parsing strips
+            # multimodal metadata. Token recording is decoupled from pricing:
+            # whenever token counts are available we record them, with
+            # cost_usd=None when the price is unknown. Cost failure must never
+            # discard tokens that were successfully extracted.
+            usage = multimodal_response.usage
+            if usage:
+                from agentfield.cost_tracker import get_current_cost_tracker
+
+                tracker = get_current_cost_tracker()
+                if tracker is None and hasattr(self.agent, "cost_tracker"):
+                    tracker = self.agent.cost_tracker
+                if tracker is not None:
+                    model_name = (
+                        getattr(resp, "model", "") or final_config.model or "unknown"
+                    )
+                    from agentfield.execution_context import get_current_context
+
+                    ctx = get_current_context()
+                    tracker.record(
+                        model=model_name,
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                        total_tokens=usage.get("total_tokens", 0),
+                        cost_usd=multimodal_response.cost_usd,
+                        reasoner_name=ctx.reasoner_name if ctx else None,
+                        source="llm",
+                        cache_read_tokens=usage.get("cache_read_tokens", 0),
+                        cache_creation_tokens=usage.get("cache_creation_tokens", 0),
+                        cost_source=multimodal_response.cost_source,
+                    )
+
+            if schema:
+                try:
+                    json_data = json.loads(str(multimodal_response.text))
+                    parsed = schema(**json_data)
+                    _raise_if_empty_reasoning_structured_output(resp, parsed)
+                    return parsed
+                except _EmptyReasoningStructuredOutput:
+                    raise
+                except (
+                    json.JSONDecodeError,
+                    ValueError,
+                    ValidationError,
+                ) as parse_error:
+                    log_error(f"Failed to parse JSON response: {parse_error}")
+                    log_debug(f"Raw response: {multimodal_response.text}")
+                    json_match = re.search(
+                        r"\{.*\}", str(multimodal_response.text), re.DOTALL
+                    )
+                    if json_match:
+                        try:
+                            json_data = json.loads(json_match.group())
+                            parsed = schema(**json_data)
+                            _raise_if_empty_reasoning_structured_output(resp, parsed)
+                            return parsed
+                        except _EmptyReasoningStructuredOutput:
+                            raise
+                        except (json.JSONDecodeError, ValueError, ValidationError):
+                            pass
+                    raise ValueError(
+                        f"Could not parse structured response: {multimodal_response.text}"
+                    )
+
+            return multimodal_response
+
+        # Retry on parse failures (malformed LLM JSON output)
+        last_parse_error = None
+        for attempt in range(max_parse_retries + 1):
+            try:
+                return await _execute_and_parse()
+            except _EmptyReasoningStructuredOutput:
+                if schema and not empty_reasoning_retry_used:
+                    empty_reasoning_retry_used = True
+                    _increase_retry_max_tokens(litellm_params)
+                    log_debug(
+                        "Structured response was empty after reasoning_content; retrying once with a larger max_tokens budget..."
+                    )
+                    continue
+                raise
+            except ValueError as e:
+                if schema and "Could not parse structured response" in str(e):
+                    last_parse_error = e
+                    if attempt < max_parse_retries:
+                        log_debug(
+                            f"Parse retry {attempt + 1}/{max_parse_retries}: LLM returned malformed JSON, retrying..."
+                        )
+                        continue
+                raise
+        raise last_parse_error
+
+    def _process_multimodal_args(self, args: tuple) -> List[Dict[str, Any]]:
+        """Process multimodal arguments into LiteLLM-compatible message format"""
+        from agentfield.multimodal import Audio, File, Image, Text, Video
+
+        messages = []
+        user_content = []
+
+        for arg in args:
+            # Handle our multimodal input classes first
+            if isinstance(arg, Text):
+                user_content.append({"type": "text", "text": arg.text})
+
+            elif isinstance(arg, Image):
+                if isinstance(arg.image_url, dict):
+                    user_content.append(
+                        {"type": "image_url", "image_url": arg.image_url}
+                    )
+                else:
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": arg.image_url, "detail": "high"},
+                        }
+                    )
+
+            elif isinstance(arg, Audio):
+                # Handle audio input according to LiteLLM GPT-4o-audio pattern
+                user_content.append(
+                    {"type": "input_audio", "input_audio": arg.input_audio}
+                )
+
+            elif isinstance(arg, Video):
+                user_content.append({"type": "video_url", "video_url": arg.video_url})
+
+            elif isinstance(arg, File):
+                # For now, treat files as text references
+                if isinstance(arg.file, dict):
+                    file_info = arg.file
+                    user_content.append(
+                        {
+                            "type": "text",
+                            "text": f"[File: {file_info.get('url', 'unknown')}]",
+                        }
+                    )
+                else:
+                    user_content.append({"type": "text", "text": f"[File: {arg.file}]"})
+
+            else:
+                # Fall back to automatic detection for raw inputs
+                detected_type = AgentUtils.detect_input_type(arg)
+
+                if detected_type == "text":
+                    user_content.append({"type": "text", "text": arg})
+
+                elif detected_type == "image_url":
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": arg, "detail": "high"},
+                        }
+                    )
+
+                elif detected_type == "image_file":
+                    # Convert file to base64 data URL
+                    try:
+                        import base64
+
+                        with open(arg, "rb") as f:
+                            image_data = base64.b64encode(f.read()).decode()
+                        ext = os.path.splitext(arg)[1].lower()
+                        mime_type = AgentUtils.get_mime_type(ext)
+                        data_url = f"data:{mime_type};base64,{image_data}"
+                        user_content.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": data_url, "detail": "high"},
+                            }
+                        )
+                    except Exception as e:
+                        log_warn(f"Could not read image file {arg}: {e}")
+                        user_content.append(
+                            {"type": "text", "text": f"[Image file: {arg}]"}
+                        )
+
+                elif detected_type == "audio_file":
+                    # Convert audio file to LiteLLM input_audio format
+                    try:
+                        import base64
+
+                        with open(arg, "rb") as f:
+                            audio_data = base64.b64encode(f.read()).decode()
+
+                        # Detect format from extension
+                        ext = os.path.splitext(arg)[1].lower().lstrip(".")
+                        audio_format = (
+                            ext if ext in ["wav", "mp3", "flac", "ogg"] else "wav"
+                        )
+
+                        user_content.append(
+                            {
+                                "type": "input_audio",
+                                "input_audio": {
+                                    "data": audio_data,
+                                    "format": audio_format,
+                                },
+                            }
+                        )
+                    except Exception as e:
+                        log_warn(f"Could not read audio file {arg}: {e}")
+                        user_content.append(
+                            {
+                                "type": "text",
+                                "text": f"[Audio file: {os.path.basename(arg)}]",
+                            }
+                        )
+
+                elif detected_type == "document_file":
+                    # For documents, we might need to extract text
+                    # For now, just reference the file
+                    user_content.append(
+                        {
+                            "type": "text",
+                            "text": f"[Document file: {os.path.basename(arg)}]",
+                        }
+                    )
+
+                elif detected_type == "image_base64":
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": arg, "detail": "high"},
+                        }
+                    )
+
+                elif detected_type == "audio_base64":
+                    # Extract format and data from data URL
+                    try:
+                        if arg.startswith("data:audio/"):
+                            # Parse data URL: data:audio/wav;base64,<data>
+                            header, data = arg.split(",", 1)
+                            format_part = header.split(";")[0].split("/")[1]
+                            user_content.append(
+                                {
+                                    "type": "input_audio",
+                                    "input_audio": {
+                                        "data": data,
+                                        "format": format_part,
+                                    },
+                                }
+                            )
+                        else:
+                            user_content.append(
+                                {"type": "text", "text": "[Audio data provided]"}
+                            )
+                    except Exception as e:
+                        log_warn(f"Could not process audio base64: {e}")
+                        user_content.append(
+                            {"type": "text", "text": "[Audio data provided]"}
+                        )
+
+                elif detected_type == "video_file":
+                    try:
+                        import base64
+
+                        with open(arg, "rb") as f:
+                            video_data = base64.b64encode(f.read()).decode()
+                        ext = os.path.splitext(arg)[1].lower()
+                        mime_type = AgentUtils.get_mime_type(ext)
+                        data_url = f"data:{mime_type};base64,{video_data}"
+                        user_content.append(
+                            {"type": "video_url", "video_url": {"url": data_url}}
+                        )
+                    except Exception as e:
+                        log_warn(f"Could not read video file {arg}: {e}")
+                        user_content.append(
+                            {
+                                "type": "text",
+                                "text": f"[Video file: {os.path.basename(arg)}]",
+                            }
+                        )
+
+                elif detected_type == "video_base64":
+                    user_content.append(
+                        {"type": "video_url", "video_url": {"url": arg}}
+                    )
+
+                elif detected_type == "image_bytes":
+                    # Convert bytes to base64 data URL
+                    try:
+                        import base64
+
+                        image_data = base64.b64encode(arg).decode()
+                        # Try to detect image type from bytes
+                        if arg.startswith(b"\xff\xd8\xff"):
+                            mime_type = "image/jpeg"
+                        elif arg.startswith(b"\x89PNG"):
+                            mime_type = "image/png"
+                        elif arg.startswith(b"GIF8"):
+                            mime_type = "image/gif"
+                        else:
+                            mime_type = "image/png"  # Default
+
+                        data_url = f"data:{mime_type};base64,{image_data}"
+                        user_content.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": data_url, "detail": "high"},
+                            }
+                        )
+                    except Exception as e:
+                        log_warn(f"Could not process image bytes: {e}")
+                        user_content.append(
+                            {"type": "text", "text": "[Image data provided]"}
+                        )
+
+                elif detected_type == "audio_bytes":
+                    # Convert audio bytes to input_audio format
+                    try:
+                        import base64
+
+                        audio_data = base64.b64encode(arg).decode()
+                        # Try to detect format from bytes
+                        if arg.startswith(b"RIFF") and b"WAVE" in arg[:12]:
+                            audio_format = "wav"
+                        elif arg.startswith(b"ID3") or arg.startswith(b"\xff\xfb"):
+                            audio_format = "mp3"
+                        else:
+                            audio_format = "wav"  # Default
+
+                        user_content.append(
+                            {
+                                "type": "input_audio",
+                                "input_audio": {
+                                    "data": audio_data,
+                                    "format": audio_format,
+                                },
+                            }
+                        )
+                    except Exception as e:
+                        log_warn(f"Could not process audio bytes: {e}")
+                        user_content.append(
+                            {"type": "text", "text": "[Audio data provided]"}
+                        )
+
+                elif detected_type == "structured_input":
+                    # Handle dict with explicit keys
+                    if "system" in arg:
+                        messages.append({"role": "system", "content": arg["system"]})
+                    if "user" in arg:
+                        user_content.append({"type": "text", "text": arg["user"]})
+                    # Handle other structured content
+                    for key in [
+                        "text",
+                        "image",
+                        "image_url",
+                        "audio",
+                        "video",
+                        "video_url",
+                    ]:
+                        if key in arg:
+                            if key == "text":
+                                user_content.append({"type": "text", "text": arg[key]})
+                            elif key in ["image", "image_url"]:
+                                if isinstance(arg[key], dict):
+                                    user_content.append(
+                                        {"type": "image_url", "image_url": arg[key]}
+                                    )
+                                else:
+                                    user_content.append(
+                                        {
+                                            "type": "image_url",
+                                            "image_url": {
+                                                "url": arg[key],
+                                                "detail": "high",
+                                            },
+                                        }
+                                    )
+                            elif key == "audio":
+                                if isinstance(arg[key], dict):
+                                    user_content.append(
+                                        {"type": "input_audio", "input_audio": arg[key]}
+                                    )
+                                else:
+                                    # Assume it's a file path or URL
+                                    user_content.append(
+                                        {"type": "text", "text": f"[Audio: {arg[key]}]"}
+                                    )
+                            elif key in ["video", "video_url"]:
+                                if isinstance(arg[key], dict):
+                                    user_content.append(
+                                        {"type": "video_url", "video_url": arg[key]}
+                                    )
+                                else:
+                                    user_content.append(
+                                        {
+                                            "type": "video_url",
+                                            "video_url": {"url": arg[key]},
+                                        }
+                                    )
+
+                elif detected_type == "message_dict":
+                    # Handle message format dict
+                    messages.append(arg)
+
+                elif detected_type == "conversation_list":
+                    # Handle list of messages
+                    messages.extend(arg)
+
+                elif detected_type == "multimodal_list":
+                    # Handle mixed list of content
+                    for item in arg:
+                        if isinstance(item, str):
+                            user_content.append({"type": "text", "text": item})
+                        elif isinstance(item, dict):
+                            if "role" in item:
+                                messages.append(item)
+                            else:
+                                # Process as structured input
+                                sub_messages = self._process_multimodal_args((item,))
+                                messages.extend(sub_messages)
+
+                elif detected_type == "dict":
+                    # Generic dict - convert to text representation
+                    import json
+
+                    user_content.append(
+                        {"type": "text", "text": f"Data: {json.dumps(arg, indent=2)}"}
+                    )
+
+                else:
+                    # Fallback for unknown types
+                    user_content.append({"type": "text", "text": str(arg)})
+
+        # Add user content as a message if we have any
+        if user_content:
+            if len(user_content) == 1 and user_content[0]["type"] == "text":
+                # Simplify single text content
+                messages.append({"role": "user", "content": user_content[0]["text"]})
+            else:
+                # Multiple content types
+                messages.append({"role": "user", "content": user_content})
+
+        return messages
+
+    async def ai_with_audio(
+        self,
+        *args: Any,
+        voice: str = "alloy",
+        format: str = "wav",
+        model: Optional[str] = None,
+        mode: Optional[str] = None,
+        **kwargs,
+    ) -> Any:
+        """
+        AI method optimized for audio output generation.
+
+        Automatically detects the model type and uses the appropriate provider:
+        - For MiniMax TTS models (minimax/speech-2.8-hd, etc.): Uses MiniMax T2A
+        - For TTS models (tts-1, tts-1-hd, gpt-4o-mini-tts): Uses litellm.speech()
+        - For audio-capable chat models (gpt-4o-audio-preview): Uses litellm.completion() with audio modalities
+
+        Args:
+            *args: Input arguments (text prompts, etc.)
+            voice: Voice identifier. OpenAI voices include alloy, echo, fable,
+                onyx, nova, and shimmer. MiniMax models require a MiniMax voice ID.
+            format: Audio format. MiniMax supports mp3, wav, flac, and pcm.
+            model: Model to use (defaults to tts-1)
+            **kwargs: Additional parameters. MiniMax supports output_format
+                ("hex" or "url"), language_boost, voice_setting,
+                pronunciation_dict, audio_setting, voice_modify, and
+                subtitle_enable. Streaming is not supported.
+
+        Returns:
+            MultimodalResponse with audio content
+
+        Example:
+            audio_result = await agent.ai_with_audio("Say hello warmly", voice="alloy")
+            audio_result.audio.save("greeting.wav")
+
+            minimax_result = await agent.ai_with_audio(
+                "Say hello warmly",
+                model="minimax/speech-2.8-hd",
+                voice="English_Graceful_Lady",
+                format="mp3",
+            )
+        """
+        # Use TTS model as default (more reliable than gpt-4o-audio-preview)
+        if model is None:
+            model = (
+                self.agent.ai_config.audio_model
+            )  # Use configured audio model (defaults to tts-1)
+
+        if model.startswith("minimax/"):
+            provider = self._media_router.resolve(model, "audio")
+            text_input = " ".join(str(arg) for arg in args if isinstance(arg, str))
+            if not text_input:
+                text_input = "Hello, this is a test audio message."
+            return await provider.generate_audio(
+                text=text_input,
+                model=model,
+                voice=voice,
+                format=format,
+                **kwargs,
+            )
+
+        # Try media router for fal models
+        try:
+            provider = self._media_router.resolve(model, "audio")
+            if provider.name == "fal":
+                text_input = " ".join(str(arg) for arg in args if isinstance(arg, str))
+                if not text_input:
+                    text_input = "Hello, this is a test audio message."
+                return await provider.generate_audio(
+                    text=text_input,
+                    model=model,
+                    voice=voice,
+                    format=format,
+                    **kwargs,
+                )
+        except ValueError:
+            pass  # Fall through to existing logic
+
+        # Check if mode="openai_direct" is specified
+        if mode == "openai_direct":
+            # Use direct OpenAI client with streaming response
+            return await self._generate_openai_direct_audio(
+                *args,
+                voice=voice,
+                format=format,
+                model=model or "gpt-4o-mini-tts",
+                **kwargs,
+            )
+
+        # Check if this is a TTS model that needs the speech endpoint
+        tts_models = ["tts-1", "tts-1-hd", "gpt-4o-mini-tts"]
+        if model in tts_models:
+            # Use LiteLLM speech function for TTS models
+            return await self._generate_tts_audio(
+                *args, voice=voice, format=format, model=model, **kwargs
+            )
+        else:
+            # Use chat completion with audio modalities for other models
+            audio_params = {
+                "modalities": ["text", "audio"],
+                "audio": {"voice": voice, "format": format},
+            }
+            final_kwargs = {**audio_params, **kwargs}
+            return await self.ai(*args, model=model, **final_kwargs)
+
+    async def _generate_tts_audio(
+        self,
+        *args: Any,
+        voice: str = "alloy",
+        format: str = "wav",
+        model: str = "tts-1",
+        **kwargs,
+    ) -> Any:
+        """
+        Generate audio using LiteLLM's speech function for TTS models.
+        """
+        from agentfield.multimodal_response import (
+            AudioOutput,
+            MultimodalResponse,
+        )
+
+        litellm_module = litellm
+        if not hasattr(litellm_module, "aspeech"):
+            raise ImportError(
+                "litellm is not installed. Please install it with `pip install litellm` to use TTS features."
+            )
+
+        # Combine all text inputs
+        text_input = " ".join(str(arg) for arg in args if isinstance(arg, str))
+        if not text_input:
+            text_input = "Hello, this is a test audio message."
+
+        try:
+            # Get API configuration
+            config = self.agent.ai_config.get_litellm_params()
+
+            # Use LiteLLM speech function
+            response = await litellm_module.aspeech(
+                model=model,
+                input=text_input,
+                voice=voice,
+                response_format=format,
+                api_key=config.get("api_key"),
+                **kwargs,
+            )
+
+            # Convert binary response to base64 string for AudioOutput
+            import base64
+
+            try:
+                # Try different methods to get binary content
+                if hasattr(response, "content"):
+                    binary_content = response.content
+                elif hasattr(response, "read"):
+                    binary_content = response.read()
+                elif hasattr(response, "__iter__"):
+                    # For HttpxBinaryResponseContent, iterate to get bytes
+                    binary_content = b"".join(response)
+                else:
+                    # Last resort - convert to string and encode
+                    binary_content = str(response).encode("utf-8")
+
+                audio_data = base64.b64encode(binary_content).decode("utf-8")
+            except Exception as e:
+                log_error(f"Failed to process audio response: {e}")
+                # Use a placeholder for now
+                audio_data = ""
+
+            # Create AudioOutput directly
+            audio_output = AudioOutput(data=audio_data, format=format, url=None)
+
+            # Create MultimodalResponse directly
+            return MultimodalResponse(
+                text=text_input,
+                audio=audio_output,
+                images=[],
+                files=[],
+                raw_response=response,
+            )
+
+        except Exception as e:
+            # Fallback to text-only MultimodalResponse
+            log_error(f"TTS generation failed: {e}")
+            return MultimodalResponse(
+                text=text_input,
+                audio=None,
+                images=[],
+                files=[],
+                raw_response=text_input,
+            )
+
+    async def _generate_openai_direct_audio(
+        self,
+        *args: Any,
+        voice: str = "alloy",
+        format: str = "wav",
+        model: str = "gpt-4o-mini-tts",
+        **kwargs,
+    ) -> Any:
+        """
+        Generate audio using OpenAI client directly with streaming response.
+        This method supports OpenAI-specific parameters like 'instructions' and 'speed'.
+
+        All kwargs are passed through to OpenAI SDK. The SDK will validate parameters
+        and reject unsupported ones.
+
+        Common OpenAI parameters:
+        - instructions: Guide the model's speaking style
+        - speed: Speech speed (0.25 to 4.0)
+        - response_format: Audio format (mp3, opus, aac, flac, wav, pcm)
+        """
+        import base64
+        import tempfile
+        from pathlib import Path
+
+        from agentfield.multimodal_response import AudioOutput, MultimodalResponse
+        from openai import OpenAI
+
+        # Combine all text inputs
+        text_input = " ".join(str(arg) for arg in args if isinstance(arg, str))
+        if not text_input:
+            text_input = "Hello, this is a test audio message."
+
+        try:
+            # Get API configuration
+            config = self.agent.ai_config.get_litellm_params()
+            api_key = config.get("api_key")
+
+            if not api_key:
+                raise ValueError("OpenAI API key not found in configuration")
+
+            # Initialize OpenAI client
+            client = OpenAI(api_key=api_key)
+
+            # Prepare base parameters for OpenAI speech API
+            speech_params = {
+                "model": model,
+                "voice": voice,
+                "input": text_input,
+            }
+
+            # Map format parameter to response_format if not already in kwargs
+            if "response_format" not in kwargs and format:
+                speech_params["response_format"] = format
+
+            # Pass all kwargs through to OpenAI SDK
+            # Let OpenAI SDK handle parameter validation
+            speech_params.update(kwargs)
+
+            # Create a temporary file for the audio
+            with tempfile.NamedTemporaryFile(
+                suffix=f".{format}", delete=False
+            ) as temp_file:
+                temp_path = Path(temp_file.name)
+
+            try:
+                # Use OpenAI streaming response
+                with client.audio.speech.with_streaming_response.create(
+                    **speech_params
+                ) as response:
+                    response.stream_to_file(temp_path)
+
+                # Read the audio file and convert to base64
+                with open(temp_path, "rb") as audio_file:
+                    binary_content = audio_file.read()
+                    audio_data = base64.b64encode(binary_content).decode("utf-8")
+
+                # Create AudioOutput
+                audio_output = AudioOutput(data=audio_data, format=format, url=None)
+
+                # Create MultimodalResponse
+                return MultimodalResponse(
+                    text=text_input,
+                    audio=audio_output,
+                    images=[],
+                    files=[],
+                    raw_response=response,
+                )
+
+            finally:
+                # Clean up temporary file
+                if temp_path.exists():
+                    temp_path.unlink()
+
+        except Exception as e:
+            # Fallback to text-only MultimodalResponse
+            log_error(f"OpenAI direct audio generation failed: {e}")
+            return MultimodalResponse(
+                text=text_input,
+                audio=None,
+                images=[],
+                files=[],
+                raw_response=text_input,
+            )
+
+    async def ai_with_vision(
+        self,
+        prompt: str,
+        size: str = "1024x1024",
+        quality: str = "standard",
+        style: Optional[str] = None,
+        model: Optional[str] = None,
+        response_format: str = "url",
+        **kwargs,
+    ) -> Any:
+        """
+        AI method optimized for image generation.
+
+        Supports both LiteLLM and OpenRouter providers:
+        - LiteLLM: Use model names like "dall-e-3", "azure/dall-e-3", "bedrock/stability.stable-diffusion-xl"
+        - OpenRouter: Use model names with "openrouter/" prefix like "openrouter/google/gemini-3.1-flash-image-preview"
+
+        Args:
+            prompt: Text prompt for image generation
+            size: Image size (256x256, 512x512, 1024x1024, 1792x1024, 1024x1792)
+            quality: Image quality (standard, hd)
+            style: Image style (vivid, natural) for DALL-E 3
+            model: Model to use (defaults to dall-e-3)
+            response_format: Response format ('url' or 'b64_json'). Defaults to 'url'
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            MultimodalResponse with image content
+
+        Examples:
+            # LiteLLM (DALL-E)
+            result = await agent.ai_with_vision("A sunset over mountains")
+            result.images[0].save("sunset.png")
+
+            # OpenRouter (Gemini)
+            result = await agent.ai_with_vision(
+                "A futuristic city",
+                model="openrouter/google/gemini-3.1-flash-image-preview",
+                image_config={"aspect_ratio": "16:9"}
+            )
+
+            # Get base64 data directly
+            result = await agent.ai_with_vision("A sunset", response_format="b64_json")
+        """
+        # Use image generation model if not specified
+        if model is None:
+            model = "dall-e-3"  # Default image model
+
+        # Route via MediaRouter (longest-prefix match)
+        provider = self._media_router.resolve(model, "image")
+
+        # Pass style/response_format for providers that support them
+        if style is not None:
+            kwargs["style"] = style
+        if response_format is not None:
+            kwargs["response_format"] = response_format
+
+        return await provider.generate_image(
+            prompt=prompt,
+            model=model,
+            size=size,
+            quality=quality,
+            **kwargs,
+        )
+
+    async def ai_with_multimodal(
+        self,
+        *args: Any,
+        modalities: Optional[List[str]] = None,
+        audio_config: Optional[Dict] = None,
+        model: Optional[str] = None,
+        **kwargs,
+    ) -> Any:
+        """
+        AI method for explicit multimodal input/output control.
+
+        Args:
+            *args: Mixed multimodal inputs
+            modalities: List of desired output modalities (["text", "audio", "image"])
+            audio_config: Audio configuration if audio modality requested
+            model: Model to use
+            **kwargs: Additional parameters
+
+        Returns:
+            MultimodalResponse with requested modalities
+
+        Example:
+            result = await agent.ai_with_multimodal(
+                "Describe this image and provide audio narration",
+                image_from_url("https://example.com/image.jpg"),
+                modalities=["text", "audio"],
+                audio_config={"voice": "nova", "format": "wav"}
+            )
+        """
+        multimodal_params = {}
+
+        if modalities:
+            multimodal_params["modalities"] = modalities
+
+        if audio_config and "audio" in (modalities or []):
+            multimodal_params["audio"] = audio_config
+
+        # Use multimodal-capable model if not specified
+        if model is None and modalities and "audio" in modalities:
+            model = "gpt-4o-audio-preview"
+
+        # Merge with user kwargs
+        final_kwargs = {**multimodal_params, **kwargs}
+
+        return await self.ai(*args, model=model, **final_kwargs)
+
+    async def ai_generate_image(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+        size: str = "1024x1024",
+        quality: str = "standard",
+        style: Optional[str] = None,
+        response_format: str = "url",
+        **kwargs,
+    ) -> "MultimodalResponse":
+        """
+        Generate an image from a text prompt.
+
+        This is a dedicated method for image generation with a clearer name
+        than ai_with_vision. Returns a MultimodalResponse containing the
+        generated image(s).
+
+        Supported Providers:
+        - LiteLLM: DALL-E models like "dall-e-3", "dall-e-2"
+        - OpenRouter: Models like "openrouter/google/gemini-3.1-flash-image-preview"
+        - Fal.ai: Models like "fal-ai/flux/dev", "fal-ai/flux/schnell", "fal-ai/recraft-v3"
+
+        Args:
+            prompt: Text description of the image to generate
+            model: Model to use (defaults to AIConfig.vision_model, typically "dall-e-3")
+            size: Image dimensions (e.g., "1024x1024", "1792x1024") or Fal presets
+                  ("square_hd", "landscape_16_9", "portrait_4_3")
+            quality: Image quality ("standard" or "hd")
+            style: Image style for DALL-E 3 ("vivid" or "natural")
+            response_format: Output format ("url" or "b64_json")
+            **kwargs: Provider-specific parameters (e.g., image_config for OpenRouter)
+
+        Returns:
+            MultimodalResponse: Response object with .images list containing ImageOutput objects.
+                - Use response.has_images to check if generation succeeded
+                - Use response.images[0].save("path.png") to save the image
+                - Use response.images[0].get_bytes() to get raw image bytes
+
+        Examples:
+            # Basic image generation
+            result = await app.ai_generate_image("A sunset over mountains")
+            if result.has_images:
+                result.images[0].save("sunset.png")
+
+            # OpenRouter with Gemini
+            result = await app.ai_generate_image(
+                "A futuristic cityscape at night",
+                model="openrouter/google/gemini-3.1-flash-image-preview",
+                image_config={"aspect_ratio": "16:9"}
+            )
+
+            # High quality DALL-E 3
+            result = await app.ai_generate_image(
+                "A photorealistic portrait",
+                model="dall-e-3",
+                quality="hd",
+                style="natural"
+            )
+
+            # Fal.ai Flux (fast, high quality)
+            result = await app.ai_generate_image(
+                "A cyberpunk cityscape",
+                model="fal-ai/flux/dev",
+                size="landscape_16_9",
+                num_images=2
+            )
+
+            # Fal.ai Flux Schnell (fastest)
+            result = await app.ai_generate_image(
+                "A serene Japanese garden",
+                model="fal-ai/flux/schnell",
+                size="square_hd"
+            )
+        """
+        # Use configured vision/image model as default
+        if model is None:
+            model = self.agent.ai_config.vision_model
+
+        return await self.ai_with_vision(
+            prompt=prompt,
+            model=model,
+            size=size,
+            quality=quality,
+            style=style,
+            response_format=response_format,
+            **kwargs,
+        )
+
+    async def ai_generate_audio(
+        self,
+        text: str,
+        model: Optional[str] = None,
+        voice: str = "alloy",
+        format: str = "wav",
+        speed: float = 1.0,
+        **kwargs,
+    ) -> "MultimodalResponse":
+        """
+        Generate audio/speech from text (Text-to-Speech).
+
+        This is a dedicated method for audio generation with a clearer name
+        than ai_with_audio. Returns a MultimodalResponse containing the
+        generated audio.
+
+        Supported Providers:
+        - LiteLLM: OpenAI TTS models like "tts-1", "tts-1-hd", "gpt-4o-mini-tts"
+        - Fal.ai: TTS models like "fal-ai/kokoro/..." (custom deployments)
+        - MiniMax: TTS models prefixed with "minimax/", such as
+          "minimax/speech-2.8-hd"
+
+        Args:
+            text: Text to convert to speech
+            model: TTS model to use (defaults to AIConfig.audio_model, typically "tts-1")
+            voice: Voice identifier. OpenAI voices include "alloy", "echo",
+                "fable", "onyx", "nova", and "shimmer". MiniMax models
+                require a MiniMax voice ID instead of the default "alloy".
+            format: Audio format. MiniMax supports "mp3", "wav", "flac", and
+                "pcm".
+            speed: Speech speed multiplier (0.25 to 4.0)
+            **kwargs: Provider-specific parameters. MiniMax supports
+                output_format ("hex" or "url"), language_boost,
+                voice_setting, pronunciation_dict, audio_setting,
+                voice_modify, and subtitle_enable. Streaming is not supported.
+
+        Returns:
+            MultimodalResponse: Response object with .audio containing AudioOutput.
+                - Use response.has_audio to check if generation succeeded
+                - Use response.audio.save("path.wav") to save the audio
+                - Use response.audio.get_bytes() to get raw audio bytes
+                - Use response.audio.play() to play the audio (requires pygame)
+
+        Examples:
+            # Basic speech generation
+            result = await app.ai_generate_audio("Hello, how are you today?")
+            if result.has_audio:
+                result.audio.save("greeting.wav")
+
+            # High-quality TTS with custom voice
+            result = await app.ai_generate_audio(
+                "Welcome to the presentation.",
+                model="tts-1-hd",
+                voice="nova",
+                format="mp3"
+            )
+
+            # MiniMax TTS with a MiniMax voice ID
+            result = await app.ai_generate_audio(
+                "Welcome to the presentation.",
+                model="minimax/speech-2.8-hd",
+                voice="English_Graceful_Lady",
+                format="mp3",
+                language_boost="English",
+                output_format="hex",
+            )
+
+            # Adjust speech speed
+            result = await app.ai_generate_audio(
+                "This is spoken slowly.",
+                speed=0.75
+            )
+        """
+        # Use configured audio model as default
+        if model is None:
+            model = self.agent.ai_config.audio_model
+
+        return await self.ai_with_audio(
+            text,
+            model=model,
+            voice=voice,
+            format=format,
+            speed=speed,
+            **kwargs,
+        )
+
+    async def ai_generate_music(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+        duration: Optional[int] = None,
+        **kwargs,
+    ) -> "MultimodalResponse":
+        """
+        Generate music from a text prompt.
+
+        Routes to a music-capable media provider (currently OpenRouter with
+        models like google/lyria-3-pro-preview). Returns a MultimodalResponse
+        whose ``.audio.format`` reports the container the model actually
+        produced — today google/lyria-3-* always returns MP3 (44.1 kHz stereo)
+        whatever ``format`` is requested.
+
+        Args:
+            prompt: Text description of the music to generate
+            model: Music model to use (defaults to "google/lyria-3-pro-preview")
+            duration: Duration hint in seconds
+            **kwargs: Provider-specific parameters (e.g., format="wav")
+
+        Returns:
+            MultimodalResponse: Response with .audio containing AudioOutput.
+
+        Examples:
+            result = await app.ai_generate_music("upbeat jazz piano solo")
+            if result.has_audio:
+                result.audio.save(f"jazz.{result.audio.format}")
+
+            result = await app.ai_generate_music(
+                "calm ambient electronic music",
+                duration=30,
+                format="mp3",
+            )
+        """
+        return await self._openrouter_provider.generate_music(
+            prompt=prompt,
+            model=model,
+            duration=duration,
+            **kwargs,
+        )
+
+    async def ai_generate_video(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+        image_url: Optional[str] = None,
+        duration: Optional[float] = None,
+        **kwargs,
+    ) -> "MultimodalResponse":
+        """
+        Generate video from text or image.
+
+        Routes video generation requests by model prefix. MiniMax models use
+        the ``minimax/`` prefix and support text-to-video and image-to-video.
+
+        Supported Providers:
+        - MiniMax: Models prefixed with "minimax/"
+        - Fal.ai: Models like "fal-ai/minimax-video/image-to-video",
+          "fal-ai/kling-video/v1/standard/text-to-video",
+          "fal-ai/luma-dream-machine"
+
+        Args:
+            prompt: Text description for the video
+            model: Video model to use (defaults to AIConfig.video_model)
+            image_url: Optional input image URL for image-to-video models
+            duration: Video duration in seconds (model-dependent)
+            **kwargs: Provider-specific parameters
+
+        Returns:
+            MultimodalResponse: Response with .files containing the video.
+                - Use response.files[0].save("video.mp4") to save
+                - Use response.files[0].url to get the video URL
+
+        Examples:
+            # Image to video
+            result = await app.ai_generate_video(
+                "Camera slowly pans across the landscape",
+                model="fal-ai/minimax-video/image-to-video",
+                image_url="https://example.com/image.jpg"
+            )
+            result.files[0].save("output.mp4")
+
+            # Text to video
+            result = await app.ai_generate_video(
+                "A cat playing with yarn",
+                model="fal-ai/kling-video/v1/standard/text-to-video"
+            )
+
+            # Luma Dream Machine
+            result = await app.ai_generate_video(
+                "A dreamy underwater scene",
+                model="fal-ai/luma-dream-machine"
+            )
+        """
+        if model is None:
+            model = self.agent.ai_config.video_model
+
+        # Route via MediaRouter (longest-prefix match)
+        provider = self._media_router.resolve(model, "video")
+        return await provider.generate_video(
+            prompt=prompt,
+            model=model,
+            image_url=image_url,
+            duration=duration,
+            **kwargs,
+        )
+
+    async def ai_transcribe_audio(
+        self,
+        audio_url: str,
+        model: str = "fal-ai/whisper",
+        language: Optional[str] = None,
+        **kwargs,
+    ) -> "MultimodalResponse":
+        """
+        Transcribe audio to text (Speech-to-Text).
+
+        This method transcribes audio files to text using Fal.ai's Whisper models.
+
+        Supported Providers:
+        - Fal.ai: Models like "fal-ai/whisper", "fal-ai/wizper" (2x faster)
+
+        Args:
+            audio_url: URL to audio file to transcribe
+            model: STT model to use (defaults to "fal-ai/whisper")
+            language: Optional language hint (e.g., "en", "es", "fr")
+            **kwargs: Provider-specific parameters
+
+        Returns:
+            MultimodalResponse: Response with .text containing the transcription.
+                - Use response.text to get the transcribed text
+
+        Examples:
+            # Basic transcription
+            result = await app.ai_transcribe_audio(
+                "https://example.com/audio.mp3"
+            )
+            print(result.text)
+
+            # With language hint
+            result = await app.ai_transcribe_audio(
+                "https://example.com/spanish_audio.mp3",
+                model="fal-ai/whisper",
+                language="es"
+            )
+
+            # Fast transcription with Wizper
+            result = await app.ai_transcribe_audio(
+                "https://example.com/audio.mp3",
+                model="fal-ai/wizper"
+            )
+        """
+        # Currently only Fal supports transcription
+        if not (model.startswith("fal-ai/") or model.startswith("fal/")):
+            raise ValueError(
+                f"Audio transcription currently only supports Fal.ai models. "
+                f"Use 'fal-ai/whisper' or 'fal-ai/wizper'. Got: {model}"
+            )
+
+        return await self._fal_provider.transcribe_audio(
+            audio_url=audio_url,
+            model=model,
+            language=language,
+            **kwargs,
+        )

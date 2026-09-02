@@ -63,9 +63,7 @@ class TestJiraSuccess:
 
 class TestGitHubSuccess:
     def test_minimal(self) -> None:
-        result = connector_params_to_hosted_params(
-            "github", {"owner": "org", "repo": "repo"}
-        )
+        result = connector_params_to_hosted_params("github", {"owner": "org", "repo": "repo"})
         assert result == GitHubHostedParams(owner="org", repo="repo")
 
     def test_extra_keys_tolerated(self) -> None:
@@ -89,18 +87,14 @@ class TestGitLabSuccess:
         )
 
     def test_default_base_url(self) -> None:
-        result = connector_params_to_hosted_params(
-            "gitlab", {"project_id": "456"}
-        )
+        result = connector_params_to_hosted_params("gitlab", {"project_id": "456"})
         assert result == GitLabHostedParams(
             project_id="456",
             base_url="https://gitlab.com/api/v4",
         )
 
     def test_extra_keys_tolerated(self) -> None:
-        result = connector_params_to_hosted_params(
-            "gitlab", {"project_id": "1", "namespace": "ns"}
-        )
+        result = connector_params_to_hosted_params("gitlab", {"project_id": "1", "namespace": "ns"})
         assert isinstance(result, GitLabHostedParams)
 
 
@@ -116,9 +110,7 @@ class TestMissingKeys:
 
     def test_jira_missing_project_key(self) -> None:
         with pytest.raises(ConnectorConfigError, match="project_key"):
-            connector_params_to_hosted_params(
-                "jira", {"base_url": "https://x.atlassian.net"}
-            )
+            connector_params_to_hosted_params("jira", {"base_url": "https://x.atlassian.net"})
 
     def test_jira_missing_base_url(self) -> None:
         with pytest.raises(ConnectorConfigError, match="base_url"):
@@ -172,9 +164,7 @@ class TestRoundTrip:
             connector_params={"team_id": "t-abc"},
             routing_metadata={},
         )
-        params = connector_params_to_hosted_params(
-            resource.provider, resource.connector_params
-        )
+        params = connector_params_to_hosted_params(resource.provider, resource.connector_params)
         assert isinstance(params, LinearHostedParams)
         assert params.team_id == "t-abc"
 
@@ -192,9 +182,7 @@ class TestRoundTrip:
             },
             routing_metadata={"cloud_id": "cloud-xyz"},
         )
-        params = connector_params_to_hosted_params(
-            resource.provider, resource.connector_params
-        )
+        params = connector_params_to_hosted_params(resource.provider, resource.connector_params)
         assert isinstance(params, JiraHostedParams)
         assert params.base_url == "https://mysite.atlassian.net"
         assert params.project_key == "PROJ"
@@ -209,9 +197,7 @@ class TestRoundTrip:
             connector_params={"owner": "acme", "repo": "tracker"},
             routing_metadata={},
         )
-        params = connector_params_to_hosted_params(
-            resource.provider, resource.connector_params
-        )
+        params = connector_params_to_hosted_params(resource.provider, resource.connector_params)
         assert isinstance(params, GitHubHostedParams)
         assert params.owner == "acme"
         assert params.repo == "tracker"
@@ -229,9 +215,7 @@ class TestRoundTrip:
             },
             routing_metadata={},
         )
-        params = connector_params_to_hosted_params(
-            resource.provider, resource.connector_params
-        )
+        params = connector_params_to_hosted_params(resource.provider, resource.connector_params)
         assert isinstance(params, GitLabHostedParams)
         assert params.project_id == "99"
         assert params.base_url == "https://gitlab.example.com/api/v4"

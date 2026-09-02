@@ -348,9 +348,9 @@ class SupportedEmbeddings(APIObject):
         Currently supported options are listed in VectorDatabaseEmbeddingModel
         but the values can differ with different platform versions.
     custom_model_embedding_validations : List[str]
-        External embedding custom models that have been validated
+        External embedding custom models that have been validated.
     openai_embedding_validations : List[str]
-        External OpenAI compatible embedding models that have been validated
+        External OpenAI compatible embedding models that have been validated.
     """
 
     _converter = supported_embeddings_trafaret
@@ -514,7 +514,7 @@ class SupportedRetrievalSetting(APIObject):
     maximum: int or None
         The maximum value of the setting.
     enum: list[str] or None
-        The enum values of the setting.
+        The ``enum`` values of the setting.
     settings: list[SupportedRetrievalSetting] or None
         The supported retriever settings.
     group_id: str or None
@@ -675,7 +675,7 @@ class VectorDatabase(APIObject):
         The strategy used to combine metadata when there is duplication between the dataset and
         the metadata dataset.
     added_metadata_dataset_pairs: Optional[List[Dict[str, str]]
-        Pairs of dataset_id and metadata_dataset_id that have been added to the vector database.
+        Pairs of ``dataset_id`` and ``metadata_dataset_id`` that have been added to the vector database.
     """
 
     _path = "api/v2/genai/vectorDatabases"
@@ -770,7 +770,7 @@ class VectorDatabase(APIObject):
         dataset_id: Optional[str] = None,
         use_case: Optional[Union[UseCase, str]] = None,
     ) -> SupportedEmbeddings:
-        """Get all supported and the recommended embedding models.
+        """Returns a list of all supported and recommended embedding models.
 
         Parameters
         ----------
@@ -801,7 +801,7 @@ class VectorDatabase(APIObject):
         Returns
         -------
         result : VectorDatabaseDatasetExportJob
-            The result of the vector database dataset export job containing the exported dataset id.
+            The result of the vector database dataset export job containing the exported dataset ID.
         """
         url = f"{self._client.domain}/{self._path}/{self.id}/datasetExportJobs/"
         r_data = self._client.post(url)
@@ -809,7 +809,7 @@ class VectorDatabase(APIObject):
 
     @classmethod
     def get_supported_retrieval_settings(cls) -> SupportedRetrievalSettings:
-        """Get supported retrieval settings.
+        """Returns the supported retrieval settings.
 
         Returns
         -------
@@ -917,7 +917,7 @@ class VectorDatabase(APIObject):
             ID of the deployment.
         model_id : Optional[str]
             ID of the underlying deployment model.
-            Can be found from the API as Deployment.model["id"].
+            Can be found from the API as ``Deployment.model["id"]``.
 
         Returns
         -------
@@ -974,7 +974,7 @@ class VectorDatabase(APIObject):
         completed_only: Optional[bool] = None,
     ) -> List[VectorDatabase]:
         """
-        List all vector databases associated with a specific use case available to the user.
+        Returns a list of all vector databases associated with a specific use case available to the user.
 
         Parameters
         ----------
@@ -1028,7 +1028,7 @@ class VectorDatabase(APIObject):
         name : Optional[str]
             The new name for the vector database.
         credential_id : Optional[str]
-            The new credential id to access the connected vector database.
+            The new credential ID to access the connected vector database.
 
         Returns
         -------
@@ -1082,7 +1082,7 @@ class VectorDatabase(APIObject):
 
     @classmethod
     def get_supported_text_chunkings(cls) -> SupportedTextChunkings:
-        """Get all supported text chunking configurations which includes
+        """Returns a list of all supported text chunking configurations, which include
         a set of recommended chunking parameters for each supported embedding model.
 
         Returns
@@ -1240,18 +1240,18 @@ class CustomModelVectorDatabaseValidation(NonChatAwareCustomModelValidation):
         ID of the deployment.
     model_id : str
         ID of the underlying deployment model.
-        Can be found from the API as Deployment.model["id"].
+        Can be found from the API as ``Deployment.model["id"]``.
     validation_status : str
-        Can be TESTING, FAILED and PASSED. Only PASSED allowed for use.
+        Can be TESTING, FAILED, and PASSED. Only PASSED allowed for use.
     deployment_access_data : dict, optional
         The data that will be used for accessing the deployment prediction server.
         This field is only available for deployments that pass validation.
         Dict fields are as follows:
-        - prediction_api_url - The URL for the deployment prediction server.
-        - datarobot_key - The first of two auth headers for the prediction server.
-        - authorization_header - The second of two auth headers for the prediction server.
-        - input_type - The input type the model expects, either JSON or CSV.
-        - model_type - The target type of the deployed custom model.
+        - ``prediction_api_url`` - The URL for the deployment prediction server.
+        - ``datarobot_key`` - The first of two auth headers for the prediction server.
+        - ``authorization_header`` - The second of two auth headers for the prediction server.
+        - ``input_type`` - The input type the model expects, either JSON or CSV.
+        - ``model_type`` - The target type of the deployed custom model.
     tenant_id : str
         The creating user's tenant ID.
     name : str

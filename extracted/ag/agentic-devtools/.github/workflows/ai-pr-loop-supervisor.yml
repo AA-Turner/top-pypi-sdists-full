@@ -1,0 +1,41 @@
+name: AI PR Loop Supervisor
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: ai-pr-loop-supervisor-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Scan for stuck AI PR Loop work
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out supervisor configuration
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install agentic-devtools
+        run: python -m pip install --upgrade pip && python -m pip install .
+
+      - name: Run read-only supervisor scan
+        env:
+          GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: agdt-ai-pr-loop-supervisor --repo "$GITHUB_REPOSITORY" --max-candidates 10

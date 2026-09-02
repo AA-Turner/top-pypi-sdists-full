@@ -1,0 +1,15 @@
+[project]
+name = "llama-quickstart-agent"
+version = "0.0.1"
+description = "UiPath LlamaIndex Quickstart Agent"
+authors = [{ name = "John Doe", email = "john.doe@myemail.com" }]
+requires-python = ">=3.11"
+dependencies = [
+    "uipath-llamaindex",
+    "llama-index-llms-openai>=0.6.10"
+]
+
+[dependency-groups]
+dev = [
+    "uipath-dev",
+]

@@ -27,13 +27,13 @@ class PredictionServer(APIObject):
     Attributes
     ----------
     id : Optional[str]
-        The id of the prediction server.
+        The ID of the prediction server.
     url : str
-        The url of the prediction server.
+        The URL of the prediction server.
     datarobot_key : Optional[str]
         The ``Datarobot-Key`` HTTP header used in requests to this prediction server. Note that in the
         :class:`datarobot.models.Deployment` instance there is the ``default_prediction_server``
-        property which has this value as a "kebab-cased" key as opposed to "snake_cased".
+        property which has this value as a "kebab-cased" key as opposed to ``snake_cased``.
     """
 
     _path = "predictionServers/"

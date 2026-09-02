@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: pyelk
+Version: 0.3.0
+Summary: Python port of elkjs - automatic graph layout based on ELK
+License: EPL-2.0
+Requires-Python: >=3.8
+License-File: LICENSE.md
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Dynamic: license-file

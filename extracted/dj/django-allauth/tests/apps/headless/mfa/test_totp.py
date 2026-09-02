@@ -116,3 +116,38 @@ def test_activate_totp(
         assert data["data"]["last_used_at"] is None
     else:
         assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_activate_totp_rate_limit(
+    auth_client,
+    headless_reverse,
+    reauthentication_bypass,
+    settings,
+    enable_cache,
+):
+    settings.ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 1
+    with reauthentication_bypass():
+        auth_client.get(headless_reverse("headless:mfa:manage_totp"))
+        for i in range(2):
+            is_locked = i >= 1
+            resp = auth_client.post(
+                headless_reverse("headless:mfa:manage_totp"),
+                data={"code": "wrong"},
+                content_type="application/json",
+            )
+            assert resp.status_code == HTTPStatus.BAD_REQUEST
+            assert resp.json()["errors"] == [
+                (
+                    {
+                        "param": "code",
+                        "message": "Be patient, you are sending too many requests.",
+                        "code": "rate_limited",
+                    }
+                    if is_locked
+                    else {
+                        "param": "code",
+                        "message": "Incorrect code.",
+                        "code": "incorrect_code",
+                    }
+                )
+            ]

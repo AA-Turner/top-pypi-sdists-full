@@ -1,0 +1,69 @@
+Metadata-Version: 2.4
+Name: someipy
+Version: 2.1.2
+Summary: A Python package implementing the SOME/IP protocol
+Home-page: https://github.com/chrizog/someipy
+Author: Christian H.
+Author-email: someipy.package@gmail.com
+Project-URL: Bug Tracker, https://github.com/chrizog/someipy/issues
+Project-URL: Repository, https://github.com/chrizog/someipy
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Dynamic: license-file
+
+# someipy - A Python Library implementing the SOME/IP Protocol
+
+![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgist.githubusercontent.com%2Fchrizog%2F6a2e6f355eedf38ae3af74dcdb7b30a1%2Fraw%2F61630b4d2cc9c04aae78b3cca0cbc9c56e76f0e5%2Fcoverage_someipy_v1.json&query=totals.percent_covered_display&suffix=%20%25&label=Line%20Coverage)
+
+
+## Get in Contact :postbox:
+
+If you want to connect, have a feature request, bug report or need support, send me an email or connect on LinkedIn:
+> :email: [someipy.package@gmail.com](mailto:someipy.package@gmail.com)  
+:electric_plug: [LinkedIn](https://www.linkedin.com/in/ch-herzog/)
+
+## Documentation :pencil2:
+
+:link: [https://someipy.readthedocs.io/en/latest/](https://someipy.readthedocs.io/en/latest/)
+
+
+## What is someipy?
+
+someipy is a Python library implementing the SOME/IP protocol, including the SOME/IP SD (Service Discovery) in Python. It's perfectly suited for fast prototyping of applications that need to provide (server) or use (client) SOME/IP services from other ECUs.
+
+someipy also supports serialization and deserialization of SOME/IP payloads, which is a unique feature compared to other libraries.
+
+someipy is still under development; therefore, it does not yet support all features of the SOME/IP and SOME/IP Service Discovery protocol specification.
+
+someipy is based on the specification version of R22-11:
+- [SOME/IP Protocol Specification](https://www.autosar.org/fileadmin/standards/R22-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf)
+- [SOME/IP Service Discovery Protocol Specification](https://www.autosar.org/fileadmin/standards/R22-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf)
+
+The library is currently developed and tested under Ubuntu 22.04 and Python 3.8. Windows is supported as well.
+
+## Typical Use Cases
+
+someipy excels in scenarios where a full-scale Autosar (Adaptive or Classic) integration would be excessive:
+
+- :test_tube: **Develop Test Applications**: Easily create test applications to stimulate the SOME/IP interfaces of your system under test. Whether running on a PC in a SIL environment or on an ECU, someipy allows you to efficiently send and receive SOME/IP events or utilize/provide SOME/IP services. Test data can be seamlessly generated or imported in Python, from sources such as .csv files or ROS bag files. Explore the [example applications](#example-applications) for more details.
+
+- :battery: **Prototype Sensor Integration**: Quickly integrate new sensors into your project using SOME/IP, ideal for evaluating the sensor's potential impact without significant effort. Define the message/parameter layout in Python and create a server service instance in minutes. Check out the [example application](#example-applications) *send_events_udp.py* for a practical demonstration.
+
+- :microscope: **Data Recording**: Set up a SOME/IP recording application in just a few minutes and store data in your preferred format, such as ROS bags, .csv files, or databases. Simply dump the received data within your callback function. The [example application](#example-applications) *receive_events_udp.py* illustrates this process.
+
+## Installation
+
+The package can be installed from [PyPi](https://pypi.org/project/someipy/).
+
+```bash
+pip3 install someipy
+```
+
+## Example Applications
+
+In the directory [example_apps](./example_apps/), examples including explanations, can be found for using the someipy library.

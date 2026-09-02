@@ -1,0 +1,271 @@
+Metadata-Version: 2.5
+Name: matrx-scraper
+Version: 0.2.154
+Summary: Web scraping engine, HTML parsing, and search integration for the Matrx ecosystem
+Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Issues, https://github.com/AI-Matrix-Engine/aidream-current/issues
+Author-email: Matrx <admin@aimatrx.com>
+Maintainer-email: Matrx <admin@aimatrx.com>
+License: MIT
+Keywords: crawler,html,matrx,parsing,scraping,search,web-scraping
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup :: HTML
+Requires-Python: >=3.12
+Requires-Dist: beautifulsoup4>=4.12
+Requires-Dist: croniter>=2.0
+Requires-Dist: httpx>=0.27
+Requires-Dist: markdownify>=0.13
+Requires-Dist: matrx-files>=0.2.124
+Requires-Dist: matrx-utils>=2.0.29
+Requires-Dist: pydantic>=2.12
+Requires-Dist: python-dotenv>=1.0
+Requires-Dist: selectolax>=0.3.21
+Requires-Dist: tabulate>=0.9
+Requires-Dist: tldextract>=5.1
+Provides-Extra: all
+Requires-Dist: asyncpg>=0.31.0; extra == 'all'
+Requires-Dist: cachetools>=5.3; extra == 'all'
+Requires-Dist: curl-cffi>=0.7; extra == 'all'
+Requires-Dist: datasketch>=1.6; extra == 'all'
+Requires-Dist: extruct>=0.18; extra == 'all'
+Requires-Dist: fastapi>=0.115; extra == 'all'
+Requires-Dist: matrx-connect>=0.1.72; extra == 'all'
+Requires-Dist: matrx-graph>=0.2.122; extra == 'all'
+Requires-Dist: matrx-orm>=3.1.124; extra == 'all'
+Requires-Dist: matrx-runtime>=0.0.78; extra == 'all'
+Requires-Dist: pillow>=11.0; extra == 'all'
+Requires-Dist: playwright>=1.45; extra == 'all'
+Requires-Dist: pymupdf>=1.27; extra == 'all'
+Requires-Dist: pytesseract>=0.3.13; extra == 'all'
+Requires-Dist: python-dotenv>=1.0; extra == 'all'
+Requires-Dist: simhash>=2.1; extra == 'all'
+Requires-Dist: uvicorn[standard]>=0.30; extra == 'all'
+Provides-Extra: browser
+Requires-Dist: curl-cffi>=0.7; extra == 'browser'
+Requires-Dist: playwright>=1.45; extra == 'browser'
+Provides-Extra: cloud-browser
+Requires-Dist: cryptography>=41; extra == 'cloud-browser'
+Requires-Dist: zstandard>=0.22; extra == 'cloud-browser'
+Provides-Extra: connect
+Requires-Dist: matrx-connect>=0.1.72; extra == 'connect'
+Provides-Extra: db
+Requires-Dist: matrx-orm>=3.1.124; extra == 'db'
+Provides-Extra: dedup
+Requires-Dist: cachetools>=5.3; extra == 'dedup'
+Requires-Dist: datasketch>=1.6; extra == 'dedup'
+Requires-Dist: simhash>=2.1; extra == 'dedup'
+Provides-Extra: durable
+Requires-Dist: matrx-runtime>=0.0.78; extra == 'durable'
+Provides-Extra: graph
+Requires-Dist: matrx-graph>=0.2.122; extra == 'graph'
+Provides-Extra: metadata
+Requires-Dist: extruct>=0.18; extra == 'metadata'
+Provides-Extra: ocr
+Requires-Dist: pillow>=11.0; extra == 'ocr'
+Requires-Dist: pytesseract>=0.3.13; extra == 'ocr'
+Provides-Extra: pdf
+Requires-Dist: pymupdf>=1.27; extra == 'pdf'
+Provides-Extra: server
+Requires-Dist: asyncpg>=0.31.0; extra == 'server'
+Requires-Dist: cachetools>=5.3; extra == 'server'
+Requires-Dist: curl-cffi>=0.7; extra == 'server'
+Requires-Dist: extruct>=0.18; extra == 'server'
+Requires-Dist: fastapi>=0.115; extra == 'server'
+Requires-Dist: matrx-connect>=0.1.72; extra == 'server'
+Requires-Dist: matrx-orm>=3.1.124; extra == 'server'
+Requires-Dist: matrx-runtime>=0.0.78; extra == 'server'
+Requires-Dist: playwright>=1.45; extra == 'server'
+Requires-Dist: python-dotenv>=1.0; extra == 'server'
+Requires-Dist: uvicorn[standard]>=0.30; extra == 'server'
+Provides-Extra: standalone
+Requires-Dist: asyncpg>=0.31.0; extra == 'standalone'
+Requires-Dist: cachetools>=5.3; extra == 'standalone'
+Requires-Dist: curl-cffi>=0.7; extra == 'standalone'
+Requires-Dist: datasketch>=1.6; extra == 'standalone'
+Requires-Dist: extruct>=0.18; extra == 'standalone'
+Requires-Dist: fastapi>=0.115; extra == 'standalone'
+Requires-Dist: matrx-connect>=0.1.72; extra == 'standalone'
+Requires-Dist: matrx-graph>=0.2.122; extra == 'standalone'
+Requires-Dist: matrx-orm>=3.1.124; extra == 'standalone'
+Requires-Dist: matrx-runtime>=0.0.78; extra == 'standalone'
+Requires-Dist: pillow>=11.0; extra == 'standalone'
+Requires-Dist: playwright>=1.45; extra == 'standalone'
+Requires-Dist: pymupdf>=1.27; extra == 'standalone'
+Requires-Dist: pytesseract>=0.3.13; extra == 'standalone'
+Requires-Dist: python-dotenv>=1.0; extra == 'standalone'
+Requires-Dist: simhash>=2.1; extra == 'standalone'
+Requires-Dist: uvicorn[standard]>=0.30; extra == 'standalone'
+Description-Content-Type: text/markdown
+
+# matrx-scraper
+
+Web scraping, HTML parsing, site crawling, headless-browser automation, and
+search for Python. An 8-stage parser turns raw HTML into clean AI-ready content
+plus structured extractions (tables, code blocks, categorized links, metadata,
+schema.org). It runs standalone with no database, and scales up to a full
+FastAPI microservice with a durable crash-safe crawl frontier.
+
+## Install
+
+```bash
+pip install matrx-scraper                  # core: HTTP fetch + parse + crawl + Brave Search
+pip install "matrx-scraper[browser]"       # + Playwright / curl_cffi for JS-rendered pages
+pip install "matrx-scraper[metadata]"      # + extruct (JSON-LD, microdata, RDFa, OpenGraph)
+pip install "matrx-scraper[dedup]"         # + MinHash / SimHash near-duplicate detection
+pip install "matrx-scraper[pdf]"           # + PyMuPDF
+pip install "matrx-scraper[ocr]"           # + Tesseract
+pip install "matrx-scraper[db]"            # + matrx-orm persistence
+pip install "matrx-scraper[durable]"       # + matrx-runtime crash-safe crawl frontier
+pip install "matrx-scraper[server]"        # + FastAPI microservice (includes browser, db, metadata, durable)
+pip install "matrx-scraper[all]"           # everything
+```
+
+Python 3.12+. Hard deps are a small set of well-known libraries (`httpx`,
+`beautifulsoup4`, `selectolax`, `markdownify`, `tldextract`, `tabulate`,
+`croniter`, `python-dotenv`) plus `matrx-utils` and `matrx-files`. Everything
+heavy sits behind an extra so lean installs stay lean.
+
+## Quickstart
+
+```python
+from matrx_scraper import scrape, scrape_many_stream, parse_html, audit_html
+
+result = await scrape("https://example.com/article")
+result.success           # bool  — outcome
+result.failure_reason    # str | None
+result.title
+result.ai_content        # clean, AI-ready markdown
+result.links             # links by category
+result.tables            # parsed tables
+result.organized_data    # structured JSON of the page
+
+# Many URLs — yields each page as it finishes, never a buffered batch.
+async for page in scrape_many_stream(urls, concurrency=5):
+    print(page.url, page.success)
+
+parsed = parse_html(open("page.html").read())   # no network
+seo = audit_html(html, url)                      # full page evidence in one parse
+```
+
+### Crawl a site
+
+```python
+from matrx_scraper import crawl_site
+
+async for page in crawl_site("https://example.com", max_pages=100):
+    print(page.url, page.title)
+```
+
+### Drive a browser
+
+```python
+from matrx_scraper.ai_browser import navigate, type_text, wait_for, screenshot, close_session
+
+nav = await navigate("https://example.com/login", extract_text=True)
+await type_text(nav.session_id, "input[name=email]", "user@example.com")
+await wait_for(nav.session_id, selector="[data-ready]", timeout_ms=15_000)
+shot = await screenshot(nav.session_id, full_page=True)
+await close_session(nav.session_id)
+```
+
+Every action returns a Pydantic result with `success: bool` plus
+`error_type` / `error_message`, so an agent loop recovers from timeouts and
+selector misses without exception handling.
+
+### Other clients
+
+`BraveSearchClient` (search), `PsiClient` (PageSpeed Insights v5), `GscClient`
+(Google Search Console), `compute_link_scores` (PageRank over a link graph),
+`CustomExtractor` (per-host CSS/XPath/regex/JSON-LD rules), `quick_preview`
+(robots + homepage audit + screenshot). All pure — they return typed values and
+persist nothing.
+
+## AI tools and MCP
+
+`matrx_scraper.ai_tools.ALL_TOOLS` is 22 `ToolSpec` descriptors (14 browser, 4
+scrape, 4 crawl), each with a full JSON Schema and an async handler — drop them
+straight into an OpenAI/Anthropic tool call or any agent registry.
+
+The bundled MCP server exposes the same list:
+
+```bash
+python -m matrx_scraper.mcp            # stdio (canonical MCP transport)
+python -m matrx_scraper.mcp --list     # print registered tools and exit
+python -m matrx_scraper.mcp --groups browser,scrape
+```
+
+> **stdio is the only transport.** The MCP server has no network listener by
+> design — one would hand a JS-executing browser to anyone who can reach the
+> port. Network callers use the authenticated microservice below.
+
+## Running the microservice
+
+```bash
+# Docker (build context is the monorepo root, so sibling packages resolve)
+cd packages/matrx-scraper && cp .env.example .env && docker compose up -d
+
+# Or directly
+pip install "matrx-scraper[server]" && playwright install chromium
+matrx-scraper --port 8000
+```
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `SUPABASE_MATRIX_{HOST,PORT,DATABASE_NAME,USER,PASSWORD}` | yes | **The one connection, required.** Both `scraper.*` (cache / domain config / retry queue) and the canonical `web.*` crawler bind here. Point these five at your own Postgres to run the scraper on its own database; there is never a second variable and never a fallback chain. |
+| `SUPABASE_MATRIX_URL` | yes | Project URL; also derives the JWT JWKS URL |
+| `SUPABASE_JWT_SECRET` | yes | HS256 compatibility (ES256 verifies via JWKS) |
+| `DATACENTER_PROXIES` | for proxied fetches | Comma-separated pool. Missing or exhausted fails **loudly** — never a silent direct request that exposes the host IP. |
+| `ADMIN_API_TOKEN` | for server-to-server | Shared secret for the approved-server identity |
+| `BRAVE_SEARCH_API_KEY_PRO_AI` | for search | The one platform Brave key; explicit `api_key` injection supports user-supplied keys. |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `AWS_S3_DEFAULT_BUCKET` | for the canonical crawler | Artifact bytes via `matrx-files` |
+| `PORT` / `WORKERS` / `LOG_LEVEL` | no | Defaults `8000` / `1` / `info` |
+
+Everything mounts under `/api/scraper/`: `quick-scrape` · `batch` · `search` ·
+`search-and-scrape` · `browser-fetch` · `browser/*` (16 session endpoints) ·
+`preview` · `content/save` · `queue/*` · `config/domains` · `crawler/*`.
+`GET /health` (reports the installed version) and `GET /health/ready` are public;
+everything else takes `Authorization: Bearer <supabase-jwt>`.
+
+Embed it in another FastAPI app instead:
+
+```python
+from matrx_scraper.server import create_app, ServerConfig
+
+app = create_app(ServerConfig.from_env())   # DB comes from SUPABASE_MATRIX_*, never a config URL
+```
+
+## Extending it in a host
+
+The crawler takes four injection points; defaults are in-memory / no-op /
+discard, so nothing is required to get started:
+
+| Protocol | Default | Swap in |
+|---|---|---|
+| `CrawlEventSink` | `NoopEventSink` | your durable event writer |
+| `QueueBackend` | `InMemoryQueueBackend` | the `[durable]` runtime frontier — survives restarts |
+| `BodyPersister` | discard | your storage |
+| `RecipeBackend` | `StaticRecipeBackend(DEFAULT_RECIPES)` | your per-host Playwright playbooks |
+
+Host objects (cache, domain config, browser pool, file manager, work-queue
+factory) are handed over with `matrx_scraper.configure_ext(...)`; DB models bind
+to an existing matrx-orm pool with `matrx_scraper.configure_db("<db name>")`.
+
+## Documentation
+
+| Doc | For |
+|---|---|
+| [`matrx_scraper/FEATURE.md`](matrx_scraper/FEATURE.md) | Engine contract: SSRF gates, proxy rules, browser runtimes, tool surface, auth, persistence |
+| [`matrx_scraper/web_crawl/FEATURE.md`](matrx_scraper/web_crawl/FEATURE.md) | The canonical site crawler |
+| [`CLAUDE.md`](CLAUDE.md) | Contributing to the package |
+
+## License
+
+MIT. Developed in the [aidream monorepo](https://github.com/AI-Matrix-Engine/aidream-current/tree/main/packages/matrx-scraper).

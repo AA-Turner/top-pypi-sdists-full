@@ -1,0 +1,712 @@
+"""Retry/recovery of completion-time CUSTOMER charges (flash/server/billing/retry.py).
+
+Offline: the only network boundary (flash.server.billing.charges.charge_completed_run) is stubbed, so a
+transient blip and a successful retry can be simulated without touching the backend. The point of
+the feature is that a finished-but-uncharged run is eventually charged exactly once -- the backend
+route is idempotent by runId, so a retry can never double-charge.
+"""
+
+from __future__ import annotations
+
+import importlib
+import io
+
+import pytest
+
+import flash.runner.accounting.costs as runner_costs
+import flash.runner.lifecycle.state as runner_state
+import flash.runner.lifecycle.status as runner_status
+import flash.runner.supervise.lifecycle as runner_lifecycle
+from flash.server.billing import retry as billing_retry
+
+SPEC = {
+    "model": "Qwen/Qwen3.5-9B",
+    "algorithm": "grpo",
+    "environment": {"id": "github:freesolo-co/envs@main:gsm8k/environment.py"},
+    "train": {"epochs": 1, "max_examples": 1},
+    "gpu": {},
+}
+
+_USER_PREFIX = "fslo-user-"
+
+
+def _spec():
+    from flash.schema import spec_from_dict
+
+    return spec_from_dict(SPEC, run_id="run-1")
+
+
+def _save_run(tmp_path, *, state="done", billing_state="pending", billing_context=None):
+    spec = _spec()
+    status = runner_state.RunStatus(
+        run_id=spec.run_id,
+        state=state,
+        spec=spec.to_dict(),
+        cost_usd=1.23,
+        remote={"provider": "runpod", "allocated_gpu": "RTX 5090"},
+        billing_context={"org_id": "org-A"} if billing_context is None else billing_context,
+        billing_state=billing_state,
+    )
+    runner_state._save_status(status)
+    return spec
+
+
+# --------------------------------------------------------------------------- predicate
+
+
+def test_needs_charge_predicate():
+    from flash.runner.lifecycle.state import RunStatus
+
+    def st(**kw):
+        base = {"run_id": "r", "state": "done", "spec": {}}
+        base.update(kw)
+        return RunStatus(**base)
+
+    ctx = {"org_id": "o"}
+    # a completed run (done/deployed) not yet charged -> charge its quote (cost_usd)
+    assert billing_retry._needs_charge(
+        st(state="done", billing_context=ctx, billing_state="pending")
+    )
+    assert billing_retry._needs_charge(
+        st(state="done", billing_context=ctx, billing_state="failed")
+    )
+    # deployed = done-then-deployed; its done-time charge may have failed -> still bills
+    assert billing_retry._needs_charge(
+        st(state="deployed", billing_context=ctx, billing_state="failed")
+    )
+    # already charged -> no
+    assert not billing_retry._needs_charge(
+        st(state="done", billing_context=ctx, billing_state="charged")
+    )
+    # a training run that FAILED has no price and isn't terminal-billable -> never charged
+    assert not billing_retry._needs_charge(
+        st(state="failed", billing_context=ctx, billing_state="pending")
+    )
+    # a run cancelled before any step ran carries cost_usd 0 -> nothing to charge
+    assert not billing_retry._needs_charge(
+        st(state="cancelled", billing_context=ctx, billing_state="pending", cost_usd=0.0)
+    )
+    # a run cancelled MID-training is priced by cancel_run (cost_usd = estimate at the steps actually
+    # run); charge that, even though `cancelled` is not a billable state and the charge never started.
+    assert billing_retry._needs_charge(
+        st(state="cancelled", billing_context=ctx, billing_state="pending", cost_usd=0.42)
+    )
+    # completed-THEN-cancelled keeps its quote (cost_usd>0) and is charged whatever its billing_state
+    assert billing_retry._needs_charge(
+        st(state="cancelled", billing_context=ctx, billing_state="failed", cost_usd=1.23)
+    )
+    assert billing_retry._needs_charge(
+        st(state="cancelled", billing_context=ctx, billing_state="charging", cost_usd=1.23)
+    )
+    # a cancelled run with cost_usd 0 stays ineligible even if a charge somehow started ($0 to bill)
+    assert not billing_retry._needs_charge(
+        st(state="cancelled", billing_context=ctx, billing_state="failed", cost_usd=0.0)
+    )
+    # internal/non-external run (no billing context) -> nothing to charge
+    assert not billing_retry._needs_charge(
+        st(state="done", billing_context=None, billing_state=None)
+    )
+
+
+# --------------------------------------------------------------------------- sweep
+
+
+def test_sweep_disabled_without_internal_key(monkeypatch, tmp_path):
+
+    monkeypatch.delenv("FREESOLO_INTERNAL_KEY", raising=False)
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_run(tmp_path)
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda **_: (_ for _ in ()).throw(AssertionError("must not charge without internal key")),
+    )
+    assert billing_retry.retry_completion_charges_once() == 0
+
+
+def test_sweep_charges_crashed_pending_run(monkeypatch, tmp_path):
+    """A run that went `done` but whose charge never ran (crash between the done write and the
+    charge -> billing_state stuck `pending`) is recovered by the sweep and charged exactly once."""
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_run(tmp_path, billing_state="pending")
+
+    calls = []
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda *, internal_key, status: (
+            calls.append(status.run_id) or {"amountCents": 123, "replay": False}
+        ),
+    )
+
+    assert billing_retry.retry_completion_charges_once() == 1
+    assert calls == ["run-1"]
+    st = runner_status.get_status("run-1")
+    assert st.billing_state == "charged"
+    assert st.billing_charge == {"amountCents": 123, "replay": False}
+
+
+@pytest.mark.parametrize(
+    "retired_model",
+    ["Qwen/Qwen3.5-0.8B", "Qwen/Qwen3.5-2B", "Qwen/Qwen3.5-4B", "Qwen/Qwen3.6-27B"],
+)
+def test_sweep_charges_historical_removed_model_without_runtime_activation(
+    monkeypatch, tmp_path, retired_model
+):
+    import json
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_run(tmp_path, billing_state="pending")
+    path = runner_state.runs_file_path("run-1", ".json")
+    with open(path, encoding="utf-8") as handle:
+        stored = json.load(handle)
+    stored["spec"]["model"] = retired_model
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(stored, handle)
+
+    calls = []
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda *, internal_key, status: (
+            calls.append(status.spec["model"]) or {"amountCents": 123, "replay": False}
+        ),
+    )
+
+    assert billing_retry.retry_completion_charges_once() == 1
+    assert calls == [retired_model]
+    assert runner_status.get_status("run-1").billing_state == "charged"
+
+
+def test_transient_failure_then_retry_charges_exactly_once(monkeypatch, tmp_path):
+    """The core guarantee: a transient BillingError leaves the run `failed`, the next sweep charges
+    it, and once `charged` no further sweep re-invokes the backend -> the successful charge happens
+    exactly once. (The backend route is also idempotent by runId, so even a racing duplicate replays
+    rather than double-charging.)"""
+    from flash.server.billing.charges import BillingError
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_run(tmp_path, billing_state="pending")
+
+    calls = []
+
+    def flaky_charge(*, internal_key, status):
+        calls.append(status.run_id)
+        if len(calls) == 1:
+            raise BillingError(503, "billing service unavailable: transient")
+        return {"amountCents": 123, "replay": False}
+
+    monkeypatch.setattr("flash.server.billing.charges.charge_completed_run", flaky_charge)
+
+    # sweep #1: the transient blip -> run marked failed, nothing charged
+    assert billing_retry.retry_completion_charges_once() == 0
+    assert runner_status.get_status("run-1").billing_state == "failed"
+    assert len(calls) == 1
+
+    # sweep #2: the blip cleared -> the run is charged
+    assert billing_retry.retry_completion_charges_once() == 1
+    assert runner_status.get_status("run-1").billing_state == "charged"
+    assert len(calls) == 2
+
+    # sweep #3: already charged -> the backend is NOT hit again (no second/double charge)
+    assert billing_retry.retry_completion_charges_once() == 0
+    assert len(calls) == 2
+
+
+def test_sweep_tolerates_unreadable_status_file(monkeypatch, tmp_path):
+    """A single corrupt/legacy status file must NOT abort the sweep: every other eligible run is
+    still charged. (Regression: list_runs() parsed all files up front and raised on the bad one,
+    skipping every pending charge until the bad file was removed.)"""
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_run(tmp_path, billing_state="pending")
+    # a malformed record sorted BEFORE the good run -> eager list_runs() would have died here.
+    (tmp_path / "runs" / "aaa-bad.json").write_text("{ not valid json")
+
+    calls = []
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda *, internal_key, status: (
+            calls.append(status.run_id) or {"amountCents": 123, "replay": False}
+        ),
+    )
+
+    assert billing_retry.retry_completion_charges_once() == 1
+    assert calls == ["run-1"]
+    assert runner_status.get_status("run-1").billing_state == "charged"
+
+
+def test_sweep_cooperative_stop_halts_between_runs(monkeypatch, tmp_path):
+    """should_stop() is honored BETWEEN runs so shutdown can bound a slow charge backlog: when it
+    returns True the sweep charges nothing and never reaches the backend."""
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_run(tmp_path, billing_state="pending")
+
+    calls = []
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda *, internal_key, status: (
+            calls.append(status.run_id) or {"amountCents": 1, "replay": False}
+        ),
+    )
+
+    # stop signalled from the start -> nothing charged, backend never hit
+    assert billing_retry.retry_completion_charges_once(should_stop=lambda: True) == 0
+    assert calls == []
+    # control: without the stop, the same run IS charged
+    assert billing_retry.retry_completion_charges_once() == 1
+    assert calls == ["run-1"]
+
+
+def test_sweep_skips_charged_failed_and_internal_runs(monkeypatch, tmp_path):
+    """Only completed external runs needing a charge are swept: a charged run, a non-completed
+    (failed) run, and an internal run with no billing context are all left untouched."""
+    from flash.schema import spec_from_dict
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+
+    def save(run_id, *, state, billing_state, billing_context):
+        spec = spec_from_dict(SPEC, run_id=run_id)
+        runner_state._save_status(
+            runner_state.RunStatus(
+                run_id=run_id,
+                state=state,
+                spec=spec.to_dict(),
+                cost_usd=1.0,
+                billing_context=billing_context,
+                billing_state=billing_state,
+            )
+        )
+
+    save("already", state="done", billing_state="charged", billing_context={"org_id": "o"})
+    save("failed-run", state="failed", billing_state="pending", billing_context={"org_id": "o"})
+    save("internal", state="done", billing_state=None, billing_context=None)
+
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda **_: (_ for _ in ()).throw(AssertionError("no eligible run should be charged")),
+    )
+    assert billing_retry.retry_completion_charges_once() == 0
+
+
+def test_sweep_charges_completed_then_cancelled_run(monkeypatch, tmp_path):
+    """A run that completed training (its charge machine ran and left `failed`) and was LATER
+    cancelled -- e.g. a deployed run gets cancelled (deploy.py flips it to `cancelled`) -- still owes
+    its completion charge. The widened predicate keeps it eligible even though `cancelled` left
+    `_BILLABLE_STATES`, so the sweep recovers the otherwise-leaked revenue and charges it once.
+
+    A run cancelled BEFORE completing (submit-time `pending`, never charge-machine-touched) stays
+    ineligible in the same sweep -- it never trained, so it must never be charged."""
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    # completed-then-cancelled: charge machine already ran (`failed`) -> still owes a charge
+    _save_run(tmp_path, state="cancelled", billing_state="failed")
+
+    calls = []
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda *, internal_key, status: (
+            calls.append(status.run_id) or {"amountCents": 123, "replay": False}
+        ),
+    )
+
+    assert billing_retry.retry_completion_charges_once() == 1
+    assert calls == ["run-1"]
+    assert runner_status.get_status("run-1").billing_state == "charged"
+
+
+def _save_cancelled_run(*, cost_usd, billing_state="pending"):
+    """A cancelled run priced by cancel_run: ``cost_usd`` is the estimate at the steps actually run
+    (0 when cancelled before any step)."""
+    from flash.schema import spec_from_dict
+
+    spec = spec_from_dict(SPEC, run_id="run-1")
+    runner_state._save_status(
+        runner_state.RunStatus(
+            run_id="run-1",
+            state="cancelled",
+            spec=spec.to_dict(),
+            cost_usd=cost_usd,
+            remote={"provider": "runpod", "allocated_gpu": "RTX 5090"},
+            billing_context={"org_id": "org-A"},
+            billing_state=billing_state,
+        )
+    )
+
+
+def test_sweep_charges_cancelled_run_at_its_priced_cost(monkeypatch, tmp_path):
+    """A run cancelled mid-training was priced by cancel_run (cost_usd = estimate at the steps it ran).
+    The sweep charges it exactly like a completed run -- via charge_completed_run, from cost_usd."""
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_cancelled_run(cost_usd=0.42)
+
+    calls = []
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda *, internal_key, status: (
+            calls.append((status.run_id, status.cost_usd)) or {"amountCents": 42, "replay": False}
+        ),
+    )
+
+    assert billing_retry.retry_completion_charges_once() == 1
+    assert calls == [("run-1", 0.42)]
+    st = runner_status.get_status("run-1")
+    assert st.billing_state == "charged"
+    assert st.billing_charge == {"amountCents": 42, "replay": False}
+
+
+def test_sweep_skips_cancelled_run_with_no_cost(monkeypatch, tmp_path):
+    """A run cancelled before any step ran carries cost_usd 0 -> nothing to charge; the sweep leaves it
+    alone and never hits the backend."""
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_cancelled_run(cost_usd=0.0)
+
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda **_: (_ for _ in ()).throw(AssertionError("a $0 cancel must not be charged")),
+    )
+    assert billing_retry.retry_completion_charges_once() == 0
+    assert runner_status.get_status("run-1").billing_state == "pending"
+
+
+def test_sweep_charges_run_with_stale_unparseable_spec(monkeypatch, tmp_path):
+    """A completed run whose persisted spec is legacy/stale and rejected by `JobSpec.from_dict` must
+    still be charged: the charge reads org/cost from the persisted RunStatus, not a reparsed spec, so
+    requiring a full reparse just to pass the run id would silently leak that run's revenue forever."""
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+
+    # a finished, uncharged run whose persisted spec no longer round-trips through JobSpec.from_dict.
+    # a stale payload carrying `environment.path` is rejected as an unknown environment key.
+    stale_spec = {**SPEC, "environment": {"path": "./local/environment.py"}}
+    spec = _spec()
+    created_at = 1_000_000.0
+    runner_state._save_status(
+        runner_state.RunStatus(
+            run_id=spec.run_id,
+            state="done",
+            spec=stale_spec,
+            created_at=created_at,
+            cost_usd=1.23,
+            billing_context={"org_id": "org-A"},
+            billing_state="pending",
+        ),
+        _run_deadline_at=created_at + float(spec.gpu.max_wall_seconds),
+        _next_attempt=0,
+    )
+
+    # belt-and-suspenders: prove this spec really would have aborted the old reparse path
+    from flash.core.spec import JobSpec
+
+    with pytest.raises(ValueError, match=r"environment has unknown key\(s\): path"):
+        JobSpec.from_dict(stale_spec)
+
+    calls = []
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda *, internal_key, status: calls.append(status.run_id) or {"amountCents": 123},
+    )
+
+    assert billing_retry.retry_completion_charges_once() == 1
+    assert calls == ["run-1"]
+    assert runner_status.get_status("run-1").billing_state == "charged"
+
+
+def test_record_billing_state_preserves_run_state(monkeypatch, tmp_path):
+    """codex P2 race fix (unit): record_billing_state writes ONLY the billing fields, re-reading the
+    run UNDER the lock, so it never re-asserts (and so never clobbers) the run's state. This is what
+    lets the completion charge run concurrently with a /deploy without the stale `done` overwriting a
+    just-written `deployed`. It also rejects any non-billing field so it can't be misused to move
+    state."""
+
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_run(tmp_path, state="deployed", billing_state="charging")
+
+    # a billing-fields-only write must leave `deployed` intact (the race the old _update lost)
+    runner_costs.record_billing_state(
+        "run-1", billing_state="charged", billing_charge={"amountCents": 9}
+    )
+    st = runner_status.get_status("run-1")
+    assert st.state == "deployed"
+    assert st.billing_state == "charged"
+    assert st.billing_charge == {"amountCents": 9}
+
+    # vanished run -> no-op (no raise)
+    runner_costs.record_billing_state("nope", billing_state="charged")
+
+    # guard: only billing fields are writable, so it can never be used to change `state`
+    with pytest.raises(ValueError, match="only writes billing fields"):
+        runner_costs.record_billing_state("run-1", state="done")
+
+
+def test_sweep_charge_does_not_downgrade_deployed_state(monkeypatch, tmp_path):
+    """End to end: charging a run that is `deployed` (a done-then-deployed run whose inline charge
+    failed) records the charge WITHOUT moving the run off `deployed`."""
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_run(tmp_path, state="deployed", billing_state="failed")
+
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda *, internal_key, status: {"amountCents": 123},
+    )
+
+    assert billing_retry.retry_completion_charges_once() == 1
+    st = runner_status.get_status("run-1")
+    assert st.billing_state == "charged"
+    assert st.state == "deployed"  # charge never downgraded the live deployment
+
+
+def test_record_billing_state_never_downgrades_charged(monkeypatch, tmp_path):
+    """codex P2: a racing duplicate attempt that times out / hits a transient BillingError AFTER
+    another attempt already landed `charged` must NOT flip the local state back to `failed`/`charging`
+    (which would re-retry an already-charged run). record_billing_state no-ops any non-`charged` write
+    once the run is `charged`."""
+
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    _save_run(tmp_path, state="done", billing_state="charged")
+    runner_costs.record_billing_state(
+        "run-1", billing_charge={"amountCents": 42}
+    )  # establish the charge
+
+    # a late failure write from a racing attempt -> must be ignored, charge stands
+    runner_costs.record_billing_state("run-1", billing_state="failed", billing_error="late blip")
+    assert runner_status.get_status("run-1").billing_state == "charged"
+    # a late charging write (racing re-entry) is likewise ignored
+    runner_costs.record_billing_state("run-1", billing_state="charging")
+    assert runner_status.get_status("run-1").billing_state == "charged"
+    # re-writing `charged` itself is still allowed (idempotent)
+    runner_costs.record_billing_state(
+        "run-1", billing_state="charged", billing_charge={"amountCents": 42}
+    )
+    assert runner_status.get_status("run-1").billing_state == "charged"
+
+
+# --------------------------------------------------------------------------- background loop
+# Same contract as the sibling reconcile loop: re-raise CancelledError (so shutdown's task.cancel()
+# stops it), swallow a real Exception and continue to the next cycle.
+
+
+class _StopLoop(Exception):
+    pass
+
+
+def _run_loop_once(monkeypatch, sweep_impl):
+    import asyncio
+
+    from flash.server.platform import runtime as _runtime
+
+    monkeypatch.setattr(billing_retry, "retry_completion_charges_once", sweep_impl)
+    calls = {"sleep": 0}
+
+    async def fake_sleep(_interval):
+        calls["sleep"] += 1
+        if calls["sleep"] >= 2:  # 1st sleep enters the body; 2nd breaks out post-sweep
+            raise _StopLoop
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    return asyncio.run(_runtime._charge_retry_loop())
+
+
+def test_loop_swallows_sweep_error_and_continues(monkeypatch):
+    swept = {"n": 0}
+
+    def boom(*a, **k):
+        swept["n"] += 1
+        raise RuntimeError("backend blip")
+
+    with pytest.raises(_StopLoop):
+        _run_loop_once(monkeypatch, boom)
+    assert swept["n"] == 1  # the sweep ran and its failure was swallowed (loop kept going)
+
+
+def test_loop_reraises_cancelled(monkeypatch):
+    import asyncio
+
+    def cancel(*a, **k):
+        raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        _run_loop_once(monkeypatch, cancel)
+
+
+# --------------------------------------------------------------------------- startup wiring
+
+
+def _identity_for_token(token: str) -> dict[str, str]:
+    if not token.startswith(_USER_PREFIX):
+        return {}
+    suffix = token.removeprefix(_USER_PREFIX)
+    return {
+        "email": f"u-{suffix}@x",
+        "key_prefix": "fslo_test",
+        "org_id": f"org-{suffix}",
+        "org_slug": f"org-{suffix}",
+    }
+
+
+def test_startup_runs_completion_charge_sweep(monkeypatch, tmp_path):
+    """The lifespan must run the completion-charge recovery sweep at startup: a crash between the
+    `done` write and the charge leaves a terminal `done` run that recover_runs cannot reach, so the
+    startup sweep is what charges it on the next boot. The sweep is scheduled as a BACKGROUND task
+    (off the critical path), so wait for it to land before asserting / leaving the context."""
+    pytest.importorskip("fastapi")
+    import time
+
+    from fastapi.testclient import TestClient
+
+    # Full operator config so the app's startup preflight passes (>= 2 RunPod accounts + Lambda +
+    # Hyperstack + the shared tokens + the internal key); mirrors tests/test_server_api.py.
+    monkeypatch.setenv("RUNPOD_API_KEY", "rp-test,rp-test-2")
+    monkeypatch.setenv("LAMBDA_API_KEY", "lam-test")
+    monkeypatch.setenv("HYPERSTACK_API_KEY", "hyp-test")
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp-test")
+    monkeypatch.setenv("HF_TOKEN", "hf-test")
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    # runpod.auth caches the parsed pool on first read; reset so the startup preflight reads THIS
+    # RUNPOD_API_KEY (the autouse _offline fixture also resets, but make this self-contained).
+    import flash.providers.runpod.client.auth as runpod_keys
+
+    runpod_keys.reset()
+
+    import flash.server.platform.auth as auth_mod
+    import flash.server.platform.db as db_mod
+
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    monkeypatch.setattr(runner_state, "RESULTS_DIR", str(tmp_path / "results"))
+    monkeypatch.setattr(db_mod, "DB_PATH", str(tmp_path / "server.db"))
+    monkeypatch.setattr(runner_lifecycle, "_run_job", lambda *a, **k: None)
+
+    # a finished run whose completion charge never landed (billing_state stuck pending)
+    _save_run(tmp_path, billing_state="pending")
+
+    charged = []
+    monkeypatch.setattr(
+        "flash.server.billing.charges.charge_completed_run",
+        lambda *, internal_key, status: charged.append(status.run_id) or {"amountCents": 123},
+    )
+
+    import flash.server.asgi.app as app_mod
+
+    importlib.reload(app_mod)
+    auth_mod._verify_cache.clear()
+    monkeypatch.setattr(auth_mod, "_freesolo_verify", lambda token: token.startswith(_USER_PREFIX))
+    monkeypatch.setattr(auth_mod, "_cached_identity", _identity_for_token)
+
+    with TestClient(app_mod.create_app()):
+        # entering the context runs the lifespan startup, which SCHEDULES the recovery sweep as a
+        # background task; poll until it lands before leaving (shutdown cancels the task).
+        deadline = time.time() + 5.0
+        while (
+            runner_status.get_status("run-1").billing_state != "charged" and time.time() < deadline
+        ):
+            time.sleep(0.02)
+
+    assert charged == ["run-1"]
+    assert runner_status.get_status("run-1").billing_state == "charged"
+
+
+def test_startup_does_not_block_on_slow_charge_backlog(monkeypatch, tmp_path):
+    """Finding (2): a slow/down billing backend with a backlog of pending charges must NOT delay the
+    server from accepting traffic. The startup recovery is scheduled off the critical path, so the
+    lifespan must reach `yield` (TestClient.__enter__ returns) WITHOUT waiting for the sweep -- even
+    when the sweep is blocked mid-charge."""
+    pytest.importorskip("fastapi")
+    import threading
+    import time
+
+    from fastapi.testclient import TestClient
+
+    # Full operator config so the app's startup preflight passes (>= 2 RunPod accounts + Lambda +
+    # Hyperstack + the shared tokens + the internal key); mirrors tests/test_server_api.py.
+    monkeypatch.setenv("RUNPOD_API_KEY", "rp-test,rp-test-2")
+    monkeypatch.setenv("LAMBDA_API_KEY", "lam-test")
+    monkeypatch.setenv("HYPERSTACK_API_KEY", "hyp-test")
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp-test")
+    monkeypatch.setenv("HF_TOKEN", "hf-test")
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    # runpod.auth caches the parsed pool on first read; reset so the startup preflight reads THIS
+    # RUNPOD_API_KEY (the autouse _offline fixture also resets, but make this self-contained).
+    import flash.providers.runpod.client.auth as runpod_keys
+
+    runpod_keys.reset()
+
+    import flash.server.platform.auth as auth_mod
+    import flash.server.platform.db as db_mod
+
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    monkeypatch.setattr(runner_state, "RESULTS_DIR", str(tmp_path / "results"))
+    monkeypatch.setattr(db_mod, "DB_PATH", str(tmp_path / "server.db"))
+    monkeypatch.setattr(runner_lifecycle, "_run_job", lambda *a, **k: None)
+
+    _save_run(tmp_path, billing_state="pending")
+
+    in_charge = threading.Event()  # set once the sweep is actually inside the (blocked) charge
+    release = threading.Event()  # held until the test lets the slow backend respond
+
+    def slow_charge(*, internal_key, status):
+        in_charge.set()
+        # simulate a slow/down billing backend: block until the test releases us
+        if not release.wait(timeout=10.0):
+            raise AssertionError("slow charge was never released")
+        return {"amountCents": 123}
+
+    monkeypatch.setattr("flash.server.billing.charges.charge_completed_run", slow_charge)
+
+    import flash.server.asgi.app as app_mod
+
+    importlib.reload(app_mod)
+    auth_mod._verify_cache.clear()
+    monkeypatch.setattr(auth_mod, "_freesolo_verify", lambda token: token.startswith(_USER_PREFIX))
+    monkeypatch.setattr(auth_mod, "_cached_identity", _identity_for_token)
+
+    started = time.time()
+    with TestClient(app_mod.create_app()):
+        # __enter__ has returned -> the lifespan reached `yield` and the server accepts traffic.
+        # The startup sweep must already be mid-charge (proving it was scheduled, not skipped) while
+        # NOT having blocked __enter__ on the 10s backend.
+        elapsed = time.time() - started
+        assert elapsed < 5.0, f"startup blocked on the slow charge backlog ({elapsed:.1f}s)"
+        assert in_charge.wait(timeout=5.0), "startup sweep was not scheduled at all"
+        release.set()  # let the slow charge finish so shutdown is clean
+
+
+def test_completion_hook_failure_is_recoverable_by_sweep(monkeypatch, tmp_path):
+    """End to end across the two paths: the inline hook hits a transient BillingError and marks the
+    run failed; the sweep then recovers it. This is the exact silent-revenue-leak scenario."""
+    from flash.runner.supervise import lifecycle
+    from flash.server.billing.charges import BillingError
+
+    monkeypatch.setenv("FREESOLO_INTERNAL_KEY", "fslo-internal")
+    monkeypatch.setattr(runner_state, "RUNS_DIR", str(tmp_path / "runs"))
+    spec = _save_run(tmp_path, billing_state="pending")
+
+    state = {"fail": True}
+
+    def charge(*, internal_key, status):
+        if state["fail"]:
+            raise BillingError(503, "transient")
+        return {"amountCents": 123}
+
+    monkeypatch.setattr("flash.server.billing.charges.charge_completed_run", charge)
+
+    # inline completion hook (runs right after `done`) hits the blip and records failure
+    lifecycle._charge_completed_run_by_id(spec.run_id, io.StringIO())
+    assert runner_status.get_status("run-1").billing_state == "failed"
+
+    # blip clears; the background sweep recovers the uncharged run
+    state["fail"] = False
+    assert billing_retry.retry_completion_charges_once() == 1
+    assert runner_status.get_status("run-1").billing_state == "charged"

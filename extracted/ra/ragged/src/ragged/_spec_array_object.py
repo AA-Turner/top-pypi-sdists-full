@@ -1,0 +1,1585 @@
+# BSD 3-Clause License; see https://github.com/scikit-hep/ragged/blob/main/LICENSE
+
+"""
+https://data-apis.org/array-api/latest/API_specification/array_object.html
+"""
+
+from __future__ import annotations
+
+import copy as copy_lib
+import enum
+import numbers
+from collections.abc import Iterator
+from types import EllipsisType
+from typing import Any, Union
+
+import awkward as ak
+import numpy as np
+from awkward.contents import (
+    Content,
+    EmptyArray,
+    ListArray,
+    ListOffsetArray,
+    NumpyArray,
+    RegularArray,
+)
+
+from . import _import
+from ._typing import (
+    Device,
+    Dtype,
+    NestedSequence,
+    PyCapsule,
+    Shape,
+    SupportsBufferProtocol,
+    SupportsDLPack,
+    numeric_types,
+)
+
+
+def _shape_dtype(layout: Content) -> tuple[Shape, Dtype]:
+    node = layout
+    shape: Shape = (len(layout),)
+    while isinstance(node, ListArray | ListOffsetArray | RegularArray):
+        if isinstance(node, RegularArray):
+            shape = (*shape, node.size)
+        else:
+            shape = (*shape, None)
+        node = node.content
+    if isinstance(node, EmptyArray):
+        node = node.to_NumpyArray(dtype=np.float64)
+    if isinstance(node, NumpyArray):
+        shape = shape + node.data.shape[1:]
+        return shape, node.data.dtype
+
+    msg = f"Awkward Array type must have regular and irregular lists only, not {layout.form.type!s}"
+    raise TypeError(msg)
+
+
+GetSliceKey = Union[
+    int,
+    slice,
+    EllipsisType,
+    None,
+    tuple[int | slice | EllipsisType | None, ...],
+    "array",
+]
+
+SetSliceKey = Union[
+    int, slice, EllipsisType, tuple[int | slice | EllipsisType, ...], "array"
+]
+
+
+class array:  # pylint: disable=C0103
+    """
+    Ragged array class and constructor.
+
+    In addition to satisfying the Array API, a `ragged.array` is a `Collection`,
+    meaning that it is `Sized`, `Iterable`, and a `Container`. The `len` and
+    `iter` functions, as well as the `x in array` syntax all work.
+
+    https://data-apis.org/array-api/latest/API_specification/array_object.html
+    """
+
+    # Constructors, internal functions, and other methods that are unbound by
+    # the Array API specification.
+
+    _impl: ak.Array | SupportsDLPack  # ndim > 0 ak.Array or ndim == 0 NumPy or CuPy
+    _shape: Shape
+    _dtype: Dtype
+    _device: Device
+
+    @classmethod
+    def _new(
+        cls, impl: ak.Array | SupportsDLPack, shape: Shape, dtype: Dtype, device: Device
+    ) -> array:
+        """
+        Simple/fast array constructor for internal code.
+        """
+
+        out = cls.__new__(cls)
+        out._impl = impl
+        out._shape = shape
+        out._dtype = dtype
+        out._device = device
+        return out
+
+    def _ensure_array(self, other: int | float | bool | array) -> array:
+        """
+        Convert scalar to array if needed.
+        """
+        return other if isinstance(other, array) else array(other, device=self._device)
+
+    def _apply_inplace(self, operation_result: array) -> array:
+        """
+        Apply result of an operation in-place.
+
+        All callers are elementwise ops whose shape is invariant — copy shape
+        and dtype directly from the already-computed result instead of
+        re-traversing the layout with _shape_dtype.
+        """
+        self._impl = operation_result._impl
+        self._device = operation_result._device
+        self._shape = operation_result._shape
+        self._dtype = operation_result._dtype
+        return self
+
+    def __init__(
+        self,
+        obj: (
+            array
+            | ak.Array
+            | bool
+            | int
+            | float
+            | complex
+            | NestedSequence[bool | int | float | complex]
+            | SupportsBufferProtocol
+            | SupportsDLPack
+        ),
+        dtype: None | Dtype | type | str = None,
+        device: None | Device = None,
+        copy: None | bool = None,
+    ):
+        """
+        Primary array constructor, same as `ragged.asarray`.
+
+        Args:
+            obj: Object to be converted to an array. May be a Python scalar, a
+                (possibly nested) sequence of Python scalars, or an object
+                supporting the Python buffer protocol or DLPack.
+            dtype: Output array data type. If `dtype` is `None`, the output
+                array data type is inferred from the data type(s) in `obj`.
+                If all input values are Python scalars, then, in order of
+                precedence,
+                    - if all values are of type `bool`, the output data type is
+                      `bool`.
+                    - if all values are of type `int` or are a mixture of `bool`
+                      and `int`, the output data type is `np.int64`.
+                    - if one or more values are `complex` numbers, the output
+                      data type is `np.complex128`.
+                    - if one or more values are `float`s, the output data type
+                      is `np.float64`.
+            device: Device on which to place the created array. If device is
+                `None` and `obj` is an array, the output array device is
+                inferred from `obj`. If `"cpu"`, the array is backed by NumPy
+                and resides in main memory; if `"cuda"`, the array is backed by
+                CuPy and resides in CUDA global memory.
+            copy: Boolean indicating whether or not to copy the input. If `True`,
+                this function always copies. If `False`, the function never
+                copies for input which supports the buffer protocol and raises
+                a ValueError in case a copy would be necessary. If `None`, the
+                function reuses the existing memory buffer if possible and
+                copies otherwise.
+        """
+
+        if isinstance(obj, array):
+            self._impl = obj._impl
+            self._shape, self._dtype = obj._shape, obj._dtype
+
+        elif isinstance(obj, ak.Array):
+            self._impl = obj
+            self._shape, self._dtype = _shape_dtype(self._impl.layout)
+
+        elif hasattr(obj, "__dlpack_device__") and getattr(obj, "shape", None) == ():
+            device_type, _ = obj.__dlpack_device__()
+            if (
+                isinstance(device_type, enum.Enum) and device_type.value == 1
+            ) or device_type == 1:
+                self._impl = np.array(obj)
+                self._shape, self._dtype = (), self._impl.dtype
+            elif (
+                isinstance(device_type, enum.Enum) and device_type.value == 2
+            ) or device_type == 2:
+                cp = _import.cupy()
+                self._impl = cp.array(obj)
+                self._shape, self._dtype = (), self._impl.dtype
+            else:
+                msg = f"unsupported __dlpack_device__ type: {device_type}"
+                raise TypeError(msg)
+
+        elif isinstance(obj, bool | numbers.Complex):
+            self._impl = np.array(obj)
+            self._shape, self._dtype = (), self._impl.dtype
+
+        else:
+            self._impl = ak.Array(obj)
+            self._shape, self._dtype = _shape_dtype(self._impl.layout)
+
+        if dtype is not None and not isinstance(dtype, np.dtype):
+            dtype = np.dtype(dtype)
+
+        if dtype is not None and dtype != self._dtype:
+            if isinstance(self._impl, ak.Array):
+                self._impl = ak.values_astype(self._impl, dtype)
+                # shape is invariant under values_astype — only dtype changes
+                self._dtype = dtype
+            else:
+                self._impl = np.array(obj, dtype=dtype)
+                self._dtype = dtype
+
+        if self._dtype.fields is not None:
+            msg = f"dtype must not have fields: dtype.fields = {self._dtype.fields}"
+            raise TypeError(msg)
+
+        if self._dtype.shape != ():
+            msg = f"dtype must not have a shape: dtype.shape = {self._dtype.shape}"
+            raise TypeError(msg)
+
+        if self._dtype.type not in numeric_types:
+            msg = f"dtype must be numeric (bool, [u]int*, float*, complex*): dtype.type = {self._dtype.type}"
+            raise TypeError(msg)
+
+        if device is not None:
+            if isinstance(self._impl, ak.Array) and device != ak.backend(self._impl):
+                self._impl = ak.to_backend(self._impl, device)
+            elif isinstance(self._impl, np.ndarray) and device == "cuda":
+                cp = _import.cupy()
+                self._impl = cp.array(self._impl)
+            self._device = device
+        else:
+            if isinstance(self._impl, ak.Array):
+                self._device = ak.backend(self._impl)
+            elif isinstance(self._impl, np.ndarray):
+                self._device = "cpu"
+            else:
+                self._device = "cuda"
+
+        if copy and isinstance(self._impl, ak.Array):
+            self._impl = copy_lib.deepcopy(self._impl)
+
+    def __str__(self) -> str:
+        """
+        String representation of the array.
+        """
+
+        if len(self._shape) == 0:
+            return f"{self._impl}"
+        elif len(self._shape) == 1:
+            return f"{ak.prettyprint.valuestr(self._impl, 1, 80)}"
+        else:
+            prep = ak.prettyprint.valuestr(self._impl, 20, 80 - 4)[1:-1].replace(
+                "\n ", "\n    "
+            )
+            return f"[\n    {prep}\n]"
+
+    def __repr__(self) -> str:
+        """
+        REPL-string representation of the array.
+        """
+
+        if len(self._shape) == 0:
+            return f"ragged.array({self._impl})"
+        elif len(self._shape) == 1:
+            return f"ragged.array({ak.prettyprint.valuestr(self._impl, 1, 80 - 14)})"
+        else:
+            prep = ak.prettyprint.valuestr(self._impl, 20, 80 - 4)[1:-1].replace(
+                "\n ", "\n    "
+            )
+            return f"ragged.array([\n    {prep}\n])"
+
+    # Typical properties and methods for an array, but not part of the Array API
+
+    def __contains__(self, other: bool | int | float | complex) -> bool:
+        if isinstance(self._impl, ak.Array):
+            flat = ak.flatten(self._impl, axis=None)
+            assert isinstance(flat.layout, NumpyArray)  # pylint: disable=E1101
+            return other in flat.layout.data  # pylint: disable=E1101
+        else:
+            return other in self._impl  # type: ignore[operator]
+
+    def __len__(self) -> int:
+        if isinstance(self._impl, ak.Array):
+            return len(self._impl)
+        else:
+            msg = "len() of unsized object"
+            raise TypeError(msg)
+
+    def __iter__(self) -> Iterator[array]:
+        if isinstance(self._impl, ak.Array):
+            t = type(self)
+            sh = self._shape[1:]
+            dt = self._dtype
+            dev = self._device
+            if sh == ():
+                for x in self._impl:
+                    yield t._new(x, (), dt, dev)
+            else:
+                for x in self._impl:
+                    # x may be a numpy.ndarray when iterating over a uniform
+                    # (RegularArray) layout; wrap it so _impl is always ak.Array.
+                    x_ak = x if isinstance(x, ak.Array) else ak.Array(x)
+                    yield t._new(x_ak, (len(x_ak), *sh[1:]), dt, dev)
+        else:
+            msg = "iteration over a 0-d array"
+            raise TypeError(msg)
+
+    def item(self) -> bool | int | float | complex:
+        if self.size == 1:
+            if isinstance(self._impl, ak.Array):
+                return ak.flatten(self._impl, axis=None)[0].item()  # type: ignore[no-any-return]
+            else:
+                return self._impl.item()  # type: ignore[no-any-return,union-attr]
+        else:
+            msg = "can only convert an array of size 1 to a Python scalar"
+            raise ValueError(msg)
+
+    def tolist(
+        self,
+    ) -> bool | int | float | complex | NestedSequence[bool | int | float | complex]:
+        return self._impl.tolist()  # type: ignore[no-any-return,union-attr]
+
+    # Attributes: https://data-apis.org/array-api/latest/API_specification/array_object.html#attributes
+
+    @property
+    def dtype(self) -> Dtype:
+        """
+        Data type of the array elements.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.dtype.html
+        """
+
+        return self._dtype
+
+    @property
+    def device(self) -> Device:
+        """
+        Hardware device the array data resides on.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.device.html
+        """
+
+        return self._device
+
+    @property
+    def mT(self) -> array:
+        """
+        Transpose of a matrix (or a stack of matrices).
+
+        Raises:
+            ValueError: If any ragged dimension's lists are not sorted from longest
+                to shortest, which is the only way that left-aligned ragged
+                transposition is possible.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.mT.html
+        """
+        from ._spec_linear_algebra_functions import matrix_transpose
+
+        return matrix_transpose(self)
+
+    @property
+    def ndim(self) -> int:
+        """
+        Number of array dimensions (axes).
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.ndim.html
+        """
+
+        return len(self._shape)
+
+    @property
+    def shape(self) -> Shape:
+        """
+        Array dimensions.
+
+        Regular dimensions are represented by `int` values in the `shape` and
+        irregular (ragged) dimensions are represented by `None`.
+
+        According to the specification, "An array dimension must be `None` if
+        and only if a dimension is unknown," which is a different
+        interpretation than we are making here.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.shape.html
+        """
+
+        return self._shape
+
+    @property
+    def size(self) -> None | int:
+        """
+        Number of elements in an array.
+
+        This property never returns `None` because we do not consider
+        dimensions to be unknown, and numerical values within ragged
+        lists can be counted.
+
+        Example:
+            An array like `ragged.array([[1.1, 2.2, 3.3], [], [4.4, 5.5]])` has
+            a size of 5 because it contains 5 numerical values.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.size.html
+        """
+
+        if len(self._shape) == 0:
+            return 1
+        else:
+            return int(ak.count(self._impl))
+
+    @property
+    def T(self) -> array:
+        """
+        Transpose of the array.
+
+        Raises:
+            ValueError: If any ragged dimension's lists are not sorted from longest
+                to shortest, which is the only way that left-aligned ragged
+                transposition is possible.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.T.html
+        """
+        # Per Array API, .T is strictly for 2D arrays
+        if self.ndim != 2:
+            msg = "Per Array API, input array must be 2D to have a transpose property. Use permute_dims to reverse all axes"
+            raise ValueError(msg)
+
+        from ._spec_linear_algebra_functions import matrix_transpose
+
+        return matrix_transpose(self)
+
+    # methods: https://data-apis.org/array-api/latest/API_specification/array_object.html#methods
+
+    def __abs__(self) -> array:
+        """
+        Calculates the absolute value for each element of an array instance.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__abs__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.abs(self)
+
+    def __add__(self, other: int | float | array, /) -> array:
+        """
+        Calculates the sum for each element of an array instance with the
+        respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__add__.html
+        """
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.add(self, self._ensure_array(other))
+
+    def __and__(self, other: int | bool | array, /) -> array:
+        """
+        Evaluates `self_i & other_i` for each element of an array instance with
+        the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__and__.html
+        """
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.bitwise_and(self, self._ensure_array(other))
+
+    def __array_namespace__(self, *, api_version: None | str = None) -> Any:
+        """
+        Returns an object that has all the array API functions on it.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__array_namespace__.html
+        """
+
+        import ragged  # pylint: disable=C0415,R0401
+
+        if api_version is not None and api_version != ragged.__array_api_version__:
+            msg = f"api_version {api_version!r} is not implemented; {ragged.__array_api_version__ = }"
+            raise NotImplementedError(msg)
+
+        return ragged
+
+    def __array_ufunc__(
+        self,
+        ufunc: Any,
+        method: str,
+        *inputs: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        NEP-13: intercept NumPy ufunc calls so that ``np.sqrt(x)``,
+        ``np.add(x, y)``, etc. work transparently on :class:`array`.
+
+        All :class:`array` arguments are unwrapped to their ``ak.Array``
+        implementation; the ufunc is then dispatched through awkward-array's
+        own ``__array_ufunc__``, and the result is re-wrapped.
+        """
+
+        ak_inputs = tuple(
+            x._impl if isinstance(x, array) else x  # pylint: disable=W0212
+            for x in inputs
+        )
+        out_orig = kwargs.pop("out", None)
+        if out_orig is not None:
+            kwargs["out"] = tuple(
+                x._impl if isinstance(x, array) else x  # pylint: disable=W0212
+                for x in out_orig
+            )
+        result = getattr(ufunc, method)(*ak_inputs, **kwargs)
+        if isinstance(result, ak.Array):
+            return _box(type(self), result)
+        if isinstance(result, tuple):
+            return tuple(
+                _box(type(self), r) if isinstance(r, ak.Array) else r for r in result
+            )
+        return result
+
+    def __array_function__(
+        self,
+        func: Any,
+        types: Any,  # pylint: disable=W0613
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> Any:
+        """
+        NEP-18: intercept NumPy array-function protocol calls.
+
+        A small set of numpy functions are mapped to their ragged equivalents;
+        everything else is forwarded to awkward-array after unwrapping.
+        """
+
+        import ragged  # pylint: disable=C0415,R0401
+
+        _RAGGED_MAP: dict[Any, Any] = {
+            np.concatenate: ragged.concat,
+            np.stack: ragged.stack,
+            np.broadcast_to: ragged.broadcast_to,
+            np.reshape: ragged.reshape,
+            np.squeeze: ragged.squeeze,
+            np.expand_dims: ragged.expand_dims,
+            np.flip: ragged.flip,
+            np.roll: ragged.roll,
+        }
+
+        if func in _RAGGED_MAP:
+            return _RAGGED_MAP[func](*args, **kwargs)
+
+        # Fall back: unwrap all ragged.array arguments and let awkward handle it.
+        def _unwrap(x: Any) -> Any:
+            return x._impl if isinstance(x, array) else x  # pylint: disable=W0212
+
+        new_args = tuple(_unwrap(a) for a in args)
+        new_kwargs = {k: _unwrap(v) for k, v in kwargs.items()}
+        result = func(*new_args, **new_kwargs)
+        if isinstance(result, ak.Array):
+            return _box(type(self), result)
+        return result
+
+    def __bool__(self) -> bool:  # pylint: disable=E0304  # false positive: method is defined
+        """
+        Converts a zero-dimensional array to a Python `bool` object.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__bool__.html
+        """
+
+        return bool(self._impl)
+
+    def __complex__(self) -> complex:
+        """
+        Converts a zero-dimensional array to a Python `complex` object.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__complex__.html
+        """
+
+        return complex(self._impl)  # type: ignore[arg-type]
+
+    def __dlpack__(self, *, stream: None | int | Any = None) -> PyCapsule:
+        """
+        Exports the array for consumption by `from_dlpack()` as a DLPack
+        capsule.
+
+        Args:
+            stream: CuPy Stream object (https://docs.cupy.dev/en/stable/reference/generated/cupy.cuda.Stream.html)
+                if not `None`.
+
+        Raises:
+            ValueError: If any dimensions are ragged.
+
+            https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__dlpack__.html
+        """
+
+        buf = self._impl
+        if isinstance(buf, ak.Array):
+            buf = ak.to_numpy(buf) if ak.backend(buf) == "cpu" else ak.to_cupy(buf)
+
+        return buf.__dlpack__(stream=stream)  # type: ignore[arg-type]
+
+    def __dlpack_device__(self) -> tuple[enum.Enum, int]:
+        """
+        Returns device type and device ID in DLPack format.
+
+        Raises:
+            ValueError: If any dimensions are ragged.
+
+            https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__dlpack_device__.html
+        """
+
+        buf = self._impl
+        if isinstance(buf, ak.Array):
+            buf = buf.layout
+            while isinstance(buf, ListArray | ListOffsetArray | RegularArray):
+                buf = buf.content
+            assert isinstance(buf, NumpyArray)
+            buf = buf.data
+
+        return buf.__dlpack_device__()
+
+    def __eq__(self, other: int | float | bool | array, /) -> array:  # type: ignore[override]
+        """
+        Computes the truth value of `self_i == other_i` for each element of an
+        array instance with the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__eq__.html
+        """
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.equal(self, self._ensure_array(other))
+
+    def __float__(self) -> float:
+        """
+        Converts a zero-dimensional array to a Python `float` object.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__float__.html
+        """
+
+        return float(self._impl)  # type: ignore[arg-type]
+
+    def __floordiv__(self, other: int | float | array, /) -> array:
+        """
+        Evaluates `self_i // other_i` for each element of an array instance
+        with the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__floordiv__.html
+        """
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.floor_divide(self, self._ensure_array(other))
+
+    def __ge__(self, other: int | float | array, /) -> array:
+        """
+        Computes the truth value of `self_i >= other_i` for each element of an
+        array instance with the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__ge__.html
+        """
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.greater_equal(self, self._ensure_array(other))
+
+    def __getitem__(self, key: GetSliceKey, /) -> array:
+        """
+        Returns self[key].
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__getitem__.html
+        """
+
+        if isinstance(key, tuple):
+            for item in key:
+                if not isinstance(
+                    item, numbers.Integral | slice | type(...) | type(None)
+                ):
+                    msg = f"ragged.array sliced as arr[item1, item2, ...] can only have int, slice, ellipsis, None (np.newaxis) as items, not {item!r}"
+                    raise TypeError(msg)
+        elif not isinstance(
+            key, numbers.Integral | slice | type(...) | type(None) | array
+        ):
+            key = array(key)  # attempt to cast unknown key type as ragged.array
+
+        if isinstance(key, array):
+            key = key._impl  # type: ignore[assignment]
+
+        return _box(type(self), self._impl[key])  # type: ignore[index]
+
+    def __gt__(self, other: int | float | array, /) -> array:
+        """
+        Computes the truth value of `self_i > other_i` for each element of an
+        array instance with the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__gt__.html
+        """
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.greater(self, self._ensure_array(other))
+
+    def __index__(self) -> int:  # pylint: disable=E0305  # false positive: method is defined
+        """
+        Converts a zero-dimensional integer array to a Python `int` object.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__index__.html
+        """
+
+        return self._impl.__index__()  # type: ignore[no-any-return, union-attr]
+
+    def __int__(self) -> int:
+        """
+        Converts a zero-dimensional array to a Python `int` object.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__int__.html
+        """
+
+        return int(self._impl)  # type: ignore[arg-type]
+
+    def __invert__(self) -> array:
+        """
+        Evaluates `~self_i` for each element of an array instance.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__invert__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.bitwise_invert(self)
+
+    def __le__(self, other: int | float | array, /) -> array:
+        """
+        Computes the truth value of `self_i <= other_i` for each element of an
+        array instance with the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__le__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.less_equal(self, self._ensure_array(other))
+
+    def __lshift__(self, other: int | array, /) -> array:
+        """
+        Evaluates `self_i << other_i` for each element of an array instance
+        with the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__lshift__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.bitwise_left_shift(self, self._ensure_array(other))
+
+    def __lt__(self, other: int | float | array, /) -> array:
+        """
+        Computes the truth value of `self_i < other_i` for each element of an
+        array instance with the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__lt__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.less(self, self._ensure_array(other))
+
+    def __matmul__(self, other: array, /) -> array:
+        """
+        Computes the matrix product.
+
+        For 2-D arrays, this is a standard matrix multiplication: (M, K) @ (K, N) → (M, N).
+        For N-D arrays, batch dimensions are broadcast and the last two axes are the
+        matrix dimensions, following the Array API convention.
+
+        Ragged inner dimensions are not supported — the contracted axis (last axis of
+        self, second-to-last axis of other) must be a regular (non-None) dimension so
+        that each dot product is well-defined.  The non-contracted axes may be ragged,
+        in which case the result is also ragged.
+
+        Raises:
+            ValueError: If either array has fewer than 2 dimensions.
+            ValueError: If the contracted dimensions are ragged or do not match.
+            TypeError: If the two arrays reside on different devices.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__matmul__.html
+        """
+        other = self._ensure_array(other)
+
+        if self.ndim < 2 or other.ndim < 2:
+            msg = "matmul requires arrays with at least 2 dimensions"
+            raise ValueError(msg)
+
+        # The contracted dimension is self.shape[-1] and other.shape[-2].
+        # Both must be regular (not None) and equal.
+        #
+        # NOTE: ragged.array always stores the last axis as variable-length
+        # internally, so shape[-1] is always None regardless of whether rows
+        # are actually uniform.  We use ak.num to determine the true size.
+        def _uniform_axis_size(arr: array, axis: int) -> int | None:
+            """Return the axis size if uniform across all entries, else None."""
+
+            def _flatten_ints(obj: Any) -> list[int]:
+                """Recursively flatten nested lists/ints to a flat list of ints."""
+                if isinstance(obj, int):
+                    return [obj]
+                result: list[int] = []
+                for item in obj:
+                    result.extend(_flatten_ints(item))
+                return result
+
+            nums = ak.num(arr._impl, axis=axis)
+            nums_list = ak.to_list(nums)
+            if isinstance(nums_list, int):
+                return nums_list
+            flat = _flatten_ints(nums_list)
+            if not flat:
+                return None
+            return flat[0] if all(v == flat[0] for v in flat) else None
+
+        k_self = _uniform_axis_size(self, -1)
+        k_other = _uniform_axis_size(other, -2)
+
+        if k_self is None or k_other is None:
+            msg = (
+                "matmul: the contracted axis (last axis of the left operand / "
+                "second-to-last axis of the right operand) must not be ragged"
+            )
+            raise ValueError(msg)
+
+        if k_self != k_other:
+            msg = (
+                f"matmul: contracted dimension mismatch — "
+                f"left operand last axis={k_self}, right operand second-to-last axis={k_other}"
+            )
+            raise ValueError(msg)
+
+        left_impl, right_impl = _unbox(self, other)
+
+        # Fast path: both arrays are fully regular (no ragged leading dims).
+        # Convert to NumPy and use np.matmul directly.
+        try:
+            left_np = ak.to_numpy(left_impl)
+            right_np = ak.to_numpy(right_impl)
+            result_np = np.matmul(left_np, right_np)
+            return _box(type(self), ak.from_numpy(result_np))
+        except (TypeError, ValueError, NotImplementedError):
+            pass
+
+        # Slow path: at least one operand has ragged non-contracted dimensions.
+        # Walk ak.Array sub-blocks directly instead of calling ak.to_list on the
+        # whole array — ak.to_numpy is tried at every recursion level, so any
+        # fully-uniform sub-block (including batched 3-D+) hits np.matmul without
+        # allocating Python list objects.
+        result_dtype = np.result_type(self._dtype, other._dtype)
+
+        def _matmul_ak(a: ak.Array, b: ak.Array) -> Any:
+            # Fast: ak.to_numpy succeeds for uniform sub-blocks at any depth.
+            try:
+                return np.matmul(ak.to_numpy(a), ak.to_numpy(b))
+            except (TypeError, ValueError):
+                pass
+            # Ragged batch dimension — recurse element-by-element.
+            if len(a) != len(b):
+                msg = (
+                    f"matmul: batch dimension mismatch — "
+                    f"left has {len(a)} entries, right has {len(b)}"
+                )
+                raise ValueError(msg)
+            results: list[Any] = []
+            for ai, bi in zip(a, b, strict=False):
+                ai_ak = ai if isinstance(ai, ak.Array) else ak.Array(ai)
+                bi_ak = bi if isinstance(bi, ak.Array) else ak.Array(bi)
+                results.append(_matmul_ak(ai_ak, bi_ak))
+            return results
+
+        return array(_matmul_ak(left_impl, right_impl), dtype=result_dtype)
+
+    def __mod__(self, other: int | float | array, /) -> array:
+        """
+        Evaluates `self_i % other_i` for each element of an array instance with
+        the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__mod__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.remainder(self, self._ensure_array(other))
+
+    def __mul__(self, other: int | float | array, /) -> array:
+        """
+        Calculates the product for each element of an array instance with the
+        respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__mul__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.multiply(self, self._ensure_array(other))
+
+    def __ne__(self, other: int | float | bool | array, /) -> array:  # type: ignore[override]
+        """
+        Computes the truth value of `self_i != other_i` for each element of an
+        array instance with the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__ne__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.not_equal(self, self._ensure_array(other))
+
+    def __neg__(self) -> array:
+        """
+        Evaluates `-self_i` for each element of an array instance.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__neg__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.negative(self)
+
+    def __or__(self, other: int | bool | array, /) -> array:
+        """
+        Evaluates `self_i | other_i` for each element of an array instance with
+        the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__or__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.bitwise_or(self, self._ensure_array(other))
+
+    def __pos__(self) -> array:
+        """
+        Evaluates `+self_i` for each element of an array instance.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__pos__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.positive(self)
+
+    def __pow__(self, other: int | float | array, /) -> array:
+        """
+        Calculates an implementation-dependent approximation of exponentiation
+        by raising each element (the base) of an array instance to the power of
+        `other_i` (the exponent), where `other_i` is the corresponding element
+        of the array `other`.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__pow__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.pow(self, self._ensure_array(other))
+
+    def __rshift__(self, other: int | array, /) -> array:
+        """
+        Evaluates `self_i >> other_i` for each element of an array instance
+        with the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__rshift__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.bitwise_right_shift(self, self._ensure_array(other))
+
+    def __setitem__(
+        self, key: SetSliceKey, value: int | float | bool | array, /
+    ) -> None:
+        """
+        Sets ``self[key]`` to *value*, mutating the array in-place.
+
+        This enables ``array_api_extra.at`` (NEP-47 / issue #103).  Mutations
+        are carried out on a copy of the underlying data, so they are not
+        particularly efficient; favour constructing new arrays when performance
+        matters.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__setitem__.html
+        """
+
+        # Unwrap key if it is a ragged.array (boolean-mask indexing).
+        key_any: Any = key
+        if isinstance(key_any, array):
+            key_any = key_any._impl  # pylint: disable=W0212
+            if isinstance(key_any, ak.Array):
+                key_any = ak.to_numpy(key_any)
+
+        # Single layout probe on self._impl determines which path to take.
+        # The value is then unwrapped in the appropriate form for that path —
+        # no second try/except needed.
+        try:
+            arr = ak.to_numpy(self._impl)
+        except (TypeError, ValueError):
+            arr = None
+
+        val: Any
+        if arr is not None:
+            # --- Fast path: uniform layout — mutate via numpy ---
+            if isinstance(value, array):
+                v_impl = value._impl  # pylint: disable=W0212
+                val = (
+                    ak.to_numpy(v_impl)
+                    if isinstance(v_impl, ak.Array)
+                    else np.asarray(v_impl)
+                )
+            else:
+                val = value
+            arr = arr.copy()
+            arr[key_any] = val
+            new_impl: Any = ak.from_numpy(arr)
+            if arr.ndim > 1:
+                new_impl = ak.from_regular(new_impl, axis=None)
+            self._impl = new_impl
+            self._shape, self._dtype = _shape_dtype(self._impl.layout)
+            return
+
+        # --- General ragged path: list-based mutation ---
+        # Supports integer and slice keys on the outermost axis.
+        if not isinstance(key_any, int | slice):
+            msg = (
+                "ragged.array __setitem__: only integer and slice keys are "
+                "supported for ragged (variable-length) arrays; "
+                f"got key type {type(key_any).__name__!r}"
+            )
+            raise TypeError(msg)
+
+        if isinstance(value, array):
+            v_impl = value._impl  # pylint: disable=W0212
+            if isinstance(v_impl, ak.Array):
+                val = v_impl.tolist()
+            else:
+                val = np.asarray(v_impl).tolist()
+        elif isinstance(value, ak.Array | np.ndarray):
+            val = value.tolist()
+        else:
+            val = value
+
+        impl_ak: ak.Array = self._impl  # type: ignore[assignment,unused-ignore]
+        lst: list[Any] = impl_ak.tolist()
+        lst[key_any] = val
+        dt = self._dtype
+        new_impl = ak.Array(lst)
+        if dt is not None:
+            new_impl = ak.values_astype(new_impl, dt)
+        self._impl = new_impl
+        self._shape, self._dtype = _shape_dtype(self._impl.layout)
+
+    def __sub__(self, other: int | float | array, /) -> array:
+        """
+        Calculates the difference for each element of an array instance with
+        the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__sub__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.subtract(self, self._ensure_array(other))
+
+    def __truediv__(self, other: int | float | array, /) -> array:
+        """
+        Evaluates `self_i / other_i` for each element of an array instance with
+        the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__truediv__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.divide(self, self._ensure_array(other))
+
+    def __xor__(self, other: int | bool | array, /) -> array:
+        """
+        Evaluates `self_i ^ other_i` for each element of an array instance with
+        the respective element of the array other.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.__xor__.html
+        """
+
+        from ragged import (  # pylint: disable=C0415,R0401
+            _spec_elementwise_functions as ns,
+        )
+
+        return ns.bitwise_xor(self, self._ensure_array(other))
+
+    def to_device(self, device: Device, /, *, stream: None | int | Any = None) -> array:
+        """
+        Copy the array from the device on which it currently resides to the
+        specified device.
+
+        Args:
+            device: If `"cpu"`, the array is backed by NumPy and resides in
+                main memory; if `"cuda"`, the array is backed by CuPy and
+                resides in CUDA global memory.
+            stream: CuPy Stream object (https://docs.cupy.dev/en/stable/reference/generated/cupy.cuda.Stream.html)
+                for `device="cuda"`. Ignored if output `device` is `"cpu"`. If
+                this argument is an integer, it is interpreted as the pointer
+                address of a `cudaStream_t` object.
+
+        https://data-apis.org/array-api/latest/API_specification/generated/array_api.array.to_device.html
+        """
+
+        if isinstance(stream, numbers.Integral):
+            cp = _import.cupy()
+            stream = cp.cuda.ExternalStream(stream)
+
+        if stream is not None:
+            t = type(stream)
+            if not t.__module__.startswith("cupy.") or t.__name__ != "Stream":
+                msg = f"stream object must be a cupy.cuda.Stream, not {stream!r}"
+                raise TypeError(msg)
+
+        if isinstance(self._impl, ak.Array):
+            if device != ak.backend(self._impl):
+                if stream is not None:
+                    with stream:
+                        impl = ak.to_backend(self._impl, device)
+                else:
+                    impl = ak.to_backend(self._impl, device)
+            else:
+                impl = self._impl
+
+        elif isinstance(self._impl, np.ndarray):
+            # self._impl is a NumPy 0-dimensional array
+            if device == "cuda":
+                cp = _import.cupy()
+                if stream is not None:
+                    with stream:
+                        impl = cp.array(self._impl)
+                else:
+                    impl = cp.array(self._impl)
+            else:
+                impl = self._impl
+
+        else:
+            # self._impl is a CuPy 0-dimensional array
+            impl = self._impl.get() if device == "cpu" else self._impl  # type: ignore[union-attr]
+
+        return self._new(impl, self._shape, self._dtype, device)
+
+    @property
+    def at(self) -> _AtIndexHelper:
+        """
+        JAX-style functional update interface.
+
+        Returns an :class:`_AtIndexHelper` that supports ``x.at[idx].set(val)``,
+        ``x.at[idx].add(val)``, etc.  Each operation returns a **new** array
+        with the indexed positions updated; the original array is unchanged.
+
+        Example::
+
+            a = ragged.array([1.0, 2.0, 3.0])
+            b = a.at[1].set(99.0)  # [1.0, 99.0, 3.0]
+            c = a.at[0].add(10.0)  # [11.0, 2.0, 3.0]
+        """
+        return _AtIndexHelper(self)
+
+    # in-place operators: https://data-apis.org/array-api/2022.12/API_specification/array_object.html#in-place-operators
+
+    def __iadd__(self, other: int | float | array, /) -> array:
+        """
+        Calculates `self = self + other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self + other)
+
+    def __isub__(self, other: int | float | array, /) -> array:
+        """
+        Calculates `self = self - other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self - other)
+
+    def __imul__(self, other: int | float | array, /) -> array:
+        """
+        Calculates `self = self * other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self * other)
+
+    def __itruediv__(self, other: int | float | array, /) -> array:
+        """
+        Calculates `self = self / other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self / other)
+
+    def __ifloordiv__(self, other: int | float | array, /) -> array:
+        """
+        Calculates `self = self // other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self // other)
+
+    def __ipow__(self, other: int | float | array, /) -> array:
+        """
+        Calculates `self = self ** other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self**other)
+
+    def __imod__(self, other: int | float | array, /) -> array:
+        """
+        Calculates `self = self % other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self % other)
+
+    def __imatmul__(self, other: array, /) -> array:
+        """
+        Calculates `self = self @ other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+
+        Raises ValueError if the result shape differs from the original shape,
+        since in-place assignment cannot change the shape of the array.
+        """
+        orig_shape = self.shape
+        result = self @ other
+
+        # Build the "effective" original shape: substitute None dims with what
+        # ak.num reports (uniform size, or None if truly ragged).
+        def _effective_size(arr: array, axis: int) -> int | None:
+            nums = ak.num(arr._impl, axis=axis)
+            lst = ak.to_list(nums)
+            if isinstance(lst, int):
+                return lst
+
+            def _flatten(obj: Any) -> list[int]:
+                if isinstance(obj, int):
+                    return [obj]
+                out: list[int] = []
+                for item in obj:
+                    out.extend(_flatten(item))
+                return out
+
+            flat = _flatten(lst)
+            return flat[0] if flat and all(v == flat[0] for v in flat) else None
+
+        effective_self_shape = tuple(
+            _effective_size(self, i) if s is None else s
+            for i, s in enumerate(orig_shape)
+        )
+        # result.shape has concrete values from the numpy fast path
+        if result.ndim != len(orig_shape) or any(
+            es is not None and es != r
+            for es, r in zip(effective_self_shape, result.shape, strict=False)
+        ):
+            msg = (
+                f"matmul: in-place result shape {result.shape} does not match "
+                f"original shape {orig_shape}"
+            )
+            raise ValueError(msg)
+        return self._apply_inplace(result)
+
+    def __iand__(self, other: int | bool | array, /) -> array:
+        """
+        Calculates `self = self & other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self & other)
+
+    def __ior__(self, other: int | bool | array, /) -> array:
+        """
+        Calculates `self = self | other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self | other)
+
+    def __ixor__(self, other: int | bool | array, /) -> array:
+        """
+        Calculates `self = self ^ other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self ^ other)
+
+    def __ilshift__(self, other: int | array, /) -> array:
+        """
+        Calculates `self = self << other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self << other)
+
+    def __irshift__(self, other: int | array, /) -> array:
+        """
+        Calculates `self = self >> other` in-place.
+
+        (Internal arrays are immutable; this only replaces the array that the
+        Python object points to.)
+        """
+        return self._apply_inplace(self >> other)
+
+    # reflected operators: https://data-apis.org/array-api/2022.12/API_specification/array_object.html#reflected-operators
+
+    # Commutative operations can stay aliased:
+    __radd__ = __add__  # ✓ OK: a + b == b + a
+    __rmul__ = __mul__  # ✓ OK: a * b == b * a
+    __rand__ = __and__  # ✓ OK: a & b == b & a
+    __ror__ = __or__  # ✓ OK: a | b == b | a
+    __rxor__ = __xor__  # ✓ OK: a ^ b == b ^ a
+
+    # Non-commutative need proper implementation:
+    def __rsub__(self, other: int | float | array, /) -> array:
+        """Compute other - self."""
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.subtract(self._ensure_array(other), self)
+
+    def __rtruediv__(self, other: int | float | array, /) -> array:
+        """Compute other / self."""
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.divide(self._ensure_array(other), self)
+
+    def __rfloordiv__(self, other: int | float | array, /) -> array:
+        """Compute other // self."""
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.floor_divide(self._ensure_array(other), self)
+
+    def __rpow__(self, other: int | float | array, /) -> array:
+        """Compute other ** self."""
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.pow(self._ensure_array(other), self)
+
+    def __rmod__(self, other: int | float | array, /) -> array:
+        """Compute other % self."""
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.remainder(self._ensure_array(other), self)
+
+    def __rlshift__(self, other: int | array, /) -> array:
+        """Compute other << self."""
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.bitwise_left_shift(self._ensure_array(other), self)
+
+    def __rrshift__(self, other: int | array, /) -> array:
+        """Compute other >> self."""
+        from ragged import _spec_elementwise_functions as ns
+
+        return ns.bitwise_right_shift(self._ensure_array(other), self)
+
+    def __rmatmul__(self, other: array, /) -> array:
+        """Compute other @ self."""
+        return self._ensure_array(other).__matmul__(self)
+
+
+def _is_shared(
+    x1: array | ak.Array | SupportsDLPack, x2: array | ak.Array | SupportsDLPack
+) -> bool:
+    x1_buf = x1._impl if isinstance(x1, array) else x1  # pylint: disable=W0212
+    x2_buf = x2._impl if isinstance(x2, array) else x2  # pylint: disable=W0212
+
+    if isinstance(x1_buf, ak.Array):
+        x1_buf = x1_buf.layout
+        while not isinstance(x1_buf, NumpyArray):
+            x1_buf = x1_buf.content
+        x1_buf = x1_buf.data
+
+    if isinstance(x2_buf, ak.Array):
+        x2_buf = x2_buf.layout
+        while not isinstance(x2_buf, NumpyArray):
+            x2_buf = x2_buf.content
+        x2_buf = x2_buf.data
+
+    while x1_buf.base is not None:  # type: ignore[union-attr]
+        x1_buf = x1_buf.base  # type: ignore[union-attr]
+    while x2_buf.base is not None:  # type: ignore[union-attr]
+        x2_buf = x2_buf.base  # type: ignore[union-attr]
+
+    return x1_buf is x2_buf
+
+
+def _unbox(*inputs: array) -> tuple[ak.Array | SupportsDLPack, ...]:
+    if len(inputs) > 1 and any(type(inputs[0]) is not type(x) for x in inputs):
+        types = "\n".join(f"{type(x).__module__}.{type(x).__name__}" for x in inputs)
+        msg = f"mixed array types: {types}"
+        raise TypeError(msg)
+
+    # Mixed-device inputs are not explicitly rejected here; awkward-array will
+    # raise at operation time if the backends are incompatible.
+
+    return tuple(x._impl for x in inputs)  # pylint: disable=W0212
+
+
+def _box(
+    cls: type[array],
+    output: ak.Array | np.number | SupportsDLPack,
+    *,
+    dtype: None | Dtype = None,
+    device: None | Device = None,
+) -> array:
+    if isinstance(output, ak.Array):
+        impl = output
+        shape, dtype_observed = _shape_dtype(output.layout)
+        if dtype is not None and dtype != dtype_observed:
+            impl = ak.values_astype(impl, dtype)
+        else:
+            dtype = dtype_observed
+        device_observed = ak.backend(output)
+        if device is None:
+            device = device_observed
+        elif device != device_observed:
+            output = ak.to_backend(output, device)
+
+    elif isinstance(output, np.number):
+        impl = np.array(output)
+        shape = output.shape
+        dtype_observed = output.dtype
+        if dtype is not None and dtype != dtype_observed:
+            impl = impl.astype(dtype)
+        else:
+            dtype = dtype_observed
+        device_observed = "cpu"
+        if device is None:
+            device = device_observed
+        elif device != device_observed:
+            cp = _import.cupy()
+            output = cp.array(output)
+
+    else:
+        impl = output
+        shape = output.shape  # type: ignore[union-attr]
+        dtype_observed = output.dtype  # type: ignore[union-attr]
+        if dtype is not None and dtype != dtype_observed:
+            impl = impl.astype(dtype)
+        else:
+            dtype = dtype_observed
+        device_observed = "cpu" if isinstance(output, np.ndarray) else "cuda"
+        if device is None:
+            device = device_observed
+        elif device != device_observed:
+            if device == "cpu":
+                output = np.array(output)
+            else:
+                cp = _import.cupy()
+                output = cp.array(output)
+
+        if shape != ():
+            impl = ak.Array(impl)
+
+    return cls._new(impl, shape, dtype, device)  # pylint: disable=W0212
+
+
+# ---------------------------------------------------------------------------
+# .at[idx] helper classes  (JAX-style functional update, issue #103)
+# ---------------------------------------------------------------------------
+
+
+class _AtIndexHelper:
+    """Returned by ``array.at`` — supports ``array.at[idx]`` syntax."""
+
+    __slots__ = ("_x",)
+
+    def __init__(self, x: array) -> None:
+        self._x = x
+
+    def __getitem__(self, idx: Any) -> _AtIndexer:
+        return _AtIndexer(self._x, idx)
+
+
+class _AtIndexer:
+    """
+    Returned by ``array.at[idx]`` — provides JAX-style functional updates.
+
+    Every method returns a **new** :class:`array`; the original is unchanged.
+    Internally each operation copies the array, applies ``__setitem__``, and
+    returns the copy.
+    """
+
+    __slots__ = ("_x", "_idx")
+
+    def __init__(self, x: array, idx: Any) -> None:
+        self._x = x
+        self._idx = idx
+
+    # ------------------------------------------------------------------
+    # internal helper
+    # ------------------------------------------------------------------
+
+    def _apply(self, new_val: Any) -> array:
+        out = copy_lib.copy(self._x)
+        out[self._idx] = new_val  # delegates to array.__setitem__
+        return out
+
+    # ------------------------------------------------------------------
+    # public operations
+    # ------------------------------------------------------------------
+
+    def set(self, val: Any) -> array:
+        """Return a new array with ``x[idx] = val``."""
+        return self._apply(val)
+
+    def add(self, val: Any) -> array:
+        """Return a new array with ``x[idx] += val``."""
+        return self._apply(self._x[self._idx] + val)
+
+    def subtract(self, val: Any) -> array:
+        """Return a new array with ``x[idx] -= val``."""
+        return self._apply(self._x[self._idx] - val)
+
+    def multiply(self, val: Any) -> array:
+        """Return a new array with ``x[idx] *= val``."""
+        return self._apply(self._x[self._idx] * val)
+
+    def divide(self, val: Any) -> array:
+        """Return a new array with ``x[idx] /= val``."""
+        return self._apply(self._x[self._idx] / val)
+
+    def power(self, val: Any) -> array:
+        """Return a new array with ``x[idx] **= val``."""
+        return self._apply(self._x[self._idx] ** val)
+
+    def min(self, val: Any) -> array:
+        """Return a new array with ``x[idx] = minimum(x[idx], val)``."""
+        current = self._x[self._idx]
+        # np.minimum is a ufunc; ragged.__array_ufunc__ handles the dispatch.
+        return self._apply(np.minimum(current, val))
+
+    def max(self, val: Any) -> array:
+        """Return a new array with ``x[idx] = maximum(x[idx], val)``."""
+        current = self._x[self._idx]
+        # np.maximum is a ufunc; ragged.__array_ufunc__ handles the dispatch.
+        return self._apply(np.maximum(current, val))

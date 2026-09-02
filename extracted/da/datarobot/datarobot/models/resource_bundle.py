@@ -22,7 +22,7 @@ from datarobot.utils.pagination import unpaginate
 class ResourceBundle(APIObject):
     """A DataRobot resource bundle.
 
-    A resource bundle provides a commonly available id that allows users to specify the
+    A resource bundle provides a commonly available ID that allows users to specify the
     required resources to be used. This includes CPU/GPU and memory resources.
 
     .. versionadded:: v3.8
@@ -32,21 +32,22 @@ class ResourceBundle(APIObject):
     id: str
         The ID of the resource bundle.
     name: str
-         A short name for the bundle.
+        A short name for the bundle.
     description: Optional[str]
-        A short description of CPU, Memory and other resources.
+        A short description of CPU, memory, and other resources.
     cpu_count: float
-        Maximum number of CPUs available.
+        Maximum number of CPU cores available.
     memory_bytes: int
         Maximum amount of memory available.
     gpu_maker: Optional[str]
-        The manufacturer of the GPU (e.g., nvidia, amd, intel)
+        The manufacturer of the GPU (e.g., ``nvidia``, ``amd``, ``intel``).
     gpu_count: Optional[float]
-        Maximum number of GPUs available.
+        Maximum number of GPU resources available.
     gpu_memory_bytes: int
         Maximum amount of GPU memory available.
     use_cases: List[str]
-        List of use cases this bundle supports (e.g., customApplication, customJob, customModel, sapAICore).
+        A list of use cases this bundle supports (e.g., ``customApplication``, ``customJob``, ``customModel``,
+        ``sapAICore``).
     is_default: Optional[bool]
         If this should be the default resource choice.
     is_deleted: Optional[bool]
@@ -110,14 +111,14 @@ class ResourceBundle(APIObject):
         limit: Optional[int] = None,
     ) -> List["ResourceBundle"]:
         """
-        List all resource bundles.
+        Returns a list of all resource bundles.
 
         .. versionadded:: v3.8
 
         Parameters
         ----------
         use_cases : List[str], optional
-            List of use-cases
+            A list of use cases to filter bundles by.
         offset: Optional[int]
             Offset for pagination.
         limit: Optional[int]
@@ -126,6 +127,7 @@ class ResourceBundle(APIObject):
         Returns
         -------
         resource_bundles: List[ResourceBundle]
+            A list of resource bundles.
         """
         params: Dict[str, Any] = {}
         if use_cases:
@@ -148,7 +150,7 @@ class ResourceBundle(APIObject):
         Parameters
         ----------
         bundle_id: str
-            ID of the resource bundle (e.g., cpu.micro)
+            ID of the resource bundle (e.g., ``cpu.micro``).
         """
         response = cls._client.get(f"{cls._path}{bundle_id}/")
         return cls.from_server_data(response.json())

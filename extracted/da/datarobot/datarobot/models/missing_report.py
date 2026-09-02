@@ -89,9 +89,9 @@ class MissingValuesReport(APIObject):
         Parameters
         ----------
         project_id : str
-            The project's id.
+            The project ID.
         model_id : str
-            The model's id.
+            The model ID.
 
         Returns
         -------
@@ -103,7 +103,7 @@ class MissingValuesReport(APIObject):
 
 
 class TaskMissingReportInfo:
-    """Convert dictionary into object, which contains task name, id (a number of task in the
+    """Convert dictionary into object, which contains task name, ID (a number of task in the
     blueprint diagram) and descriptions (task specific missing report info).
     """
 

@@ -11,6 +11,7 @@ Usage::
     from boto3.session import Session
     from mypy_boto3_sesv2 import (
         Client,
+        ListEmailIdentityCertificatesPaginator,
         ListMultiRegionEndpointsPaginator,
         ListReputationEntitiesPaginator,
         ListResourceTenantsPaginator,
@@ -22,6 +23,7 @@ Usage::
     session = Session()
     client: SESV2Client = session.client("sesv2")
 
+    list_email_identity_certificates_paginator: ListEmailIdentityCertificatesPaginator = client.get_paginator("list_email_identity_certificates")
     list_multi_region_endpoints_paginator: ListMultiRegionEndpointsPaginator = client.get_paginator("list_multi_region_endpoints")
     list_reputation_entities_paginator: ListReputationEntitiesPaginator = client.get_paginator("list_reputation_entities")
     list_resource_tenants_paginator: ListResourceTenantsPaginator = client.get_paginator("list_resource_tenants")
@@ -32,6 +34,7 @@ Usage::
 
 from .client import SESV2Client
 from .paginator import (
+    ListEmailIdentityCertificatesPaginator,
     ListMultiRegionEndpointsPaginator,
     ListReputationEntitiesPaginator,
     ListResourceTenantsPaginator,
@@ -43,6 +46,7 @@ Client = SESV2Client
 
 __all__ = (
     "Client",
+    "ListEmailIdentityCertificatesPaginator",
     "ListMultiRegionEndpointsPaginator",
     "ListReputationEntitiesPaginator",
     "ListResourceTenantsPaginator",

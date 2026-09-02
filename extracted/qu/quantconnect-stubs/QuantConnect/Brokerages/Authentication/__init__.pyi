@@ -260,12 +260,35 @@ class LeanOAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authenticatio
         ...
 
     @property
+    def recovery_interval(self) -> datetime.timedelta:
+        """
+        The time interval between attempts to recover a failed authentication.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @recovery_interval.setter
+    def recovery_interval(self, value: datetime.timedelta) -> None:
+        ...
+
+    @property
     def offset_before_expiration(self) -> datetime.timedelta:
         """Some padding before expiration to request a new token"""
         ...
 
     @offset_before_expiration.setter
     def offset_before_expiration(self, value: datetime.timedelta) -> None:
+        ...
+
+    @property
+    def authentication_succeeded(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        """Raised when authentication succeeds"""
+        ...
+
+    @authentication_succeeded.setter
+    def authentication_succeeded(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, api_client: QuantConnect.Api.ApiConnection, request: QuantConnect.Brokerages.Authentication.OAuthTokenRequest, token_lifetime: datetime.timedelta) -> None:
@@ -276,6 +299,15 @@ class LeanOAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authenticatio
         :param request: The request model used to generate the access token.
         :param token_lifetime: The expected lifetime of a fetched token. A 1-minute safety buffer is applied before expiry.
         Must be provided explicitly — each brokerage has a different token lifetime.
+        """
+        ...
+
+    def dispose(self, disposing: bool) -> None:
+        """
+        Stops the recovery task, if any, before releasing the handler.
+        
+        
+        This Class is protected.
         """
         ...
 

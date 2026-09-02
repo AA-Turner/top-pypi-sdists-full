@@ -1,10 +1,10 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mcp-proxy-for-aws
-Version: 1.6.4
+Version: 1.6.5
 Summary: MCP Proxy for AWS
-Project-URL: documentation, https://github.com/aws/aws-mcp-proxy/blob/main/README.md
+Project-URL: documentation, https://github.com/aws/mcp-proxy-for-aws/blob/main/README.md
 Project-URL: repository, https://github.com/aws/mcp-proxy-for-aws.git
-Project-URL: changelog, https://github.com/aws/aws-mcp-proxy/blob/main/CHANGELOG.md
+Project-URL: changelog, https://github.com/aws/mcp-proxy-for-aws/blob/main/CHANGELOG.md
 Author: Amazon Web Services, MCP Proxy for AWS
 License: Apache-2.0
 License-File: LICENSE
@@ -298,7 +298,7 @@ By default, the library resolves AWS credentials automatically from the standard
 from botocore.credentials import Credentials
 from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
 
-creds = Credentials(access_key="...", secret_key="...", token="...")
+creds = Credentials(access_key='...', secret_key='...', token='...')
 
 mcp_client = aws_iam_streamablehttp_client(
     endpoint=mcp_url,
@@ -320,8 +320,8 @@ mcp_client = aws_iam_streamablehttp_client(
     aws_region=region,
     aws_service=service,
     metadata={
-        "custom/session-context": "my-value",
-        "custom/tracking-id": "abc-123",
+        'custom/session-context': 'my-value',
+        'custom/tracking-id': 'abc-123',
     },
 )
 ```

@@ -42,8 +42,8 @@ dev = [
   "pytest-cov==7.1.0",
   "pytest-asyncio==1.4.0",
   "pytest-xdist==3.8.0",
-  "prek==0.4.14",
-  "ruff==0.16.4",
+  "prek==0.5.1",
+  "ruff==0.16.5",
   "types-aiofiles==25.1.0.20260518",
   "typing-extensions==4.16.0",
   "zensical==0.0.57",
@@ -56,6 +56,7 @@ path = "meilisearch_python_sdk/_version.py"
 repository = "https://github.com/sanders41/meilisearch-python-sdk"
 homepage = "https://github.com/sanders41/meilisearch-python-sdk"
 documentation = "https://meilisearch-python-sdk.paulsanders.dev"
+funding = "https://github.com/sponsors/sanders41"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

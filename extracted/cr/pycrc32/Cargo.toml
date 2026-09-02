@@ -1,0 +1,20 @@
+[package]
+name = "pycrc32"
+version = "0.3.0"
+edition = "2021"
+authors = ["cybuerg <robin.buergi@gmail.com>"]
+description = "Python module for SIMD-accelerated CRC32 checksum computation"
+license = "MIT License"
+homepage = "https://github.com/code-inflation/pycrc32"
+repository = "https://github.com/code-inflation/pycrc32"
+readme = "README.md"
+keywords = ["crc", "crc32", "simd", "checksum"]
+
+[lib]
+name = "pycrc32"
+crate-type = ["cdylib"]
+
+[dependencies]
+crc32fast = "1.4.2"
+pyo3 = "0.23.3"
+

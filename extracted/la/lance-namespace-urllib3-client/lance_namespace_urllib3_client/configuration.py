@@ -547,7 +547,7 @@ conf = lance_namespace_urllib3_client.Configuration(
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 1.0.0\n"\
-               "SDK Package Version: 0.11.1".\
+               "SDK Package Version: 0.12.0".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self) -> List[HostSetting]:
@@ -556,6 +556,10 @@ conf = lance_namespace_urllib3_client.Configuration(
         :return: An array of host settings
         """
         return [
+            {
+                'url': "http://localhost:2333",
+                'description': "Default local server",
+            },
             {
                 'url': "{scheme}://{host}:{port}/{basePath}",
                 'description': "Generic server URL with all parts configurable",

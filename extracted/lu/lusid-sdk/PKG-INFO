@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.216
+Version: 2.3.217
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -1461,6 +1461,7 @@ Class | Method | HTTP request | Description
  - [IndexProjectionDependency](docs/IndexProjectionDependency.md)
  - [IndustryClassifier](docs/IndustryClassifier.md)
  - [InflationCurveData](docs/InflationCurveData.md)
+ - [InflationCurveShiftDefinition](docs/InflationCurveShiftDefinition.md)
  - [InflationFixingDependency](docs/InflationFixingDependency.md)
  - [InflationIndexConventions](docs/InflationIndexConventions.md)
  - [InflationLeg](docs/InflationLeg.md)

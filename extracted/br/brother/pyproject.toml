@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brother"
-version = "6.1.1"
+version = "6.1.2"
 license = "Apache-2.0"
 description = "Python wrapper for getting data from Brother laser and inkjet printers via SNMP."
 readme = "README.md"
@@ -22,15 +22,15 @@ classifiers = [
 requires-python = ">=3.13"
 dependencies = [
   "dacite>=1.7.0",
-  "pyasn1>=0.6.3",
-  "pysnmp>=7.1.22",
+  "pyasn1>=0.6.4",
+  "pysnmp>=7.1.27",
 ]
 
 [dependency-groups]
 dev = [
-  "prek==0.4.5",
-  "ruff==0.15.18",
-  "ty==0.0.51",
+  "prek==0.4.14",
+  "ruff==0.16.4",
+  "ty==0.0.74",
 ]
 test = [
   "freezegun==1.5.5",
@@ -39,7 +39,7 @@ test = [
   "pytest-error-for-skips==2.0.2",
   "pytest-timeout==2.4.0",
   "pytest==9.1.1",
-  "syrupy==5.3.2",
+  "syrupy==6.0.0",
 ]
 
 [project.urls]
@@ -58,12 +58,15 @@ lint.select = ["ALL"]
 
 lint.ignore = [
     "COM812",   # Trailing comma missing
+    "CPY001",   # Missing copyright notice at top of file
     "D203",     # 1 blank line required before class docstring
     "D213",     # Multi-line docstring summary should start at the second line
     "EM101",    # Exception must not use a string literal, assign to variable first
     "PLR0912",  # Too many branches
     "PLR0913",  # Too many arguments to function call
+    "PLR0917",  # Too many positional arguments
     "PTH123",   # `open()` should be replaced by `Path.open()`
+    "S508",     # The use of SNMPv1 and SNMPv2 is insecure.
     "TC002",    # Move third-party import into a type-checking block
     "TC003",    # Move standard library import into a type-checking block
     "TC006",    # Add quotes to type expression in `typing.cast()`

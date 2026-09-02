@@ -1,0 +1,45 @@
+metadata:
+  name: windows
+files:
+  - name: 01_provision-data-disk.ps1
+    template: 01_provision-data-disk_template.ps1
+  - name: 02_run_fio_benchmark.ps1
+    template: 02_run_fio_benchmark_template.ps1
+  - name: 03_parse_fio_results.ps1
+    template: 03_parse_fio_results_template.ps1
+template_data:
+  shared:
+    pin_node: {{ pin_node1 }}
+    odf_pvc: {{ odf_pvc }}
+    uuid: {{ uuid }}
+    url: {{ windows_url }}
+    cdi_source_type: {{ cdi_source_type }}
+    cdi_source_s3_cred: {{ cdi_source_s3_cred }}
+    vm_storage_class: {{ vm_storage_class }}
+    BLOCK_SIZES: 4k,8k
+    IO_OPERATION: read,write
+    IO_THREADS: 8,8
+    IO_DEPTH: 4,4
+    DURATION: 20
+    PAUSE: 15
+    SIZE: 1G
+  run_type:
+    perf_ci:
+      BLOCK_SIZES: 4k,8k,32k,1M
+      IO_OPERATION: read,write,randread,randwrite
+      IO_THREADS: 8,8,8,8
+      IO_DEPTH: 4,4,4,4
+      DURATION: 180
+      PAUSE: 15
+      SIZE: 4G
+      requests_memory: 4G
+      requests_cpu: 8
+      cores: 8
+      storage: 76Gi
+      data_disk_storage: 64Gi
+    default:
+      requests_memory: 4G
+      requests_cpu: 1
+      cores: 2
+      storage: 76Gi
+      data_disk_storage: 64Gi

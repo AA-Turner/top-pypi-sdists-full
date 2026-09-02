@@ -20,7 +20,7 @@ from datarobot.models.otel.utils import to_datetime_param
 
 
 class OtelMetrics(APIObject):
-    """General Otel metric wrapper class.
+    """General ``OTel`` metric wrapper class.
 
     .. versionadded:: v3.13
     """
@@ -35,14 +35,14 @@ class OtelMetrics(APIObject):
         search: Optional[str] = None,
         metric_type: Optional[str] = None,
     ) -> List[OtelMetricSummary]:
-        """List available OpenTelemetry metric information.
+        """Returns a list of available OpenTelemetry metric information.
 
         .. versionadded:: v3.13
 
         Parameters
         ----------
         entity_type: str
-            The entity type of the reported metrics (e.g., deployment, or use_case).
+            The entity type of the reported metrics (e.g., deployment or ``use_case``).
         entity_id: str
             The entity ID of the reported metrics (e.g., `123456`).
         search: Optional[str]
@@ -64,14 +64,14 @@ class OtelMetrics(APIObject):
         start_time: Optional[datetime | date | str] = None,
         end_time: Optional[datetime | date | str] = None,
     ) -> None:
-        """Delete all the Otel metrics associated with the specified entity type/id.
+        """Deletes the ``OTel`` metrics associated with the specified entity type/ID.
 
         .. versionadded:: v3.13
 
         Parameters
         ----------
         entity_type: str
-            The entity type of the metrics (e.g., deployment or use_case).
+            The entity type of the metrics (e.g., deployment or ``use_case``).
         entity_id: str
             The entity ID of the metrics (e.g., `123456`).
         start_time: Optional[datetime | date | str]

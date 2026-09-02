@@ -1,0 +1,902 @@
+# SPDX-License-Identifier: MIT
+"""
+Sim runtime — binds the shared native cores to a MuJoCo model.
+
+Phase B left us with native ``Servo`` and ``DriveBase`` types whose
+math is byte-identical to the firmware. This module is the *I/O*
+layer that turns that into a working sim:
+
+  * Reading the wheel angle from a MuJoCo ``jointpos`` sensor and
+    converting to encoder counts the native ``Servo`` consumes.
+  * Mapping the native servo's [-100, 100] power output onto the
+    MuJoCo actuator's torque ``ctrl`` range.
+  * Driving everything from a single ``SimRuntime.step()`` call so the
+    user's main loop is just ``while not done: rt.step()``.
+
+Design notes
+------------
+
+The firmware has a ``MotorProcess`` C-callback registry that the
+``machine.Timer`` ISR fires at 1 kHz. The sim doesn't need that
+infrastructure: there's no ISR, the "tick" is just the next
+``mj_step``. ``SimRuntime`` keeps its own list of registered ticks
+(every adapter registers itself at construction) and fires them in
+order each step. The runtime's ``now_ms`` clock advances by
+``timestep`` every step, mirroring the firmware's
+``virtual_now_ms``.
+
+User-facing classes here implement enough of the firmware driver
+shape (``run_speed``, ``brake``, ``coast``, ``angle``,
+``run_target``, plus DriveBase ``straight``/``turn``/``stop``/
+``is_done``) for the existing tests + the planned ``openbricks-sim
+run`` command (Phase C2) to drive them. Other interfaces (IMU,
+ColorSensor) land in later phases when their MuJoCo sensor binding is
+wired up.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Callable, List, Optional
+
+import mujoco
+
+from openbricks_sim import _native
+
+
+# Power output / torque mapping — see SimMotor.tick() for the math.
+# Held here as a module constant so tests can introspect it.
+_POWER_FULL_SCALE = 100.0
+
+
+class SimRuntime:
+    """Owns the model + data + a clock + the per-tick callback list.
+
+    Construct one per simulation. Adapters (``SimMotor``,
+    ``SimDriveBase``, future IMU/colour sensors) take a
+    ``SimRuntime`` reference and register themselves by calling
+    ``add_tick(fn)`` — the runtime fires every registered fn in
+    registration order on each ``step()`` *before* advancing the
+    physics. That ordering matters: drivebase.tick() writes
+    ``target_dps`` on each servo, then the servo ticks read it and
+    write the actuator ``ctrl``, then ``mj_step`` integrates one
+    physics step.
+    """
+
+    def __init__(self, model: mujoco.MjModel, data: mujoco.MjData):
+        self.model      = model
+        self.data       = data
+        self.now_ms     = 0
+        # Tick period in ms. Pulled from MuJoCo's timestep so the
+        # virtual clock matches the physics clock exactly.
+        self.timestep_ms = max(1, int(round(model.opt.timestep * 1000.0)))
+        self._ticks: List[Callable[[int], None]] = []
+
+    def add_tick(self, fn: Callable[[int], None]) -> None:
+        """Register a per-step callback. Called with the *current*
+        ``now_ms`` (not the next one) — same convention as the
+        firmware's ``motor_process``."""
+        if fn not in self._ticks:
+            self._ticks.append(fn)
+
+    def remove_tick(self, fn: Callable[[int], None]) -> None:
+        """Unregister a previously-registered callback. No-op if the
+        callback was never registered."""
+        try:
+            self._ticks.remove(fn)
+        except ValueError:
+            pass
+
+    def step(self) -> None:
+        """Advance one physics step + clock + fire ticks.
+
+        Order:
+          1. Advance ``now_ms`` first so subscribers see a consistent
+             "now" that already accounts for this step's duration.
+          2. Fire each registered tick. Tick callbacks read sensors,
+             update controllers, and write actuator ``ctrl`` values.
+          3. Step physics.
+        """
+        self.now_ms += self.timestep_ms
+        for fn in self._ticks:
+            fn(self.now_ms)
+        mujoco.mj_step(self.model, self.data)
+
+
+class SimMotor:
+    """A single drive motor, MuJoCo-side.
+
+    Wraps a native ``Servo`` state machine + a (sensor, actuator)
+    pair on the MuJoCo model. Per tick:
+
+      1. Read the joint-position sensor (radians).
+      2. Convert to encoder counts via ``counts_per_rev``.
+      3. ``servo.tick(count, now_ms)`` returns a desired power in
+         [-100, 100].
+      4. Convert power to torque through a DC-MOTOR MODEL and write
+         the ``ctrl`` value.
+
+    The DC model is the fidelity linchpin (issue #234): the shared
+    servo core's feed-forward assumes ``power == voltage duty`` on a
+    motor whose speed self-limits through back-EMF at
+    ``OB_SERVO_DEFAULT_RATED_DPS`` (power 100 -> 300 dps free run).
+    Mapping power LINEARLY to torque (the old behaviour) applied
+    cruise-level feed-forward as a huge PERMANENT torque — ~4x the
+    wheel-ground traction limit — so the wheels broke loose, the
+    reaction torque wheelied the chassis, and the control loop
+    limit-cycled through the slip nonlinearity. The model here is
+    the classic linear DC motor::
+
+        torque = T_STALL * (power/100 - wheel_dps / RATED_DPS)
+
+    which puts the torque equilibrium exactly where the core's
+    feed-forward expects it, and bounds torque at ``T_STALL`` —
+    chosen just BELOW the traction limit (mu*Fn*r ~ 0.066 Nm on the
+    default chassis) so no command can break traction, while still
+    leaving >2x the acceleration headroom the 1500 deg/s^2 default
+    trajectory needs (>10x at the older 360 default).
+
+    User-facing methods (``run_speed`` / ``run_target`` / ``brake`` /
+    ``coast`` / ``angle`` / ``reset_angle``) match the shape of the
+    firmware's ``Servo`` so user code that targets the firmware
+    interface works unchanged.
+    """
+
+    # DC-motor model constants (see class docstring). RATED_DPS must
+    # match the servo core's OB_SERVO_DEFAULT_RATED_DPS so the
+    # feed-forward's equilibrium lands where the core expects.
+    T_STALL_NM = 0.05
+    RATED_DPS  = 300.0
+
+    def __init__(self,
+                 runtime: SimRuntime,
+                 sensor_name: str,
+                 actuator_name: str,
+                 counts_per_rev: int = 1320,
+                 kp: float = 0.3,
+                 invert: bool = False) -> None:
+        self.runtime        = runtime
+        self.counts_per_rev = counts_per_rev
+        self.invert         = invert
+
+        self._sensor_id = mujoco.mj_name2id(
+            runtime.model, mujoco.mjtObj.mjOBJ_SENSOR,   sensor_name)
+        if self._sensor_id < 0:
+            raise ValueError("no sensor named " + repr(sensor_name) +
+                             " in model")
+        self._sensor_addr = int(runtime.model.sensor_adr[self._sensor_id])
+
+        self._actuator_id = mujoco.mj_name2id(
+            runtime.model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator_name)
+        if self._actuator_id < 0:
+            raise ValueError("no actuator named " + repr(actuator_name) +
+                             " in model")
+        # The DC model writes torque directly; the actuator ctrlrange
+        # only acts as a hard safety bound. Verify T_STALL fits.
+        lo, hi = runtime.model.actuator_ctrlrange[self._actuator_id]
+        limit = max(abs(float(lo)), abs(float(hi)))
+        if self.T_STALL_NM > limit:
+            raise ValueError(
+                "actuator ctrlrange %.3f Nm below the DC model's "
+                "stall torque %.3f Nm" % (limit, self.T_STALL_NM))
+        # Joint dof address for the back-EMF term (physics-truth
+        # wheel velocity, rad/s).
+        jnt_id = int(runtime.model.actuator_trnid[self._actuator_id, 0])
+        self._dof_adr = int(runtime.model.jnt_dofadr[jnt_id])
+
+        self.servo = _native.Servo(counts_per_rev=counts_per_rev,
+                                    kp=kp, invert=invert)
+        # Re-baseline the observer to whatever the joint reads right
+        # now, so the first tick doesn't see a phantom delta.
+        self.servo.baseline(self._read_count(), runtime.now_ms)
+
+        # Don't auto-attach — same convention as the firmware
+        # ``servo.c``. The first ``run_speed`` / ``run_target`` /
+        # SimDriveBase attach call wakes the controller. Otherwise
+        # zero-target controllers fight passive wheel settling and
+        # destabilise the chassis.
+        self._attached = False
+        self._dc_duty = None   # sustained-duty (dc) mode when not None
+
+    # -------- attach / detach lifecycle --------
+
+    def _attach(self) -> None:
+        if not self._attached:
+            self.runtime.add_tick(self._tick)
+            self._attached = True
+
+    def _detach(self) -> None:
+        if self._attached:
+            self.runtime.remove_tick(self._tick)
+            self._attached = False
+
+    # -------- per-tick I/O --------
+
+    def _read_count(self) -> int:
+        rad = float(self.runtime.data.sensordata[self._sensor_addr])
+        deg = rad * (180.0 / math.pi)
+        return int(deg * self.counts_per_rev / 360.0)
+
+    def _tick(self, now_ms: int) -> None:
+        if self._dc_duty is not None:
+            # Sustained duty mode (Pybricks dc()): reapply every tick
+            # so the DC-motor model's back-EMF term keeps tracking
+            # the actual wheel speed.
+            power = -self._dc_duty if self.invert else self._dc_duty
+            self.apply_power(power)
+            return
+        count = self._read_count()
+        power = self.servo.tick(count, now_ms)
+        # invert flag is a wiring concern; the core returns the raw
+        # control-law power, so the binding shell is responsible for
+        # the sign flip. (firmware does the same in ``servo.c``.)
+        if self.invert:
+            power = -power
+        self.apply_power(power)
+
+    def apply_power(self, power: float) -> None:
+        """Write ``power`` (±100, the firmware PWM-duty domain) to
+        the actuator through the DC-motor model:
+        ``torque = T_stall*(duty - w/w_rated)``. The back-EMF term
+        uses the PHYSICS wheel velocity (not the observer) — it
+        models the motor's electrical reality, not the controller's
+        estimate. Power and wheel velocity are both in the wheel
+        frame, so invert cancels out of the (odd) expression. Also
+        used by the serial-servo shim's velocity loop, so every
+        actuator write in the sim goes through the same motor
+        physics."""
+        wheel_dps = math.degrees(
+            float(self.runtime.data.qvel[self._dof_adr]))
+        torque = self.T_STALL_NM * (
+            power / _POWER_FULL_SCALE - wheel_dps / self.RATED_DPS)
+        if torque > self.T_STALL_NM:
+            torque = self.T_STALL_NM
+        elif torque < -self.T_STALL_NM:
+            torque = -self.T_STALL_NM
+        self.runtime.data.ctrl[self._actuator_id] = torque
+
+    # -------- user-facing API (Motor interface) --------
+
+    def run(self, speed: float) -> None:
+        """Pybricks ``Motor.run()``: closed-loop speed in deg/s.
+        Alias of ``run_speed`` (which remains)."""
+        self.run_speed(speed)
+
+    def dc(self, duty: float) -> None:
+        """Pybricks ``Motor.dc()``: sustained raw duty (-100..100).
+        Cancels closed-loop control; the duty is reapplied through
+        the DC-motor model every physics tick, so back-EMF still
+        limits the speed exactly as on hardware."""
+        if duty > 100.0:
+            duty = 100.0
+        elif duty < -100.0:
+            duty = -100.0
+        self._dc_duty = float(duty)
+        self._attach()
+
+    def speed(self) -> float:
+        """Pybricks ``Motor.speed()``: measured wheel speed in
+        deg/s straight from the physics joint velocity."""
+        return math.degrees(float(self.runtime.data.qvel[self._dof_adr]))
+
+    def load(self):
+        raise NotImplementedError(
+            "SimMotor.load(): the sim's DC-motor model has no load "
+            "register; read data.ctrl torque directly if needed")
+
+    def stalled(self):
+        raise NotImplementedError(
+            "SimMotor.stalled(): no load feedback in the sim model")
+
+    def run_speed(self, dps: float) -> None:
+        """Hold a target speed (deg/s) closed-loop. Cancels any
+        active trajectory (and dc mode)."""
+        self._dc_duty = None
+        self.servo.set_speed(float(dps))
+        self._attach()
+
+    def run_target(self,
+                   delta_deg: float,
+                   cruise_dps: float,
+                   accel: float = 1500.0) -> None:
+        """Trapezoidal move ``delta_deg`` from the current angle at
+        ``cruise_dps`` cruise speed and ``accel`` deg/s² shaping.
+        Default matches the firmware's 1500 deg/s² (issue #234's
+        wheel-in-floor geometry + missing back-EMF fixes made the
+        sim track it faithfully)."""
+        self._dc_duty = None
+        self.servo.run_target(self._read_count(), self.runtime.now_ms,
+                               float(delta_deg), float(cruise_dps),
+                               float(accel))
+        self._attach()
+
+    def brake(self) -> None:
+        """Cut closed-loop control and apply maximum opposing torque
+        — the sim's analogue to the L298N short-the-terminals brake.
+        We approximate by detaching from the tick loop and zeroing
+        ctrl; MuJoCo's ``damping`` + ``frictionloss`` on the joint
+        does the rest."""
+        self._dc_duty = None
+        self._detach()
+        self.runtime.data.ctrl[self._actuator_id] = 0.0
+
+    def coast(self) -> None:
+        """Same as ``brake`` for the sim — both end up writing 0
+        torque. Real hardware brake actively shorts the motor; here
+        the difference is invisible because there's no back-EMF
+        model. Kept as a separate method for API parity."""
+        self.brake()
+
+    def stop(self) -> None:
+        """Pybricks ``Motor.stop()``: stop and spin freely (coast).
+        Mirrors the firmware Motor interface's concrete default."""
+        self.coast()
+
+    def angle(self) -> float:
+        """Current shaft angle in degrees, derived from the joint
+        sensor (independent of the observer)."""
+        rad = float(self.runtime.data.sensordata[self._sensor_addr])
+        return rad * (180.0 / math.pi)
+
+    def reset_angle(self, angle: float = 0.0) -> None:
+        """Re-baseline the observer so its position estimate matches
+        ``angle``. Note: the underlying MuJoCo joint position isn't
+        teleported (you'd corrupt physics); the observer just learns
+        a new offset, which is the firmware's behaviour too."""
+        # Convert the requested angle back into a synthetic count.
+        synthetic_count = int(angle * self.counts_per_rev / 360.0)
+        self.servo.baseline(synthetic_count, self.runtime.now_ms)
+
+    # -------- introspection helpers (mostly for tests) --------
+
+    def target_dps(self) -> float:
+        return float(self.servo.target_dps())
+
+    def observed_dps(self) -> float:
+        return float(self.servo.observed_dps())
+
+    def is_done(self) -> bool:
+        return bool(self.servo.is_done())
+
+
+class SimIMU:
+    """6-DOF IMU adapter, MuJoCo-side.
+
+    Wraps the chassis's ``accelerometer`` + ``gyro`` MuJoCo sensors
+    plus the body's ``xmat`` rotation matrix to produce the same
+    interface a real BNO055 driver exposes:
+
+      * ``heading()`` — yaw in degrees, wrapped to [-180, 180).
+        Pulled from the body's rotation matrix so it has zero
+        integration drift (the sim's "ground truth" yaw, not a
+        gyro-integrated estimate).
+      * ``angular_velocity()`` — (wx, wy, wz) in deg/s, body frame.
+      * ``acceleration()`` — (ax, ay, az) in m/s², body frame.
+
+    The drivebase ``use_gyro`` path on the firmware is slip-immune —
+    it doesn't matter how much the wheels spin, the heading comes
+    from the IMU. The sim's SimIMU gives the same property under
+    asymmetric friction / wheel-floor slip in MuJoCo.
+    """
+
+    def __init__(self,
+                 runtime: SimRuntime,
+                 body_name: str = "chassis",
+                 accel_sensor_name: str = "chassis_accel",
+                 gyro_sensor_name:  str = "chassis_gyro") -> None:
+        self.runtime = runtime
+        self._body_id = mujoco.mj_name2id(
+            runtime.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        if self._body_id < 0:
+            raise ValueError("no body named " + repr(body_name) +
+                             " in model")
+
+        self._accel_id = mujoco.mj_name2id(
+            runtime.model, mujoco.mjtObj.mjOBJ_SENSOR, accel_sensor_name)
+        if self._accel_id < 0:
+            raise ValueError("no sensor named " + repr(accel_sensor_name) +
+                             " in model")
+        self._accel_addr = int(runtime.model.sensor_adr[self._accel_id])
+
+        self._gyro_id = mujoco.mj_name2id(
+            runtime.model, mujoco.mjtObj.mjOBJ_SENSOR, gyro_sensor_name)
+        if self._gyro_id < 0:
+            raise ValueError("no sensor named " + repr(gyro_sensor_name) +
+                             " in model")
+        self._gyro_addr = int(runtime.model.sensor_adr[self._gyro_id])
+
+    def heading(self) -> float:
+        """Yaw angle (degrees) in [-180, 180), CW positive.
+
+        Compass / Pybricks convention (1.24.0): turning right
+        increases the value — same sign the real BNO055 driver
+        reports. The negation converts MuJoCo's math-convention
+        (CCW-positive) world yaw; ``robot.chassis_pose()`` keeps the
+        un-negated world-frame yaw, so the two deliberately differ
+        in sign.
+        """
+        R = self.runtime.data.xmat[self._body_id].reshape(3, 3)
+        yaw_deg = math.degrees(math.atan2(float(R[1, 0]), float(R[0, 0])))
+        # Wrap to [-180, 180) to match the BNO055 driver shape.
+        return -(((yaw_deg + 180.0) % 360.0) - 180.0)
+
+    def angular_velocity(self):
+        """(wx, wy, wz) in deg/s, body frame."""
+        sd = self.runtime.data.sensordata
+        a = float(sd[self._gyro_addr])
+        b = float(sd[self._gyro_addr + 1])
+        c = float(sd[self._gyro_addr + 2])
+        return (math.degrees(a), math.degrees(b), math.degrees(c))
+
+    def acceleration(self):
+        """(ax, ay, az) in m/s², body frame."""
+        sd = self.runtime.data.sensordata
+        return (float(sd[self._accel_addr]),
+                float(sd[self._accel_addr + 1]),
+                float(sd[self._accel_addr + 2]))
+
+
+class SimColorSensor:
+    """Down-facing colour sensor, MuJoCo-side.
+
+    Casts a ray from the camera position straight down (world -Z) and
+    returns the colour of whatever geom it hits. The look direction
+    is hard-coded to world -Z rather than the camera's actual local
+    -Z so a slightly-pitched chassis (e.g. ~6.7° wheel-settle) still
+    samples the floor directly under the sensor — the cosine error
+    against camera-frame Z is < 1% at that tilt, which is well below
+    the colour-sensor's quantisation in any case. Real TCS34725
+    sensors integrate over a small FOV; this is a single-point
+    approximation.
+
+    Surface-colour resolution dispatches on what the ray hit:
+
+      * **Textured plane geom** — sample the texture at the (u, v)
+        coordinate corresponding to the world hit point. This is the
+        path the WRO mat takes: ``mat.png`` is loaded by MuJoCo as
+        an RGB texture, the printed colour at any (x, y) on the mat
+        is what the real TCS34725 would see.
+      * **Untextured material** — the material's ``rgba`` (a single
+        flat colour). What the previous implementation returned for
+        every surface.
+      * **No material** — the geom's own ``rgba``.
+
+    Texture sampling is CPU-side: read ``model.tex_data`` directly,
+    compute UV from the geom-local hit coordinate, index the texel.
+    No GL context, no offscreen rendering — works on macOS / Linux /
+    Windows identically. The trade-off is that we don't simulate
+    lighting, shadows, or geom layering: a flat printed mat is
+    rendered byte-accurately, but a translucent overlay above it
+    would not be composited. For the WRO mats — the actual driver of
+    this work — that's exactly the right model.
+
+    Methods match :class:`openbricks.interfaces.ColorSensor`:
+
+      * ``rgb()`` returns ``(r, g, b)`` ints in 0..255.
+      * ``ambient()`` returns a 0..100 luminance score (BT.601).
+    """
+
+    # MuJoCo texture-role indices into ``mat_texid[mat_id, role]``.
+    # Both RGB and RGBA roles are colour textures; we accept either.
+    # Numeric values come from the ``mjtTextureRole`` enum (mjTEXROLE_*)
+    # in mjmodel.h — hard-coded here because the Python bindings
+    # don't expose the enum as named constants on every release.
+    _TEXROLE_RGB  = 1
+    _TEXROLE_RGBA = 8
+
+    def __init__(self,
+                 runtime: SimRuntime,
+                 camera_name: str = "chassis_cam_down",
+                 chassis_body_name: str = "chassis") -> None:
+        self.runtime = runtime
+        self._cam_id = mujoco.mj_name2id(
+            runtime.model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
+        if self._cam_id < 0:
+            raise ValueError("no camera named " + repr(camera_name) +
+                             " in model")
+        # Exclude the chassis itself from raycasts so we don't
+        # self-hit the chassis body geom.
+        self._chassis_body_id = mujoco.mj_name2id(
+            runtime.model, mujoco.mjtObj.mjOBJ_BODY, chassis_body_name)
+        if self._chassis_body_id < 0:
+            raise ValueError("no body named " + repr(chassis_body_name) +
+                             " in model")
+
+    # ------------- raycast -------------
+
+    def _hit_rgba(self):
+        """Return the rgba (4 floats, 0..1) of the geom under the
+        camera, or None if the ray missed."""
+        # Lazy-import numpy at call-site; mujoco depends on it so it's
+        # always available, but keeping the runtime module's top-level
+        # imports minimal helps cold-start time.
+        import numpy as np
+
+        # Force a forward pass so cam_xpos reflects the latest qpos.
+        # (mj_step does this; explicit forward is for cases where the
+        # caller queries before stepping.)
+        mujoco.mj_forward(self.runtime.model, self.runtime.data)
+
+        pnt = np.array(self.runtime.data.cam_xpos[self._cam_id],
+                        dtype=np.float64)
+        # World -Z. See class docstring for why we use world axis
+        # rather than the camera's local -Z.
+        vec = np.array([0.0, 0.0, -1.0], dtype=np.float64)
+        geom_id = np.zeros(1, dtype=np.int32)
+        dist = mujoco.mj_ray(self.runtime.model, self.runtime.data,
+                              pnt, vec,
+                              None,                    # geomgroup
+                              1,                       # flg_static (include static)
+                              self._chassis_body_id,   # bodyexclude
+                              geom_id)
+        if geom_id[0] < 0 or dist < 0:
+            return None
+        gid = int(geom_id[0])
+        m = self.runtime.model
+
+        # Surface dispatch: textured plane → sample texel; material →
+        # material rgba; bare geom → geom rgba. Not a fallback chain —
+        # the previous level of the dispatch is the actual answer for
+        # the surface kind that didn't match.
+        mat_id = int(m.geom_matid[gid])
+        if mat_id >= 0:
+            sampled = self._sample_textured_geom(
+                gid, mat_id, pnt + dist * vec)
+            if sampled is not None:
+                return sampled
+            return tuple(float(c) for c in m.mat_rgba[mat_id])
+        return tuple(float(c) for c in m.geom_rgba[gid])
+
+    # ------------- texture sampling -------------
+
+    def _sample_textured_geom(self, geom_id, mat_id, world_hit):
+        """Sample the colour-texture pixel under ``world_hit`` for the
+        given (geom, material). Returns rgba in [0,1], or ``None`` if:
+
+          * the material has no RGB / RGBA-role texture, or
+          * the geom is not a plane (the only shape we currently
+            UV-map; the WRO mat use case is exactly a plane).
+
+        Plane UV mapping (matches MuJoCo's renderer): the surface
+        is the geom's local XY plane, of size (2*sx, 2*sy) where
+        ``size`` is the geom's half-extent. Local x maps to U,
+        local y to V (inverted: image-space row 0 is +Y in
+        MuJoCo's convention, so v_image = 1 - v_local). Material
+        ``texrepeat`` tiles the texture across the geom; we
+        wrap with ``mod 1.0``.
+        """
+        import numpy as np
+        m = self.runtime.model
+
+        # Texture role lookup. Try RGB first (the common case for
+        # ``<texture type="2d" file="..."/>`` / built-in checker),
+        # then RGBA. Anything else (occlusion, normal map, etc.)
+        # isn't a colour-texture and we skip it.
+        tex_id = int(m.mat_texid[mat_id, self._TEXROLE_RGB])
+        if tex_id < 0:
+            tex_id = int(m.mat_texid[mat_id, self._TEXROLE_RGBA])
+        if tex_id < 0:
+            return None
+
+        # Plane-only UV. Other geom types (box, sphere, mesh) need
+        # different unwrapping; punt for now — the WRO mat is a
+        # plane and that's the use case driving this.
+        # ``mjtGeom.mjGEOM_PLANE`` = 0 in MuJoCo's enum.
+        if int(m.geom_type[geom_id]) != int(mujoco.mjtGeom.mjGEOM_PLANE):
+            return None
+
+        # World → geom-local. ``geom_xmat`` is row-major flattened.
+        data = self.runtime.data
+        origin = np.asarray(data.geom_xpos[geom_id], dtype=np.float64)
+        rot    = np.asarray(data.geom_xmat[geom_id], dtype=np.float64
+                            ).reshape(3, 3)
+        local  = rot.T @ (np.asarray(world_hit, dtype=np.float64) - origin)
+        sx, sy = float(m.geom_size[geom_id, 0]), float(m.geom_size[geom_id, 1])
+
+        # Plane size = 0 (infinite plane in MuJoCo) — fall back to no
+        # sampling. Real WRO mats use finite size, so this just
+        # protects against pathological models.
+        if sx <= 0.0 or sy <= 0.0:
+            return None
+
+        u_norm = (float(local[0]) + sx) / (2.0 * sx)
+        v_norm = (float(local[1]) + sy) / (2.0 * sy)
+        # Clamp before the wrap: a hit at lx > sx (extrapolation,
+        # shouldn't happen but cheap to guard) would otherwise wrap
+        # around rather than reading the edge texel.
+        u_norm = max(0.0, min(1.0, u_norm))
+        v_norm = max(0.0, min(1.0, v_norm))
+
+        rx = float(m.mat_texrepeat[mat_id, 0])
+        ry = float(m.mat_texrepeat[mat_id, 1])
+        u = (u_norm * rx) % 1.0 if rx != 0.0 else 0.0
+        # Image-space row 0 is +Y in MuJoCo's plane orientation, so
+        # invert v before tiling.
+        v = ((1.0 - v_norm) * ry) % 1.0 if ry != 0.0 else 0.0
+
+        return self._read_texel(tex_id, u, v)
+
+    def _read_texel(self, tex_id, u, v):
+        """Look up the pixel at ``(u, v) ∈ [0,1]²`` in texture
+        ``tex_id``. Returns ``(r, g, b, a)`` floats in [0, 1].
+        Nearest-neighbour sampling — MuJoCo's renderer interpolates
+        bilinearly, but for a 2 mm camera spot on a high-resolution
+        printed mat the difference is below the colour quantisation."""
+        import numpy as np
+        m = self.runtime.model
+
+        w     = int(m.tex_width[tex_id])
+        h     = int(m.tex_height[tex_id])
+        nchan = int(m.tex_nchannel[tex_id])
+        adr   = int(m.tex_adr[tex_id])
+
+        ix = min(w - 1, max(0, int(u * w)))
+        iy = min(h - 1, max(0, int(v * h)))
+        off = adr + (iy * w + ix) * nchan
+        px = m.tex_data[off:off + nchan]
+
+        if nchan == 4:
+            return (px[0] / 255.0, px[1] / 255.0,
+                    px[2] / 255.0, px[3] / 255.0)
+        # nchan == 3 (RGB) or anything else (treat as luminance for
+        # safety; MuJoCo's grayscale textures are nchan=1).
+        if nchan == 3:
+            return (px[0] / 255.0, px[1] / 255.0, px[2] / 255.0, 1.0)
+        # nchan == 1 — replicate luminance into RGB.
+        lum = px[0] / 255.0
+        return (lum, lum, lum, 1.0)
+
+    def rgb(self):
+        rgba = self._hit_rgba()
+        if rgba is None:
+            return (0, 0, 0)
+        return (
+            min(255, max(0, int(rgba[0] * 255.0))),
+            min(255, max(0, int(rgba[1] * 255.0))),
+            min(255, max(0, int(rgba[2] * 255.0))),
+        )
+
+    def ambient(self):
+        r, g, b = self.rgb()
+        # BT.601 luma, scaled 0..100.
+        lum = 0.299 * r + 0.587 * g + 0.114 * b
+        return int(min(100, max(0, lum * 100.0 / 255.0)))
+
+
+class SimDistanceSensor:
+    """Forward-facing range sensor, MuJoCo-side.
+
+    Casts a ray from the chassis ``chassis_dist`` site along body +X
+    and returns the hit distance in millimetres. Excludes the
+    chassis body so a self-hit on the front geom doesn't dominate
+    every reading.
+
+    Mirrors :class:`openbricks.distance.DistanceSensor`:
+    ``distance_mm()`` returns mm; ``-1`` if no hit within
+    ``max_range_mm``."""
+
+    def __init__(self,
+                 runtime: SimRuntime,
+                 site_name: str = "chassis_dist",
+                 chassis_body_name: str = "chassis",
+                 max_range_mm: float = 4000.0) -> None:
+        self.runtime = runtime
+        self._site_id = mujoco.mj_name2id(
+            runtime.model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+        if self._site_id < 0:
+            raise ValueError("no site named " + repr(site_name) +
+                             " in model")
+        self._chassis_body_id = mujoco.mj_name2id(
+            runtime.model, mujoco.mjtObj.mjOBJ_BODY, chassis_body_name)
+        if self._chassis_body_id < 0:
+            raise ValueError("no body named " + repr(chassis_body_name) +
+                             " in model")
+        self._max_range_m = float(max_range_mm) / 1000.0
+
+    def distance_mm(self):
+        import numpy as np
+        mujoco.mj_forward(self.runtime.model, self.runtime.data)
+        # Site origin in world frame.
+        pnt = np.array(self.runtime.data.site_xpos[self._site_id],
+                        dtype=np.float64)
+        # Site rotation matrix's column 0 = body +X in world frame.
+        R = np.array(self.runtime.data.site_xmat[self._site_id],
+                      dtype=np.float64).reshape(3, 3)
+        vec = R[:, 0]
+        geom_id = np.zeros(1, dtype=np.int32)
+        dist = mujoco.mj_ray(self.runtime.model, self.runtime.data,
+                              pnt, vec,
+                              None,                    # geomgroup
+                              1,                       # flg_static
+                              self._chassis_body_id,   # bodyexclude
+                              geom_id)
+        if geom_id[0] < 0 or dist < 0 or dist > self._max_range_m:
+            return -1
+        return int(dist * 1000.0)
+
+
+class SimDriveBase:
+    """2-DOF coupled drivebase, MuJoCo-side.
+
+    Wraps a native ``DriveBase`` over two ``SimMotor`` adapters. The
+    drivebase tick runs *before* the per-motor ticks (writing
+    ``target_dps`` on each native ``Servo``), so by the time each
+    SimMotor reads the latest target_dps it's already the coupled
+    setpoint.
+
+    The IMU heading override (``set_heading_override``) is exposed so
+    a future ``SimIMU`` can push body-yaw deltas in. Until that
+    lands, encoder-differential heading is used (default behaviour).
+    """
+
+    def __init__(self,
+                 runtime: SimRuntime,
+                 left: SimMotor,
+                 right: SimMotor,
+                 wheel_diameter_mm: float,
+                 axle_track_mm: float,
+                 kp_sum: Optional[float] = None,
+                 kp_diff: Optional[float] = None) -> None:
+        self.runtime = runtime
+        self.left    = left
+        self.right   = right
+
+        kwargs = {}
+        if kp_sum  is not None: kwargs["kp_sum"]  = float(kp_sum)
+        if kp_diff is not None: kwargs["kp_diff"] = float(kp_diff)
+        self.db = _native.DriveBase(left.servo, right.servo,
+                                     wheel_diameter_mm=float(wheel_diameter_mm),
+                                     axle_track_mm=float(axle_track_mm),
+                                     **kwargs)
+        self._attached = False
+        # Optional heading feed for the slip-immune gyro path (see
+        # attach_imu / set_use_gyro).
+        self._imu = None
+        # Continuous (un-wrapped) heading accumulator for the gyro
+        # path's ABSOLUTE frame — baselined once at set_use_gyro
+        # enable, NOT per move (per-move re-baselining forgave each
+        # turn's overshoot; measured ~+7 deg/square on hardware).
+        self._heading_prev = 0.0
+        self._heading_cont = 0.0
+        self._imu_tick_active = False
+
+    # -------- lifecycle --------
+
+    def _attach(self) -> None:
+        if self._attached:
+            return
+        # Order matters: drivebase tick must run BEFORE the per-motor
+        # ticks so each motor sees the freshly-written target_dps.
+        # The runtime fires ticks in registration order; we
+        # re-register the motors *after* us to enforce the order.
+        # (The motors registered themselves in their own __init__,
+        # so we have to remove them here and append them.)
+        self.runtime.remove_tick(self.left._tick)
+        self.runtime.remove_tick(self.right._tick)
+        self.runtime.add_tick(self._tick)
+        self.runtime.add_tick(self.left._tick)
+        self.runtime.add_tick(self.right._tick)
+        self.left._attached  = True
+        self.right._attached = True
+        self._attached = True
+
+    def _detach(self) -> None:
+        if not self._attached:
+            return
+        self.runtime.remove_tick(self._tick)
+        self._attached = False
+
+    def _tick(self, now_ms: int) -> None:
+        self.db.tick(now_ms)
+
+    # -------- user-facing API --------
+
+    def straight(self, distance_mm: float, speed_mm_s: float,
+                 carry: bool = False) -> None:
+        self.db.straight(self.runtime.now_ms,
+                          float(distance_mm), float(speed_mm_s),
+                          bool(carry))
+        self._attach()
+
+    def turn(self, angle_deg: float, rate_dps: float) -> None:
+        self.db.turn(self.runtime.now_ms,
+                      float(angle_deg), float(rate_dps))
+        self._attach()
+
+    def curve(self, radius_mm: float, angle_deg: float,
+              speed_mm_s: float, carry: bool = False) -> None:
+        self.db.curve(self.runtime.now_ms, float(radius_mm),
+                      float(angle_deg), float(speed_mm_s), bool(carry))
+        self._attach()
+
+    def stop(self) -> None:
+        self.db.stop()
+        self._detach()
+
+    def is_done(self) -> bool:
+        return bool(self.db.is_done())
+
+    # ----- IMU heading feed (the slip-immune gyro path) -----------
+
+    def attach_imu(self, imu) -> None:
+        """Attach a heading source (anything with ``heading()`` in
+        degrees, [-180, 180) — ``SimIMU`` or the shim BNO055) for the
+        gyro-guided drivebase path."""
+        self._imu = imu
+
+    def _gyro_baseline(self) -> None:
+        """Seed the absolute frame — called on the set_use_gyro
+        ENABLE transition only, never per move."""
+        self._heading_prev = float(self._imu.heading())
+        self._heading_cont = 0.0
+
+    def _imu_tick(self, now_ms) -> None:
+        body = float(self._imu.heading())
+        delta = body - self._heading_prev
+        # Wrap the per-tick delta into +/-180 so crossing the
+        # boundary doesn't inject a +/-360 jump, then accumulate —
+        # the continuous total is the absolute-frame measurement the
+        # core steers against.
+        if delta > 180.0:
+            delta -= 360.0
+        if delta < -180.0:
+            delta += 360.0
+        self._heading_prev = body
+        self._heading_cont += delta
+        self.db.set_heading_override(self._heading_cont)
+
+    def _attach_imu_tick(self) -> None:
+        """Insert the IMU tick BEFORE the drivebase tick so the
+        override is fresh by the time the controller reads it."""
+        if self._imu_tick_active:
+            return
+        rt = self.runtime
+        rt.remove_tick(self._tick)
+        rt.remove_tick(self.left._tick)
+        rt.remove_tick(self.right._tick)
+        rt.add_tick(self._imu_tick)
+        rt.add_tick(self._tick)
+        rt.add_tick(self.left._tick)
+        rt.add_tick(self.right._tick)
+        self._attached = True
+        self.left._attached = True
+        self.right._attached = True
+        self._imu_tick_active = True
+
+    def _detach_imu_tick(self) -> None:
+        if not self._imu_tick_active:
+            return
+        self.runtime.remove_tick(self._imu_tick)
+        self._imu_tick_active = False
+
+    def set_use_gyro(self, enable: bool) -> None:
+        """Steer moves by the IMU heading instead of the encoder
+        differential. Requires ``attach_imu()`` first — enabling the
+        native override slot without a feed steers on garbage (found
+        by the IMU verification probe: a gyro'd turn(90) wandered
+        ~192 degrees)."""
+        enable = bool(enable)
+        if enable:
+            if self._imu is None:
+                raise RuntimeError(
+                    "set_use_gyro(True) needs attach_imu(imu) first "
+                    "— without a heading feed the drivebase steers "
+                    "on a stale override")
+            # Baseline only on the OFF->ON transition — the native
+            # side's frame reset fires on the same transition, and
+            # re-baselining the Python accumulator alone would desync
+            # the two frames.
+            if not self._imu_tick_active:
+                self._attach_imu_tick()
+                self._gyro_baseline()
+        else:
+            self._detach_imu_tick()
+        self.db.set_use_gyro(enable)
+
+    def set_heading_override(self, body_delta_deg: float) -> None:
+        self.db.set_heading_override(float(body_delta_deg))
+
+    def set_accel(self, accel_dps2: float) -> None:
+        """Trajectory acceleration (wheel-deg/s²) for subsequent
+        ``straight()`` / ``turn()`` moves. Native validates > 0."""
+        self.db.set_accel(float(accel_dps2))

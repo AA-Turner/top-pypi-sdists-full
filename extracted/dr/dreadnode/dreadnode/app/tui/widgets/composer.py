@@ -16,6 +16,7 @@ Shell mode:
 
 from __future__ import annotations
 
+import difflib
 import re
 import typing as t
 from dataclasses import dataclass
@@ -101,6 +102,7 @@ class ComposerInput(TextArea):
         super().__init__(**kwargs)
         self._placeholder = placeholder
         self._pastes: list[PastedSegment] = []
+        self._last_display_text = ""
 
     @property
     def value(self) -> str:
@@ -123,6 +125,19 @@ class ComposerInput(TextArea):
         """Clear tracked pasted segments."""
         self._pastes.clear()
 
+    def _document_index(self, location: tuple[int, int]) -> int:
+        """Convert a document (row, column) location to a text index."""
+        row, column = location
+        lines = self.text.split("\n")
+        return sum(len(line) + 1 for line in lines[:row]) + column
+
+    def _document_location(self, index: int) -> tuple[int, int]:
+        """Convert a text index to a document (row, column) location."""
+        prefix = self.text[:index]
+        row = prefix.count("\n")
+        column = len(prefix.rsplit("\n", 1)[-1])
+        return row, column
+
     async def _on_paste(self, event: Paste) -> None:
         pasted = event.text
         line_count = pasted.count("\n") + 1
@@ -134,9 +149,12 @@ class ComposerInput(TextArea):
 
         event.prevent_default()
         event.stop()
-        self._pastes.append(PastedSegment(content=pasted, line_count=line_count))
         placeholder = f"[pasted ~{line_count} line{'s' if line_count != 1 else ''}]"
+        insertion_index = self._document_index(self.cursor_location)
+        visual_index = len(_PASTE_RE.findall(self.text[:insertion_index]))
+        self._pastes.insert(visual_index, PastedSegment(content=pasted, line_count=line_count))
         self.insert(placeholder)
+        self._last_display_text = self.text
 
     def _resolve_pastes(self, display_text: str) -> str:
         pastes = iter(self._pastes)
@@ -148,9 +166,41 @@ class ComposerInput(TextArea):
         return _PASTE_RE.sub(replacer, display_text)
 
     def _sync_pastes(self, display_text: str) -> None:
-        placeholder_count = len(_PASTE_RE.findall(display_text))
-        if placeholder_count < len(self._pastes):
-            self._pastes = self._pastes[:placeholder_count]
+        old_placeholders = [match.group(0) for match in _PASTE_RE.finditer(self._last_display_text)]
+        new_placeholders = [match.group(0) for match in _PASTE_RE.finditer(display_text)]
+        if len(new_placeholders) < len(old_placeholders) and self._pastes:
+            matcher = difflib.SequenceMatcher(a=old_placeholders, b=new_placeholders)
+            removed: list[int] = []
+            for tag, start, end, _new_start, _new_end in matcher.get_opcodes():
+                if tag in {"delete", "replace"}:
+                    removed.extend(range(start, end))
+            for index in reversed(removed):
+                if index < len(self._pastes):
+                    del self._pastes[index]
+        if len(new_placeholders) < len(self._pastes):
+            self._pastes = self._pastes[: len(new_placeholders)]
+        elif not new_placeholders:
+            self._pastes.clear()
+        self._last_display_text = display_text
+
+    def _remove_paste_at_cursor(self, *, forward: bool) -> bool:
+        """Delete a tracked paste placeholder as one editing operation."""
+        if not self.selection.is_empty:
+            return False
+        text = self.text
+        cursor = self._document_index(self.cursor_location)
+        placeholders = list(_PASTE_RE.finditer(text))
+        for index, match in enumerate(placeholders):
+            at_boundary = cursor == (match.end() if not forward else match.start())
+            if not at_boundary or index >= len(self._pastes):
+                continue
+            start = self._document_location(match.start())
+            end = self._document_location(match.end())
+            del self._pastes[index]
+            self.delete(start, end)
+            self._last_display_text = self.text
+            return True
+        return False
 
     @on(TextArea.Changed)
     def _on_text_changed(self, event: TextArea.Changed) -> None:
@@ -190,7 +240,15 @@ class ComposerInput(TextArea):
             if overlay.on_key(event):
                 return
 
-        # === Multiline: \ + Enter ===
+        if event.key in ("backspace", "delete"):
+            forward = event.key == "delete"
+            if self._remove_paste_at_cursor(forward=forward):
+                self.shell_mode = self.text.startswith("!")
+                event.prevent_default()
+                event.stop()
+                return
+
+        # === Multiline: \\ + Enter ===
         if event.key == "enter":
             raw = self.text
             if raw.endswith("\\"):

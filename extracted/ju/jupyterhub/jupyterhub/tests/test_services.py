@@ -23,12 +23,15 @@ mockservice_cmd = [sys.executable, mockservice_py]
 
 @asynccontextmanager
 async def external_service(app, name='mockservice'):
-    env = {
-        'JUPYTERHUB_API_TOKEN': hexlify(os.urandom(5)),
-        'JUPYTERHUB_SERVICE_NAME': name,
-        'JUPYTERHUB_API_URL': url_path_join(app.hub.url, 'api/'),
-        'JUPYTERHUB_SERVICE_URL': f'http://127.0.0.1:{random_port()}',
-    }
+    env = os.environ.copy()
+    env.update(
+        {
+            'JUPYTERHUB_API_TOKEN': hexlify(os.urandom(5)),
+            'JUPYTERHUB_SERVICE_NAME': name,
+            'JUPYTERHUB_API_URL': url_path_join(app.hub.url, 'api/'),
+            'JUPYTERHUB_SERVICE_URL': f'http://127.0.0.1:{random_port()}',
+        }
+    )
     proc = Popen(mockservice_cmd, env=env)
     try:
         await wait_for_http_server(env['JUPYTERHUB_SERVICE_URL'])
@@ -155,9 +158,10 @@ async def test_external_services_without_api_token_set(app):
     """
     name_1 = 'external_1'
     name_2 = 'external_2'
-    async with external_service(app, name=name_1) as env_1, external_service(
-        app, name=name_2
-    ) as env_2:
+    async with (
+        external_service(app, name=name_1) as env_1,
+        external_service(app, name=name_2) as env_2,
+    ):
         app.services = [
             {
                 'name': name_1,

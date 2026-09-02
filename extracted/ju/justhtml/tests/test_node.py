@@ -1,0 +1,1426 @@
+import unittest
+
+from justhtml import JustHTML
+from justhtml.dom import (
+    Comment,
+    Document,
+    DocumentFragment,
+    Element,
+    Node,
+    ProcessingInstruction,
+    Template,
+    Text,
+)
+from justhtml.sanitizer import DEFAULT_POLICY, SanitizationPolicy
+from justhtml.serializer.markdown import (
+    _markdown_backtick_fence,
+    _markdown_code_span,
+    _markdown_escape_line_start,
+    _markdown_link_destination,
+    _markdown_thematic_or_setext_line,
+    _MarkdownBuilder,
+    _to_markdown_walk,
+)
+from tests.harness.scaling import assert_scales_linearly
+
+
+class TestNode(unittest.TestCase):
+    def test_source_metadata_is_lazy_and_clones_independently(self):
+        fields = (
+            ("_source_html", "<div></div>"),
+            ("_origin_pos", 1),
+            ("_origin_line", 2),
+            ("_origin_col", 3),
+            ("_start_tag_start", 4),
+            ("_start_tag_end", 5),
+            ("_end_tag_start", 6),
+            ("_end_tag_end", 7),
+        )
+        for field, value in fields:
+            with self.subTest(field=field):
+                element = Element("div", {}, "html")
+                assert element._metadata is None
+                setattr(element, field, None)
+                assert element._metadata is None
+                setattr(element, field, value)
+                assert getattr(element, field) == value
+
+        nodes = (
+            Node("div"),
+            Document(),
+            DocumentFragment(),
+            Comment("comment"),
+            ProcessingInstruction("target data"),
+            Element("div", {}, "html"),
+            Template("template", namespace="html"),
+        )
+        for node in nodes:
+            with self.subTest(node=type(node).__name__):
+                assert node.clone_node()._metadata is None
+                node._source_html = "source"
+                node._origin_pos = 1
+                clone = node.clone_node()
+                assert clone._metadata == node._metadata
+                assert clone._metadata is not node._metadata
+                clone._origin_pos = 2
+                assert node._origin_pos == 1
+
+        for field, value in (("_origin_pos", 1), ("_origin_line", 2), ("_origin_col", 3)):
+            with self.subTest(text_field=field):
+                text = Text("text")
+                assert text._metadata is None
+                setattr(text, field, None)
+                assert text._metadata is None
+                setattr(text, field, value)
+                assert getattr(text, field) == value
+                setattr(text, field, value + 1)
+                assert getattr(text, field) == value + 1
+
+        text = Text("text")
+        assert text.clone_node()._metadata is None
+        text._origin_pos = 1
+        clone_text = text.clone_node()
+        assert clone_text._metadata == text._metadata
+        assert clone_text._metadata is not text._metadata
+        clone_text._origin_pos = 2
+        assert text._origin_pos == 1
+
+    def test_simple_dom_text_node_text_property(self):
+        node = Text("Hi")
+        assert node.text == "Hi"
+
+    def test_node_text_property_for_text_name(self):
+        node = Node("#text", data="Hi")
+        assert node.text == "Hi"
+
+    def test_node_text_property_for_text_name_none(self):
+        node = Node("#text", data=None)
+        assert node.text == ""
+
+    def test_append_child_noop_for_comment_node(self):
+        parent = Comment(data="comment")
+        child = Node("span")
+        parent.append_child(child)
+        assert child.parent is None
+
+    def test_processing_instruction_is_leaf_and_clones_origin(self):
+        parent = ProcessingInstruction(data="target data")
+        child = Node("span")
+        parent.append_child(child)
+        parent._origin_pos = 3
+        parent._origin_line = 1
+        parent._origin_col = 4
+
+        clone = parent.clone_node(deep=True)
+
+        assert child.parent is None
+        assert clone.name == "#processing-instruction"
+        assert clone.data == "target data"
+        assert clone.children is None
+        assert clone.attrs is None
+        assert clone.origin_offset == 3
+        assert clone.origin_location == (1, 4)
+
+    def test_append_child_repairs_stale_parent_reference(self):
+        old_parent = Node("old")
+        new_parent = Node("new")
+        child = Node("span")
+        child.parent = old_parent
+
+        new_parent.append_child(child)
+
+        assert child.parent is new_parent
+        assert child in new_parent.children
+
+    def test_append_child_splices_document_fragment(self):
+        parent = Node("div")
+        fragment = DocumentFragment()
+        first = Node("span", attrs={"id": "1"})
+        second = Node("span", attrs={"id": "2"})
+        fragment.append_child(first)
+        fragment.append_child(second)
+
+        parent.append_child(fragment)
+
+        assert parent.children == [first, second]
+        assert first.parent is parent
+        assert second.parent is parent
+        assert fragment.children == []
+        assert fragment.parent is None
+
+    def test_remove_child_noop_for_comment_node(self):
+        parent = Comment(data="comment")
+        child = Node("span")
+        parent.remove_child(child)
+        assert child.parent is None
+
+    def test_text_property_simple(self):
+        node = Node("div")
+        text = Text("Hello")
+        node.append_child(text)
+        assert node.text == ""
+        assert text.text == "Hello"
+        assert node.to_text() == "Hello"
+
+    def test_text_property_nested(self):
+        root = Node("div")
+        span = Node("span")
+        text1 = Text("Hello ")
+        text2 = Text("World")
+
+        root.append_child(text1)
+        root.append_child(span)
+        span.append_child(text2)
+
+        assert root.text == ""
+        assert span.text == ""
+        assert root.to_text() == "Hello World"
+        assert span.to_text() == "World"
+
+    def test_text_property_empty(self):
+        node = Node("div")
+        assert node.text == ""
+
+    def test_text_property_comment(self):
+        node = Comment(data="comment")
+        assert node.text == ""
+
+    def test_to_text_matches_textcontent(self):
+        root = Node("div")
+        span = Node("span")
+        root.append_child(Text("Hello "))
+        root.append_child(span)
+        span.append_child(Text("World"))
+
+        assert root.to_text() == "Hello World"
+        assert span.to_text() == "World"
+        assert root.to_text(separator="", strip=False) == "Hello World"
+        assert root.to_text(separator="", strip=True) == "HelloWorld"
+
+    def test_to_text_skips_empty_and_whitespace_segments_by_default(self):
+        root = Node("div")
+        root.append_child(Text(""))
+        root.append_child(Text("   "))
+        root.append_child(Text("A"))
+        assert root.to_text() == "A"
+
+    def test_to_text_empty_subtree(self):
+        root = Node("div")
+        assert root.to_text() == ""
+
+    def test_textnode_to_text_strip_false(self):
+        t = Text("  A  ")
+        assert t.to_text(strip=False) == "  A  "
+        assert t.to_text(strip=True) == "A"
+
+    def test_textnode_to_text_none_data(self):
+        t = Text(None)
+        assert t.to_text() == ""
+
+    def test_to_text_includes_template_content(self):
+        template = Template("template", namespace="html")
+        template.template_content.append_child(Text("Inside"))
+
+        # `.text` only sees direct children, while `to_text()` includes template content.
+        assert template.text == ""
+        assert template.to_text() == "Inside"
+
+    def test_to_text_simple_dom_text_node_branch(self):
+        node = Text("Hi")
+        assert node.to_text() == "Hi"
+
+    def test_justhtml_to_text(self):
+        doc = JustHTML("<p>Hello</p><p>World</p>")
+        assert doc.to_text() == "Hello World"
+        assert doc.to_text(separator="", strip=True) == "HelloWorld"
+
+    def test_to_text_separator_blocks_only_avoids_inline_separators(self):
+        doc = JustHTML("<p>hi</p><p>Hello <b>world</b></p>")
+        assert doc.to_text(separator="\n") == "hi\nHello\nworld"
+        assert doc.to_text(separator="\n", separator_blocks_only=True) == "hi\nHello world"
+
+    def test_to_text_separator_blocks_only_ignores_empty_text_and_breaks_on_br(self):
+        root = Node("div")
+        root.append_child(Text("A"))
+        root.append_child(Node("br"))
+        root.append_child(Text(""))
+        root.append_child(Text("   "))
+        root.append_child(Text(None))
+        root.append_child(Text("B"))
+
+        assert root.to_text(separator="\n", separator_blocks_only=True) == "A\nB"
+
+    def test_to_text_separator_blocks_only_includes_template_content(self):
+        root = Node("div")
+        root.append_child(Text("A"))
+        template = Template("template", namespace="html")
+        template.template_content.append_child(Text("Inside"))
+        root.append_child(template)
+        root.append_child(Text("B"))
+
+        assert root.to_text(separator="\n", separator_blocks_only=True) == "A Inside B"
+
+    def test_to_text_separator_blocks_only_strip_false_preserves_whitespace(self):
+        root = Node("div")
+        root.append_child(Text("  A  "))
+        root.append_child(Node("br"))
+        root.append_child(Text(" B "))
+
+        assert root.to_text(separator="|", separator_blocks_only=True, strip=False) == "  A  | B "
+
+    def test_to_text_separator_blocks_only_empty_subtree(self):
+        root = Node("div")
+        root.append_child(Text("   "))
+
+        assert root.to_text(separator="\n", separator_blocks_only=True) == ""
+
+    def test_to_text_sanitizes_by_default(self):
+        doc = JustHTML("<p>ok</p><script>alert(1)</script>")
+        assert doc.to_text() == "ok"
+
+    def test_to_text_safe_false_includes_script_text(self):
+        doc = JustHTML("<p>ok</p><script>alert(1)</script>", sanitize=False)
+        assert doc.to_text() == "ok alert(1)"
+
+    def test_noscript_scripting_enabled_parses_as_rawtext(self):
+        doc = JustHTML(
+            "<noscript><b>Hi</b></noscript>",
+            fragment=True,
+            sanitize=False,
+            scripting_enabled=True,
+        )
+        root = doc.root
+        assert root.children is not None
+        assert len(root.children) == 1
+        noscript = root.children[0]
+        assert noscript.name == "noscript"
+        assert len(noscript.children) == 1
+        child = noscript.children[0]
+        assert child.name == "#text"
+        assert child.data == "<b>Hi</b>"
+
+    def test_noscript_scripting_disabled_parses_html(self):
+        doc = JustHTML(
+            "<noscript><b>Hi</b></noscript>",
+            fragment=True,
+            sanitize=False,
+            scripting_enabled=False,
+        )
+        root = doc.root
+        assert root.children is not None
+        assert len(root.children) == 1
+        noscript = root.children[0]
+        assert noscript.name == "noscript"
+        assert len(noscript.children) == 1
+        child = noscript.children[0]
+        assert child.name == "b"
+
+    def test_head_noscript_scripting_enabled_parses_as_rawtext(self):
+        doc = JustHTML(
+            "<head><noscript><b>Hi</b></noscript></head>",
+            sanitize=False,
+            scripting_enabled=True,
+        )
+        head = doc.query("head")[0]
+        noscript = next(c for c in head.children if c.name == "noscript")
+        assert len(noscript.children) == 1
+        child = noscript.children[0]
+        assert child.name == "#text"
+        assert child.data == "<b>Hi</b>"
+
+    def test_head_noscript_scripting_disabled_parses_html(self):
+        doc = JustHTML(
+            "<head><noscript><b>Hi</b></noscript></head>",
+            sanitize=False,
+            scripting_enabled=False,
+        )
+        head = doc.query("head")[0]
+        noscript = next(c for c in head.children if c.name == "noscript")
+        assert noscript.children == []
+        assert doc.query("b")
+
+    def test_to_text_policy_override_can_preserve_script_text(self):
+        # With a custom policy that *doesn't* treat <script> as a drop-content tag,
+        # the sanitizer will strip the <script> element but keep its children.
+        policy = SanitizationPolicy(
+            allowed_tags=DEFAULT_POLICY.allowed_tags,
+            allowed_attributes=DEFAULT_POLICY.allowed_attributes,
+            url_policy=DEFAULT_POLICY.url_policy,
+            drop_content_tags=set(),
+        )
+        doc = JustHTML("<p>ok</p><script>alert(1)</script>", policy=policy)
+        assert doc.to_text() == "ok alert(1)"
+
+    def test_node_origin_offset_and_location_helpers(self):
+        doc = JustHTML("<p>hi</p>", track_node_locations=True)
+        p = doc.query("p")[0]
+        assert p.origin_offset == 0
+        assert p.origin_location == (1, 1)
+        assert p.origin_line == 1
+        assert p.origin_col == 1
+
+        text = p.children[0]
+        assert text.name == "#text"
+        assert text.origin_offset == 3
+        assert text.origin_location == (1, 4)
+        assert text.origin_line == 1
+        assert text.origin_col == 4
+
+    def test_node_origin_location_is_none_by_default(self):
+        doc = JustHTML("<p>hi</p>")
+        p = doc.query("p")[0]
+        assert p.origin_offset is None
+        assert p.origin_location is None
+
+        text = p.children[0]
+        assert text.name == "#text"
+        assert text.origin_location is None
+
+    def test_textnode_origin_location_is_none_if_unset(self):
+        node = Text("x")
+        assert node.origin_location is None
+
+    def test_node_origin_location_for_comment(self):
+        doc = JustHTML("<!--x--><p>y</p>", track_node_locations=True, sanitize=False)
+        assert doc.root.children is not None
+        comment = doc.root.children[0]
+        assert comment.name == "#comment"
+        assert comment.origin_offset == 0
+        assert comment.origin_location == (1, 1)
+
+    def test_node_origin_location_for_comment_inside_element(self):
+        doc = JustHTML("<p><!--x--></p>", track_node_locations=True, sanitize=False)
+        p = doc.query("p")[0]
+        comment = p.children[0]
+        assert comment.name == "#comment"
+        assert comment.origin_offset is not None
+        assert comment.origin_location == (1, comment.origin_offset + 1)
+
+    def test_pre_ignores_single_leading_lf(self):
+        # Start tag <pre> sets ignore_lf, and the very next leading LF is dropped.
+        doc = JustHTML("<pre>\n</pre>")
+        pre = doc.query("pre")[0]
+        assert pre.to_text(strip=False) == ""
+
+    def test_pre_ignores_only_first_lf(self):
+        doc = JustHTML("<pre>\nX</pre>")
+        pre = doc.query("pre")[0]
+        assert pre.to_text(strip=False) == "X"
+
+    def test_pre_does_not_ignore_non_lf(self):
+        # ignore_lf only drops an initial LF, not other characters.
+        doc = JustHTML("<pre>X</pre>")
+        pre = doc.query("pre")[0]
+        assert pre.to_text(strip=False) == "X"
+
+    def test_adoption_agency_preserves_origin_for_replacement_nodes(self):
+        # Mis-nested formatting triggers the adoption agency algorithm which replaces
+        # formatting elements. With tracking enabled, replacement nodes should keep
+        # origin_offset/origin_location.
+        html = "<b><i><p>1</b>2</i>"
+        doc = JustHTML(html, track_node_locations=True)
+        bolds = doc.query("b")
+        italics = doc.query("i")
+        assert bolds
+        assert italics
+
+        for node in bolds + italics:
+            assert node.origin_offset is not None
+            assert node.origin_location == (1, node.origin_offset + 1)
+
+    def test_text_in_table_tracks_origin_in_foster_parenting_path(self):
+        doc = JustHTML("<table>hi</table>", track_node_locations=True)
+
+        def walk(n):
+            yield n
+            children = getattr(n, "children", None)
+            if children:
+                for c in children:
+                    yield from walk(c)
+
+        texts = [n for n in walk(doc.root) if getattr(n, "name", None) == "#text" and getattr(n, "data", None) == "hi"]
+        assert texts
+        assert texts[0].origin_offset is not None
+        assert texts[0].origin_location == (1, texts[0].origin_offset + 1)
+
+    def test_reconstruct_active_formatting_preserves_origin(self):
+        # This triggers active formatting reconstruction where the new formatting node
+        # has no token start_pos and must copy its origin from the formatting entry.
+        html = "<p><b>1</p>2"
+        doc = JustHTML(html, track_node_locations=True)
+        bolds = doc.query("b")
+        assert len(bolds) >= 2
+        assert bolds[0].origin_offset is not None
+        assert bolds[1].origin_offset == bolds[0].origin_offset
+        assert bolds[1].origin_location == bolds[0].origin_location
+
+    def test_to_markdown_headings_paragraphs_and_inline(self):
+        doc = JustHTML("<h1>Title</h1><p>Hello <b>world</b> <em>ok</em> <a href='https://e.com'>link</a> a*b</p>")
+
+        md = doc.to_markdown()
+        assert md.startswith("# Title\n\n")
+        assert "Hello **world** *ok* [link](https://e.com) a\\*b" in md
+
+    def test_to_markdown_code_inline_and_block(self):
+        doc = JustHTML("<pre>code`here\n</pre><p>inline <code>a`b</code></p>")
+        md = doc.to_markdown()
+        assert "```\ncode`here\n```" in md
+        # Inline code uses a longer fence when content contains backticks.
+        assert "inline ``a`b``" in md
+
+    def test_to_markdown_code_collapses_blank_lines_inside_inline_code_span(self):
+        doc = JustHTML("<code>q\n\n&lt;img src=x onerror=alert(1)&gt;</code>", fragment=True)
+
+        assert doc.to_markdown() == "`q  <img src=x onerror=alert(1)>`"
+
+    def test_to_markdown_block_after_empty_code_does_not_merge_code_spans(self):
+        doc = JustHTML("<code><div>\n&lt;img src=x onerror=alert(1)&gt;</code>", fragment=True)
+
+        assert doc.to_markdown() == "` <img src=x onerror=alert(1)>`"
+
+    def test_to_markdown_adjacent_code_spans_do_not_merge_backtick_runs(self):
+        before = JustHTML("<code></code><code>&lt;img src=x onerror=alert(1)&gt;</code>", fragment=True)
+        after = JustHTML("<code>&lt;img src=x onerror=alert(1)&gt;</code><code></code>", fragment=True)
+
+        assert before.to_markdown() == "`<img src=x onerror=alert(1)>`"
+        assert after.to_markdown() == "`<img src=x onerror=alert(1)>`"
+
+    def test_to_markdown_pre_inside_link_collapses_blank_lines_inside_inline_code_span(self):
+        doc = JustHTML(
+            "<a href='https://e.com'><pre>q\n\n&lt;img src=x onerror=alert(1)&gt;</pre></a>",
+            fragment=True,
+        )
+
+        assert doc.to_markdown() == "[`q  <img src=x onerror=alert(1)>`](https://e.com)"
+
+    def test_to_markdown_inline_marker_does_not_wrap_fenced_code_block(self):
+        doc = JustHTML("<em><pre>&lt;img src=x onerror=alert(1)&gt;</pre>", fragment=True)
+
+        assert doc.to_markdown() == "```\n<img src=x onerror=alert(1)>\n```"
+
+    def test_to_markdown_inline_marker_block_content_starts_on_new_line(self):
+        doc = JustHTML("x<b><pre>&lt;img src=x onerror=alert(1)&gt;</pre>", fragment=True)
+
+        assert doc.to_markdown() == "x\n\n```\n<img src=x onerror=alert(1)>\n```"
+
+    def test_to_markdown_blockquote_and_br(self):
+        doc = JustHTML("<blockquote><p>Q<br>R</p></blockquote>")
+        assert doc.to_markdown() == "> Q\n> R"
+
+    def test_to_markdown_keeps_inline_boundary_spaces(self):
+        trailing = JustHTML("<p>This is <b>very </b>important. See <em>the docs </em>for details.</p>")
+        leading = JustHTML("<p>Visit<a href='https://e.com'> our site</a> today.</p>")
+        already_spaced = JustHTML("<p>This is <b>very </b> important.</p>")
+
+        assert trailing.to_markdown() == "This is **very** important. See *the docs* for details."
+        assert leading.to_markdown() == "Visit [our site](https://e.com) today."
+        assert already_spaced.to_markdown() == "This is **very** important."
+
+    def test_to_markdown_collapses_boundary_spaces_after_structural_markers(self):
+        heading = JustHTML("<h2><b> x</b>y</h2>")
+        unordered = JustHTML("<ul><li><b> x</b>y</li></ul>")
+        ordered = JustHTML("<ol><li><b> x</b>y</li></ol>")
+        in_link = JustHTML("<a href='https://e.com'>z<ul><li><b> x</b>y</li></ul></a>")
+
+        assert heading.to_markdown() == "## **x**y"
+        assert unordered.to_markdown() == "- **x**y"
+        assert ordered.to_markdown() == "1. **x**y"
+        assert in_link.to_markdown() == "[z **x**y](https://e.com)"
+
+    def test_to_markdown_keeps_trailing_inline_space_after_structural_markers(self):
+        heading = JustHTML("<h2><b>x </b>y</h2>")
+        item = JustHTML("<ul><li><b>x </b>y</li></ul>")
+
+        assert heading.to_markdown() == "## **x** y"
+        assert item.to_markdown() == "- **x** y"
+
+    def test_to_markdown_keeps_nested_list_under_boundary_spaced_item(self):
+        doc = JustHTML("<ul><li><b> outer</b><ul><li>inner</li></ul></li><li>second</li></ul>")
+        empty_inline = JustHTML("<ul><li><b> </b>outer<ul><li>inner</li></ul></li><li>second</li></ul>")
+
+        assert doc.to_markdown() == "- **outer**\n\n  - inner\n\n\n- second"
+        assert empty_inline.to_markdown() == "- outer\n\n  - inner\n\n\n- second"
+
+    def test_to_markdown_renders_whitespace_only_inline_element_as_one_space(self):
+        item = JustHTML("<ul><li><b> </b>Item text</li></ul>")
+        heading = JustHTML("<h2><b> </b>Title</h2>")
+        paragraph = JustHTML("<p>Item<b> </b>text</p>")
+        link = JustHTML("<p>Item<a href='https://e.com'> </a>text</p>")
+
+        assert item.to_markdown() == "- Item text"
+        assert heading.to_markdown() == "## Title"
+        assert paragraph.to_markdown() == "Item text"
+        assert link.to_markdown() == "Item [](https://e.com) text"
+
+    def test_to_markdown_collapses_leading_text_space_after_structural_marker(self):
+        assert JustHTML("<ul><li> Item</li></ul>").to_markdown() == "- Item"
+        assert JustHTML("<h2> Title</h2>").to_markdown() == "## Title"
+
+    def test_to_markdown_inline_builders_preserve_blockquote_depth(self):
+        html = "<blockquote><b>" * 100 + "<p>x</p>"
+
+        assert JustHTML(html).to_markdown().count("> ") == 64
+
+    def test_to_markdown_bounds_nested_blockquote_prefixes(self):
+        doc = JustHTML("<blockquote>" * 100 + "<p>x</p>")
+
+        assert doc.to_markdown() == "> " * 64 + "x"
+
+    def test_to_markdown_nested_blockquotes_scale_linearly(self):
+        assert_scales_linearly(
+            lambda size: JustHTML("<blockquote>" * size + "<p>x</p>" * size).root,
+            lambda root: root.to_markdown(),
+        )
+
+    def test_to_markdown_lists(self):
+        doc = JustHTML("<ul><li>One</li><li>Two</li></ul><ol><li>A</li><li>B</li></ol>")
+        md = doc.to_markdown()
+        assert "- One\n- Two" in md
+        assert "1. A\n2. B" in md
+
+    def test_to_markdown_tables_and_images_are_html(self):
+        doc = JustHTML("<p>Hi<img src=x alt=y>there</p><table><tr><td>A</td></tr></table>")
+        md = doc.to_markdown()
+        assert '<img src="x" alt="y">' in md
+        # HTML5 parsing inserts <tbody>; ensure the table subtree is preserved as HTML.
+        assert "<table" in md
+        assert "<td>A</td>" in md
+        assert "</table>" in md
+
+    def test_to_markdown_ignores_comment_and_doctype(self):
+        root = Node("div")
+        root.append_child(Comment(data="nope"))
+        root.append_child(Node("!doctype", data="html"))
+        root.append_child(Text("ok"))
+        assert root.to_markdown() == "ok"
+
+    def test_to_markdown_preserves_script_whitespace(self):
+        # script/style are preserved as raw HTML blocks in markdown when passthrough is on.
+        root = Node("div")
+        script = Node("script")
+        # Include a trailing newline to exercise raw-newline tracking.
+        script.append_child(Text("var x = 1;\nvar y = 2;\n"))
+        root.append_child(script)
+        assert root.to_markdown(html_passthrough=True) == "<script>var x = 1;\nvar y = 2;\n</script>"
+
+    def test_to_markdown_handles_deeply_nested_tree_without_recursion(self):
+        root = Node("div")
+        parent = root
+        for _ in range(1200):
+            child = Node("div")
+            parent.append_child(child)
+            parent = child
+        parent.append_child(Text("x"))
+
+        assert root.to_markdown() == "x"
+
+    def test_to_markdown_empty_script_still_outputs_tags(self):
+        root = Node("div")
+        root.append_child(Node("script"))
+        assert root.to_markdown() == ""
+
+    def test_to_markdown_empty_script_passthrough(self):
+        root = Node("div")
+        root.append_child(Node("script"))
+        assert root.to_markdown(html_passthrough=True) == "<script></script>"
+
+    def test_to_markdown_textarea_passthrough_uses_canonical_html_serializer(self):
+        root = Node("div")
+        textarea = Node("textarea")
+        textarea.attrs["data-x"] = "1&2"
+        textarea.append_child(Text("</textarea><img src=x onerror=alert(1)>"))
+        root.append_child(textarea)
+
+        assert (
+            root.to_markdown(html_passthrough=True)
+            == '<textarea data-x="1&amp;2">&lt;/textarea&gt;&lt;img src=x onerror=alert(1)&gt;</textarea>'
+        )
+
+    def test_to_markdown_script_passthrough_preserves_attributes(self):
+        root = Node("div")
+        script = Node("script")
+        script.attrs["data-x"] = "1&2"
+        root.append_child(script)
+
+        assert root.to_markdown(html_passthrough=True) == '<script data-x="1&amp;2"></script>'
+
+    def test_to_markdown_script_drops_content_by_default(self):
+        root = Node("div")
+        script = Node("script")
+        script.append_child(Text("alert(1);"))
+        root.append_child(script)
+        assert root.to_markdown() == ""
+
+    def test_to_markdown_textnode_method(self):
+        t = Text("a*b")
+        assert t.to_markdown() == "a\\*b"
+
+    def test_to_markdown_textnode_escapes_html_significant_chars(self):
+        t = Text("a < b & c")
+        assert t.to_markdown() == "a &lt; b &amp; c"
+
+    def test_to_markdown_empty_textnode(self):
+        # Exercises empty-string handling in markdown helpers and builder.
+        t = Text("")
+        assert t.to_markdown() == ""
+
+    def test_to_markdown_escapes_html_like_text(self):
+        doc = JustHTML("<p>&lt;img src=x onerror=alert(1)&gt;</p>", fragment=True)
+        assert doc.to_markdown() == "&lt;img src=x onerror=alert(1)>"
+
+    def test_to_markdown_escapes_rawtext_content_from_title(self):
+        doc = JustHTML("<title><script>alert(1)</script></title>", fragment=True)
+        assert doc.to_markdown() == "&lt;script>alert(1)&lt;/script>"
+
+    def test_to_markdown_ignores_empty_inline_formatting(self):
+        root = Node("div")
+        root.append_child(Node("i"))
+        root.append_child(Node("b"))
+        assert root.to_markdown() == ""
+
+    def test_to_markdown_br_on_empty_buffer_and_multiple_newlines(self):
+        # Exercises newline logic when buffer is empty and when newline_count is already >= 2.
+        doc = JustHTML("<br><br><br>")
+        assert doc.to_markdown() == ""
+
+    def test_to_markdown_empty_blocks_and_hr(self):
+        doc = JustHTML("<hr><h2></h2><p></p><pre></pre><blockquote></blockquote>")
+        md = doc.to_markdown()
+        assert "---" in md
+        assert "##" in md
+        assert "```\n```" in md
+
+    def test_to_markdown_list_skips_non_li_children(self):
+        # Newlines between list items become text nodes; list renderer should skip them.
+        doc = JustHTML("<ul>\n<li>One</li>\n</ul>")
+        assert doc.to_markdown() == "- One"
+
+    def test_to_markdown_link_without_href(self):
+        doc = JustHTML("<p><a>text</a></p>")
+        assert doc.to_markdown() == "[text]"
+
+    def test_to_markdown_link_destination_wrapped_when_parentheses(self):
+        doc = JustHTML("<p><a href='https://e.com/a(b)c'>x</a></p>")
+        assert doc.to_markdown() == "[x](<https://e.com/a(b)c>)"
+
+    def test_to_markdown_link_destination_wrapped_when_whitespace(self):
+        # Whitespace in href should not be able to break Markdown formatting.
+        doc = JustHTML("<p><a href='https://e.com/a b'>x</a></p>")
+        assert doc.to_markdown() == "[x](<https://e.com/a%20b>)"
+
+    def test_to_markdown_in_link_br_and_paragraph_spacing(self):
+        a = Node("a", attrs={"href": "https://e.com"})
+        a.append_child(Text("A"))
+        a.append_child(Node("br"))
+        a.append_child(Text("B"))
+        p = Node("p")
+        p.append_child(Text("C"))
+        a.append_child(p)
+        a.append_child(Text("D"))
+        assert a.to_markdown() == "[A BC D](https://e.com)"
+
+    def test_to_markdown_in_link_block_elements_are_flattened(self):
+        a = Node("a", attrs={"href": "https://e.com"})
+        bq = Node("blockquote")
+        p = Node("p")
+        p.append_child(Text("Q"))
+        bq.append_child(p)
+        a.append_child(bq)
+
+        ul = Node("ul")
+        li1 = Node("li")
+        li1.append_child(Text("One"))
+        li2 = Node("li")
+        li2.append_child(Text("Two"))
+        ul.append_child(li1)
+        ul.append_child(li2)
+        a.append_child(ul)
+
+        assert a.to_markdown() == "[Q One Two](https://e.com)"
+
+    def test_to_markdown_in_link_table_heading_pre_and_hr(self):
+        a = Node("a", attrs={"href": "https://e.com"})
+        a.append_child(Node("hr"))
+
+        h2 = Node("h2")
+        h2.append_child(Text("T"))
+        a.append_child(h2)
+
+        pre = Node("pre")
+        pre.append_child(Text("code"))
+        a.append_child(pre)
+
+        table = Node("table")
+        tr = Node("tr")
+        td = Node("td")
+        td.append_child(Text("A"))
+        tr.append_child(td)
+        table.append_child(tr)
+        a.append_child(table)
+
+        md = a.to_markdown()
+        assert md.startswith("[")
+        assert md.endswith("](https://e.com)")
+        assert "T" in md
+        assert "`code`" in md
+        assert "<table" in md
+        assert "---" not in md
+
+    def test_to_markdown_in_link_blockquote_empty_and_list_skips_non_li(self):
+        a = Node("a", attrs={"href": "https://e.com"})
+
+        # Covers blockquote in-link branch with no children.
+        a.append_child(Node("blockquote"))
+
+        # Covers list-in-link branch where a non-li child is skipped.
+        ul = Node("ul")
+        ul.append_child(Text("\n"))
+        li = Node("li")
+        li.append_child(Text("One"))
+        ul.append_child(li)
+        a.append_child(ul)
+
+        assert a.to_markdown() == "[One](https://e.com)"
+
+    def test_markdown_code_span_edge_cases(self):
+        # Cover helper edge cases (None input and leading/trailing backticks).
+        assert _markdown_code_span(None) == ""
+        assert _markdown_code_span("a\n\nb") == "`a  b`"
+        assert _markdown_code_span("`x") == "`` `x ``"
+        assert _markdown_code_span("x`") == "`` x` ``"
+        # Exercise backtick runs that don't increase the longest run.
+        assert _markdown_code_span("a`b`") == "`` a`b` ``"
+
+    def test_markdown_backtick_fence_helper_edge_cases(self):
+        assert _markdown_backtick_fence(None, minimum=3) == "```"
+        assert _markdown_backtick_fence("", minimum=3) == "```"
+        assert _markdown_backtick_fence("```", minimum=3) == "````"
+        assert _markdown_backtick_fence("````", minimum=3) == "`````"
+
+    def test_markdown_escape_line_start_helper_edge_cases(self):
+        assert _markdown_escape_line_start("") is None
+        assert _markdown_escape_line_start("# heading") == (r"\#", 1)
+        assert _markdown_escape_line_start("#heading") is None
+        assert _markdown_escape_line_start("> quote") == (r"\>", 1)
+        assert _markdown_escape_line_start("- item") == (r"\-", 1)
+        assert _markdown_escape_line_start("-x") is None
+        assert _markdown_escape_line_start("+ item") == (r"\+", 1)
+        assert _markdown_escape_line_start("+item") is None
+        assert _markdown_escape_line_start("1. item") == (r"1\.", 2)
+        assert _markdown_escape_line_start("2) item") == (r"2\)", 2)
+        assert _markdown_escape_line_start("12. item") == (r"12\.", 3)
+        assert _markdown_escape_line_start("~~~") == (r"\~", 1)
+        assert _markdown_escape_line_start("~~") is None
+        assert _markdown_escape_line_start("```") == (r"\`", 1)
+        assert _markdown_escape_line_start("``") is None
+        assert _markdown_escape_line_start("---") == (r"\-", 1)
+        assert _markdown_escape_line_start("===") == (r"\=", 1)
+        assert _markdown_escape_line_start("=x") is None
+        assert _markdown_escape_line_start("plain text") is None
+
+    def test_markdown_thematic_or_setext_line_helper_edge_cases(self):
+        assert _markdown_thematic_or_setext_line("   ", "-", minimum_markers=3) is False
+        assert _markdown_thematic_or_setext_line("- - -", "-", minimum_markers=3) is True
+        assert _markdown_thematic_or_setext_line("- - x", "-", minimum_markers=3) is False
+
+    def test_markdown_link_destination_helper_edge_cases(self):
+        assert _markdown_link_destination("") == ""
+        assert _markdown_link_destination("   ") == ""
+        assert _markdown_link_destination("https://e.com/x") == "https://e.com/x"
+
+    def test_to_markdown_pre_rstrips_trailing_spaces_before_newline(self):
+        doc = JustHTML("<pre>X   \n</pre>")
+        assert doc.to_markdown() == "```\nX\n```"
+
+    def test_to_markdown_pre_uses_longer_fence_than_content(self):
+        doc = JustHTML("<pre>&#96;&#96;&#96;\n&lt;img src=x onerror=alert(1)&gt;</pre>", fragment=True)
+        assert doc.to_markdown() == "````\n```\n<img src=x onerror=alert(1)>\n````"
+
+    def test_to_markdown_pre_uses_longer_fence_for_longer_runs(self):
+        doc = JustHTML("<pre>&#96;&#96;&#96;&#96;\n&lt;img src=x onerror=alert(1)&gt;</pre>", fragment=True)
+        assert doc.to_markdown() == "`````\n````\n<img src=x onerror=alert(1)>\n`````"
+
+    def test_to_markdown_escapes_heading_marker_after_line_break(self):
+        doc = JustHTML("<p>a<br># heading</p>", fragment=True)
+        assert doc.to_markdown() == "a\n\\# heading"
+
+    def test_to_markdown_escapes_blockquote_marker_after_line_break(self):
+        doc = JustHTML("<p>a<br>> quote</p>", fragment=True)
+        assert doc.to_markdown() == "a\n\\> quote"
+
+    def test_to_markdown_escapes_list_markers_after_line_break(self):
+        doc = JustHTML("<p>a<br>- item<br>+ next<br>1. ordered<br>2) ordered<br>12. multi</p>", fragment=True)
+        assert doc.to_markdown() == "a\n\\- item\n\\+ next\n1\\. ordered\n2\\) ordered\n12\\. multi"
+
+    def test_to_markdown_escapes_fence_and_rule_markers_after_line_break(self):
+        doc = JustHTML("<p>a<br>~~~<br>```<br>---<br>===</p>", fragment=True)
+        assert doc.to_markdown() == "a\n\\~~~\n\\`\\`\\`\n\\---\n\\==="
+
+    def test_to_markdown_document_container_direct(self):
+        doc = Document()
+        doc.append_child(Node("p"))
+        assert doc.to_markdown() == ""
+
+    def test_markdown_builder_text_preserve_whitespace_branch(self):
+        b = _MarkdownBuilder()
+        b.text("x\n", preserve_whitespace=True)
+        assert b.finish() == "x"
+
+    def test_to_markdown_walk_preserves_whitespace_for_text_nodes(self):
+        b = _MarkdownBuilder()
+        _to_markdown_walk(Text("a\nb"), b, preserve_whitespace=True, list_depth=0)
+        assert b.finish() == "a\nb"
+
+    def test_markdown_builder_text_leading_whitespace_does_not_add_space(self):
+        # Covers the branch where pending whitespace exists but we are at start of output.
+        b = _MarkdownBuilder()
+        b.text("   a")
+        assert b.finish() == "a"
+
+    def test_markdown_builder_raw_separates_adjacent_backtick_runs(self):
+        b = _MarkdownBuilder()
+        b.raw("`a`")
+        b.raw("`b`")
+        assert b.finish() == "`a` `b`"
+
+    def test_to_markdown_raw_with_internal_newline_no_trailing_newline(self):
+        # Covers raw() newline handling when the string contains a newline but doesn't end with one.
+        root = Node("div")
+        style = Node("style")
+        style.append_child(Text("a {\n  b: c; }"))
+        root.append_child(style)
+        assert "a {\n  b: c; }" in root.to_markdown(html_passthrough=True)
+
+    def test_to_markdown_unknown_container_walks_children(self):
+        doc = JustHTML("<span>Hi</span>")
+        assert doc.to_markdown() == "Hi"
+
+    def test_markdown_builder_raw_inserts_pending_space(self):
+        b = _MarkdownBuilder()
+        b.text("a ")
+        b.raw("**")
+        b.raw("b")
+        assert b.finish() == "a **b"
+
+    def test_markdown_builder_raw_does_not_insert_space_before_newline(self):
+        # Covers the branch where pending space exists but raw output starts with whitespace.
+        b = _MarkdownBuilder()
+        b.text("a ")
+        b.raw("\n")
+        assert b.finish() == "a"
+
+    def test_markdown_walk_document_children_loop(self):
+        b = _MarkdownBuilder()
+        doc = Document()
+        doc.append_child(Text("Hi"))
+        _to_markdown_walk(doc, b, preserve_whitespace=False, list_depth=0)
+        assert b.finish() == "Hi"
+
+    def test_markdown_walk_document_without_children(self):
+        # Covers the document-container branch when there are no children.
+        doc = Document()
+        assert doc.to_markdown() == ""
+
+    def test_to_markdown_includes_template_content(self):
+        template = Template("template", namespace="html")
+        template.template_content.append_child(Text("T"))
+        assert template.to_markdown() == "T"
+
+    def test_markdown_walk_unknown_tag_children_loop(self):
+        b = _MarkdownBuilder()
+        span = Node("span")
+        span.append_child(Text("Hi"))
+        _to_markdown_walk(span, b, preserve_whitespace=False, list_depth=0)
+        assert b.finish() == "Hi"
+
+    def test_insert_before(self):
+        parent = Node("div")
+        child1 = Node("span", attrs={"id": "1"})
+        child2 = Node("span", attrs={"id": "2"})
+
+        parent.append_child(child1)
+        parent.insert_before(child2, child1)
+
+        assert parent.children == [child2, child1]
+        assert child2.parent == parent
+
+    def test_insert_before_none(self):
+        parent = Node("div")
+        child1 = Node("span", attrs={"id": "1"})
+        child2 = Node("span", attrs={"id": "2"})
+
+        parent.append_child(child1)
+        parent.insert_before(child2, None)
+
+        assert parent.children == [child1, child2]
+        assert child2.parent == parent
+
+    def test_insert_before_invalid_reference(self):
+        parent = Node("div")
+        child1 = Node("span", attrs={"id": "1"})
+        child2 = Node("span", attrs={"id": "2"})
+        other = Node("div")
+
+        parent.append_child(child1)
+
+        with self.assertRaises(ValueError):
+            parent.insert_before(child2, other)
+
+    def test_insert_before_rejects_cycle(self):
+        parent = Node("div")
+        child = Node("span")
+        parent.append_child(child)
+
+        with self.assertRaisesRegex(ValueError, "ancestor"):
+            child.insert_before(parent, None)
+
+    def test_insert_before_same_node_reference_is_noop(self):
+        parent = Node("div")
+        child = Node("span")
+        parent.append_child(child)
+
+        parent.insert_before(child, child)
+
+        assert parent.children == [child]
+
+    def test_insert_before_moves_existing_child_within_same_parent(self):
+        parent = Node("div")
+        child1 = Node("span", attrs={"id": "1"})
+        child2 = Node("span", attrs={"id": "2"})
+        child3 = Node("span", attrs={"id": "3"})
+        parent.append_child(child1)
+        parent.append_child(child2)
+        parent.append_child(child3)
+
+        parent.insert_before(child1, child3)
+
+        assert parent.children == [child2, child1, child3]
+
+    def test_insert_before_splices_document_fragment(self):
+        parent = Node("div")
+        reference = Node("p")
+        parent.append_child(reference)
+        fragment = DocumentFragment()
+        first = Node("span", attrs={"id": "1"})
+        second = Node("span", attrs={"id": "2"})
+        fragment.append_child(first)
+        fragment.append_child(second)
+
+        parent.insert_before(fragment, reference)
+
+        assert parent.children == [first, second, reference]
+        assert first.parent is parent
+        assert second.parent is parent
+        assert fragment.children == []
+        assert fragment.parent is None
+
+    def test_insert_before_no_children_allowed(self):
+        comment = Comment(data="foo")
+        node = Node("div")
+
+        with self.assertRaises(ValueError):
+            comment.insert_before(node, None)
+
+    def test_text_node_none(self):
+        text = Text(None)
+        assert text.text == ""
+
+    def test_simple_dom_node_text_none(self):
+        node = Text(None)
+        assert node.text == ""
+
+    def test_replace_child(self):
+        parent = Node("div")
+        child1 = Node("span", attrs={"id": "1"})
+        child2 = Node("span", attrs={"id": "2"})
+        new_child = Node("p")
+
+        parent.append_child(child1)
+        parent.append_child(child2)
+
+        replaced = parent.replace_child(new_child, child1)
+
+        assert replaced == child1
+        assert parent.children == [new_child, child2]
+        assert new_child.parent == parent
+        assert child1.parent is None
+
+    def test_replace_child_splices_document_fragment(self):
+        parent = Node("div")
+        before = Node("span", attrs={"id": "before"})
+        old = Node("p")
+        after = Node("span", attrs={"id": "after"})
+        parent.append_child(before)
+        parent.append_child(old)
+        parent.append_child(after)
+        fragment = DocumentFragment()
+        first = Node("em")
+        second = Node("strong")
+        fragment.append_child(first)
+        fragment.append_child(second)
+
+        replaced = parent.replace_child(fragment, old)
+
+        assert replaced is old
+        assert parent.children == [before, first, second, after]
+        assert first.parent is parent
+        assert second.parent is parent
+        assert old.parent is None
+        assert fragment.children == []
+        assert fragment.parent is None
+
+        empty = DocumentFragment()
+        assert parent.replace_child(empty, after) is after
+        assert parent.children == [before, first, second]
+        assert after.parent is None
+
+    def test_replace_child_invalid(self):
+        parent = Node("div")
+        child1 = Node("span")
+        other = Node("p")
+
+        parent.append_child(child1)
+
+        with self.assertRaises(ValueError):
+            parent.replace_child(other, other)
+
+    def test_replace_child_rejects_cycle(self):
+        parent = Node("div")
+        child = Node("span")
+        placeholder = Node("em")
+        parent.append_child(child)
+        child.append_child(placeholder)
+
+        with self.assertRaisesRegex(ValueError, "ancestor"):
+            child.replace_child(parent, placeholder)
+
+    def test_replace_child_same_node_is_noop(self):
+        parent = Node("div")
+        child = Node("span")
+        parent.append_child(child)
+
+        replaced = parent.replace_child(child, child)
+
+        assert replaced is child
+        assert parent.children == [child]
+        assert child.parent == parent
+
+    def test_replace_child_moves_existing_child_within_same_parent(self):
+        parent = Node("div")
+        child1 = Node("span", attrs={"id": "1"})
+        child2 = Node("span", attrs={"id": "2"})
+        child3 = Node("span", attrs={"id": "3"})
+        parent.append_child(child1)
+        parent.append_child(child2)
+        parent.append_child(child3)
+
+        replaced = parent.replace_child(child1, child3)
+
+        assert replaced is child3
+        assert parent.children == [child2, child1]
+        assert child1.parent == parent
+        assert child3.parent is None
+
+    def test_replace_child_no_children_allowed(self):
+        comment = Comment(data="foo")
+        node = Node("div")
+
+        with self.assertRaises(ValueError):
+            comment.replace_child(node, node)
+
+    def test_has_child_nodes(self):
+        parent = Node("div")
+        assert not parent.has_child_nodes()
+
+        parent.append_child(Node("span"))
+        assert parent.has_child_nodes()
+
+    def test_clone_node_shallow(self):
+        node = Node("div", attrs={"class": "foo"}, namespace="html")
+        child = Node("span")
+        node.append_child(child)
+
+        clone = node.clone_node(deep=False)
+
+        assert clone.name == "div"
+        assert clone.attrs == {"class": "foo"}
+        assert clone.namespace == "html"
+        assert clone.children == []
+        assert clone is not node
+        assert clone.attrs is not node.attrs
+
+    def test_clone_node_simple(self):
+        node = Node("div", attrs={"id": "1"})
+        clone = node.clone_node()
+        assert clone.name == "div"
+        assert clone.attrs == {"id": "1"}
+        assert clone is not node
+        assert clone.children == []
+
+    def test_clone_node_deep(self):
+        parent = Node("div")
+        child = Node("span")
+        parent.append_child(child)
+
+        clone = parent.clone_node(deep=True)
+        assert len(clone.children) == 1
+        assert clone.children[0].name == "span"
+        assert clone.children[0] is not child
+        assert clone.children[0].parent == clone
+
+    def test_clone_text_node(self):
+        text = Text("hello")
+        clone = text.clone_node()
+        assert clone.data == "hello"
+        assert clone is not text
+
+    def test_clone_template_node(self):
+        template = Template("template", namespace="html")
+        content_child = Node("div")
+        template.template_content.append_child(content_child)
+
+        clone = template.clone_node(deep=True)
+        assert clone is not template
+        assert clone.template_content is not template.template_content
+        assert clone.template_content.parent is clone
+        assert len(clone.template_content.children) == 1
+        assert clone.template_content.children[0].name == "div"
+
+    def test_clone_template_node_with_children(self):
+        template = Template("template", namespace="html")
+        child = Node("span")
+        template.append_child(child)
+
+        clone = template.clone_node(deep=True)
+        assert len(clone.children) == 1
+        assert clone.children[0].name == "span"
+        assert clone.children[0] is not child
+        assert clone.children[0].parent == clone
+
+    def test_clone_element_node(self):
+        element = Element("div", attrs={"class": "foo"}, namespace="html")
+        child = Node("span")
+        element.append_child(child)
+
+        # Shallow clone
+        clone_shallow = element.clone_node(deep=False)
+        assert isinstance(clone_shallow, Element)
+        assert clone_shallow.children == []
+
+        # Deep clone
+        clone_deep = element.clone_node(deep=True)
+        assert len(clone_deep.children) == 1
+        assert clone_deep.children[0].name == "span"
+        assert clone_deep.children[0] is not child
+        assert clone_deep.children[0].parent == clone_deep
+
+    def test_clone_node_empty_attrs(self):
+        node = Node("div")
+        clone = node.clone_node()
+        assert clone.attrs == {}
+
+    def test_clone_node_override_attrs_is_independent_per_clone(self):
+        # override_attrs must be copied, same as the default clone path:
+        # otherwise multiple clones built from the same dict (or the caller's
+        # own reference to it) would alias and silently mutate each other.
+        for factory in (
+            lambda attrs: Node("div", attrs),
+            lambda attrs: Element("div", attrs, "html"),
+            lambda attrs: Template("template", attrs, None, "html"),
+        ):
+            with self.subTest(factory=factory):
+                original = factory({})
+                shared = {"x": "1"}
+                clone_a = original.clone_node(override_attrs=shared)
+                clone_b = original.clone_node(override_attrs=shared)
+
+                clone_a.attrs["x"] = "mutated"
+
+                assert clone_a.attrs is not shared
+                assert clone_b.attrs == {"x": "1"}
+                assert shared == {"x": "1"}
+
+    def test_clone_comment_node(self):
+        node = Comment(data="foo")
+        clone = node.clone_node()
+        assert clone.attrs is None
+        assert clone.data == "foo"
+
+    def test_clone_template_node_non_html(self):
+        template = Template("template", namespace="svg")
+        assert template.template_content is None
+        # Add a child to exercise the for loop even when template_content is None
+        child = Node("g")
+        template.append_child(child)
+
+        clone = template.clone_node(deep=True)
+        assert clone.template_content is None
+        assert clone.namespace == "svg"
+        assert len(clone.children) == 1
+        assert clone.children[0].name == "g"
+
+    def test_clone_template_node_shallow(self):
+        template = Template("template", namespace="html")
+        child = Node("div")
+        template.append_child(child)
+
+        clone = template.clone_node(deep=False)
+        assert clone.name == "template"
+        assert clone.namespace == "html"
+        # Shallow clone should not copy children
+        assert len(clone.children) == 0
+
+    def test_clone_doctype(self):
+        node = Node("!doctype", data="html")
+        clone = node.clone_node()
+        assert clone.name == "!doctype"
+        assert clone.attrs is None
+
+    def test_clone_document(self):
+        node = Document()
+        clone = node.clone_node()
+        assert clone.name == "#document"
+        assert clone.children == []
+        assert clone.attrs == {}
+
+    def test_clone_document_deep(self):
+        node = Document()
+        child = Node("div")
+        node.append_child(child)
+        clone = node.clone_node(deep=True)
+        assert len(clone.children) == 1
+        assert clone.children[0].name == "div"
+        assert clone.children[0] is not child
+        assert clone.children[0].parent is clone
+
+    def test_clone_document_deep_handles_deep_trees_iteratively(self):
+        node = Document()
+        parent = node
+        for _ in range(1200):
+            child = Node("div")
+            parent.append_child(child)
+            parent = child
+        parent.append_child(Text("x"))
+
+        clone = node.clone_node(deep=True)
+
+        assert clone.to_text(strip=False) == "x"
+        current = clone
+        depth = 0
+        while current.children:
+            current = current.children[0]
+            depth += 1
+            if current.name == "#text":
+                break
+        assert depth == 1201
+
+    def test_remove_child(self):
+        parent = Node("div")
+        child = Node("span")
+        parent.append_child(child)
+
+        parent.remove_child(child)
+        assert parent.children == []
+        assert child.parent is None
+
+    def test_append_child_rejects_cycle(self):
+        parent = Node("div")
+        child = Node("span")
+        parent.append_child(child)
+
+        with self.assertRaisesRegex(ValueError, "ancestor"):
+            child.append_child(parent)
+
+    def test_template_content_append_child_rejects_template_cycle(self):
+        template = Template("template", namespace="html")
+        assert template.template_content is not None
+        assert template.template_content.parent is template
+
+        with self.assertRaisesRegex(ValueError, "ancestor"):
+            template.template_content.append_child(template)
+
+    def test_template_content_insert_before_rejects_template_cycle(self):
+        template = Template("template", namespace="html")
+        placeholder = Node("span")
+        assert template.template_content is not None
+        template.template_content.append_child(placeholder)
+
+        with self.assertRaisesRegex(ValueError, "ancestor"):
+            template.template_content.insert_before(template, placeholder)
+
+    def test_template_content_replace_child_rejects_template_cycle(self):
+        template = Template("template", namespace="html")
+        placeholder = Node("span")
+        assert template.template_content is not None
+        template.template_content.append_child(placeholder)
+
+        with self.assertRaisesRegex(ValueError, "ancestor"):
+            template.template_content.replace_child(template, placeholder)
+
+    def test_append_child_rejects_self(self):
+        parent = Node("div")
+
+        with self.assertRaisesRegex(ValueError, "itself"):
+            parent.append_child(parent)
+
+    def test_append_child_clears_stale_parent_without_children_list(self):
+        parent = Node("div")
+        child = Node("span")
+        child.parent = Comment(data="stale")
+
+        parent.append_child(child)
+
+        assert parent.children == [child]
+        assert child.parent == parent
+
+    def test_remove_child_not_found(self):
+        parent = Node("div")
+        child = Node("span")
+        with self.assertRaises(ValueError):
+            parent.remove_child(child)
+
+    def test_to_html_method(self):
+        node = Node("div")
+        output = node.to_html()
+        assert "<div>" in output
+
+    def test_query_method(self):
+        parent = Node("div")
+        child = Node("span")
+        parent.append_child(child)
+        results = parent.query("span")
+        assert len(results) == 1
+        assert results[0].name == "span"
+
+    def test_template_node_clone_with_content(self):
+        template = Template("template", namespace="html")
+        inner = Node("div")
+        template.template_content.append_child(inner)
+        # Also add a direct child to cover line 180-181
+        direct_child = Node("span")
+        template.append_child(direct_child)
+
+        clone = template.clone_node(deep=True)
+        assert len(clone.template_content.children) == 1
+        assert clone.template_content.children[0].name == "div"
+        assert len(clone.children) == 1
+        assert clone.children[0].name == "span"
+
+    def test_text_node_children_and_has_child_nodes(self):
+        text = Text("hello")
+        assert text.children == []
+        assert not text.has_child_nodes()
+
+
+class TestDeepCloneScaling(unittest.TestCase):
+    def test_cloning_a_template_bearing_tree_scales_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: JustHTML("<div><template></template>" * size, sanitize=False).root,
+            lambda root: root.clone_node(deep=True),
+        )
+
+    def test_cloning_a_deep_plain_tree_scales_linearly(self) -> None:
+        assert_scales_linearly(
+            lambda size: JustHTML("<div>" * size + "x", sanitize=False).root,
+            lambda root: root.clone_node(deep=True),
+        )

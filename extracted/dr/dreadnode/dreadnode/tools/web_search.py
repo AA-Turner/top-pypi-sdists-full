@@ -54,9 +54,30 @@ DEFAULT_HTTP_TIMEOUT = 30.0
 
 _BACKEND_ENV_VAR = "DREADNODE_WEB_SEARCH_BACKEND"
 
+# Set by the platform when the deployment has no public egress. Mirrors
+# ``DREADNODE_CAPABILITY_INSTALL`` (WP1-59): a directive about one behaviour,
+# not a description of the deployment. The SDK also runs on laptops, in CI
+# and inside a customer's own process, and none of those should be reasoning
+# about our deployment posture — only a sandbox is ever told this.
+#
+# Distinct from ``_BACKEND_ENV_VAR``, which picks *which* backend answers.
+# This one decides whether a backend that reaches a public host may answer
+# at all.
+_SEARCH_MODE_ENV = "DREADNODE_WEB_SEARCH_MODE"
+
+# Surfaced when sealed mode leaves no backend able to answer. "No results"
+# and "there is no search here" are different facts, and a task authored
+# against a connected deployment has to be able to tell them apart
+# (WP1-72) rather than reading a silent empty set as a real one.
+SEALED_WARNING = (
+    "Web search is unavailable: this deployment has no public egress, and no "
+    "internal search backend is configured."
+)
+
 # Auto-mode picks the first configured backend in this order. DuckDuckGo
-# is last because it always reports as configured (no credentials), so
-# stronger providers win when their keys are present. ``platform`` leads
+# is last because it needs no credentials and so reports as configured on
+# any runtime that is not sealed, so stronger providers win when their
+# keys are present. ``platform`` leads
 # the chain when an authenticated dreadnode profile is present
 # (WS-SDK-002); a 5xx from the hosted endpoint advances to the next.
 _AUTO_PREFERENCE_ORDER: tuple[str, ...] = (
@@ -459,11 +480,32 @@ def _firecrawl_extract_items(payload: t.Any) -> list[dict[str, t.Any]]:
 # ---------------------------------------------------------------------------
 
 
+def _sealed() -> bool:
+    """Whether this runtime must answer searches without reaching a network."""
+    return os.environ.get(_SEARCH_MODE_ENV, "").strip().lower() == "sealed"
+
+
+async def _sealed_backend(_query: str, _num_results: int) -> BackendOutcome:
+    """Terminal backend for a sealed runtime with nothing configured.
+
+    Opens no socket. It exists so the resolver has somewhere to land other
+    than DuckDuckGo, and so the response names ``sealed`` as the backend
+    instead of reporting a public one that was never actually consulted.
+    ``should_fall_through`` stays False — there is nothing to fall through
+    to, and the cascade must not resume walking the chain.
+    """
+    return BackendOutcome(hits=[], error=SEALED_WARNING)
+
+
 _BACKENDS: dict[str, Backend] = {
     "duckduckgo": Backend(
         name="duckduckgo",
         search=_duckduckgo_backend,
-        is_configured=lambda: True,
+        # The only backend needing no credentials, so it is the only one a
+        # sealed runtime can reach by accident. Reporting it unconfigured
+        # gates the auto chain, the fall-through cascade and the
+        # ``DREADNODE_WEB_SEARCH_BACKEND`` pin in one place (WP1-72).
+        is_configured=lambda: not _sealed(),
     ),
     "google": Backend(
         name="google",
@@ -488,6 +530,15 @@ _BACKENDS: dict[str, Backend] = {
         is_configured=_platform_is_configured,
     ),
 }
+
+# Deliberately outside ``_BACKENDS`` and ``_AUTO_PREFERENCE_ORDER``: it must
+# not be selectable by name, by the auto chain, or by the cascade. The
+# resolver returns it directly as the terminal case.
+_SEALED_BACKEND = Backend(
+    name="sealed",
+    search=_sealed_backend,
+    is_configured=lambda: True,
+)
 
 
 def _next_in_auto_chain(after: str) -> Backend | None:
@@ -537,7 +588,11 @@ def _resolve_backend() -> tuple[Backend, list[str]]:
         if candidate and candidate.is_configured():
             return candidate, warnings
 
-    # DuckDuckGo always reports as configured; this is defensive.
+    # Only reachable in sealed mode: DuckDuckGo reports configured whenever
+    # the runtime is not sealed, so an unsealed runtime always matched above.
+    if _sealed():
+        return _SEALED_BACKEND, warnings
+
     return _BACKENDS["duckduckgo"], warnings
 
 
@@ -658,6 +713,12 @@ async def web_search(
         warnings.extend(outcome.warnings)
         if outcome.error:
             warnings.append(outcome.error)
+
+    # The cascade dead-ends on the platform 503 in a sealed runtime, leaving
+    # "Platform search unavailable" as the only reason — true, but it reads
+    # as transient when it is permanent here. Name the actual condition.
+    if outcome.error and _sealed() and chosen.name != _SEALED_BACKEND.name:
+        warnings.append(SEALED_WARNING)
 
     success = outcome.error is None
 

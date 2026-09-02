@@ -98,12 +98,12 @@ class Image(APIObject):
 
     @classmethod
     def get(cls, project_id: str, image_id: str) -> "Image":
-        """Get a single image object from project.
+        """Returns a single image object from the project.
 
         Parameters
         ----------
         project_id : str
-            Id of the project that contains the images.
+            ID of the project that contains the images.
         image_id : str
             ID of image to load from the project.
         """
@@ -128,7 +128,7 @@ class SampleImage(APIObject):
     target_value : TargetValue
         Value associated with the ``feature_name``.
     project_id : str
-        Id of the project that contains the images.
+        ID of the project that contains the images.
 
     """
 
@@ -173,7 +173,7 @@ class SampleImage(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List["SampleImage"]:
-        """Get sample images from a project.
+        """Returns a list of sample images from a project.
 
         Parameters
         ----------
@@ -187,13 +187,13 @@ class SampleImage(APIObject):
             stage.
         target_bin_start : Optional[Union[int, float]]
             For regression projects - only images corresponding to the target values above
-            (inclusive) this value will be returned. Must be specified together with target_bin_end.
+            (inclusive) this value will be returned. Must be specified together with ``target_bin_end``.
             Please note that you can only use this parameter when the project has finished the EDA2
             stage.
         target_bin_end : Optional[Union[int, float]]
             For regression projects - only images corresponding to the target values below
             (exclusive) this value will be returned. Must be specified together with
-            target_bin_start.
+            ``target_bin_start``.
             Please note that you can only use this parameter when the project has finished the EDA2
             stage.
         offset : Optional[int]
@@ -273,7 +273,7 @@ class DuplicateImage(APIObject):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> List["DuplicateImage"]:
-        """Get all duplicate images in a project.
+        """Returns a list of all duplicate images in a project.
 
         Parameters
         ----------

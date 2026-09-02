@@ -1,0 +1,401 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      # #2180: `--ignore=tests/acceptance` — the sealed oracle-loop suite
+      # (tests/acceptance/ms-NN/) is split out of the ordinary suite and
+      # gated separately, through `coord acceptance run --all --ci` (see the
+      # `acceptance-cli` step below and the `acceptance` job further down),
+      # which honours each ms-NN/manifest.yml's `expected_red:` registry
+      # (#2164). Left in here, a red-by-design slice would fail this job
+      # outright — every ordinary PR in the repo, not just the one the slice
+      # belongs to — exactly the quadraui#554/#490 failure mode #2180 exists
+      # to close. ms-33/ms-38 (Rust, feature-gated behind test-support) were
+      # never swept in here; ms-37 (plain .py files under
+      # testpaths=["tests"]) was the one accidental gap. (ms-51 — Playwright,
+      # never .py either — left this repo entirely with the webapp, #2009.)
+      - run: pytest --ignore=tests/acceptance
+      # #2899: the `COORD_TUI_SRC=. python scripts/codegen.py --rust --check`
+      # step that used to live here is GONE. It was #2897's explicit stand-in
+      # for the byte-comparison, held here only for as long as the crate did
+      # — that ADR (docs/ADR_COORD_TUI_CI.md) says in terms: "the day
+      # coord-tui gets its own checkout + CI, delete the step below (its
+      # replacement lives in that CI, installing `code-coordinator[server]`
+      # from PyPI exactly as `coord-web`'s does)". This is that day. There is
+      # no `generated.rs` in this checkout to compare against, so the step
+      # could only fail or — worse — pass vacuously.
+      # #2180: the cli-pytest sealed route (acceptance.drivers routes
+      # "coord/**" -> cli-pytest -> tests/acceptance/ms-37) run through the
+      # #2164 CI wrapper instead of a raw `pytest tests/acceptance` call, so
+      # expected_red is honoured. One matrix leg only — the suite result
+      # doesn't depend on the Python version any differently than the
+      # ordinary suite above does, so running it twice would just double the
+      # cost for no new signal. See .github/coord-ci-acceptance.yml's header
+      # for why this points at a CI-local config rather than
+      # ~/.coord/coordinator.yml (unreachable from a runner).
+      - name: coord acceptance run --all --ci (cli-pytest route, ms-37)
+        if: matrix.python-version == '3.12'
+        run: >-
+          coord acceptance run --repo claude-coordinator --all --ci
+          --for-path coord/cli.py
+          --config .github/coord-ci-acceptance.yml --path .
+
+  # #1895 (CP-4 slice of #1159): real Windows verification — the repo is
+  # public, so `windows-latest` runners cost nothing.
+  #
+  # PUSH-TO-MAIN ONLY, not per-PR (#2039). This job takes ~21-28 min while
+  # every other job finishes in ~6, and `coord merge`'s gate blocks on
+  # `checks_pending` — so per-PR it was ~20 min of pure MERGE LATENCY, not
+  # just CI wall-clock. It is also the string in every park event from the
+  # 2026-08-08 stall (`parked — CI running: windows`): each drive parked on it
+  # and handed off, which is how five PRs piled up unmerged.
+  #
+  # What that latency bought per-PR was ~nothing while the job was red by
+  # design; running it per-merge keeps the baseline just as current. Now that
+  # it is a real gate (below), per-PR coverage is worth revisiting — and the
+  # right move there is probably to keep it per-PR but shrink it to the import
+  # smoke #1895's own title describes, rather than the full suite.
+  #
+  # NO `continue-on-error` — THIS IS A REAL GATE NOW (#2000).
+  #
+  # History: when #1895 landed this job this was EXPECTED TO BE RED, because
+  # `coord.cli` could not import on Windows (`cli.py` -> `coord/interactive.py`
+  # unconditionally `import fcntl`, a POSIX-only stdlib module), so both steps
+  # carried `continue-on-error: true` and the job was a visible-but-
+  # non-blocking signal. Two things closed that out:
+  #
+  #   1. #1156 (CP-1) landed the import guards, killing the `fcntl` failure.
+  #   2. #2000 put `tzdata; sys_platform == 'win32'` in the BASE `[project]
+  #      dependencies` (NOT a CI-only `pip install`) — Windows ships no IANA
+  #      time-zone database, so `zoneinfo` could not resolve `America/Chicago`
+  #      and the suite died during *collection*. coord/config.py,
+  #      coord/models.py, coord/failure_class.py and coord/machine_pause.py all
+  #      resolve named zones at runtime, so that was a shipped defect for every
+  #      `pip install code-coordinator` Windows user, not a test artefact.
+  #      tests/test_client_base_install.py pins it in the base deps.
+  #
+  # With both fixed the flags are gone and a Windows failure reddens this job
+  # for real. tests/test_windows_job_is_a_real_gate_2000.py is the regression
+  # guard against them creeping back.
+  #
+  # Why re-arming this cannot re-block the repo: `if: github.event_name ==
+  # 'push'` (below) means the job is SKIPPED on every `pull_request` event, and
+  # `skipped` is already in `coord.ci_store._PASSING_CONCLUSIONS` — so a red
+  # Windows run shows up on main, never on a PR's merge gate. That guard is
+  # what makes removing `continue-on-error` safe; it did not exist during the
+  # 2026-08-08 stall, when a *job-level* flag (#2026) left every
+  # claude-coordinator PR unmergeable overnight because the `windows` **check**
+  # still reported `failure` to the Checks API even though the workflow run's
+  # conclusion was softened. If this job is ever made per-PR again, that
+  # interaction is the thing to re-check first.
+  #
+  # Python 3.12 only, deliberately not the 3.12/3.13 matrix `test` runs above
+  # — the matrix axis there is Python versions on Linux; this job's axis is
+  # the platform. See docs/CROSS_PLATFORM.md §9.
+  windows:
+    # #2039: on `push` (i.e. merges to main) only. On a `pull_request` event
+    # this evaluates false and the job is SKIPPED — conclusion `skipped`,
+    # which is already in `ci_store._PASSING_CONCLUSIONS`, so the merge gate
+    # is satisfied rather than merely tolerant. `windows` is not a required
+    # status check either, so branch protection is unaffected.
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # #2000: no `continue-on-error` on either step any more — a Windows-only
+      # install failure (a base dep that does not resolve on win32, say) is
+      # exactly as much of a real defect as a test failure, and this job now
+      # exists to fail on it. See the header for why re-arming it is safe.
+      - run: pip install -e ".[dev]"
+      # #2180: same split as the `test` job above — the sealed acceptance
+      # suite is gated separately through the #2164 CI wrapper, not swept
+      # into this job's ordinary pytest run.
+      - run: pytest --ignore=tests/acceptance
+
+  # #1484: run the full suite with `gh` made unresolvable on PATH.
+  #
+  # Filed after the #1472 elitebook incident: a worker's systemd PATH excluded
+  # its linuxbrew-installed `gh`, and ~98 tests that inject every other
+  # dependency (pr_lookup, branch_sha_fetcher, ...) still reached one live
+  # `gh` subprocess call through an unmocked seam — so the suite's result
+  # depended on the host, not the code. #1483 closed the production-code half
+  # (every `gh` invocation now funnels through coord/github_ops.py, whose
+  # `_gh()` turns a missing/hung `gh` into a typed, caught error instead of a
+  # raw FileNotFoundError escaping past `except RuntimeError` guards). This
+  # job is the regression guard for that fix: without it, the next unmocked
+  # seam is invisible again until someone's agent happens to lack the binary.
+  #
+  # `ubuntu-latest` ships `gh` preinstalled, so this can't be a no-op PATH
+  # trick like `PATH=/usr/bin:/bin` (which would miss it entirely on hosts —
+  # dellserver, precision — where `gh` itself lives at /usr/bin/gh).
+  # scripts/run_tests_without_gh.sh instead shadows only the PATH directories
+  # that actually contain a `gh` binary, wherever that is, leaving every other
+  # directory (notably the venv's own bin/) untouched.
+  no-gh-on-path:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      # #2180: same split as the `test` job — the sealed acceptance suite is
+      # gated separately through the #2164 CI wrapper.
+      - run: scripts/run_tests_without_gh.sh python -m pytest tests/ -q --ignore=tests/acceptance
+
+  # #2135 (child of epic #1902): "every `gh` argv construction lives inside
+  # coord/github_ops.py" is the load-bearing assumption under the #1902
+  # forge-portability cost estimate — it's the fact that makes the eventual
+  # port a refactor instead of a rewrite. #1483 already guarded direct
+  # call-argument leaks with an AST scan (formerly
+  # tests/test_no_direct_gh_calls.py), but that walk missed the
+  # variable-indirection shape (`cmd = ["gh", ...]; subprocess.run(cmd)`).
+  # This job's dedicated regex scan catches that gap too, so
+  # test_no_direct_gh_calls.py was retired in its favor rather than kept
+  # running alongside it as a second, disagreeing implementation of the
+  # same invariant (#2135 review) — see scripts/check_gh_argv_containment.py's
+  # module docstring for the full reconciliation.
+  #
+  # scripts/check_gh_argv_containment.py scans coord/**/*.py for a bare
+  # `"gh"`/`'gh'` token outside coord/github_ops.py, with one explicit,
+  # commented allowlist entry for coord/prereqs.py's binary-version probe
+  # (it checks `gh` is installed; it doesn't drive the forge). See that
+  # script's module docstring for the full rationale and
+  # tests/test_check_gh_argv_containment.py for the negative-test proof
+  # that the guard can actually fail.
+  #
+  # Stdlib-only (re/pathlib/dataclasses), so no `pip install` needed here —
+  # this is meant to be as cheap as `no-gh-on-path` above, a grep-shaped
+  # check, not a build step.
+  gh-argv-containment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/check_gh_argv_containment.py .
+
+  # #2170: run the full suite in the environment of a REAL FLEET MACHINE — a
+  # populated `~/.coord/` (thin-client shaped), no `sqlite3` on PATH, and a
+  # `$TMPDIR` under an ancestor pytest config.
+  #
+  # This job exists because the `test` matrix above is structurally incapable
+  # of catching the class it covers. Six tests failed on `origin/main` on every
+  # fleet machine while `ubuntu-latest` stayed green on 3.12 AND 3.13 — the
+  # INVERSE of the familiar "passes locally, fails only in CI ⇒ ambient $HOME"
+  # pattern. They passed in CI *precisely because* CI's `$HOME` is empty, and a
+  # matrix whose only environment is the empty one can never see that.
+  #
+  # What it cost while invisible: the Test stage on `precision` could not
+  # produce a green verdict for this repo on ANY branch. Every dispatch there
+  # returned `SMOKE: fail`, the branch was blamed for breakage it did not
+  # cause, and a human read the log and adjudicated — 11m36s and $0.61 for zero
+  # signal about the branch, repeatedly, for months (claude-coordinator#2158).
+  #
+  # SAME SHAPE AS `no-gh-on-path` ABOVE, AND FOR THE SAME REASON. That job
+  # (#1484) exists because a host-dependent `gh` made the suite's result depend
+  # on the machine rather than the code; this one exists because a
+  # host-dependent `$HOME`/`$PATH`/`$TMPDIR` did the same thing in the opposite
+  # direction. Both mask by NAME rather than by dropping PATH directories — see
+  # `scripts/run_tests_in_populated_home.sh`'s header for why
+  # `PATH=/usr/bin:/bin` is the wrong recipe here.
+  #
+  # `tests/test_ambient_home_isolation.py` pins the specific affected targets
+  # on every run everywhere (including this job, and including a fleet
+  # machine's own Test leg) — that is the always-on gate, and it is what fails
+  # first if one of the three regresses. THIS job is the whole-suite sweep: it
+  # is what finds the NEXT test of this class before a fleet machine does.
+  # Verified at authoring time: 9590 passed, 13 skipped under these three knobs.
+  populated-home:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      # #2180: same split as the `test` job — the sealed acceptance suite is
+      # gated separately through the #2164 CI wrapper.
+      - run: scripts/run_tests_in_populated_home.sh python -m pytest tests/ -q --ignore=tests/acceptance
+      - name: What a red result here means
+        if: failure()
+        run: |
+          echo "::error::The suite is red under a POPULATED \$HOME (thin-client ~/.coord/, no sqlite3 on PATH, \$TMPDIR under an ancestor pytest config) while the plain 'test' job may well be green."
+          echo "That difference IS the finding, not noise: a test that needs an empty \$HOME cannot pass on any fleet machine, so the Test stage there can never go green and every dispatch costs a human adjudication (#2170)."
+          echo "Fix the TEST's isolation -- redirect \$HOME/XDG at tmp_path, drop COORD_SERVICE_URL/COORD_TOKEN/COORD_CONFIG, skip-guard an unprovisioned system binary, pin a nested pytest's --rootdir."
+          echo "Do NOT fix it by making the product trust an ambient path: 'coord config --config' is deliberately NOT authoritative on a thin client (CLAUDE.md, docs/EPHEMERAL_WORKERS.md)."
+          echo "Reproduce locally: scripts/run_tests_in_populated_home.sh python -m pytest tests/ -q"
+
+  # #906: run the test suite in thin-client mode with COORD_STRICT_LOCAL_BOARD=1
+  # so any board touch reachable from a thin-client path raises RuntimeError
+  # instead of silently no-oping against an empty local DB.  This job catches
+  # regressions that only manifest on a thin client (where the daemon holds the
+  # canonical DB but the CLI/notify runs on a laptop without a local copy).
+  thin-client-strict:
+    runs-on: ubuntu-latest
+    env:
+      COORD_STRICT_LOCAL_BOARD: "1"
+      # Simulate a thin-client: point board-service at a non-existent URL so
+      # resolve_board_service() returns a non-None svc and the guard fires.
+      # Tests that monkeypatch board-service themselves will override this.
+      COORD_SERVICE_URL: "http://localhost:19999"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      # Run only the audit + thin-client-specific tests to avoid hammering
+      # the daemon-guarded paths in the full suite (which legitimately hit
+      # local board state on the daemon host).
+      #
+      # #906: added test_thin_client_daemon_routing_906.py (daemon-routing +
+      # fail-open coverage for the new endpoints/functions) and test_smoke.py
+      # (reconcile()'s thin-client get_issue_test_mode regression) so this job
+      # actually exercises COORD_STRICT_LOCAL_BOARD against the new #906
+      # functions, not just the original build_board/save_board/load_board
+      # triad.
+      #
+      # NOT added: test_state.py / test_review_verdict_relay.py. Both contain
+      # tests that assert the *warn* (non-strict) behavior of the local-board
+      # guard while simulating a thin client — under this job's ambient
+      # COORD_STRICT_LOCAL_BOARD=1 those calls raise instead of warn and the
+      # assertions fail, because the guard reads the env var directly rather
+      # than a value those tests control. That's a pre-existing test-isolation
+      # gap (COORD_STRICT_LOCAL_BOARD leaks in as ambient env instead of each
+      # "warns" test forcing it unset), not something introduced by #906 —
+      # tracked as a follow-up rather than fixed here to keep this PR's scope
+      # to the review findings.
+      - run: |
+          pytest tests/test_thin_client_board_audit.py \
+                 tests/test_state_review_findings_daemon.py \
+                 tests/test_thin_client_daemon_routing_906.py \
+                 tests/test_smoke.py \
+                 -v
+
+
+  # #2009 (epic #2002): the `e2e` and `webapp-types` jobs that used to live
+  # here are GONE, not disabled. Both drove `coord/dashboard/webapp/**`,
+  # which moved out of this repo into `coord-web`:
+  #
+  #   - `e2e` (Playwright `npm run test:e2e`) is now `coord-web`'s own `e2e`
+  #     job. Per docs/ADR_COORD_WEB_CI.md (#2006) it installs
+  #     `code-coordinator[server]` from PyPI — tracking latest, never an
+  #     exact pin — so an incompatible change to `coord web`'s flags or the
+  #     dashboard API turns THAT repo's next PR red rather than a phone.
+  #   - `webapp-types` ran `python scripts/codegen.py --check` (the
+  #     OpenAPI -> `src/api/generated.ts` drift gate) plus `npm run
+  #     typecheck` / `npm test`. The npm half moved with the source; the
+  #     codegen half moved with it too — `scripts/codegen.py` is still here
+  #     (the spec it generates from is `coord.dashboard.server`'s), but it
+  #     now needs `--out` / `$COORD_WEB_SRC` pointing at a `coord-web`
+  #     checkout, so the drift gate can only run where both repos are
+  #     present. That is `coord-web`'s CI, not this one.
+  #   - The sealed web-playwright acceptance suite (ms-51) went with them;
+  #     see docs/ADR_COORD_WEB_ACCEPTANCE_SUITE.md (#2007). Its workflow,
+  #     `acceptance-web.yml`, was deleted in the same change.
+  #
+  # Do not re-add a webapp job here. There is no webapp source in this repo
+  # for it to run against, and a job that installs Node to build nothing is
+  # how the previous `acceptance`-on-every-push waste (#2389) started.
+  #
+  # #1941/#2897/#2899: `scripts/codegen.py` also generates coord-tui's RUST
+  # wire types (`--rust`). #2897 gave that half the SAME cross-repo shape as
+  # the TS half above (`--out PATH` / `$COORD_TUI_SRC`, no fallback default,
+  # docs/ADR_COORD_TUI_CI.md), and #2899 moved the crate out — so the Rust
+  # byte-comparison is now, exactly like the TS one, EXCLUSIVELY the
+  # downstream repo's CI job. coord-tui's `.github/workflows/codegen-drift.yml`
+  # installs `code-coordinator[server]` from PyPI and runs
+  # `COORD_TUI_SRC=. python -m ... codegen --rust --check` against its own
+  # committed `src/app/types/generated.rs`.
+  #
+  # Nothing about that gate can run here: this checkout has no `generated.rs`
+  # to compare against. What stays is
+  # `tests/test_generated_rust_fixture.py`, narrowed by #2897 to what one
+  # checkout can prove — the generator runs and covers every schema — same
+  # as `tests/test_generated_types_fixture.py`.
+  #
+  # The consumer-side INTEGER-backed-bool text-scraping guard
+  # (`coord/board_bool_guard.py`) that used to also read Rust source text
+  # here is RETIRED as of #2897, not moved — see docs/ADR_COORD_TUI_CI.md:
+  # #2895 (Phase 1 of #2894) deleted coord-tui's last direct SQL reader, so
+  # `tests/test_board_schema.py`'s DTO-level assertions are now the sole
+  # guard against that class.
+
+  # #2886: a real Postgres 16 service, so `coord/sql.py`'s Postgres branches
+  # (paramstyle translation, upsert idioms, `information_schema`
+  # introspection, `RETURNING`, `dict_row`) — spoken since #2719 but never
+  # once executed against a real server — actually run against one, and so
+  # `COORD_TEST_BACKEND=postgres` (#2884's test-suite backend switch) means
+  # something in CI for the first time.
+  #
+  # SEPARATE JOB, not a `services:` block bolted onto `test` above, for two
+  # reasons: (1) the SQLite lane must stay exactly as fast and exactly as
+  # reliable as it is today — a Postgres service, even an unused one, is
+  # more CI surface for that job to depend on for zero benefit to the
+  # SQLite path; (2) `continue-on-error: true` below softens THIS job's
+  # conclusion without touching `test`'s at all. Running the whole suite
+  # (`coord_db` is autouse — see tests/conftest.py — so every one of ~400
+  # test files follows `COORD_TEST_BACKEND` for free) against a backend
+  # nothing has ever run it against is expected to be red for real,
+  # unrelated-to-this-PR reasons at first (coord/db.py's `_ensure_schema`
+  # and friends were written and only ever exercised against SQLite) — the
+  # harness-portability issue's deliverable is exactly that failure list.
+  # `continue-on-error: true` keeps this job's signal visible (its own
+  # conclusion is still pass/fail on the Checks tab) without blocking merges
+  # on it. Flip it off once that failure list is closed out.
+  #
+  # `psycopg` is an optional extra (`postgres`, this issue) — never a base
+  # or `[dev]` dependency (see `pyproject.toml`) — so installing it is this
+  # job's own opt-in `pip install -e ".[dev,postgres]"`, not a change to
+  # what every other job's `pip install -e ".[dev]"` pulls in.
+  postgres:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      COORD_TEST_BACKEND: postgres
+      # The default image's bootstrap database is named after POSTGRES_USER
+      # (postgres) since no POSTGRES_DB was set above — matches
+      # tests/backends.py's schema-per-test isolation, which needs CREATE on
+      # an existing database, not a database of its own.
+      COORD_TEST_POSTGRES_DSN: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,postgres]"
+      # #2180: same split as the `test` job above — the sealed acceptance
+      # suite is gated separately through the #2164 CI wrapper, not swept
+      # into this job's ordinary pytest run.
+      - run: pytest --ignore=tests/acceptance

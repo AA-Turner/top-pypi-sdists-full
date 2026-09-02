@@ -1,0 +1,1003 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Union
+from datetime import datetime
+from typing_extensions import Literal
+
+import httpx
+
+from .v2.v2 import (
+    V2Resource,
+    AsyncV2Resource,
+    V2ResourceWithRawResponse,
+    AsyncV2ResourceWithRawResponse,
+    V2ResourceWithStreamingResponse,
+    AsyncV2ResourceWithStreamingResponse,
+)
+from ...types import message_list_params, message_send_params, message_get_status_params, message_update_app_card_params
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
+from ..._compat import cached_property
+from ..._resource import SyncAPIResource, AsyncAPIResource
+from ..._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
+)
+from ..._base_client import make_request_options
+from ...types.message_response import MessageResponse
+from ...types.message_list_response import MessageListResponse
+from ...types.message_retrieve_response import MessageRetrieveResponse
+
+__all__ = ["MessagesResource", "AsyncMessagesResource"]
+
+
+class MessagesResource(SyncAPIResource):
+    """Operations for sending and managing messages"""
+
+    @cached_property
+    def v2(self) -> V2Resource:
+        return V2Resource(self._client)
+
+    @cached_property
+    def with_raw_response(self) -> MessagesResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/sendblue-api/sendblue-py#accessing-raw-response-data-eg-headers
+        """
+        return MessagesResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> MessagesResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/sendblue-api/sendblue-py#with_streaming_response
+        """
+        return MessagesResourceWithStreamingResponse(self)
+
+    def retrieve(
+        self,
+        message_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageRetrieveResponse:
+        """
+        Retrieve details of a specific message by its ID
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not message_id:
+            raise ValueError(f"Expected a non-empty value for `message_id` but received {message_id!r}")
+        return self._get(
+            path_template("/api/v2/messages/{message_id}", message_id=message_id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=MessageRetrieveResponse,
+        )
+
+    def list(
+        self,
+        *,
+        account_email: str | Omit = omit,
+        created_at_gte: Union[str, datetime] | Omit = omit,
+        created_at_lte: Union[str, datetime] | Omit = omit,
+        from_number: str | Omit = omit,
+        group_id: str | Omit = omit,
+        is_outbound: Literal["true", "false"] | Omit = omit,
+        limit: int | Omit = omit,
+        message_type: Literal["message", "group"] | Omit = omit,
+        number: str | Omit = omit,
+        offset: int | Omit = omit,
+        order_by: Literal["createdAt", "updatedAt", "sentAt"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        sendblue_number: str | Omit = omit,
+        sent_at_gte: Union[str, datetime] | Omit = omit,
+        sent_at_lte: Union[str, datetime] | Omit = omit,
+        service: Literal["iMessage", "SMS", "RCS"] | Omit = omit,
+        status: Literal[
+            "REGISTERED",
+            "PENDING",
+            "SENT",
+            "DELIVERED",
+            "RECEIVED",
+            "QUEUED",
+            "ERROR",
+            "DECLINED",
+            "ACCEPTED",
+            "SUCCESS",
+        ]
+        | Omit = omit,
+        to_number: str | Omit = omit,
+        updated_at_gte: Union[str, datetime] | Omit = omit,
+        updated_at_lte: Union[str, datetime] | Omit = omit,
+        worker_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageListResponse:
+        """
+        Retrieve a list of messages for the authenticated account with comprehensive
+        filtering capabilities. Rate limited to 100 requests per 10 seconds per account.
+
+        ## Common Use Cases
+
+        **Polling for inbound messages (no webhooks):**
+
+        ```
+        GET /api/v2/messages?is_outbound=false&sendblue_number=+16292925296&order_by=createdAt&order_direction=desc&limit=50
+        ```
+
+        Track processed message IDs to avoid duplicates.
+
+        **Get conversation with a specific contact:**
+
+        ```
+        GET /api/v2/messages?number=+15551234567&order_by=createdAt&order_direction=desc
+        ```
+
+        Args:
+          account_email: Filter by account email
+
+          created_at_gte: Filter messages created after this date (ISO 8601 format)
+
+          created_at_lte: Filter messages created before this date (ISO 8601 format)
+
+          from_number: Filter by sender phone number
+
+          group_id: Filter by group ID
+
+          is_outbound: Filter by message direction. Use `false` to get inbound messages (messages sent
+              TO your Sendblue number).
+
+              **To get inbound messages for polling:** Use `is_outbound=false` combined with
+              `sendblue_number` or `to_number` set to your Sendblue phone number.
+
+              Note: Do NOT use `message_type=inbound` - that parameter only accepts `message`
+              or `group` values.
+
+          limit: Maximum number of messages to return
+
+          message_type: Filter by message type (1:1 vs group chat). Only accepts `message` or `group`.
+
+              **Common mistake:** This is NOT for filtering inbound vs outbound messages. Use
+              `is_outbound` parameter instead.
+
+          number: Filter by any phone number (from or to)
+
+          offset: Number of messages to skip
+
+          order_by: Field to order messages by
+
+          order_direction: Sort order
+
+          sendblue_number: Filter by Sendblue phone number
+
+          sent_at_gte: Filter messages sent after this date (ISO 8601 format)
+
+          sent_at_lte: Filter messages sent before this date (ISO 8601 format)
+
+          service: Filter by service type
+
+          status: Filter by message status
+
+          to_number: Filter by recipient phone number
+
+          updated_at_gte: Filter messages updated after this date (ISO 8601 format)
+
+          updated_at_lte: Filter messages updated before this date (ISO 8601 format)
+
+          worker_id: Filter by worker ID (Admin only)
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get(
+            "/api/v2/messages",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "account_email": account_email,
+                        "created_at_gte": created_at_gte,
+                        "created_at_lte": created_at_lte,
+                        "from_number": from_number,
+                        "group_id": group_id,
+                        "is_outbound": is_outbound,
+                        "limit": limit,
+                        "message_type": message_type,
+                        "number": number,
+                        "offset": offset,
+                        "order_by": order_by,
+                        "order_direction": order_direction,
+                        "sendblue_number": sendblue_number,
+                        "sent_at_gte": sent_at_gte,
+                        "sent_at_lte": sent_at_lte,
+                        "service": service,
+                        "status": status,
+                        "to_number": to_number,
+                        "updated_at_gte": updated_at_gte,
+                        "updated_at_lte": updated_at_lte,
+                        "worker_id": worker_id,
+                    },
+                    message_list_params.MessageListParams,
+                ),
+            ),
+            cast_to=MessageListResponse,
+        )
+
+    def get_status(
+        self,
+        *,
+        handle: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageResponse:
+        """Retrieve the current status of a message using its message handle.
+
+        Useful for
+        resolving pending message statuses and avoiding duplicate messages.
+
+        Args:
+          handle: The message handle of the message you want to check status for
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get(
+            "/api/status",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"handle": handle}, message_get_status_params.MessageGetStatusParams),
+            ),
+            cast_to=MessageResponse,
+        )
+
+    def send(
+        self,
+        *,
+        from_number: str,
+        number: str,
+        app_card: message_send_params.AppCard | Omit = omit,
+        content: str | Omit = omit,
+        media_url: str | Omit = omit,
+        reply_to: message_send_params.ReplyTo | Omit = omit,
+        seat_id: str | Omit = omit,
+        send_style: Literal[
+            "celebration",
+            "shooting_star",
+            "fireworks",
+            "lasers",
+            "love",
+            "confetti",
+            "balloons",
+            "spotlight",
+            "echo",
+            "invisible",
+            "gentle",
+            "loud",
+            "slam",
+        ]
+        | Omit = omit,
+        status_callback: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageResponse:
+        """
+        Send an iMessage, SMS, MMS, or Sendblue App Card to a single recipient
+
+        Args:
+          from_number: **REQUIRED** - The phone number to send from. Must be one of your registered
+              Sendblue phone numbers in E.164 format. Without this parameter, the message will
+              fail to send.
+
+          number: Recipient phone number in E.164 format
+
+          app_card: A Sendblue App Card rendered with Apple's Messages framework. App Cards require
+              a V2 Mac line and an iMessage-capable recipient; they never fall back to SMS.
+              The URL is delivered to the identified Messages extension when the recipient
+              taps the card. An initial App Card may include `reply_to` to create an inline
+              reply. Later state changes use the update endpoint, which sends a new Apple
+              message in the same App Card session. The feature is unavailable on the free
+              plan.
+
+          content: Message text content. Optional when `media_url` or `app_card` is provided.
+
+          media_url: URL of media file to send (images, videos, etc.)
+
+          reply_to: Optional inline-reply target. This may be combined with `app_card`; the
+              resulting App Card is sent as an inline reply to the target.
+
+          seat_id: Optional. Identifies the seat (user) sending the message so the message is
+              attributed to a specific rep. Accepts either the seat UUID or the Firebase Auth
+              subject. When provided, `sender_email` is auto-populated on the message record
+              and webhook payloads. Returns 400 if the seat is not found.
+
+          send_style: The iMessage expressive message style
+
+          status_callback: Webhook URL for message status updates
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._post(
+            "/api/send-message",
+            body=maybe_transform(
+                {
+                    "from_number": from_number,
+                    "number": number,
+                    "app_card": app_card,
+                    "content": content,
+                    "media_url": media_url,
+                    "reply_to": reply_to,
+                    "seat_id": seat_id,
+                    "send_style": send_style,
+                    "status_callback": status_callback,
+                },
+                message_send_params.MessageSendParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=MessageResponse,
+        )
+
+    def update_app_card(
+        self,
+        message_handle: str,
+        *,
+        fallback_text: str | Omit = omit,
+        idempotency_key: str | Omit = omit,
+        interactive: bool | Omit = omit,
+        layout: message_update_app_card_params.Layout | Omit = omit,
+        send_style: Literal[
+            "celebration",
+            "shooting_star",
+            "fireworks",
+            "lasers",
+            "love",
+            "confetti",
+            "balloons",
+            "spotlight",
+            "echo",
+            "invisible",
+            "gentle",
+            "loud",
+            "slam",
+        ]
+        | Omit = omit,
+        url: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageResponse:
+        """
+        Continues an existing App Card by sending a new Apple message in the same
+        iMessage session, from the same sender line and inline-reply context. The
+        continuation receives its own message handle and delivery/read status updates.
+
+        Args:
+          fallback_text: Replacement fallback text for notifications and non-rendering surfaces.
+
+          idempotency_key: Reusing this key for the same App Card target returns the original update
+              instead of sending again.
+
+          layout: Visible card fields mirroring Apple's MSMessageTemplateLayout.
+
+          send_style: The iMessage expressive message style for this update.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not message_handle:
+            raise ValueError(f"Expected a non-empty value for `message_handle` but received {message_handle!r}")
+        return self._post(
+            path_template("/api/messages/{message_handle}/update-app-card", message_handle=message_handle),
+            body=maybe_transform(
+                {
+                    "fallback_text": fallback_text,
+                    "idempotency_key": idempotency_key,
+                    "interactive": interactive,
+                    "layout": layout,
+                    "send_style": send_style,
+                    "url": url,
+                },
+                message_update_app_card_params.MessageUpdateAppCardParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=MessageResponse,
+        )
+
+
+class AsyncMessagesResource(AsyncAPIResource):
+    """Operations for sending and managing messages"""
+
+    @cached_property
+    def v2(self) -> AsyncV2Resource:
+        return AsyncV2Resource(self._client)
+
+    @cached_property
+    def with_raw_response(self) -> AsyncMessagesResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/sendblue-api/sendblue-py#accessing-raw-response-data-eg-headers
+        """
+        return AsyncMessagesResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncMessagesResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/sendblue-api/sendblue-py#with_streaming_response
+        """
+        return AsyncMessagesResourceWithStreamingResponse(self)
+
+    async def retrieve(
+        self,
+        message_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageRetrieveResponse:
+        """
+        Retrieve details of a specific message by its ID
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not message_id:
+            raise ValueError(f"Expected a non-empty value for `message_id` but received {message_id!r}")
+        return await self._get(
+            path_template("/api/v2/messages/{message_id}", message_id=message_id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=MessageRetrieveResponse,
+        )
+
+    async def list(
+        self,
+        *,
+        account_email: str | Omit = omit,
+        created_at_gte: Union[str, datetime] | Omit = omit,
+        created_at_lte: Union[str, datetime] | Omit = omit,
+        from_number: str | Omit = omit,
+        group_id: str | Omit = omit,
+        is_outbound: Literal["true", "false"] | Omit = omit,
+        limit: int | Omit = omit,
+        message_type: Literal["message", "group"] | Omit = omit,
+        number: str | Omit = omit,
+        offset: int | Omit = omit,
+        order_by: Literal["createdAt", "updatedAt", "sentAt"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        sendblue_number: str | Omit = omit,
+        sent_at_gte: Union[str, datetime] | Omit = omit,
+        sent_at_lte: Union[str, datetime] | Omit = omit,
+        service: Literal["iMessage", "SMS", "RCS"] | Omit = omit,
+        status: Literal[
+            "REGISTERED",
+            "PENDING",
+            "SENT",
+            "DELIVERED",
+            "RECEIVED",
+            "QUEUED",
+            "ERROR",
+            "DECLINED",
+            "ACCEPTED",
+            "SUCCESS",
+        ]
+        | Omit = omit,
+        to_number: str | Omit = omit,
+        updated_at_gte: Union[str, datetime] | Omit = omit,
+        updated_at_lte: Union[str, datetime] | Omit = omit,
+        worker_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageListResponse:
+        """
+        Retrieve a list of messages for the authenticated account with comprehensive
+        filtering capabilities. Rate limited to 100 requests per 10 seconds per account.
+
+        ## Common Use Cases
+
+        **Polling for inbound messages (no webhooks):**
+
+        ```
+        GET /api/v2/messages?is_outbound=false&sendblue_number=+16292925296&order_by=createdAt&order_direction=desc&limit=50
+        ```
+
+        Track processed message IDs to avoid duplicates.
+
+        **Get conversation with a specific contact:**
+
+        ```
+        GET /api/v2/messages?number=+15551234567&order_by=createdAt&order_direction=desc
+        ```
+
+        Args:
+          account_email: Filter by account email
+
+          created_at_gte: Filter messages created after this date (ISO 8601 format)
+
+          created_at_lte: Filter messages created before this date (ISO 8601 format)
+
+          from_number: Filter by sender phone number
+
+          group_id: Filter by group ID
+
+          is_outbound: Filter by message direction. Use `false` to get inbound messages (messages sent
+              TO your Sendblue number).
+
+              **To get inbound messages for polling:** Use `is_outbound=false` combined with
+              `sendblue_number` or `to_number` set to your Sendblue phone number.
+
+              Note: Do NOT use `message_type=inbound` - that parameter only accepts `message`
+              or `group` values.
+
+          limit: Maximum number of messages to return
+
+          message_type: Filter by message type (1:1 vs group chat). Only accepts `message` or `group`.
+
+              **Common mistake:** This is NOT for filtering inbound vs outbound messages. Use
+              `is_outbound` parameter instead.
+
+          number: Filter by any phone number (from or to)
+
+          offset: Number of messages to skip
+
+          order_by: Field to order messages by
+
+          order_direction: Sort order
+
+          sendblue_number: Filter by Sendblue phone number
+
+          sent_at_gte: Filter messages sent after this date (ISO 8601 format)
+
+          sent_at_lte: Filter messages sent before this date (ISO 8601 format)
+
+          service: Filter by service type
+
+          status: Filter by message status
+
+          to_number: Filter by recipient phone number
+
+          updated_at_gte: Filter messages updated after this date (ISO 8601 format)
+
+          updated_at_lte: Filter messages updated before this date (ISO 8601 format)
+
+          worker_id: Filter by worker ID (Admin only)
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._get(
+            "/api/v2/messages",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {
+                        "account_email": account_email,
+                        "created_at_gte": created_at_gte,
+                        "created_at_lte": created_at_lte,
+                        "from_number": from_number,
+                        "group_id": group_id,
+                        "is_outbound": is_outbound,
+                        "limit": limit,
+                        "message_type": message_type,
+                        "number": number,
+                        "offset": offset,
+                        "order_by": order_by,
+                        "order_direction": order_direction,
+                        "sendblue_number": sendblue_number,
+                        "sent_at_gte": sent_at_gte,
+                        "sent_at_lte": sent_at_lte,
+                        "service": service,
+                        "status": status,
+                        "to_number": to_number,
+                        "updated_at_gte": updated_at_gte,
+                        "updated_at_lte": updated_at_lte,
+                        "worker_id": worker_id,
+                    },
+                    message_list_params.MessageListParams,
+                ),
+            ),
+            cast_to=MessageListResponse,
+        )
+
+    async def get_status(
+        self,
+        *,
+        handle: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageResponse:
+        """Retrieve the current status of a message using its message handle.
+
+        Useful for
+        resolving pending message statuses and avoiding duplicate messages.
+
+        Args:
+          handle: The message handle of the message you want to check status for
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._get(
+            "/api/status",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform({"handle": handle}, message_get_status_params.MessageGetStatusParams),
+            ),
+            cast_to=MessageResponse,
+        )
+
+    async def send(
+        self,
+        *,
+        from_number: str,
+        number: str,
+        app_card: message_send_params.AppCard | Omit = omit,
+        content: str | Omit = omit,
+        media_url: str | Omit = omit,
+        reply_to: message_send_params.ReplyTo | Omit = omit,
+        seat_id: str | Omit = omit,
+        send_style: Literal[
+            "celebration",
+            "shooting_star",
+            "fireworks",
+            "lasers",
+            "love",
+            "confetti",
+            "balloons",
+            "spotlight",
+            "echo",
+            "invisible",
+            "gentle",
+            "loud",
+            "slam",
+        ]
+        | Omit = omit,
+        status_callback: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageResponse:
+        """
+        Send an iMessage, SMS, MMS, or Sendblue App Card to a single recipient
+
+        Args:
+          from_number: **REQUIRED** - The phone number to send from. Must be one of your registered
+              Sendblue phone numbers in E.164 format. Without this parameter, the message will
+              fail to send.
+
+          number: Recipient phone number in E.164 format
+
+          app_card: A Sendblue App Card rendered with Apple's Messages framework. App Cards require
+              a V2 Mac line and an iMessage-capable recipient; they never fall back to SMS.
+              The URL is delivered to the identified Messages extension when the recipient
+              taps the card. An initial App Card may include `reply_to` to create an inline
+              reply. Later state changes use the update endpoint, which sends a new Apple
+              message in the same App Card session. The feature is unavailable on the free
+              plan.
+
+          content: Message text content. Optional when `media_url` or `app_card` is provided.
+
+          media_url: URL of media file to send (images, videos, etc.)
+
+          reply_to: Optional inline-reply target. This may be combined with `app_card`; the
+              resulting App Card is sent as an inline reply to the target.
+
+          seat_id: Optional. Identifies the seat (user) sending the message so the message is
+              attributed to a specific rep. Accepts either the seat UUID or the Firebase Auth
+              subject. When provided, `sender_email` is auto-populated on the message record
+              and webhook payloads. Returns 400 if the seat is not found.
+
+          send_style: The iMessage expressive message style
+
+          status_callback: Webhook URL for message status updates
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._post(
+            "/api/send-message",
+            body=await async_maybe_transform(
+                {
+                    "from_number": from_number,
+                    "number": number,
+                    "app_card": app_card,
+                    "content": content,
+                    "media_url": media_url,
+                    "reply_to": reply_to,
+                    "seat_id": seat_id,
+                    "send_style": send_style,
+                    "status_callback": status_callback,
+                },
+                message_send_params.MessageSendParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=MessageResponse,
+        )
+
+    async def update_app_card(
+        self,
+        message_handle: str,
+        *,
+        fallback_text: str | Omit = omit,
+        idempotency_key: str | Omit = omit,
+        interactive: bool | Omit = omit,
+        layout: message_update_app_card_params.Layout | Omit = omit,
+        send_style: Literal[
+            "celebration",
+            "shooting_star",
+            "fireworks",
+            "lasers",
+            "love",
+            "confetti",
+            "balloons",
+            "spotlight",
+            "echo",
+            "invisible",
+            "gentle",
+            "loud",
+            "slam",
+        ]
+        | Omit = omit,
+        url: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> MessageResponse:
+        """
+        Continues an existing App Card by sending a new Apple message in the same
+        iMessage session, from the same sender line and inline-reply context. The
+        continuation receives its own message handle and delivery/read status updates.
+
+        Args:
+          fallback_text: Replacement fallback text for notifications and non-rendering surfaces.
+
+          idempotency_key: Reusing this key for the same App Card target returns the original update
+              instead of sending again.
+
+          layout: Visible card fields mirroring Apple's MSMessageTemplateLayout.
+
+          send_style: The iMessage expressive message style for this update.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not message_handle:
+            raise ValueError(f"Expected a non-empty value for `message_handle` but received {message_handle!r}")
+        return await self._post(
+            path_template("/api/messages/{message_handle}/update-app-card", message_handle=message_handle),
+            body=await async_maybe_transform(
+                {
+                    "fallback_text": fallback_text,
+                    "idempotency_key": idempotency_key,
+                    "interactive": interactive,
+                    "layout": layout,
+                    "send_style": send_style,
+                    "url": url,
+                },
+                message_update_app_card_params.MessageUpdateAppCardParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=MessageResponse,
+        )
+
+
+class MessagesResourceWithRawResponse:
+    def __init__(self, messages: MessagesResource) -> None:
+        self._messages = messages
+
+        self.retrieve = to_raw_response_wrapper(
+            messages.retrieve,
+        )
+        self.list = to_raw_response_wrapper(
+            messages.list,
+        )
+        self.get_status = to_raw_response_wrapper(
+            messages.get_status,
+        )
+        self.send = to_raw_response_wrapper(
+            messages.send,
+        )
+        self.update_app_card = to_raw_response_wrapper(
+            messages.update_app_card,
+        )
+
+    @cached_property
+    def v2(self) -> V2ResourceWithRawResponse:
+        return V2ResourceWithRawResponse(self._messages.v2)
+
+
+class AsyncMessagesResourceWithRawResponse:
+    def __init__(self, messages: AsyncMessagesResource) -> None:
+        self._messages = messages
+
+        self.retrieve = async_to_raw_response_wrapper(
+            messages.retrieve,
+        )
+        self.list = async_to_raw_response_wrapper(
+            messages.list,
+        )
+        self.get_status = async_to_raw_response_wrapper(
+            messages.get_status,
+        )
+        self.send = async_to_raw_response_wrapper(
+            messages.send,
+        )
+        self.update_app_card = async_to_raw_response_wrapper(
+            messages.update_app_card,
+        )
+
+    @cached_property
+    def v2(self) -> AsyncV2ResourceWithRawResponse:
+        return AsyncV2ResourceWithRawResponse(self._messages.v2)
+
+
+class MessagesResourceWithStreamingResponse:
+    def __init__(self, messages: MessagesResource) -> None:
+        self._messages = messages
+
+        self.retrieve = to_streamed_response_wrapper(
+            messages.retrieve,
+        )
+        self.list = to_streamed_response_wrapper(
+            messages.list,
+        )
+        self.get_status = to_streamed_response_wrapper(
+            messages.get_status,
+        )
+        self.send = to_streamed_response_wrapper(
+            messages.send,
+        )
+        self.update_app_card = to_streamed_response_wrapper(
+            messages.update_app_card,
+        )
+
+    @cached_property
+    def v2(self) -> V2ResourceWithStreamingResponse:
+        return V2ResourceWithStreamingResponse(self._messages.v2)
+
+
+class AsyncMessagesResourceWithStreamingResponse:
+    def __init__(self, messages: AsyncMessagesResource) -> None:
+        self._messages = messages
+
+        self.retrieve = async_to_streamed_response_wrapper(
+            messages.retrieve,
+        )
+        self.list = async_to_streamed_response_wrapper(
+            messages.list,
+        )
+        self.get_status = async_to_streamed_response_wrapper(
+            messages.get_status,
+        )
+        self.send = async_to_streamed_response_wrapper(
+            messages.send,
+        )
+        self.update_app_card = async_to_streamed_response_wrapper(
+            messages.update_app_card,
+        )
+
+    @cached_property
+    def v2(self) -> AsyncV2ResourceWithStreamingResponse:
+        return AsyncV2ResourceWithStreamingResponse(self._messages.v2)

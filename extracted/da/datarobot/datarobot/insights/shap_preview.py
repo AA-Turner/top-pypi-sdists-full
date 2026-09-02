@@ -81,7 +81,7 @@ class ShapPreview(BaseInsight):
         feature_filter_name: Optional[str] = None,
         **kwargs: Any,
     ) -> Self:
-        """Return the first matching ShapPreview insight based on the entity id and kwargs.
+        """Returns the first matching ShapPreview insight based on the entity ID and kwargs.
 
         Parameters
         ----------
@@ -91,7 +91,7 @@ class ShapPreview(BaseInsight):
             The source type to use when retrieving the insight.
         quick_compute: Optional[bool]
             Sets whether to retrieve the insight that was computed using quick-compute. If not
-            specified, quick_compute is not used for matching.
+            specified, ``quick_compute`` is not used for matching.
         prediction_filter_row_count: Optional[int]
             The maximum number of preview rows to return.
         prediction_filter_percentiles: Optional[int]

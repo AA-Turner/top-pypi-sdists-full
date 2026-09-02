@@ -1,0 +1,12 @@
+name: python
+
+channels:
+  - defaults
+
+dependencies:
+  - future
+  - mock
+  - pre-commit
+  - pylint
+  - pytest
+  - pytest-mock

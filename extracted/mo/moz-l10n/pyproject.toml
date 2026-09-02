@@ -1,0 +1,62 @@
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12"]
+build-backend = "uv_build"
+
+[project]
+name = "moz.l10n"
+version = "0.14.1"
+description = "Mozilla tools for localization"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Localization",
+    "Topic :: Software Development :: Testing",
+]
+requires-python = ">=3.9, <4"
+dependencies = [
+    "click ~= 8.1",
+    "fluent.syntax ~= 0.19.0",
+    "gitignorant ~= 0.3.1",
+    "iniparse ~= 0.5",
+    "polib ~= 1.2",
+    "tomli >= 1.1.0; python_version < '3.11'",
+]
+
+[[project.authors]]
+name = "Mozilla"
+email = "l10n-drivers@mozilla.org"
+
+[[project.authors]]
+name = "Eemeli Aro"
+email = "eemeli@mozilla.com"
+
+[project.optional-dependencies]
+xml = ["lxml >= 6.0.0, < 7.0.0"]
+
+[project.scripts]
+moz-l10n = "moz.l10n.bin:cli"
+
+[project.urls]
+repository = "https://github.com/mozilla/moz-l10n"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.uv.build-backend]
+module-root = "."
+module-name = "moz.l10n"
+source-exclude = [".DS_Store"]

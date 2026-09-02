@@ -28,7 +28,7 @@ import time
 from datetime import timedelta
 from enum import Enum
 
-from prometheus_client import Gauge, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 from tornado.ioloop import PeriodicCallback
 from traitlets import Any, Bool, Dict, Float, Integer
 from traitlets.config import LoggingConfigurable
@@ -99,7 +99,7 @@ REQUEST_DURATION_SECONDS = Histogram(
 SERVER_SPAWN_DURATION_SECONDS = Histogram(
     'server_spawn_duration_seconds',
     'Time taken for server spawning operation',
-    ['status'],
+    ['status', 'reason'],
     # Use custom bucket sizes, since the default bucket ranges
     # are meant for quick running processes. Spawns can take a while!
     buckets=spawn_duration_buckets,
@@ -149,6 +149,31 @@ PROXY_POLL_DURATION_SECONDS = Histogram(
     namespace=metrics_prefix,
 )
 
+LOGIN_DURATION_SECONDS = Histogram(
+    'login_duration_seconds',
+    'duration for all authentication attempts',
+    ['status'],
+    namespace=metrics_prefix,
+)
+
+
+class LoginStatus(Enum):
+    success = 'success'
+    failure = 'failure'
+
+
+LOGOUT_DURATION_SECONDS = Histogram(
+    'logout_duration_seconds',
+    'duration for all logout requests',
+    namespace=metrics_prefix,
+)
+
+CSP_REPORT_COUNT = Counter(
+    'csp_reports',
+    'content security policy violation reports',
+    namespace=metrics_prefix,
+)
+
 
 class ServerSpawnStatus(Enum):
     """
@@ -157,9 +182,23 @@ class ServerSpawnStatus(Enum):
 
     success = 'success'
     failure = 'failure'
-    already_pending = 'already-pending'
+    error = 'error'
+
+    def __str__(self):
+        return self.value
+
+
+class ServerSpawnFailureReason(Enum):
+    """Default values for enums
+
+    custom SpawnExceptions can also set arbitrary strings,
+    but these are the internal ones
+    """
+
+    none = ''
     throttled = 'throttled'
     too_many_users = 'too-many-users'
+    already_pending = 'already-pending'
 
     def __str__(self):
         return self.value
@@ -167,8 +206,13 @@ class ServerSpawnStatus(Enum):
 
 for s in ServerSpawnStatus:
     # Create empty metrics with the given status
-    SERVER_SPAWN_DURATION_SECONDS.labels(status=s)
+    SERVER_SPAWN_DURATION_SECONDS.labels(status=s, reason=ServerSpawnFailureReason.none)
 
+for reason in ServerSpawnFailureReason:
+    # Create empty metrics with the given failure reason
+    SERVER_SPAWN_DURATION_SECONDS.labels(
+        status=ServerSpawnStatus.failure, reason=reason
+    )
 
 PROXY_ADD_DURATION_SECONDS = Histogram(
     'proxy_add_duration_seconds',

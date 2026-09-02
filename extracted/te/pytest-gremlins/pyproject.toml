@@ -1,0 +1,353 @@
+[project]
+name = "pytest-gremlins"
+version = "1.9.0"
+description = "Fast-first mutation testing for pytest. Let the gremlins loose, see which ones survive."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [
+    { name = "Mike Lane", email = "mikelane@gmail.com" },
+]
+keywords = [
+    "pytest",
+    "pytest-plugin",
+    "mutation-testing",
+    "testing",
+    "quality-assurance",
+    "test-quality",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
+dependencies = [
+    "coverage>=7.12.0",
+    "pytest>=7.0.0",
+]
+
+[project.optional-dependencies]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material[imaging]>=9.0.0",
+    "mkdocs-minify-plugin>=0.7.0",
+    "mkdocstrings[python]>=0.24.0",
+]
+
+[dependency-groups]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material[imaging]>=9.0.0",
+    "mkdocs-minify-plugin>=0.7.0",
+    "mkdocstrings[python]>=0.24.0",
+]
+dev = [
+    {include-group = "docs"},
+    "commitizen>=3.13.0",
+    "isort>=8.0.1",
+    "mypy>=1.7.0",
+    "pip-audit>=2.6.0",
+    "playwright>=1.58.0",
+    "pre-commit>=3.6.0",
+    "pytest-cov>=4.1.0",
+    "pytest-test-categories>=1.2.1",
+    "pytest-xdist>=3.5.0",
+    "ruff>=0.1.6",
+    "tox>=4.11.0",
+    "tox-uv>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/mikelane/pytest-gremlins"
+Documentation = "https://pytest-gremlins.readthedocs.io"
+Repository = "https://github.com/mikelane/pytest-gremlins"
+Issues = "https://github.com/mikelane/pytest-gremlins/issues"
+Changelog = "https://github.com/mikelane/pytest-gremlins/blob/main/CHANGELOG.md"
+
+[project.entry-points.pytest11]
+gremlins = "pytest_gremlins.plugin"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pytest_gremlins"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/docs",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+]
+
+# =============================================================================
+# Ruff
+# =============================================================================
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests", "benchmarks"]
+
+[tool.ruff.lint]
+select = [
+    # Tier 1: Core Python Quality
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "N",      # pep8-naming
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "C90",    # mccabe complexity
+    "UP",     # pyupgrade
+    "S",      # flake8-bandit (security)
+    "PT",     # flake8-pytest-style
+    "PERF",   # Perflint (performance)
+    # Tier 2: Code Quality & Best Practices
+    "A",      # flake8-builtins (prevent shadowing)
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "ERA",    # eradicate (commented-out code)
+    "TRY",    # tryceratops (exception handling)
+    "LOG",    # flake8-logging
+    "RET",    # flake8-return
+    "FA",     # flake8-future-annotations
+    # Tier 3: Polish
+    "PIE",    # flake8-pie (unnecessary code)
+    "FLY",    # flynt (f-strings)
+    "RSE",    # flake8-raise
+    "PL",     # Pylint
+    "RUF",    # Ruff-specific rules
+    # Documentation & Type Annotations
+    "D",      # pydocstyle
+    "ANN",    # flake8-annotations
+]
+ignore = [
+    "PLR0913",  # Too many arguments - we'll manage this ourselves
+    "D100",     # Missing docstring in public module (we use __init__.py docstrings)
+    "D104",     # Missing docstring in public package
+    "D107",     # Missing docstring in __init__ (we document class instead)
+    "TRY003",   # Avoid specifying long messages outside exception class - too strict
+    "S603",     # subprocess call without shell=True - acceptable for pytest execution
+    "PT001",    # Use @pytest.fixture() with parens - consistency with existing test code
+    "TC003",    # Move stdlib import into type-checking block - not beneficial for runtime code
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "D",       # No docstrings required in tests
+    "ANN",     # No type annotations required in tests
+    "PLR2004", # Magic values OK in tests
+    "S101",    # assert is fine in tests
+    "PT004",   # Fixtures don't need leading underscore
+    "PT005",   # Fixtures don't need leading underscore
+]
+"tests/instrumentation/test_import_hooks.py" = [
+    "PLC0415", # Intentional inline import - testing import hook behavior
+]
+"benchmarks/**/*.py" = [
+    "D",       # No docstrings required in benchmarks (already has module docs)
+    "ANN",     # No type annotations required in benchmarks
+    "PLR2004", # Magic values OK in benchmarks
+    "PLC0415", # Import at top - benchmarks use conditional imports
+    "C901",    # Complexity - benchmarks can be complex
+    "PLR0912", # Too many branches - benchmarks can have many branches
+    "PLR0915", # Too many statements - benchmarks can be long
+    "S603",    # subprocess call security - benchmarks need to run subprocesses
+    "S607",    # subprocess partial path - benchmarks use sys.executable
+]
+"src/pytest_gremlins/parallel/*.py" = [
+    "S603",    # subprocess call security - parallel execution intentionally runs test commands
+]
+"src/pytest_gremlins/plugin.py" = [
+    "S603",    # subprocess call security - plugin intentionally runs test commands
+]
+"docs/**/*.py" = [
+    "D",       # Docs config doesn't need docstrings
+]
+"examples/**/*.py" = [
+    "S101",    # assert is fine in example code
+    "D",       # No docstrings required in examples (they have module docs)
+]
+
+# =============================================================================
+# isort
+# =============================================================================
+[tool.isort]
+profile = "black"
+line_length = 120
+force_sort_within_sections = true
+force_grid_wrap = 2          # intentional: any import with 2+ names wraps to multi-line (diff-friendly)
+multi_line_output = 3        # intentional: VERTICAL_HANGING_INDENT — each name on its own indented line
+known_first_party = ["pytest_gremlins"]
+
+# =============================================================================
+# Pyright
+# =============================================================================
+[tool.pyright]
+pythonVersion = "3.11"
+include = ["src", "tests", "benchmarks"]
+extraPaths = ["benchmarks"]
+typeCheckingMode = "basic"
+reportMissingImports = "warning"
+reportMissingTypeStubs = false
+
+# =============================================================================
+# Bandit
+# =============================================================================
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "benchmarks",
+    "scripts",
+    "examples",
+]
+skips = [
+    "B404",  # subprocess import is fine in benchmarks/scripts
+    "B603",  # subprocess calls are fine in benchmarks/scripts
+    "B101",  # assert is fine in examples/tests
+    "B102",  # exec is necessary for import hooks
+]
+
+# =============================================================================
+# MyPy
+# =============================================================================
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_configs = true
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+files = ["src/pytest_gremlins", "tests"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_decorators = false
+
+# =============================================================================
+# Pytest
+# =============================================================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_classes = ["Describe"]
+python_functions = ["it_"]
+test_categories_enforcement = "strict"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "small: Fast, isolated unit tests (< 100ms)",
+    "medium: Integration tests with real resources (< 10s)",
+    "large: End-to-end system tests (< 60s)",
+    "xdist_integration: BDD bootstrap tests for xdist coexistence (issue #295)",
+    "wip: Work-in-progress BDD scenarios blocked by open implementation issues — excluded from CI",
+]
+filterwarnings = [
+    "error",
+    # Ignore unraisable exception during pytest.exe file finalization on Windows
+    # This is a Python/pytest issue with file handle cleanup during garbage collection
+    "ignore:Exception ignored while finalizing file.*pytest.exe:pytest.PytestUnraisableExceptionWarning",
+]
+
+# =============================================================================
+# Coverage
+# =============================================================================
+[tool.coverage.run]
+source = ["src/pytest_gremlins"]
+branch = true
+parallel = true
+omit = [
+    "tests/*",
+    # All __init__.py files are just re-exports, not business logic
+    "src/pytest_gremlins/__init__.py",
+    "src/pytest_gremlins/*/__init__.py",
+    # Type-only files with no executable code
+    "src/pytest_gremlins/operators/protocol.py",
+    # Pure dataclass definition
+    "src/pytest_gremlins/instrumentation/gremlin.py",
+    # These files have comprehensive tests, but show 0% due to pytest plugin
+    # import timing - they're loaded before coverage starts measuring.
+    # See: https://coverage.readthedocs.io/en/latest/cmd.html#cmd-run-import
+    "src/pytest_gremlins/instrumentation/switcher.py",
+    "src/pytest_gremlins/reporting/results.py",
+    "src/pytest_gremlins/reporting/score.py",
+    "src/pytest_gremlins/reporting/types.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+    "^\\s*\\.\\.\\.\\s*$",
+    "@dataclass",
+    "class.*Protocol.*:",
+]
+exclude_also = [
+    # Protocol class declarations (method bodies excluded via ellipsis pattern above)
+    "class.*\\(Protocol\\):",
+]
+# Subprocess code (pool workers, parallel/batch execution) is marked with
+# pragma: no cover since coverage.py cannot track code running in subprocesses.
+# See issue #111 for full coverage improvement details.
+fail_under = 97
+show_missing = true
+skip_covered = true
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+# =============================================================================
+# Commitizen
+# =============================================================================
+[tool.commitizen]
+name = "cz_conventional_commits"
+annotated_tag = true
+version = "1.9.0"
+version_files = [
+    "pyproject.toml:version",
+    "src/pytest_gremlins/__init__.py:__version__",
+]
+tag_format = "v$version"
+update_changelog_on_bump = false
+changelog_file = "CHANGELOG.md"
+changelog_incremental = true

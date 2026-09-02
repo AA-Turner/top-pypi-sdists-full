@@ -1,0 +1,105 @@
+"""
+Exports ServiceConfig class
+"""
+
+from aikido_zen.helpers.ip_matcher import IPMatcher
+from aikido_zen.helpers.match_endpoints import match_endpoints
+
+
+# noinspection PyAttributeOutsideInit
+class ServiceConfig:
+    """Class holding the config of the connection_manager"""
+
+    def __init__(
+        self,
+        endpoints,
+        last_updated_at: int,
+        blocked_uids,
+        bypassed_ips,
+        received_any_stats: bool,
+    ):
+        # Init the class using update function :
+        self.update(
+            endpoints, last_updated_at, blocked_uids, bypassed_ips, received_any_stats
+        )
+        self.block_new_outgoing_requests = False
+        self.outbound_domains = {}
+        self.excluded_user_ids_from_rate_limiting = set()
+
+    def update(
+        self,
+        endpoints,
+        last_updated_at: int,
+        blocked_uids,
+        bypassed_ips,
+        received_any_stats: bool,
+    ):
+        self.last_updated_at = last_updated_at
+        self.received_any_stats = bool(received_any_stats)
+        self.blocked_uids = set(blocked_uids)
+        self.set_endpoints(endpoints)
+        self.set_bypassed_ips(bypassed_ips)
+
+    def set_endpoints(self, endpoints):
+        """Sets non-graphql endpoints"""
+
+        self.endpoints = [
+            endpoint for endpoint in endpoints if not endpoint.get("graphql")
+        ]
+
+        # Create an IPMatcher instance for each endpoint
+        for endpoint in self.endpoints:
+            if not "allowedIPAddresses" in endpoint:
+                #  This feature is not supported by the current aikido server version
+                continue
+            if (
+                not isinstance(endpoint["allowedIPAddresses"], list)
+                or len(endpoint["allowedIPAddresses"]) == 0
+            ):
+                #  Skip empty allowlist
+                continue
+
+            endpoint["allowedIPAddresses"] = IPMatcher(endpoint["allowedIPAddresses"])
+
+    def get_endpoints(self, route_metadata):
+        """
+        Gets the endpoint that matches the current context
+        route_metadata object includes route, url and method
+        """
+        return match_endpoints(route_metadata, self.endpoints)
+
+    def set_bypassed_ips(self, bypassed_ips):
+        """Creates an IPMatcher from the given bypassed ip set"""
+        self.bypassed_ips = IPMatcher(bypassed_ips)
+
+    def is_bypassed_ip(self, ip):
+        """Checks if the IP is on the bypass list"""
+        return self.bypassed_ips.has(ip)
+
+    def update_excluded_user_ids_from_rate_limiting(self, user_ids):
+        """Replaces the set of user IDs excluded from rate limiting"""
+        self.excluded_user_ids_from_rate_limiting = set(user_ids)
+
+    def is_user_excluded_from_rate_limiting(self, user_id):
+        """Checks if the user ID is excluded from rate limiting"""
+        return str(user_id) in self.excluded_user_ids_from_rate_limiting
+
+    def update_outbound_domains(self, domains):
+        self.outbound_domains = {
+            domain["hostname"]: domain["mode"] for domain in domains
+        }
+
+    def set_block_new_outgoing_requests(self, value: bool):
+        """Set whether to block new outgoing requests"""
+        self.block_new_outgoing_requests = bool(value)
+
+    def should_block_outgoing_request(self, hostname: str) -> bool:
+        mode = self.outbound_domains.get(hostname)
+
+        if self.block_new_outgoing_requests:
+            # Only allow outgoing requests if the mode is "allow"
+            # mode is None for unknown hostnames, so they get blocked
+            return mode != "allow"
+
+        # Only block outgoing requests if the mode is "block"
+        return mode == "block"

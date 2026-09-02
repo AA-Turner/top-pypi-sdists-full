@@ -446,6 +446,7 @@ class FeatureSet(_message.Message):
         "etl_offline_to_online",
         "class_path",
         "online_store_config",
+        "source_file_reference",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     FEATURES_FIELD_NUMBER: _ClassVar[int]
@@ -457,6 +458,7 @@ class FeatureSet(_message.Message):
     ETL_OFFLINE_TO_ONLINE_FIELD_NUMBER: _ClassVar[int]
     CLASS_PATH_FIELD_NUMBER: _ClassVar[int]
     ONLINE_STORE_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FILE_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     name: str
     features: _containers.RepeatedCompositeFieldContainer[FeatureType]
     max_staleness_duration: _duration_pb2.Duration
@@ -467,6 +469,7 @@ class FeatureSet(_message.Message):
     etl_offline_to_online: bool
     class_path: str
     online_store_config: str
+    source_file_reference: _source_file_reference_pb2.SourceFileReference
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -479,6 +482,7 @@ class FeatureSet(_message.Message):
         etl_offline_to_online: bool = ...,
         class_path: _Optional[str] = ...,
         online_store_config: _Optional[str] = ...,
+        source_file_reference: _Optional[_Union[_source_file_reference_pb2.SourceFileReference, _Mapping]] = ...,
     ) -> None: ...
 
 class FeatureType(_message.Message):

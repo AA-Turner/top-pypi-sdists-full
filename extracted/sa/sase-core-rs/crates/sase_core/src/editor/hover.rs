@@ -1,0 +1,461 @@
+use super::completion::classify_completion_context;
+use super::directive::directive_metadata;
+use super::frontmatter;
+use super::token::{
+    extract_token_at_position, slash_skill_reference_name,
+    xprompt_reference_name, DocumentSnapshot,
+};
+use super::wire::{
+    CompletionContextKind, EditorPosition, HoverPayload, XpromptAssistEntry,
+};
+
+pub fn hover_at_position(
+    document: &DocumentSnapshot,
+    position: EditorPosition,
+    entries: &[XpromptAssistEntry],
+) -> Option<HoverPayload> {
+    if let Some(context) =
+        classify_completion_context(document, position, entries)
+    {
+        if matches!(
+            context.kind,
+            CompletionContextKind::XpromptArgumentName
+                | CompletionContextKind::XpromptArgumentPath
+                | CompletionContextKind::XpromptArgumentValue
+                | CompletionContextKind::XpromptArgumentTypeHint
+        ) {
+            let entry_name = context.active_xprompt.as_ref()?;
+            let entry =
+                entries.iter().find(|entry| &entry.name == entry_name)?;
+            return Some(HoverPayload {
+                range: context.replacement_range,
+                markdown: active_input_markdown(
+                    entry,
+                    context.active_input.as_deref(),
+                ),
+            });
+        }
+
+        if matches!(
+            context.kind,
+            CompletionContextKind::DirectiveArgument
+                | CompletionContextKind::DirectiveArgumentKeyword
+                | CompletionContextKind::DirectiveArgumentValue
+        ) {
+            let name = context.directive_name.as_deref()?;
+            let metadata = directive_metadata(name)?;
+            return Some(HoverPayload {
+                range: context.replacement_range,
+                markdown: format!(
+                    "**%{}**\n\n{}",
+                    metadata.name, metadata.description
+                ),
+            });
+        }
+    }
+
+    if let Some(hover) = frontmatter::hover(document, position) {
+        return Some(hover);
+    }
+
+    let token = extract_token_at_position(document, position)?;
+    if let Some(name) = xprompt_reference_name(&token.text) {
+        let entry = entries.iter().find(|entry| entry.name == name)?;
+        return Some(HoverPayload {
+            range: token.range,
+            markdown: xprompt_markdown(entry),
+        });
+    }
+    if let Some(name) = slash_skill_reference_name(&token.text) {
+        let entry = entries.iter().find(|entry| {
+            entry.is_skill && entry.skill_name.as_deref() == Some(name)
+        })?;
+        return Some(HoverPayload {
+            range: token.range,
+            markdown: xprompt_markdown(entry),
+        });
+    }
+    None
+}
+
+fn xprompt_markdown(entry: &XpromptAssistEntry) -> String {
+    let mut lines = vec![format!("**{}**", entry.insertion)];
+    let mut meta = Vec::new();
+    if let Some(kind) = &entry.kind {
+        meta.push(kind.clone());
+    }
+    meta.push(format!("canonical `{}`", entry.reference_prefix));
+    if let Some(skill_name) = &entry.skill_name {
+        meta.push(format!("skill `/{skill_name}`"));
+    }
+    if let Some(memory_type) = entry.memory_type {
+        meta.push(format!("tier `{}`", memory_type.as_str()));
+    }
+    if !entry.source_bucket.is_empty() {
+        meta.push(entry.source_bucket.clone());
+    }
+    if let Some(project) = &entry.project {
+        meta.push(format!("project `{project}`"));
+    }
+    if !meta.is_empty() {
+        lines.push(String::new());
+        lines.push(meta.join(" | "));
+    }
+    if let Some(signature) = &entry.input_signature {
+        lines.push(String::new());
+        lines.push(format!("`{signature}`"));
+    }
+    if let Some(description) = &entry.description {
+        lines.push(String::new());
+        lines.push(description.clone());
+    } else if let Some(preview) = &entry.content_preview {
+        lines.push(String::new());
+        lines.push(preview.clone());
+    }
+    if let Some(source) = &entry.source_path_display {
+        lines.push(String::new());
+        lines.push(format!("Source: `{source}`"));
+    }
+    if !entry.tags.is_empty() {
+        lines.push(String::new());
+        lines.push(format!("Tags: {}", entry.tags.join(", ")));
+    }
+    if entry.description.is_some() {
+        if let Some(preview) = &entry.content_preview {
+            lines.push(String::new());
+            lines.push(bounded_preview(preview));
+        }
+    }
+    lines.join("\n")
+}
+
+fn bounded_preview(preview: &str) -> String {
+    const MAX_PREVIEW_CHARS: usize = 600;
+    let mut out = String::new();
+    for (idx, ch) in preview.chars().enumerate() {
+        if idx == MAX_PREVIEW_CHARS {
+            out.push_str("...");
+            break;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+fn active_input_markdown(
+    entry: &XpromptAssistEntry,
+    active_input: Option<&str>,
+) -> String {
+    let mut lines = vec![format!("**{} inputs**", entry.name)];
+    for input in &entry.inputs {
+        let marker = if Some(input.name.as_str()) == active_input {
+            "- **"
+        } else {
+            "- `"
+        };
+        let close = if Some(input.name.as_str()) == active_input {
+            "**"
+        } else {
+            "`"
+        };
+        let required = if input.required {
+            "required"
+        } else {
+            "optional"
+        };
+        let default = input
+            .default_display
+            .as_ref()
+            .map(|value| format!(", default `{value}`"))
+            .unwrap_or_default();
+        let description = input
+            .description
+            .as_ref()
+            .filter(|value| !value.is_empty())
+            .map(|value| format!(" - {value}"))
+            .unwrap_or_default();
+        lines.push(format!(
+            "{marker}{}{close}: `{}` ({required}{default})",
+            input.name, input.r#type
+        ));
+        if !description.is_empty() {
+            let last = lines.last_mut().expect("just pushed input hover line");
+            last.push_str(&description);
+        }
+    }
+    lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        content_layout::MemoryTierWire, editor::wire::XpromptInputHint,
+    };
+
+    #[test]
+    fn hovers_a_skill_through_both_of_its_names() {
+        let entries = vec![XpromptAssistEntry {
+            name: "skill/sase_plan".to_string(),
+            display_label: "skill/sase_plan".to_string(),
+            insertion: "#skill/sase_plan".to_string(),
+            reference_prefix: "#".to_string(),
+            kind: None,
+            source_bucket: "builtin".to_string(),
+            project: None,
+            tags: Vec::new(),
+            input_signature: None,
+            inputs: Vec::new(),
+            content_preview: None,
+            description: Some("Create an implementation plan".to_string()),
+            source_path_display: Some("sase/skills/sase_plan.md".to_string()),
+            definition_path: None,
+            definition_range: None,
+            is_skill: true,
+            skill_name: Some("sase_plan".to_string()),
+            memory_type: None,
+        }];
+        let at = |text: &str, character: u32| {
+            hover_at_position(
+                &DocumentSnapshot::new(text),
+                EditorPosition { line: 0, character },
+                &entries,
+            )
+        };
+
+        let namespaced = at("#skill/sase_plan", 3).unwrap();
+        assert!(namespaced
+            .markdown
+            .contains("Create an implementation plan"));
+        assert!(namespaced.markdown.contains("skill `/sase_plan`"));
+
+        let slash = at("/sase_plan", 3).unwrap();
+        assert_eq!(slash.markdown, namespaced.markdown);
+
+        // Neither the bare reference nor the namespaced slash form resolves.
+        assert!(at("#sase_plan", 3).is_none());
+        assert!(at("/skill", 3).is_none());
+    }
+
+    #[test]
+    fn hovers_an_xprompt_memory_with_its_kind_and_tier() {
+        let entries = vec![XpromptAssistEntry {
+            name: "memory/glossary".to_string(),
+            display_label: "memory/glossary".to_string(),
+            insertion: "#memory/glossary".to_string(),
+            reference_prefix: "#".to_string(),
+            kind: Some("memory".to_string()),
+            source_bucket: "project".to_string(),
+            project: None,
+            tags: Vec::new(),
+            input_signature: None,
+            inputs: Vec::new(),
+            content_preview: Some("Glossary body".to_string()),
+            description: Some("SASE terms".to_string()),
+            source_path_display: Some("sase/memory/glossary.md".to_string()),
+            definition_path: None,
+            definition_range: None,
+            is_skill: false,
+            skill_name: None,
+            memory_type: Some(MemoryTierWire::Reference),
+        }];
+        let at = |text: &str, character: u32| {
+            hover_at_position(
+                &DocumentSnapshot::new(text),
+                EditorPosition { line: 0, character },
+                &entries,
+            )
+        };
+
+        let hover = at("#memory/glossary", 3).unwrap();
+        assert!(hover.markdown.contains("memory"), "{}", hover.markdown);
+        assert!(
+            hover.markdown.contains("tier `reference`"),
+            "{}",
+            hover.markdown
+        );
+        assert!(hover.markdown.contains("SASE terms"));
+        // No bare alias and no slash form.
+        assert!(at("#glossary", 3).is_none());
+        assert!(at("/glossary", 3).is_none());
+    }
+
+    #[test]
+    fn builds_xprompt_and_argument_hover() {
+        let entries = vec![XpromptAssistEntry {
+            name: "review".to_string(),
+            display_label: "review".to_string(),
+            insertion: "#review".to_string(),
+            reference_prefix: "#".to_string(),
+            kind: None,
+            source_bucket: "builtin".to_string(),
+            project: None,
+            tags: Vec::new(),
+            input_signature: Some("(path: path)".to_string()),
+            inputs: vec![XpromptInputHint {
+                name: "path".to_string(),
+                r#type: "path".to_string(),
+                description: Some("Path to review".to_string()),
+                required: true,
+                default_display: None,
+                position: 0,
+                repeatable: false,
+            }],
+            content_preview: Some("Body preview".to_string()),
+            description: Some("Review code".to_string()),
+            source_path_display: Some("sase/xprompts/review.md".to_string()),
+            definition_path: Some("/tmp/sase/xprompts/review.md".to_string()),
+            definition_range: None,
+            is_skill: false,
+            skill_name: None,
+            memory_type: None,
+        }];
+        let doc = DocumentSnapshot::new("#review:");
+        let hover = hover_at_position(
+            &doc,
+            EditorPosition {
+                line: 0,
+                character: 3,
+            },
+            &entries,
+        )
+        .unwrap();
+        assert!(hover.markdown.contains("Review code"));
+
+        let arg_hover = hover_at_position(
+            &doc,
+            EditorPosition {
+                line: 0,
+                character: 8,
+            },
+            &entries,
+        )
+        .unwrap();
+        assert!(arg_hover.markdown.contains("path"));
+        assert!(arg_hover.markdown.contains("Path to review"));
+    }
+
+    #[test]
+    fn directive_argument_hover_uses_current_identity_and_clan_metadata() {
+        for (text, character, heading, description) in [
+            (
+                "%id(worker, family=review)",
+                14,
+                "**%id**",
+                "Assign an agent ID with optional bead, clan, family, or user-managed tribe",
+            ),
+            (
+                "%i(worker, tribe=review)",
+                13,
+                "**%id**",
+                "Assign an agent ID with optional bead, clan, family, or user-managed tribe",
+            ),
+            (
+                "%clan(research, tr)",
+                18,
+                "**%clan**",
+                "Declare a new parallel agent clan",
+            ),
+            (
+                "%c(research, tr)",
+                15,
+                "**%clan**",
+                "Declare a new parallel agent clan",
+            ),
+            (
+                "%final:commit",
+                8,
+                "**%final**",
+                "Select configured finalizer instances for this launch",
+            ),
+        ] {
+            let hover = hover_at_position(
+                &DocumentSnapshot::new(text),
+                EditorPosition { line: 0, character },
+                &[],
+            )
+            .unwrap_or_else(|| panic!("missing hover for {text}"));
+            assert!(hover.markdown.contains(heading), "{text}");
+            assert!(hover.markdown.contains(description), "{text}");
+        }
+
+        for text in ["%tribe:research", "%t:research"] {
+            assert!(
+                hover_at_position(
+                    &DocumentSnapshot::new(text),
+                    EditorPosition {
+                        line: 0,
+                        character: 1
+                    },
+                    &[],
+                )
+                .is_none(),
+                "removed directive should not hover: {text}"
+            );
+        }
+    }
+
+    #[test]
+    fn builds_frontmatter_field_hover() {
+        let doc = DocumentSnapshot::new(
+            "---\ndescription: Demo\nxprompts:\n  _helper:\n    content: Helper\n---\n#_helper\n",
+        );
+        let hover = hover_at_position(
+            &doc,
+            EditorPosition {
+                line: 2,
+                character: 2,
+            },
+            &[],
+        )
+        .unwrap();
+
+        let field_start = doc.text().find("xprompts").unwrap();
+        assert_eq!(
+            hover.range,
+            doc.byte_range_to_range(
+                field_start,
+                field_start + "xprompts".len()
+            )
+            .unwrap()
+        );
+        assert!(hover.markdown.contains("**xprompts**"));
+        assert!(hover.markdown.contains("local xprompts"));
+        assert!(hover.markdown.contains("current file"));
+    }
+
+    #[test]
+    fn frontmatter_hover_ignores_body_and_non_field_positions() {
+        let doc = DocumentSnapshot::new(
+            "---\nxprompts:\n  _helper:\n    content: Helper\n---\nBody xprompts\n",
+        );
+
+        assert!(hover_at_position(
+            &doc,
+            EditorPosition {
+                line: 5,
+                character: 7,
+            },
+            &[],
+        )
+        .is_none());
+        assert!(hover_at_position(
+            &doc,
+            EditorPosition {
+                line: 1,
+                character: 8,
+            },
+            &[],
+        )
+        .is_none());
+        assert!(hover_at_position(
+            &DocumentSnapshot::new("xprompts:\nBody\n"),
+            EditorPosition {
+                line: 0,
+                character: 2,
+            },
+            &[],
+        )
+        .is_none());
+    }
+}

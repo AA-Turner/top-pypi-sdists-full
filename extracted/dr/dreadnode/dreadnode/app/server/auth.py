@@ -17,7 +17,9 @@ if t.TYPE_CHECKING:
     from starlette.requests import Request
 
 # Paths that never require authentication
-_PUBLIC_PATHS = frozenset({"/api/health"})
+# Readiness sits alongside liveness: the platform polls it before it holds a
+# runtime credential, so gating it on auth would make it unusable.
+_PUBLIC_PATHS = frozenset({"/api/health", "/api/ready"})
 _VALIDATED_BEARER_STATE_ATTR = "_dreadnode_runtime_validated_bearer"
 
 

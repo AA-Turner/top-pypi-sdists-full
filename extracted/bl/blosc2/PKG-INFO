@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blosc2
-Version: 4.11.0
+Version: 4.12.0
 Summary: A fast & compressed ndarray library with a flexible compute engine.
 Author-Email: Blosc Development Team <blosc@blosc.org>
 Maintainer-Email: Blosc Development Team <blosc@blosc.org>
@@ -39,6 +39,8 @@ Provides-Extra: hires
 Requires-Dist: blosc2[tui]; extra == "hires"
 Requires-Dist: textual-image; extra == "hires"
 Requires-Dist: matplotlib; extra == "hires"
+Provides-Extra: fsspec
+Requires-Dist: fsspec; extra == "fsspec"
 Description-Content-Type: text/x-rst
 
 =============

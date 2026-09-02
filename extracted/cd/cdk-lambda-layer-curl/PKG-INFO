@@ -1,0 +1,56 @@
+Metadata-Version: 2.1
+Name: cdk-lambda-layer-curl
+Version: 2.0.838
+Summary: For lambda layer use curl
+Home-page: https://github.com/clarencetw/cdk-lambda-layer-curl.git
+Author: clarencetw<mr.lin.clarence@gmail.com>
+License: Apache-2.0
+Project-URL: Source, https://github.com/clarencetw/cdk-lambda-layer-curl.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved
+Requires-Python: ~=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.1.0
+Requires-Dist: constructs<11.0.0,>=10.0.5
+Requires-Dist: jsii<2.0.0,>=1.103.1
+Requires-Dist: publication>=0.0.3
+Requires-Dist: typeguard<5.0.0,>=2.13.3
+
+# AWS Lambda Layer with curl
+
+[![NPM version](https://badge.fury.io/js/cdk-lambda-layer-curl.svg)](https://badge.fury.io/js/cdk-lambda-layer-curl)
+[![PyPI version](https://badge.fury.io/py/cdk-lambda-layer-curl.svg)](https://badge.fury.io/py/cdk-lambda-layer-curl)
+![Release](https://github.com/clarencetw/cdk-lambda-layer-curl/workflows/release/badge.svg)
+[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/clarencetw/cdk-lambda-layer-curl)
+
+Usage:
+
+```python
+// CurlLayer bundles the curl in a lambda layer
+import { CurlLayer } from 'cdk-lambda-layer-curl';
+
+declare const fn: lambda.Function;
+fn.addLayers(new CurlLayer(this, 'CurlLayer'));
+```
+
+```python
+import { CurlLayer } from 'cdk-lambda-layer-curl'
+import * as lambda from 'aws-cdk-lib/aws-lambda'
+
+new lambda.Function(this, 'MyLambda', {
+  code: lambda.Code.fromAsset(path.join(__dirname, 'my-lambda-handler')),
+  handler: 'index.main',
+  runtime: lambda.Runtime.PYTHON_3_9,
+  layers: [new CurlLayer(this, 'CurlLayer')]
+});
+```

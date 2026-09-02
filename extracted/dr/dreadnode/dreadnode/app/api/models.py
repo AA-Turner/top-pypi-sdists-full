@@ -91,6 +91,10 @@ class PlatformConfig(BaseModel):
     app_version: str
     api_version: str
     deployment_mode: str
+    # Deployment has no public egress. Absent (False) on older platforms; the
+    # web UI defaults it the other way and fails closed, but nothing in the SDK
+    # gates on it today — it is mirrored so the drift check stays meaningful.
+    airgapped: bool = False
     recaptcha_enabled: bool = False
     recaptcha_site_key: str | None = None
     credits_enabled: bool = True
@@ -99,6 +103,13 @@ class PlatformConfig(BaseModel):
     # False on older platforms whose /feedback rejects diagnostic-report fields.
     feedback_diagnostics: bool = False
     website_url: str
+    # Absent on platforms older than WP1-58; the public site is the only
+    # sensible client-side fallback for a CLI, which is not itself air-gapped.
+    docs_url: str | None = None
+    # Where this platform serves the CLI and SDK install. Absent on platforms
+    # older than WP1-60. Supersedes ``website_url``, which the platform now
+    # marks deprecated.
+    install_url: str | None = None
 
 
 class FeedbackReceipt(BaseModel):
@@ -1253,10 +1264,22 @@ class WsTicketResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """Response body for health check."""
+    """Response body for health check.
+
+    ``stage``, ``detail`` and ``elapsed_sec`` are additive: a client on an older
+    build ignores them, and a newer platform uses them to tell a runtime that is
+    still installing capabilities from one that has failed outright. ``status``
+    keeps its original meaning of "ready to serve".
+    """
 
     status: str
     version: str = "1.0.0"
+    stage: str | None = None
+    """Startup stage — configuring, installing, connecting, ready, or failed."""
+    detail: str | None = None
+    """Why startup failed, when ``stage`` is ``failed``."""
+    elapsed_sec: float | None = None
+    """Seconds since deferred startup began."""
 
 
 class ToolInfo(BaseModel):

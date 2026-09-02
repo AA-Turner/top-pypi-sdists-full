@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix-evals
-Version: 3.5.1
+Version: 3.6.0
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -121,6 +121,7 @@ The `phoenix.evals.metrics` module provides ready-to-use evaluators for common t
 | Tool Selection | `ToolSelectionEvaluator` | Evaluates whether the right tool was selected for the task |
 | Tool Response Handling | `ToolResponseHandlingEvaluator` | Evaluates how well the model uses a tool's response |
 | User Friction | `UserFrictionEvaluator` | Detects expressed corrections, retries, frustration, and challenges |
+| PII Detection | `PiiDetectionEvaluator` | Screens a conversation record for personally identifiable information |
 | Exact Match | `exact_match` | Checks for exact string equality between output and expected |
 | Regex Match | `MatchesRegex` | Checks whether the output matches a regular expression |
 | Precision/Recall | `PrecisionRecallFScore` | Computes precision, recall, and F-score for classification tasks |

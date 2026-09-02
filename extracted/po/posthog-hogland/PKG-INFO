@@ -1,0 +1,262 @@
+Metadata-Version: 2.5
+Name: posthog-hogland
+Version: 0.4.1
+Summary: Python client for hogland — Firecracker-backed sandboxes (hogboxes)
+Project-URL: Homepage, https://github.com/PostHog/hogland
+Project-URL: Repository, https://github.com/PostHog/hogland
+Project-URL: Issues, https://github.com/PostHog/hogland/issues
+Author: PostHog
+License: MIT License
+        
+        Copyright (c) PostHog
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: agents,firecracker,hogbox,hogland,sandbox
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.12
+Requires-Dist: httpx-sse>=0.4
+Requires-Dist: httpx>=0.27
+Requires-Dist: pydantic>=2.7
+Provides-Extra: dev
+Requires-Dist: pytest-asyncio>=0.24; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'
+Requires-Dist: respx>=0.21; extra == 'dev'
+Requires-Dist: ruff>=0.8; extra == 'dev'
+Requires-Dist: ty>=0.0.1a8; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# hogland (Python)
+
+Python client for [hogland](https://github.com/PostHog/hogland)'s
+Firecracker-backed sandboxes (hogboxes).
+
+The SDK exposes the user-facing slice of the hogplane API
+(`/v1/hogboxes/*`, `/v1/limits`, `/v1/me`, plus snapshots and devboxes)
+as a small, typed surface designed to be a viable backend for PostHog's
+internal `SandboxBase` interface — see `examples/sandbox_base_adapter.py`.
+
+## Install
+
+```bash
+uv pip install posthog-hogland
+# or
+pip install posthog-hogland
+```
+
+The PyPI distribution is `posthog-hogland`; the importable package is
+`hogland` (same split as `pip install pillow` / `from PIL import ...`).
+
+## Quickstart
+
+```python
+from hogland import Hogland
+
+client = Hogland()  # reads HOG_TOKEN + HOG_HOST from env (same vars as the CLI)
+
+# No ssh_public_key given → the box defaults to access_type="none":
+# everything below goes through the exec/files/proxy API. Pass
+# ssh_public_key=... (+ access_type="ssh-public") if you want a shell too.
+with client.create(cpus=4, memory_mib=8192, disk_gib=50) as box:
+    box.write_file("/work/run.py", b"print('hi')\n", mkdir=True)
+
+    result = box.exec(["python", "/work/run.py"], timeout_seconds=30)
+    assert result.exit_code == 0
+    print(result.stdout)
+
+    # Streaming exec — yields ExecEvent frames as they arrive.
+    for event in box.exec_stream(["bash", "-c", "for i in 1 2 3; do echo $i; sleep 1; done"]):
+        if event.kind == "stdout":
+            print(event.data, end="")
+        elif event.kind == "exit":
+            print(f"exit: {event.exit_code}")
+
+    # Snapshot for next session. Returns a record whose .id can be
+    # passed back as snapshot_id on the next create.
+    snap = box.snapshot()
+```
+
+Async is symmetric:
+
+```python
+import asyncio
+from hogland import AsyncHogland
+
+async def main() -> None:
+    async with AsyncHogland() as client:
+        async with await client.create(cpus=4, memory_mib=8192) as box:
+            result = await box.exec(["uname", "-a"])
+            print(result.stdout)
+
+asyncio.run(main())
+```
+
+## API at a glance
+
+| Method | Returns | Notes |
+|---|---|---|
+| `Hogland.create(...)` / `.get(id)` / `.list()` / `.iter_boxes()` | `Hogbox` / `HogboxList` | Create, fetch, paginate user-owned boxes |
+| `Hogland.me()` / `.limits()` | `Me` / `Limits` | Caller identity, server-advertised valid ranges |
+| `Hogbox.exec(argv, timeout_seconds, env, workdir)` | `ExecResult` | Batch exec, ≤1 MiB stdout/stderr per stream |
+| `Hogbox.exec_stream(argv, ...)` | `Iterator[ExecEvent]` | SSE streaming exec, no output cap |
+| `Hogbox.write_file(path, bytes, mode, mkdir)` / `.read_file(path)` | `FileWriteResponse` / `bytes` | Atomic file IO; ≤64 MiB |
+| `Hogbox.snapshot()` | `SnapshotRecord` | Pause → sync → resume; returns id usable as next `snapshot_id` |
+| `Hogbox.pause()` / `.resume()` / `.delete()` | `Hogbox` / `None` | Lifecycle |
+| `Hogbox.proxy_url(port, path)` | `str` | Authenticated proxy URL into the box at `port` |
+
+Auth: pass an API credential via `HOG_TOKEN` env or `token=...` ctor
+arg. The SDK transports it as `Authorization: Bearer <credential>` and
+is **agnostic to credential type** — hogplane resolves it through one of
+several paths (see [Auth](#auth) below). The `proxy_url` is hit with the
+*same* credential; there's no per-tunnel token system (see
+`docs/PYTHON_SDK_CODEGEN_RESEARCH.md` §1d).
+
+Errors are typed: `AuthenticationError`, `PermissionDeniedError`,
+`NotFoundError`, `ConflictError`, `ValidationError`, `RateLimitError`,
+`ServerError`. All derive from `APIError` (which derives from
+`HoglandError`). The original problem-details body is on
+`.body`; the HTTP status is on `.status_code`.
+
+## Configuration
+
+```bash
+export HOG_TOKEN=...                          # API credential (see Auth)
+export HOG_HOST=https://hogland.posthog.dev   # API base URL
+```
+
+Config is resolved from constructor args (`token=`, `base_url=`) first,
+then from these env vars. There is no on-disk config-file fallback today;
+matching the CLI's `~/.config/hogland/config.json` (see
+`pkg/cliconfig/cliconfig.go`) is on the roadmap.
+
+## Auth
+
+Hogplane authenticates each request to one of these paths — see
+`docs/AUTH_PLAN.md` for the full model. The SDK transports any of them
+identically; the credential string you put in `HOG_TOKEN` / `token=` is
+what selects the path:
+
+| Path | Credential | Who uses it |
+|---|---|---|
+| **APIToken** | Long-lived token minted at signup (`tok_...`) | Humans, CLI users, scripts |
+| **K8s SA (EKS OIDC)** | Projected K8s ServiceAccount JWT with hogland audience | In-cluster automation (e.g. PostHog Django → hogland) |
+| **GitHub OIDC** | GitHub Actions workflow JWT | CI workflows in PostHog org |
+| **Tailscale** | Identity injected by Tailscale Operator ingress | Tailnet-resident humans |
+
+For **in-cluster automation** (the primary SDK consumer), the recommended
+shape is:
+
+1. Pod spec mounts a *projected* SA token volume with hogland's audience
+   (default: `hogland`) at e.g. `/var/run/secrets/hogland.posthog.dev/token`.
+   **Don't reuse `/var/run/secrets/kubernetes.io/serviceaccount/token`** —
+   its audience is the cluster API server, which won't match hogland.
+2. The integration constructs the client with
+   `Hogland.from_token_file("/var/run/secrets/hogland.posthog.dev/token")`
+   (or `token_provider=`): the SDK re-reads the file on every request,
+   so the ~50 min K8s rotation never presents a stale credential.
+3. A `k8s_sa` TrustMapping on hogland side, keyed on
+   `{issuer, namespace, sa_name}`, resolves the JWT to a Principal.
+
+See `examples/sandbox_base_adapter.py` for a reference implementation
+and `INTEGRATION_NOTES.md` for the operational checklist.
+
+## Multi-deploy / regional setups
+
+The SDK is region-agnostic by construction — one `Hogland` instance
+is one base URL plus one credential. If hogland ever runs as separate
+regional deploys (e.g. `hogland-eu.posthog.dev` and
+`hogland-us.posthog.dev`), the consumer holds one client per region:
+
+```python
+clients = {
+    "eu": Hogland(base_url="https://hogland-eu.posthog.dev", token=eu_token),
+    "us": Hogland(base_url="https://hogland-us.posthog.dev", token=us_token),
+}
+
+box = clients[region].create(cpus=4, memory_mib=8192)
+```
+
+This is the same shape Modal users write today (their `_get_modal_region(deployment)`
+helper picks the right Modal cloud); the only difference is that with hogland
+the regional decision is `which base_url`, not `which kwarg`. If the deploys
+share a Principal (federated `TrustMapping` matched on the same K8s SA), the
+token is the same across regions; if not, the consumer rotates per-region
+credentials at construction time.
+
+The vendored `examples/sandbox_base_adapter.py` factors this through a
+small `_hogland_client(region=...)` factory — extend that one function in
+your repo when regional routing becomes a real requirement.
+
+## How the SDK is built
+
+The Pydantic v2 models in `src/hogland/_generated/models.py` are
+codegen'd from `internal/clitest/testdata/openapi.yaml` by
+`scripts/gen_models.py` (which filters to the user-facing slice and
+runs `datamodel-code-generator` underneath). CI runs the regen and
+fails the build if the result differs from the committed file. The
+hand-written facade (`_client.py`, `_async.py`, `_box.py`, `_http.py`,
+`_sse.py`) sits on top and is the public surface.
+
+The choice of "models-only codegen + hand-written facade" is the
+modern-AI-SDK shape (OpenAI, Anthropic). See
+`docs/PYTHON_SDK_CODEGEN_RESEARCH.md` for the analysis and tradeoffs.
+
+## Development
+
+```bash
+# From the repo root.
+cd sdk/python
+uv venv --python 3.12
+uv pip install -e '.[dev]'
+
+# Regenerate models from openapi.yaml.
+task py:gen-models
+
+# Run tests, lint, type-check.
+uv run pytest -q
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check src tests
+```
+
+## Release
+
+See [`RELEASING.md`](RELEASING.md) for the operational flow (bump,
+tag, push) and the one-time PyPI Trusted Publishing setup.
+
+Short version: bump `__version__` in `src/hogland/_version.py` — the
+single source of truth — then tag `vX.Y.Z-py` on `main`. CI verifies
+the tag matches `_version.py`, builds, smoke-tests the wheel, attests,
+publishes via OIDC, and creates a GitHub Release. The `-py` suffix
+keeps this release track separate from the CLI's `v*-cli` tags.
+
+Changes per version are tracked in [`CHANGELOG.md`](CHANGELOG.md).
+
+## License
+
+MIT — see `LICENSE`.

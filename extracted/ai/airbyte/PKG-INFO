@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: airbyte
-Version: 0.58.2
+Version: 0.59.0
 Summary: PyAirbyte
 Author-email: Airbyte <contact@airbyte.io>
 License-File: LICENSE.md

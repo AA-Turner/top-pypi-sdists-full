@@ -1,0 +1,194 @@
+/* ------------------------------------------------------------------------- */
+
+/*
+ * Copyright 2007-2026 GRAHAM DUMPLETON
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* ------------------------------------------------------------------------- */
+
+#include "wsgi_python.h"
+#include "wsgi_apache.h"
+
+#include "wsgi_validate.h"
+
+#include "wsgi_convert.h"
+
+#include <ctype.h>
+
+/* ------------------------------------------------------------------------- */
+
+/*
+ * A WSGI response status line consists of a status code and a reason
+ * phrase separated by a space character. The status code is a 3 digit
+ * integer. The reason phrase is any text excluding control characters.
+ * Since HTTP/2 and later no longer transmit the reason phrase, we
+ * relax validation to not require a space after the status code when
+ * no reason phrase is provided.
+ */
+
+int wsgi_validate_status_line(PyObject *value)
+{
+    const char *s;
+
+    if (!PyBytes_Check(value))
+    {
+        PyErr_Format(PyExc_TypeError, "expected byte string object for "
+                                      "status line, value of type %.200s found",
+                     Py_TYPE(value)->tp_name);
+        return 0;
+    }
+
+    s = PyBytes_AsString(value);
+
+    if (!isdigit((unsigned char)*s++) || !isdigit((unsigned char)*s++) || !isdigit((unsigned char)*s++))
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "status code must be a 3 digit integer: %R", value);
+        return 0;
+    }
+
+    if (isdigit((unsigned char)*s))
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "status code must be a 3 digit integer: %R", value);
+        return 0;
+    }
+
+    if (*s == '\0')
+    {
+        return 1;
+    }
+
+    if (*s != ' ')
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "no space following status code: %R", value);
+        return 0;
+    }
+
+    s++;
+
+    while (*s)
+    {
+        if (iscntrl((unsigned char)*s))
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "control character in status reason phrase: %R",
+                         value);
+            return 0;
+        }
+        s++;
+    }
+
+    return 1;
+}
+
+/* ------------------------------------------------------------------------- */
+
+/*
+ * A WSGI header name is a token consisting of one or more characters
+ * except control characters, the separator characters "(", ")", "<",
+ * ">", "@", ",", ";", ":", "\", <">, "/", "[", "]", "?", "=", "{", "}"
+ * and the space character. Only bother checking for control characters
+ * and space characters as it is only carriage return, line feed,
+ * leading and trailing white space that are really a problem.
+ */
+
+int wsgi_validate_header_name(PyObject *value)
+{
+    const char *s;
+
+    if (!PyBytes_Check(value))
+    {
+        PyErr_Format(PyExc_TypeError, "expected byte string object for "
+                                      "header name, value of type %.200s found",
+                     Py_TYPE(value)->tp_name);
+        return 0;
+    }
+
+    s = PyBytes_AsString(value);
+
+    if (!*s)
+    {
+        PyErr_SetString(PyExc_ValueError, "header name is empty");
+        return 0;
+    }
+
+    while (*s)
+    {
+        if (iscntrl((unsigned char)*s))
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "control character in header name: %R", value);
+            return 0;
+        }
+
+        if (*s == ' ')
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "space character in header name: %R", value);
+            return 0;
+        }
+        s++;
+    }
+
+    return 1;
+}
+
+/* ------------------------------------------------------------------------- */
+
+/*
+ * A WSGI header value consists of any number of characters except
+ * control characters. Only bother checking for carriage return and line
+ * feed characters as it is not possible to trust that applications will
+ * not use control characters. In practice the intent is that WSGI
+ * applications shouldn't use embedded carriage return and line feed
+ * characters to prevent attempts at line continuation which may cause
+ * problems with some hosting mechanisms. In other words, the header
+ * value should be all on one line.
+ */
+
+int wsgi_validate_header_value(PyObject *value)
+{
+    const char *s;
+
+    if (!PyBytes_Check(value))
+    {
+        PyErr_Format(PyExc_TypeError, "expected byte string object for "
+                                      "header value, value of type %.200s found",
+                     Py_TYPE(value)->tp_name);
+        return 0;
+    }
+
+    s = PyBytes_AsString(value);
+
+    while (*s)
+    {
+        if (*s == '\r' || *s == '\n')
+        {
+            PyErr_Format(PyExc_ValueError, "carriage return/line feed "
+                                           "character in header value: %R",
+                         value);
+            return 0;
+        }
+        s++;
+    }
+
+    return 1;
+}
+
+/* ------------------------------------------------------------------------- */
+
+/* vi: set sw=4 expandtab : */

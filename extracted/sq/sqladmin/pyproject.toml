@@ -52,7 +52,7 @@ extensions = "jinja2.ext.i18n"
 
 [project]
 name = "sqladmin"
-version = "0.31.0"
+version = "0.31.1"
 description = "SQLAlchemy admin for FastAPI and Starlette"
 readme = "README.md"
 requires-python = ">=3.10"

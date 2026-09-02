@@ -1,0 +1,560 @@
+name: SpecKit Agent Fallback Cleanup
+
+on:
+  pull_request:
+    types: [opened, edited]
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+permissions: { contents: read, issues: write, pull-requests: read }
+
+jobs:
+  # Job 1: On PR opened, clean up a validated cloud-agent phase marker or the
+  # legacy structural-fallback processing label.
+  pr-cleanup:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Remove processing label on agent PR creation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const trustedAssociations = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+            const trustedAuthorLogins = new Set(['github-actions[bot]']);
+            const isTrustedMarkerComment = (comment) =>
+              trustedAssociations.has(comment?.author_association || '') ||
+              trustedAuthorLogins.has(comment?.user?.login || '');
+            const removeCloudLabelsConverged = async (issueNumber, phase) => {
+              const labels = [`speckit:agent-assigned-phase-${phase}`, 'speckit:processing'];
+              let non404Failure = false;
+              for (const label of labels) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    name: label,
+                  });
+                } catch (e) {
+                  if (e.status !== 404) {
+                    non404Failure = true;
+                    core.warning(`Issue #${issueNumber}: could not remove ${label}: ${e.message}`);
+                  }
+                }
+              }
+              if (!non404Failure) {
+                return true;
+              }
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  labels,
+                });
+                core.warning(`Issue #${issueNumber}: restored cloud-agent tracking labels after partial cleanup failure`);
+              } catch (restoreError) {
+                core.warning(`Issue #${issueNumber}: could not restore cloud-agent tracking labels: ${restoreError.message}`);
+              }
+              return false;
+            };
+            const isCopilot = context.payload.pull_request?.user?.login === 'copilot-swe-agent[bot]';
+            const markerRegex = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=(\d+) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->/;
+            const headRef = context.payload.pull_request?.head?.ref || '';
+            const branchMatch = headRef.match(/^speckit\/(\d+)\/phase-(\d+)-/);
+            const prMarkerMatch = (context.payload.pull_request?.body || '').match(markerRegex);
+            let issueNumber = 0;
+            let phase = 0;
+
+            if (isCopilot && prMarkerMatch) {
+              issueNumber = Number(prMarkerMatch[1]);
+              phase = Number(prMarkerMatch[2]);
+            } else if (branchMatch) {
+              issueNumber = Number(branchMatch[1]);
+              phase = Number(branchMatch[2]);
+            } else {
+              core.info(`PR head ref '${headRef}' does not match speckit branch pattern and no cloud marker was found — skipping`);
+              return;
+            }
+
+            if (!issueNumber || !phase) return;
+            if (isCopilot) {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, per_page: 100,
+              });
+              const marker = comments
+                .filter((comment) => {
+                  const candidate = (comment.body || '').match(markerRegex);
+                  return isTrustedMarkerComment(comment) && candidate && Number(candidate[1]) === issueNumber && Number(candidate[2]) === phase;
+                })
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+              const markerMatch = marker?.body?.match(markerRegex);
+              const hierarchyLevel = String(markerMatch?.[3] || '').toLowerCase();
+              const expectedBase = (phase === 2)
+                ? `speckit/${issueNumber}/phase-1-specify`
+                : (phase === 3 && hierarchyLevel !== 'task')
+                  ? `speckit/${issueNumber}/phase-2-clarify`
+                  : 'main';
+              const valid = markerMatch && prMarkerMatch &&
+                Number(markerMatch[1]) === issueNumber && Number(markerMatch[2]) === phase &&
+                prMarkerMatch[0] === markerMatch[0] &&
+                context.payload.pull_request?.base?.ref === expectedBase;
+              if (valid) {
+                const converged = await removeCloudLabelsConverged(issueNumber, phase);
+                if (converged) {
+                  core.info(`Validated cloud-agent PR for issue #${issueNumber}, phase ${phase}; removed dispatch labels`);
+                }
+                return;
+              }
+            }
+
+            // Check if issue has speckit:agent-fallback label (only clean up agent-triggered PRs)
+            try {
+              const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100,
+              });
+              const hasAgentLabel = labels.some(l => l.name === 'speckit:agent-fallback');
+              if (!hasAgentLabel) {
+                core.info(`Issue #${issueNumber} does not have speckit:agent-fallback label — skipping`);
+                return;
+              }
+            } catch (e) {
+              core.warning(`Could not check labels on issue #${issueNumber}: ${e.message}`);
+              return;
+            }
+
+            // Remove speckit:processing label
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'speckit:processing',
+              });
+              core.info(`Removed speckit:processing from issue #${issueNumber}`);
+            } catch (e) {
+              // Label may not exist — that's fine
+              core.info(`Could not remove speckit:processing from issue #${issueNumber}: ${e.message}`);
+            }
+
+  # Job 2: Scheduled polling — scan issues with speckit:agent-fallback label,
+  # check for terminal failure states, remove speckit:processing (FR-012)
+  poll-agent-tasks:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Poll agent fallback tasks for terminal states
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            // Find all issues with either cloud-agent or legacy fallback state.
+            const processingIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'speckit:processing',
+              state: 'all',
+              per_page: 100,
+            });
+            // Cloud routing currently uses phases 1-3 only.
+            const cloudTrackedPhases = [1, 2, 3];
+            const phaseIssueGroups = await Promise.all(cloudTrackedPhases.map(phase =>
+              github.paginate(github.rest.issues.listForRepo, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: `speckit:agent-assigned-phase-${phase}`,
+                state: 'all',
+                per_page: 100,
+              })
+            ));
+            const issuesByNumber = new Map();
+            for (const issue of [...processingIssues, ...phaseIssueGroups.flat()]) {
+              if (!issue?.number) {
+                continue;
+              }
+              issuesByNumber.set(issue.number, issue);
+            }
+            const issues = Array.from(issuesByNumber.values());
+            const openPulls = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            if (issues.length === 0) {
+              core.info('No issues found with speckit:processing or speckit:agent-assigned-phase-* labels');
+              return;
+            }
+
+            const cloudMarkerRegex = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=(\d+) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->/;
+            const twoHours = 2 * 60 * 60 * 1000;
+            const trustedAssociations = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+            const trustedAuthorLogins = new Set(['github-actions[bot]']);
+            const isTrustedMarkerComment = (comment) =>
+              trustedAssociations.has(comment?.author_association || '') ||
+              trustedAuthorLogins.has(comment?.user?.login || '');
+            const findMatchingCloudPr = async (issueNumber, phase, markerMatch) => {
+              if (!markerMatch || !markerMatch[4]) {
+                return null;
+              }
+              const correlationId = markerMatch[4];
+              const search = await github.rest.search.issuesAndPullRequests({
+                q: `repo:${context.repo.owner}/${context.repo.repo} is:pr author:app/copilot-swe-agent "${correlationId}" in:body`,
+                per_page: 10,
+              });
+              for (const item of search.data.items || []) {
+                if (!item.pull_request) {
+                  continue;
+                }
+                const { data: pr } = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: item.number,
+                });
+                if (pr.user?.login !== 'copilot-swe-agent[bot]') {
+                  continue;
+                }
+                const prMatch = (pr.body || '').match(cloudMarkerRegex);
+                if (!prMatch) {
+                  continue;
+                }
+                const hierarchyLevel = String(markerMatch[3] || '').toLowerCase();
+                const expectedBase = (phase === 2)
+                  ? `speckit/${issueNumber}/phase-1-specify`
+                  : (phase === 3 && hierarchyLevel !== 'task')
+                    ? `speckit/${issueNumber}/phase-2-clarify`
+                    : 'main';
+                if (
+                  pr.base?.ref === expectedBase &&
+                  Number(prMatch[1]) === issueNumber &&
+                  Number(prMatch[2]) === phase &&
+                  prMatch[0] === markerMatch[0] &&
+                  prMatch[4] === markerMatch[4]
+                ) {
+                  return pr;
+                }
+              }
+              return null;
+            };
+            const removeCloudLabels = async (issueNumber, phase, markerBody = null) => {
+              const labels = [`speckit:agent-assigned-phase-${phase}`, 'speckit:processing'];
+              let non404Failure = false;
+              for (const label of labels) {
+                try {
+                  await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, name: label });
+                } catch (e) {
+                  if (e.status !== 404) {
+                    non404Failure = true;
+                    core.warning(`Issue #${issueNumber}: could not remove ${label}: ${e.message}`);
+                  }
+                }
+              }
+              if (!non404Failure) return true;
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  labels,
+                });
+                if (markerBody) {
+                  try {
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, body: markerBody,
+                    });
+                  } catch (markerError) {
+                    core.warning(`Issue #${issueNumber}: could not re-post marker after rollback: ${markerError.message}`);
+                  }
+                }
+                core.warning(`Issue #${issueNumber}: restored cloud-agent tracking labels after partial cleanup failure`);
+              } catch (restoreError) {
+                core.warning(`Issue #${issueNumber}: could not restore cloud-agent tracking labels: ${restoreError.message}`);
+              }
+              return false;
+            };
+
+            for (const issue of issues) {
+              if (issue.pull_request) {
+                continue;
+              }
+
+              const cloudLabel = (issue.labels || []).find((label) => /^speckit:agent-assigned-phase-[123]$/.test(label.name || ''));
+              if (cloudLabel) {
+                const phase = Number(cloudLabel.name.match(/(\d+)$/)[1]);
+                const comments = await github.paginate(github.rest.issues.listComments, {
+                  owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, per_page: 100,
+                });
+                // Fetch label events upfront so marker filtering can exclude markers
+                // from previous attempts (retries re-add the label, creating a newer
+                // label event; markers predating that event belong to the old attempt).
+                const labelEvents = await github.paginate(github.rest.issues.listEvents, {
+                  owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, per_page: 100,
+                });
+                const labelEvent = labelEvents
+                  .filter(e => e.event === 'labeled' && e.label?.name === cloudLabel.name)
+                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+                const labelEventTime = labelEvent ? new Date(labelEvent.created_at) : new Date(0);
+                const markers = comments
+                  .map((comment) => ({ comment, match: (comment.body || '').match(cloudMarkerRegex) }))
+                  .filter((entry) =>
+                    isTrustedMarkerComment(entry.comment) &&
+                    entry.match &&
+                    Number(entry.match[1]) === issue.number &&
+                    Number(entry.match[2]) === phase &&
+                    new Date(entry.comment.created_at) >= labelEventTime
+                  )
+                  .sort((a, b) => new Date(b.comment.created_at) - new Date(a.comment.created_at));
+                const latest = markers[0];
+                const markerMatch = latest?.match;
+                const matchingPr = await findMatchingCloudPr(issue.number, phase, markerMatch);
+                if (matchingPr) {
+                  const converged = await removeCloudLabels(issue.number, phase, latest?.comment?.body ?? null);
+                  if (converged) {
+                    core.info(`Issue #${issue.number}: validated cloud-agent PR found for phase ${phase}`);
+                  }
+                  continue;
+                }
+                if (!markerMatch) {
+                  // Use the label event timestamp as the authoritative dispatch time.
+                  // issue.updated_at is refreshed by comments and label changes, so a
+                  // marker-less partial assignment on an active issue could remain "younger
+                  // than two hours" indefinitely, blocking future dispatches.
+                  if (!labelEvent) {
+                    core.warning(`Issue #${issue.number}: no labeled event found for ${cloudLabel.name}; skipping timeout check`);
+                    continue;
+                  }
+                  const ageMs = Date.now() - new Date(labelEvent.created_at).getTime();
+                  if (ageMs <= twoHours) {
+                    core.warning(`Issue #${issue.number}: cloud-agent label has no authoritative marker yet`);
+                    continue;
+                  }
+                  const timeoutNoticePrefix = `<!-- speckit:agent-timeout issue=${issue.number} phase=${phase} correlation_id=missing-marker -->`;
+                  const hasTrustedTimeoutMarker = comments.some(
+                    (comment) => isTrustedMarkerComment(comment) && (comment.body || '').includes(timeoutNoticePrefix)
+                  );
+                  const alreadyFailed = (issue.labels || []).some((label) => label.name === 'speckit:failed');
+                  let failedStateRecorded = alreadyFailed;
+                  try {
+                    if (!alreadyFailed) {
+                      await github.rest.issues.addLabels({
+                        owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, labels: ['speckit:failed'],
+                      });
+                    }
+                    failedStateRecorded = true;
+                  } catch (e) {
+                    core.warning(`Issue #${issue.number}: could not add speckit:failed label: ${e.message}`);
+                  }
+                  let timeoutNoticeRecorded = hasTrustedTimeoutMarker;
+                  if (!hasTrustedTimeoutMarker) {
+                    try {
+                      await github.rest.issues.createComment({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: issue.number,
+                        body: `${timeoutNoticePrefix}\n\n❌ Cloud Agent tracking for SpecKit phase ${phase} timed out without an authoritative marker.`,
+                      });
+                      timeoutNoticeRecorded = true;
+                    } catch (e) {
+                      core.warning(`Issue #${issue.number}: could not post marker-less timeout notice: ${e.message}`);
+                    }
+                  }
+                  core.warning(`Issue #${issue.number}: cloud-agent phase ${phase} timed out without marker after two hours`);
+                  if (failedStateRecorded && timeoutNoticeRecorded) {
+                    await removeCloudLabels(issue.number, phase);
+                  } else {
+                    core.warning(`Issue #${issue.number}: preserving cloud-agent labels for timeout retry after failed state persistence`);
+                  }
+                  continue;
+                }
+                const ageMs = Date.now() - new Date(latest.comment.created_at).getTime();
+                if (ageMs <= twoHours) continue;
+                const timeoutMarker = `<!-- speckit:agent-timeout issue=${issue.number} phase=${phase} correlation_id=${markerMatch[4]} -->`;
+                const hasTrustedTimeoutMarker = comments.some(
+                  (comment) => isTrustedMarkerComment(comment) && (comment.body || '').includes(timeoutMarker)
+                );
+                const alreadyFailed = (issue.labels || []).some((label) => label.name === 'speckit:failed');
+                let failedStateRecorded = alreadyFailed;
+                try {
+                  if (!alreadyFailed) {
+                    await github.rest.issues.addLabels({
+                      owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, labels: ['speckit:failed'],
+                    });
+                  }
+                  failedStateRecorded = true;
+                } catch (e) {
+                  core.warning(`Issue #${issue.number}: could not add speckit:failed label: ${e.message}`);
+                }
+                let timeoutNoticeRecorded = hasTrustedTimeoutMarker;
+                if (!hasTrustedTimeoutMarker) {
+                  try {
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number,
+                      body: `${timeoutMarker}\n\n❌ Cloud Agent did not open a validated SpecKit phase ${phase} pull request within two hours (correlation ID \`${markerMatch[4]}\`).`,
+                    });
+                    timeoutNoticeRecorded = true;
+                  } catch (e) {
+                    core.warning(`Issue #${issue.number}: could not post cloud-agent timeout notice: ${e.message}`);
+                  }
+                }
+                core.warning(`Issue #${issue.number}: cloud-agent phase ${phase} timed out after two hours`);
+                if (failedStateRecorded && timeoutNoticeRecorded) {
+                  await removeCloudLabels(issue.number, phase);
+                } else {
+                  core.warning(`Issue #${issue.number}: preserving cloud-agent labels for timeout retry after failed state persistence`);
+                }
+                continue;
+              }
+              if (!(issue.labels || []).some((label) => label.name === 'speckit:agent-fallback')) {
+                continue;
+              }
+
+              const now = new Date();
+              const twoHours = 2 * 60 * 60 * 1000;
+
+              // Parse marker comment for task ID (paginate to cover all comments)
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                per_page: 100,
+              });
+
+              const markerRegex = /<!--\s*speckit:agent-fallback\s+task_id=([^ ]+)\s+task_url=([^ ]+)\s+issue=(\d+)\s+phase=(\d+)\s*-->/;
+              let taskId = null;
+              let latestMarkerCreatedAt = null;
+              for (const comment of comments) {
+                const match = comment.body && comment.body.match(markerRegex);
+                if (match) {
+                  const markerIssue = Number(match[3]);
+                  if (markerIssue !== issue.number) continue;
+
+                  // Keep the most recent marker to avoid acting on stale tasks
+                  if (!latestMarkerCreatedAt || new Date(comment.created_at) > new Date(latestMarkerCreatedAt)) {
+                    taskId = match[1];
+                    latestMarkerCreatedAt = comment.created_at;
+                  }
+                }
+              }
+
+              if (!taskId) {
+                const issueUpdatedAt = new Date(issue.updated_at || issue.created_at);
+                const ageMs = now - issueUpdatedAt;
+                if (ageMs > twoHours) {
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      name: 'speckit:processing',
+                    });
+                    await github.rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      labels: ['speckit:failed'],
+                    });
+                    core.warning(`Issue #${issue.number}: no marker found and issue stale (>2h), removed speckit:processing, added speckit:failed`);
+                  } catch (e) {
+                    core.warning(`Issue #${issue.number}: could not update labels for stale missing marker: ${e.message}`);
+                  }
+                } else {
+                  core.warning(`Issue #${issue.number}: no agent-fallback marker comment found`);
+                }
+                continue;
+              }
+
+              // Check if a PR already exists for this issue (terminal success)
+              const issueMatch = issue.number;
+              const hasPr = openPulls.some(pr =>
+                pr.head.ref.startsWith(`speckit/${issueMatch}/phase-`)
+              );
+
+              if (hasPr) {
+                // Terminal success — PR exists, remove processing label
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    name: 'speckit:processing',
+                  });
+                  core.info(`Issue #${issue.number}: PR found, removed speckit:processing`);
+                } catch (e) {
+                  core.info(`Issue #${issue.number}: could not remove label: ${e.message}`);
+                }
+                continue;
+              }
+
+              // Query Coding Agent task status API
+              let taskStatus = null;
+              try {
+                const resp = await github.request('GET /repos/{owner}/{repo}/copilot/coding-agent/tasks/{task_id}', {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  task_id: taskId,
+                  headers: { 'X-GitHub-Api-Version': '2022-11-28' },
+                });
+                taskStatus = resp.data.status;
+                core.info(`Issue #${issue.number}: agent task status = ${taskStatus}`);
+              } catch (e) {
+                core.warning(`Issue #${issue.number}: could not query task status: ${e.message}`);
+              }
+
+              // Handle terminal failure from API
+              if (taskStatus === 'failed' || taskStatus === 'cancelled') {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    name: 'speckit:processing',
+                  });
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    labels: ['speckit:failed'],
+                  });
+                  core.info(`Issue #${issue.number}: agent task ${taskStatus}, removed speckit:processing, added speckit:failed`);
+                } catch (e) {
+                  core.warning(`Issue #${issue.number}: could not update labels: ${e.message}`);
+                }
+                continue;
+              }
+
+              // If API returned a non-terminal status, skip timeout check
+              if (taskStatus && taskStatus !== 'failed' && taskStatus !== 'cancelled') {
+                continue;
+              }
+
+              // Fallback: check task age — if the most recent marker comment is older than 2 hours, consider it failed
+              if (latestMarkerCreatedAt) {
+                const createdAt = new Date(latestMarkerCreatedAt);
+                const ageMs = now - createdAt;
+                if (ageMs > twoHours) {
+                  // Terminal failure — task timed out
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      name: 'speckit:processing',
+                    });
+                    await github.rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      labels: ['speckit:failed'],
+                    });
+                    core.info(`Issue #${issue.number}: agent task timed out (>2h), removed speckit:processing, added speckit:failed`);
+                  } catch (e) {
+                    core.warning(`Issue #${issue.number}: could not update labels: ${e.message}`);
+                  }
+                }
+              }
+            }

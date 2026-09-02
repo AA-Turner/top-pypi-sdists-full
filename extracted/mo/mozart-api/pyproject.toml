@@ -1,0 +1,42 @@
+[project]
+name = "mozart_api"
+version = "6.2.0.44.2"
+description = "Mozart API"
+authors = [{ name = "BangOlufsen", email = "support@bang-olufsen.dk" }]
+readme = "README.md"
+keywords = ["OpenAPI", "OpenAPI-Generator", "Mozart API"]
+requires-python = ">=3.11"
+dependencies = [
+    "aioconsole (>=0.4.1)",
+    "aiohttp (>=3.11.0)",
+    "aiohttp-retry (>=2.8.3)",
+    "inflection (>=0.5.1)",
+    "pydantic (>=2.11)",
+    "python-dateutil (>=2.8.2)",
+    "typing-extensions (>=4.7.1)",
+    "urllib3 (<3)",
+    "zeroconf (>=0.25.1)",
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Multimedia",
+    "Intended Audience :: Developers",
+]
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+homepage = "https://pypi.org/project/mozart-api/"
+documentation = "https://bang-olufsen.github.io/mozart-open-api/"
+repository = "https://github.com/bang-olufsen/mozart-open-api"
+"Bug Tracker" = "https://github.com/bang-olufsen/mozart-open-api/issues"
+
+[project.scripts]
+mozart_api = "mozart_api.mozart_cli:MozartApiCli"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

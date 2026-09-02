@@ -42,6 +42,7 @@ class Cluster(object):
         'openshift_version': 'str',
         'ocp_release_image': 'str',
         'openshift_cluster_id': 'str',
+        'os_stream': 'str',
         'image_info': 'ImageInfo',
         'platform': 'Platform',
         'base_dns_domain': 'str',
@@ -118,6 +119,7 @@ class Cluster(object):
         'openshift_version': 'openshift_version',
         'ocp_release_image': 'ocp_release_image',
         'openshift_cluster_id': 'openshift_cluster_id',
+        'os_stream': 'os_stream',
         'image_info': 'image_info',
         'platform': 'platform',
         'base_dns_domain': 'base_dns_domain',
@@ -182,7 +184,7 @@ class Cluster(object):
         'load_balancer': 'load_balancer'
     }
 
-    def __init__(self, kind=None, high_availability_mode='Full', id=None, href=None, name=None, user_name=None, org_id=None, email_domain=None, openshift_version=None, ocp_release_image=None, openshift_cluster_id=None, image_info=None, platform=None, base_dns_domain=None, cluster_network_cidr=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, api_vip_dns_name=None, machine_network_cidr=None, ingress_vips=None, ssh_public_key=None, http_proxy=None, https_proxy=None, no_proxy=None, status=None, status_info=None, status_updated_at=None, progress=None, disk_encryption=None, hosts=None, ready_host_count=None, enabled_host_count=None, total_host_count=None, schedulable_masters=False, schedulable_masters_forced_true=True, updated_at=None, created_at=None, install_started_at=None, install_completed_at=None, host_networks=None, pull_secret_set=None, vip_dhcp_allocation=None, validations_info=None, logs_info=None, install_config_overrides=None, controller_logs_collected_at=None, controller_logs_started_at=None, connectivity_majority_groups=None, ip_collisions=None, ignored_host_validations=None, ignored_cluster_validations=None, deleted_at=None, user_managed_networking=None, additional_ntp_source=None, ntp_sources=None, monitored_operators=None, operator_bundles=None, ams_subscription_id=None, hyperthreading=None, feature_usage=None, network_type=None, cluster_networks=None, service_networks=None, machine_networks=None, cpu_architecture='x86_64', ignition_endpoint=None, imported=False, tags=None, last_installation_preparation=None, org_soft_timeouts_enabled=None, control_plane_count=None, load_balancer=None):  # noqa: E501
+    def __init__(self, kind=None, high_availability_mode='Full', id=None, href=None, name=None, user_name=None, org_id=None, email_domain=None, openshift_version=None, ocp_release_image=None, openshift_cluster_id=None, os_stream=None, image_info=None, platform=None, base_dns_domain=None, cluster_network_cidr=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, api_vip_dns_name=None, machine_network_cidr=None, ingress_vips=None, ssh_public_key=None, http_proxy=None, https_proxy=None, no_proxy=None, status=None, status_info=None, status_updated_at=None, progress=None, disk_encryption=None, hosts=None, ready_host_count=None, enabled_host_count=None, total_host_count=None, schedulable_masters=False, schedulable_masters_forced_true=True, updated_at=None, created_at=None, install_started_at=None, install_completed_at=None, host_networks=None, pull_secret_set=None, vip_dhcp_allocation=None, validations_info=None, logs_info=None, install_config_overrides=None, controller_logs_collected_at=None, controller_logs_started_at=None, connectivity_majority_groups=None, ip_collisions=None, ignored_host_validations=None, ignored_cluster_validations=None, deleted_at=None, user_managed_networking=None, additional_ntp_source=None, ntp_sources=None, monitored_operators=None, operator_bundles=None, ams_subscription_id=None, hyperthreading=None, feature_usage=None, network_type=None, cluster_networks=None, service_networks=None, machine_networks=None, cpu_architecture='x86_64', ignition_endpoint=None, imported=False, tags=None, last_installation_preparation=None, org_soft_timeouts_enabled=None, control_plane_count=None, load_balancer=None):  # noqa: E501
         """Cluster - a model defined in Swagger"""  # noqa: E501
 
         self._kind = None
@@ -196,6 +198,7 @@ class Cluster(object):
         self._openshift_version = None
         self._ocp_release_image = None
         self._openshift_cluster_id = None
+        self._os_stream = None
         self._image_info = None
         self._platform = None
         self._base_dns_domain = None
@@ -279,6 +282,8 @@ class Cluster(object):
             self.ocp_release_image = ocp_release_image
         if openshift_cluster_id is not None:
             self.openshift_cluster_id = openshift_cluster_id
+        if os_stream is not None:
+            self.os_stream = os_stream
         self.image_info = image_info
         if platform is not None:
             self.platform = platform
@@ -665,6 +670,29 @@ class Cluster(object):
         """
 
         self._openshift_cluster_id = openshift_cluster_id
+
+    @property
+    def os_stream(self):
+        """Gets the os_stream of this Cluster.  # noqa: E501
+
+        The OS stream to use for this cluster (e.g. rhel-9, rhel-10). If unset, the default OS stream for the OpenShift version is used.  # noqa: E501
+
+        :return: The os_stream of this Cluster.  # noqa: E501
+        :rtype: str
+        """
+        return self._os_stream
+
+    @os_stream.setter
+    def os_stream(self, os_stream):
+        """Sets the os_stream of this Cluster.
+
+        The OS stream to use for this cluster (e.g. rhel-9, rhel-10). If unset, the default OS stream for the OpenShift version is used.  # noqa: E501
+
+        :param os_stream: The os_stream of this Cluster.  # noqa: E501
+        :type: str
+        """
+
+        self._os_stream = os_stream
 
     @property
     def image_info(self):

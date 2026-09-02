@@ -1,0 +1,45 @@
+name: Suppressed Triage Reap
+
+on:
+  schedule:
+    - cron: "43 * * * *"
+  workflow_dispatch:
+    inputs:
+      max_prs:
+        description: "Maximum number of follow-up PRs to close in one run"
+        required: false
+        default: "25"
+      dry_run:
+        description: "Report what would be closed without mutating anything"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: suppressed-triage-reap
+  cancel-in-progress: false
+
+jobs:
+  reap-no-change-followups:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: pip install -e .
+      - name: Close no-change suppressed-triage follow-up PRs
+        run: |
+          if [ "${DRY_RUN}" = "true" ]; then
+            agdt-suppressed-triage-reap --repo "${REPO}" --max-prs "${MAX_PRS}" --dry-run
+          else
+            agdt-suppressed-triage-reap --repo "${REPO}" --max-prs "${MAX_PRS}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          MAX_PRS: ${{ inputs.max_prs || '25' }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}

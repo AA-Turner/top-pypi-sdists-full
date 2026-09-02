@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cdflib"
+authors = [
+    { name = "Bryan Harter", email = "harter@lasp.colorado.edu" },
+]
+description = "A python CDF reader toolkit"
+readme = "README.md"
+requires-python = ">= 3.9"
+keywords = ["CDF", "maven", "lasp", "PDS", "GSFC"]
+license = { file = "LICENSE" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "numpy >= 1.21",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/lasp/cdflib"
+
+[project.optional-dependencies]
+tests = [
+    "astropy",
+    "hypothesis",
+    "pytest >= 3.9",
+    "pytest-cov",
+    "pytest-remotedata",
+    "xarray",
+    "h5netcdf",
+    "netcdf4",
+    "pooch"
+]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
+dev = [
+    "ipython",
+    "pre-commit",
+    "matplotlib",
+]
+
+[tool.setuptools]
+include-package-data = true
+packages = ["cdflib"]
+
+[tool.setuptools_scm]
+write_to = "cdflib/_version.py"
+
+[tool.black]
+line-length = 132
+
+[tool.pytest.ini_options]
+minversion = "3.9"
+addopts = "-ra --cov=cdflib --cov-report=xml"
+filterwarnings = [
+    "ignore:ERFA function",
+    "ignore:numpy.ndarray size changed",
+]
+
+[tool.isort]
+balanced_wrapping = true
+default_section = "THIRDPARTY"
+include_trailing_comma = true
+known_first_party = ["cdflib"]
+length_sort = false
+line_length = 80
+multi_line_output = 3
+no_lines_before = "LOCALFOLDER"
+sections = ["STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]

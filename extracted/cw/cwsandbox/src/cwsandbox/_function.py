@@ -16,11 +16,14 @@ from typing import TYPE_CHECKING, Any, Generic, ParamSpec, TypeVar
 
 from cwsandbox._defaults import DEFAULT_TEMP_DIR
 from cwsandbox._types import (
+    DataPlaneMode,
     FileSystemSnapshotOptions,
     NetworkOptions,
+    ObjectStorageAccess,
     OperationRef,
     PlacementSpillover,
     ResourceOptions,
+    SecurityContext,
 )
 from cwsandbox.exceptions import AsyncFunctionError, SandboxExecutionError
 
@@ -90,9 +93,14 @@ class RemoteFunction(Generic[P, R]):
         file_system_snapshot: FileSystemSnapshotOptions | dict[str, Any] | None = None,
         placement_mode: Any | None = None,
         placement_spillover: PlacementSpillover | str | None = None,
+        runtime_class: str | None = None,
+        security_context: SecurityContext | dict[str, Any] | None = None,
+        working_dir: str | None = None,
+        object_storage_access: ObjectStorageAccess | dict[str, Any] | None = None,
         environment_variables: dict[str, str] | None = None,
         annotations: dict[str, str] | None = None,
         request_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str | None = None,
     ) -> None:
         """Initialize RemoteFunction with function and execution configuration.
 
@@ -118,6 +126,7 @@ class RemoteFunction(Generic[P, R]):
             annotations: Kubernetes pod annotations for the sandbox.
                 Merges with and overrides matching keys from the session defaults.
                 Use for non-sensitive metadata only.
+            data_plane_mode: Override the session's data-plane transport policy.
         """
         unwrapped = fn
         while hasattr(unwrapped, "__wrapped__"):
@@ -154,8 +163,13 @@ class RemoteFunction(Generic[P, R]):
         self._placement_mode = placement_mode
         self._placement_spillover = placement_spillover
         self._file_system_snapshot = file_system_snapshot
+        self._runtime_class = runtime_class
+        self._security_context = security_context
+        self._working_dir = working_dir
+        self._object_storage_access = object_storage_access
         self._max_timeout_seconds = None
         self._request_timeout_seconds = request_timeout_seconds
+        self._data_plane_mode = data_plane_mode
         self._environment_variables = environment_variables
         self._annotations = annotations
         # Preserve function metadata
@@ -279,12 +293,22 @@ class RemoteFunction(Generic[P, R]):
             sandbox_kwargs["placement_spillover"] = self._placement_spillover
         if self._file_system_snapshot is not None:
             sandbox_kwargs["file_system_snapshot"] = self._file_system_snapshot
+        if self._runtime_class is not None:
+            sandbox_kwargs["runtime_class"] = self._runtime_class
+        if self._security_context is not None:
+            sandbox_kwargs["security_context"] = self._security_context
+        if self._working_dir is not None:
+            sandbox_kwargs["working_dir"] = self._working_dir
+        if self._object_storage_access is not None:
+            sandbox_kwargs["object_storage_access"] = self._object_storage_access
         if self._environment_variables is not None:
             sandbox_kwargs["environment_variables"] = self._environment_variables
         if self._annotations is not None:
             sandbox_kwargs["annotations"] = self._annotations
         if self._request_timeout_seconds is not None:
             sandbox_kwargs["request_timeout_seconds"] = self._request_timeout_seconds
+        if self._data_plane_mode is not None:
+            sandbox_kwargs["data_plane_mode"] = self._data_plane_mode
 
         # Import here to avoid circular import
         from cwsandbox._sandbox import Sandbox
@@ -292,9 +316,10 @@ class RemoteFunction(Generic[P, R]):
         # Create sandbox directly and use async start to avoid deadlock.
         # session.sandbox() uses sync APIs which would deadlock when called
         # from the daemon thread running this async method.
+        # Remote functions stay single-container: ignore session containers=.
         sandbox = Sandbox(
             container_image=self._container_image,
-            defaults=self._session._defaults,
+            defaults=self._session._defaults.with_overrides(containers=None),
             _session=self._session,
             **sandbox_kwargs,
         )

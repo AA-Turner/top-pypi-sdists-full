@@ -13,7 +13,6 @@ from spec_kitty_tracker.nango import (
     NangoProxyTransport,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -58,9 +57,7 @@ def _make_github_chain(
     recording: RecordingTransport,
 ) -> tuple[GitHubConnector, httpx.AsyncClient]:
     context = _make_context()
-    config = GitHubConnectorConfig(
-        owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN
-    )
+    config = GitHubConnectorConfig(owner="myorg", repo="myrepo", token=NANGO_MANAGED_TOKEN)
     transport = NangoProxyTransport(context, transport=recording)
     client = httpx.AsyncClient(transport=transport)
     connector = GitHubConnector(config, client=client)
@@ -88,12 +85,12 @@ class TestPackageExports:
 
     def test_all_discovery_symbols_importable(self) -> None:
         from spec_kitty_tracker import (
-            DiscoveredWorkspace,
             DiscoveredResource,
+            DiscoveredWorkspace,
             DiscoveryResult,
-            discover_workspaces,
-            discover_resources,
             JSONValue,
+            discover_resources,
+            discover_workspaces,
         )
 
         assert DiscoveredWorkspace is not None
@@ -133,9 +130,7 @@ class TestIntegrationSmokeTest:
         recording = RecordingTransport(response_json=[])
         connector, client = _make_github_chain(recording)
 
-        page = await connector.list_issues(
-            updated_since=None, cursor=None, limit=10, filters=None
-        )
+        page = await connector.list_issues(updated_since=None, cursor=None, limit=10, filters=None)
 
         assert recording.last_request is not None
         url = str(recording.last_request.url)
@@ -167,9 +162,7 @@ class TestErrorHandlingThroughProxy:
         connector, client = _make_github_chain(recording)
 
         with pytest.raises(ConnectorRequestError) as exc_info:
-            await connector.list_issues(
-                updated_since=None, cursor=None, limit=10, filters=None
-            )
+            await connector.list_issues(updated_since=None, cursor=None, limit=10, filters=None)
         assert exc_info.value.failure_class == FailureClass.AUTHENTICATION
         assert exc_info.value.status_code == 401
         await client.aclose()
@@ -185,9 +178,7 @@ class TestErrorHandlingThroughProxy:
         connector, client = _make_github_chain(recording)
 
         with pytest.raises(ConnectorRequestError) as exc_info:
-            await connector.list_issues(
-                updated_since=None, cursor=None, limit=10, filters=None
-            )
+            await connector.list_issues(updated_since=None, cursor=None, limit=10, filters=None)
         assert exc_info.value.failure_class == FailureClass.RATE_LIMIT
         assert exc_info.value.status_code == 429
         assert exc_info.value.retry_after_seconds == 60
@@ -203,9 +194,7 @@ class TestErrorHandlingThroughProxy:
         connector, client = _make_github_chain(recording)
 
         with pytest.raises(ConnectorRequestError) as exc_info:
-            await connector.list_issues(
-                updated_since=None, cursor=None, limit=10, filters=None
-            )
+            await connector.list_issues(updated_since=None, cursor=None, limit=10, filters=None)
         assert exc_info.value.failure_class == FailureClass.TRANSIENT
         assert exc_info.value.status_code == 500
         await client.aclose()
@@ -220,9 +209,7 @@ class TestErrorHandlingThroughProxy:
         connector, client = _make_github_chain(recording)
 
         with pytest.raises(ConnectorRequestError) as exc_info:
-            await connector.list_issues(
-                updated_since=None, cursor=None, limit=10, filters=None
-            )
+            await connector.list_issues(updated_since=None, cursor=None, limit=10, filters=None)
         assert exc_info.value.failure_class == FailureClass.PERMISSION
         assert exc_info.value.status_code == 403
         await client.aclose()

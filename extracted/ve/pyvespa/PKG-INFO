@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvespa
-Version: 1.2.4
+Version: 1.2.5
 Summary: Python API for vespa.ai
 Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>
@@ -216,7 +216,7 @@ License-File: LICENSE
 Requires-Dist: httpr>=0.4.0
 Requires-Dist: docker
 Requires-Dist: jinja2
-Requires-Dist: cryptography>=48.0.1
+Requires-Dist: cryptography>=50.0.0
 Requires-Dist: tenacity>=8.4.1
 Requires-Dist: typing_extensions
 Requires-Dist: python-dateutil
@@ -229,8 +229,8 @@ Requires-Dist: httpx[http2]
 Provides-Extra: vespacli
 Requires-Dist: vespacli; extra == "vespacli"
 Provides-Extra: build
-Requires-Dist: setuptools==78.1.1; extra == "build"
-Requires-Dist: build==1.0.3; extra == "build"
+Requires-Dist: setuptools==83.0.0; extra == "build"
+Requires-Dist: build==1.5.0; extra == "build"
 Requires-Dist: twine==5.1.1; extra == "build"
 Requires-Dist: toml==0.10.2; extra == "build"
 Requires-Dist: ruff; extra == "build"
@@ -241,7 +241,7 @@ Requires-Dist: vespacli; extra == "unittest"
 Requires-Dist: pytest-asyncio; extra == "unittest"
 Requires-Dist: mypy>=1.14.1; extra == "unittest"
 Provides-Extra: docs
-Requires-Dist: ipykernel==6.30.1; extra == "docs"
+Requires-Dist: ipykernel==6.31.0; extra == "docs"
 Requires-Dist: nbconvert>=7.17.0; extra == "docs"
 Requires-Dist: jupyter; extra == "docs"
 Requires-Dist: mkdocs-material; extra == "docs"
@@ -265,7 +265,7 @@ Requires-Dist: vespacli; extra == "feed"
 Provides-Extra: notebooks
 Requires-Dist: notebook; extra == "notebooks"
 Requires-Dist: nbconvert>=7.17.0; extra == "notebooks"
-Requires-Dist: ipykernel==6.30.1; extra == "notebooks"
+Requires-Dist: ipykernel==6.31.0; extra == "notebooks"
 Requires-Dist: jupytext; extra == "notebooks"
 Requires-Dist: numpy; extra == "notebooks"
 Requires-Dist: pandas; extra == "notebooks"

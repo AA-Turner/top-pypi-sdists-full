@@ -1,0 +1,138 @@
+[workspace]
+resolver = "2"
+
+[package]
+name = "renkin"
+version = "1.0.0"
+edition = "2024"
+authors = ["kent-tokyo <kent-tokyo@users.noreply.github.com>"]
+description = "Ultra-fast retrosynthesis engine for computer-aided synthesis planning (CASP) — pure Rust, WASM-ready, Python bindings via PyO3"
+repository    = "https://github.com/kent-tokyo/renkin"
+homepage      = "https://github.com/kent-tokyo/renkin"
+documentation = "https://docs.rs/renkin"
+readme        = "README.md"
+license       = "MIT"
+keywords      = ["retrosynthesis", "cheminformatics", "chemistry", "wasm", "drug-discovery"]
+categories    = ["science::computational-chemistry::cheminformatics", "wasm", "command-line-utilities", "algorithms"]
+exclude       = [
+    "data/building_blocks_500k.smi",
+    "data/building_blocks_emolecules*.smi",
+    "data/bench_chunks*/**",
+    "data/uspto50k_test.smi",
+    "data/uspto50k_benchmark_result*.json",
+    "data/templates_extracted*.smi",
+    "data/phase_a5_template_scaling/templates/*.smi",
+    "data/comparison/**",
+    "data/ring_context_metadata_500.json",
+    "docs/playground/**",
+    "tasks/**",
+    "scripts/**",
+    "docker/**",
+    "artifacts/**",
+    ".claude/**",
+    "data/template_scorer*.onnx",
+    "data/template_scorer*.onnx.data",
+]
+
+[[bin]]
+name = "renkin"
+path = "src/main.rs"
+
+[[bin]]
+name = "renkin-bench"
+path = "src/bin/benchmark.rs"
+
+[[bin]]
+name = "renkin-fp"
+path = "src/bin/fp.rs"
+required-features = ["nn-scoring"]
+
+[[bin]]
+name = "renkin-mcp"
+path = "src/bin/mcp.rs"
+
+[[bin]]
+name = "renkin-doctor"
+path = "src/bin/doctor.rs"
+
+[[bin]]
+name = "renkin-canonicalize"
+path = "src/bin/canonicalize.rs"
+
+[[bin]]
+name = "renkin-pool-gen"
+path = "src/bin/pool_gen.rs"
+
+[[bin]]
+name = "renkin-reranker-predict"
+path = "src/bin/reranker_predict.rs"
+
+[[example]]
+name = "measure_rank_recall"
+required-features = ["nn-scoring"]
+
+[[example]]
+name = "canonicalize_smiles"
+
+[lib]
+name = "renkin"
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[features]
+default = []
+python = ["pyo3/extension-module"]
+# nn-scoring: ONNX-based template relevance prediction (CLI/PyO3 only, not WASM)
+# Requires: data/template_scorer.onnx built by scripts/train_template_scorer.py
+nn-scoring = ["dep:tract-onnx", "chematic/fp"]
+# perf-instrumentation: exposes chematic-rxn's own run_reactants-level work
+# counters (chematic_rxn::perf_counters) for the apply-retro-performance-regression
+# gate/benchmark. Off by default, zero cost when disabled (same convention as
+# chematic's own feature of the same name).
+perf-instrumentation = ["dep:chematic-rxn"]
+
+[dependencies]
+# chematic 0.8.0 includes the automorphism-orbit-pruned canonical_smiles() fix
+# (chematic#193, https://github.com/kent-tokyo/chematic/pull/193, merged as
+# 3e45f55) which resolves the apply_retro/run_reactants combinatorial
+# regression this crate previously worked around with a git-pinned commit.
+#
+# 0.16 -> 0.26.0: upstream stock/stereo-identity and cheminformatics fixes
+# found via `renkin doctor stock reimport_idempotency` on a 9.47M-compound
+# eMolecules corpus, none a patch-level jump from RENKIN's own perspective --
+# see the CHANGELOG entry for this bump for the full verification record.
+# remove_hydrogens no longer silently destroys isotope-labeled hydrogen
+# (chematic#389) or drops stereo_neighbor_order/bond_directions on a
+# canonical round-trip (chematic#392); a coupled-stereo-alkene E/Z
+# canonicalization defect that could silently change a molecule's real
+# geometry is fixed (chematic#390); two more independent correctness fixes
+# (chematic#395, #399) landed in the same 0.20.1 release.
+chematic = { version = "0.26.0", features = ["smiles", "chem", "smarts", "rxn", "inchi"] }
+# Same registry release as `chematic` above (required: they must resolve to the
+# same chematic-core/etc. instance). Only for perf_counters -- normal builds
+# reach run_reactants via the chematic facade, not this direct dependency.
+chematic-rxn = { version = "0.26.0", features = ["perf-instrumentation"], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+rustc-hash = "2"
+smallvec = { version = "1", features = ["union"] }
+sha2 = "0.11"
+
+# PyO3: Python bindings (optional)
+pyo3 = { version = "0.29", optional = true }
+
+# tract-onnx: Pure Rust ONNX inference (no C/C++ dependency)
+tract-onnx = { version = "0.23", optional = true }
+
+# rayon: not available on wasm32 (no threads). flate2: gzip decompression for
+# `renkin audit-route`'s `.json.gz` input (aizynthcli's batch output format) --
+# CLI-only, never referenced from the wasm-built library target.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = "1"
+flate2 = "1"
+
+# WASM: needed for chematic's internal random usage
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+getrandom = { version = "0.2", features = ["js"] }

@@ -1,27 +1,86 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pm4py
-Version: 2.7.23.7
+Version: 2.7.23.8
 Summary: Process mining for Python
-Home-page: https://processintelligence.solutions/
-Author: Process Intelligence Solutions (PIS)
-Author-email: info@processintelligence.solutions
-License: AGPL 3.0
+Author-email: "Process Intelligence Solutions (PIS)" <info@processintelligence.solutions>
+Maintainer-email: "Process Intelligence Solutions (PIS)" <info@processintelligence.solutions>
+License-Expression: AGPL-3.0-or-later
+Project-URL: Homepage, https://processintelligence.solutions/
 Project-URL: Documentation, https://processintelligence.solutions/pm4py/
 Project-URL: Source, https://github.com/process-intelligence-solutions/pm4py
-Project-URL: Tracker, https://github.com/process-intelligence-solutions/pm4py/issues
+Project-URL: Issues, https://github.com/process-intelligence-solutions/pm4py/issues
+Keywords: process mining
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy
-Requires-Dist: pandas
-Requires-Dist: networkx
+Requires-Dist: cvxopt; python_version < "3.15"
 Requires-Dist: graphviz
-Requires-Dist: scipy
 Requires-Dist: lxml
 Requires-Dist: matplotlib
+Requires-Dist: networkx
+Requires-Dist: numpy
+Requires-Dist: pandas
 Requires-Dist: pytz
+Requires-Dist: scipy
 Requires-Dist: tqdm
-Requires-Dist: wheel
-Requires-Dist: setuptools
-Requires-Dist: cvxopt; python_version < "3.15"
+Provides-Extra: calendars
+Requires-Dist: workalendar; extra == "calendars"
+Provides-Extra: connectors
+Requires-Dist: requests; extra == "connectors"
+Provides-Extra: llm
+Requires-Dist: openai; extra == "llm"
+Requires-Dist: requests; extra == "llm"
+Provides-Extra: ml
+Requires-Dist: pyemd; extra == "ml"
+Requires-Dist: scikit-learn; extra == "ml"
+Provides-Extra: ocel
+Requires-Dist: jsonschema; extra == "ocel"
+Requires-Dist: pyarrow; extra == "ocel"
+Provides-Extra: polars
+Requires-Dist: polars; extra == "polars"
+Provides-Extra: solvers
+Requires-Dist: cvxopt; extra == "solvers"
+Provides-Extra: stable
+Requires-Dist: contourpy==1.3.3; extra == "stable"
+Requires-Dist: cycler==0.12.1; extra == "stable"
+Requires-Dist: fonttools==4.63.0; extra == "stable"
+Requires-Dist: graphviz==0.21; extra == "stable"
+Requires-Dist: kiwisolver==1.5.0; extra == "stable"
+Requires-Dist: lxml==6.1.1; extra == "stable"
+Requires-Dist: matplotlib==3.11.1; extra == "stable"
+Requires-Dist: networkx==3.6.1; extra == "stable"
+Requires-Dist: numpy==2.5.1; extra == "stable"
+Requires-Dist: packaging==26.2; extra == "stable"
+Requires-Dist: pandas==3.0.5; extra == "stable"
+Requires-Dist: pillow==12.3.0; extra == "stable"
+Requires-Dist: pyparsing==3.3.2; extra == "stable"
+Requires-Dist: python-dateutil==2.9.0.post0; extra == "stable"
+Requires-Dist: pytz==2026.3.post1; extra == "stable"
+Requires-Dist: scipy==1.18.0; extra == "stable"
+Requires-Dist: setuptools==83.0.0; extra == "stable"
+Requires-Dist: six==1.17.0; extra == "stable"
+Requires-Dist: tqdm==4.70.0; extra == "stable"
+Requires-Dist: wheel==0.47.0; extra == "stable"
+Provides-Extra: visualization
+Requires-Dist: pyvis; extra == "visualization"
+Provides-Extra: windows
+Requires-Dist: pygetwindow; sys_platform == "win32" and extra == "windows"
+Requires-Dist: pynput; sys_platform == "win32" and extra == "windows"
+Requires-Dist: pywin32; sys_platform == "win32" and extra == "windows"
+Provides-Extra: all
+Requires-Dist: pm4py[calendars,connectors,llm,ml,ocel,polars,solvers,visualization,windows]; extra == "all"
+Dynamic: license-file
 
 # PM4Py
 
@@ -48,35 +107,56 @@ The documentation of PM4Py can be found at https://processintelligence.solutions
 
 Here is a simple example to spark your interest:
 
+```python
 import pm4py
 
 if __name__ == "__main__":
     log = pm4py.read_xes('<path-to-xes-log-file.xes>')
     net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log)
     pm4py.view_petri_net(net, initial_marking, final_marking, format="svg")
+```
 
 ## Installation
 PM4Py can be installed on Python 3.9.x / 3.10.x / 3.11.x / 3.12.x / 3.13.x / 3.14.x by invoking:
 
-pip install -U pm4py
+`pip install -U pm4py`
+
+Optional features can be installed through extras. For example:
+
+`pip install -U "pm4py[polars,ml]"`
+
+Use `pip install -U "pm4py[all]"` to install every optional feature supported on the current platform.
+
+For a reproducible installation using the exact dependency versions validated by the project, use:
+
+`pip install -U "pm4py[stable]"`
 
 PM4Py is also running on older Python environments with different requirements sets, including:
 
-- Python 3.8 (3.8.10): third_party/old_python_deps/requirements_py38.txt
+- Python 3.8 (3.8.10): `third_party/old_python_deps/requirements_py38.txt`
 
 ## Requirements
 
-PM4Py depends on some other Python packages, with different levels of importance:
+The default installation contains the dependencies needed for mainstream usage. Additional integrations are grouped by
+feature in `pyproject.toml`:
 
-* *Essential requirements*: numpy, pandas, deprecation, networkx
-* *Normal requirements* (installed by default with the PM4Py package, important for mainstream usage): graphviz,
-  intervaltree, lxml, matplotlib, pydotplus, pytz, scipy, tqdm
-* *Optional requirements* (not installed by default): requests, pyvis, jsonschema, workalendar, pyarrow, scikit-learn,
-  polars, openai, pyemd, pyaudio, pydub, pygame, pywin32, pygetwindow, pynput
+* `calendars`: workalendar
+* `connectors`: requests
+* `llm`: openai and requests
+* `ml`: pyemd and scikit-learn
+* `ocel`: jsonschema and pyarrow
+* `polars`: Polars dataframe support
+* `solvers`: cvxopt
+* `stable`: the exact dependency versions validated by the project and used by CI
+* `visualization`: pyvis
+* `windows`: pygetwindow, pynput, and pywin32 (Windows only)
+
+For a source checkout, install the project with `python -m pip install -e .`. Build, CI, and lint dependencies are
+standard dependency groups and can be installed with, for example, `python -m pip install --group lint`.
 
 ## Release Notes
 
-To track the incremental updates, please refer to the CHANGELOG.md file.
+To track the incremental updates, please refer to the `CHANGELOG.md` file.
 
 ## Contributing
 
@@ -85,8 +165,8 @@ If you want to contribute to PM4Py, please review the [contributing guidelines a
 ## Third Party Dependencies
 
 As scientific library in the Python ecosystem, we rely on external libraries to offer our features.
-In the /third_party folder, we list all the licenses of our direct dependencies.
-Please check the /third_party/LICENSES_TRANSITIVE file to get a full list of all transitive dependencies and the
+In the `/third_party` folder, we list all the licenses of our direct dependencies.
+Please check the `/third_party/LICENSES_TRANSITIVE` file to get a full list of all transitive dependencies and the
 corresponding license.
 
 ## Citing PM4Py
@@ -100,6 +180,7 @@ If you are using PM4Py in your scientific work, please cite PM4Py as follows:
 
 BiBTeX:
 
+```bibtex
 @article{pm4py,  
 title = {PM4Py: A process mining library for Python},  
 journal = {Software Impacts},  
@@ -111,6 +192,7 @@ doi = {https://doi.org/10.1016/j.simpa.2023.100556},
 url = {https://www.sciencedirect.com/science/article/pii/S2665963823000933},  
 author = {Alessandro Berti and Sebastiaan van Zelst and Daniel Schuster},  
 }
+```
 
 ## Legal Notice
 

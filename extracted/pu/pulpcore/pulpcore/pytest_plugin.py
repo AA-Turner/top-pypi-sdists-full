@@ -1,0 +1,1592 @@
+import asyncio
+import json
+import os
+import shutil
+import socket
+import ssl
+import subprocess
+import sys
+import threading
+import uuid
+from contextlib import suppress
+from dataclasses import dataclass
+from time import sleep
+
+import aiohttp
+import pytest
+import requests
+from aiohttp import web
+from packaging.version import parse as parse_version
+from yarl import URL
+
+from pulpcore.plugin.find_url import find_api_root
+from pulpcore.tests.functional.utils import (
+    SLEEP_TIME,
+    TASK_TIMEOUT,
+    BindingsNamespace,
+    PulpTaskError,
+    PulpTaskGroupError,
+    add_recording_route,
+)
+
+try:
+    import pulp_smash  # noqa: F401
+except ImportError:
+
+    def pytest_addoption(parser):
+        group = parser.getgroup("pulpcore")
+        group.addoption(
+            "--nightly",
+            action="store_true",
+            default=False,
+            help="Enable to run nightly test.",
+        )
+
+    def pytest_collection_modifyitems(config, items):
+        # Skip nightly tests by default
+        # https://docs.pytest.org/en/7.1.x/example/simple.html#control-skipping-of-tests-according-to-command-line-option
+        if config.getoption("--nightly"):
+            # Run all tests unmodified
+            return
+        skip_nightly = pytest.mark.skip(reason="need --nightly option to run")
+        for item in items:
+            if "nightly" in item.keywords:
+                item.add_marker(skip_nightly)
+
+        # Skip long_running tests if --timeout is below 600
+        timeout = config.getoption("--timeout", default=None)
+        if timeout is None or float(timeout) < 600:
+            skip_long = pytest.mark.skip(reason="needs --timeout >= 600 to run")
+            for item in items:
+                if "long_running" in item.keywords:
+                    item.add_marker(skip_long)
+
+
+class PulpTaskTimeoutError(Exception):
+    """Exception to describe task and taskgroup timeout errors."""
+
+    def __init__(self, awaitable):
+        super().__init__(self, f"Timeout: {awaitable}")
+        self.awaitable = awaitable
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "from_pulpcore_for_all_plugins: marks tests from pulpcore as beneficial for plugins to run",
+    )
+    config.addinivalue_line(
+        "markers",
+        "parallel: marks tests as safe to run in parallel",
+    )
+    config.addinivalue_line(
+        "markers",
+        "serial: marks tests as required to run serially without any other tests also running",
+    )
+    config.addinivalue_line(
+        "markers",
+        "nightly: marks tests as intended to run during the nightly CI run",
+    )
+    config.addinivalue_line(
+        "markers",
+        "long_running: marks tests that need a long pytest timeout (--timeout >= 600)",
+    )
+
+
+@pytest.fixture(scope="session")
+def fixtures_cfg():
+    @dataclass
+    class FixturesConfig:
+        aiohttp_fixtures_origin: str = "127.0.0.1"
+        remote_fixtures_origin: str = os.environ.get(
+            "REMOTE_FIXTURES_ORIGIN", "https://fixtures.pulpproject.org/"
+        )
+
+    return FixturesConfig()
+
+
+# API Bindings fixtures
+
+
+@pytest.fixture(scope="session")
+def bindings_cfg():
+    from pulpcore.client.pulpcore import Configuration
+
+    api_protocol = os.environ.get("API_PROTOCOL", "https")
+    api_host = os.environ.get("API_HOST", "pulp")
+    api_port = os.environ.get("API_PORT", "443")
+    configuration = Configuration(
+        host=f"{api_protocol}://{api_host}:{api_port}",
+        username=os.environ.get("ADMIN_USERNAME", "admin"),
+        password=os.environ.get("ADMIN_PASSWORD", "password"),
+    )
+    configuration.safe_chars_for_path_param = "/"
+    return configuration
+
+
+@pytest.fixture(scope="session")
+def _api_client_set():
+    return set()
+
+
+@pytest.fixture
+def cid(_api_client_set, monkeypatch):
+    value = str(uuid.uuid4())
+    yield value
+    print(f"Correlation-ID = {value}")
+
+
+@pytest.fixture(autouse=True)
+def _patch_cid_user_agent(_api_client_set, cid, monkeypatch):
+    for api_client in _api_client_set:
+        monkeypatch.setitem(api_client.default_headers, "Correlation-ID", cid)
+        monkeypatch.setattr(
+            api_client, "user_agent", os.environ.get("PYTEST_CURRENT_TEST").split(" ")[0]
+        )
+
+
+@pytest.fixture(scope="session")
+def pulpcore_bindings(_api_client_set, bindings_cfg):
+    """
+    A namespace providing preconfigured pulpcore api clients.
+
+    e.g. `pulpcore_bindings.WorkersApi.list()`.
+    """
+    from pulpcore.client import pulpcore as pulpcore_bindings_module
+
+    pulpcore_client = pulpcore_bindings_module.ApiClient(bindings_cfg)
+    _api_client_set.add(pulpcore_client)
+    yield BindingsNamespace(pulpcore_bindings_module, pulpcore_client)
+    _api_client_set.remove(pulpcore_client)
+
+
+# Threaded local fixture servers
+
+
+class ThreadedAiohttpServer(threading.Thread):
+    def __init__(self, app, host, port, ssl_ctx):
+        super().__init__()
+        self.app = app
+        self.host = host
+        self.port = port
+        self.ssl_ctx = ssl_ctx
+        self.loop = asyncio.new_event_loop()
+
+    async def arun(self):
+        runner = web.AppRunner(self.app)
+        await runner.setup()
+        site = web.TCPSite(runner, host=self.host, port=self.port, ssl_context=self.ssl_ctx)
+        await site.start()
+        await self.shutdown_event.wait()
+        await runner.cleanup()
+
+    def run(self):
+        asyncio.set_event_loop(self.loop)
+        self.shutdown_event = asyncio.Event()
+        self.loop.run_until_complete(self.arun())
+
+    async def astop(self):
+        self.shutdown_event.set()
+
+    def stop(self):
+        fut = asyncio.run_coroutine_threadsafe(self.astop(), self.loop)
+        fut.result()
+
+
+class ThreadedAiohttpServerData:
+    def __init__(
+        self,
+        host,
+        port,
+        thread,
+        ssl_ctx,
+        requests_record,
+    ):
+        self.host = host
+        self.port = port
+        self.thread = thread
+        self.ssl_ctx = ssl_ctx
+        self.requests_record = requests_record
+
+    def make_url(self, path):
+        if path[0] != "/":
+            raise ValueError("The `path` argument should start with a '/'")
+
+        if self.ssl_ctx is None:
+            protocol_handler = "http://"
+        else:
+            protocol_handler = "https://"
+
+        return f"{protocol_handler}{self.host}:{self.port}{path}"
+
+
+# Webserver Fixtures
+
+
+@pytest.fixture(scope="session")
+def unused_port():
+    def _unused_port():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+
+    return _unused_port
+
+
+@pytest.fixture(scope="class")
+def gen_threaded_aiohttp_server(fixtures_cfg, unused_port):
+    fixture_servers_data = []
+
+    def _gen_threaded_aiohttp_server(app, ssl_ctx, call_record):
+        host = fixtures_cfg.aiohttp_fixtures_origin
+        port = unused_port()
+        fixture_server = ThreadedAiohttpServer(app, host, port, ssl_ctx)
+        fixture_server.daemon = True
+        fixture_server.start()
+        fixture_server_data = ThreadedAiohttpServerData(
+            host=host,
+            port=port,
+            thread=fixture_server,
+            requests_record=call_record,
+            ssl_ctx=ssl_ctx,
+        )
+        fixture_servers_data.append(fixture_server_data)
+        return fixture_server_data
+
+    yield _gen_threaded_aiohttp_server
+
+    for fixture_server_data in fixture_servers_data:
+        fixture_server_data.thread.stop()
+
+    for fixture_server_data in fixture_servers_data:
+        fixture_server_data.thread.join()
+
+
+@pytest.fixture(scope="class")
+def gen_fixture_server(gen_threaded_aiohttp_server):
+    def _gen_fixture_server(fixtures_root, ssl_ctx):
+        app = web.Application()
+        call_record = add_recording_route(app, fixtures_root)
+        return gen_threaded_aiohttp_server(app, ssl_ctx, call_record)
+
+    yield _gen_fixture_server
+
+
+# Proxy Fixtures
+
+
+class ProxyData:
+    def __init__(self, *, host, port, username=None, password=None, ssl=False):
+        self.host = host
+        self.port = port
+
+        self.username = username
+        self.password = password
+
+        self.ssl = ssl
+
+        if ssl:
+            scheme = "https"
+        else:
+            scheme = "http"
+
+        self.proxy_url = str(
+            URL.build(
+                scheme=scheme,
+                host=self.host,
+                port=self.port,
+            )
+        )
+
+
+@pytest.fixture(scope="session")
+def _proxy_module():
+    import proxy
+
+    return proxy
+
+
+@pytest.fixture(scope="class")
+def http_proxy(_proxy_module, fixtures_cfg, unused_port):
+    host = fixtures_cfg.aiohttp_fixtures_origin
+    port = unused_port()
+    proxypy_args = [
+        "--num-workers",
+        "4",
+        "--hostname",
+        host,
+        "--port",
+        str(port),
+    ]
+
+    proxy_data = ProxyData(host=host, port=port)
+
+    with _proxy_module.Proxy(input_args=proxypy_args):
+        yield proxy_data
+
+
+@pytest.fixture(scope="class")
+def http_proxy_with_auth(_proxy_module, fixtures_cfg, unused_port):
+    host = fixtures_cfg.aiohttp_fixtures_origin
+    port = unused_port()
+
+    username = str(uuid.uuid4())
+    password = str(uuid.uuid4())
+
+    proxypy_args = [
+        "--num-workers",
+        "4",
+        "--hostname",
+        host,
+        "--port",
+        str(port),
+        "--basic-auth",
+        f"{username}:{password}",
+    ]
+
+    proxy_data = ProxyData(host=host, port=port, username=username, password=password)
+
+    with _proxy_module.Proxy(input_args=proxypy_args):
+        yield proxy_data
+
+
+@pytest.fixture(scope="class")
+def https_proxy(_proxy_module, fixtures_cfg, unused_port, proxy_tls_certificate_pem_path):
+    host = fixtures_cfg.aiohttp_fixtures_origin
+    port = unused_port()
+
+    proxypy_args = [
+        "--num-workers",
+        "4",
+        "--hostname",
+        host,
+        "--port",
+        str(port),
+        "--cert-file",
+        proxy_tls_certificate_pem_path,  # contains both key and cert
+        "--key-file",
+        proxy_tls_certificate_pem_path,  # contains both key and cert
+    ]
+
+    proxy_data = ProxyData(host=host, port=port, ssl=True)  # TODO update me
+
+    with _proxy_module.Proxy(input_args=proxypy_args):
+        yield proxy_data
+
+
+# Server Side TLS Fixtures
+
+
+@pytest.fixture(scope="session")
+def _trustme_module():
+    import trustme
+
+    return trustme
+
+
+@pytest.fixture(scope="session")
+def tls_certificate_authority(_trustme_module):
+    return _trustme_module.CA()
+
+
+@pytest.fixture(scope="session")
+def tls_certificate_authority_cert(tls_certificate_authority):
+    return tls_certificate_authority.cert_pem.bytes().decode()
+
+
+@pytest.fixture(scope="session")
+def tls_certificate(fixtures_cfg, tls_certificate_authority):
+    return tls_certificate_authority.issue_cert(
+        fixtures_cfg.aiohttp_fixtures_origin,
+    )
+
+
+# Proxy TLS Fixtures
+
+
+@pytest.fixture(scope="session")
+def proxy_tls_certificate_authority(_trustme_module):
+    return _trustme_module.CA()
+
+
+@pytest.fixture(scope="session")
+def proxy_tls_certificate(fixtures_cfg, client_tls_certificate_authority):
+    return client_tls_certificate_authority.issue_cert(
+        fixtures_cfg.aiohttp_fixtures_origin,
+    )
+
+
+@pytest.fixture(scope="session")
+def proxy_tls_certificate_pem_path(proxy_tls_certificate):
+    with proxy_tls_certificate.private_key_and_cert_chain_pem.tempfile() as cert_pem:
+        yield cert_pem
+
+
+# Client Side TLS Fixtures
+
+
+@pytest.fixture(scope="session")
+def client_tls_certificate_authority(_trustme_module):
+    return _trustme_module.CA()
+
+
+@pytest.fixture(scope="session")
+def client_tls_certificate_authority_pem_path(client_tls_certificate_authority):
+    with client_tls_certificate_authority.cert_pem.tempfile() as client_ca_pem:
+        yield client_ca_pem
+
+
+@pytest.fixture(scope="session")
+def client_tls_certificate(fixtures_cfg, client_tls_certificate_authority):
+    return client_tls_certificate_authority.issue_cert(
+        fixtures_cfg.aiohttp_fixtures_origin,
+    )
+
+
+@pytest.fixture(scope="session")
+def client_tls_certificate_cert_pem(client_tls_certificate):
+    return client_tls_certificate.cert_chain_pems[0].bytes().decode()
+
+
+@pytest.fixture(scope="session")
+def client_tls_certificate_key_pem(client_tls_certificate):
+    return client_tls_certificate.private_key_pem.bytes().decode()
+
+
+# SSL Context Fixtures
+
+
+@pytest.fixture(scope="session")
+def ssl_ctx(tls_certificate):
+    ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    tls_certificate.configure_cert(ssl_ctx)
+    return ssl_ctx
+
+
+@pytest.fixture(scope="session")
+def ssl_ctx_req_client_auth(
+    tls_certificate, client_tls_certificate, client_tls_certificate_authority_pem_path
+):
+    ssl_ctx = ssl.create_default_context(
+        purpose=ssl.Purpose.CLIENT_AUTH, cafile=client_tls_certificate_authority_pem_path
+    )
+    ssl_ctx.verify_mode = ssl.CERT_REQUIRED
+    tls_certificate.configure_cert(ssl_ctx)
+    return ssl_ctx
+
+
+# PQC (Post-Quantum Cryptography) TLS Fixtures
+
+# TODO pretty much all of this can be deleted when "trustme" gets ML-DSA support
+
+
+@dataclass
+class PQCCertificateAuthority:
+    algorithm: str
+    ca_cert_pem: str
+    server_cert_path: str
+    server_key_path: str
+    client_cert_pem: str
+    client_key_pem: str
+    untrusted_client_cert_pem: str
+
+
+_PQC_KEY_CLASSES = {
+    "ML-DSA-44": "MLDSA44PrivateKey",
+    "ML-DSA-65": "MLDSA65PrivateKey",
+    "ML-DSA-87": "MLDSA87PrivateKey",
+}
+
+
+def _generate_pqc_certs(td, host, algorithm="ML-DSA-65"):
+    """Generate a PQC CA and issue server + client certs signed by it."""
+    import datetime
+    import ipaddress
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives.asymmetric import mldsa
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+    from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+
+    key_cls = getattr(mldsa, _PQC_KEY_CLASSES[algorithm])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    not_before = now - datetime.timedelta(minutes=1)
+    not_after = now + datetime.timedelta(days=1)
+
+    ca_key = key_cls.generate()
+    ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "PQC Test CA")])
+    ca_cert = (
+        x509.CertificateBuilder()
+        .subject_name(ca_name)
+        .issuer_name(ca_name)
+        .public_key(ca_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(not_before)
+        .not_valid_after(not_after)
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=True,
+                crl_sign=True,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+            critical=True,
+        )
+        .sign(private_key=ca_key, algorithm=None)
+    )
+
+    san = x509.SubjectAlternativeName(
+        [x509.DNSName("localhost"), x509.IPAddress(ipaddress.ip_address(host))]
+    )
+
+    def _issue_cert(name, cn, eku_oid):
+        key = key_cls.generate()
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)]))
+            .issuer_name(ca_name)
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(not_before)
+            .not_valid_after(not_after)
+            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+            .add_extension(
+                x509.KeyUsage(
+                    digital_signature=True,
+                    content_commitment=False,
+                    key_encipherment=False,
+                    data_encipherment=False,
+                    key_agreement=False,
+                    key_cert_sign=False,
+                    crl_sign=False,
+                    encipher_only=False,
+                    decipher_only=False,
+                ),
+                critical=True,
+            )
+            .add_extension(x509.ExtendedKeyUsage([eku_oid]), critical=False)
+            .add_extension(san, critical=False)
+            .sign(private_key=ca_key, algorithm=None)
+        )
+        cert_pem = cert.public_bytes(Encoding.PEM).decode()
+        key_pem = key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
+        cert_path = str(td / f"{name}.crt")
+        key_path = str(td / f"{name}.key")
+        with open(cert_path, "w") as f:
+            f.write(cert_pem)
+        with open(key_path, "w") as f:
+            f.write(key_pem)
+        return cert_path, key_path, cert_pem, key_pem
+
+    ca_cert_pem = ca_cert.public_bytes(Encoding.PEM).decode()
+
+    server_cert_path, server_key_path, _, _ = _issue_cert(
+        "server", host, ExtendedKeyUsageOID.SERVER_AUTH
+    )
+    _, _, client_cert_pem, client_key_pem = _issue_cert(
+        "client", host, ExtendedKeyUsageOID.CLIENT_AUTH
+    )
+
+    # Untrusted client: signed by a different CA so cert-chain verification rejects it
+    untrusted_ca_key = key_cls.generate()
+    untrusted_ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "PQC Untrusted CA")])
+    untrusted_key = key_cls.generate()
+    untrusted_cert = (
+        x509.CertificateBuilder()
+        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "PQC Untrusted Client")]))
+        .issuer_name(untrusted_ca_name)
+        .public_key(untrusted_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(not_before)
+        .not_valid_after(not_after)
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+            critical=True,
+        )
+        .sign(private_key=untrusted_ca_key, algorithm=None)
+    )
+    untrusted_client_cert_pem = untrusted_cert.public_bytes(Encoding.PEM).decode()
+
+    return PQCCertificateAuthority(
+        algorithm=algorithm,
+        ca_cert_pem=ca_cert_pem,
+        server_cert_path=server_cert_path,
+        server_key_path=server_key_path,
+        client_cert_pem=client_cert_pem,
+        client_key_pem=client_key_pem,
+        untrusted_client_cert_pem=untrusted_client_cert_pem,
+    )
+
+
+@pytest.fixture(scope="session", params=["ML-DSA-65", "ML-DSA-87"])
+def pqc_certificate_authority(request, tmp_path_factory, fixtures_cfg):
+    """Generate a PQC Certificate Authority and related certs for each ML-DSA variant."""
+    algorithm = request.param
+    td = tmp_path_factory.mktemp(f"pqc_certs_{algorithm}")
+    return _generate_pqc_certs(td, fixtures_cfg.aiohttp_fixtures_origin, algorithm)
+
+
+@pytest.fixture(scope="session")
+def pqc_ssl_ctx(pqc_certificate_authority):
+    """Server SSL context using PQC certificates (no client auth required)."""
+    ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_ctx.load_cert_chain(
+        pqc_certificate_authority.server_cert_path,
+        pqc_certificate_authority.server_key_path,
+    )
+    return ssl_ctx
+
+
+@pytest.fixture(scope="session")
+def pqc_ssl_ctx_req_client_auth(pqc_certificate_authority):
+    """Server SSL context using PQC certificates, requiring PQC client auth."""
+    ssl_ctx = ssl.create_default_context(
+        purpose=ssl.Purpose.CLIENT_AUTH,
+        cadata=pqc_certificate_authority.ca_cert_pem,
+    )
+    ssl_ctx.verify_mode = ssl.CERT_REQUIRED
+    ssl_ctx.load_cert_chain(
+        pqc_certificate_authority.server_cert_path,
+        pqc_certificate_authority.server_key_path,
+    )
+    return ssl_ctx
+
+
+# Object factories
+
+
+@pytest.fixture(scope="class")
+def role_factory(pulpcore_bindings, gen_object_with_cleanup):
+    def _role_factory(**kwargs):
+        return gen_object_with_cleanup(pulpcore_bindings.RolesApi, kwargs)
+
+    return _role_factory
+
+
+@pytest.fixture(scope="class")
+def gen_user(bindings_cfg, pulpcore_bindings, gen_object_with_cleanup):
+    class user_context:
+        def __init__(self, username=None, model_roles=None, object_roles=None, domain_roles=None):
+            self.username = username or str(uuid.uuid4())
+            self.password = str(uuid.uuid4())
+            self.user = gen_object_with_cleanup(
+                pulpcore_bindings.UsersApi, {"username": self.username, "password": self.password}
+            )
+            self._saved_credentials = []
+
+            if model_roles:
+                for role in model_roles:
+                    pulpcore_bindings.UsersRolesApi.create(
+                        auth_user_href=self.user.pulp_href,
+                        user_role={"role": role, "domain": None, "content_object": None},
+                    )
+            if domain_roles:
+                for role, domain in domain_roles:
+                    pulpcore_bindings.UsersRolesApi.create(
+                        auth_user_href=self.user.pulp_href,
+                        user_role={"role": role, "domain": domain, "content_object": None},
+                    )
+            if object_roles:
+                for role, content_object in object_roles:
+                    pulpcore_bindings.UsersRolesApi.create(
+                        auth_user_href=self.user.pulp_href,
+                        user_role={"role": role, "domain": None, "content_object": content_object},
+                    )
+
+        def __enter__(self):
+            self._saved_credentials.append((bindings_cfg.username, bindings_cfg.password))
+            bindings_cfg.username, bindings_cfg.password = self.username, self.password
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            bindings_cfg.username, bindings_cfg.password = self._saved_credentials.pop()
+
+    return user_context
+
+
+@pytest.fixture(scope="session")
+def anonymous_user(bindings_cfg):
+    class AnonymousUser:
+        def __init__(self):
+            self._saved_credentials = []
+
+        def __enter__(self):
+            self._saved_credentials.append((bindings_cfg.username, bindings_cfg.password))
+            bindings_cfg.username, bindings_cfg.password = None, None
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            bindings_cfg.username, bindings_cfg.password = self._saved_credentials.pop()
+
+    return AnonymousUser()
+
+
+@pytest.fixture(scope="session")
+def invalid_user(bindings_cfg):
+    class InvalidUser:
+        def __init__(self):
+            self._saved_credentials = []
+
+        def __enter__(self):
+            self._saved_credentials.append((bindings_cfg.username, bindings_cfg.password))
+            bindings_cfg.username, bindings_cfg.password = str(uuid.uuid4()), str(uuid.uuid4())
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            bindings_cfg.username, bindings_cfg.password = self._saved_credentials.pop()
+
+    return InvalidUser()
+
+
+@pytest.fixture(scope="session")
+def pulp_admin_user(bindings_cfg):
+    class AdminUser:
+        def __init__(self):
+            self.username = bindings_cfg.username
+            self.password = bindings_cfg.password
+            self._saved_credentials = []
+
+        def __enter__(self):
+            self._saved_credentials.append((bindings_cfg.username, bindings_cfg.password))
+            bindings_cfg.username, bindings_cfg.password = self.username, self.password
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            bindings_cfg.username, bindings_cfg.password = self._saved_credentials.pop()
+
+    return AdminUser()
+
+
+@pytest.fixture
+def random_artifact_factory(pulpcore_bindings, tmp_path, pulp_domain_enabled):
+    def _random_artifact_factory(size=32, pulp_domain=None):
+        kwargs = {}
+        if pulp_domain:
+            if not pulp_domain_enabled:
+                raise RuntimeError("Server does not have domains enabled.")
+            kwargs["pulp_domain"] = pulp_domain
+        temp_file = tmp_path / str(uuid.uuid4())
+        temp_file.write_bytes(os.urandom(size))
+        return pulpcore_bindings.ArtifactsApi.create(str(temp_file), **kwargs)
+
+    return _random_artifact_factory
+
+
+@pytest.fixture
+def random_artifact(random_artifact_factory):
+    return random_artifact_factory()
+
+
+@pytest.fixture(scope="session")
+def backend_settings_factory(pulp_settings):
+    def _settings_factory(storage_class=None, storage_settings=None):
+        if not pulp_settings.DOMAIN_ENABLED:
+            pytest.skip("Domains not enabled")
+        keys = dict()
+        keys["pulpcore.app.models.storage.FileSystem"] = ["MEDIA_ROOT", "MEDIA_URL"]
+        keys["storages.backends.s3.S3Storage"] = [
+            "access_key",
+            "secret_key",
+            "endpoint_url",
+            "addressing_style",
+            "signature_version",
+            "region_name",
+            "bucket_name",
+        ]
+        keys["storages.backends.s3boto3.S3Boto3Storage"] = keys["storages.backends.s3.S3Storage"]
+        keys["storages.backends.azure_storage.AzureStorage"] = [
+            "account_name",
+            "azure_container",
+            "account_key",
+            "expiration_secs",
+            "overwrite_files",
+            "location",
+            "connection_string",
+        ]
+
+        def get_installation_storage_option(key, backend):
+            value = pulp_settings.STORAGES["default"].get("OPTIONS", {}).get(key)
+            # Some FileSystem backend options may be defined in the top settings module
+            if backend == "pulpcore.app.models.storage.FileSystem" and not value:
+                value = getattr(pulp_settings, key, None)
+            return value
+
+        storage_settings = storage_settings or dict()
+        storage_backend = storage_class or pulp_settings.STORAGES["default"]["BACKEND"]
+        unset_storage_settings = (k for k in keys[storage_backend] if k not in storage_settings)
+        for key in unset_storage_settings:
+            storage_settings[key] = get_installation_storage_option(key, storage_backend)
+        return storage_backend, storage_settings
+
+    return _settings_factory
+
+
+@pytest.fixture(scope="class")
+def domain_factory(
+    pulpcore_bindings, pulp_domain_enabled, backend_settings_factory, gen_object_with_cleanup
+):
+    if not pulp_domain_enabled:
+        pytest.skip("Domains not enabled")
+
+    def _domain_factory(**kwargs):
+
+        storage_class, storage_settings = backend_settings_factory(
+            storage_class=kwargs.pop("storage_class", None),
+            storage_settings=kwargs.pop("storage_settings", None),
+        )
+        kwargs.setdefault("name", str(uuid.uuid4()))
+        kwargs.update({"storage_class": storage_class, "storage_settings": storage_settings})
+        return gen_object_with_cleanup(pulpcore_bindings.DomainsApi, kwargs)
+
+    return _domain_factory
+
+
+@pytest.fixture(scope="class")
+def openpgp_keyring_factory(pulpcore_bindings, gen_object_with_cleanup):
+    def _openpgp_keyring_factory(**kwargs):
+        extra_args = {}
+        if pulp_domain := kwargs.pop("pulp_domain", None):
+            extra_args["pulp_domain"] = pulp_domain
+        body = {"name": str(uuid.uuid4())}
+        body.update(kwargs)
+        return gen_object_with_cleanup(
+            pulpcore_bindings.RepositoriesOpenpgpKeyringApi, body, **extra_args
+        )
+
+    return _openpgp_keyring_factory
+
+
+# Random other fixtures
+
+
+@pytest.fixture
+def delete_orphans_pre(request, pulpcore_bindings, monitor_task):
+    if request.node.get_closest_marker("parallel") is not None:
+        raise pytest.UsageError("This test is not suitable to be marked parallel.")
+    monitor_task(pulpcore_bindings.OrphansCleanupApi.cleanup({"orphan_protection_time": 0}).task)
+    yield
+
+
+@pytest.fixture(scope="session")
+def monitor_task(pulpcore_bindings, pulp_domain_enabled):
+    """
+    Wait for a task to reach a final state.
+
+    Returns the task in "completed" state, or throws a `PulpTaskTimeoutError` in case the timeout
+    in seconds (defaulting to 30*60) exceeded or a `PulpTaskError` in case it reached any other
+    final state.
+    """
+
+    def _monitor_task(task_href, timeout=TASK_TIMEOUT):
+        task_timeout = int(timeout / SLEEP_TIME)
+        for dummy in range(task_timeout):
+            try:
+                task = pulpcore_bindings.TasksApi.read(task_href)
+            except pulpcore_bindings.ApiException as e:
+                if pulp_domain_enabled and e.status == 404:
+                    # Task's domain has been deleted, nothing to show anymore
+                    return {}
+                raise e
+
+            if task.state in ["completed", "failed", "canceled", "skipped"]:
+                break
+            sleep(SLEEP_TIME)
+        else:
+            raise PulpTaskTimeoutError(task)
+
+        if task.state != "completed":
+            raise PulpTaskError(task=task)
+
+        return task
+
+    return _monitor_task
+
+
+@pytest.fixture(scope="session")
+def monitor_task_group(pulpcore_bindings):
+    """
+    Wait for a task group to reach a final state.
+
+    Returns the task group in "completed" state, or throws a `PulpTaskTimeoutError` in case the
+    timeout in seconds (defaulting to 30*60) exceeded or a `PulpTaskGroupError` in case it reached
+    any other final state.
+    """
+
+    def _monitor_task_group(task_group_href, timeout=TASK_TIMEOUT):
+        task_timeout = int(timeout / SLEEP_TIME)
+        for dummy in range(task_timeout):
+            task_group = pulpcore_bindings.TaskGroupsApi.read(task_group_href)
+
+            if (task_group.waiting + task_group.running + task_group.canceling) == 0:
+                break
+            sleep(SLEEP_TIME)
+        else:
+            raise PulpTaskTimeoutError(task_group)
+
+        # If ANYTHING went wrong, throw an error
+        if (task_group.failed + task_group.skipped + task_group.canceled) > 0:
+            raise PulpTaskGroupError(task_group=task_group)
+
+        return task_group
+
+    return _monitor_task_group
+
+
+@pytest.fixture(scope="session")
+def pulp_settings():
+    import django
+
+    django.setup()
+
+    from django.conf import settings
+
+    return settings
+
+
+@pytest.fixture(scope="session")
+def pulp_domain_enabled(pulp_settings):
+    return pulp_settings.DOMAIN_ENABLED
+
+
+@pytest.fixture(scope="session")
+def pulp_content_origin(pulp_settings):
+    return pulp_settings.CONTENT_ORIGIN
+
+
+@pytest.fixture(scope="session")
+def pulp_content_origin_with_prefix(pulp_settings, bindings_cfg):
+    if pulp_settings.CONTENT_ORIGIN:
+        return pulp_settings.CONTENT_ORIGIN + pulp_settings.CONTENT_PATH_PREFIX[:-1]
+    else:
+        return f"{bindings_cfg.host}{pulp_settings.CONTENT_PATH_PREFIX[:-1]}"
+
+
+@pytest.fixture(scope="session")
+def pulp_api_v3_path(pulp_settings, pulp_domain_enabled):
+    root, path = find_api_root(set_domain=True, rewrite_header=False, domain="default")
+
+    # Check that find_api_root() is doing what the tests expect
+    if pulp_domain_enabled:
+        v3_api_root = f"{pulp_settings.API_ROOT}default/api/v3/"
+    else:
+        v3_api_root = f"{pulp_settings.API_ROOT}api/v3/"
+    assert path == v3_api_root
+
+    if path is None:
+        raise RuntimeError("This fixture requires the server to have the `API_ROOT` setting set.")
+    return path
+
+
+@pytest.fixture(scope="session")
+def pulp_api_v3_url(bindings_cfg, pulp_api_v3_path):
+    return f"{bindings_cfg.host}{pulp_api_v3_path}"
+
+
+@pytest.fixture(scope="session")
+def pulp_content_url(bindings_cfg, pulp_settings, pulp_domain_enabled):
+    url = f"{pulp_settings.CONTENT_ORIGIN}{pulp_settings.CONTENT_PATH_PREFIX}"
+    if not pulp_settings.CONTENT_ORIGIN:
+        url = f"{bindings_cfg.host}{pulp_settings.CONTENT_PATH_PREFIX}"
+
+    if pulp_domain_enabled:
+        url += "default/"
+    return url
+
+
+@pytest.fixture(scope="session")
+def pulp_openapi_schema_url(pulp_api_v3_url):
+    return f"{pulp_api_v3_url}docs/api.json"
+
+
+@pytest.fixture(scope="session")
+def pulp_openapi_schema(pulp_openapi_schema_url):
+    return requests.get(pulp_openapi_schema_url).json()
+
+
+@pytest.fixture(scope="session")
+def pulp_openapi_schema_pk_path_set(pulp_openapi_schema_url):
+    return requests.get(f"{pulp_openapi_schema_url}?pk_path=1").json()
+
+
+# Pulp status information fixtures
+
+
+@pytest.fixture(scope="session")
+def pulp_status(pulpcore_bindings):
+    return pulpcore_bindings.StatusApi.status_read()
+
+
+@pytest.fixture(scope="session")
+def pulp_versions(pulp_status):
+    """A dictionary containing pulp plugin versions."""
+    return {item.component: parse_version(item.version) for item in pulp_status.versions}
+
+
+@pytest.fixture(scope="session")
+def needs_pulp_plugin(pulp_versions):
+    """Skip test if a component is not available in the specified version range"""
+
+    def _needs_pulp_plugin(plugin, min=None, max=None):
+        if plugin not in pulp_versions:
+            pytest.skip(f"Plugin {plugin} is not installed.")
+        if min is not None and pulp_versions[plugin] < parse_version(min):
+            pytest.skip(f"Plugin {plugin} too old (<{min}).")
+        if max is not None and pulp_versions[plugin] >= parse_version(max):
+            pytest.skip(f"Plugin {plugin} too new (>={max}).")
+
+    return _needs_pulp_plugin
+
+
+@pytest.fixture(scope="session")
+def has_pulp_plugin(pulp_versions):
+    def _has_pulp_plugin(plugin, min=None, max=None):
+        if plugin not in pulp_versions:
+            return False
+        if min is not None and pulp_versions[plugin] < parse_version(min):
+            return False
+        if max is not None and pulp_versions[plugin] >= parse_version(max):
+            return False
+        return True
+
+    return _has_pulp_plugin
+
+
+@pytest.fixture(scope="session")
+def redis_status(pulp_status):
+    """A boolean value which tells whether the connection to redis was established or not."""
+    return pulp_status.redis_connection.connected
+
+
+# Object Cleanup fixtures
+
+
+@pytest.fixture(scope="class")
+def add_to_cleanup(monitor_task):
+    """Fixture to allow pulp objects to be deleted in reverse order after the test module."""
+    obj_refs = []
+
+    def _add_to_cleanup(api_client, pulp_href):
+        obj_refs.append((api_client, pulp_href))
+
+    yield _add_to_cleanup
+
+    delete_task_hrefs = []
+    # Delete newest items first to avoid dependency lockups
+    for api_client, pulp_href in reversed(obj_refs):
+        with suppress(Exception):
+            # There was no delete task for this unit or the unit may already have been deleted.
+            # Also we can never be sure which one is the right ApiException to catch.
+            task_url = api_client.delete(pulp_href).task
+            delete_task_hrefs.append(task_url)
+
+    for deleted_task_href in delete_task_hrefs:
+        with suppress(Exception):
+            # The task itself may be gone at this point (e.g. by being part of a deleted domain).
+            # Also we can never be sure which one is the right ApiException to catch.
+            monitor_task(deleted_task_href)
+
+
+@pytest.fixture(scope="class")
+def gen_object_with_cleanup(add_to_cleanup, monitor_task):
+    def _gen_object_with_cleanup(api_client, *args, **kwargs):
+        new_obj = api_client.create(*args, **kwargs)
+        try:
+            add_to_cleanup(api_client, new_obj.pulp_href)
+        except AttributeError:
+            # This is a task and the real object href comes from monitoring it
+            task_data = monitor_task(new_obj.task)
+
+            for created_resource in task_data.created_resources:
+                try:
+                    new_obj = api_client.read(created_resource)
+                except Exception:
+                    pass  # This isn't the right created_resource for this api_client
+                else:
+                    add_to_cleanup(api_client, new_obj.pulp_href)
+                    return new_obj
+
+            msg = f"No appropriate created_resource could be found in task data {task_data}"
+            raise TypeError(msg)
+
+        return new_obj
+
+    return _gen_object_with_cleanup
+
+
+@pytest.fixture(scope="class")
+def add_to_filesystem_cleanup():
+    obj_paths = []
+
+    def _add_to_filesystem_cleanup(path):
+        obj_paths.append(path)
+
+    yield _add_to_filesystem_cleanup
+
+    for path in reversed(obj_paths):
+        if os.path.isdir(path):
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            try:
+                os.remove(path)
+            except OSError:
+                # the file may no longer exist, but we do not care
+                pass
+
+
+@pytest.fixture(scope="session")
+def download_content_unit(pulp_domain_enabled, pulp_content_origin_with_prefix):
+    def _download_content_unit(base_path, content_path, domain="default"):
+        async def _get_response(url):
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    return await response.read()
+
+        if pulp_domain_enabled:
+            url_fragments = [
+                pulp_content_origin_with_prefix,
+                domain,
+                base_path,
+                content_path,
+            ]
+        else:
+            url_fragments = [
+                pulp_content_origin_with_prefix,
+                base_path,
+                content_path,
+            ]
+        url = "/".join(url_fragments)
+        return asyncio.run(_get_response(url))
+
+    return _download_content_unit
+
+
+@pytest.fixture(scope="session")
+def http_get():
+    def _http_get(url, **kwargs):
+        async def _send_request():
+            async with aiohttp.ClientSession(raise_for_status=True) as session:
+                async with session.get(url, **kwargs) as response:
+                    return await response.content.read()
+
+        response = asyncio.run(_send_request())
+        return response
+
+    return _http_get
+
+
+@pytest.fixture(scope="session")
+def wget_recursive_download_on_host():
+    def _wget_recursive_download_on_host(url, destination):
+        subprocess.check_output(
+            [
+                "wget",
+                "--recursive",
+                "--no-parent",
+                "--no-host-directories",
+                "--directory-prefix",
+                destination,
+                url,
+            ]
+        )
+
+    return _wget_recursive_download_on_host
+
+
+# Tasking related fixtures
+
+
+@pytest.fixture(scope="session")
+def dispatch_task(pulpcore_bindings):
+    def _dispatch_task(*args, task_group_id=None, **kwargs):
+        cid = pulpcore_bindings.client.default_headers.get("Correlation-ID") or str(uuid.uuid4())
+        username = pulpcore_bindings.client.configuration.username
+        commands = (
+            "from django_guid import set_guid; "
+            "from pulpcore.tasking.tasks import dispatch; "
+            "from pulpcore.app.models import TaskGroup, AppStatus; "
+            "from pulpcore.app.util import get_url, set_current_user; "
+            "from django.contrib.auth import get_user_model; "
+            f"app_status=AppStatus.objects.create(name='test-' + {cid!r},app_type='worker'); "
+            "User = get_user_model(); "
+            f"user = User.objects.filter(username='{username}').first(); "
+            "set_current_user(user); "
+            f"set_guid({cid!r}); "
+            f"tg = {task_group_id!r} and TaskGroup.objects.filter(pk={task_group_id!r}).first(); "
+            f"task = dispatch(*{args!r}, task_group=tg, **{kwargs!r}); "
+            "app_status.delete(); "
+            "print(get_url(task))"
+        )
+
+        process = subprocess.run(["pulpcore-manager", "shell", "-c", commands], capture_output=True)
+        err_log = process.stderr.decode()
+        assert process.returncode == 0, err_log
+        task_href = process.stdout.decode().strip()
+        print(err_log, file=sys.stderr)
+        return task_href
+
+    return _dispatch_task
+
+
+@pytest.fixture(scope="session")
+def dispatch_task_group(dispatch_task):
+    def _dispatch_task_group(task_name, *args, **kwargs):
+        commands = (
+            "from pulpcore.app.models import TaskGroup; "
+            "from pulpcore.app.util import get_url; "
+            "task_group = TaskGroup.objects.create(); "
+            "print(task_group.pk, get_url(task_group))"
+        )
+        process = subprocess.run(["pulpcore-manager", "shell", "-c", commands], capture_output=True)
+        assert process.returncode == 0
+        tgroup_id, tgroup_href = process.stdout.decode().strip().split()
+
+        dispatch_task(task_name, *args, task_group_id=tgroup_id, **kwargs)
+        return tgroup_href
+
+    return _dispatch_task_group
+
+
+# GPG related fixtures
+
+PULP_FIXTURES_SIGNING_KEYS_URL = (
+    "https://raw.githubusercontent.com/pulp/pulp-fixtures/master/common/signing_keys/"
+)
+KEY_V4_RSA2K_PUBLIC = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v4-rsa2k.asc"
+KEY_V4_RSA2K_PRIVATE = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v4-rsa2k.secret"
+KEY_V4_RSA4K_PUBLIC = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v4-rsa4k.asc"
+KEY_V4_RSA4K_PRIVATE = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v4-rsa4k.secret"
+KEY_V4_ED25519_PUBLIC = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v4-ed25519.asc"
+KEY_V4_ED25519_PRIVATE = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v4-ed25519.secret"
+KEY_V6_RSA4K_PUBLIC = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v6-rsa4k.asc"
+KEY_V6_RSA4K_PRIVATE = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v6-rsa4k.secret"
+KEY_V6_ED25519_PUBLIC = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v6-ed25519.asc"
+KEY_V6_ED25519_PRIVATE = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v6-ed25519.secret"
+KEY_V6_MLDSA65_ED25519_PUBLIC = (
+    PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v6-mldsa65-ed25519.asc"
+)
+KEY_V6_MLDSA65_ED25519_PRIVATE = (
+    PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v6-mldsa65-ed25519.secret"
+)
+KEY_V6_MLDSA87_ED448_PUBLIC = PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v6-mldsa87-ed448.asc"
+KEY_V6_MLDSA87_ED448_PRIVATE = (
+    PULP_FIXTURES_SIGNING_KEYS_URL + "pulp-testkey-v6-mldsa87-ed448.secret"
+)
+
+
+SIGNING_SCRIPT_STRING = """#!/usr/bin/env bash
+
+FILE_PATH=$1
+SIGNATURE_PATH="$1.asc"
+
+GPG_KEY_ID="{gpg_key_id}"
+
+# Create a detached signature
+gpg --quiet --batch --homedir {gpg_home} --detach-sign --local-user "${{GPG_KEY_ID}}" \\
+   --armor --output ${{SIGNATURE_PATH}} ${{FILE_PATH}}
+
+# Check the exit status
+STATUS=$?
+if [[ ${{STATUS}} -eq 0 ]]; then
+   echo '{{"file": "'${{FILE_PATH}}'", "signature": "'${{SIGNATURE_PATH}}'"}}'
+else
+   exit ${{STATUS}}
+fi
+"""
+
+SQ_SIGNING_SCRIPT_STRING = """#!/usr/bin/env bash
+
+FILE_PATH=$1
+SIGNATURE_PATH="$1.asc"
+
+SQ_HOME="{sq_home}"
+SIGNER="{signer_fingerprint}"
+
+# Create a detached signature using Sequoia (sq)
+sq --home "${{SQ_HOME}}" sign --signer "${{SIGNER}}" \\
+   --signature-file="${{SIGNATURE_PATH}}" "${{FILE_PATH}}"
+
+# Check the exit status
+STATUS=$?
+if [[ ${{STATUS}} -eq 0 ]]; then
+   echo '{{"file": "'${{FILE_PATH}}'", "signature": "'${{SIGNATURE_PATH}}'"}}'
+else
+   exit ${{STATUS}}
+fi
+"""
+
+
+@pytest.fixture(scope="session")
+def signing_script_path(signing_script_temp_dir, signing_gpg_homedir_path, signing_gpg_metadata):
+    _gpg, fingerprint, _keyid = signing_gpg_metadata
+    return make_signing_script(signing_gpg_homedir_path, fingerprint, signing_script_temp_dir)
+
+
+@pytest.fixture(scope="session")
+def signing_script_temp_dir(tmp_path_factory):
+    return tmp_path_factory.mktemp("signing_script_dir")
+
+
+@pytest.fixture(scope="session")
+def signing_gpg_homedir_path(tmp_path_factory):
+    return tmp_path_factory.mktemp("gpghome")
+
+
+@pytest.fixture(scope="session")
+def sign_with_ascii_armored_detached_signing_service(signing_script_path, signing_gpg_metadata):
+    """
+    Runs the test signing script manually, locally, and returns the signature file produced.
+    """
+
+    def _sign_with_ascii_armored_detached_signing_service(filename):
+        env = {"PULP_SIGNING_KEY_FINGERPRINT": signing_gpg_metadata[1]}
+        cmd = (signing_script_path, filename)
+        completed_process = subprocess.run(
+            cmd,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        if completed_process.returncode != 0:
+            raise RuntimeError(str(completed_process.stderr))
+
+        try:
+            return_value = json.loads(completed_process.stdout)
+        except json.JSONDecodeError:
+            raise RuntimeError("The signing script did not return valid JSON!")
+
+        return return_value
+
+    return _sign_with_ascii_armored_detached_signing_service
+
+
+@pytest.fixture(scope="session")
+def signing_gpg_metadata(signing_gpg_homedir_path):
+    """A fixture that returns a GPG instance and related metadata (i.e., fingerprint, keyid)."""
+    PRIVATE_KEY_URL = "https://raw.githubusercontent.com/pulp/pulp-fixtures/master/common/GPG-PRIVATE-KEY-fixture-signing"  # noqa: E501
+    return import_signing_key(PRIVATE_KEY_URL, signing_gpg_homedir_path)
+
+
+@pytest.fixture(scope="session")
+def pulp_trusted_public_key(signing_gpg_metadata):
+    """Fixture to extract the ascii armored trusted public test key."""
+    gpg, _, keyid = signing_gpg_metadata
+    return gpg.export_keys([keyid])
+
+
+@pytest.fixture(scope="session")
+def pulp_trusted_public_key_fingerprint(signing_gpg_metadata):
+    """Fixture to extract the ascii armored trusted public test keys fingerprint."""
+    return signing_gpg_metadata[1]
+
+
+@pytest.fixture(scope="session")
+def _ascii_armored_detached_signing_service_name(
+    signing_script_path,
+    signing_gpg_metadata,
+    signing_gpg_homedir_path,
+):
+    _gpg, fingerprint, _keyid = signing_gpg_metadata
+    service_name = create_signing_service(
+        signing_gpg_homedir_path, fingerprint, signing_script_path
+    )
+
+    yield service_name
+
+    remove_signing_service(service_name)
+
+
+@pytest.fixture(scope="session")
+def ascii_armored_detached_signing_service(
+    _ascii_armored_detached_signing_service_name, pulpcore_bindings
+):
+    return pulpcore_bindings.SigningServicesApi.list(
+        name=_ascii_armored_detached_signing_service_name
+    ).results[0]
+
+
+@pytest.fixture(scope="session")
+def sq_signing_home_path(tmp_path_factory):
+    return tmp_path_factory.mktemp("sq_home")
+
+
+@pytest.fixture(scope="session")
+def sq_signing_script_temp_dir(tmp_path_factory):
+    return tmp_path_factory.mktemp("sq_signing_script_dir")
+
+
+@pytest.fixture(scope="session")
+def sq_signing_metadata(sq_signing_home_path):
+    """A fixture that returns Sequoia signing metadata (i.e., fingerprint, keyid)."""
+    return import_signing_key(KEY_V6_ED25519_PRIVATE, sq_signing_home_path, backend="sq")
+
+
+@pytest.fixture(scope="session")
+def sq_signing_script_path(sq_signing_script_temp_dir, sq_signing_home_path, sq_signing_metadata):
+    _sq, fingerprint, _keyid = sq_signing_metadata
+    return make_signing_script(
+        sq_signing_home_path, fingerprint, sq_signing_script_temp_dir, backend="sq"
+    )
+
+
+@pytest.fixture(scope="session")
+def _sq_ascii_armored_detached_signing_service_name(
+    sq_signing_script_path,
+    sq_signing_metadata,
+    sq_signing_home_path,
+):
+    _sq, fingerprint, _keyid = sq_signing_metadata
+    service_name = create_signing_service(
+        sq_signing_home_path, fingerprint, sq_signing_script_path, backend="sq"
+    )
+
+    yield service_name
+
+    remove_signing_service(service_name)
+
+
+@pytest.fixture(scope="session")
+def sq_ascii_armored_detached_signing_service(
+    _sq_ascii_armored_detached_signing_service_name, pulpcore_bindings
+):
+    return pulpcore_bindings.SigningServicesApi.list(
+        name=_sq_ascii_armored_detached_signing_service_name
+    ).results[0]
+
+
+def import_signing_key(key_url, home, *, backend="gpg"):
+    """Import a PGP key into a keyring and return metadata.
+
+    Returns `(gpg_instance_or_none, fingerprint, keyid)`. The first element
+    is a `gnupg.GPG` instance when `backend` is `"gpg"`, or `None` when
+    `backend` is `"sq"`.
+    """
+    response = requests.get(key_url)
+    response.raise_for_status()
+
+    if backend == "sq":
+        from pysequoia import Cert
+
+        completed = subprocess.run(
+            ("sq", "--home", str(home), "key", "import"),
+            input=response.content,
+            capture_output=True,
+        )
+        assert completed.returncode == 0, completed.stderr.decode()
+
+        cert = Cert.from_bytes(response.content)
+        fingerprint = cert.fingerprint.upper()
+        keyid = fingerprint[-16:]
+
+        return None, fingerprint, keyid
+    else:
+        try:
+            import gnupg
+        except ImportError:
+            pytest.skip("python-gnupg not installed")
+
+        gpg = gnupg.GPG(gnupghome=home)
+
+        result = gpg.import_keys(response.content)
+        assert result.count >= 1, f"Failed to import key from {key_url}"
+
+        key_info = gpg.list_keys()[0]
+        fingerprint = key_info["fingerprint"]
+        keyid = key_info["keyid"]
+        gpg.trust_keys(fingerprint, "TRUST_ULTIMATE")
+
+        return gpg, fingerprint, keyid
+
+
+def make_signing_script(home, fingerprint, script_dir=None, *, backend="gpg"):
+    """Create a detached-signature signing script.
+
+    Returns the script path.
+    """
+    if script_dir is None:
+        script_dir = home
+    if backend == "sq":
+        script_path = script_dir / "sq_sign.sh"
+        script_path.write_text(
+            SQ_SIGNING_SCRIPT_STRING.format(sq_home=home, signer_fingerprint=fingerprint)
+        )
+    else:
+        script_path = script_dir / "sign.sh"
+        script_path.write_text(SIGNING_SCRIPT_STRING.format(gpg_home=home, gpg_key_id=fingerprint))
+    script_path.chmod(0o755)
+    return script_path
+
+
+def create_signing_service(
+    home,
+    fingerprint,
+    script_path,
+    *,
+    backend="gpg",
+    service_class="core:AsciiArmoredDetachedSigningService",
+):
+    """Register a signing service via pulpcore-manager.
+
+    Returns the service name.
+    """
+    service_name = str(uuid.uuid4())
+    cmd = [
+        "pulpcore-manager",
+        "add-signing-service",
+        service_name,
+        str(script_path),
+        fingerprint,
+        "--class",
+        service_class,
+        "--backend",
+        backend,
+        "--home",
+        str(home),
+    ]
+    completed = subprocess.run(cmd, capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stderr
+
+    return service_name
+
+
+def remove_signing_service(service_name, service_class="core:AsciiArmoredDetachedSigningService"):
+    """Remove a signing service created by ``create_signing_service``."""
+    subprocess.run(
+        (
+            "pulpcore-manager",
+            "remove-signing-service",
+            service_name,
+            "--class",
+            service_class,
+        ),
+        capture_output=True,
+    )
+
+
+# if content_origin == None, base_url will return the relative path and
+# we need to add the hostname to run the tests
+@pytest.fixture(scope="session")
+def distribution_base_url(bindings_cfg):
+    def _distribution_base_url(base_url):
+        if base_url.startswith("http"):
+            return base_url
+        return bindings_cfg.host + base_url
+
+    return _distribution_base_url

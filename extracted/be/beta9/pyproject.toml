@@ -1,0 +1,86 @@
+[project]
+authors = [
+    {name = "beam.cloud", email = "support@beam.cloud"},
+]
+requires-python = "<4.0,>=3.8"
+dependencies = [
+    "typeguard<3.0.0,>=2.13.3; python_version < '3.9'",
+    "typeguard<5.0.0,>=4.4.3; python_version >= '3.9'",
+    "typing-extensions<5.0.0,>=4.7.1",
+    "grpclib<1.0.0,>=0.4.7",
+    "grpcio<2.0.0,>=1.69.0",
+    "asgiref<4.0.0,>=3.8.1",
+    "cloudpickle<4.0.0,>=3.0.0",
+    "rich<15.0.0,>=13.9.4",
+    "click<9.0.0,>=8.1.7",
+    "protobuf<7.0.0,>=4.25.1",
+    "fastapi<1.0.0,>=0.115.11",
+    "uvicorn<1.0.0,>=0.29.0",
+    "watchdog<5.0.0,>=4.0.0",
+    "betterproto-beta9==2.0.1",
+    "croniter<4.0.0,>=3.0.3",
+    "websocket-client<2.0.0,>=1.8.0",
+    "prompt-toolkit<4.0.0,>=3.0.48",
+    "requests<3.0.0,>=2.32.3",
+    "paramiko<4.0.0,>=3.5.0",
+    "websockets>=13,<16",
+    "pyyaml<7.0.0,>=6.0.0",
+]
+name = "beta9"
+version = "0.1.265"
+description = ""
+
+[project.scripts]
+beta9 = "beta9.cli.main:start"
+
+[dependency-groups]
+dev = [
+    "pytest<9.0.0,>=8.2.0",
+    "pytest-env<2.0.0,>=1.1.3",
+    "attrs<24.0.0,>=23.2.0",
+    "docstring-parser<1.0,>=0.16",
+    "ruff",
+    "gunicorn<23.0.0,>=22.0.0",
+    "requests<3.0.0,>=2.32.3",
+    "pytest-cov<6.0.0,>=5.0.0",
+]
+
+[tool.uv]
+default-groups = []
+package = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "--verbose --cov --cov-report=html:.htmlcov"
+
+[tool.coverage.report]
+omit = ["tests/*"]
+exclude_also = [
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.ruff]
+line-length = 100
+exclude = ["src/beta9/clients", "vendor"]
+src = ["src", "test", "bin"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/beta9/__init__.py" = ["F403"]
+
+[tool.vendoring]
+destination = "src/beta9/vendor"
+requirements = "vendors.txt"
+namespace = "beta9.vendor"
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -3688,6 +3688,7 @@ class DoclingDocument(BaseModel):
         traverse_pictures: bool = False,
         mark_meta: bool = False,
         use_legacy_annotations: Optional[bool] = None,  # deprecated
+        include_picture_classification: bool = True,
     ):
         """Save to markdown."""
         if isinstance(filename, str):
@@ -3720,6 +3721,7 @@ class DoclingDocument(BaseModel):
             traverse_pictures=traverse_pictures,
             use_legacy_annotations=use_legacy_annotations,
             mark_meta=mark_meta,
+            include_picture_classification=include_picture_classification,
         )
 
         filename.write_text(md_out, encoding="utf-8")
@@ -3750,6 +3752,7 @@ class DoclingDocument(BaseModel):
         allowed_meta_names: Optional[set[str]] = None,
         blocked_meta_names: Optional[set[str]] = None,
         mark_meta: bool = False,
+        include_picture_classification: bool = True,
     ) -> str:
         r"""Serialize to Markdown.
 
@@ -3812,6 +3815,10 @@ class DoclingDocument(BaseModel):
         :type allowed_meta_names: Optional[set[str]] = None
         :param blocked_meta_names: Optional[set[str]]: Meta names to block; takes precedence over allowed_meta_names.
         :type blocked_meta_names: Optional[set[str]] = None
+        :param include_picture_classification: bool: Whether to include the picture
+            classification prediction (the image's predicted class) in the export.
+            (Default value = True).
+        :type include_picture_classification: bool = True
         """
         from docling_core.transforms.serializer.markdown import (
             MarkdownDocSerializer,
@@ -3850,6 +3857,7 @@ class DoclingDocument(BaseModel):
                 mark_annotations=mark_annotations,
                 compact_tables=compact_tables,
                 traverse_pictures=traverse_pictures,
+                include_picture_classification=include_picture_classification,
             ),
         )
         ser_res = serializer.serialize()
@@ -4833,24 +4841,34 @@ class DoclingDocument(BaseModel):
 
     def export_to_doclang(
         self,
+        *,
+        add_named_groups: bool = False,
     ) -> str:
-        """Export to DocLang."""
+        """Export to DocLang.
+
+        Args:
+            add_named_groups: When True, a plain ``GroupItem`` is emitted as a
+                ``<group name="...">`` element instead of being transparent, so
+                the grouping survives a round trip.
+        """
         from docling_core.transforms.serializer.doclang import DocLangDocSerializer, DocLangParams
 
         serializer = DocLangDocSerializer(
             doc=self,
-            params=DocLangParams(),
+            params=DocLangParams(add_named_groups=add_named_groups),
         )
         return serializer.serialize().text
 
     def save_as_doclang(
         self,
         filename: Union[str, Path],
+        *,
+        add_named_groups: bool = False,
     ) -> None:
         """Save the document as DocLang."""
         if isinstance(filename, str):
             filename = Path(filename)
-        out = self.export_to_doclang()
+        out = self.export_to_doclang(add_named_groups=add_named_groups)
         filename.write_text(f"{out}\n", encoding="utf-8")
 
     def save_as_doclang_archive(
@@ -4859,11 +4877,15 @@ class DoclingDocument(BaseModel):
         *,
         artifacts_dir: Optional[Path] = None,
         validate: bool = False,
+        add_named_groups: bool = False,
     ) -> None:
         """Save the document as a DocLang OPC archive (``.dclx``).
 
         Picture and page images are always stored outside the markup, under
         ``assets/`` and ``pages/`` in the archive respectively.
+
+        ``add_named_groups`` emits plain ``GroupItem``s as ``<group name="...">``
+        elements so the grouping survives a round trip.
         """
         from doclang import pack
 
@@ -4885,7 +4907,10 @@ class DoclingDocument(BaseModel):
 
             serializer = DocLangDocSerializer(
                 doc=doc,
-                params=DocLangParams(image_mode=ImageRefMode.REFERENCED),
+                params=DocLangParams(
+                    image_mode=ImageRefMode.REFERENCED,
+                    add_named_groups=add_named_groups,
+                ),
             )
             document_path = staging_root / "document.dclg.xml"
             document_path.write_text(f"{serializer.serialize().text}\n", encoding="utf-8")

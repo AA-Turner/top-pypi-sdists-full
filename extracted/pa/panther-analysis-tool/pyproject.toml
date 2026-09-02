@@ -1,0 +1,183 @@
+[project]
+name = "panther_analysis_tool"
+version = "1.8.2"
+description = "Panther command line interface for writing, testing, and packaging policies/rules."
+authors = [{ name = "Panther Labs Inc", email = "pypi@runpanther.io" }]
+readme = "README.md"
+requires-python = ">=3.11, <4.0"
+dependencies = [
+    "setuptools~=80.9.0",
+    "aiohappyeyeballs~=2.6.1",
+    "aiohttp==3.13.3",
+    "aiosignal~=1.4.0",
+    "anyio~=4.12.0",
+    "appdirs~=1.4.4",
+    "async-timeout~=5.0.1",
+    "attrs~=25.4.0",
+    "backoff~=2.2.1",
+    "boto3~=1.42.7",
+    "botocore~=1.42.7",
+    "certifi~=2025.11.12",
+    "chardet~=5.2.0",
+    "charset-normalizer~=3.4.4",
+    "click~=8.3.3",
+    "colorama~=0.4.6",
+    "contextlib2~=21.6.0",
+    "decorator~=5.2.1",
+    "diff-cover~=10.0.0",
+    "dill~=0.4.0",
+    "dynaconf~=3.2.12",
+    "exceptiongroup~=1.3.1",
+    "frozenlist~=1.8.0",
+    "gql[aiohttp]~=4.0.0",
+    "graphql-core~=3.2.7",
+    "idna~=3.11",
+    "iniconfig~=2.3.0",
+    "jinja2~=3.1.6",
+    "jmespath~=1.0.1",
+    "jsonlines~=4.0.0",
+    "jsonpath-ng==1.5.3",                  # updating this causes test failures
+    "jsonschema~=4.25.1",
+    "jsonschema-specifications~=2025.9.1",
+    "markupsafe~=3.0.2",
+    "multidict~=6.7.0",
+    "nested-lookup~=0.2.25",
+    "packaging~=25.0",
+    "panther-core~=0.16.2",
+    "pathspec~=1.0.0",
+    "pluggy~=1.6.0",
+    "ply~=3.11",
+    "policyuniverse~=1.5.1.20230817",
+    "propcache~=0.4.1",
+    "pygments~=2.19.2",
+    "pydantic~=2.12.0",
+    "pytest~=9.0.2",
+    "python-dateutil~=2.9.0.post0",
+    "pyyaml~=6.0.3",
+    "referencing~=0.37.0",
+    "regex~=2025.11.3",
+    "requests~=2.33.1",
+    "rpds-py~=0.30.0",
+    "ruamel-yaml~=0.18.16",
+    "ruamel-yaml-clib~=0.2.15",
+    "s3transfer~=0.16.0",
+    "schema~=0.7.8",
+    "semver~=3.0.4",
+    "six~=1.17.0",
+    "sniffio~=1.3.1",
+    "sqlfluff~=4.2.0",
+    "tblib~=3.2.2",
+    "textual[syntax]~=6.3.0",
+    "toml~=0.10.2",
+    "tomli~=2.3.0",
+    "tqdm~=4.67.1",
+    "typing-extensions~=4.15.0",
+    "urllib3==2.7.0",
+    "wrapt~=2.0.1",
+    "yarl~=1.22.0",
+    "typer~=0.20.0",
+    "typer-config~=1.4.3",
+]
+
+license = { text = "Apache-2.0" }
+keywords = ["Security", "CLI"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Security",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project.urls]
+Homepage = "https://github.com/panther-labs/panther_analysis_tool"
+Downloads = "https://github.com/panther-labs/panther_analysis_tool/archive/v1.0.0.tar.gz"
+
+[project.scripts]
+panther_analysis_tool = "panther_analysis_tool.main:run"
+pat = "panther_analysis_tool.main:run"
+
+[tool.poetry]
+package-mode = true
+requires-poetry = ">=2.0"
+
+[tool.poetry.group.dev.dependencies]
+bandit = "~=1.9.2"
+black = "~=25.12.0"
+coverage = "~=7.13.0"
+isort = "~=7.0.0"
+mypy = "~=1.19.0"
+nose2 = "^0.13.0"
+pyfakefs = "^5.9.3"
+pylint = "~=4.0.4"
+pytest-cov = "^7.0.0"
+pytest-mock = "^3.15.1"
+pytest-asyncio = "^1.2.0"
+responses = "~=0.25.8"
+textual-dev = "^1.8.0"
+types-pyyaml = "^6.0.12.20250915"
+types-python-dateutil = "~=2.9.0.20251115"
+types-requests = "~=2.33.0"
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+
+[tool.black]
+exclude = '\.poetry'
+line-length = 100
+
+[tool.isort]
+profile = "black"
+skip = ['\.poetry']
+
+[tool.mypy]
+disallow_untyped_defs = true
+exclude = ['^.poetry\\']
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[tool.pylint.format]
+max-line-length = 140
+
+[tool.pylint."messages control"]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "duplicate-code",
+    "fixme",
+    "too-many-branches",
+    "deprecated-module",
+    "too-many-lines",
+    "too-few-public-methods",
+]
+
+[tool.sqlfluff.core]
+dialect = "snowflake"
+templater = "jinja"
+
+[tool.pytest.ini_options]
+python_classes = [
+    "!TestCorrelationRuleParams",
+    "!TestCorrelationRuleResponse",
+    "!TestResultsContainer",
+    "!TestResultContainer",
+    "!TestAnalysisArgs",
+    "!TestError",
+    "!TestResultsPerFunction",
+    "!TestResult",
+    "!TestExpectations",
+    "!TestSpecification",
+    "!TestCaseEvaluator",
+]
+norecursedirs = [
+    # fixtures folder contains test detections in python which pytest will load as real python modules,
+    # so we need to exclude it from test collection to avoid errors
+    "fixtures",
+    "scripts",
+]

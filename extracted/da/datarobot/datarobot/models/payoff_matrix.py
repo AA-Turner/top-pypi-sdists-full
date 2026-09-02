@@ -27,19 +27,19 @@ class PayoffMatrix(APIObject):
     Attributes
     ----------
     project_id : str
-        id of the project with which the payoff matrix is associated.
+        The ID of the project that owns the payoff matrix.
     id : str
-        id of the payoff matrix.
+        The ID of the payoff matrix.
     name : str
         User-supplied label for the payoff matrix.
     true_positive_value : float
-        Cost or benefit of a true positive classification
+        Cost or benefit of a true positive classification.
     true_negative_value : float
-        Cost or benefit of a true negative classification
+        Cost or benefit of a true negative classification.
     false_positive_value : float
-        Cost or benefit of a false positive classification
+        Cost or benefit of a false positive classification.
     false_negative_value : float
-        Cost or benefit of a false negative classification
+        Cost or benefit of a false negative classification.
 
     Examples
     --------
@@ -125,12 +125,12 @@ class PayoffMatrix(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project with which the payoff matrix will be associated
+            The ID of the project to associate with the payoff matrix.
 
         Returns
         -------
         payoff_matrix : :py:class:`PayoffMatrix <datarobot.models.PayoffMatrix>`
-            The newly created payoff matrix
+            The newly created payoff matrix.
         """
         data = {
             "name": name,
@@ -152,17 +152,20 @@ class PayoffMatrix(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project
+            The ID of the project.
+
         Returns
         -------
-        List of PayoffMatrix
-            A list of :py:class:`PayoffMatrix <datarobot.models.PayoffMatrix>` objects
+        payoff_matrices : list
+            A list of :py:class:`PayoffMatrix <datarobot.models.PayoffMatrix>` objects.
+
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with a 4xx status.
+
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with a 5xx status.
         """
         data = unpaginate(
             initial_url=cls._base_url.format(project_id),
@@ -180,21 +183,23 @@ class PayoffMatrix(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project that owns the payoff matrix.
+
         id : str
-            id of the payoff matrix
+            The ID of the payoff matrix.
 
         Returns
         -------
-        :py:class:`PayoffMatrix <datarobot.models.PayoffMatrix>` object representing specified
-        payoff matrix
+        payoff_matrix : :py:class:`PayoffMatrix <datarobot.models.PayoffMatrix>`
+            The specified payoff matrix.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with a 4xx status.
+
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with a 5xx status.
         """
         return cls.from_location(f"/projects/{project_id}/payoffMatrices/{id}")
 
@@ -214,31 +219,38 @@ class PayoffMatrix(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project to which the payoff matrix belongs
+            The ID of the project that owns the payoff matrix.
+
         id : str
-            id of the payoff matrix
+            The ID of the payoff matrix.
+
         name : str
-            User-supplied label for the payoff matrix
+            User-supplied label for the payoff matrix.
+
         true_positive_value : float
-            True positive payoff value to use for the profit curve
+            True positive payoff value to use for the profit curve.
+
         true_negative_value : float
-            True negative payoff value to use for the profit curve
+            True negative payoff value to use for the profit curve.
+
         false_positive_value : float
-            False positive payoff value to use for the profit curve
+            False positive payoff value to use for the profit curve.
+
         false_negative_value : float
-            False negative payoff value to use for the profit curve
+            False negative payoff value to use for the profit curve.
 
         Returns
         -------
-        payoff_matrix
-            PayoffMatrix with updated values
+        payoff_matrix : :py:class:`PayoffMatrix <datarobot.models.PayoffMatrix>`
+            The payoff matrix with updated values.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with a 4xx status.
+
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with a 5xx status.
         """
         data = {
             "name": name,
@@ -260,21 +272,23 @@ class PayoffMatrix(APIObject):
         Parameters
         ----------
         project_id : str
-            id of the project the model belongs to
+            The ID of the project that owns the payoff matrix.
+
         id : str
-            id of the payoff matrix
+            The ID of the payoff matrix.
 
         Returns
         -------
         response : requests.Response
-            Empty response (204)
+            An empty response with HTTP status 204.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with a 4xx status.
+
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with a 5xx status.
         """
         url = cls._payoff_matrix_url.format(project_id, id)
         return cast(Response, cls._client.delete(url))

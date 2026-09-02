@@ -660,8 +660,8 @@ class _AppProfileRuntime:
     async def refresh_skill_names(self) -> None:
         await self._app._command_dispatcher.refresh_skill_names()
 
-    async def resume_requested_session(self) -> None:
-        await self._app._resume_requested_session()
+    async def resume_requested_session(self) -> bool:
+        return await self._app._resume_requested_session()
 
     async def create_new_session(
         self,
@@ -1071,6 +1071,12 @@ class _AppCommandActions:
 
     def set_current_profile(self, profile: Profile) -> None:
         self._app._current_profile = profile
+
+    def active_session_summary(self) -> tuple[str | None, str | None]:
+        session = self._app._active_session()
+        if session is None:
+            return None, None
+        return session.info.session_id, session.info.title
 
     # ------------------------------------------------------------------
     # Runtime transport
@@ -2157,14 +2163,18 @@ class DreadnodeTextualApp(App[None]):
                 if message:
                     self._set_composer_text(composer, message)
                 return
-            if on_first_line:
+            if on_first_line and not composer.text:
                 event.prevent_default()
                 self._history_navigate(-1)
                 return
 
         if event.key == "down" and composer.has_focus:
             last_row = len(composer.document.lines) - 1
-            if not self._has_active_overlay() and composer.cursor_location[0] >= last_row:
+            if (
+                not self._has_active_overlay()
+                and not composer.text
+                and composer.cursor_location[0] >= last_row
+            ):
                 event.prevent_default()
                 self._history_navigate(1)
                 return
@@ -3074,7 +3084,7 @@ class DreadnodeTextualApp(App[None]):
             if "scope" in spec:
                 merged.pop("preset", None)
             if "judge_model" not in merged:
-                merged["judge_model"] = "dn/claude-sonnet-4-6"
+                merged["judge_model"] = session.model
             spec = merged
 
         try:
@@ -3151,7 +3161,7 @@ class DreadnodeTextualApp(App[None]):
         prev = self._guard_config.get(session.info.session_id, {})
         spec: dict[str, t.Any] = {
             "name": "guard",
-            "judge_model": prev.get("judge_model", "dn/claude-sonnet-4-6"),
+            "judge_model": prev.get("judge_model", session.model),
             "scope": result,
         }
         self._guard_config[session.info.session_id] = spec
@@ -3575,16 +3585,20 @@ class DreadnodeTextualApp(App[None]):
         self._sessions_manager.sync_queue()
         self._update_context()
 
-    async def _resume_requested_session(self) -> None:
+    async def _resume_requested_session(self) -> bool:
         """Resume a session requested via --resume CLI flag.
 
         When the resume ID is the pick sentinel, open the
         session picker instead of matching a prefix — this is what
         ``dn --resume`` (no ID) resolves to.
+
+        If the session is not found in the current workspace, searches
+        all workspaces in the org and switches context automatically
+        (workspace + project) before resuming.
         """
         if self._resume_session_id == RESUME_PICK_SENTINEL:
             self._refresh_sessions_then_open_picker()
-            return
+            return True
 
         prefix = self._resume_session_id or ""
         matches = [sid for sid in self.sessions if sid.startswith(prefix)]
@@ -3597,6 +3611,14 @@ class DreadnodeTextualApp(App[None]):
             record = await self._sessions_manager.ensure_session_loaded(prefix)
             if record is not None:
                 matches = [record.info.session_id]
+
+        # Still not found: the session may live in a different workspace or
+        # project. Try a cross-workspace lookup via the platform API and, if
+        # found, switch context so the runtime restarts in the right scope
+        # and re-load the session into the sessions dict.
+        if not matches and prefix:
+            if await self._try_cross_workspace_resume(prefix):
+                matches = [sid for sid in self.sessions if sid.startswith(prefix)]
 
         if len(matches) == 1:
             self.active_session_id = matches[0]
@@ -3617,12 +3639,127 @@ class DreadnodeTextualApp(App[None]):
             self._flash(
                 f"Multiple sessions match '{prefix}' — use a longer prefix", severity="warning"
             )
+            return False
         else:
             self.active_session_id = None
             self._sync_conversation()
             await self._sync_runtime_session_subscriptions()
             self._sync_active_session_projection()
             self._flash(f"No session found matching '{prefix}'", severity="warning")
+            return False
+        return True
+
+    async def _try_cross_workspace_resume(self, session_id: str) -> bool:
+        """Search other workspaces for a session and switch context if found.
+
+        When the session lives in a different workspace (or project) the method
+        updates the profile, restarts the runtime in the correct scope,
+        re-hydrates sessions, and loads the target session — all inline so
+        the caller can proceed with the normal single-match resume path.
+
+        Returns ``True`` if the session was found in another scope **and**
+        the switch + re-load succeeded (the session is now in
+        ``self.sessions``). Returns ``False`` if the session wasn't found
+        anywhere or the platform API is unavailable.
+        """
+        from dreadnode.app.api.client import AuthenticationError as PlatformAuthError
+
+        cm = self._connection_manager
+        api = cm._api_client
+        org = cm._org
+        current_workspace = cm._workspace
+        if api is None or not org:
+            return False
+
+        try:
+            data = await asyncio.to_thread(api.resolve_session_scope, org, session_id)
+        except PlatformAuthError:
+            self._profile_manager.handle_authentication_error(
+                "Session expired — please sign in again"
+            )
+            return False
+        except Exception:
+            logger.opt(exception=True).debug(
+                "Cross-workspace session lookup failed for {}", session_id[:8]
+            )
+            return False
+
+        if data is None:
+            return False
+
+        session_data = data.get("session", data)
+        if not isinstance(session_data, dict):
+            return False
+
+        target_workspace = session_data.get("workspace")
+        # The platform API returns ``project_name`` (the project key/slug),
+        # not ``project``.  This matches the field read by
+        # ``session_hydrator.hydrate_from_api`` and the normalization in
+        # ``_normalize_platform_session``.
+        target_project = session_data.get("project_name")
+        if not target_workspace:
+            return False
+
+        profile = self._current_profile
+        if profile is None:
+            return False
+
+        # Compare against the *effective* scope (which respects CLI/env
+        # overrides via PrivateAttr) rather than mixing effective workspace
+        # with default project.
+        current_project = profile.project
+        needs_switch = target_workspace != current_workspace or target_project != current_project
+        if not needs_switch:
+            return False
+
+        logger.info(
+            "Resume: session {} is in {}/{} (current: {}/{}), switching context",
+            session_id[:8],
+            target_workspace,
+            target_project or "default",
+            current_workspace,
+            current_project or "default",
+        )
+        self._flash(
+            f"Switching to {target_workspace}/{target_project or 'default'} for resumed session",
+            severity="info",
+        )
+
+        # Build the updated profile with the target workspace/project.
+        # Clear any PrivateAttr scope overrides (set by --workspace /
+        # DREADNODE_WORKSPACE / etc.) so that apply_auth_profile reads
+        # the *persisted* default_* fields we're about to set, not stale
+        # overrides carried over from model_copy.
+        from dreadnode.app.config import UNSET
+
+        updated_profile = profile.model_copy(
+            update={
+                "default_organization": org,
+                "default_workspace": target_workspace,
+                "default_project": target_project,
+            }
+        )
+        updated_profile._organization = UNSET
+        updated_profile._workspace = UNSET
+        updated_profile._project = UNSET
+
+        # Apply the profile change — this restarts the runtime, refreshes
+        # sessions, etc. The resumed session will then be findable in the
+        # new workspace scope.
+        ok = await self._profile_manager.apply_auth_profile(updated_profile)
+        if not ok:
+            return False
+
+        profile_name = _active_profile_name()
+        if profile_name:
+            try:
+                await asyncio.to_thread(_save_profile, profile_name, updated_profile)
+            except Exception:
+                logger.opt(exception=True).warning("Resume: failed to persist profile update")
+
+        # Re-load the session in the new workspace scope.
+        record = await self._sessions_manager.ensure_session_loaded(session_id)
+        return record is not None
 
     @work(exclusive=True, group="session")
     async def _start_agent_session(self, agent_name: str) -> None:

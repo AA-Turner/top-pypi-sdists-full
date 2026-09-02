@@ -1,0 +1,504 @@
+use test_context::test_context;
+mod utils;
+use topk_rs::{
+    data::literal,
+    doc,
+    proto::v1::{
+        control::{FieldIndex, FieldSpec, KeywordIndexType},
+        data::stage::sort_stage::SortOrder,
+    },
+    query::{field, filter, fns, r#match, select, should},
+    schema, Error,
+};
+use utils::dataset;
+use utils::ProjectTestContext;
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_filter_single_term_disjunctive(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(r#match("love", Some("summary"), None, false))
+                .sort((field("published_year"), SortOrder::Asc))
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "gatsby"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_filter_single_term_conjunctive(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(r#match("love", Some("summary"), None, false))
+                .sort((field("published_year"), SortOrder::Asc))
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["gatsby", "pride"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_filter_two_terms_disjunctive(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(r#match("LOVE", Some("summary"), None, false).or(r#match(
+                "ring",
+                Some("title"),
+                None,
+                false,
+            )))
+            .sort((field("published_year"), SortOrder::Asc))
+            .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "gatsby", "lotr"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_filter_two_terms_conjunctive(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(r#match("LOVE", Some("summary"), None, false).and(r#match(
+                "class",
+                Some("summary"),
+                None,
+                false,
+            )))
+            .sort((field("published_year"), SortOrder::Asc))
+            .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_filter_stop_word(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(r#match("the", Some("summary"), None, false))
+                .sort((field("published_year"), SortOrder::Asc))
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, Vec::<String>::new());
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_should_does_not_filter(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("bm25", fns::bm25_score(None, None))])
+                .filter(should("love", Some("summary"), None))
+                .sort("bm25")
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(result.len(), 10);
+    assert_doc_ids!(&result[..2], ["pride", "gatsby"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_should_boosts_bm25_score(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // the should term only affects ranking - the result set is gated by "love" alone
+    for (boost, expected) in [
+        ("wealth", ["gatsby", "pride"]),
+        ("marriage", ["pride", "gatsby"]),
+    ] {
+        let result = ctx
+            .client
+            .collection(&collection.name)
+            .query(
+                select([("bm25", fns::bm25_score(None, None))])
+                    .filter(r#match("love", Some("summary"), None, false).and(should(
+                        boost,
+                        Some("summary"),
+                        None,
+                    )))
+                    .sort("bm25")
+                    .limit(100),
+                None,
+                None,
+            )
+            .await
+            .expect("could not query");
+
+        assert_doc_ids_ordered!(result, expected);
+    }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_select_bm25_without_text_queries(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("bm25_score", fns::bm25_score(None, None))])
+                .filter(field("_id").eq("pride"))
+                .sort((field("bm25_score"), SortOrder::Asc))
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect_err("should have failed");
+
+    assert!(matches!(err, Error::InvalidArgument(_)));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_matches_single_term(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    for match_expr in [
+        filter(field("summary").match_any("love")),
+        filter(field("summary").match_all("love")),
+    ] {
+        let result = ctx
+            .client
+            .collection(&collection.name)
+            .query(
+                match_expr
+                    .sort((field("published_year"), SortOrder::Asc))
+                    .limit(100),
+                None,
+                None,
+            )
+            .await
+            .expect("could not query");
+
+        assert_doc_ids!(result, ["pride", "gatsby"]);
+    }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_match_all_two_terms(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("summary").match_all("love class"))
+                .sort((field("published_year"), SortOrder::Asc))
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_match_all_two_terms_tokenized(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("tags").match_all(vec!["love", "class"]))
+                .sort((field("published_year"), SortOrder::Asc))
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_match_any_two_terms(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("summary").match_any("love ring"))
+                .sort((field("published_year"), SortOrder::Asc))
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "gatsby", "lotr"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_match_any_two_terms_tokenized(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("tags").match_any(vec!["love", "elves"]))
+                .sort((field("published_year"), SortOrder::Asc))
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "gatsby", "lotr"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_matches_with_logical_expr(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("summary").match_all("love class") | field("published_year").eq(1925))
+                .sort((field("published_year"), SortOrder::Asc))
+                .limit(10),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "gatsby"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_matches_on_invalid_field(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("published_year").match_all("love class")).count(),
+            None,
+            None,
+        )
+        .await
+        .expect_err("should have failed");
+
+    assert!(matches!(err, Error::InvalidArgument(_)));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("text_updates"),
+            schema!(
+                "text" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
+            ),
+            None,
+        )
+        .await
+        .expect("could not create collection");
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "1", "text" => "totalitarian regime uses surveillance"),
+            doc!("_id" => "2", "text" => "millionaire navigates love and wealth"),
+        ])
+        .await
+        .expect("upsert failed");
+
+    let res = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("bm25", fns::bm25_score(None, None))])
+                .filter(r#match("surveillance", None, None, true))
+                .sort((literal(1u32).into(), SortOrder::Asc))
+                .limit(10),
+            Some(lsn),
+            None,
+        )
+        .await
+        .expect("query returned error");
+
+    assert_doc_ids!(res, ["1"]);
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "1", "text" => "totalitarian regime uses love"),
+        ])
+        .await
+        .expect("upsert failed");
+
+    let res = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("bm25", fns::bm25_score(None, None))])
+                .filter(r#match("love", None, None, true))
+                .sort((literal(1u32).into(), SortOrder::Asc))
+                .limit(10),
+            Some(lsn),
+            None,
+        )
+        .await
+        .expect("query returned error");
+
+    assert_doc_ids!(res, ["1", "2"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_exact_keyword(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("exact_keyword"),
+            schema!(
+                "tag" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Exact)),
+            ),
+            None,
+        )
+        .await
+        .expect("could not create collection");
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "nyc", "tag" => "New York City"),
+            doc!("_id" => "camel", "tag" => "CamelCase"),
+        ])
+        .await
+        .expect("upsert failed");
+
+    // The whole value is one verbatim term: only full-value matches hit;
+    // partial tokens and case-normalized values do not.
+    for (token, expected) in [
+        ("New York City", vec!["nyc"]),
+        ("York", vec![]),
+        ("new york city", vec![]),
+        ("CamelCase", vec!["camel"]),
+        ("camelcase", vec![]),
+    ] {
+        let res = ctx
+            .client
+            .collection(&collection.name)
+            .query(
+                filter(r#match(token, Some("tag"), None, false)).limit(10),
+                Some(lsn.clone()),
+                None,
+            )
+            .await
+            .expect("query returned error");
+
+        assert_doc_ids!(res, expected);
+    }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_deep_recursion_limit(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // Build a deeply nested OR expression that should trigger recursion limit
+    // Start with a simple text match
+    let mut deep_expr = r#match("love", Some("summary"), None, false);
+
+    // Add nested OR expressions to exceed router depth (16) but stay below protobuf decode limit
+    for i in 0..20 {
+        deep_expr = deep_expr.or(r#match(&format!("term{}", i), Some("summary"), None, false));
+    }
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(deep_expr)
+                .sort((field("published_year"), SortOrder::Asc))
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect_err("should have failed due to recursion limit");
+
+    assert!(matches!(err, Error::InvalidArgument(_) if err.to_string().contains("too deep")));
+}

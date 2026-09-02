@@ -1,0 +1,23 @@
+stages:
+  - publish
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+Publish to PyPI:
+  stage: publish
+  image: python:3.11-slim-bullseye
+  rules:
+    - if: $CI_COMMIT_TAG
+  cache:
+    paths:
+      - .cache/pip
+  before_script:
+    - pip install -U build twine
+  script:
+    - python -m build
+    # TWINE_USERNAME and TWINE_PASSWORD env variables are defined in https://git.nomics.world/groups/dbnomics/-/settings/ci_cd
+    - twine upload dist/*
+  environment:
+    name: PyPI
+    url: https://pypi.org/project/DBnomics/$CI_COMMIT_TAG

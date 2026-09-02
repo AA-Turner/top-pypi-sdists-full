@@ -45,7 +45,7 @@ async function runPython(
     headers = {},
   }: Options = {}
 ): Promise<void> {
-  const version = "0.36.17";
+  const version = "0.37.0";
   const sheets = workbook.getWorksheets();
   // Config
   let configSheet = workbook.getWorksheet("xlwings.conf");

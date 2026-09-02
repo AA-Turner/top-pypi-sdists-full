@@ -52,26 +52,26 @@ class ExecutionEnvironmentVersion(APIObject):
     Attributes
     ----------
     id: str
-        the ID of the execution environment version
+        The ID of the execution environment version.
     environment_id: str
-        the ID of the execution environment the version belongs to
+        The ID of the execution environment the version belongs to.
     build_status: str
-        the status of the execution environment version build
+        The status of the execution environment version build.
     image_id: str
         The Docker image ID of the environment version.
     label: Optional[str]
-        the label of the execution environment version
+        The label of the execution environment version.
     description: Optional[str]
-        the description of the execution environment version
+        The description of the execution environment version.
     created_at: Optional[str]
-        ISO-8601 formatted timestamp of when the execution environment version was created
+        ISO-8601 formatted timestamp of when the execution environment version was created.
     docker_context_size: Optional[int]
-        The size of the uploaded Docker context in bytes if available or None if not
+        The size of the uploaded Docker context in bytes if available or None if not.
     docker_image_size: Optional[int]
-        The size of the built Docker image in bytes if available or None if not
+        The size of the built Docker image in bytes if available or None if not.
     docker_image_uri: Optional[str]
         The URI that the source Docker image execution environment version is based on.
-        Set to None if there is not one provided.
+        When set to None if there is not one provided.
     """
 
     _path = "executionEnvironments/{}/versions/"
@@ -146,14 +146,14 @@ class ExecutionEnvironmentVersion(APIObject):
         description: Optional[str] = None,
         max_wait: Optional[int] = DEFAULT_MAX_WAIT,
     ) -> "ExecutionEnvironmentVersion":
-        """Create an execution environment version.
+        """Creates an execution environment version.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         execution_environment_id: str
-            the ID of the execution environment
+            The ID of the execution environment.
         docker_context_path: Optional[str]
             The path to a Docker context archive or folder. This parameter has lower priority
             than `docker_image_uri` if they are both provided.
@@ -165,24 +165,24 @@ class ExecutionEnvironmentVersion(APIObject):
         label: Optional[str]
             A human-readable string to label the version.
         description: Optional[str]
-            execution environment version description
+            The execution environment version description.
         max_wait: Optional[int]
-            max time to wait for a final build status ("success" or "failed").
-            If set to None - method will return without waiting.
+            The max time to wait for a final build status ("success" or "failed").
+            If set to None, the method will return without waiting.
 
         Returns
         -------
         ExecutionEnvironmentVersion
-            created execution environment version
+            The created execution environment version.
 
         Raises
         ------
         datarobot.errors.AsyncTimeoutError
-            if version did not reach final state during timeout seconds
+            If the version did not reach final state during timeout seconds.
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
 
         if not docker_context_path and not docker_image_uri:
@@ -237,7 +237,7 @@ class ExecutionEnvironmentVersion(APIObject):
         Parameters
         ----------
         execution_environment_id: str
-            The ID of the execution environment
+            The ID of the execution environment.
         docker_image_path: str
             The path to a Docker image tarball file.
         docker_context_path: str
@@ -302,28 +302,29 @@ class ExecutionEnvironmentVersion(APIObject):
     def list(
         cls, execution_environment_id: str, build_status: Optional[str] = None
     ) -> List["ExecutionEnvironmentVersion"]:
-        """List execution environment versions available to the user.
+        """Returns a list of execution environment versions available to the user.
+
         .. versionadded:: v2.21
 
         Parameters
         ----------
         execution_environment_id: str
-            the ID of the execution environment
+            The ID of the execution environment.
         build_status: Optional[str]
-            build status of the execution environment version to filter by.
-            See datarobot.enums.EXECUTION_ENVIRONMENT_VERSION_BUILD_STATUS for valid options
+            The build status of the execution environment version to filter by.
+            See datarobot.enums.EXECUTION_ENVIRONMENT_VERSION_BUILD_STATUS for valid options.
 
         Returns
         -------
         List[ExecutionEnvironmentVersion]
-            a list of execution environment versions.
+            A list of execution environment versions.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         url = cls._path.format(execution_environment_id)
         data = unpaginate(url, {"build_status": build_status}, cls._client)
@@ -331,54 +332,54 @@ class ExecutionEnvironmentVersion(APIObject):
 
     @classmethod
     def get(cls, execution_environment_id: str, version_id: str) -> "ExecutionEnvironmentVersion":
-        """Get execution environment version by id.
+        """Returns the execution environment version by ID.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         execution_environment_id: str
-            the ID of the execution environment
+            The ID of the execution environment.
         version_id: str
-            the ID of the execution environment version to retrieve
+            The ID of the execution environment version to retrieve.
 
         Returns
         -------
         ExecutionEnvironmentVersion
-            retrieved execution environment version
+            The retrieved execution environment version.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         url = cls._path.format(execution_environment_id)
         path = f"{url}{version_id}/"
         return cls.from_location(path)
 
     def download(self, file_path: str) -> None:
-        """Download execution environment version.
+        """Downloads the execution environment version.
 
         .. versionadded:: v2.21
 
         Parameters
         ----------
         file_path: str
-            path to create a file with execution environment version content
+            The path to create a file with execution environment version content.
 
         Returns
         -------
         ExecutionEnvironmentVersion
-            retrieved execution environment version
+            The retrieved execution environment version.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         url = self._path.format(self.environment_id)
         path = f"{url}{self.id}/download/"
@@ -388,22 +389,22 @@ class ExecutionEnvironmentVersion(APIObject):
             f.write(response.content)
 
     def get_build_log(self) -> Tuple[str, str]:
-        """Get execution environment version build log and error.
+        """Returns the execution environment version build log and error.
 
         .. versionadded:: v2.21
 
         Returns
         -------
         Tuple[str, str]
-            retrieved execution environment version build log and error.
-            If there is no build error - None is returned.
+            The retrieved execution environment version build log and error.
+            If there is no build error, None is returned.
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status.
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status.
+            If the server responded with 5xx status.
         """
         url = self._path.format(self.environment_id)
         path = f"{url}{self.id}/buildLog/"
@@ -415,16 +416,16 @@ class ExecutionEnvironmentVersion(APIObject):
         return log, error
 
     def refresh(self) -> None:
-        """Update execution environment version with the latest data from server.
+        """Updates the execution environment version with the latest data from server.
 
         .. versionadded:: v2.21
 
         Raises
         ------
         datarobot.errors.ClientError
-            if the server responded with 4xx status
+            If the server responded with 4xx status.
         datarobot.errors.ServerError
-            if the server responded with 5xx status
+            If the server responded with 5xx status.
         """
         base_url = self._path.format(self.environment_id)
         url = f"{base_url}{self.id}/"

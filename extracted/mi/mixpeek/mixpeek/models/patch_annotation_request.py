@@ -32,7 +32,8 @@ class PatchAnnotationRequest(BaseModel):
     confidence: Optional[Union[Annotated[float, Field(le=1.0, strict=True, ge=0.0)], Annotated[int, Field(le=1, strict=True, ge=0)]]] = None
     reasoning: Optional[Annotated[str, Field(strict=True, max_length=5000)]] = None
     payload: Optional[Dict[str, Any]] = None
-    __properties: ClassVar[List[str]] = ["label", "confidence", "reasoning", "payload"]
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Custom metadata to attach or replace.")
+    __properties: ClassVar[List[str]] = ["label", "confidence", "reasoning", "payload", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -88,7 +89,8 @@ class PatchAnnotationRequest(BaseModel):
             "label": obj.get("label"),
             "confidence": obj.get("confidence"),
             "reasoning": obj.get("reasoning"),
-            "payload": obj.get("payload")
+            "payload": obj.get("payload"),
+            "metadata": obj.get("metadata")
         })
         return _obj
 

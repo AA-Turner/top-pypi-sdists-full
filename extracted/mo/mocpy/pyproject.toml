@@ -1,0 +1,145 @@
+# Enrich using https://www.maturin.rs/metadata.html
+[project]
+name = "mocpy"
+dynamic = ["version"]
+# 3.6 is no longer maintained and no more supported by maturin
+requires-python = ">=3.9"
+# https://numpy.org/neps/nep-0029-deprecation_policy.html
+# https://docs.astropy.org/en/stable/changelog.html
+dependencies = [
+    "astropy",
+    "numpy"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Rust",
+    "License :: OSI Approved :: BSD License",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+keywords=["astronomy", "astrophysics", "HEALPix"]
+
+[project.optional-dependencies]
+# optional for plots
+plots = [
+    "matplotlib",     # Used in fill and border"
+    "cdshealpix>=0.6.4",     # Used in fill and border
+    "networkx>=2.5",         # Used in get_boundaries
+]
+# optional to load FITS from URLs
+query_fits = ["requests"]
+# optional to support astropy regions
+astropy_regions = ["regions"]
+# for the documentation
+docs = [
+    "astropy-sphinx-theme",
+    "nbsphinx",
+    "numpydoc",
+    "sphinx-astropy",
+    "sphinx-collections",
+    "sphinx-copybutton",
+    "sphinx-gallery",
+    "sphinxcontrib-bibtex",
+    "ipython", # for syntaxic coloration in docs
+    "toml", # to retrieve project information from the Cargo.toml
+    "astropy_healpix" # astropy healpix is needed to run the example compute_borders.py
+]
+# for developpement
+dev = [
+    "pre-commit >= 2.20",
+    "pytest > 6.0",
+    "pytest-mock",
+    "pytest-cov",
+    "requests",
+    "regions",
+    "ruff >= 0.5.0",
+    "cdshealpix>=0.6.4",
+]
+# to run the notebooks
+notebooks = [
+    "matplotlib",
+    "cdshealpix>=0.6.4",
+    "networkx>=2.5",
+    "astroquery>=0.4.9",
+    "astropy_healpix",
+    "ipyaladin",
+    "regions",
+    "nbmake" # to test the notebooks
+]
+
+[project.urls]
+Documentation = "https://cds-astro.github.io/mocpy/"
+Repository = "https://github.com/cds-astro/mocpy"
+Issues = "https://github.com/cds-astro/mocpy/issues"
+Changelog = "https://github.com/cds-astro/mocpy/blob/master/CHANGELOG.md"
+
+# Build a mocpy-x.x.x.tar.gz containing sources (from maturin).
+[build-system]
+requires = ["maturin>=0.13"]
+build-backend = "maturin"
+
+[tool.maturin]
+# See https://github.com/PyO3/maturin#mixed-rustpython-projects
+# "to avoid the  a common ImportError pitfall"
+python-source = "python"
+# Bindings type
+bindings = "pyo3"
+# Strip the library for minimum file size
+strip = true
+# Build artifacts with the specified Cargo profile
+profile = "release"
+# Cargo manifest path
+# manifest-path = "Cargo.toml"
+# Require Cargo.lock and cache are up to date
+frozen = false
+# Require Cargo.lock is up to date
+locked = false
+
+[tool.ruff]
+fix = true
+show-fixes = true
+force-exclude = true
+exclude = ["docs/conf.py"]
+extend-include = ["*.ipynb"]
+target-version = "py38"
+
+[tool.ruff.lint]
+extend-select = ["SIM", "FBT", "D", "UP", "N", "S", "B", "A",
+                 "C4", "ICN", "RET", "ARG", "PD", "PGH",
+                 "RUF", "YTT", "BLE", "COM", "DTZ", "EXE",
+                 "ISC", "ICN001", "PIE", "PTH", "W", "I", "T20",
+                 "PYI", "PT", "SIM", "NPY", "PERF", "FURB"
+                ]
+extend-ignore = ["D203", "D213", "D100", "N816", "N817", "D105", "N806", "N803",
+                 "FBT002", "N802", "COM812", "ISC001"]
+# N806, N816: variables names should be lowercase (would require to change all API)
+# D203: 1 blank line required before class docstring (not compatible with numpy docstyle)
+# FBT002: Boolean default in function definition (would require to change all API)
+
+[tool.ruff.lint.per-file-ignores]
+# D104: Missing docstring in public package
+# D103: Missing docstring in public function
+# D100: Missing docstring in public module
+# B008: Do not perform function call in argument defaults
+"__init__.py" = ["D104"]
+"python/mocpy/moc/plot/wcs.py" = ["B008"]
+"python/mocpy/tests/*.py" = ["S101", "D103"] # S101: use of "assert" detected
+"python/mocpy/serializer.py" = ["A002"] # Argument "format" is shadowing a python builtin
+"notebooks/*.ipynb" = ["T201"] # print is okish in notebooks
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"  # Accepts: "google", "numpy", or "pep257"
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+doctest_optionflags = "NORMALIZE_WHITESPACE"
+testpaths = ["python", "docs/examples/user_documentation.rst"]
+

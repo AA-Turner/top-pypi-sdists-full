@@ -10,6 +10,7 @@ import contextvars
 import ipaddress
 import json
 import os
+import time
 import typing as t
 from urllib.parse import quote, urlsplit, urlunsplit
 
@@ -44,6 +45,14 @@ _LOCAL_HEALTH_TIMEOUT = 1.0
 # handshake on the first request. The loopback budget above is not survivable
 # there, and a timeout here surfaces as "could not connect" with no cause.
 REMOTE_HEALTH_TIMEOUT_SECONDS = 15.0
+
+# How long `start()` will wait for a runtime that is reachable but still
+# initializing. The runtime binds its port before configuring scope and
+# installing capability dependencies, so a fresh sandbox answers `503` with a
+# stage for a while before it answers `200`. A reported `failed` stage aborts
+# immediately, so this budget only ever covers genuine progress.
+READY_WAIT_SECONDS = 120.0
+_READY_POLL_INTERVAL = 0.25
 
 __all__ = [
     "DEFAULT_MODEL",
@@ -247,7 +256,7 @@ class RuntimeClient:
         """
         if self._started:
             return
-        await self._probe_health(self._health_timeout())
+        await self._await_ready()
         self._started = True
 
     async def close(self) -> None:
@@ -272,6 +281,27 @@ class RuntimeClient:
         tls_hint = format_tls_error(cause)
         return RuntimeError(f"{message}\n\n{tls_hint}" if tls_hint else message)
 
+    @staticmethod
+    def _startup_stage(response: httpx.Response) -> tuple[str | None, str | None]:
+        """Pull ``(stage, detail)`` off a health response, if it reports them.
+
+        Absent on a runtime older than deferred startup, which simply never
+        answers a non-200 while alive — so treating the fields as optional is
+        also what keeps this client working against one.
+        """
+        try:
+            payload = response.json()
+        except ValueError:
+            return None, None
+        if not isinstance(payload, dict):
+            return None, None
+        stage = payload.get("stage")
+        detail = payload.get("detail")
+        return (
+            stage if isinstance(stage, str) else None,
+            detail if isinstance(detail, str) else None,
+        )
+
     async def _probe_health(
         self,
         timeout: float,  # noqa: ASYNC109 - httpx owns the deadline
@@ -283,9 +313,82 @@ class RuntimeClient:
             logger.debug("Health check failed | url={} | error={}", self.server_url, exc)
             raise self._connect_error(exc) from exc
         if response.status_code != 200:
+            stage, detail = self._startup_stage(response)
+            described = f"/api/health returned HTTP {response.status_code}"
+            if stage:
+                described = f"{described} (startup stage: {stage}"
+                described += f" — {detail})" if detail else ")"
             logger.debug("Health check | status={} | healthy=False", response.status_code)
-            raise self._connect_error(f"/api/health returned HTTP {response.status_code}")
+            raise self._connect_error(described)
         logger.debug("Health check | status={} | healthy=True", response.status_code)
+
+    async def _await_ready(self, *, budget: float = READY_WAIT_SECONDS) -> None:
+        """Wait for the runtime to finish initializing.
+
+        The runtime is reachable well before it is ready — that is the point of
+        binding first — so a single liveness probe would race a sandbox that is
+        still installing capability dependencies. Gives up at once when the
+        runtime reports that startup failed, rather than burning the whole budget
+        on a process that is never going to recover.
+
+        A runtime predating ``/api/ready`` answers 404; there, liveness is the
+        only signal that exists and is all we can wait on.
+        """
+        request_timeout = self._health_timeout()
+        deadline = time.monotonic() + budget
+        last_stage: str | None = None
+
+        while True:
+            try:
+                response = await self._http_client.get("/api/ready", timeout=request_timeout)
+            except httpx.ReadTimeout as exc:
+                # A listening runtime can briefly stop servicing requests while
+                # startup imports CPU-heavy dependencies. The readiness budget
+                # exists to absorb that work, so one short loopback read timeout
+                # must not discard the whole budget. Connection and TLS failures
+                # remain terminal below because they do not demonstrate a live
+                # runtime that is still making startup progress.
+                if time.monotonic() >= deadline:
+                    raise self._connect_error(exc) from exc
+                logger.debug(
+                    "Readiness probe timed out; retrying | url={} | error={}",
+                    self.server_url,
+                    exc,
+                )
+                await asyncio.sleep(_READY_POLL_INTERVAL)
+                continue
+            except httpx.HTTPError as exc:
+                raise self._connect_error(exc) from exc
+
+            if response.status_code == 200:
+                return
+
+            if response.status_code == 404:
+                await self._probe_health(request_timeout)
+                return
+
+            stage, detail = self._startup_stage(response)
+            if stage == "failed":
+                raise self._connect_error(
+                    f"Runtime startup failed: {detail or 'no detail reported'}"
+                )
+            if response.status_code != 503 or stage is None:
+                # Only a 503 that names a stage means "still starting". Anything
+                # else — a gateway error, an ingress interstitial, a 503 from
+                # something that is not the runtime — is terminal, and polling it
+                # for the full budget would bury the status code that explains it.
+                raise self._connect_error(f"/api/ready returned HTTP {response.status_code}")
+
+            if stage != last_stage:
+                logger.debug("Waiting on runtime startup | stage={}", stage)
+                last_stage = stage
+
+            if time.monotonic() >= deadline:
+                raise self._connect_error(
+                    f"Runtime did not become ready within {budget:.0f}s "
+                    f"(startup stage: {stage or 'unknown'})"
+                )
+            await asyncio.sleep(_READY_POLL_INTERVAL)
 
     async def _is_healthy(
         self,

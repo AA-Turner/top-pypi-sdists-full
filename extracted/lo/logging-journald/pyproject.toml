@@ -1,0 +1,72 @@
+[project]
+name = "logging-journald"
+version = "0.6.12"
+description = "Pure python logging handler for writing logs to the journald using native protocol"
+authors = [{ name = "Dmitry Orlov", email = "me@mosquito.su" }]
+requires-python = ">=3.10,<4"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/mosquito/logging-journald"
+Source = "https://github.com/mosquito/logging-journald"
+Tracker = "https://github.com/mosquito/logging-journald/issues"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "coveralls",
+    "pytest-cov",
+    "ruff",
+    "ty",
+]
+
+[tool.ruff]
+line-length = 119
+extend-exclude = ["README.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "UP"]
+ignore = ["C901"]
+
+[tool.ty.environment]
+python-platform = "linux"
+
+[tool.ty.src]
+exclude = ["examples/"]
+
+[tool.coverage.run]
+branch = true
+source = ["logging_journald"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+]
+show_missing = true
+
+[tool.hatch.build.targets.sdist]
+include = ["logging_journald.py"]
+
+[tool.hatch.build.targets.wheel]
+include = ["logging_journald.py"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,48 @@
+Metadata-Version: 2.4
+Name: keeper-pam-webrtc-rs
+Version: 2.2.2
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Security
+Classifier: Topic :: Communications
+Summary: Keeper PAM WebRTC for Python - A secure, stable, and high-performance Tube API for Python, providing WebRTC-based secure tunneling with enterprise-grade security and reliability optimizations.
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# keeper-pam-connections
+
+Python bindings for the Keeper PAM WebRTC tunneling library.
+
+Provides a secure WebRTC-based tunneling API for connecting to remote services. Supports three connection modes:
+
+- **tunnel** — raw TCP tunneling
+- **guacd** — Guacamole protocol (for RDP, SSH, VNC, etc. via a guacd server)
+- **socks5** — SOCKS5 proxy
+
+## Installation
+
+```
+pip install keeper-pam-connections
+```
+
+## Usage
+
+```python
+import keeper_pam_connections
+
+keeper_pam_connections.initialize_logger()
+registry = keeper_pam_connections.PyTubeRegistry()
+```
+
+## Requirements
+
+Python 3.7 or later. Wheels are provided for Linux (x86_64, aarch64), macOS (x86_64, arm64), Windows (x86_64), and Alpine Linux.
+

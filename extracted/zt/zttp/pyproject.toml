@@ -1,0 +1,192 @@
+[build-system]
+# hatch-vcs over uv-dynamic-versioning: the latter drags in jinja2 -> markupsafe,
+# whose missing-wheel source build breaks cross-compiled macOS wheels on new
+# CPythons. The hatch-vcs chain is pure Python.
+#
+# Every isolated-build dependency is exactly pinned because it executes while
+# producing release artifacts. Bump the backend and its dependency closure
+# deliberately, together with hatch-ziglang and the Zig compiler.
+requires = [
+    "hatchling==1.32.0",
+    "hatch-vcs==0.5.0",
+    "setuptools-scm==10.2.1",
+    "vcs-versioning==2.3.1",
+    "setuptools==84.0.0",
+    "packaging==26.3",
+    "pathspec==1.1.1",
+    "pluggy==1.6.0",
+    "tomlkit==0.15.1",
+    "trove-classifiers==2026.6.1.19",
+    "tomli==2.4.1; python_version < '3.11'",
+    "typing-extensions==4.16.0; python_version < '3.11'",
+    "hatch-ziglang==0.2.1",
+    "ziglang==0.16.0",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "zttp"
+description = "A sans-IO HTTP/1.1, HTTP/2, and HTTP/3 parser for Python with a Zig core."
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" }]
+keywords = ["http", "http2", "parser", "sans-io", "zig", "asgi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Zig",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dynamic = ["version"]
+dependencies = ["typing-extensions>=4.6"]
+
+[project.urls]
+Homepage = "https://github.com/Kludex/zttp"
+Source = "https://github.com/Kludex/zttp"
+Issues = "https://github.com/Kludex/zttp/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "coverage>=7.0",
+    "inline-snapshot>=0.13",
+    "ruff",
+    # Keep mypy for stubtest, which verifies the native extension against its stub.
+    "mypy",
+    "ty",
+]
+bench = [
+    "httptools",
+    "h11",
+    "h2",
+    # aioquic (the mainstream Python HTTP/3 stack) is the peer for benchmarks/http3.py;
+    # it pulls in cryptography and the pylsqpack QPACK extension.
+    "aioquic",
+]
+docs = [
+    "zensical",
+    "mkdocstrings[python]",
+]
+# Coverage-guided fuzzing. Optional: Atheris ships no wheels and only builds
+# against a libFuzzer-capable Clang (Linux), so it is constrained to Linux and
+# only needed for local `python fuzz/fuzz_parse.py` sessions. The cron job runs
+# the dependency-free `fuzz/run.py` runner instead.
+fuzz = [
+    "atheris; sys_platform == 'linux' and python_version < '3.13'",
+]
+
+[tool.uv]
+# uv only rebuilds the project when pyproject.toml changes by default; the
+# extension must also rebuild when Zig sources or the build mode change.
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "build.zig" },
+    { file = "src/**/*.zig" },
+    { file = "src/**/*.h" },
+    { file = "tools/**/*.zig" },
+    { env = "HATCH_ZIG_BUILD_MODE" },
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+# guess-next-dev matches the old uv-dynamic-versioning bump=true behavior
+# (tag 0.0.16 + N commits -> 0.0.17.devN); no-local-version drops the +<hash>
+# local segment, which PyPI rejects on uploads.
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["zttp"]
+
+[tool.hatch.build.targets.wheel.hooks.zig]
+package = "zttp"
+optimize = "ReleaseSafe"
+
+[tool.hatch.build.targets.sdist]
+# Ship the sources needed to compile the extension from an sdist.
+include = ["zttp", "src", "tools", "build.zig"]
+
+[tool.cibuildwheel]
+# Zig comes from the `ziglang` build requirement (build isolation), so no system
+# toolchain install is needed. The sans-IO core has no OS dependencies, so it
+# builds for glibc, musl, macOS, and Windows alike. PyPy is excluded by the cp-only
+# `build` list; `skip` only has to drop 32-bit.
+# cp314t/cp315t are the free-threaded builds. Their Windows variants need
+# Py_GIL_DISABLED passed to translate-c by build.zig -
+# PC/pyconfig.h only tests the macro, where POSIX pyconfig.h defines it itself.
+build = "cp310-* cp311-* cp312-* cp313-* cp314-* cp314t-* cp315-* cp315t-*"
+skip = "*_i686"
+# 3.15 is in beta; cibuildwheel only offers it behind this flag. Drop it (and cut
+# a release to rebuild the cp315 wheels) once 3.15.0 final is out - the C ABI is
+# only guaranteed stable from rc1 onward.
+enable = ["cpython-prerelease"]
+build-frontend = "build[uv]"
+test-command = 'python -c "import zttp; c = zttp.Connection(zttp.SERVER); c.receive_data(b\"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n\"); assert type(c.next_event()).__name__ == \"Request\""'
+
+[tool.cibuildwheel.linux]
+# Both glibc (manylinux) and musl (musllinux) on each native arch.
+archs = ["auto"]
+
+[tool.cibuildwheel.macos]
+archs = ["arm64", "x86_64"]
+# Pin the deployment target so the wheel's platform tag matches the min-OS
+# version Zig stamps into the binary (hatch-ziglang reads this and encodes it
+# in the Zig target triple). Without it the tag and binary disagree and
+# delocate rejects the wheel.
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
+
+[tool.cibuildwheel.windows]
+# Build amd64 on windows-latest and arm64 on windows-11-vs2026-arm.
+archs = ["native"]
+
+[tool.pytest.ini_options]
+addopts = "-rxXs --strict-config --strict-markers"
+xfail_strict = true
+testpaths = ["tests"]
+filterwarnings = ["error"]
+markers = [
+    "http3_interop: optional HTTP/3 interop checks that require external protocol stacks",
+]
+
+[tool.coverage.run]
+source_pkgs = ["zttp", "tests"]
+branch = true
+parallel = true
+omit = ["zttp/_zttp*"]
+
+[tool.coverage.report]
+precision = 2
+fail_under = 100
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "FA", "UP", "RUF100"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true

@@ -1,0 +1,183 @@
+Metadata-Version: 2.4
+Name: azure-containerapps-sandbox
+Version: 0.1.0b4
+Summary: Azure Container Apps Sandbox SDK for Python — data plane + sandbox group management. Community preview.
+Author-email: Microsoft <acasupport@microsoft.com>
+License: MIT
+Project-URL: Homepage, https://github.com/microsoft/azure-container-apps
+Project-URL: Repository, https://github.com/microsoft/azure-container-apps
+Project-URL: Bug Tracker, https://github.com/microsoft/azure-container-apps/issues
+Keywords: azure,azure.containerapps,azure sdk,sandbox,container apps
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: azure-core>=1.30
+Requires-Dist: azure-mgmt-core>=1.4
+Requires-Dist: azure-identity>=1.15
+Requires-Dist: aiohttp<4,>=3.0
+Requires-Dist: certifi>=2023.7.22
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: azure-mgmt-authorization>=4.0; extra == "dev"
+Requires-Dist: azure-mgmt-resource>=23.0; extra == "dev"
+Requires-Dist: azure-mgmt-subscription>=3.0; extra == "dev"
+
+# Azure Container Apps Sandbox Client Library for Python
+
+> **⚠️ Preview** — This SDK is in preview. The API surface may change without notice.
+
+Data-plane and control-plane SDK for Azure Container Apps sandboxes.
+
+## Isolated MicroVMs
+
+Secure, isolated compute environments with sub-second startup.
+
+- **Hardware-isolated microVM boundary** — fully separated from host, platform, and other sandboxes
+- **Snapshot-based suspend/resume** preserving full memory and disk state across sessions
+- **Per-sandbox network egress policy** with deny-by-default posture for untrusted code
+
+### What you can build
+
+- **Traditional Apps.** Lift-and-shift workloads that need stateful compute, custom kernels, or per-tenant isolation without rewriting.
+- **AI Apps & Agents.** Persistent, isolated workspaces that survive across task boundaries. Suspend between turns, resume with full context.
+- **Code execution.** Run untrusted code in seconds with strong isolation. Capture state with snapshots, replay deterministically.
+- **Dev environments.** Per-user compute that scales from zero to hundreds on demand and preserves state across sessions.
+- **Many more…** CI runners, browser automation, data prep, reproducible experiments — anywhere a fast, isolated VM helps.
+
+## Installation
+
+```bash
+pip install azure-containerapps-sandbox
+```
+
+## Quick start
+
+```python
+import uuid
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.resource.resources import ResourceManagementClient
+from azure.mgmt.authorization import AuthorizationManagementClient
+from azure.containerapps.sandbox import (
+    SandboxGroupManagementClient,
+    SandboxGroupClient,
+    endpoint_for_region,
+)
+
+credential = DefaultAzureCredential()
+subscription_id = "<your-subscription-id>"  # az account show --query id -o tsv
+principal_id = "<your-principal-id>"  # az ad signed-in-user show --query id -o tsv
+resource_group = "my-rg"
+sandbox_group = "my-sandbox-group"
+region = "eastus2"
+
+# 1. Create resource group
+resource_client = ResourceManagementClient(credential, subscription_id)
+resource_client.resource_groups.create_or_update(resource_group, {"location": region})
+
+# 2. Create sandbox group
+mgmt = SandboxGroupManagementClient(
+    credential, subscription_id=subscription_id, resource_group=resource_group,
+)
+mgmt.create_group(sandbox_group, location=region)
+
+# 3. Grant data-plane access
+auth_client = AuthorizationManagementClient(credential, subscription_id)
+scope = f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
+role_def = next(auth_client.role_definitions.list(
+    scope, filter="roleName eq 'Container Apps SandboxGroup Data Owner'"
+))
+auth_client.role_assignments.create(scope, uuid.uuid4(), {
+    "role_definition_id": role_def.id,
+    "principal_id": principal_id,
+    "principal_type": "User",
+})
+
+# 4. Connect to data plane and create a sandbox
+client = SandboxGroupClient(
+    endpoint_for_region(region), credential,
+    subscription_id=subscription_id,
+    resource_group=resource_group,
+    sandbox_group=sandbox_group,
+)
+sandbox = client.begin_create_sandbox(disk="ubuntu").result()
+
+# 5. Run a command
+result = sandbox.exec("echo hello world && uname -a")
+print(result.stdout)
+
+# 6. Clean up
+sandbox.delete()
+mgmt.delete_group(sandbox_group)
+client.close()
+mgmt.close()
+```
+
+## Authentication
+
+Uses `DefaultAzureCredential` from `azure-identity`, which automatically
+picks up `az login`, managed identity, environment variables, etc.
+
+## Port access control
+
+Restrict which inbound client IPs can reach a port with a source-IP
+allow/deny policy. Rules match by CIDR range — the lowest `priority` is
+evaluated first, and `default_action` decides traffic that matches no rule.
+
+```python
+from azure.containerapps.sandbox import (
+    PortIpAccessControl,
+    PortIpAccessControlRule,
+)
+
+# Allow only an internal range; deny everything else.
+acl = PortIpAccessControl(
+    default_action="Deny",
+    rules=[
+        PortIpAccessControlRule(
+            name="office",
+            action="Allow",
+            priority=10,
+            source_cidrs=["10.0.0.0/8"],
+        ),
+    ],
+)
+
+# Open a port with the policy on an existing sandbox.
+sandbox.add_port(8443, ip_access_control=acl)
+```
+
+Set the same policy at sandbox creation by passing `AddPortRequest` to
+`ports=` (it also works with `sandbox.update_ports([...])`):
+
+```python
+from azure.containerapps.sandbox import AddPortRequest
+
+sandbox = client.begin_create_sandbox(
+    disk="ubuntu",
+    ports=[AddPortRequest(port=8443, ip_access_control=acl)],
+).result()
+```
+
+Read the effective policy back from a response port via
+`SandboxPort.ip_access_control`. The async `aio` clients accept the identical
+`ip_access_control` keyword.
+
+The policy is validated client-side before it is sent; an invalid one raises
+`ValueError`. Constraints mirror the service:
+
+- At most **10 rules**, each with **1–10 source CIDRs**.
+- Each CIDR must be **network-aligned** (host bits zero) — `10.0.0.0/8` is
+  valid, `10.0.0.5/8` is rejected.
+- `priority` is **0–1000**; names and priorities must be unique (names
+  case-insensitive). Lower priority is evaluated first.

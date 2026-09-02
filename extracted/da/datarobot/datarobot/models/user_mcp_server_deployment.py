@@ -66,8 +66,8 @@ class TypeOfResourceInUserMCPServerDeployment(EnumAPIRepresentationConverter):
 
 class ToolInUserMCPServerDeployment(APIObject):
     """A tool registered in one MCP server deployment. It is used to:
-    - Create one tool and register it in one MCP server deployment.
-    - List tools registered in one MCP server deployment.
+    - Creates a tool and registers it in one MCP server deployment.
+    - Returns a list of tools registered in one MCP server deployment.
 
     Attributes
     ----------
@@ -206,8 +206,8 @@ class ToolInUserMCPServerDeployment(APIObject):
 
 class PromptInUserMCPServerDeployment(APIObject):
     """A prompt registered in one MCP server deployment. It is used to:
-    - Create one prompt and register it in one MCP server deployment.
-    - List tools registered in one MCP server deployment.
+    - Creates a prompt and registers it in one MCP server deployment.
+    - Returns a list of prompts registered in one MCP server deployment.
 
     Attributes
     ----------
@@ -346,8 +346,8 @@ class PromptInUserMCPServerDeployment(APIObject):
 
 class ResourceInUserMCPServerDeployment(APIObject):
     """A resource registered in one MCP server deployment. It is used to:
-    - Create one resource and register it in one MCP server deployment.
-    - List tools registered in one MCP server deployment.
+    - Creates a resource and registers it in one MCP server deployment.
+    - Returns a list of resources registered in one MCP server deployment.
 
     Attributes
     ----------

@@ -1,0 +1,7 @@
+- job:
+    name: rest-list-minimal-job
+    parameters:
+      - rest-list:
+          name: api_values
+          rest-endpoint: https://api.example.com/values
+          mime-type: APPLICATION_JSON

@@ -8,6 +8,7 @@ from mistralai.workflows.core.config import config_discovery
 from mistralai.workflows.core.config.config import (
     GraphConfig,
     RemotelyOverridable,
+    TemporalConfig,
     apply_remote_defaults,
     config,
 )
@@ -41,6 +42,28 @@ def graph_config(monkeypatch: pytest.MonkeyPatch):
         graph = GraphConfig()
         monkeypatch.setattr(config.worker, "graph", graph)
         return graph
+
+    return _install
+
+
+@pytest.fixture
+def temporal_config(monkeypatch: pytest.MonkeyPatch):
+    """Install a TemporalConfig resolved from the given environment, restored after the test.
+
+    Like `graph_config`, `apply` reads `model_fields_set`, so the settings must be rebuilt from the
+    environment the test declares rather than the one the process started with.
+    """
+
+    def _install(namespace: str | None = None, server_url: str | None = None, tls: str | None = None) -> TemporalConfig:
+        for field, value in (("namespace", namespace), ("server_url", server_url), ("tls", tls)):
+            env_name = f"TEMPORAL_{field.upper()}"
+            if value is None:
+                monkeypatch.delenv(env_name, raising=False)
+            else:
+                monkeypatch.setenv(env_name, value)
+        temporal = TemporalConfig()
+        monkeypatch.setattr(config, "temporal", temporal)
+        return temporal
 
     return _install
 
@@ -85,6 +108,44 @@ class TestFeaturePrecedence:
 
         assert graph.upload_graph is False
         assert "upload_graph" not in graph.model_fields_set
+
+
+class TestTemporalPrecedence:
+    """The temporal connection settings follow the same precedence as the feature flags."""
+
+    def test_unset_adopts_the_server_value(self, temporal_config) -> None:
+        temporal = temporal_config()
+
+        WorkerRuntimeConfig(**BASE_PAYLOAD, tls=True).apply()
+
+        assert temporal.namespace == "customer:workspace"
+        assert temporal.server_url == "temporal.example.com:7233"
+        assert temporal.tls is True
+
+    @pytest.mark.parametrize(
+        ("field", "env_value", "expected"),
+        [
+            ("namespace", "local:workspace", "local:workspace"),
+            ("server_url", "localhost:7233", "localhost:7233"),
+            ("tls", "false", False),
+        ],
+    )
+    def test_explicit_local_value_wins_over_the_server(
+        self, temporal_config, field: str, env_value: str, expected: object
+    ) -> None:
+        temporal = temporal_config(**{field: env_value})
+
+        WorkerRuntimeConfig(**BASE_PAYLOAD, tls=True).apply()
+
+        assert getattr(temporal, field) == expected
+
+    def test_one_explicit_field_does_not_block_the_others(self, temporal_config) -> None:
+        temporal = temporal_config(namespace="local:workspace")
+
+        WorkerRuntimeConfig(**BASE_PAYLOAD, tls=True).apply()
+
+        assert temporal.namespace == "local:workspace"
+        assert temporal.server_url == "temporal.example.com:7233"
 
 
 class _DefaultOnConfig(BaseSettings):
@@ -159,8 +220,9 @@ class TestConfigDiscoveryVersionSkew:
     steps can drop a field, so version skew is only meaningfully tested through the whole chain.
     """
 
-    async def test_server_value_reaches_worker_configuration(self, graph_config, whoami) -> None:
+    async def test_server_value_reaches_worker_configuration(self, graph_config, temporal_config, whoami) -> None:
         graph = graph_config()
+        temporal = temporal_config()
         whoami(**BASE_PAYLOAD, tls=True, features={"upload_graph": True})
 
         runtime_config = await apply_worker_runtime_config()
@@ -168,7 +230,7 @@ class TestConfigDiscoveryVersionSkew:
         assert runtime_config is not None
         assert runtime_config.features.upload_graph is True
         assert graph.upload_graph is True
-        assert config.temporal.namespace == "customer:workspace"
+        assert temporal.namespace == "customer:workspace"
 
     async def test_api_older_than_the_flag_leaves_the_default(self, graph_config, whoami) -> None:
         graph = graph_config()

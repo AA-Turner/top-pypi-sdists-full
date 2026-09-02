@@ -1,9 +1,0 @@
-# Copyright: (c) 2026, Dell Technologies
-"""__init__.py."""
-
-# pylint: disable=invalid-name
-
-__title__ = "PyPowerStore"
-__version__ = "3.5.0.0"
-__author__ = "Dell Technologies or its subsidiaries"
-__copyright__ = "Copyright 2026 Dell Technologies"

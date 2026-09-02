@@ -1,0 +1,57 @@
+# nfpm config for the Runlayer CLI Linux packages (.deb + .rpm).
+# https://nfpm.goreleaser.com/configuration/
+#
+# Built from the PyInstaller onedir bundle (dist/runlayer/). The whole bundle
+# is installed under /usr/lib/runlayer and a /usr/bin/runlayer symlink puts the
+# CLI on PATH. Root cron wrappers run managed skill sync per real login user
+# and apply backend-selected binary updates. ${VERSION} is expanded from the
+# environment by nfpm at build time (set by build_packages.sh from pyproject.toml).
+name: runlayer
+arch: amd64
+platform: linux
+version: ${VERSION}
+version_schema: none
+section: utils
+priority: optional
+maintainer: Runlayer <engineering@runlayer.com>
+description: |
+  Runlayer CLI — run MCP servers via HTTP transport and manage the
+  Runlayer MCP gateway from the command line.
+vendor: Runlayer Inc.
+homepage: https://runlayer.com
+license: Apache-2.0
+
+overrides:
+  deb:
+    depends:
+      - "cron | cron-daemon | cronie"
+  rpm:
+    depends:
+      - cronie
+
+contents:
+  - src: ./dist/runlayer
+    dst: /usr/lib/runlayer
+    type: tree
+  - src: /usr/lib/runlayer/runlayer
+    dst: /usr/bin/runlayer
+    type: symlink
+  - src: ./packaging/linux/run-cli-schedule.sh
+    dst: /usr/lib/runlayer/run-cli-schedule.sh
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: ./packaging/linux/run-cli-update.sh
+    dst: /usr/lib/runlayer/run-cli-update.sh
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  # Plain content: replace on upgrade and remove on uninstall.
+  - src: ./packaging/linux/cron.d-runlayer-cli
+    dst: /etc/cron.d/runlayer-cli
+    file_info:
+      mode: 0644
+      owner: root
+      group: root

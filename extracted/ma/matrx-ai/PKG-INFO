@@ -1,0 +1,176 @@
+Metadata-Version: 2.5
+Name: matrx-ai
+Version: 0.5.221
+Summary: Unified multi-provider AI client, orchestration, and tool system
+Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
+Project-URL: Issues, https://github.com/AI-Matrix-Engine/aidream-current/issues
+Author-email: Matrx <admin@aimatrx.com>
+Maintainer-email: Matrx <admin@aimatrx.com>
+License: MIT
+Keywords: agents,ai,anthropic,llm,openai,orchestration,streaming,supabase,tools
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.13
+Requires-Dist: aiohttp
+Requires-Dist: anthropic>=0.100.0
+Requires-Dist: asyncpg>=0.31.0
+Requires-Dist: cerebras-cloud-sdk>=1.67.0
+Requires-Dist: cohere>=6.1.0
+Requires-Dist: elevenlabs>=2.46.0
+Requires-Dist: fastapi>=0.115
+Requires-Dist: fireworks-ai
+Requires-Dist: fsspec>=2026.4.0
+Requires-Dist: google-cloud-aiplatform>=1.138.0
+Requires-Dist: google-genai>=1.75.0
+Requires-Dist: groq>=1.2.0
+Requires-Dist: httpx
+Requires-Dist: json-repair
+Requires-Dist: matrx-assignment>=0.1.9
+Requires-Dist: matrx-connect>=0.1.72
+Requires-Dist: matrx-files>=0.2.124
+Requires-Dist: matrx-graph>=0.2.122
+Requires-Dist: matrx-runtime>=0.0.78
+Requires-Dist: matrx-scraper[browser]>=0.2.154
+Requires-Dist: matrx-utils>=2.0.29
+Requires-Dist: numpy>=2.0
+Requires-Dist: openai>=2.35.1
+Requires-Dist: pathspec>=1.0.0
+Requires-Dist: pydantic>=2.12
+Requires-Dist: python-dotenv
+Requires-Dist: pyyaml
+Requires-Dist: replicate>=1.0.7
+Requires-Dist: rich
+Requires-Dist: supabase
+Requires-Dist: tiktoken
+Requires-Dist: together>=2.12.0
+Requires-Dist: wcmatch>=10.0
+Requires-Dist: xai-sdk>=1.12.2
+Provides-Extra: code-ingest
+Requires-Dist: gitingest>=0.3.1; extra == 'code-ingest'
+Provides-Extra: dev
+Requires-Dist: pyright>=1.1.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.25.0; extra == 'dev'
+Requires-Dist: pytest>=8.3.0; extra == 'dev'
+Requires-Dist: ruff>=0.9.0; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# matrx-ai
+
+Unified multi-provider AI client, orchestration, and tool system for Python. One `UnifiedAIClient` that speaks to 12+ provider SDKs (OpenAI, Anthropic, Google, Groq, Cerebras, xAI, Together, ElevenLabs, Hugging Face, Cohere, Fireworks, Replicate) through a common `UnifiedConfig` / `UnifiedMessage` / `UnifiedResponse` contract, with streaming, tool calls, agents, and an orchestrator that runs a model until its task is complete.
+
+## Install
+
+```bash
+pip install matrx-ai
+```
+
+Python 3.13+ required. Depends on `matrx-utils`, `matrx-connect`, `matrx-graph`, plus the provider SDKs. Host applications inject their own ORM models at startup via `matrx_ai.configure(...)`.
+
+## What's in the box
+
+- **Unified client** (`UnifiedAIClient`): one async interface over every supported provider; request translation + response normalization handled by per-provider adapters.
+- **Config + message types**: `UnifiedConfig`, `UnifiedMessage`, `MessageList`, `UnifiedResponse`, enums (`Provider`, `Role`, `ContentType`, `FinishReason`), usage trackers (`TokenUsage`, `TimingUsage`, `ToolCallUsage`).
+- **Orchestrator**: `AIMatrixRequest`, `CompletedRequest`, `execute_until_complete(...)` — autonomous multi-turn execution with tool loops.
+- **Agents** (`matrx_ai.agents`): template + session-based agent system; caching; services.
+- **Tools** (`matrx_ai.tools`): registry + built-in implementations (`ctx_patch`, `ctx_create`, shell, code, …). All host-specific integration points (ContextManifest, writeback persistence, test helpers) come in via `configure()`.
+- **Context** (`matrx_ai.context`): re-exports `AppContext` + `Emitter` from `matrx-connect`.
+- **Persistence** (`matrx_ai.db`): Supabase-backed conversation/request storage. ORM models are host-injected.
+- **Providers** (`matrx_ai.providers`): per-provider translators, request shaping, streaming adapters, parameter modifiers (e.g. GPT-5 strips `temperature`/`top_p`).
+
+## Usage
+
+### One-shot call
+
+```python
+from matrx_ai import UnifiedAIClient, UnifiedConfig, UnifiedMessage, Provider, Role
+
+client = UnifiedAIClient()
+config = UnifiedConfig(
+    provider=Provider.ANTHROPIC,
+    ai_model="claude-sonnet-4-6",
+    messages=[UnifiedMessage(role=Role.USER, content="Summarize the Magna Carta.")],
+    stream=False,
+)
+response = await client.run(config)
+print(response.text)
+```
+
+### Streaming
+
+```python
+config = UnifiedConfig(
+    provider=Provider.OPENAI,
+    ai_model="gpt-4o",
+    messages=[UnifiedMessage(role=Role.USER, content="Explain RAFT.")],
+    stream=True,
+)
+async for chunk in client.stream(config):
+    print(chunk.delta, end="", flush=True)
+```
+
+### Autonomous execution (tools + multi-turn)
+
+```python
+from matrx_ai import execute_until_complete, AIMatrixRequest
+
+request = AIMatrixRequest(
+    config=config,
+    tools=["web_search", "code_executor"],
+    max_iterations=10,
+)
+completed = await execute_until_complete(request)
+print(completed.final_response.text)
+print(completed.timing_usage, completed.token_usage)
+```
+
+## Host integration — `matrx_ai.configure(...)`
+
+matrx-ai is designed to be embedded in a larger application (like aidream) that supplies ORM models, settings, and context-object classes. It is also designed to run **without** any of that configuration — most features work on their own; the DB-dependent ones raise `ExtNotConfiguredError` at call time if the host didn't wire them up.
+
+```python
+import matrx_ai
+
+matrx_ai.configure(
+    db_models={"AiModel": AiModel, "CxConversation": CxConversation, ...},
+    db_bases={"CxConversationBase": CxConversationBase, ...},
+    db_instances={"guest_executions_manager": guest_manager},
+    db_extras={"ContentBlocksDTO": ContentBlocksDTO},
+    settings=settings,
+    get_supabase_client=get_async_supabase_client,
+    # Context-object model classes (used by ctx_patch / ctx_create tools)
+    context_object_cls=ContextObject,
+    context_object_type_cls=ContextObjectType,
+    context_source_cls=ContextSource,
+    persist_mode_cls=PersistMode,
+    context_manifest_cls=ContextManifest,
+    load_manifest_from_ctx=load_manifest_from_ctx,
+    schedule_context_writeback=schedule_writeback,
+    # …anything else the host wants to make available
+)
+```
+
+This is the reference implementation of the "capability-within, injection-without" pattern used throughout the Matrx family — the package stores injected values in a module-level `_ext` registry; feature code retrieves them at call time via `get_ext("…")`. `import matrx_ai` always works in a minimal environment; only features that need a specific injection will raise if it's missing.
+
+## Dependency posture
+
+Hard deps: `matrx-utils`, `matrx-connect`, `matrx-graph`, plus the provider SDKs (Anthropic, OpenAI, Google GenAI, Groq, Cerebras, xAI, Together, Cohere, Fireworks, Replicate, Tiktoken) and core libs (`pydantic`, `httpx`, `aiohttp`, `supabase`, `asyncpg`, `json-repair`, `numpy`, `rich`).
+
+matrx-ai does **not** depend on `matrx-orm`. The host app that embeds matrx-ai may use matrx-orm (aidream does), but matrx-ai itself accepts ORM model classes through `configure(db_models=..., db_bases=..., ...)` rather than importing them.
+
+## Replaces
+
+The old root-level `ai/` folder in the aidream monorepo. matrx-ai is now the canonical AI layer.
+
+## Contributing
+
+See [CLAUDE.md](CLAUDE.md) for package-specific rules (including the `_ext` injection pattern and the forbidden-imports list). Deep per-subsystem docs live in [`matrx_ai/MODULE_README.md`](matrx_ai/MODULE_README.md). This package lives in the aidream monorepo at [github.com/AI-Matrix-Engine/aidream-current](https://github.com/AI-Matrix-Engine/aidream-current/tree/main/packages/matrx-ai).
+
+## License
+
+MIT.

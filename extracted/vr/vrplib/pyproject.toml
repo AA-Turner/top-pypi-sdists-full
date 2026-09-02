@@ -1,0 +1,77 @@
+[project]
+name = "vrplib"
+version = "2.2.0"
+description = "Python library for reading and writing VRP instances."
+authors = [
+    { name = "Leon Lan", email = "leon.lanyidong@gmail.com" },
+]
+license = "MIT"
+license-files = ["LICENSE.md"]
+keywords = [
+    "vehicle routing problem",
+    "benchmarking",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Development Status :: 5 - Production/Stable",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.19.3; python_version < '3.12'",
+    "numpy>=1.26.0; python_version >= '3.12'",
+]
+readme = "README.md"
+repository = "https://github.com/PyVRP/VRPLIB"
+
+
+[project.urls]
+source = "https://github.com/PyVRP/VRPLIB"
+issues = "https://github.com/PyVRP/VRPLIB/issues"
+
+
+[dependency-groups]
+dev = [
+    "pre-commit>=2.20.0",
+    "pytest>=7.1.2",
+    "pytest-cov>=6.1.1",
+    "codecov",
+]
+
+
+[build-system]
+requires = ["uv_build>=0.8.13,<0.9.0"]
+build-backend = "uv_build"
+
+
+[tool.uv.build-backend]
+module-name = "vrplib"
+module-root = ""
+
+
+[tool.ruff]
+line-length = 79
+
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "I", "NPY", "PYI", "Q", "RET", "RSE", "RUF", "SLF", "SIM", "TC",
+]
+
+
+[tool.mypy]
+ignore_missing_imports = true
+
+
+[tool.pytest.ini_options]
+addopts = "--cov=. --cov-report=xml"
+pythonpath = [".", "vrplib"]
+
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+]

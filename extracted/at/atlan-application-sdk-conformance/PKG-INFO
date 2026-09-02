@@ -1,0 +1,80 @@
+Metadata-Version: 2.5
+Name: atlan-application-sdk-conformance
+Version: 0.25.0
+Summary: Conformance suite, remediation programs, and CLI for the Atlan Application SDK
+Author-email: Atlan App Team <connect@atlan.com>
+License-Expression: Apache-2.0
+Keywords: atlan,conformance,linting,remediation,sdk
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
+Requires-Dist: jinja2<4.0.0,>=3.1.0
+Requires-Dist: jsonschema<5.0.0,>=4.23.0
+Requires-Dist: packaging>=24.0
+Requires-Dist: pydantic<3.0.0,>=2.10.6
+Provides-Extra: test
+Requires-Dist: atlan-application-sdk[sql]; extra == 'test'
+Requires-Dist: pytest-asyncio<2.0.0,>=1.4.0; extra == 'test'
+Requires-Dist: pytest<10.0.0,>=8.3.3; extra == 'test'
+Description-Content-Type: text/markdown
+
+# atlan-application-sdk-conformance
+
+Dev-only conformance suite, remediation programs, and CLI for the
+[Atlan Application SDK](https://pypi.org/project/atlan-application-sdk/).
+
+**Do not add this as a production dependency.** It is intended for developer
+machines and CI only.
+
+## Installation
+
+```bash
+uv add --dev atlan-application-sdk-conformance
+```
+
+## Usage
+
+```bash
+# Run the conformance suite
+uv run atlan-application-sdk-conformance detect --repo . --series E,L,C --output report.sarif
+
+# Get the path to bundled remediation programs (for SKILL.md / reactor)
+uv run atlan-application-sdk-conformance programs-dir
+
+# Regenerate rule docs
+uv run atlan-application-sdk-conformance gen-rule-docs
+```
+
+## Suppressing a finding
+
+Most findings are suppressed inline, next to the violating line:
+
+```python
+x = 1  # conformance: ignore[E001] reason
+```
+
+A rule that checks for something *missing* repo-wide (no line to attach an inline
+comment to) is instead exempted via a `[tool.conformance]` key in the repo's own
+`pyproject.toml` — see
+[`docs/schema-contract.md` §6.4](conformance/docs/schema-contract.md#64-config-based-tier-exemption-toolconformance)
+for the canonical convention and when to use it over inline suppression.
+
+## In CI
+
+Consumer repos should reference this package via the reusable workflow in
+`atlanhq/application-sdk`:
+
+```yaml
+uses: atlanhq/application-sdk/.github/workflows/conformance-reusable.yaml@main
+# No inputs required — the published PyPI package is used by default.
+```
+
+See `conformance/programs/conformance-remediation.prose.md` for the
+`/remediate` skill entry contract.

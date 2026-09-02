@@ -4,7 +4,7 @@
 
    Author: Ilan Schnell
 */
-#define BITARRAY_VERSION  "3.10.1"
+#define BITARRAY_VERSION  "3.11.0"
 
 #ifdef STDC_HEADERS
 #  include <stddef.h>
@@ -65,7 +65,7 @@ typedef struct {
 #define PADBITS(self)  ((8 - (self)->nbits % 8) % 8)
 
 /* number of bytes necessary to store given number of bits */
-#define BYTES(bits)  (((bits) + 7) >> 3)
+#define BYTES(bits)  (((size_t) (bits) + 7) >> 3)
 
 /* we're not using bitmask_table here, as it is actually slower */
 #define BITMASK(self, i)  (((char) 1) << ((self)->endian == ENDIAN_LITTLE ? \
@@ -288,7 +288,7 @@ adjust_slice(Py_ssize_t length,
 {
     Py_ssize_t slicelength;
 
-    assert(*step != 0);
+    assert(*step != 0 && length >= 0);
 
     slicelength = PySlice_AdjustIndices(length, start, stop, *step);
 
@@ -299,10 +299,12 @@ adjust_slice(Py_ssize_t length,
     }
 #ifndef NDEBUG
     assert(*start >= 0 && *stop >= 0 && *step > 0 && slicelength >= 0);
-    if (slicelength == 0)
-        assert(*stop <= *start);
-    else if (*step == 1)
-        assert(*stop - *start == slicelength);
+    assert((slicelength == 0) == (*stop <= *start));
+    if (slicelength) {
+        assert(*start <= length && *stop <= length);
+        if (*step == 1)
+            assert(*stop - *start == slicelength);
+    }
 #endif
 
     return slicelength;

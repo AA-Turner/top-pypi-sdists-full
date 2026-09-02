@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Union
 
 import trafaret as t
@@ -21,6 +21,7 @@ from datarobot.enums import DATA_STORE_TABLE_TYPE, DataStoreListTypes, DataStore
 from datarobot.errors import CredentialsError
 from datarobot.models.api_object import APIObject, ServerDataType
 from datarobot.models.credential import CredentialDataSchema
+from datarobot.models.jdbc_data_preview import JdbcPreviewData
 from datarobot.models.sharing import SharingRole
 from datarobot.utils import from_api, parse_time, to_api
 from datarobot.utils.pagination import unpaginate
@@ -35,16 +36,50 @@ _data_store_params_converter = t.Dict({
 
 
 class TestResponse(TypedDict):
+    """The result of testing a data store's connection.
+
+    Attributes
+    ----------
+    message : str
+        A human-readable description of the test result.
+    """
+
     message: str
 
 
 class SchemasResponse(TypedDict):
+    """The schemas and catalogs available through a data store.
+
+    Attributes
+    ----------
+    schemas : list[str]
+        The names of the schemas available in the ``catalog``.
+    catalogs : list[str] or None
+        The names of the catalogs available on the data store, if applicable.
+    catalog : str
+        The catalog that ``schemas`` belongs to.
+    """
+
     schemas: List[str]
     catalogs: Optional[List[str]]
     catalog: str
 
 
 class TableDescription(TypedDict):
+    """Metadata describing a single table available through a data store.
+
+    Attributes
+    ----------
+    catalog : str or None
+        The catalog the table belongs to, if applicable.
+    name : str
+        The name of the table.
+    schema : str or None
+        The schema the table belongs to, if applicable.
+    type : DATA_STORE_TABLE_TYPE
+        The type of the table. One of :class:`datarobot.enums.DATA_STORE_TABLE_TYPE`.
+    """
+
     catalog: Optional[str]
     name: str
     schema: Optional[str]
@@ -52,6 +87,16 @@ class TableDescription(TypedDict):
 
 
 class TablesResponse(TypedDict):
+    """The tables available through a data store.
+
+    Attributes
+    ----------
+    catalog : str
+        The catalog that ``tables`` belongs to.
+    tables : list[TableDescription]
+        The tables available in ``catalog``.
+    """
+
     catalog: str
     tables: List[TableDescription]
 
@@ -105,22 +150,22 @@ class DataStoreParameters:
 
 
 class DataStore(APIObject):
-    """A data store. Represents database
+    """A data store. Represents a database.
 
     Attributes
     ----------
     id : str
-        The id of the data store.
+        The ID of the data store.
     data_store_type : str
-        The type of data store.
+        The data store type.
     canonical_name : str
         The user-friendly name of the data store.
     creator : str
-        The id of the user who created the data store.
+        The ID of the user who created the data store.
     updated : datetime.datetime
-        The time of the last update
+        The time of the last update.
     params : DataStoreParameters
-        A list specifying data store parameters.
+        The data store parameters.
     role : str
         Your access role for this data store.
     """
@@ -166,26 +211,26 @@ class DataStore(APIObject):
         data_type: Optional[DataTypes] = None,
     ) -> List[DataStore]:
         """
-        Returns list of available data stores.
+        Returns a list of available data stores.
 
         Parameters
         ----------
         typ : str
-            If specified, filters by specified data store type. If not specified, the default
-            is DataStoreListTypes.JDBC.
+            If specified, filters by the specified data store type. If not specified, the default
+            is ``DataStoreListTypes.JDBC``.
         name: str
             If specified, filters by data store names that match or contain this name.
             The search is case-insensitive.
         substitute_url_parameters: bool
-            If specified, dynamic parameters in the URL will be substituted.
+            If specified, substitutes dynamic parameters in the URL.
         data_type : DataTypes
-            If specified, filters data stores which support the specified data type. If not specified it will
-            default to DataTypes.ALL
+            If specified, filters data stores that support the specified data type. If not
+            specified, defaults to ``DataTypes.ALL``.
 
         Returns
         -------
         data_stores : list of DataStore instances
-            contains a list of available data stores.
+            Contains a list of available data stores.
 
         Examples
         --------
@@ -215,19 +260,19 @@ class DataStore(APIObject):
     @classmethod
     def get(cls, data_store_id: str, substitute_url_parameters: Optional[bool] = False) -> DataStore:
         """
-        Gets the data store.
+        Returns the data store.
 
         Parameters
         ----------
         data_store_id : str
-            the identifier of the data store.
+            The identifier of the data store.
         substitute_url_parameters: bool
-            If specified, dynamic parameters in the URL will be substituted.
+            If specified, substitutes dynamic parameters in the URL.
 
         Returns
         -------
         data_store : DataStore
-            the required data store.
+            The required data store.
 
         Examples
         --------
@@ -260,22 +305,23 @@ class DataStore(APIObject):
         Parameters
         ----------
         data_store_type : str or DataStoreTypes
-            the type of data store.
+            The data store type.
         canonical_name : str
-            the user-friendly name of the data store.
+            The user-friendly name of the data store.
         driver_id : str
-            Optional. The identifier of the DataDriver if data_store_type is DataStoreListTypes.JDBC or
-            DataStoreListTypes.DR_DATABASE_V1.
+            Optional. The identifier of the DataDriver when ``data_store_type`` is
+            ``DataStoreListTypes.JDBC`` or ``DataStoreListTypes.DR_DATABASE_V1``.
         jdbc_url : str
             Optional. The full JDBC URL (for example: `jdbc:postgresql://my.dbaddress.org:5432/my_db`).
         fields: list
             Optional. If the type is `dr-database-v1`, then the fields specify the configuration.
         connector_id: str
-            Optional. The identifier of the Connector if data_store_type is DataStoreListTypes.DR_CONNECTOR_V1
+            Optional. The identifier of the Connector when ``data_store_type`` is
+            ``DataStoreListTypes.DR_CONNECTOR_V1``.
         Returns
         -------
         data_store : DataStore
-            the created data store.
+            The created data store.
 
         Examples
         --------
@@ -378,39 +424,39 @@ class DataStore(APIObject):
         Tests database connection.
 
         .. versionchanged:: v3.2
-           Added `credential_id`, `use_kerberos` and `credential_data` optional params and made
-           `username` and `password` optional.
+           Added ``credential_id``, ``use_kerberos``, and ``credential_data`` optional parameters and made
+           ``username`` and ``password`` optional.
         .. versionchanged:: v3.9
-           If credential_id is provided and set_default_credential is True and the connection test is successful,
-           the credential is set as the default for this data store.
+           When you provide ``credential_id`` and set ``set_default_credential`` to True and the connection test
+           succeeds, DataRobot sets the credential as the default for this data store.
 
         Parameters
         ----------
         username : str
-            Optional; the username for database authentication.
+            Optional. The username for database authentication.
         password : str
-            Optional; the password for database authentication. The password is encrypted
-            at server side and never saved / stored
+            Optional. The password for database authentication. The server encrypts the password
+            during the request and never saves or stores it.
         credential_id : str
-            optional, id of the set of credentials to use instead of username and password
+            Optional. The ID of the credentials to use instead of username and password.
         use_kerberos : bool
-            Optional; whether to use Kerberos for data store authentication
+            Optional. Whether to use Kerberos for data store authentication.
         credential_data : dict
-            Optional; the credentials to authenticate with the database, to use instead of
-            user/password or credential ID
+            Optional. The credentials to authenticate with the database, to use instead of
+            username/password or credential ID.
         set_default_credential: bool
-            optional, if True and credential_id is provided, sets the credential as default for this data store
-            Default is False.
+            Optional. If True and you provide ``credential_id``, sets the credential as the default for this data
+            store. Defaults to False.
 
         Returns
         -------
         message : dict
-            message with status.
+            Message with status.
 
         Raises
         ------
         CredentialsError
-            If unable to set the provided credential_id as default for this data store.
+            If unable to set the provided ``credential_id`` as default for this data store.
 
         Examples
         --------
@@ -441,20 +487,20 @@ class DataStore(APIObject):
 
     def schemas(self, username: str, password: str) -> SchemasResponse:
         """
-        Returns list of available schemas.
+        Returns a list of available schemas.
 
         Parameters
         ----------
         username : str
-            the username for database authentication.
+            The username for database authentication.
         password : str
-            the password for database authentication. The password is encrypted
-            at server side and never saved / stored
+            The password for database authentication. The server encrypts the password during the
+            request and never saves or stores it.
 
         Returns
         -------
         response : dict
-            dict with database name and list of str - available schemas
+            A dictionary with the database name and a list of available schemas.
 
         Examples
         --------
@@ -470,22 +516,22 @@ class DataStore(APIObject):
 
     def tables(self, username: str, password: str, schema: Optional[str] = None) -> TablesResponse:
         """
-        Returns list of available tables in schema.
+        Returns a list of available tables in a schema.
 
         Parameters
         ----------
         username : str
-            Optional; the username for database authentication.
+            Optional. The username for database authentication.
         password : str
-            Optional; the password for database authentication. The password is encrypted
-            at server side and never saved / stored
+            Optional. The password for database authentication. The server encrypts the password
+            during the request and never saves or stores it.
         schema : str
-            Optional; the schema name.
+            Optional. The schema name.
 
         Returns
         -------
         response : dict
-            dict with catalog name and tables info
+            A dictionary with the catalog name and table information.
 
         Examples
         --------
@@ -559,7 +605,7 @@ class DataStore(APIObject):
         Parameters
         ----------
         access_list : list of :class:`SharingRole <datarobot.models.sharing.SharingRole>`
-            the modifications to make.
+            The modifications to make.
 
         Returns
         -------
@@ -620,3 +666,223 @@ class DataStore(APIObject):
         formatted_roles = [access.collect_payload() for access in access_list]
         payload = {"roles": formatted_roles, "operation": "updateRoles"}
         self._client.patch(f"{self._path}{self.id}/sharedRoles/", data=payload)
+
+    def preview_table(
+        self,
+        table_name: str,
+        *,
+        max_rows: Optional[int] = 100,
+        catalog: Optional[str] = None,
+        schema: Optional[str] = None,
+        credential_id: Optional[str] = None,
+        use_kerberos: Optional[bool] = None,
+    ) -> JdbcPreviewData:
+        """
+        Preview data from a table in the data store.
+
+        Parameters
+        ----------
+        table_name:
+            Name of the table to preview.
+        max_rows:
+            Maximum number of rows to preview.
+        catalog:
+            Catalog of the table to preview.
+        schema:
+            Schema of the table to preview.
+        credential_id:
+            ID of the credential to use instead of default credentials.
+        use_kerberos:
+            Whether to use Kerberos for authentication.
+
+        Returns
+        -------
+        JdbcPreviewData:
+            Object with preview data and result schema.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> from datarobot.models.data_store import DataStore
+            >>> data_store = DataStore.get("my_data_store_id")
+            >>> credential_id = "my_credential_id"
+            >>> preview = data_store.preview_table(
+            ...     "my_table_name",
+            ...     credential_id=credential_id,
+            ...     schema="my_schema",
+            ...     catalog="my_catalog",
+            ...     max_rows=10,
+            ... )
+            >>> preview.columns
+            ['id', 'name', 'email']
+            >>> preview.records
+            [
+                {'id': 1, 'name': 'John Doe', 'email': 'john.doe@example.com'},
+                {'id': 2, 'name': 'Jane Doe', 'email': 'jane.doe@example.com'},
+            ]
+            >>> preview.df.head()
+                id  name  email
+            0   1   John  john.doe@example.com
+            1   2   Jane  jane.doe@example.com
+
+        """
+        payload = {
+            "table": table_name,
+            "max_rows": max_rows,
+            "catalog": catalog,
+            "schema": schema,
+            "credential_id": credential_id,
+            "use_kerberos": use_kerberos,
+        }
+        resp = self._client.post(f"{self._path}{self.id}/preview/", data=to_api(payload))
+        return JdbcPreviewData.from_server_data(resp.json())
+
+    def preview_query(
+        self,
+        sql: str,
+        *,
+        max_rows: Optional[int] = 100,
+        credential_id: Optional[str] = None,
+        bind_parameters: Optional[List[Optional[Union[str, int, float, bool, datetime, date]]]] = None,
+        read_timeout: int = 300,
+    ) -> JdbcPreviewData:
+        """
+        Execute a SQL query statement against a data store and return a preview of the results.
+
+        Parameters
+        ----------
+        sql:
+            The SQL query statement to execute.
+        max_rows:
+            The maximum number of rows to return.
+        credential_id:
+            The ID of the credential to use. If not provided, the default credential will be used.
+        bind_parameters:
+            List of values to bind to the SQL statement. Each value is bound to
+            a `?` placeholder in the SQL statement. Binding is in-order.
+        read_timeout:
+            Seconds to wait for the response from the server.
+
+        Returns
+        -------
+        JdbcPreviewData:
+            Object with preview data and result schema.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> from datarobot.models.data_store import DataStore
+            >>> data_store = DataStore.get("my_data_store_id")
+            >>> preview = data_store.preview_query(
+            ...     "SELECT * FROM my_catalog.my_schema.my_table WHERE name LIKE ?",
+            ...     credential_id="my_credential_id",
+            ...     max_rows=10,
+            ...     bind_parameters=['%Doe%'],
+            ... )
+            >>> preview.columns
+            ['id', 'name', 'email']
+            >>> preview.records
+            [
+                {'id': 1, 'name': 'John Doe', 'email': 'john.doe@example.com'},
+                {'id': 2, 'name': 'Jane Doe', 'email': 'jane.doe@example.com'},
+            ]
+            >>> preview.df.head()
+                id  name      email
+            0   1   John Doe  john.doe@example.com
+            1   2   Jane Doe  jane.doe@example.com
+        """
+        payload = {
+            "sql": sql,
+            "max_rows": max_rows,
+            "credential_id": credential_id,
+            "bind_params": bind_parameters,
+        }
+        resp = self._client.post(
+            f"{self._path}{self.id}/previewQuery/",
+            data=to_api(payload),
+            timeout=(self._client.connect_timeout, read_timeout),
+        )
+        return JdbcPreviewData.from_server_data(resp.json())
+
+    def execute_update(
+        self,
+        sql: str,
+        *,
+        credential_id: Optional[str] = None,
+        bind_parameters: Optional[List[Optional[Union[str, int, float, bool, datetime, date]]]] = None,
+        read_timeout: int = 300,
+    ) -> str:
+        """
+        Execute a SQL update statement against a data store. Returns the message from the server.
+
+        Parameters
+        ----------
+        sql:
+            The SQL update statement to execute.
+        credential_id:
+            The ID of the credential to use. If not provided, the default credential will be used.
+        bind_parameters:
+            List of values to bind to the SQL statement. Each value is bound to
+            a `?` placeholder in the SQL statement. Binding is in-order.
+        read_timeout:
+            Seconds to wait for the response from the server.
+
+        Returns
+        -------
+        str:
+            The message from the server. Returns "OK" if successful.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> from datarobot.models.data_store import DataStore
+            >>> data_store = DataStore.get("my_data_store_id")
+            >>> data_store.execute_update(
+            ...     "UPDATE my_table SET name = ? WHERE id = ?",
+            ...     credential_id="my_credential_id",
+            ...     bind_parameters=['John', 1],
+            ... )
+            "OK"
+        """
+        payload = {
+            "sql": sql,
+            "credential_id": credential_id,
+            "bind_params": bind_parameters,
+        }
+        resp = self._client.post(
+            f"{self._path}{self.id}/executeUpdate/",
+            data=to_api(payload),
+            timeout=(self._client.connect_timeout, read_timeout),
+        )
+        return resp.json().get("message") or ""
+
+    @classmethod
+    def is_execute_update_success(cls, message: str) -> bool:
+        """
+        Check if the message from the server indicates a successful execute update.
+
+        Parameters
+        ----------
+        message:
+            The message from the server.
+
+        Returns
+        -------
+        bool:
+            True if the message indicates a successful execute update, False otherwise.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> from datarobot.models.data_store import DataStore
+            >>> ds = DataStore.get("my_data_store_id")
+            >>> DataStore.is_execute_update_success(
+            ...     ds.execute_update("UPDATE my_table SET name = 'John Doe' WHERE id = 1")
+            ... )
+            True
+        """
+        return message == "OK"

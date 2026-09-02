@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: rustici_software_cloud_v2
+Version: 5.0.0
+Summary: SCORM Cloud Rest API
+Home-page: https://github.com/RusticiSoftware/scormcloud-api-v2-client-python
+Author-email: systems@rusticisoftware.com
+Keywords: SCORM Cloud Rest API,Rustici Software,SCORM,SCORM Cloud
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: certifi>=2024.2.28
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: urllib3>=2.6.0
+Requires-Dist: Deprecated>=1.2.13
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+    REST API used for SCORM Cloud integrations.  # noqa: E501
+    

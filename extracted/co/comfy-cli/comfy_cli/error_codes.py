@@ -43,6 +43,15 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "User pressed Ctrl-C; in-flight work was torn down.",
     ),
     ErrorCode(
+        "usage_error",
+        "The invocation itself was wrong -- an unknown option, a missing option value, a bad argument count "
+        "or an unknown subcommand. Raised during argv parsing, so NOTHING ran and nothing changed; the exit "
+        "code is 2, not 1. `details.command` is the command path whose surface was violated and "
+        "`details.did_you_mean` carries click's suggestions for a near-miss option. Never retry this: it is "
+        "deterministic.",
+        "fix the invocation; `details.command` plus `--help`, or `comfy --json discover`, gives the exact surface",
+    ),
+    ErrorCode(
         "not_in_workspace",
         "Resolved no workspace where one was required (e.g. `comfy which`).",
         "run `comfy install`, or pass `--workspace`",
@@ -264,9 +273,14 @@ REGISTRY: tuple[ErrorCode, ...] = (
     ),
     ErrorCode(
         "workflow_unknown_nodes",
-        "Workflow references class_type(s) not present in the server's object_info. "
-        "`details.unknown_nodes` lists each with close_matches.",
-        "fix the class_type names; install missing custom nodes",
+        "The workflow failed validation against the target's object_info. Named for its commonest cause -- a "
+        "class_type the target does not have -- but raised for every verdict the validator returns, input "
+        "shape and enum mismatches included, so read `details.errors` rather than assuming a naming problem. "
+        "`details.errors` is one record per failure, each with `node_id`, `message` and any `suggestions`; "
+        "`details.warnings` carries the non-fatal remainder. The `hint` is built from those same records, so "
+        "it describes the actual failures rather than the code's name.",
+        "read `details.errors`: fix the class_type names and install missing custom nodes for an unknown "
+        "class, or correct the input for a shape mismatch",
     ),
     # --- routing / cloud / auth ---------------------------------------------
     ErrorCode(
@@ -360,6 +374,14 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "cloud_only_command",
         "The command requires Comfy Cloud (e.g. `comfy assets library`); there is no local equivalent.",
         "sign in with `comfy cloud login` and re-run with `--where cloud`",
+    ),
+    ErrorCode(
+        "asset_not_found",
+        "Comfy Cloud has no asset with the content hash passed to `assets library ensure` "
+        "(`details.hash`). A file NAME is not a hash: the library is keyed by the sha256 the "
+        "upload computed, which `assets library ls` reports per asset.",
+        "pass the `hash` from `comfy --json assets library ls --name <file>`, or upload the file "
+        "first with `comfy upload <file> --where cloud`",
     ),
     ErrorCode(
         "template_fetch_failed",
@@ -774,6 +796,27 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "with `comfy model download-cancel <id>`, a foreground one with Ctrl-C in its own terminal",
     ),
     ErrorCode(
+        "model_download_claim_contested",
+        "`comfy model download --background` lost the race for a destination it had just judged "
+        "free: the stale claim it cleared was re-taken by another submitter before its own retry, "
+        "and that new claim does not (yet) resolve to a live download record. `details.path` is the "
+        "destination; `details.download_id` names the new claim's holder when its claim file was "
+        "readable, and is null otherwise. Unlike `model_download_in_flight` there is no `status`/"
+        "`kind` to report — the competitor's record was not visible at refusal time.",
+        "check `comfy model downloads`, then retry",
+    ),
+    ErrorCode(
+        "model_download_claim_unclearable",
+        "`comfy model download --background` found a stale destination claim it could not remove "
+        "(`details.claim_file`): the file is not deletable by this user, or something else (e.g. a "
+        "directory) sits at the claim path. Every submission to `details.path` will be refused "
+        "until the claim file is cleared, so the command reports the real obstacle rather than a "
+        "phantom in-flight download. `details.download_id` is the stale claim's recorded holder, "
+        "null when the claim was unreadable.",
+        "remove the claim file by hand (check its ownership and the permissions on the `claims/` "
+        "directory), then retry",
+    ),
+    ErrorCode(
         "model_download_foreground_cancel",
         "`comfy model download-cancel` refused to cancel a download that is running in the "
         "foreground of another terminal (`details.id`, `details.pid`). A background download runs in "
@@ -914,9 +957,18 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "check COMFY_API_BASE_URL points at the Comfy API; the existing cached catalog is still usable",
     ),
     ErrorCode(
+        "emit_workflow_unsupported_model",
+        "`generate --emit-workflow` has no ComfyUI partner-node mapping for the requested model "
+        "(`details.model`); most of the proxy catalog is proxy-only. `details.supported` lists the "
+        "aliases that can be emitted — the same set `generate list` flags with `emit_supported: true`.",
+        "pick a model with `emit_supported: true` in `comfy --json generate list`, or drop "
+        "--emit-workflow and call the model through the proxy",
+    ),
+    ErrorCode(
         "emit_workflow_failed",
-        "`generate --emit-workflow` could not build the partner-node workflow.",
-        "check the model name and that all required inputs are provided",
+        "`generate --emit-workflow` could not build the partner-node workflow for a supported model "
+        "(missing/invalid inputs, or the destination path could not be written).",
+        "check that all required inputs are provided and the destination path is writable",
     ),
     # --- custom node registry ------------------------------------------------
     ErrorCode(
@@ -1060,10 +1112,10 @@ REGISTRY: tuple[ErrorCode, ...] = (
     ),
     # --- build (the serverless builder) --------------------------------------
     ErrorCode(
-        "build_spec_invalid",
-        "A build spec or legacy scan definition could not be read, has an unsupported schema, or is invalid. "
-        "`details.path` carries the path when one is available.",
-        "fix the named field, or regenerate the file",
+        "build_models_dir_missing",
+        "`comfy build init` could not find a models/ directory to scan. `details.path` carries the "
+        "resolved path. Either no workspace is selected or the given `--models-dir` doesn't exist.",
+        "run from a ComfyUI workspace, or pass `--models-dir <path>` pointing at your models/ folder",
     ),
     ErrorCode(
         "build_spec_write_error",
@@ -1072,47 +1124,43 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "check the directory exists and is writable",
     ),
     ErrorCode(
-        "build_spec_not_found",
-        "A `comfy build` command found no spec at the path `PATH` resolved to — `<dir>/comfy-build.yaml` for "
-        "a directory, or the file itself for a `.yaml`/`.json` `PATH`. `details.path` carries the exact "
-        "absolute path probed.",
-        "create a comfy-build.yaml at that path, or pass the PATH that holds the spec",
+        "build_spec_exists",
+        "`comfy build init` found an existing build spec at the output path and refused to replace it. "
+        "`details.path` carries the exact path left untouched.",
+        "pass `--force` to overwrite the local spec intentionally, or choose another `--output` path",
     ),
     ErrorCode(
-        "build_models_dir_missing",
-        "`comfy build scan` could not find a models/ directory to scan. `details.path` carries the "
-        "resolved path. Either no workspace is selected or the given `--models-dir` doesn't exist.",
-        "run from a ComfyUI workspace, or pass `--models-dir <path>` pointing at your models/ folder",
+        "build_missing_input",
+        "A build command cannot act on the options it was given. `details.missing` lists every option the "
+        "caller must provide (interactive callers are prompted instead); `details.conflict` instead lists "
+        "mutually exclusive options that were supplied together, one of which must be dropped; "
+        "`details.invalid` lists supplied values that do not match their option's required form.",
+        "pass every option named in `details.missing`, drop one of `details.conflict`, or respell every "
+        "value in `details.invalid`, and retry",
     ),
     ErrorCode(
-        "build_output_write_error",
-        "`comfy build scan --output <path>` could not write the definition file. `details` carries the "
-        "path and the underlying OS error.",
-        "check the directory exists and is writable",
+        "build_release_not_found",
+        "A `comfy build release show`, `logs`, or `manifest` command omitted RELEASE, but the current Build "
+        "has no release to select. `details.buildId` names the Build whose exhaustive release list was empty.",
+        "run `comfy build release create --target <os>/<gpu>` first, or pass an existing RELEASE id",
     ),
     ErrorCode(
-        "build_definition_invalid",
-        "`comfy build create --from <path>` could not read the definition file, or it isn't a "
-        "build definition (missing/invalid JSON or no `models` key). `details.path` carries the path.",
-        "pass a file produced by `comfy build scan -o <path>`",
+        "build_spec_invalid",
+        "A build spec or legacy scan definition could not be read, has an unsupported schema, or is invalid. "
+        "`details.path` carries the path when one is available.",
+        "fix the named field, or regenerate the file with `comfy build init`",
     ),
     ErrorCode(
         "build_workflow_invalid",
-        "`comfy build from-workflow --from <path>` could not read the workflow file, or it is not a JSON "
-        "object. `details.path` carries the path.",
+        "`comfy build init --from-workflow <path>` or `comfy build update --from-workflow <path>` could not "
+        "read the workflow file, or it is not a JSON object. `details.path` carries the path.",
         "pass a workflow saved from ComfyUI (either the editing format or the API export)",
     ),
     ErrorCode(
         "build_not_signed_in",
-        "`comfy build create --execute` found no usable Cloud JWT — the builder authenticates with the "
-        "OAuth session token, and there isn't a valid one.",
+        "A Builder-backed `comfy build` command found no usable Cloud JWT — the builder authenticates with "
+        "the OAuth session token, and there isn't a valid one.",
         "run `comfy cloud login` first",
-    ),
-    ErrorCode(
-        "build_upload_unavailable",
-        "`comfy build create --execute` couldn't produce a private-blob upload: the model bytes weren't "
-        "found (pass `--models-dir`), or a local (non-git) custom node needs packaging, which isn't supported yet.",
-        "pass `--models-dir <path>` so model bytes can be located; use git-based custom nodes for now",
     ),
     ErrorCode(
         "build_builder_error",
@@ -1127,25 +1175,289 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "the developer platform is in limited beta; request access, then sign in with an enabled account",
     ),
     ErrorCode(
-        "build_missing_comfy_version",
-        "`comfy build create` was given a definition with no `baseComfyVersion`. The builder can create "
-        "the build but cannot cut a release without a pinned ComfyUI version, so create fails fast here "
-        "instead of surfacing a raw builder 400 after doing work. `details.path` carries the definition path.",
-        "re-scan with `--comfy-version <ref>` (a tag, branch, or commit), or add a `baseComfyVersion` to the definition JSON",
+        "tls_verify_failed",
+        "The server's TLS certificate could not be verified against this machine's CA trust store. A local "
+        "trust problem, not an auth, URL or availability one: `curl` to the same host typically succeeds. "
+        "Raised on two surfaces only -- the `comfy build` builder calls and the `comfy deploy` control/data "
+        "planes. Other paths still map a verify failure to their own transport code, so its ABSENCE does not "
+        "rule a trust problem out. `hint` names the store actually in use.",
+        "install `certifi`, or point SSL_CERT_FILE **and** REQUESTS_CA_BUNDLE at a PEM bundle containing "
+        "the server's CA (e.g. /etc/ssl/certs/ca-certificates.crt) -- SSL_CERT_FILE covers the urllib call "
+        "sites and REQUESTS_CA_BUNDLE the `requests` ones (blob upload, model download)",
     ),
     ErrorCode(
         "build_registry_pin_missing",
-        "`comfy build create --execute` sent the definition to the builder's snapshot importer, which "
-        "could not vouch for one or more custom node pins and returned a definition without them. Creating "
-        "anyway would build an image quietly missing what the user asked for, so create stops. The advisories "
-        "printed above name why each pack could not be carried.",
-        "edit the definition to name a published registry version, or remove the pack",
+        "`comfy build push` sent its identity-keyed public-node subset to the builder's snapshot importer, "
+        "which could not vouch for one or more pins. Pushing anyway would save a definition that cannot "
+        "reconstruct every requested public node.",
+        "edit the spec to name a published registry version or normalized repository, or remove the node",
     ),
     ErrorCode(
         "build_delete_needs_confirm",
         "`comfy build delete` was run without `--yes` in a non-interactive context (JSON output, an agent, "
-        "or a pipe) where there is no TTY to confirm on. Delete is refused rather than blocking on a prompt.",
+        "or a pipe) where nothing can answer a confirmation. Delete is refused rather than blocking on a "
+        "prompt. `details.buildId` names the Build, and `details.question` carries the confirmation.",
         "pass `--yes` to confirm the delete when running non-interactively",
+    ),
+    ErrorCode(
+        "build_update_needs_confirm",
+        "`comfy build update` was run without `--yes` in a non-interactive context (JSON output, an agent, "
+        "or a pipe) where nothing can answer a confirmation. The rescan would replace the spec's `definition` "
+        "with what the installation holds now, so the rewrite is refused rather than blocking on a prompt. "
+        "`details.question` carries the confirmation nothing could answer.",
+        "pass `--yes` to accept the rescan, or `--dry-run` to read the diff without writing anything",
+    ),
+    ErrorCode(
+        "build_id_unknown",
+        "`comfy build pull` could not resolve a Build id from `--id` or the local spec, and no interactive "
+        "picker could supply one. `details.missing` names `--id`.",
+        "pass `--id <build-id>`, or push the spec once so it records its Build id",
+    ),
+    ErrorCode(
+        "build_pull_needs_confirm",
+        "`comfy build pull` was run without `--yes` in a non-interactive context. Pull discards local "
+        "definition edits in favor of the fetched Build, so the rewrite is refused without explicit consent.",
+        "pass `--yes` to overwrite the local spec with the fetched Build, or `--dry-run` to read the diff "
+        "without writing anything",
+    ),
+    ErrorCode(
+        "build_pull_unsynced_definition",
+        "`comfy build pull` refused a merge that would silently delete definition fields the local spec "
+        "sets to a non-empty value and the fetched Build omits. `details.fields` names them. A Build that "
+        "carries the field as an empty value is an intentional clear and is applied normally; so is an "
+        "absent field whose local value is already empty, because the builder's server-side create paths drop "
+        "empty fields on store and their absence is therefore not evidence of a missed round trip. "
+        "`definition.schema` and `definition.environment` are exempt: the builder has no typed field for "
+        "either, so no builder-owned write path can produce one. The check covers definition fields other "
+        "than `models` and `customNodes`, which are reconciled entry by entry -- a Build that omits a "
+        "collection still empties it locally.",
+        "run `comfy build push` so the Build carries these fields, or delete them from the spec if the Build is authoritative",
+    ),
+    ErrorCode(
+        "build_spec_stale",
+        "`comfy build push` refused to overwrite a Build whose remote revision differs from the spec's "
+        "`syncedRevision`, or exhausted the bounded `--force` overwrite retries.",
+        "run `comfy build pull` to review the remote changes, then retry; use `--force` to overwrite them",
+    ),
+    ErrorCode(
+        "build_spec_not_found",
+        "A `comfy build` command found no spec at the path `PATH` resolved to — `<dir>/comfy-build.yaml` for "
+        "a directory, or the file itself for a `.yaml`/`.json` `PATH`. `details.path` carries the exact "
+        "absolute path probed. `init` is the only build command that proceeds without a spec.",
+        "run `comfy build init --name <name> [PATH]` to create one, or pass the PATH that holds the spec",
+    ),
+    # --- deploy control plane ------------------------------------------------
+    ErrorCode(
+        "deploy_build_not_pushed",
+        "A deploy command needed the local Build, but the spec has no `id`, so it has not been pushed to the "
+        "Builder yet.",
+        "run `comfy build push`",
+    ),
+    ErrorCode(
+        "deploy_no_deployable_release",
+        "Release resolution exhausted the Build's releases without finding one whose Builder summary has "
+        "`deployable: true`. The error distinguishes an empty release list from releases that lack a "
+        "`linux/nvidia` artifact.",
+        "run `comfy build release create --target linux/nvidia` to cut a release with a `linux/nvidia` artifact",
+    ),
+    ErrorCode(
+        "deploy_ambiguous_deployment",
+        "Deployment resolution found multiple rows tied at the highest status rank and newest creation time. "
+        "`details.candidateIds` lists every indistinguishable deployment id.",
+        "pass `--deployment <id>` to select one deployment explicitly",
+    ),
+    ErrorCode(
+        "deploy_unrelated_deployment",
+        "`--deployment` named an id that is not in the set the command searched. That set differs by verb -- "
+        "`details.scope` names it, since `status` searches every live deployment of the Build while `up` searches "
+        "only those on the release it is reconciling, so an id can be refused by one and accepted by the other. "
+        "`details.candidateIds` lists the ids that are in scope, and `details.deploymentId` echoes the one asked for.",
+        "pick one of `details.candidateIds`, which lists every deployment this command can act on -- or when that list is empty, drop `--deployment` to let the command pick or create one",
+    ),
+    ErrorCode(
+        "deploy_missing_input",
+        "A deploy command is missing a required option. `comfy deploy up` uses this for immutable compute choices, "
+        "`comfy deploy run` for `--workflow`, and `up`/`scale` for one worker bound named without the other: "
+        "`--min` and `--max` are set as a pair, so a floor is never sent against a ceiling the caller did not "
+        "choose. `details.missing` lists every required option.",
+        "pass every option named in `details.missing`, then retry",
+    ),
+    ErrorCode(
+        "deploy_bad_request",
+        "The deploy control plane rejected structurally invalid input. The message names the invalid field or query parameter.",
+        "fix the field or parameter named in the message, then retry",
+    ),
+    ErrorCode(
+        "deploy_server_error",
+        "A deploy control-plane request failed in transport or returned an HTTP 5xx. Mutating requests are not retried because their outcome may be unknown.",
+        "check network access and COMFY_DEPLOY_URL; retry only after confirming the deployment state",
+    ),
+    ErrorCode(
+        "deploy_not_signed_in",
+        "A deploy control-plane request found no usable Cloud JWT, or the server rejected it with HTTP 401.",
+        "run `comfy cloud login`, then retry",
+    ),
+    ErrorCode(
+        "deploy_not_found",
+        "The deployment id does not exist or is outside the signed-in workspace.",
+        "check the deployment id with `comfy deploy ls --workspace`",
+    ),
+    ErrorCode(
+        "deploy_forbidden",
+        "The signed-in workspace is not allowed to perform the requested deployment operation.",
+        "verify the deployment belongs to this workspace and that the account has deploy access",
+    ),
+    ErrorCode(
+        "deploy_conflict",
+        "The deployment's current state conflicts with the requested operation; the server message names the state or conflict.",
+        "wait for the named state to settle, inspect `comfy deploy status`, then retry",
+    ),
+    ErrorCode(
+        "deploy_payment_required",
+        "The deployment operation requires an active subscription or available credit.",
+        "restore billing eligibility or credits, then retry",
+    ),
+    ErrorCode(
+        "deploy_quota_exceeded",
+        "The workspace reached its active-deployment or concurrent-worker limit.",
+        "stop or scale down another deployment, or raise the workspace limit, then retry",
+    ),
+    ErrorCode(
+        "deploy_compute_unavailable",
+        "The requested GPU and region cannot currently provision the deployment.",
+        "choose another pair from `comfy deploy refs compute`, or retry when capacity changes",
+    ),
+    ErrorCode(
+        "deploy_immutable_compute",
+        "A ready deployment cannot change its GPU class or region in place.",
+        "run `comfy deploy stop`, then `comfy deploy scale --gpu <class> --region <region>`, then `comfy deploy start`",
+    ),
+    ErrorCode(
+        "deploy_deleted",
+        "A deleted deployment is an audit record and cannot be started again.",
+        "create a new deployment with `comfy deploy up`",
+    ),
+    ErrorCode(
+        "deploy_status_terminal",
+        "The deployment was read successfully and is in a state the reading command treats as terminal. The "
+        "read itself did not fail, so `data` carries the full payload alongside this block and "
+        "`details.status` names the state. The two commands differ, deliberately: `comfy deploy status` "
+        "reports only `failed` and `stop_failed`, since a `stopped` deployment is a normal thing to be "
+        "asked about; `comfy deploy up` adds `stopped` (with or without `--watch`), because a deployment it was "
+        "asked to bring up and that is stopped did not come up.",
+        "for `failed`, inspect `comfy deploy logs` and redeploy with `comfy deploy up`; for `stop_failed`, "
+        "re-run `comfy deploy stop` -- it may still be billing; for `stopped`, `comfy deploy start`",
+    ),
+    ErrorCode(
+        "deploy_delete_needs_confirm",
+        "`comfy deploy delete` was run without `--yes` in a non-interactive context. The irreversible "
+        "teardown and soft-delete are refused without explicit consent; `details.deploymentId` names the "
+        "deployment and `details.question` carries the confirmation nothing could answer.",
+        "pass `--yes` to confirm the deployment teardown and soft-delete",
+    ),
+    ErrorCode(
+        "deploy_insecure_url",
+        "A deploy endpoint resolved to a non-https, non-loopback URL, so the request was refused before any "
+        "credential was attached. `details.url` is the offending origin and `details.source` names what "
+        "configured it — `COMFY_DEPLOY_URL`, the deployment's own `endpointUrl`, or a job link derived from it.",
+        "point COMFY_DEPLOY_URL at an https:// endpoint, or use a loopback address for local development",
+    ),
+    ErrorCode(
+        "deploy_endpoint_unknown",
+        "The control plane returned a null or untrusted deployment `endpointUrl`, or a data-plane follow-up/output "
+        "link named an origin outside the configured exact-origin allowlists. No data-plane credential is attached.",
+        "check COMFY_DEPLOY_HOST_SUFFIXES or COMFY_DEPLOY_STORAGE_ORIGINS, then retry with a trusted platform origin",
+    ),
+    # --- deploy data plane ---------------------------------------------------
+    ErrorCode(
+        "deploy_not_ready",
+        "The deployment data plane cannot accept a job yet. `details.status` comes from a fresh control-plane read.",
+        "wait if the status is transitional; inspect or repair the deployment if it is terminal",
+    ),
+    ErrorCode(
+        "deploy_workflow_invalid",
+        "The data plane rejected the API-format workflow, and `message` is the server's own explanation of "
+        "why -- read it first. It usually names the offending node, though some rejections are about the "
+        "document rather than a node (a UI-format export, or a count over a per-workflow limit). "
+        "`details.node_errors` carries structured per-node failures only when the server sent them, which "
+        "this route usually does not.",
+        "fix the workflow as `message` describes, then submit again with a new idempotency key",
+    ),
+    ErrorCode(
+        "deploy_workflow_empty",
+        "The `--workflow` file is a JSON object but holds no nodes, so there is nothing to submit. Raised locally, "
+        "before any deployment is contacted.",
+        "export a workflow that contains at least one node",
+    ),
+    ErrorCode(
+        "deploy_workflow_not_api_format",
+        "The `--workflow` file parsed as JSON but is not an API-format workflow -- its root is not an object whose "
+        "values carry `class_type`. Raised locally, before any deployment is contacted; distinct from "
+        "`deploy_workflow_invalid`, which is the data plane rejecting a workflow that was submitted.",
+        "pass a ComfyUI API-format workflow: a JSON object whose values carry `class_type`",
+    ),
+    ErrorCode(
+        "deploy_workflow_format_ui",
+        "`comfy deploy run` received a UI-format workflow carrying `nodes` and `links`. Deployment releases expose "
+        "no node-schema endpoint, so the CLI cannot convert that graph safely and refuses it before any request.",
+        "use ComfyUI's 'File > Export (API)' to save as API format, or convert locally with `comfy run` against a "
+        "running ComfyUI instance",
+    ),
+    ErrorCode(
+        "deploy_workflow_asset_outside_root",
+        "A `comfy deploy run` workflow input named a real local file that no allowed ComfyUI asset directory "
+        "holds. `details.path` is the file the string resolved to and `details.asset_roots` lists every directory "
+        "that was allowed. A workflow is third-party data, so the scanner reads only from the install's "
+        "`models/`, `input/` and `output/` directories rather than from anywhere under the working directory.",
+        "move the file under the install's models/, input/ or output/ directory, or pass `--asset-root <dir>`",
+    ),
+    ErrorCode(
+        "deploy_workflow_asset_marker_reserved",
+        "A `comfy deploy run` workflow arrived carrying a `core/ASSET` block whose `info.id` already uses the "
+        "CLI's reserved `local-asset:` prefix, which `details.id` carries. No legitimate producer emits that id, "
+        "and honouring it would repoint the reference at a file this run uploaded from the caller's machine.",
+        "remove the `local-asset:` asset id from the workflow and reference the local file by its path instead",
+    ),
+    ErrorCode(
+        "deploy_rate_limited",
+        "The deployment job queue is full or the data plane refused the request rate.",
+        "wait for queue capacity before submitting again",
+    ),
+    ErrorCode(
+        "deploy_idempotency_reuse",
+        "The v2 data plane rejected a previously used single-use idempotency key and did not execute the duplicate request.",
+        "do not retry the duplicate invocation automatically",
+    ),
+    ErrorCode(
+        "deploy_job_submit_unknown",
+        "A job submission timed out, lost its connection, or returned HTTP 5xx, so the job may exist. The v2 API has no job-list endpoint, idempotency-key lookup, or client-supplied job id with which to find it.",
+        "do not resubmit automatically because the possibly-created job cannot be found through the v2 API",
+    ),
+    ErrorCode(
+        "deploy_job_failed",
+        "The final authoritative GET for a v2 data-plane job reported `status: failed`. "
+        "`details.job` carries that complete terminal snapshot, including its server error and metrics.",
+        "inspect `details.job.error`, fix the workflow or inputs it names, then submit a new job",
+    ),
+    ErrorCode(
+        "deploy_job_canceled",
+        "The final authoritative GET for a v2 data-plane job reported `status: canceled`. `details.job` carries "
+        "the complete terminal snapshot.",
+        "submit a new `comfy deploy run` invocation if the workflow should execute again",
+    ),
+    ErrorCode(
+        "deploy_asset_missing",
+        "An input the run needs is not an asset this account can reach. Either a v2 asset hash probe found "
+        "no blob the caller may mint from while uploads were disabled (`details.file_path` and `details.hash` "
+        "identify it), or the submitted workflow referenced an asset id the account cannot mint, which the "
+        "server reports as `missing_asset` in `details.server_code`.",
+        "remove `--no-upload` to permit a streamed upload, or upload the input before retrying",
+    ),
+    ErrorCode(
+        "deploy_asset_upload_failed",
+        "A v2 multipart asset upload failed or the server rejected its `expected_hash`. A hash mismatch "
+        "mints no asset and reports `hash_mismatch` in `details.server_code`.",
+        "verify the local file is stable and readable, then retry the upload",
     ),
     # --- knowledge -----------------------------------------------------------
     ErrorCode(

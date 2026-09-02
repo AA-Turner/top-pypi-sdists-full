@@ -326,6 +326,10 @@ class DebugToolbarTestCase(BaseTestCase):
             len(response.toolbar.get_panel_by_id("SQLPanel").get_stats()["queries"]), 2
         )
 
+    def test_timer_panel_first(self):
+        toolbar = DebugToolbar(self.request, self.get_response)
+        self.assertEqual(toolbar.enabled_panels[0].panel_id, "TimerPanel")
+
 
 @override_settings(DEBUG=True)
 class DebugToolbarIntegrationTestCase(IntegrationTestCase):
@@ -333,6 +337,17 @@ class DebugToolbarIntegrationTestCase(IntegrationTestCase):
         response = self.client.get("/execute_sql/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "djDebug")
+
+    def test_shadow_dom_enabled_by_default(self):
+        response = self.client.get("/regular/basic/")
+        self.assertContains(response, 'id="djDebugRoot"')
+        self.assertContains(response, '<template shadowrootmode="open">')
+
+    @override_settings(DEBUG_TOOLBAR_CONFIG={"USE_SHADOW_DOM": False})
+    def test_shadow_dom_can_be_disabled(self):
+        response = self.client.get("/regular/basic/")
+        self.assertContains(response, 'id="djDebugRoot"')
+        self.assertNotContains(response, "shadowrootmode")
 
     @override_settings(DEFAULT_CHARSET="iso-8859-1")
     def test_non_utf8_charset(self):
@@ -679,6 +694,7 @@ class DebugToolbarIntegrationTestCase(IntegrationTestCase):
             r'TimerPanel_stime;dur=(\d)*(\.(\d)*)?;desc="System CPU time", ',
             r'TimerPanel_total;dur=(\d)*(\.(\d)*)?;desc="Total CPU time", ',
             r'TimerPanel_total_time;dur=(\d)*(\.(\d)*)?;desc="Elapsed time", ',
+            r'TimerPanel_toolbar_time;dur=(\d)*(\.(\d)*)?;desc="Including DebugToolbar time", ',
             r'SQLPanel_sql_time;dur=(\d)*(\.(\d)*)?;desc="SQL 1 queries", ',
             r'CachePanel_total_time;dur=0;desc="Cache 0 Calls"',
         ]

@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: thrift-connector
+Version: 0.24
+Summary: Lib to connect to thrift services with pools
+Home-page: https://github.com/eleme/thrift_connector
+Author: Haochuan Guo
+Author-email: guohaochuan@gmail.com
+License: BSD
+Description: UNKNOWN
+Keywords: thrift connection pool
+Platform: UNKNOWN

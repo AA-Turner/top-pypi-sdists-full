@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: zigpy-ziggurat
+Version: 1.1.1
+Summary: Zigpy radio library for the Ziggurat server
+Author-email: puddly <puddly3@gmail.com>
+License: Apache-2.0
+Project-URL: repository, https://github.com/zigpy/zigpy-ziggurat
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: zigpy
+Requires-Dist: aiohttp
+Requires-Dist: mashumaro
+Requires-Dist: aiospinel>=1.2.0
+
+# zigpy-ziggurat
+
+A Zigpy radio library for [Ziggurat](https://github.com/zigpy/ziggurat/), a Zigbee stack implemented in Rust.

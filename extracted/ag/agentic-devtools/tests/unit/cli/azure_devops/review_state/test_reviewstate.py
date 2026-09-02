@@ -1,0 +1,517 @@
+"""Tests for ReviewState dataclass."""
+
+from typing import Any
+
+from agentic_devtools.cli.azure_devops.review_state import (
+    CommitComment,
+    FileEntry,
+    FolderGroup,
+    ModelCommentRef,
+    OverallSummary,
+    ReviewState,
+    SkippedFile,
+)
+
+
+def _make_review_state(**kwargs) -> ReviewState:
+    defaults: dict[str, Any] = {
+        "prId": 25365,
+        "repoId": "repo-guid",
+        "repoName": "example-repo-name",
+        "project": "ExampleProject",
+        "organization": "https://dev.azure.com/example-org",
+        "latestIterationId": 5,
+        "scaffoldedUtc": "2026-02-25T10:00:00Z",
+        "overallSummary": OverallSummary(threadId=161000, commentId=1771800000),
+    }
+    defaults.update(kwargs)
+    return ReviewState(**defaults)
+
+
+class TestReviewState:
+    """Tests for ReviewState dataclass."""
+
+    def test_creation_with_defaults(self):
+        """Test creation with minimal required fields and defaults."""
+        state = _make_review_state()
+        assert state.prId == 25365
+        assert state.repoId == "repo-guid"
+        assert state.repoName == "example-repo-name"
+        assert state.project == "ExampleProject"
+        assert state.organization == "https://dev.azure.com/example-org"
+        assert state.latestIterationId == 5
+        assert state.scaffoldedUtc == "2026-02-25T10:00:00Z"
+        assert state.folders == {}
+        assert state.files == {}
+
+    def test_to_dict(self):
+        """Test serialization to dictionary."""
+        state = _make_review_state()
+        d = state.to_dict()
+        assert d["prId"] == 25365
+        assert d["repoId"] == "repo-guid"
+        assert d["latestIterationId"] == 5
+        assert "overallSummary" in d
+        assert d["folders"] == {}
+        assert d["files"] == {}
+
+    def test_to_dict_with_folders_and_files(self):
+        """Test serialization with folders and files."""
+        folder = FolderGroup(files=["/src/app.py"])
+        file_entry = FileEntry(threadId=3, commentId=4, folder="src", fileName="app.py")
+        state = _make_review_state(
+            folders={"src": folder},
+            files={"/src/app.py": file_entry},
+        )
+        d = state.to_dict()
+        assert "src" in d["folders"]
+        assert "/src/app.py" in d["files"]
+
+    def test_from_dict(self):
+        """Test deserialization from a dictionary."""
+        data = {
+            "prId": 25365,
+            "repoId": "repo-guid",
+            "repoName": "example-repo-name",
+            "project": "ExampleProject",
+            "organization": "https://dev.azure.com/example-org",
+            "latestIterationId": 5,
+            "scaffoldedUtc": "2026-02-25T10:00:00Z",
+            "overallSummary": {"threadId": 161000, "commentId": 1771800000, "status": "unreviewed"},
+            "folders": {},
+            "files": {},
+        }
+        state = ReviewState.from_dict(data)
+        assert state.prId == 25365
+        assert state.repoName == "example-repo-name"
+        assert state.overallSummary.threadId == 161000
+        assert state.folders == {}
+        assert state.files == {}
+
+    def test_from_dict_with_folders_and_files(self):
+        """Test deserialization with nested folders and files."""
+        data = {
+            "prId": 25365,
+            "repoId": "repo-guid",
+            "repoName": "example-repo-name",
+            "project": "ExampleProject",
+            "organization": "https://dev.azure.com/example-org",
+            "latestIterationId": 5,
+            "scaffoldedUtc": "2026-02-25T10:00:00Z",
+            "overallSummary": {"threadId": 161000, "commentId": 1771800000, "status": "unreviewed"},
+            "folders": {
+                "mgmt-backend": {
+                    "files": ["/mgmt-backend/SomeFile.cs"],
+                }
+            },
+            "files": {
+                "/mgmt-backend/SomeFile.cs": {
+                    "threadId": 161048,
+                    "commentId": 1771800050,
+                    "folder": "mgmt-backend",
+                    "fileName": "SomeFile.cs",
+                    "status": "unreviewed",
+                    "summary": None,
+                    "changeTrackingId": 42,
+                    "suggestions": [],
+                }
+            },
+        }
+        state = ReviewState.from_dict(data)
+        assert "mgmt-backend" in state.folders
+        assert state.folders["mgmt-backend"].files == ["/mgmt-backend/SomeFile.cs"]
+        assert "/mgmt-backend/SomeFile.cs" in state.files
+        assert state.files["/mgmt-backend/SomeFile.cs"].fileName == "SomeFile.cs"
+
+    def test_roundtrip(self):
+        """Test to_dict/from_dict round-trips correctly."""
+        folder = FolderGroup(files=["/src/app.py"])
+        file_entry = FileEntry(threadId=3, commentId=4, folder="src", fileName="app.py", status="approved")
+        original = _make_review_state(
+            folders={"src": folder},
+            files={"/src/app.py": file_entry},
+        )
+        restored = ReviewState.from_dict(original.to_dict())
+        assert restored.prId == 25365
+        assert restored.folders["src"].files == ["/src/app.py"]
+        assert restored.files["/src/app.py"].fileName == "app.py"
+
+    def test_folders_default_is_independent(self):
+        """Test that default folders dicts are independent per instance."""
+        s1 = _make_review_state()
+        s2 = _make_review_state()
+        s1.folders["test"] = FolderGroup()
+        assert "test" not in s2.folders
+
+    def test_files_default_is_independent(self):
+        """Test that default files dicts are independent per instance."""
+        s1 = _make_review_state()
+        s2 = _make_review_state()
+        s1.files["/test.py"] = FileEntry(threadId=1, commentId=2, folder="x", fileName="test.py")
+        assert "/test.py" not in s2.files
+
+    def test_from_dict_normalizes_file_keys(self):
+        """Test that from_dict normalizes file dict keys with leading slash."""
+        data = {
+            "prId": 25365,
+            "repoId": "repo-guid",
+            "repoName": "example-repo-name",
+            "project": "ExampleProject",
+            "organization": "https://dev.azure.com/example-org",
+            "latestIterationId": 5,
+            "scaffoldedUtc": "2026-02-25T10:00:00Z",
+            "overallSummary": {"threadId": 161000, "commentId": 1771800000, "status": "unreviewed"},
+            "folders": {},
+            "files": {
+                "src/app.py": {
+                    "threadId": 1,
+                    "commentId": 2,
+                    "folder": "src",
+                    "fileName": "app.py",
+                    "status": "unreviewed",
+                    "suggestions": [],
+                }
+            },
+        }
+        state = ReviewState.from_dict(data)
+        assert "/src/app.py" in state.files
+        assert "src/app.py" not in state.files
+
+    def test_new_fields_defaults(self):
+        """Test that new fields have correct default values."""
+        state = _make_review_state()
+        assert state.commitHash is None
+        assert state.modelId is None
+        assert state.activityLogThreadId == 0
+        assert state.sessions == []
+
+    def test_to_dict_includes_new_fields(self):
+        """Test that to_dict includes all new fields."""
+        state = _make_review_state(
+            commitHash="abc123",
+            modelId="claude-4",
+            activityLogThreadId=999,
+        )
+        d = state.to_dict()
+        assert d["commitHash"] == "abc123"
+        assert d["modelId"] == "claude-4"
+        assert d["activityLogThreadId"] == 999
+        assert d["sessions"] == []
+
+    def test_from_dict_reads_new_fields(self):
+        """Test that from_dict deserializes all new fields."""
+        from agentic_devtools.cli.azure_devops.review_state import ReviewSession
+
+        data = {
+            "prId": 25365,
+            "repoId": "repo-guid",
+            "repoName": "example-repo-name",
+            "project": "ExampleProject",
+            "organization": "https://dev.azure.com/example-org",
+            "latestIterationId": 5,
+            "scaffoldedUtc": "2026-02-25T10:00:00Z",
+            "overallSummary": {"threadId": 161000, "commentId": 1771800000, "status": "unreviewed"},
+            "folders": {},
+            "files": {},
+            "commitHash": "deadbeef",
+            "modelId": "gpt-5",
+            "activityLogThreadId": 42,
+            "sessions": [
+                {
+                    "sessionId": "sess-1",
+                    "modelId": "gpt-5",
+                    "startedUtc": "2026-03-01T10:00:00Z",
+                    "status": "completed",
+                }
+            ],
+        }
+        state = ReviewState.from_dict(data)
+        assert state.commitHash == "deadbeef"
+        assert state.modelId == "gpt-5"
+        assert state.activityLogThreadId == 42
+        assert len(state.sessions) == 1
+        assert isinstance(state.sessions[0], ReviewSession)
+        assert state.sessions[0].sessionId == "sess-1"
+
+    def test_from_dict_defaults_for_missing_new_fields(self):
+        """Test that from_dict defaults new fields when missing."""
+        data = {
+            "prId": 25365,
+            "repoId": "repo-guid",
+            "repoName": "example-repo-name",
+            "project": "ExampleProject",
+            "organization": "https://dev.azure.com/example-org",
+            "latestIterationId": 5,
+            "scaffoldedUtc": "2026-02-25T10:00:00Z",
+            "overallSummary": {"threadId": 161000, "commentId": 1771800000, "status": "unreviewed"},
+            "folders": {},
+            "files": {},
+        }
+        state = ReviewState.from_dict(data)
+        assert state.commitHash is None
+        assert state.modelId is None
+        assert state.activityLogThreadId == 0
+        assert state.sessions == []
+
+    def test_roundtrip_with_new_fields(self):
+        """Test to_dict/from_dict round-trips new fields correctly."""
+        from agentic_devtools.cli.azure_devops.review_state import ReviewSession
+
+        session = ReviewSession(
+            sessionId="sess-1",
+            modelId="claude-4",
+            startedUtc="2026-03-01T10:00:00Z",
+            completedUtc="2026-03-01T10:30:00Z",
+            status="completed",
+        )
+        original = _make_review_state(
+            commitHash="abc123",
+            modelId="claude-4",
+            activityLogThreadId=999,
+            sessions=[session],
+        )
+        restored = ReviewState.from_dict(original.to_dict())
+        assert restored.commitHash == "abc123"
+        assert restored.modelId == "claude-4"
+        assert restored.activityLogThreadId == 999
+        assert len(restored.sessions) == 1
+        assert restored.sessions[0].sessionId == "sess-1"
+
+    def test_sessions_default_is_independent(self):
+        """Test that default sessions lists are independent per instance."""
+        from agentic_devtools.cli.azure_devops.review_state import ReviewSession
+
+        s1 = _make_review_state()
+        s2 = _make_review_state()
+        s1.sessions.append(ReviewSession(sessionId="x", modelId="m", startedUtc="t"))
+        assert s2.sessions == []
+
+    def test_rebase_conflicts_defaults_false(self):
+        """Test that rebaseConflicts defaults to False."""
+        state = _make_review_state()
+        assert state.rebaseConflicts is False
+
+    def test_rebase_conflicts_to_dict_false(self):
+        """Test that to_dict includes rebaseConflicts as False by default."""
+        state = _make_review_state()
+        d = state.to_dict()
+        assert d["rebaseConflicts"] is False
+
+    def test_rebase_conflicts_to_dict_true(self):
+        """Test that to_dict includes rebaseConflicts as True when set."""
+        state = _make_review_state(rebaseConflicts=True)
+        d = state.to_dict()
+        assert d["rebaseConflicts"] is True
+
+    def test_rebase_conflicts_from_dict_true(self):
+        """Test that from_dict reads rebaseConflicts=True."""
+        data = {
+            "prId": 25365,
+            "repoId": "repo-guid",
+            "repoName": "example-repo-name",
+            "project": "ExampleProject",
+            "organization": "https://dev.azure.com/example-org",
+            "latestIterationId": 5,
+            "scaffoldedUtc": "2026-02-25T10:00:00Z",
+            "overallSummary": {"threadId": 161000, "commentId": 1771800000, "status": "unreviewed"},
+            "folders": {},
+            "files": {},
+            "rebaseConflicts": True,
+        }
+        state = ReviewState.from_dict(data)
+        assert state.rebaseConflicts is True
+
+    def test_rebase_conflicts_from_dict_missing_defaults_false(self):
+        """Test that from_dict defaults rebaseConflicts to False when field is absent."""
+        data = {
+            "prId": 25365,
+            "repoId": "repo-guid",
+            "repoName": "example-repo-name",
+            "project": "ExampleProject",
+            "organization": "https://dev.azure.com/example-org",
+            "latestIterationId": 5,
+            "scaffoldedUtc": "2026-02-25T10:00:00Z",
+            "overallSummary": {"threadId": 161000, "commentId": 1771800000, "status": "unreviewed"},
+            "folders": {},
+            "files": {},
+        }
+        state = ReviewState.from_dict(data)
+        assert state.rebaseConflicts is False
+
+    def test_rebase_conflicts_roundtrip(self):
+        """Test rebaseConflicts round-trips through to_dict/from_dict."""
+        original = _make_review_state(rebaseConflicts=True)
+        restored = ReviewState.from_dict(original.to_dict())
+        assert restored.rebaseConflicts is True
+
+    def test_skipped_files_defaults_empty(self):
+        """Test that skippedFiles defaults to an empty list."""
+        state = _make_review_state()
+        assert state.skippedFiles == []
+
+    def test_to_dict_omits_empty_skipped_files(self):
+        """Test that to_dict omits skippedFiles when empty."""
+        state = _make_review_state()
+        d = state.to_dict()
+        assert "skippedFiles" not in d
+
+    def test_to_dict_includes_skipped_files(self):
+        """Test that to_dict includes skippedFiles when populated."""
+        skipped = [
+            SkippedFile(path="/src/file1.ts", reason="not_on_branch"),
+            SkippedFile(path="/src/file2.ts", reason="already_reviewed"),
+        ]
+        state = _make_review_state(skippedFiles=skipped)
+        d = state.to_dict()
+        assert "skippedFiles" in d
+        assert len(d["skippedFiles"]) == 2
+        assert d["skippedFiles"][0] == {"path": "/src/file1.ts", "reason": "not_on_branch"}
+        assert d["skippedFiles"][1] == {"path": "/src/file2.ts", "reason": "already_reviewed"}
+
+    def test_from_dict_reads_skipped_files(self):
+        """Test that from_dict deserializes skippedFiles."""
+        data = {
+            "prId": 25365,
+            "repoId": "repo-guid",
+            "repoName": "example-repo-name",
+            "project": "ExampleProject",
+            "organization": "https://dev.azure.com/example-org",
+            "latestIterationId": 5,
+            "scaffoldedUtc": "2026-02-25T10:00:00Z",
+            "overallSummary": {"threadId": 161000, "commentId": 1771800000, "status": "unreviewed"},
+            "folders": {},
+            "files": {},
+            "skippedFiles": [
+                {"path": "/src/gone.ts", "reason": "not_on_branch"},
+            ],
+        }
+        state = ReviewState.from_dict(data)
+        assert len(state.skippedFiles) == 1
+        assert isinstance(state.skippedFiles[0], SkippedFile)
+        assert state.skippedFiles[0].path == "/src/gone.ts"
+        assert state.skippedFiles[0].reason == "not_on_branch"
+
+    def test_from_dict_missing_skipped_files_defaults_empty(self):
+        """Test backward compatibility: missing skippedFiles key defaults to empty list."""
+        data = {
+            "prId": 25365,
+            "repoId": "repo-guid",
+            "repoName": "example-repo-name",
+            "project": "ExampleProject",
+            "organization": "https://dev.azure.com/example-org",
+            "latestIterationId": 5,
+            "scaffoldedUtc": "2026-02-25T10:00:00Z",
+            "overallSummary": {"threadId": 161000, "commentId": 1771800000, "status": "unreviewed"},
+            "folders": {},
+            "files": {},
+        }
+        state = ReviewState.from_dict(data)
+        assert state.skippedFiles == []
+
+    def test_skipped_files_roundtrip(self):
+        """Test skippedFiles round-trips through to_dict/from_dict."""
+        skipped = [
+            SkippedFile(path="/src/file1.ts", reason="not_on_branch"),
+            SkippedFile(path="/src/file2.ts", reason="already_reviewed"),
+        ]
+        original = _make_review_state(skippedFiles=skipped)
+        restored = ReviewState.from_dict(original.to_dict())
+        assert len(restored.skippedFiles) == 2
+        assert restored.skippedFiles[0].path == "/src/file1.ts"
+        assert restored.skippedFiles[0].reason == "not_on_branch"
+        assert restored.skippedFiles[1].path == "/src/file2.ts"
+        assert restored.skippedFiles[1].reason == "already_reviewed"
+
+    def test_skipped_files_default_is_independent(self):
+        """Test that default skippedFiles lists are independent per instance."""
+        s1 = _make_review_state()
+        s2 = _make_review_state()
+        s1.skippedFiles.append(SkippedFile(path="/x.py", reason="not_on_branch"))
+        assert s2.skippedFiles == []
+
+    def test_commit_comments_defaults_empty(self):
+        """Test that commitComments defaults to an empty dict."""
+        state = _make_review_state()
+        assert state.commitComments == {}
+
+    def test_to_dict_omits_empty_commit_comments(self):
+        """Test that to_dict omits commitComments when empty."""
+        state = _make_review_state()
+        d = state.to_dict()
+        assert "commitComments" not in d
+
+    def test_to_dict_includes_commit_comments(self):
+        """Test that to_dict includes commitComments when populated."""
+        commit_comment = CommitComment(
+            commitHash="0badc0ffee1122334455667788990011223344556",
+            threadId=7,
+            models=[ModelCommentRef(modelId="gpt-4o", commentId=1)],
+            status="approved",
+            timestamp="2026-02-25T10:00:00Z",
+        )
+        state = _make_review_state(commitComments={"0badc0ffee1122334455667788990011223344556": commit_comment})
+        d = state.to_dict()
+        assert "commitComments" in d
+        entry = d["commitComments"]["0badc0ffee1122334455667788990011223344556"]
+        assert entry["commitHash"] == "0badc0ffee1122334455667788990011223344556"
+        assert entry["threadId"] == 7
+        assert entry["status"] == "approved"
+        assert entry["models"][0]["modelId"] == "gpt-4o"
+
+    def test_commit_comments_roundtrip(self):
+        """Test commitComments round-trips through to_dict/from_dict."""
+        commit_comment = CommitComment(
+            commitHash="0badc0ffee1122334455667788990011223344556",
+            threadId=7,
+            models=[ModelCommentRef(modelId="gpt-4o", commentId=1, continuationCommentIds=[2])],
+            status="approved",
+            timestamp="2026-02-25T10:00:00Z",
+        )
+        original = _make_review_state(commitComments={"0badc0ffee1122334455667788990011223344556": commit_comment})
+        restored = ReviewState.from_dict(original.to_dict())
+        ref = restored.commitComments["0badc0ffee1122334455667788990011223344556"]
+        assert ref.threadId == 7
+        assert ref.status == "approved"
+        assert ref.models[0].modelId == "gpt-4o"
+        assert ref.models[0].continuationCommentIds == [2]
+
+
+class TestReviewStateBackwardCompat:
+    """Old review-state.json with removed System B multi-model fields still loads."""
+
+    def test_from_dict_ignores_legacy_multi_model_fields(self):
+        """Legacy reviewerModels/bossModel and per-file modelVerdicts/consolidationStatus load cleanly."""
+        legacy = {
+            "prId": 1,
+            "repoId": "r",
+            "repoName": "n",
+            "project": "p",
+            "organization": "o",
+            "latestIterationId": 1,
+            "scaffoldedUtc": "2026-01-01T00:00:00Z",
+            "overallSummary": OverallSummary(threadId=1, commentId=1).to_dict(),
+            "commitHash": "abc123def456",
+            "reviewerModels": ["gpt-4o", "claude-opus-4"],
+            "bossModel": "claude-opus-4",
+            "files": {
+                "/src/app.py": {
+                    "threadId": 2,
+                    "commentId": 3,
+                    "folder": "src",
+                    "fileName": "app.py",
+                    "status": "approved",
+                    "modelVerdicts": [{"modelId": "gpt-4o", "status": "approved", "verdictType": "agree"}],
+                    "consolidationStatus": "complete",
+                }
+            },
+        }
+        state = ReviewState.from_dict(legacy)
+        assert state.prId == 1
+        assert state.commitHash == "abc123def456"
+        assert "/src/app.py" in state.files
+        assert state.files["/src/app.py"].status == "approved"
+        d = state.to_dict()
+        assert "reviewerModels" not in d
+        assert "bossModel" not in d
+        assert "modelVerdicts" not in d["files"]["/src/app.py"]
+        assert "consolidationStatus" not in d["files"]["/src/app.py"]

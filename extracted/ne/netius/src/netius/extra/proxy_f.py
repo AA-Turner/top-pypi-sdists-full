@@ -1,0 +1,156 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# Hive Netius System
+# Copyright (c) 2008-2024 Hive Solutions Lda.
+#
+# This file is part of Hive Netius System.
+#
+# Hive Netius System is free software: you can redistribute it and/or modify
+# it under the terms of the Apache License as published by the Apache
+# Foundation, either version 2.0 of the License, or (at your option) any
+# later version.
+#
+# Hive Netius System is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# Apache License for more details.
+#
+# You should have received a copy of the Apache License along with
+# Hive Netius System. If not, see <http://www.apache.org/licenses/>.
+
+"""netius.extra.proxy_f
+
+Forward HTTP proxy that relays client requests to arbitrary upstream
+hosts, supporting both plain requests and CONNECT based tunnelling for
+HTTPS. Applies a set of compiled regular expression rules to the target
+path and rejects any matching request with a forbidden response. Acts
+as a simple example of a filtering outbound proxy.
+
+Example:
+    python -m netius.extra.proxy_f
+"""
+
+__author__ = "João Magalhães <joamag@hive.pt>"
+""" The author(s) of the module """
+
+__copyright__ = "Copyright (c) 2008-2024 Hive Solutions Lda."
+""" The copyright for the module """
+
+__license__ = "Apache License, Version 2.0"
+""" The license for the module """
+
+import re
+
+import netius.common
+import netius.servers
+
+
+class ForwardProxyServer(netius.servers.ProxyServer):
+
+    def __init__(self, config="proxy.json", rules={}, *args, **kwargs):
+        netius.servers.ProxyServer.__init__(self, *args, **kwargs)
+        self.load_config(path=config, rules=rules)
+        self.compile()
+
+    def on_headers(self, connection, parser):
+        netius.servers.ProxyServer.on_headers(self, connection, parser)
+
+        cls = self.__class__
+
+        method = parser.method.upper()
+        path = parser.path_s
+        version_s = parser.version_s
+        headers = parser.headers
+
+        rejected = False
+        for rule in self.rules.values():
+            rejected = rule.match(path)
+            if rejected:
+                break
+
+        # a tunnel may only be established towards an allowed target, so the
+        # authority form of it is resolved upfront and an invalid one makes
+        # the request a rejected one (avoids a generic relay)
+        host = port = None
+        if method == "CONNECT":
+            host, port = self._prx_authority(path)
+            rejected = rejected or host == None
+
+        if rejected:
+            self.debug("This connection is not allowed")
+            connection.send_response(
+                data=cls.build_text("This connection is not allowed"),
+                headers=dict(connection="close"),
+                version=version_s,
+                code=403,
+                code_s="Forbidden",
+                apply=True,
+                callback=self._prx_close,
+            )
+            return
+
+        if method == "CONNECT":
+            self.tunnel(
+                connection,
+                host,
+                port,
+                response=(200, "Connection established"),
+            )
+        else:
+            proxy_c = hasattr(connection, "proxy_c") and connection.proxy_c
+            proxy_c = proxy_c or None
+            connection.proxy_c = None
+            if proxy_c in self.conn_map:
+                del self.conn_map[proxy_c]
+
+            self._apply_accept(headers)
+
+            encoding = (
+                netius.common.CHUNKED_ENCODING
+                if parser.chunked
+                else netius.common.PLAIN_ENCODING
+            )
+
+            # removes the hop-by-hop headers of the request as they describe
+            # the connection with the client and not the one with the back-end,
+            # note that an upgrade request keeps the headers that carry its
+            # negotiation, which are restored once the removal is done
+            upgrade = self._prx_header(headers, "upgrade")
+            is_upgrade = self.is_upgrade(parser)
+            self._apply_hop(headers)
+            if is_upgrade and upgrade:
+                headers["connection"] = "Upgrade"
+                headers["upgrade"] = upgrade
+
+            _connection = self.http_client.method(
+                method,
+                path,
+                headers=headers,
+                encoding=encoding,
+                encodings=None,
+                safe=True,
+                connection=proxy_c,
+            )
+
+            self.debug("Setting connection as waiting, proxy connection loading ...")
+
+            _connection.waiting = True
+            _connection.max_pending = self.max_pending
+            _connection.min_pending = self.min_pending
+            connection.proxy_c = _connection
+            self.conn_map[_connection] = connection
+
+    def compile(self):
+        for key, rule in netius.legacy.items(self.rules):
+            self.rules[key] = re.compile(rule)
+
+
+if __name__ == "__main__":
+    import logging
+
+    rules = dict(facebook=".*facebook.com.*")
+    server = ForwardProxyServer(rules=rules, level=logging.INFO)
+    server.serve(env=True)
+else:
+    __path__ = []

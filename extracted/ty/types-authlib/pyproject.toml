@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-Authlib"
-version = "1.7.2.20260827"
+version = "1.7.2.20260901"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Authlib"
@@ -31,7 +31,7 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`c10142fb9463b1dd0c581d3f08f4c01c5c08a09e`](https://github.com/python/typeshed/commit/c10142fb9463b1dd0c581d3f08f4c01c5c08a09e).
+[`cf09d2a4d7614f648e9109dce609887499a7c6ee`](https://github.com/python/typeshed/commit/cf09d2a4d7614f648e9109dce609887499a7c6ee).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -40,7 +40,9 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = ['cryptography']
 
-
+[project.optional-dependencies]
+all = ['requests']
+requests = ['requests']
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"

@@ -38,6 +38,10 @@ ObjectiveType = Literal[
     "pii_violation",
 ]
 
+# Server-side defaults for the evaluation dataset column names.
+DEFAULT_PROMPT_COLUMN_NAME = "promptText"
+DEFAULT_RESPONSE_COLUMN_NAME = "responseText"
+
 
 class LlmConfig(TypedDict, total=False):
     llm_names: List[str]
@@ -155,6 +159,8 @@ agentic_search_request_trafaret = t.Dict({
     t.Key("playground_id"): t.String,
     t.Key("grounding_dataset_id"): t.String,
     t.Key("eval_dataset_id"): t.String,
+    t.Key("prompt_column_name", default=DEFAULT_PROMPT_COLUMN_NAME): t.String,
+    t.Key("response_column_name", default=DEFAULT_RESPONSE_COLUMN_NAME): t.String,
     t.Key("num_trials"): t.Int,
     t.Key("num_concurrent_trials"): t.Int,
     t.Key("optimization_objectives"): t.List(t.Tuple(search_objective_trafaret, search_direction_trafaret)),
@@ -193,6 +199,10 @@ search_study_response_trafaret = t.Dict(
         t.Key("use_case_id"): t.String,
         t.Key("grounding_dataset_id"): t.String,
         t.Key("eval_dataset_id"): t.String,
+        # Older servers predating BUZZOK-30190 omit these; fall back to the values
+        # that were hardcoded server-side before the fields existed.
+        t.Key("prompt_column_name", default=DEFAULT_PROMPT_COLUMN_NAME): t.String,
+        t.Key("response_column_name", default=DEFAULT_RESPONSE_COLUMN_NAME): t.String,
         t.Key("grounding_dataset_name"): t.String,
         t.Key("eval_dataset_name"): t.String,
         t.Key("user_id"): t.String,
@@ -290,6 +300,10 @@ class SearchStudy(APIObject):
         Whether to use Pareto pruner for the search.
     max_cost: Optional[float]
         Maximal cost of the search.
+    prompt_column_name : str
+        The name of the evaluation dataset column containing the prompt text.
+    response_column_name : str
+        The name of the evaluation dataset column containing the response text.
     """
 
     _path = "api/v2/genai/syftrSearch"
@@ -328,6 +342,8 @@ class SearchStudy(APIObject):
         max_timeout: Optional[int],
         prune_pareto: bool,
         max_cost: Optional[float],
+        prompt_column_name: str = DEFAULT_PROMPT_COLUMN_NAME,
+        response_column_name: str = DEFAULT_RESPONSE_COLUMN_NAME,
     ):
         self.search_space = search_space
         self.use_case_id = use_case_id
@@ -359,6 +375,8 @@ class SearchStudy(APIObject):
         self.max_timeout = max_timeout
         self.prune_pareto = prune_pareto
         self.max_cost = max_cost
+        self.prompt_column_name = prompt_column_name
+        self.response_column_name = response_column_name
 
     @classmethod
     def create(
@@ -377,6 +395,8 @@ class SearchStudy(APIObject):
         prune_pareto: bool = True,
         wait_for_completion: bool = False,
         max_wait: int = 3 * 60 * 60,
+        prompt_column_name: str = DEFAULT_PROMPT_COLUMN_NAME,
+        response_column_name: str = DEFAULT_RESPONSE_COLUMN_NAME,
     ) -> SearchStudy:
         """
         Create a new search search study with the specified parameters.
@@ -416,6 +436,12 @@ class SearchStudy(APIObject):
             Maximum number of seconds to wait when ``wait_for_completion=True``.
             Defaults to 10800 (3 hours). Raises :class:`~datarobot.errors.AsyncTimeoutError`
             if exceeded.
+        prompt_column_name : str, optional
+            The name of the evaluation dataset column containing the prompt text.
+            Defaults to ``"promptText"``.
+        response_column_name : str, optional
+            The name of the evaluation dataset column containing the response text.
+            Defaults to ``"responseText"``.
 
         Returns
         -------
@@ -427,6 +453,8 @@ class SearchStudy(APIObject):
             "playground_id": playground_id,
             "grounding_dataset_id": grounding_dataset_id,
             "eval_dataset_id": eval_dataset_id,
+            "prompt_column_name": prompt_column_name,
+            "response_column_name": response_column_name,
             "num_trials": num_trials,
             "num_concurrent_trials": num_concurrent_trials,
             "optimization_objectives": optimization_objectives,
@@ -512,7 +540,7 @@ class SearchStudy(APIObject):
         sort: Optional[str] = None,
     ) -> List[SearchStudy]:
         """
-        List all syftr search studies associated with a specific use case available to the user.
+        Returns a list of all syftr search studies associated with a specific use case available to the user.
 
         Parameters
         ----------

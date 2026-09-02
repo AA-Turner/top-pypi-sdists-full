@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: pysmlight
+Version: 0.5.3
+Summary: A library implementing API control of the SMLIGHT SLZB-06 LAN Coordinators.
+Project-URL: Repository, https://github.com/smlight-workspace/pysmlight
+Author-email: Tim Lunn <tl@smlight.tech>
+License: Apache-2.0
+License-File: LICENSE
+Keywords: slzb-06,smlight,zigbee
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.12
+Requires-Dist: aiohttp-sse-client2>=0.3.0
+Requires-Dist: aiohttp>=3.9.3
+Requires-Dist: awesomeversion>=24.6.0
+Requires-Dist: mashumaro>=3.10
+Description-Content-Type: text/markdown
+
+# PySMLIGHT - SLZB-06x
+
+A python library for controlling SMLIGHT SLZB-06 network coordinators

@@ -1,0 +1,377 @@
+Metadata-Version: 2.4
+Name: truenas-mcp-server
+Version: 3.0.2
+Summary: Production-ready MCP server for TrueNAS Core - Control your NAS through natural language
+Home-page: https://github.com/vespo92/TrueNasCoreMCP
+Author: Vinnie Espo
+Author-email: Vinnie Espo <vespo92@gmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/vespo92/TrueNasCoreMCP
+Project-URL: Documentation, https://github.com/vespo92/TrueNasCoreMCP/wiki
+Project-URL: Repository, https://github.com/vespo92/TrueNasCoreMCP.git
+Project-URL: Issues, https://github.com/vespo92/TrueNasCoreMCP/issues
+Project-URL: Changelog, https://github.com/vespo92/TrueNasCoreMCP/blob/main/CHANGELOG.md
+Keywords: truenas,mcp,claude,api,nas,storage,zfs,smb,nfs,iscsi,kubernetes
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: System :: Systems Administration
+Classifier: Topic :: System :: Archiving :: Backup
+Classifier: Topic :: System :: Filesystems
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Framework :: AsyncIO
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: mcp>=1.1.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pydantic-settings>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.10.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: flake8-docstrings>=1.7.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: pre-commit>=3.0.0; extra == "dev"
+Requires-Dist: safety>=2.3.0; extra == "dev"
+Requires-Dist: bandit>=1.7.5; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: mkdocs>=1.5.0; extra == "docs"
+Requires-Dist: mkdocs-material>=9.0.0; extra == "docs"
+Requires-Dist: mkdocstrings[python]>=0.24.0; extra == "docs"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
+# TrueNAS MCP Server
+
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![MCP Version](https://img.shields.io/badge/MCP-1.1.0%2B-green)](https://github.com/modelcontextprotocol/python-sdk)
+[![License](https://img.shields.io/badge/license-MIT-purple)](LICENSE)
+[![PyPI Version](https://img.shields.io/pypi/v/truenas-mcp-server)](https://pypi.org/project/truenas-mcp-server/)
+
+A production-ready Model Context Protocol (MCP) server for TrueNAS Core systems. Control and manage your TrueNAS storage through natural language with Claude or other MCP-compatible clients.
+
+## 🚀 Features
+
+### Core Capabilities
+- **User Management** - Create, update, delete users and manage permissions
+- **Storage Management** - Manage pools, datasets, volumes with full ZFS support  
+- **File Sharing** - Configure SMB, NFS, and iSCSI shares
+- **Snapshot Management** - Create, delete, rollback snapshots with automation
+- **System Monitoring** - Check system health, pool status, and resource usage
+
+### Enterprise Features
+- **Type-Safe Operations** - Full Pydantic models for request/response validation
+- **Comprehensive Error Handling** - Detailed error messages and recovery guidance
+- **Production Logging** - Structured logging with configurable levels
+- **Connection Pooling** - Efficient HTTP connection management with retry logic
+- **Rate Limiting** - Built-in rate limiting to prevent API abuse
+- **Environment-Based Config** - Flexible configuration via environment variables
+
+## 📦 Installation
+
+### Quick Start with uvx (Recommended)
+
+The easiest way to run TrueNAS MCP Server is with [uvx](https://github.com/astral-sh/uv):
+
+```bash
+# Run directly without installation
+uvx truenas-mcp-server
+
+# Or install globally with uv
+uv tool install truenas-mcp-server
+```
+
+### Traditional Installation
+
+```bash
+# With pip
+pip install truenas-mcp-server
+
+# Or with pipx for isolated environment
+pipx install truenas-mcp-server
+```
+
+### From Source
+
+```bash
+git clone https://github.com/vespo92/TrueNasCoreMCP.git
+cd TrueNasCoreMCP
+pip install -e .
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file or set environment variables:
+
+```bash
+# Required
+TRUENAS_URL=https://your-truenas-server.local
+TRUENAS_API_KEY=your-api-key-here
+
+# Optional
+TRUENAS_VERIFY_SSL=true                    # Verify SSL certificates
+TRUENAS_LOG_LEVEL=INFO                     # Logging level
+TRUENAS_ENV=production                     # Environment (development/staging/production)
+TRUENAS_HTTP_TIMEOUT=30                    # HTTP timeout in seconds
+TRUENAS_ENABLE_DESTRUCTIVE_OPS=false      # Enable delete operations
+TRUENAS_ENABLE_DEBUG_TOOLS=false          # Enable debug tools
+```
+
+### Getting Your API Key
+
+1. Log into TrueNAS Web UI
+2. Go to **Settings → API Keys**
+3. Click **Add** and create a new API key
+4. Copy the key immediately (it won't be shown again)
+
+### Claude Desktop Configuration
+
+**Add to your Claude Desktop config** (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "truenas": {
+      "command": "uvx",
+      "args": ["truenas-mcp-server"],
+      "env": {
+        "TRUENAS_URL": "https://your-truenas-server.local",
+        "TRUENAS_API_KEY": "your-api-key-here",
+        "TRUENAS_VERIFY_SSL": "false"
+      }
+    }
+  }
+}
+```
+
+**Note**: This uses `uvx` to automatically manage the Python environment. Make sure you have [uv](https://github.com/astral-sh/uv) installed:
+```bash
+# Install uv if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# or
+brew install uv
+```
+
+## 📚 Usage Examples
+
+### With Claude Desktop
+
+Once configured, you can interact with TrueNAS using natural language:
+
+```
+"List all storage pools and their health status"
+"Create a new dataset called 'backups' in the tank pool with compression"
+"Set up an SMB share for the documents dataset"
+"Create a snapshot of all datasets in the tank pool"
+"Show me users who have sudo privileges"
+```
+
+### As a Python Library
+
+```python
+from truenas_mcp_server import TrueNASMCPServer
+
+# Create server instance
+server = TrueNASMCPServer()
+
+# Run the server
+server.run()
+```
+
+### Programmatic Usage
+
+```python
+import asyncio
+from truenas_mcp_server.client import TrueNASClient
+from truenas_mcp_server.config import Settings
+
+async def main():
+    # Initialize client
+    settings = Settings(
+        truenas_url="https://truenas.local",
+        truenas_api_key="your-api-key"
+    )
+    
+    async with TrueNASClient(settings) as client:
+        # List pools
+        pools = await client.get("/pool")
+        print(f"Found {len(pools)} pools")
+        
+        # Create a dataset
+        dataset = await client.post("/pool/dataset", {
+            "name": "tank/mydata",
+            "compression": "lz4"
+        })
+        print(f"Created dataset: {dataset['name']}")
+
+asyncio.run(main())
+```
+
+## 🛠️ Available Tools
+
+### User Management
+- `list_users` - List all users with details
+- `get_user` - Get specific user information
+- `create_user` - Create new user account
+- `update_user` - Modify user properties
+- `delete_user` - Remove user account
+
+### Storage Management
+- `list_pools` - Show all storage pools
+- `get_pool_status` - Detailed pool health and statistics
+- `list_datasets` - List all datasets
+- `create_dataset` - Create new dataset with options
+- `update_dataset` - Modify dataset properties
+- `delete_dataset` - Remove dataset
+
+### File Sharing
+- `list_smb_shares` - Show SMB/CIFS shares
+- `create_smb_share` - Create Windows share
+- `list_nfs_exports` - Show NFS exports
+- `create_nfs_export` - Create NFS export
+- `list_iscsi_targets` - Show iSCSI targets
+- `create_iscsi_target` - Create iSCSI target
+
+### Snapshot Management
+- `list_snapshots` - Show snapshots
+- `create_snapshot` - Create manual snapshot
+- `delete_snapshot` - Remove snapshot
+- `rollback_snapshot` - Revert to snapshot
+- `clone_snapshot` - Clone to new dataset
+- `create_snapshot_task` - Setup automated snapshots
+
+### Debug Tools (Development Mode)
+- `debug_connection` - Check connection settings
+- `test_connection` - Verify API connectivity
+- `get_server_stats` - Server statistics
+
+## 🏗️ Architecture
+
+```
+truenas_mcp_server/
+├── __init__.py           # Package initialization
+├── server.py             # Main MCP server
+├── config/               # Configuration management
+│   ├── __init__.py
+│   └── settings.py       # Pydantic settings
+├── client/               # HTTP client
+│   ├── __init__.py
+│   └── http_client.py    # Async HTTP with retry
+├── models/               # Data models
+│   ├── __init__.py
+│   ├── base.py          # Base models
+│   ├── user.py          # User models
+│   ├── storage.py       # Storage models
+│   └── sharing.py       # Share models
+├── tools/                # MCP tools
+│   ├── __init__.py
+│   ├── base.py          # Base tool class
+│   ├── users.py         # User tools
+│   ├── storage.py       # Storage tools
+│   ├── sharing.py       # Share tools
+│   └── snapshots.py     # Snapshot tools
+└── exceptions.py         # Custom exceptions
+```
+
+## 🧪 Development
+
+### Setup Development Environment
+
+```bash
+# Clone repository
+git clone https://github.com/vespo92/TrueNasCoreMCP.git
+cd TrueNasCoreMCP
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install in development mode
+pip install -e ".[dev]"
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# With coverage
+pytest --cov=truenas_mcp_server
+
+# Specific test file
+pytest tests/test_client.py
+```
+
+### Code Quality
+
+```bash
+# Format code
+black truenas_mcp_server
+
+# Lint
+flake8 truenas_mcp_server
+
+# Type checking
+mypy truenas_mcp_server
+```
+
+## 📖 Documentation
+
+- [Installation Guide](docs/guides/INSTALL.md) - Detailed installation instructions
+- [Quick Start](docs/guides/QUICKSTART.md) - Get up and running quickly
+- [Quick Reference](docs/guides/QUICK_REFERENCE.md) - Command reference
+- [Features Overview](docs/guides/FEATURES.md) - Detailed feature documentation
+- [API Documentation](docs/api/) - Coming soon
+
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔒 Security
+
+- Never commit API keys or credentials
+- Use environment variables for sensitive data
+- Enable SSL verification in production
+- Restrict destructive operations by default
+- Report security issues via GitHub Issues
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/vespo92/TrueNasCoreMCP/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/vespo92/TrueNasCoreMCP/discussions)
+
+## 🙏 Acknowledgments
+
+- [Anthropic](https://www.anthropic.com/) for the MCP specification
+- [TrueNAS](https://www.truenas.com/) for the excellent storage platform
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) contributors
+
+---
+
+**Made with ❤️ for the TrueNAS community**

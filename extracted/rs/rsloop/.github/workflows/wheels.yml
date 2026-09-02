@@ -1,0 +1,172 @@
+name: Wheels
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wheels-${{ github.ref }}
+  # Repeated manual builds supersede one another; tagged releases must finish.
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+
+jobs:
+  build-wheels:
+    name: ${{ matrix.os_name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      # The profiler retains state for every short-lived readiness worker, so it
+      # is reserved for explicit local builds instead of published wheels.
+      matrix:
+        include:
+          - os_name: linux
+            runner: ubuntu-latest
+            rust_target: x86_64-unknown-linux-gnu
+          - os_name: linux-arm64
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+          - os_name: windows-amd64
+            runner: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+          - os_name: windows-arm64
+            runner: windows-11-arm
+            rust_target: aarch64-pc-windows-msvc
+            python_versions: "3.11 3.12 3.13 3.14"
+          - os_name: macos-intel
+            runner: macos-15-intel
+            rust_target: x86_64-apple-darwin
+          - os_name: macos-arm64
+            runner: macos-15
+            rust_target: aarch64-apple-darwin
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build wheels
+        timeout-minutes: 75
+        shell: bash
+        env:
+          RSLOOP_PYTHON_VERSIONS: ${{ matrix.python_versions }}
+        run: scripts/build-pgo-wheels.sh --out dist --target "${{ matrix.rust_target }}"
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os_name }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  build-sdist:
+    name: sdist
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build source distribution
+        timeout-minutes: 10
+        run: uv run --no-project --with maturin maturin sdist --out dist
+
+      - name: Upload source distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish-pypi:
+    name: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - build-wheels
+      - build-sdist
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/rsloop/
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-github-release:
+    name: publish wheels to GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - build-wheels
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create release and upload wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.whl --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.whl --generate-notes --verify-tag
+          fi

@@ -71,11 +71,10 @@ class BaseAPIObject(APIObject):  # pylint: disable=missing-class-docstring
         Parameters
         ----------
         data : dict
-            The directly translated dict of JSON from the server. No casing fixes have
-            taken place
+            The directly translated dict of JSON from the server. DataRobot has not applied casing fixes yet.
         keep_attrs : list
-            List of the dotted namespace notations for attributes to keep within the
-            object structure even if their values are None
+            A list of the dotted namespace notations for attributes to keep within the
+            object structure even if their values are None.
         """
         case_converted = from_api(data, keep_attrs=keep_attrs, keep_null_keys=True)
         return cls.from_data(case_converted)
@@ -111,12 +110,12 @@ class AnomalyAssessmentRecord(BaseAPIObject):
     backtest: int or "holdout"
         The backtest of the record.
     source: "training" or "validation"
-        The source of the record
+        The source of the record.
     series_id: str or None
-        The series id of the record for the multiseries projects. Defined only for the multiseries
+        The series ID of the record for the multiseries projects. Defined only for the multiseries
         projects.
     status: str
-        The status of the insight. One of ``datarobot.enums.AnomalyAssessmentStatus``
+        The status of the insight. One of ``datarobot.enums.AnomalyAssessmentStatus``.
     status_details: str
         The explanation of the status.
     start_date: str or None
@@ -126,12 +125,12 @@ class AnomalyAssessmentRecord(BaseAPIObject):
         The ISO-formatted timestamp of the last prediction in the subset. Will be None if status is
         not `AnomalyAssessmentStatus.COMPLETED`.
     prediction_threshold: float or None
-        The threshold, all rows with anomaly scores greater or equal to it have shap explanations computed.
+        The threshold; all rows with anomaly scores greater or equal to it have SHAP explanations computed.
     preview_location: str or None
         The URL to retrieve predictions preview for the subset. Will be None if status is
         not `AnomalyAssessmentStatus.COMPLETED`.
     latest_explanations_location: str or None
-        The URL to retrieve the latest predictions with the shap explanations. Will be None if status is
+        The URL to retrieve the latest predictions with the SHAP explanations. Will be None if status is
         not `AnomalyAssessmentStatus.COMPLETED`.
     delete_location: str
         The URL to delete anomaly assessment record and relevant insight data.
@@ -191,7 +190,7 @@ class AnomalyAssessmentRecord(BaseAPIObject):
         with_data_only: Optional[bool] = False,
     ) -> List["AnomalyAssessmentRecord"]:
         """Retrieve the list of the anomaly assessment records for the project and model.
-        Output can be filtered and limited.
+        You can filter and limit the output with the parameters below.
 
         Parameters
         ----------
@@ -204,9 +203,9 @@ class AnomalyAssessmentRecord(BaseAPIObject):
         source: "training" or "validation"
             The source to filter records by.
         series_id: Optional[str]
-            The series id to filter records by. Can be specified for multiseries projects.
+            The series ID to filter records by. Can be specified for multiseries projects.
         limit: Optional[int]
-            100 by default. At most this many results are returned.
+            Defaults to 100. At most this many results are returned.
         offset: Optional[int]
             This many results will be skipped.
         with_data_only: bool, False by default
@@ -266,7 +265,7 @@ class AnomalyAssessmentRecord(BaseAPIObject):
         source: "training" or "validation"
             The source  to compute insight for.
         series_id: Optional[str]
-            The series id to compute insight for. Required for multiseries projects.
+            The series ID to compute insight for. Required for multiseries projects.
 
         Returns
         -------
@@ -287,7 +286,7 @@ class AnomalyAssessmentRecord(BaseAPIObject):
         return cast("AnomalyAssessmentRecord", cls.from_server_data(r_data["data"][0]))
 
     def delete(self) -> None:
-        """Delete anomaly assessment record with preview and explanations."""
+        """Delete the anomaly assessment record with preview and explanations."""
         self._client.delete(self.delete_location)
 
     def get_predictions_preview(self) -> AnomalyAssessmentPredictionsPreview:
@@ -324,16 +323,16 @@ class AnomalyAssessmentRecord(BaseAPIObject):
     ) -> AnomalyAssessmentExplanations:
         """Retrieve predictions along with shap explanations for the most anomalous records
         in the specified date range/for defined number of points.
-        Two out of three parameters: start_date, end_date or points_count must be specified.
+        Specify two out of three parameters: ``start_date``, ``end_date``, or ``points_count``.
 
         Parameters
         ----------
         start_date: Optional[str]
             The start of the date range to get explanations in.
-            Example: ``2020-01-01T00:00:00.000000Z``
+            Example: ``2020-01-01T00:00:00.000000Z``.
         end_date: Optional[str]
             The end of the date range to get explanations in.
-            Example: ``2020-10-01T00:00:00.000000Z``
+            Example: ``2020-10-01T00:00:00.000000Z``.
         points_count: Optional[int]
             The number of the rows to return.
 
@@ -352,13 +351,13 @@ class AnomalyAssessmentRecord(BaseAPIObject):
     def get_explanations_data_in_regions(
         self, regions: List[AnomalyAssessmentPreviewBin], prediction_threshold: float = 0.0
     ) -> RegionExplanationsData:
-        """Get predictions along with explanations for the specified regions, sorted by
+        """Get the predictions along with explanations for the specified regions, sorted by
         predictions in descending order.
 
         Parameters
         ----------
         regions : list of AnomalyAssessmentPreviewBin
-            For each region explanations will be retrieved and merged.
+            Retrieve and merge explanations for each region.
         prediction_threshold : Optional[float]
             If specified, only points with score greater or equal to the threshold will be returned.
 
@@ -401,14 +400,14 @@ class AnomalyAssessmentPredictionsPreview(BaseAPIObject):
     backtest: int or "holdout"
         The backtest of the record.
     source: "training" or "validation"
-        The source of the record
+        The source of the record.
     series_id: str or None
-        The series id of the record for the multiseries projects. Defined only for the multiseries
+        The series ID of the record for the multiseries projects. Defined only for the multiseries
         projects.
     start_date: str
-        the ISO-formatted timestamp of the first prediction in the subset.
+        The ISO-formatted timestamp of the first prediction in the subset.
     end_date: str
-        the ISO-formatted timestamp of the last prediction in the subset.
+        The ISO-formatted timestamp of the last prediction in the subset.
     preview_bins:  list of preview_bin objects.
         The aggregated predictions for the subset.  Bins boundaries may differ from actual start/end
         dates because this is an aggregation.
@@ -481,19 +480,20 @@ class AnomalyAssessmentPredictionsPreview(BaseAPIObject):
         return cast("AnomalyAssessmentPredictionsPreview", cls.from_server_data(r_data))
 
     def find_anomalous_regions(self, max_prediction_threshold: float = 0.0) -> List[AnomalyAssessmentPreviewBin]:
-        """Sort preview bins by max_predicted value and select those with max predicted value
+        """Sort preview bins by ``max_predicted`` value and select those with max predicted value
          greater or equal to max prediction threshold.
          Sort the result by max predicted value in descending order.
 
         Parameters
         ----------
         max_prediction_threshold: Optional[float]
-            Return bins with maximum anomaly score greater or equal to max_prediction_threshold.
+            Returns the bins with maximum anomaly score greater than or equal to
+            ``max_prediction_threshold``.
 
         Returns
         -------
         preview_bins: list of preview_bin
-            Filtered and sorted preview bins
+            Filtered and sorted preview bins.
 
         """
         no_empty_bins = [bin for bin in self.preview_bins if bin["frequency"]]
@@ -521,7 +521,7 @@ class AnomalyAssessmentExplanations(BaseAPIObject):
     source: "training" or "validation"
         The source of the record.
     series_id: str or None
-        The series id of the record for the multiseries projects. Defined only for the multiseries
+        The series ID of the record for the multiseries projects. Defined only for the multiseries
         projects.
     start_date: str or None
         The ISO-formatted datetime of the first row in the ``data``. Will be None of there is no data
@@ -609,7 +609,7 @@ class AnomalyAssessmentExplanations(BaseAPIObject):
     ) -> "AnomalyAssessmentExplanations":
         """Retrieve predictions along with shap explanations for the most anomalous records
         in the specified date range/for defined number of points.
-        Two out of three parameters: start_date, end_date or points_count must be specified.
+        Specify two out of three parameters: ``start_date``, ``end_date``, or ``points_count``.
 
         Parameters
         ----------
@@ -619,10 +619,10 @@ class AnomalyAssessmentExplanations(BaseAPIObject):
             The ID of the anomaly assessment record.
         start_date: Optional[str]
             The start of the date range to get explanations in.
-            Example: ``2020-01-01T00:00:00.000000Z``
+            Example: ``2020-01-01T00:00:00.000000Z``.
         end_date: Optional[str]
             The end of the date range to get explanations in.
-            Example: ``2020-10-01T00:00:00.000000Z``
+            Example: ``2020-10-01T00:00:00.000000Z``.
         points_count: Optional[int]
             The number of the rows to return.
 

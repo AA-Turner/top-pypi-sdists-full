@@ -1,7 +1,12 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-require(["jquery", "moment", "jhapi"], function ($, moment, JHAPI) {
+require(["jquery", "moment", "jhapi", "utils"], function (
+  $,
+  moment,
+  JHAPI,
+  utils,
+) {
   "use strict";
 
   var base_url = window.jhdata.base_url;
@@ -27,6 +32,7 @@ require(["jquery", "moment", "jhapi"], function ($, moment, JHAPI) {
     row.find(".btn").attr("disabled", false);
     row.find(".stop-server").click(stopServer);
     row.find(".delete-server").click(deleteServer);
+    row.find(".new-server-btn").click(newServer);
 
     if (running) {
       row.find(".start-server").addClass("hidden");
@@ -41,15 +47,22 @@ require(["jquery", "moment", "jhapi"], function ($, moment, JHAPI) {
     }
   }
 
-  function startServer() {
+  function newServer() {
     var row = getRow($(this));
-    var serverName = row.find(".new-server-name").val();
-    if (serverName === "") {
-      // ../spawn/user/ causes a 404, ../spawn/user redirects correctly to the default server
-      window.location.href = "./spawn/" + user;
-    } else {
-      window.location.href = "./spawn/" + user + "/" + serverName;
-    }
+    var displayName = row.find(".new-server-name").val();
+    displayName = utils.sanitise_display_name(displayName);
+    var serverName = utils.safe_slug(displayName);
+    disableRow(row);
+    api.create_named_server(user, serverName, {
+      success: function () {
+        window.location.reload();
+      },
+      error: function () {
+        enableRow(row, false);
+        return utils.ajax_error_dialog.apply(this, arguments);
+      },
+      data: JSON.stringify({ display_name: displayName }),
+    });
   }
 
   function stopServer() {
@@ -109,10 +122,10 @@ require(["jquery", "moment", "jhapi"], function ($, moment, JHAPI) {
     });
   });
 
-  $(".new-server-btn").click(startServer);
+  $(".new-server-btn").click(newServer);
   $(".new-server-name").on("keypress", function (e) {
     if (e.which === 13) {
-      startServer.call(this);
+      newServer.call(this);
     }
   });
 

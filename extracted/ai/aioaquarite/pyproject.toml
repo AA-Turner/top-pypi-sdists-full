@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aioaquarite"
+version = "0.12.2"
+description = "Async Python client for the Hayward Aquarite pool API"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [
+    {name = "fdebrus"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Home Automation",
+]
+dependencies = [
+    "aiohttp>=3.9.0",
+    "google-auth>=2.29.0",
+    "google-cloud-firestore>=2.16.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/fdebrus/aioaquarite"
+Repository = "https://github.com/fdebrus/aioaquarite"
+Issues = "https://github.com/fdebrus/aioaquarite/issues"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "google.cloud.firestore_v1.*",
+    "google.oauth2.*",
+    "google.auth.*",
+]
+ignore_missing_imports = true
+
+[tool.setuptools.package-data]
+aioaquarite = ["py.typed"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

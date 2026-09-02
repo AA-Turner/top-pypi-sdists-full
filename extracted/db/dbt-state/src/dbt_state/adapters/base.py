@@ -706,6 +706,16 @@ class BaseAdapterExtension(abc.ABC):
         """
         return self._sql(self._to_fqn(relation.render()))
 
+    def fqn_to_cached_relation(self, fqn: t.Union[str, exp.Table]) -> t.Optional[BaseRelation]:
+        """Convert a fqn to a dbt relation, fetching it from the dbt relation cache"""
+        fqn = self._to_fqn(fqn)
+
+        return self.adapter.get_relation(
+            database=fqn.catalog,
+            schema=fqn.db,
+            identifier=fqn.name,
+        )
+
     def report(self) -> t.Dict[str, t.Any]:
         """Report any information that has been gathered during adapter execution
 

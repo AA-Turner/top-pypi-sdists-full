@@ -1,0 +1,348 @@
+Metadata-Version: 2.3
+Name: grazie_api_gateway_client
+Version: 0.3.3
+Summary: Api client for Grazie services
+License: Apache-2.0
+Author: JetBrains
+Requires-Python: >=3.8
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: attrs (>=23.1.0)
+Requires-Dist: cbor2 (>=5.4.6,<6.0.0)
+Requires-Dist: httpx (>=0.23.0,<1)
+Requires-Dist: jsonschema (>=4.17.3,<5.0.0)
+Requires-Dist: pydantic (>1.9,<3)
+Requires-Dist: requests (>=2.26.0,<3.0.0)
+Description-Content-Type: text/markdown
+
+# Grazie Api Gateway Client
+
+> Note, this package is deprecated, please refer to [Grazie Api Gateway Client V2](#Grazie-Api-Gateway-Client-V2) first and check if the new client library supports functionality you need.
+
+This package provides api client for JetBrains AI Platform llm functionality.
+Supported methods are chat, completion and embeddings.
+
+Support for Grazie NLP services is planned in the future.
+
+You can try models in the browser by going to https://try.ai.intellij.net/
+or using the command-line interface.
+
+```shell
+poetry run -C libs/grazie_api_gateway_client python3 -m grazie.api.client -p openai-gpt-4 chat -v 8 'Who was the most famous pop star in the 90s?'
+```
+
+## Usage
+
+First you have to create an instance of client,
+please check class documentation to know more about parameters:
+
+```python
+client = GrazieApiGatewayClient(
+    grazie_agent=GrazieAgent(name="grazie-api-gateway-client-readme", version="dev"),
+    url=GrazieApiGatewayUrls.STAGING,
+    auth_type=AuthType.USER,
+    grazie_jwt_token=***
+)
+```
+
+Below are examples of usage by method:
+
+### Profiles
+List all available LLM profiles:
+
+```python
+print(client.v8.profiles())
+```
+
+### Completion
+Without suffix:
+
+```python
+client.v8.complete(
+    prompt=CompletionPrompt(
+        prefix="Once upon a time there was a unicorn. ",
+    ),
+    profile=Profile.GRAZIE_CHAT_LLAMA_V2_7b,
+)
+```
+
+With suffix:
+
+```python
+client.v8.complete(
+    prompt=CompletionPrompt(
+        prefix="Once upon a time there was a unicorn. ",
+        suffix=" And they lived happily ever after!"
+    ),
+    profile=Profile.GRAZIE_CHAT_LLAMA_V2_7b,
+)
+```
+
+### Chat
+
+```python
+client.v8.chat(
+    chat=ChatPrompt()
+        .add_system("You are a helpful assistant.")
+        .add_user("Who won the world series in 2020?"),
+    profile=Profile.OPENAI_CHAT_GPT
+)
+```
+
+Additionally you can pass id of your prompt or feature via `prompt_id` parameter.
+This identifier can later be used to check spending and calculate price of the feature per user or
+per call.
+
+If you develop prompt which should answer in a structured format (i.e. JSON) it's better to pass
+temperature = 0.
+This makes generation deterministic (almost) and will provide parsable responses more reliably.
+
+```python
+client.v8.chat(
+    chat=ChatPrompt()
+        .add_system("You are a helpful assistant.")
+        .add_user("Who won the world series in 2020?"),
+    profile=Profile.OPENAI_CHAT_GPT,
+    parameters={
+        LLMParameters.Temperature: Parameters.FloatValue(0.0)
+    }
+)
+```
+
+Note: this parameter is currently only supported for OpenAI models.
+
+#### Streaming
+
+Outputs from chat models can be slow, to show progress to a user you can call chat_stream.
+The output would be a stream of text chunks.
+
+```python
+response = ""
+for chunk in client.v8.chat_stream(
+    chat=ChatPrompt()
+        .add_user("Who won the world series in 2020?")
+        .add_assistant("The Los Angeles Dodgers won the World Series in 2020.")
+        .add_user("Where was it played? Write a small poem about it!"),
+    profile=Profile.OPENAI_CHAT_GPT
+):
+    response += chunk.content
+```
+
+#### Tool use
+
+Here's an example of the tool usage workflow. For more information, please see the
+[documentation](https://platform.stgn.jetbrains.ai/docs/tool-use)
+
+```python
+geo_tool = (
+    ToolDefinition(
+        name="current_temperature",
+        description="Get the current temperature for the given location",
+    )
+    .add_parameter(
+        name="latitude",
+        description="The latitude of the location",
+        _type=ToolDefinition.ToolParameterTypes.STRING,
+        required=True,
+    )
+    .add_parameter(
+        name="longitude",
+        description="The longitude of the location",
+        _type=ToolDefinition.ToolParameterTypes.STRING,
+        required=True,
+    )
+)
+
+chat_response = client.v8.chat(
+    prompt_id="tool_call",
+    profile=Profile.OPENAI_CHAT_GPT,
+    chat=ChatPrompt()
+    .add_system("You are an assistant that uses tools to answer user questions accurately.")
+    .add_user("What is the current temperature in Amsterdam?"),
+    parameters={
+        LLMParameters.Tools: Parameters.JsonValue.from_tools(geo_tool),
+        LLMParameters.ToolChoiceRequired: Parameters.BooleanValue(True),
+    },
+)
+
+content = chat_response.content
+tool = chat_response.responses[0].tool_calls[0]
+
+url_params = "&".join(f"{key}={value}" for key, value in json.loads(content).items())
+url_params = "&".join([url_params, "current=temperature"])
+# The final URL should look like
+#   https://api.open-meteo.com/v1/forecast?latitude=52.3676&longitude=4.9041&current=temperature
+
+meteo_response = requests.get(f"https://api.open-meteo.com/v1/forecast?{url_params}").text
+
+final_response = client.v8.chat(
+    prompt_id="tool_call",
+    profile=Profile.OPENAI_CHAT_GPT,
+    chat=ChatPrompt()
+    .add_user("What is the current temperature in Amsterdam?")
+    .add_tool(
+        id=tool.id,
+        tool_name=tool.name,
+        content=tool.content,
+        result=meteo_response,
+    ),
+    parameters={
+        LLMParameters.Tools: Parameters.JsonValue.from_tools(geo_tool),
+    },
+)
+
+print(final_response.content)
+```
+
+### Embeddings
+
+You can also use api to build float vector embeddings for sentences and texts.
+
+```
+client.embed(
+    request=EmbeddingRequest(texts=["Sky is blue."], model="sentence-transformers/LaBSE", format_cbor=True)
+)
+```
+
+Note: use cbor format for production applications. Pass `format_cbor=False` only to simplify
+development initially as the answer will be provided as json.
+
+Additionally, you can use openai embeddings:
+
+```
+client.llm_embed(
+    request=LLMEmbeddingRequest(
+        texts=["Sky is blue."],
+        profile=Profile.OPENAI_EMBEDDING_LARGE,
+        dimensions=768
+    )
+)
+```
+
+### Question Answering
+
+You can run question answering against corpus of documents, like documentation or Youtrack issues.
+
+```
+response = ""
+for chunk in grazie_api.answer_stream(
+    query="How to write a coroutine?", 
+    data_source="kotlin_1.9.23"
+):
+    if chunk.chunk.summaryChunk:
+        response += chunk.chunk.summaryChunk
+```
+
+You can find the list of available data sources on https://try.ai.intellij.net/qa
+
+#### Plain Retrieval
+
+You can also run question answering against a corpus of documents, retrieving only raw documents:
+
+```
+client.retrieve(
+    query="How to change a font size in Fleet?",
+    data_source="jetbrains-fleet-1.36",
+    profile=Profile.OPENAI_GPT_4_TURBO,
+    size=10,
+)
+```
+
+Or providing a list of prioritized data sources:
+
+```
+client.retrieve_v2(
+    query="How to change a font size in Fleet?",
+    config_name="fleet-ide",
+    data_source_lists=[
+        [
+            PrioritizedSource(name="jetbrains-fleet-1.45", priority=0), 
+            PrioritizedSource(name="jetbrains-fleet-1.46", priority=1), 
+        ]
+    ],
+    profile=Profile.OPENAI_GPT_4_TURBO,
+    size=10,
+)
+```
+
+
+# Grazie Api Gateway Client V2
+
+The api client V2 for JetBrains AI Platform.
+
+## Implemented features
+
+* [Tasks](#TaskAPI)
+
+## Basic usage
+
+Client is available in two flavours `APIGatewayClient` and `AsyncAPIGatewayClient`.
+
+### ApiGatewayClient
+```python
+import os
+
+from grazie.api.client_v2 import APIGatewayClient, GatewayEndpoint
+
+api_key = os.getenv("GRAZIE_JWT_TOKEN")
+client = APIGatewayClient(
+    api_key=api_key,
+    endpoint=GatewayEndpoint.STAGING,
+)
+
+# Fetch all available tasks in TaskAPI
+print(client.tasks.roster())
+```
+
+### AsyncApiGatewayClient
+```python
+import asyncio
+import os
+
+from grazie.api.client_v2 import AsyncAPIGatewayClient, GatewayEndpoint
+
+
+async def main():
+    api_key = os.getenv("GRAZIE_JWT_TOKEN")
+    client = AsyncAPIGatewayClient(
+        api_key=api_key,
+        endpoint=GatewayEndpoint.STAGING,
+    )
+
+    # Fetch all available tasks in TaskAPI
+    print(await client.tasks.roster())
+
+asyncio.run(main())
+```
+
+## TaskAPI
+
+Please refer to the `client.tasks.roster()` for the list of available task IDs.
+The roster output is in the format of `<task-id>:<task-tag>`
+
+See the [Swagger page](https://api.app.stgn.grazie.aws.intellij.net/swagger-ui/index.html?urls.primaryName=Tasks)
+to find parameters for the specific task.
+
+### Execute a task
+
+```python
+from grazie.api.client_v2 import APIGatewayClient
+
+client = APIGatewayClient()
+client.tasks.execute(
+    id="code-generate:default",
+    parameters=dict(
+        instructions="Write me a simple python script",
+        prefix="",
+        suffix="",
+        language="python",
+    )
+)
+```
+

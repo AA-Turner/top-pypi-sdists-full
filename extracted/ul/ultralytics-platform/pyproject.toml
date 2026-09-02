@@ -1,0 +1,52 @@
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13"]
+build-backend = "uv_build"
+
+[project]
+name = "ultralytics-platform"
+version = "0.1.21"
+description = "Typed Python SDK for the Ultralytics Platform API"
+requires-python = ">=3.11"
+keywords = [
+    "api-client",
+    "computer-vision",
+    "machine-learning",
+    "openapi",
+    "sdk",
+    "ultralytics",
+    "yolo",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+dependencies = ["httpx>=0.28,<1"]
+
+[[project.authors]]
+name = "Ultralytics"
+email = "hello@ultralytics.com"
+
+[[project.maintainers]]
+name = "Ultralytics"
+email = "hello@ultralytics.com"
+
+[project.urls]
+Repository = "https://github.com/ultralytics/sdk"
+Issues = "https://github.com/ultralytics/sdk/issues"
+
+[tool.ruff]
+line-length = 120
+
+[tool.uv.build-backend]
+module-name = "ultralytics_platform"

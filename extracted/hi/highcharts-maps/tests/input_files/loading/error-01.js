@@ -1,3 +1,0 @@
-{
-  hideDuration: 'not-a-number'
-}

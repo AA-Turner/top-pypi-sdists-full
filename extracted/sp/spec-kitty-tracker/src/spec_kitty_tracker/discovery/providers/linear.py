@@ -54,9 +54,7 @@ class LinearResourceDiscovery:
     def __init__(self, nango_ctx: NangoConnectionContext) -> None:
         self._nango_ctx = nango_ctx
 
-    async def discover(
-        self, workspace: DiscoveredWorkspace
-    ) -> DiscoveryResult[DiscoveredResource]:
+    async def discover(self, workspace: DiscoveredWorkspace) -> DiscoveryResult[DiscoveredResource]:
         transport = NangoProxyTransport(self._nango_ctx)
         async with httpx.AsyncClient(transport=transport) as client:
             query = "{ teams { nodes { id key name } } }"

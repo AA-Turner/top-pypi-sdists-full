@@ -136,7 +136,7 @@ class ScheduledRunRevisionMetadata(APIObject):
     """
     DataRobot Notebook Revision Metadata specifically for a scheduled run.
 
-    Both id and name can be null if for example the job is still running or has failed.
+    Both ID and name can be null if for example the job is still running or has failed.
 
     Attributes
     ----------

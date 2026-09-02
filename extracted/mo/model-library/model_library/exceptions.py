@@ -1,0 +1,417 @@
+from __future__ import annotations
+
+import re
+from typing import TYPE_CHECKING, Any, NoReturn
+
+if TYPE_CHECKING:
+    from model_library.base.output import FinishReasonInfo
+
+from ai21 import TooManyRequestsError as AI21RateLimitError
+from aiohttp import ClientPayloadError
+from anthropic import InternalServerError
+from anthropic import RateLimitError as AnthropicRateLimitError
+from httpcore import ReadError as HTTPCoreReadError
+from httpx import ConnectError as HTTPXConnectError
+from httpx import ReadError as HTTPXReadError
+from httpx import RemoteProtocolError
+from openai import APIConnectionError as OpenAIAPIConnectionError
+from openai import APITimeoutError as OpenAIAPITimeoutError
+from openai import InternalServerError as OpenAIInternalServerError
+from openai import RateLimitError as OpenAIRateLimitError
+from openai import UnprocessableEntityError as OpenAIUnprocessableEntityError
+
+
+ProviderErrorPayload = dict[str, str | int]
+
+
+class ModelLibraryException(Exception):
+    """Base for model-library exceptions that can safely describe themselves."""
+
+    def _provider_error_message(self) -> str:
+        message = str(self)
+        default_message = getattr(type(self), "DEFAULT_MESSAGE", None)
+        if isinstance(default_message, str) and message.lstrip().startswith(("{", "[")):
+            return default_message
+        return message
+
+    def to_provider_error(self) -> ProviderErrorPayload:
+        payload: ProviderErrorPayload = {
+            "message": self._provider_error_message(),
+            "exception_type": type(self).__name__,
+        }
+        code = getattr(self, "code", None)
+        if isinstance(code, str) and code:
+            payload["code"] = code
+        status_code = getattr(self, "status_code", None)
+        if isinstance(status_code, int) and not isinstance(status_code, bool):
+            payload["status_code"] = status_code
+        return payload
+
+
+# Base class for a retryable exception
+class RetryException(ModelLibraryException): ...
+
+
+# Exception to be retried immediately
+class ImmediateRetryException(RetryException): ...
+
+
+# Exception to be retried with backoff
+class BackoffRetryException(RetryException): ...
+
+
+# Base class for a non-retryable exception
+class NoRetryException(ModelLibraryException): ...
+
+
+class QueryDeadlineExceededError(NoRetryException, TimeoutError):
+    """Raised when a caller-owned local query deadline expires."""
+
+    code = "query_deadline_exceeded"
+    DEFAULT_MESSAGE = "Query deadline exceeded"
+
+    def __init__(self):
+        super().__init__(self.DEFAULT_MESSAGE)
+
+
+class ImmediateRetryExhaustedError(NoRetryException):
+    """
+    Raised after immediate retries are exhausted. Non-retriable so the outer
+    backoff retrier does not re-attempt the same query.
+    """
+
+    def __init__(self, retries: int, max_retries: int, original: Exception):
+        self.retries = retries
+        self.max_retries = max_retries
+        self.original = original
+        super().__init__(
+            f"[Immediate Retry Max] | {retries}/{max_retries} | Exception {exception_message(original)}"
+        )
+
+    def to_provider_error(self) -> ProviderErrorPayload:
+        return exception_to_provider_error(self.original)
+
+
+class RateLimitException(BackoffRetryException):
+    """Raised when the rate limit is exceeded"""
+
+    DEFAULT_MESSAGE: str = "Rate limit exceeded."
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or RateLimitException.DEFAULT_MESSAGE)
+
+
+class MaxOutputTokensExceededError(NoRetryException):
+    """
+    Raised when the output exceeds the allowed max output tokens limit
+    AND the output (including reasoning) was empty
+    """
+
+    DEFAULT_MESSAGE: str = (
+        "Output exceeded max tokens limit and model produced no useful content."
+    )
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or MaxOutputTokensExceededError.DEFAULT_MESSAGE)
+
+
+class MaxContextWindowExceededError(NoRetryException):
+    """
+    Raised when the context window exceeds the allowed max context window limit
+    """
+
+    DEFAULT_MESSAGE: str = (
+        "Context window exceeded the maximum allowed context window. "
+        "Consider reducing the context window size."
+    )
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or MaxContextWindowExceededError.DEFAULT_MESSAGE)
+
+
+class ContentFilterError(NoRetryException):
+    """
+    Raised when the model's content filter is triggered
+    """
+
+    DEFAULT_MESSAGE: str = "Model's content filter triggered"
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or ContentFilterError.DEFAULT_MESSAGE)
+
+
+# List of regex patterns to match context window exceeded errors
+# This was made after forcing context window errors on a model from each provider
+CONTEXT_WINDOW_PATTERN = re.compile(
+    r"maximum context length is \d+ tokens|"
+    r"context length is \d+ tokens|"
+    r"exceed.* context (limit|window|length)|"
+    r"input token count exceeds the maximum number of tokens allowed|"
+    r"context window exceeds|"
+    r"exceeds maximum length|"
+    r"too long.*tokens.*maximum|"
+    r"too large for model with \d+ maximum context length|"
+    r"prompt \d+ > \d+ maximum context length|"  # mistral
+    r"longer than the model's context length|"
+    r"too many tokens.*size limit exceeded|"
+    r"prompt is too long|"
+    r"maximum prompt length|"
+    r"input length should be|"
+    r"sent message larger than max|"
+    r"input tokens exceeded|"
+    r"exceeded model token limit|"
+    r"(messages?|total length).*too long|"
+    r"payload.*too large|"
+    r"string too long|"
+    r"input exceeded the context window|"
+    r"input length \d+ exceeds the maximum allowed input length|"  # poolside
+    r"configured context length exceeded"
+)
+
+
+def is_context_window_error(e: Exception) -> bool:
+    return CONTEXT_WINDOW_PATTERN.search(str(e).lower()) is not None
+
+
+class ModelNoOutputError(ImmediateRetryException):
+    """
+    Raised when the model fails to produce any output or response.
+    """
+
+    DEFAULT_MESSAGE: str = (
+        "Model failed to produce any output. "
+        "This may indicate an issue with the model or input."
+    )
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or ModelNoOutputError.DEFAULT_MESSAGE)
+
+
+def handle_empty_response(
+    finish_reason: FinishReasonInfo,
+    context: dict[str, Any] | None = None,
+) -> NoReturn:
+    """Raise the appropriate error when a model produces no output."""
+    from model_library.base.output import FinishReason as _FinishReason
+
+    log_message = str({"finish_reason": finish_reason.raw, **(context or {})})
+    if finish_reason.reason == _FinishReason.CONTEXT_WINDOW_EXCEEDED:
+        raise MaxContextWindowExceededError(log_message)
+    if finish_reason.reason == _FinishReason.MAX_TOKENS:
+        raise MaxOutputTokensExceededError(log_message)
+    if (
+        finish_reason.reason == _FinishReason.CONTENT_FILTER
+        or finish_reason.reason == _FinishReason.GUARDRAIL
+    ):
+        raise ContentFilterError(log_message)
+
+    raise ModelNoOutputError(log_message)
+
+
+class InvalidStructuredOutputError(ImmediateRetryException):
+    """
+    Raised when the model produces an invalid structured output.
+    We assume this is a transient model error and retry.
+
+    Do not include raw model output or parser details in the exception message:
+    gateway logs and Sentry capture exception strings and chained causes.
+    """
+
+    DEFAULT_MESSAGE: str = "Model produced invalid structured output"
+
+    def __init__(
+        self,
+        message: str | None = None,
+        *,
+        parser_error_type: str | None = None,
+    ):
+        self.parser_error_type = parser_error_type
+        super().__init__(InvalidStructuredOutputError.DEFAULT_MESSAGE)
+
+
+class ToolCallingNotSupportedError(ModelLibraryException):
+    """
+    Raised when the model does not support tool calling
+    """
+
+    DEFAULT_MESSAGE: str = (
+        "Tool calling is not supported by this model. "
+        "Consider using a model that supports tools."
+    )
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or ToolCallingNotSupportedError.DEFAULT_MESSAGE)
+
+
+class BadInputError(ModelLibraryException):
+    """
+    Raised when the input is not supported by the model.
+    """
+
+    DEFAULT_MESSAGE: str = "Invalid input provided."
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or BadInputError.DEFAULT_MESSAGE)
+
+
+class UnexpectedSystemInputError(ModelLibraryException):
+    """
+    Raised when a SystemInput is encountered inside parse_input.
+    SystemInput must be at position 0 and is consumed by build_body before parse_input is called.
+    """
+
+    DEFAULT_MESSAGE: str = "Unexpected system input encountered."
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or UnexpectedSystemInputError.DEFAULT_MESSAGE)
+
+
+class GatewayMethodNotSupported(ModelLibraryException):
+    """
+    Raised when a provider-specific method is called on GatewayLLM.
+    """
+
+    DEFAULT_MESSAGE: str = "This method is not available on GatewayLLM — queries are routed through the gateway server."
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or GatewayMethodNotSupported.DEFAULT_MESSAGE)
+
+
+class GatewayProviderError(NoRetryException):
+    """Raised when the gateway returns a provider-error envelope."""
+
+    def __init__(
+        self,
+        *,
+        error_type: str,
+        code: str | None,
+        message: str,
+        provider: str | None,
+        raw_error: object,
+        exception_type: str | None = None,
+        status_code: int | None = None,
+    ):
+        self.error_type = error_type
+        self.code = code
+        self.message = message
+        self.provider = provider
+        self.raw_error = raw_error
+        self.exception_type = exception_type
+        self.status_code = status_code
+        if code is None:
+            super().__init__(f"{error_type}: {message}")
+        else:
+            super().__init__(f"{error_type} ({code}): {message}")
+
+
+class NoMatchingToolCallError(ModelLibraryException):
+    """
+    Raised when a tool call result is provided with no matching tool call
+    """
+
+    DEFAULT_MESSAGE: str = "Tool call result provided with no matching tool call"
+
+    def __init__(self, message: str | None = None):
+        super().__init__(message or NoMatchingToolCallError.DEFAULT_MESSAGE)
+
+
+# Add more retriable exceptions as needed
+# Providers that don't have an explicit rate limit error are handled manually
+# by wrapping errored Http/gRPC requests with a BackoffRetryException
+RETRIABLE_EXCEPTIONS = [
+    OpenAIRateLimitError,
+    OpenAIInternalServerError,
+    OpenAIAPITimeoutError,
+    OpenAIUnprocessableEntityError,
+    OpenAIAPIConnectionError,
+    AnthropicRateLimitError,
+    InternalServerError,
+    AI21RateLimitError,
+    ClientPayloadError,
+    RemoteProtocolError,  # httpx connection closing when running models from sdk
+    HTTPXReadError,
+    HTTPXConnectError,
+    HTTPCoreReadError,
+]
+
+RETRIABLE_EXCEPTION_CODES = [
+    "429",  # rate limit / too many requests
+    "500",  # internal server error
+    "502",  # bad gateway
+    "503",  # service unavailable
+    "504",  # gateway timeout
+    "529",  # overloaded, service unavailable
+    "retry",
+    "timeout",
+    "connection_error",
+    "service_unavailable",
+    "rate_limit",
+    "rate limit",
+    "internal_error",
+    "server_error",
+    "overloaded",
+    "throttling",  # AWS throttling errors
+    "internal server error",
+    "InternalServerError",
+    "statuscode.internal",  # gRPC INTERNAL errors (e.g. xAI native SDK)
+    "statuscode.unavailable",  # gRPC UNAVAILABLE errors (e.g. broken pipe)
+    "statuscode.invalid_argument",  # gRPC INVALID_ARGUMENT (transient under concurrency)
+    "currently at capacity",  # provider-side capacity rejection (xAI gRPC RESOURCE_EXHAUSTED)
+    "download multimodal file timed out",  # transient DashScope multimodal fetch timeout
+    "statuscode.unknown",  # gRPC UNKNOWN errors (e.g. "Stream removed")
+    "stream removed",  # gRPC stream dropped by peer
+    "rst_stream",  # gRPC RST_STREAM errors
+    "unknown error, 999",
+    "multimodal data is corrupted",  # transient 400 from some OpenAI-compatible endpoints on image payloads
+]
+
+
+def exception_http_status_code(exception: Exception) -> int | None:
+    status_code = getattr(exception, "status_code", None)
+    if isinstance(status_code, int) and not isinstance(status_code, bool):
+        return status_code
+    return None
+
+
+def is_retriable_error(e: Exception) -> bool:
+    if isinstance(e, NoRetryException):
+        return False
+
+    if isinstance(e, RetryException):
+        return True
+
+    if is_context_window_error(e):
+        return False
+
+    if any(isinstance(e, exception) for exception in RETRIABLE_EXCEPTIONS):
+        return True
+
+    error_message = str(e).lower()
+    return any(code in error_message for code in RETRIABLE_EXCEPTION_CODES)
+
+
+def exception_to_provider_error(exception: Exception) -> ProviderErrorPayload:
+    if isinstance(exception, ModelLibraryException):
+        return exception.to_provider_error()
+
+    payload: ProviderErrorPayload = {
+        "message": str(exception),
+        "exception_type": type(exception).__name__,
+    }
+    code = getattr(exception, "code", None)
+    if isinstance(code, str) and code:
+        payload["code"] = code
+    status_code = getattr(exception, "status_code", None)
+    if isinstance(status_code, int) and not isinstance(status_code, bool):
+        payload["status_code"] = status_code
+    return payload
+
+
+def exception_message(exception: Exception | Any) -> str:
+    if not isinstance(exception, Exception):
+        return str(exception)
+    return (
+        f"{type(exception).__name__}: {str(exception)}"
+        if str(exception)
+        else type(exception).__name__
+    )

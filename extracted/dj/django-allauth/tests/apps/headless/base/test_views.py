@@ -1,4 +1,7 @@
+import json
 from http import HTTPStatus
+
+import pytest
 
 
 def test_config(db, client, headless_reverse):
@@ -11,3 +14,42 @@ def test_config(db, client, headless_reverse):
         "socialaccount",
         "usersessions",
     }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "[]",
+        '"a string"',
+        "123",
+        "true",
+        "null",
+    ],
+)
+def test_non_object_json_payload(db, client, headless_reverse, payload):
+    resp = client.post(
+        headless_reverse("headless:account:login"),
+        data=payload,
+        content_type="application/json",
+    )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_malformed_json_payload(db, client, headless_reverse):
+    resp = client.post(
+        headless_reverse("headless:account:login"),
+        data="{not json",
+        content_type="application/json",
+    )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_object_json_payload(db, client, headless_reverse):
+    resp = client.post(
+        headless_reverse("headless:account:login"),
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    # Empty object is properly validated...
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json()["errors"][0]["code"] == "required"

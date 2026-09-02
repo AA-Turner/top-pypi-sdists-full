@@ -1,1 +1,0 @@
-export { jsdDocumentProviderFactory } from './plugins';

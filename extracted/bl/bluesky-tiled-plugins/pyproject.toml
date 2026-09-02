@@ -1,0 +1,172 @@
+[build-system]
+# Cap hatchling <1.29: 1.29 emits Metadata-Version 2.5, which `twine check`
+# (via hynek/build-and-inspect-python-package) cannot yet parse. 1.28 emits 2.4.
+requires = ["hatchling>=1.26,<1.29", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "bluesky-tiled-plugins"
+authors = [
+  { name = "Bluesky Project Contributors", email = "dallan@bnl.gov" },
+]
+maintainers = [
+  { name = "Brookhaven National Laboratory", email = "dallan@bnl.gov" },
+]
+description = "Integrations for using Tiled with Bluesky"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
+dynamic = ["version"]
+dependencies = [
+  "dask",
+  "event-model",
+  "mongoquery",
+  "pytz",
+  "tiled[client] >=0.2.15",
+  "tzlocal",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/bluesky/bluesky-tiled-plugins"
+"Bug Tracker" = "https://github.com/bluesky/bluesky-tiled-plugins/issues"
+Discussions = "https://github.com/bluesky/bluesky-tiled-plugins/discussions"
+Changelog = "https://github.com/bluesky/bluesky-tiled-plugins/releases"
+
+[project.entry-points."tiled.special_client"]
+CatalogOfBlueskyRuns = "bluesky_tiled_plugins.clients.catalog_of_bluesky_runs:CatalogOfBlueskyRuns"
+BlueskyRun = "bluesky_tiled_plugins.clients.bluesky_run:BlueskyRun"
+BlueskyEventStream = "bluesky_tiled_plugins.clients.bluesky_event_stream:BlueskyEventStream"
+
+[dependency-groups]
+test = [
+  "bluesky",
+  "databroker",
+  "fakeredis",
+  "h5py",
+  "jinja2",
+  "mongomock",
+  "ophyd",
+  "pymongo",
+  "pytest >=6",
+  "pytest-cov >=3",
+  "redis",
+  "redis-json-dict",
+  "suitcase-mongo",
+  "tifffile",
+  "tiled[server] >=0.2.15",
+]
+dev = [
+  { include-group = "test" },
+]
+docs = [
+  "myst_parser>=0.13",
+  "numpydoc",
+  "pydata_sphinx_theme",
+  "sphinx>=7.0",
+  "sphinx_copybutton",
+  "sphinx_autobuild",
+  "sphinx_autodoc2",
+  "sphinx_autodoc_typehints",
+  "sphinx_design",
+  "sphinxcontrib_mermaid",
+]
+
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/bluesky_tiled_plugins/_version.py"
+
+[tool.hatch.envs.default]
+# duplicate for now since hatch doesn't support groups yet
+dependencies = []
+scripts.test = "pytest {args}"
+
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = [
+  "error",
+  # opentelemetry uses an older importlib_metadata dict API that is deprecated;
+  # this is a third-party issue not in our control.
+  "ignore:SelectableGroups dict interface is deprecated:DeprecationWarning",
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",
+]
+log_level = "INFO"
+testpaths = [
+  "tests",
+]
+
+
+[tool.coverage]
+run.source = ["bluesky_tiled_plugins"]
+report.exclude_also = [
+  '\.\.\.',
+  'if typing.TYPE_CHECKING:',
+]
+
+[tool.mypy]
+files = ["src", "tests"]
+python_version = "3.10"
+warn_unused_configs = true
+strict = false
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = "bluesky_tiled_plugins.*"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+ignore = [
+  "PLR09",    # Too many <...>
+  "PLR2004",  # Magic value used in comparison
+]
+# Uncomment if using a _compat.typing backport
+# typing-modules = ["bluesky_tiled_plugins._compat.typing"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["T20"]
+
+
+[tool.pylint]
+py-version = "3.10"
+ignore-paths = [".*/_version.py"]
+reports.output-format = "colorized"
+similarities.ignore-imports = "yes"
+messages_control.disable = [
+  "design",
+  "fixme",
+  "line-too-long",
+  "missing-module-docstring",
+  "missing-function-docstring",
+  "no-untyped-def",
+  "wrong-import-position",
+]

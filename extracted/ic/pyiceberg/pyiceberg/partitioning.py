@@ -109,7 +109,8 @@ class PartitionField(IcebergBaseModel):
     @classmethod
     def map_source_ids_onto_source_id(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            if "source-id" not in data and (source_ids := data["source-ids"]):
+            if "source-id" not in data and "source-ids" in data:
+                source_ids = data["source-ids"]
                 if isinstance(source_ids, list):
                     if len(source_ids) == 0:
                         raise ValueError("Empty source-ids is not allowed")
@@ -499,7 +500,7 @@ def _to_partition_representation(type: IcebergType, value: Any) -> Any:
     can return date that still needs to be transformed into an int (days
     since epoch).
     """
-    return TypeError(f"Unsupported partition field type: {type}")
+    raise TypeError(f"Unsupported partition field type: {type}")
 
 
 @_to_partition_representation.register(TimestampType)

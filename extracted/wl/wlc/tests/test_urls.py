@@ -42,7 +42,7 @@ class WeblateURLValidationTest(APITest):
         """Bracketed IPv6 loopback URLs should remain recognized as local."""
         weblate = Weblate(key="KEY", url="http://[::1]:8000/api/")
 
-        self.assertFalse(weblate.should_verify_ssl(weblate.url))
+        self.assertFalse(weblate.allow_insecure_http)
 
     def test_allows_api_key_with_non_local_http_url_when_opted_in(self) -> None:
         """Non-local HTTP token transport requires an explicit opt-in."""
@@ -57,6 +57,23 @@ class WeblateURLValidationTest(APITest):
         )
 
         self.assertEqual(projects, [])
+
+    def test_rejects_url_credentials(self) -> None:
+        """URL userinfo should not provide an implicit authentication channel."""
+        test_cases = (
+            ("https://user:password@example.com/api/", False),
+            ("http://user:password@127.0.0.1:8000/api/", False),
+            ("http://user:password@example.com/api/", True),
+        )
+
+        for url, allow_insecure_http in test_cases:
+            with (
+                self.subTest(url=url),
+                self.assertRaisesRegex(WeblateException, "embedded in URLs"),
+            ):
+                Weblate(url=url, allow_insecure_http=allow_insecure_http)
+
+        self.assertFalse(responses.calls)
 
     def assert_origin_rejected(self, action, attacker_url, method=responses.GET):
         """Assert the client rejects a cross-origin URL before any request is sent."""
@@ -113,6 +130,22 @@ class WeblateURLValidationTest(APITest):
             WeblateException, "outside the configured API origin"
         ):
             list(Weblate(key="KEY").list_projects("hostile-projects/"))
+
+        self.assertEqual(len(responses.calls), 1)
+
+    def test_rejects_url_credentials_in_pagination_url(self) -> None:
+        """Server-provided URLs can not introduce implicit Basic authentication."""
+        responses.add(
+            responses.GET,
+            "http://127.0.0.1:8000/api/hostile-projects/",
+            json={
+                "next": "http://user:password@127.0.0.1:8000/api/projects/",
+                "results": [],
+            },
+        )
+
+        with self.assertRaisesRegex(WeblateException, "embedded in URLs"):
+            list(Weblate().list_projects("hostile-projects/"))
 
         self.assertEqual(len(responses.calls), 1)
 

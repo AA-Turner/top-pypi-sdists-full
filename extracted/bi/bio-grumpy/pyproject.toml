@@ -1,0 +1,31 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+# 'grumpy' is taken on PyPi, but we can still use `import grumpy` after a `pip install bio-grumpy`
+name = "bio-grumpy"
+requires-python = " >=3.8,<3.13"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Healthcare Industry",
+    "License :: Other/Proprietary License"
+]
+description = "gumpy re-implemented in Rust"
+readme = "README-python.md"
+license = "University of Oxford, see license file for details."
+license-files = ["LICENSE"]
+dynamic = ["version"]
+authors = [
+    { name = "Jeremy Westhead", email = "jeremy.westhead@ndm.ox.ac.uk" }
+]
+
+[project.urls]
+Source = "https://github.com/oxfordmmm/grumpy"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

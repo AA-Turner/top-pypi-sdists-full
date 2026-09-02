@@ -1,0 +1,196 @@
+import logging
+from dataclasses import dataclass
+from typing import Any, Protocol
+
+from model_library.agent.config import HistoryCompaction
+from model_library.agent.history_compaction import (
+    CompactionHook,
+    llm_summary_compactor,
+)
+from model_library.agent.metadata import (
+    AgentTurn,
+    ErrorTurn,
+    SerializableException,
+    ToolCallRecord,
+)
+from model_library.base.base import LLM
+from model_library.base.input import InputItem, ToolCall
+from model_library.base.output.result import FinishReason, ProviderToolEvent
+
+
+@dataclass
+class TurnResult:
+    """Context passed to hooks after a turn completes
+
+    turn_number is 1-indexed (first turn = 1).
+    """
+
+    turn_number: int
+    turn: AgentTurn
+    state: dict[str, Any]
+    elapsed_seconds: float
+
+    @property
+    def response_text(self) -> str | None:
+        return self.turn.query_result.output_text
+
+    @property
+    def tool_calls(self) -> list[ToolCall]:
+        return self.turn.query_result.tool_calls
+
+    @property
+    def provider_tool_events(self) -> list[ProviderToolEvent]:
+        return self.turn.query_result.provider_tool_events
+
+    @property
+    def finish_reason(self) -> FinishReason:
+        return self.turn.query_result.finish_reason.reason
+
+
+class BeforeQueryHook(Protocol):
+    """Called before each LLM query (skipped on first turn)
+
+    Receives the last query error if the previous query failed.
+    Must return the (possibly modified) history.
+    Default: re-raises errors, passes history through unchanged.
+
+    When handling errors, check the error type and only handle what you expect.
+    Re-raise unhandled errors to stop the agent. Note: truncate_oldest raises
+    ``ValueError`` when there are no exchanges to remove,
+    which usually means the initial input itself exceeds context window.
+
+    Example:
+
+        def before_query(history, last_error):
+            if isinstance(last_error, MaxContextWindowExceededError):
+                return truncate_oldest(history)
+            if last_error:
+                raise last_error
+            return history
+    """
+
+    def __call__(
+        self, history: list[InputItem], last_error: Exception | None
+    ) -> list[InputItem]: ...
+
+
+def default_before_query(
+    history: list[InputItem], last_error: Exception | None
+) -> list[InputItem]:
+    """Re-raise query errors, otherwise pass history through unchanged"""
+
+    if last_error:
+        raise last_error
+    return history
+
+
+class ShouldStopHook(Protocol):
+    """Called after each turn (both tool-call and text-only turns)
+
+    Return True to stop the agent loop.
+    Default: stops unless there are local tool calls or a paused provider turn
+    (finish_reason == PAUSED); everything else is terminal.
+    """
+
+    def __call__(self, turn_result: TurnResult) -> bool: ...
+
+
+def default_should_stop(turn_result: TurnResult) -> bool:
+    """Stop unless the model needs another turn.
+
+    Continue on local tool calls (we execute and feed results back) or a paused
+    provider turn (the provider ran a server-side tool and paused before emitting
+    the answer — replaying history resumes it). Everything else is terminal:
+    inline provider searches (e.g. OpenAI/Google/xAI) return their answer text in
+    the same response, so they stop here.
+    """
+    if turn_result.tool_calls:
+        return False
+    if turn_result.finish_reason == FinishReason.PAUSED:
+        return False
+    return True
+
+
+class OnToolResultHook(Protocol):
+    """Called after each tool execution
+
+    Use for logging, state updates, or side effects. Cannot control flow.
+    """
+
+    def __call__(self, record: ToolCallRecord, state: dict[str, Any]) -> None: ...
+
+
+def default_on_tool_result(record: ToolCallRecord, state: dict[str, Any]) -> None:
+    """No-op"""
+
+
+class DetermineAnswerHook(Protocol):
+    """Called after the loop ends (see Agent.run() for stop conditions)
+
+    Return the final answer string.
+    Default: done tool output, or LLM text, or empty string on error.
+    """
+
+    def __call__(
+        self,
+        state: dict[str, Any],
+        turns: list[AgentTurn | ErrorTurn],
+        final_error: SerializableException | None,
+    ) -> str: ...
+
+
+def default_determine_answer(
+    state: dict[str, Any],
+    turns: list[AgentTurn | ErrorTurn],
+    final_error: SerializableException | None,
+) -> str:
+    """Done tool output → LLM text → empty string"""
+
+    if final_error or not turns:
+        return ""
+
+    last_turn = turns[-1]
+    if isinstance(last_turn, ErrorTurn):
+        return ""
+
+    # done tool output
+    done_record = next(
+        (r for r in last_turn.tool_call_records if r.tool_output.done), None
+    )
+    if done_record:
+        return done_record.tool_output.output
+
+    # LLM text
+    return last_turn.query_result.output_text or ""
+
+
+def default_compaction_hook(
+    llm: LLM, history_compaction: HistoryCompaction | None
+) -> CompactionHook | None:
+    """Build the default LLM-summary compaction hook.
+
+    Returns ``None`` (and logs a warning) when ``history_compaction`` is set but
+    the LLM is not registry-backed — without a context window we can't size the
+    threshold, so compaction is silently disabled.
+    """
+    if history_compaction is None:
+        return None
+    hook = llm_summary_compactor(llm, history_compaction)
+    if hook is None:
+        logging.getLogger(__name__).warning(
+            "Disabling history compaction: %s/%s is not registry-backed.",
+            llm.provider,
+            llm.model_name,
+        )
+    return hook
+
+
+@dataclass
+class AgentHooks:
+    """Lifecycle hooks for customizing agent behavior"""
+
+    before_query: BeforeQueryHook = default_before_query
+    should_stop: ShouldStopHook = default_should_stop
+    on_tool_result: OnToolResultHook = default_on_tool_result
+    determine_answer: DetermineAnswerHook = default_determine_answer
+    compaction: CompactionHook | None = None

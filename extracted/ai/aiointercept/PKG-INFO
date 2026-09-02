@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aiointercept
-Version: 0.1.9
+Version: 0.1.10
 Summary: aiohttp mock library that routes requests through a real test server
 Project-URL: Homepage, https://github.com/Polandia94/aiointercept
 Project-URL: Repository, https://github.com/Polandia94/aiointercept

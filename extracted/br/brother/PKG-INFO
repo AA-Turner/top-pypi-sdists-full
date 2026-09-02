@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: brother
-Version: 6.1.1
+Version: 6.1.2
 Summary: Python wrapper for getting data from Brother laser and inkjet printers via SNMP.
 Author: Maciej Bieniek
 License-Expression: Apache-2.0
@@ -17,8 +17,8 @@ Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: dacite>=1.7.0
-Requires-Dist: pyasn1>=0.6.3
-Requires-Dist: pysnmp>=7.1.22
+Requires-Dist: pyasn1>=0.6.4
+Requires-Dist: pysnmp>=7.1.27
 Dynamic: license-file
 
 [![CI](https://img.shields.io/github/actions/workflow/status/bieniu/brother/ci.yml?branch=master&label=CI&logo=github&style=popout)](https://github.com/bieniu/brother/actions/workflows/ci.yml?query=branch%3Amaster)

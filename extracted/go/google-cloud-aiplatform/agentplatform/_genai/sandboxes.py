@@ -1038,7 +1038,14 @@ class Sandboxes(_api_module.BaseModule):
                     get_operation_fn=self._get_sandbox_operation,
                     poll_interval_seconds=poll_interval_seconds,
                 )
-            if operation.response:
+            # Only refresh via get() when the LRO response carries a resource
+            # name. The pause LRO's response_type is declared as SandboxEnvironment
+            # in the proto but the backend may return an empty payload for some
+            # code paths, in which case operation.response.name is empty and a
+            # get() call would produce a 404 with an unsubstituted {name} in the
+            # request URL. Callers who want the post-pause state can call
+            # sandboxes.get(name=name) explicitly.
+            if operation.response and getattr(operation.response, "name", None):
                 operation.response = self.get(name=operation.response.name)
         return operation
 
@@ -1084,7 +1091,11 @@ class Sandboxes(_api_module.BaseModule):
                     get_operation_fn=self._get_sandbox_operation,
                     poll_interval_seconds=poll_interval_seconds,
                 )
-            if operation.response:
+            # Only refresh via get() when the LRO response carries a resource
+            # name. Symmetric guard with pause() above: protects against a backend
+            # response payload without a name field, which would otherwise produce
+            # a 404 with an unsubstituted {name} in the request URL.
+            if operation.response and getattr(operation.response, "name", None):
                 operation.response = self.get(name=operation.response.name)
         return operation
 
@@ -1156,6 +1167,85 @@ class Sandboxes(_api_module.BaseModule):
         response = types.ExecuteSandboxEnvironmentResponse(outputs=output_chunks)
 
         return response
+
+    def execute_bash(
+        self,
+        *,
+        name: str,
+        command: str,
+        cwd: Optional[str] = None,
+        timeout: Optional[int] = None,
+        port: str = "8080",
+        config: Optional[types.ExecuteCodeRuntimeSandboxConfigOrDict] = None,
+    ) -> dict[str, Any]:
+        """Runs a bash command in a shell sandbox.
+
+        The sandbox must have been created with a shell environment, either by
+        passing `spec={"shell_environment": {}}` to `create()` or by referencing a
+        template whose `default_container_category` is
+        `DEFAULT_CONTAINER_CATEGORY_SHELL_SANDBOX`.
+
+        Unlike `send_command`, this authenticates with the caller's own credentials,
+        so it needs no service account and no signed JWT.
+
+        Args:
+            name (str):
+                Required. The name of the agent engine sandbox to run the command
+                in, of the form
+                projects/*/locations/*/reasoningEngines/*/sandboxEnvironments/*.
+            command (str):
+                Required. The bash command to run.
+            cwd (str):
+                Optional. The working directory to run the command in. Defaults to
+                the sandbox's workspace directory.
+            timeout (int):
+                Optional. Seconds to allow the command to run before the sandbox
+                kills it. Defaults to the sandbox's own limit.
+            port (str):
+                Optional. The port the shell server listens on. Defaults to "8080".
+            config (ExecuteCodeRuntimeSandboxConfigOrDict):
+                Optional. The configuration for the request.
+
+        Returns:
+            dict[str, Any]: The result of the command, with keys `stdout`,
+            `stderr`, `returncode` and `duration_ms`. A command that exits
+            non-zero is reported here rather than raised.
+
+        Raises:
+            ValueError: If the sandbox returns no output.
+        """
+        request: dict[str, Any] = {"command": command}
+        if cwd is not None:
+            request["cwd"] = cwd
+        if timeout is not None:
+            request["timeout"] = timeout
+
+        # The sandbox proxy addresses the container by URI and port, and forwards
+        # the JSON chunk as the POST body.
+        response = self._execute_code(
+            name=name,
+            inputs=[
+                types.Chunk(
+                    mime_type="application/x.sandbox-request-uri",
+                    data=b"/exec",
+                ),
+                types.Chunk(
+                    mime_type="application/x.sandbox-request-port",
+                    data=port.encode("utf-8"),
+                ),
+                types.Chunk(
+                    mime_type="application/json",
+                    data=json.dumps(request).encode("utf-8"),
+                ),
+            ],
+            config=config,
+        )
+
+        for output in response.outputs or []:
+            if output.data:
+                return json.loads(output.data.decode("utf-8"))
+
+        raise ValueError(f"The sandbox {name} returned no output for the command.")
 
     def get(
         self,

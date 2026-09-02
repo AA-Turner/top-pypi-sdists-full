@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_docker
-Version: 5.1.1
+Version: 5.2.0
 Summary: A Pulumi package for interacting with Docker in Pulumi programs
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

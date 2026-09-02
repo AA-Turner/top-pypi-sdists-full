@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: gplugins
-Version: 2.1.4
+Version: 2.1.5
 Summary: gdsfactory plugins
 Keywords: python
 Author-email: gdsfactory <contact@gdsfactory.com>
@@ -88,7 +88,7 @@ Provides-Extra: tidy3d
 Provides-Extra: vlsir
 Import-Name: gplugins
 
-# gplugins 2.1.4
+# gplugins 2.1.5
 
 [![docs](https://github.com/gdsfactory/gplugins/actions/workflows/pages.yml/badge.svg)](https://gdsfactory.github.io/gplugins/)
 [![PyPI](https://img.shields.io/pypi/v/gplugins)](https://pypi.org/project/gplugins/)

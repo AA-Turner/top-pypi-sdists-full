@@ -13,6 +13,10 @@ PROXY_UNREACHABLE_MESSAGE = (
 DN_LOGIN_MESSAGE = "Sign in to use dn/ models — run /login"
 DN_KEY_EXPIRED_MESSAGE = "Dreadnode model key expired — re-authenticating..."
 INSUFFICIENT_CREDITS_MESSAGE = "Insufficient credits — top up your org or switch to a BYOK model."
+MEMBER_CREDIT_CAP_MESSAGE = (
+    "Organization member credit cap reached — ask an owner to raise or remove it, "
+    "or switch to a BYOK model."
+)
 MODEL_NOT_FOUND_PATTERN = re.compile(r"model\s+.+\s+not\s+found|model_not_found", re.IGNORECASE)
 PROXY_UNREACHABLE_SNIPPETS = (
     "connection error",
@@ -108,6 +112,12 @@ def is_insufficient_credits_error(error_text: str) -> bool:
     return "insufficient credits" in error_text.lower()
 
 
+def is_member_credit_cap_error(error_text: str) -> bool:
+    lowered = error_text.lower()
+    is_budget_exceeded = "budget_exceeded" in lowered or "budget has been exceeded" in lowered
+    return is_budget_exceeded and "user=" in lowered and "team=" in lowered
+
+
 def is_proxy_unreachable_error(error_text: str, error_type: str | None = None) -> bool:
     lowered = error_text.lower()
     if error_type in {"APIConnectionError", "ConnectionError", "ConnectError", "TimeoutError"}:
@@ -158,6 +168,8 @@ class ErrorHandler:
         # missing env vars, and the login prompt is misleading there.
         if is_insufficient_credits_error(error_text):
             return ErrorResolution(override=INSUFFICIENT_CREDITS_MESSAGE)
+        if is_member_credit_cap_error(error_text):
+            return ErrorResolution(override=MEMBER_CREDIT_CAP_MESSAGE)
         if is_missing_proxy_config_error(error_text):
             return ErrorResolution(override=DN_LOGIN_MESSAGE)
         if is_model_not_found_error(error_text, error_type):

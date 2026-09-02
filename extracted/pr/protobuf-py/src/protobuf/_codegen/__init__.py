@@ -19,7 +19,6 @@ This module may change without following semver, and is not safe to consume dire
 
 from __future__ import annotations
 
-__all__ = ["Message", "boot", "file_desc", "unset"]
+__all__ = ["file_desc"]
 
-from ._boot import Message, boot, unset
 from ._file import file_desc

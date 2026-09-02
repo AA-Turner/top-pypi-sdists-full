@@ -1,11 +1,11 @@
 Metadata-Version: 2.3
 Name: textract
-Version: 2.0.0
+Version: 2.1.0
 Summary: extract text from any document. no muss. no fuss. 
 Author: Dean Malmgren
 Author-email: Dean Malmgren <dean.malmgren@datascopeanalytics.com>
 License: MIT
-Requires-Dist: pillow>=9.0.0
+Requires-Dist: pillow>=12.2.0
 Requires-Dist: speechrecognition>=3.8.1
 Requires-Dist: argcomplete>=3.6.3
 Requires-Dist: beautifulsoup4>=4.8.0
@@ -15,14 +15,16 @@ Requires-Dist: docx2txt>=0.8
 Requires-Dist: extract-msg>=0.40.0
 Requires-Dist: pdfminer-six>=20221105
 Requires-Dist: python-pptx>=0.6.18
-Requires-Dist: xlrd>=1.2.0,<2.0.0
+Requires-Dist: openpyxl>=3.0.0
+Requires-Dist: xlrd>=2.0.0
+Requires-Dist: odfpy>=1.4.1
 Requires-Dist: sphinx>=7.0 ; extra == 'docs'
 Requires-Dist: sphinx-argparse>=0.4 ; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme>=2.0 ; extra == 'docs'
 Requires-Dist: pocketsphinx>=0.1.15 ; extra == 'pocketsphinx'
 Maintainer: Kyle King
 Maintainer-email: Kyle King <dev.act.kyle@gmail.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Project-URL: Repository, https://github.com/deanmalmgren/textract
 Provides-Extra: docs
 Provides-Extra: pocketsphinx

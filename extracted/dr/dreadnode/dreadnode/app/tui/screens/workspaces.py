@@ -355,7 +355,9 @@ class WorkspaceScreen(DreadnodeScreen):
         if key == "n":
             self._start_create_workspace()
             return
-        if key == "r":
+        # Keep the refresh shortcut when the search is empty, but allow `r`
+        # as ordinary search text once the user has started typing.
+        if key == "r" and not self._search_query:
             self._load_data()
             return
         if key == "escape":
@@ -451,14 +453,15 @@ class WorkspaceScreen(DreadnodeScreen):
         if not ws:
             return
 
-        # Check if this is already the active context
+        # Selecting the active project is still a completed selection. Dismiss
+        # the browser so callers return to the screen that opened it, matching
+        # the behavior of selecting any other project.
         if (
             self._selected_org_key == self._current_org
             and ws.key == self._current_workspace
             and project.key == self._current_project
         ):
-            self._notice = ("Already active", "info")
-            self._render_current_view()
+            self.dismiss(None)
             return
 
         self.dismiss(

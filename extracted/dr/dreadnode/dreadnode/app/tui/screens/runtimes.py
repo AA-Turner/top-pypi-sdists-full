@@ -208,7 +208,11 @@ def _build_actions(
             actions.append(("disconnect", "Disconnect"))
         else:
             actions.append(("connect", "Connect to runtime"))
-        actions.append(("pause", "Pause runtime"))
+        # Pause is a provider capability, not a universal one. Offering it
+        # where it cannot be performed produces a 409, and before ENG-8184 it
+        # silently recorded the runtime as paused while it kept running.
+        if (runtime.get("instance") or {}).get("supports_pause"):
+            actions.append(("pause", "Pause runtime"))
         actions.append(("keepalive", "Extend expiration (+5 min)"))
     elif state == "paused":
         actions.append(("resume", "Resume runtime"))

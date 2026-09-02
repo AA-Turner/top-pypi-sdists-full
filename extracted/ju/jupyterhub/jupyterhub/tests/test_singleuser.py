@@ -23,6 +23,9 @@ from .utils import AsyncSession, async_requests, get_page
 IS_JUPYVERSE = os.environ.get("JUPYTERHUB_SINGLEUSER_APP") == "jupyverse"
 
 
+pytestmark = pytest.mark.ssl
+
+
 @pytest.fixture(autouse=True)
 def _jupyverse(app):
     if IS_JUPYVERSE:
@@ -70,7 +73,10 @@ async def test_singleuser_auth(
         user.groups.append(group)
         app.db.commit()
 
-    if server_name not in user.spawners or not user.spawners[server_name].active:
+    if (
+        server_name not in user.spawners
+        or not user.get_or_create_spawner(server_name, server_name).active
+    ):
         await user.spawn(server_name)
         await app.proxy.add_user(user, server_name)
     spawner = user.spawners[server_name]
@@ -201,9 +207,9 @@ async def test_disable_user_config(request, app, tmp_path, full_spawn):
     # (symlink and real)
     def assert_not_in_home(path, name):
         path = Path(path).resolve()
-        assert not (str(path) + os.path.sep).startswith(str(tmp_path) + os.path.sep), (
-            f"{name}: {path} is in home {tmp_path}"
-        )
+        assert not (str(path) + os.path.sep).startswith(
+            str(tmp_path) + os.path.sep
+        ), f"{name}: {path} is in home {tmp_path}"
 
     for path in info['config_file_paths']:
         assert_not_in_home(path, 'config_file_paths')

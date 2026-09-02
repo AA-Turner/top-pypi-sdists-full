@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "orion_py_client"
-version = "0.1.15"
+version = "0.1.17"
 authors = [
   { name="Jaya Kommuru", email="jaya.kommuru@meesho.com"}
 ]
@@ -12,10 +12,10 @@ authors = [
 description = "Python Client for Orion Feature Store to push/produce Model Features and get features' metadata"
 license = { text = "Apache-2.0" }
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 dependencies = [
-  "protobuf>=4.24.1",
-  "cloudpathlib>=0.17.0"
+  "protobuf==7.36.0",
+  "cloudpathlib[gs]==0.17.0"
 ]
 
 classifiers = [

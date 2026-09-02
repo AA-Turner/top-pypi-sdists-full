@@ -63,6 +63,7 @@ from pyiceberg.types import (
     NestedField,
     StringType,
     StructType,
+    TimestampNanoType,
     TimestampType,
     TimestamptzType,
     TimeType,
@@ -125,6 +126,12 @@ def test_pyarrow_int64_to_iceberg() -> None:
     converted_iceberg_type = visit_pyarrow(pyarrow_type, _ConvertToIceberg())
     assert converted_iceberg_type == LongType()
     assert visit(converted_iceberg_type, _ConvertToArrowSchema()) == pyarrow_type
+
+
+def test_pyarrow_float16_to_iceberg() -> None:
+    pyarrow_type = pa.float16()
+    converted_iceberg_type = visit_pyarrow(pyarrow_type, _ConvertToIceberg())
+    assert converted_iceberg_type == FloatType()
 
 
 def test_pyarrow_float32_to_iceberg() -> None:
@@ -224,6 +231,18 @@ def test_pyarrow_timestamp_tz_invalid_tz() -> None:
     pyarrow_type = pa.timestamp(unit="us", tz="US/Pacific")
     with pytest.raises(TypeError, match=re.escape("Unsupported type: timestamp[us, tz=US/Pacific]")):
         visit_pyarrow(pyarrow_type, _ConvertToIceberg())
+
+
+def test_pyarrow_timestamp_ns_tz_invalid_tz() -> None:
+    pyarrow_type = pa.timestamp(unit="ns", tz="US/Pacific")
+    with pytest.raises(TypeError, match=re.escape("Unsupported type: timestamp[ns, tz=US/Pacific]")):
+        visit_pyarrow(pyarrow_type, _ConvertToIceberg(format_version=3))
+
+
+def test_pyarrow_timestamp_ns_no_tz_accepted() -> None:
+    pyarrow_type = pa.timestamp(unit="ns")
+    converted = visit_pyarrow(pyarrow_type, _ConvertToIceberg(format_version=3))
+    assert converted == TimestampNanoType()
 
 
 @pytest.mark.parametrize("pyarrow_type", [pa.string(), pa.large_string(), pa.string_view()])

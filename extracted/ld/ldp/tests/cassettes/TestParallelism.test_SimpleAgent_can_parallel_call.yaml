@@ -1,0 +1,122 @@
+interactions:
+  - request:
+      body:
+        '{"messages": [{"role": "user", "content": "You are the president of the
+        United States of America. Please move both hands at the same time, and then
+        smile and wave."}], "model": "gpt-4o-2024-11-20", "n": 1, "temperature": 0.1,
+        "tool_choice": "required", "tools": [{"type": "function", "function": {"name":
+        "move_left_hand", "description": "Move your left hand forward or backward.",
+        "parameters": {"type": "object", "properties": {"distance": {"description":
+        "Integer distance to move (mm), where forward is positive.", "title": "Distance",
+        "type": "integer"}}, "required": ["distance"]}}}, {"type": "function", "function":
+        {"name": "move_right_hand", "description": "Move your right hand forward or
+        backward.", "parameters": {"type": "object", "properties": {"distance": {"description":
+        "Integer distance to move (mm), where forward is positive.", "title": "Distance",
+        "type": "integer"}}, "required": ["distance"]}}}, {"type": "function", "function":
+        {"name": "smile_and_wave", "description": "Smile and wave.", "parameters": {"type":
+        "object", "properties": {}, "required": []}}}]}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "1016"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.30.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.30.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "120.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/6rmUlBQykxRslJQSs5ILEnOLcjRdYlwMs2KMAcAAAD//7RUUU/bMBB+z69Afm6n
+          pE1TskdgE0OaKjQxxgayXPuSeHPsyHYQpep/x3bbJC1M4oU8JM59952/O5/vR1tPntIFufh1J9WX
+          ZHp9cT6pr9HIM9TyL1C7Z32iyvHAciW3MNVALPioyXyezfP8dJoEoFYMhKeVjR2najyJJ+k4Sdx3
+          R6wUp2Ccxx/3e3KyDm8vUTJ4cuZ4tLfUYAwpwdn2Ts6olfAWRIzhxhJp0agHqZIWpFctWyEGgFVK
+          YEqE6DfePuvBuq+Tc8SlFc/s68+8qIrV7Kb9FovfkyYtrgb7bUOvmiCoaCXt6jPAO/vno80cJkkd
+          uLV6BCygsLgikh1FcH5El23tEvPq0foesZA6hXtf/zjeoAPCZvC3Gb0r2bvZ98tnszibXpF6md/e
+          ZpeLs5uMxx+WrOZl9QHZduuHweFrKFpDxOuuIFIqS7ze0BYP0VHNkFBlo9XSHFFRwSU3FXZ3wIRc
+          h/0V7YUECag9aGHkwtWNxVb9g7Bpku76HfU3rEfTbAdap1MMWKd74CAeZmAJDz3eXStKaAWsp/bX
+          i7SMqwEQDXJ/reat2Nv8uSzfE74HKIXGzQ7caGCcHmbcu2nwA+h/bl2Vg2BkQD+6sYItB+3Pg0FB
+          WrGdDcisjIUau0MrQTeahwGBigZnJM9pMmN5jqJN9AIAAP//AwAO0maXKQUAAA==
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9efecdc0eeadeb1e-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 19:30:32 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - <FILTERED>
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "864"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "10000"
+        x-ratelimit-limit-tokens:
+          - "30000000"
+        x-ratelimit-remaining-requests:
+          - "9999"
+        x-ratelimit-remaining-tokens:
+          - "29999968"
+        x-ratelimit-reset-requests:
+          - 6ms
+        x-ratelimit-reset-tokens:
+          - 0s
+        x-request-id:
+          - req_41c39ca229a241de890fbd56b895f9df
+      status:
+        code: 200
+        message: OK
+version: 1

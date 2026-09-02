@@ -1,0 +1,137 @@
+[tool.pytest.ini_options]
+markers = [
+  "incremental: Mark tests as incremental",
+  "kubevirt: Mark tests as kubevirt tests",
+]
+addopts = [
+  "--pdbcls=IPython.terminal.debugger:TerminalPdb",
+  "--cov-config=pyproject.toml",
+  "--cov-report=html",
+  "--cov-report=term",
+  "--cov=class_generator",
+  "--cov=fake_kubernetes_client",
+]
+
+[tool.coverage.run]
+omit = [
+  "tests/*",
+  "class_generator/tests/*",
+  "class_generator/scripts/tests/*",
+  "mcp_server/tests/*",
+  "fake_kubernetes_client/tests/*",
+]
+
+[tool.coverage.report]
+fail_under = 65
+skip_empty = true
+
+[tool.coverage.html]
+directory = ".tests_coverage"
+
+[tool.ruff]
+preview = true
+line-length = 120
+fix = true
+output-format = "grouped"
+
+[tool.ruff.format]
+exclude = [".git", ".venv", ".mypy_cache", ".tox", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "PLC0415", "ARG", "RUF059"]
+
+[tool.ruff.lint.per-file-ignores]
+"*" = ["E501"]
+"/*tests/*" = ["ARG"]
+
+[tool.mypy]
+check_untyped_defs = false
+disallow_any_generics = false
+disallow_incomplete_defs = true
+disallow_untyped_defs = false
+no_implicit_optional = true
+show_error_codes = true
+warn_unused_ignores = true
+strict_equality = true
+extra_checks = true
+warn_unused_configs = true
+warn_redundant_casts = true
+
+[tool.hatch.build.targets.sdist]
+exclude = ["AGENTS.md"]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "ocp_resources",
+  "class_generator",
+  "fake_kubernetes_client",
+  "mcp_server",
+]
+include = [
+  "class_generator/schema/__resources-mappings.json.gz",
+  "class_generator/schema/_definitions.json",
+]
+
+[project]
+requires-python = ">=3.10"
+name = "openshift-python-wrapper"
+version = "11.0.140"
+description = "Wrapper around https://github.com/kubernetes-client/python"
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["Openshift", "Kubevirt", "Openshift Virtualization"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "cloup>=3.0.5",
+  "colorlog>=6.8.2",
+  "deepdiff>=8.0.1",
+  "jinja2>=3.1.4",
+  "jsonschema>=4.20.0",
+  "kubernetes>=31.0.0,<36",  # TODO: remove <36 pin once https://github.com/kubernetes-client/python/issues/2596 is fixed upstream, set to "kubernetes>=31.0.0,!=36.0.0"
+  "packaging>=24.1",
+  "pyhelper-utils>=0.0.42",
+  "python-benedict>=0.33.2",
+  "python-simple-logger>=1.0.40",
+  "requests>=2.32.2",
+  "rich>=13.9.2",
+  "timeout-sampler>=0.0.46",
+  "xmltodict>=0.13.0",
+  "fastmcp>=2.10.4",
+]
+
+[[project.authors]]
+name = "Meni Yakove"
+email = "myakove@gmail.com"
+
+[[project.authors]]
+name = "Ruth Netser"
+email = "rnetser@gmail.com"
+
+[[project.maintainers]]
+name = "Meni Yakove"
+email = "myakove@gmail.com"
+
+[[project.maintainers]]
+name = "Ruth Netser"
+email = "rnetser@gmail.com"
+
+[project.urls]
+homepage = "https://github.com/RedHatQE/openshift-python-wrapper"
+documentation = "https://openshift-python-wrapper.readthedocs.io/en/latest/"
+Download = "https://pypi.org/project/openshift-python-wrapper/"
+"Bug Tracker" = "https://github.com/RedHatQE/openshift-python-wrapper/issues"
+
+[project.scripts]
+class-generator = "class_generator.cli:main"
+openshift-mcp-server = "mcp_server.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+tests = ["pytest>=8.3.5", "pytest-cov>=6.1.1"]
+dev = ["ipdb>=0.13.13", "ipython>=8.12.3", "ruff>=0.6.9"]

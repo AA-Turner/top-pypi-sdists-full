@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quickjs-ng
-Version: 0.16.0.1
+Version: 0.16.2.1
 Summary: Thin Python wrapper of quickjs-ng
 Author-email: Ganesh Viswanathan <dev@genotrance.com>
 Project-URL: Homepage, https://github.com/genotrance/quickjs-ng

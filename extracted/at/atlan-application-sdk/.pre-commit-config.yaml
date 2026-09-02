@@ -1,0 +1,81 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.4
+    hooks:
+      - id: ruff
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: fix-byte-order-marker
+      - id: trailing-whitespace
+      # Guard the composite-action manifests: a malformed action.yaml fails to
+      # load for EVERY repo that `uses:` it via @main, taking the whole connector
+      # fleet down before any step runs. Parse them on every commit so an invalid
+      # manifest can never reach main again.
+      - id: check-yaml
+        name: check-yaml (GitHub composite-action manifests)
+        files: ^\.github/actions/.*/action\.ya?ml$
+  # Validate workflows against GitHub's ACTUAL schema, not a parser that is
+  # more permissive than the one that will reject them. Three consecutive
+  # @sdk-loop startup failures reached main because every local check used
+  # yaml.safe_load — which accepts duplicate keys — while GitHub refused to
+  # parse the file. A workflow GitHub cannot parse runs NO jobs, so the symptom
+  # is silence and CI stays green while the lane is dead. actionlint catches
+  # that class (duplicate keys, undefined `needs.<job>` references, unknown
+  # context properties) at commit time.
+  #
+  # shellcheck is disabled for now: it reports 64 pre-existing findings in
+  # `run:` blocks, which are a separate and much lower-stakes concern than a
+  # workflow that will not start. Config and grandfathered findings live in
+  # .github/actionlint.yaml.
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+        args: ['-shellcheck=']
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort (python)
+        entry: isort
+        types: [python]
+        args: ["--profile", "black"]
+        exclude: ^contract-toolkit/examples/.*/_input\.py$
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []
+  - repo: https://github.com/renovatebot/pre-commit-hooks
+    # Pinned to the SAME renovate version the fleet runner installs
+    # (.github/workflows/renovate.yaml), so a config that validates here cannot
+    # fail on the runner: this tag's additional_dependencies is renovate@<rev>.
+    # Parity is enforced by .github/scripts/tests/test_renovate_validator_pin.py.
+    # language_version is `lts` upstream, so pre-commit provisions its own node
+    # rather than depending on whatever the runner image ships.
+    rev: 43.265.3
+    hooks:
+      - id: renovate-config-validator
+        # Why this hook exists: nothing validated these files until FND-359, and
+        # they are read by every repo in the fleet — a malformed shared preset
+        # breaks Renovate everywhere at once. The silent failures matter more
+        # than the loud ones: an option set in the wrong object is a *warning*
+        # that this validator exits 1 on, but that Renovate itself only logs.
+        # prPriority sat inside lockFileMaintenance being ignored from the lane's
+        # introduction until FND-359 for exactly that reason.
+        #
+        # The upstream file filter only matches renovate.json / .renovaterc, so
+        # widen it to the two files that carry the fleet-wide blast radius: the
+        # shared preset every repo extends, and the runner's admin config. The
+        # validator accepts the JS one too.
+        files: ^(renovate\.json|renovate-config/(default\.json|self-hosted\.js))$
+
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.410
+    hooks:
+      - id: pyright

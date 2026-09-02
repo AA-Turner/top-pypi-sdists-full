@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: spider-browser
+Version: 0.4.0
+Summary: Browser automation client for Spider's pre-warmed browser fleet with smart retry and browser switching
+Project-URL: Homepage, https://spider.cloud
+Project-URL: Repository, https://github.com/spider-rs/spider-browser
+Project-URL: Documentation, https://spider.cloud/docs
+Project-URL: Issues, https://github.com/spider-rs/spider-browser/issues
+Author-email: Spider <maintainers@spider.cloud>
+License-Expression: MIT
+Keywords: anti-bot,automation,browser,cdp,chrome-devtools-protocol,cloud-browser,headless,playwright,puppeteer,retry,scraping,spider,stealth,web-scraping,webdriver-bidi
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet :: WWW/HTTP :: Browsers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Testing
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.0
+Requires-Dist: websockets>=12.0
+Provides-Extra: dev
+Requires-Dist: pytest-asyncio>=0.23; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'

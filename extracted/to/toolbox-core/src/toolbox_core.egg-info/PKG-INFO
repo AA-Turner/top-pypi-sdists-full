@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toolbox-core
-Version: 1.3.0
+Version: 1.4.0
 Summary: Python Base SDK for interacting with the Toolbox service
 Author-email: Google LLC <googleapis-packages@google.com>
 Project-URL: Homepage, https://github.com/googleapis/mcp-toolbox-sdk-python/blob/main/packages/toolbox-core

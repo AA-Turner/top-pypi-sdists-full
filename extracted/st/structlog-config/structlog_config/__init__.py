@@ -1,0 +1,238 @@
+from contextlib import _GeneratorContextManager
+from typing import Protocol
+
+import orjson
+import structlog
+import structlog.dev
+from structlog.processors import ExceptionRenderer
+from structlog.typing import FilteringBoundLogger
+
+from structlog_config.formatters import (
+    PathPrettifier,
+    WheneverFormatter,
+    add_fastapi_context,
+    beautiful_traceback_exception_formatter,
+    get_json_exception_formatter,
+    logger_name,
+    simplify_activemodel_objects,
+)
+
+from . import (
+    hook,
+    packages,
+    trace,  # noqa: F401 (import has side effects for trace level setup)
+)
+from .constants import NO_COLOR, package_logger
+from .environments import is_pytest
+from .factory import get_logger_factory
+from .levels import get_environment_log_level_as_string
+from .stdlib_logging import (
+    redirect_stdlib_loggers,
+)
+from .trace import setup_trace
+from .warnings import redirect_showwarnings
+
+_CONFIGURATION_FINALIZED = False
+
+
+def log_processors_for_mode(json_logger: bool) -> list[structlog.types.Processor]:
+    """
+    Determine what the "final" processes in the pipeline should be to render the log to the output device.
+
+    - If JSON, then structure exceptions as dicts and render as JSON
+    - If not JSON, then use the ConsoleRenderer with a nice exception formatter.
+    """
+    if json_logger:
+
+        def orjson_dumps_sorted(value, *args, **kwargs):
+            "sort_keys=True is not supported, so we do it manually"
+
+            # kwargs includes a default fallback json formatter
+            return orjson.dumps(
+                value,
+                # starlette-context includes non-string keys (enums), which is why we need to set the options in this way
+                # TODO do we need to sort the keys here? this will cost us in CPU time :/
+                option=orjson.OPT_SORT_KEYS | orjson.OPT_NON_STR_KEYS,
+                **kwargs,
+            )
+
+        exception_formatter = get_json_exception_formatter()
+
+        return [
+            # ExceptionRenderer transforms the raw `exc_info` tuple into a formatted `exception` field.
+            # We omit `structlog.processors.format_exc_info` here to use this structured renderer instead.
+            # In production, we keep rendering simple/short since Sentry handles the heavy lifting.
+            # https://www.structlog.org/en/stable/exceptions.html
+            ExceptionRenderer(exception_formatter),
+            # in prod, we want logs to be rendered as JSON payloads
+            structlog.processors.JSONRenderer(serializer=orjson_dumps_sorted),
+        ]
+
+    # Passing None skips the ConsoleRenderer default, so use the explicit dev default.
+    exception_formatter = structlog.dev.default_exception_formatter
+
+    # if we have beautiful traceback installed, use it
+    if packages.beautiful_traceback:
+        exception_formatter = beautiful_traceback_exception_formatter
+
+    return [
+        structlog.dev.ConsoleRenderer(
+            colors=not NO_COLOR,
+            exception_formatter=exception_formatter,
+        )
+    ]
+
+
+def get_default_processors(json_logger: bool) -> list[structlog.types.Processor]:
+    """
+    Return the default list of log processors for structlog configuration.
+
+    This includes any "final" processors to render the log as json or not.
+    """
+    processors = [
+        # although this is stdlib, it's needed, although I'm not sure entirely why
+        structlog.stdlib.add_log_level,
+        structlog.contextvars.merge_contextvars,
+        logger_name,
+        add_fastapi_context if packages.starlette_context else None,
+        simplify_activemodel_objects
+        if packages.activemodel and packages.typeid
+        else None,
+        PathPrettifier(),
+        WheneverFormatter() if packages.whenever else None,
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        # add `stack_info=True` to a log and get a `stack` attached to the log
+        structlog.processors.StackInfoRenderer(),
+        *log_processors_for_mode(json_logger),
+    ]
+
+    return [processor for processor in processors if processor is not None]
+
+
+class LoggerWithContext(FilteringBoundLogger, Protocol):
+    """
+    A customized bound logger class that adds easy-to-remember methods for adding context.
+
+    We don't use a real subclass because `make_filtering_bound_logger` has some logic we don't
+    want to replicate.
+    """
+
+    def context(self, *args, **kwargs) -> _GeneratorContextManager[None, None, None]:
+        "context manager to temporarily set and clear logging context"
+        ...
+
+    def local(self, *args, **kwargs) -> None:
+        "set thread-local context"
+        ...
+
+    def clear(self) -> None:
+        "clear thread-local context"
+        ...
+
+    def trace(self, *args, **kwargs) -> None:  # noqa: F811
+        "trace level logging"
+        ...
+
+
+# TODO this may be a bad idea, but I really don't like how the `bound` stuff looks and how to access it, way too ugly
+def add_simple_context_aliases(log) -> LoggerWithContext:
+    log.context = structlog.contextvars.bound_contextvars
+    log.local = structlog.contextvars.bind_contextvars
+    log.clear = structlog.contextvars.clear_contextvars
+
+    return log
+
+
+def get_logger(*args, **kwargs) -> LoggerWithContext:
+    """
+    Get a structlog logger with the same context alias methods as the logger returned by `configure_logger`.
+
+    This is useful in cases where you want to get a logger without configuring it (e.g. in libraries or in tests).
+    """
+    log = structlog.get_logger(*args, **kwargs)
+    log = add_simple_context_aliases(log)
+    return log
+
+
+def configure_logger(
+    *,
+    json_logger: bool = False,
+    logger_factory=None,
+    install_exception_hook: bool = False,
+    finalize_configuration: bool = False,
+) -> LoggerWithContext:
+    """
+    Create a structlog logger with some special additions:
+
+    >>> with log.context(key=value):
+    >>>    log.info("some message")
+
+    >>> log.local(key=value)
+    >>> log.info("some message")
+    >>> log.clear()
+
+    Args:
+        json_logger: Flag to use JSON logging. Defaults to False.
+        logger_factory: Optional logger factory to override the default.
+        install_exception_hook: Optional flag to install a global exception hook
+            that logs uncaught exceptions using structlog. Defaults to False.
+        finalize_configuration: If True, any subsequent calls to configure_logger will
+            be ignored with a warning. Useful to setup logging and globally and prevent accidental
+            reconfiguration by other developers.
+    """
+    global _CONFIGURATION_FINALIZED
+
+    # Avoid accidental reinitialization without the correct state (e.g. from multiple components
+    # trying to configure logging) by allowing the first caller to "lock" the configuration.
+    if _CONFIGURATION_FINALIZED:
+        package_logger.warning(
+            "configure_logger called after finalized configuration, ignoring",
+        )
+        return get_logger()
+
+    setup_trace()
+
+    # Reset structlog configuration to make sure we're starting fresh
+    # This is important for tests where configure_logger might be called multiple times
+    structlog.reset_defaults()
+
+    if install_exception_hook:
+        hook.install_exception_hook(json_logger)
+
+    # NOTE: this is what enforces the kwarg > ENV configuration for log output
+    resolved_logging_factory = logger_factory or get_logger_factory(json_logger)
+
+    # BytesLoggerFactory always requires bytes from the processor chain regardless of the
+    # json_logger flag, since BytesLogger does `event + b"\n"` at write time.
+    uses_bytes_logger = isinstance(
+        resolved_logging_factory, structlog.BytesLoggerFactory
+    )
+    if uses_bytes_logger and not json_logger:
+        package_logger.warning(
+            "BytesLoggerFactory requires json_logger=True; enabling automatically"
+        )
+    is_effectively_json_logger = json_logger or uses_bytes_logger
+
+    redirect_stdlib_loggers(
+        is_effectively_json_logger,
+        logger_factory=logger_factory,
+    )
+    redirect_showwarnings()
+
+    structlog.configure(
+        # Don't cache the loggers during tests, it makes it hard to capture them
+        cache_logger_on_first_use=not is_pytest(),
+        wrapper_class=structlog.make_filtering_bound_logger(
+            get_environment_log_level_as_string()
+        ),
+        logger_factory=resolved_logging_factory,
+        processors=get_default_processors(is_effectively_json_logger),
+    )
+
+    if finalize_configuration:
+        _CONFIGURATION_FINALIZED = True
+
+    log = structlog.get_logger()
+    log = add_simple_context_aliases(log)
+
+    return log

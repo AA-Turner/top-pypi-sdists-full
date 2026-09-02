@@ -92,11 +92,11 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
     Attributes
     ----------
     model_id : str
-        the model used to retrieve accuracy metrics
+        The model used to retrieve accuracy metrics.
     period : dict
-        the time period used to retrieve accuracy metrics
+        The time period used to retrieve accuracy metrics.
     metrics : dict
-        the accuracy metrics
+        The accuracy metrics.
     """
 
     _path = "deployments/{}/accuracy/"
@@ -155,29 +155,29 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         model_id : Optional[str | List[str]]
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         target_classes : list[str], optional
-            Optional list of target class strings
+            An optional list of target class strings.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
         metric : str
-            (New in Version v3.9) the metric value to retrieve,
-            must be provided when querying for multiple models
+            (New in version v3.9) The metric value to retrieve.
+            Provide this when querying for multiple models.
         baseline_model_id : str
-            (New in Version v3.9) the ID of the baseline model when calculating percentage change
+            (New in version v3.9) The ID of the baseline model when calculating percentage change.
 
         Returns
         -------
         accuracy : Accuracy
-            the queried accuracy metrics information
+            The queried accuracy metrics information.
 
         Examples
         --------
@@ -289,11 +289,11 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     Attributes
     ----------
     metric : str
-        the accuracy metric being retrieved
+        The accuracy metric to retrieve.
     buckets : list
-        how the accuracy metric changes over time
+        How the accuracy metric changes over time.
     baselines : list
-        baselines for the accuracy metric
+        Baselines for the accuracy metric.
     """
 
     _path = "deployments/{}/accuracyOverTime/"
@@ -361,28 +361,28 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         metric : ACCURACY_METRIC
-            the accuracy metric to retrieve
+            The accuracy metric to retrieve.
         model_id : Optional[str | List[str]]
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         bucket_size : str
-            time duration of a bucket, in ISO 8601 time duration format
+            Time duration of a bucket, in ISO 8601 time duration format.
         target_classes : list[str], optional
-            Optional list of target class strings
+            An optional list of target class strings.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         accuracy_over_time : AccuracyOverTime
-            the queried accuracy metric over time information
+            The queried accuracy metric over time information.
 
         Examples
         --------
@@ -431,21 +431,22 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         metrics : [ACCURACY_METRIC]
-            the accuracy metrics to retrieve
+            The accuracy metrics to retrieve.
         model_id : Optional[str | List[str]]
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         bucket_size : str
-            time duration of a bucket, in ISO 8601 time duration format
+            Time duration of a bucket, in ISO 8601 time duration format.
 
         Returns
         -------
         accuracy_over_time: pd.DataFrame
+            A DataFrame of accuracy metrics over time.
         """
         if not metrics:
             if metrics == []:
@@ -538,20 +539,20 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
 
 
 class PredictionsVsActualsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
-    """Deployment predictions vs actuals over time information.
+    """Deployment predictions vs `actuals` over time information.
 
     Attributes
     ----------
     summary : dict
-        predictions vs actuals over time summary for all models and buckets queried
+        Predictions vs `actuals` over time summary for all models and buckets queried.
     baselines : List
-        target baseline for each model queried
+        Target baseline for each model queried.
     buckets : List
-        predictions vs actuals over time bucket for each model and bucket queried
+        Predictions vs `actuals` over time bucket for each model and bucket queried.
     segment_attribute : Optional[str]
-        (New in Version v3.6) the segment attribute
+        (New in version v3.6) The segment attribute.
     segment_value : Optional[str]
-        (New in Version v3.6) the segment value
+        (New in version v3.6) The segment value.
 
     """
 
@@ -594,34 +595,34 @@ class PredictionsVsActualsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         segment_attribute: Optional[str] = None,
         segment_value: Optional[str] = None,
     ) -> PredictionsVsActualsOverTime:
-        """Retrieve information for deployment's predictions vs actuals over a certain time period.
+        """Retrieve information for a deployment's predictions vs `actuals` over a certain time period.
 
         .. versionadded:: v3.3
 
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
         model_ids : list[str]
-            ID of models to retrieve predictions vs actuals stats
+            The IDs of models to retrieve predictions vs `actuals` stats for.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         bucket_size : BUCKET_SIZE
-            time duration of each bucket
+            Time duration of each bucket.
         target_classes : list[str]
-            class names of target, only for deployments with multiclass target
+            Class names of target, only for deployments with a `multiclass` target.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
 
         Returns
         -------
         predictions_vs_actuals_over_time : PredictionsVsActualsOverTime
-            the queried predictions vs actuals over time information
+            The queried predictions vs. `actuals` over time information.
         """
 
         path = cls._path.format(deployment_id)

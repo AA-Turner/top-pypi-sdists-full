@@ -16,6 +16,16 @@ from unittest.mock import patch
 
 import httpx
 import pytest
+from discovery_helpers import (
+    assert_all_metadata_serializable,
+    assert_canonical_ids_not_duplicated_in_metadata,
+    assert_resource_normalized_keys_typed_when_present,
+    assert_valid_resource,
+    assert_valid_workspace,
+    assert_workspace_context_serializable,
+    assert_workspace_normalized_keys_typed_when_present,
+    load_provider_fixture,
+)
 
 from spec_kitty_tracker.discovery import (
     discover_resources,
@@ -26,24 +36,10 @@ from spec_kitty_tracker.discovery.registry import (
     registered_workspace_providers,
 )
 from spec_kitty_tracker.discovery.types import (
-    DiscoveredResource,
     DiscoveredWorkspace,
     DiscoveryResult,
 )
 from spec_kitty_tracker.nango import NangoConnectionContext
-
-from discovery_helpers import (
-    assert_all_metadata_serializable,
-    assert_canonical_ids_not_duplicated_in_metadata,
-    assert_json_serializable,
-    assert_resource_normalized_keys_typed_when_present,
-    assert_valid_resource,
-    assert_valid_workspace,
-    assert_workspace_context_serializable,
-    assert_workspace_normalized_keys_typed_when_present,
-    load_provider_fixture,
-)
-
 
 # ---------------------------------------------------------------------------
 # Mock transport
@@ -210,7 +206,9 @@ PROVIDER_CONFIG: dict[
         "workspace_routes": _linear_workspace_routes,
         "resource_routes": _linear_resource_routes,
         "make_workspace": _linear_workspace,
-        "transport_patch_target": "spec_kitty_tracker.discovery.providers.linear.NangoProxyTransport",
+        "transport_patch_target": (
+            "spec_kitty_tracker.discovery.providers.linear.NangoProxyTransport"
+        ),
     },
     "jira": {
         "workspace_routes": _jira_workspace_routes,
@@ -222,13 +220,17 @@ PROVIDER_CONFIG: dict[
         "workspace_routes": _github_workspace_routes,
         "resource_routes": _github_resource_routes,
         "make_workspace": _github_workspace,
-        "transport_patch_target": "spec_kitty_tracker.discovery.providers.github.NangoProxyTransport",
+        "transport_patch_target": (
+            "spec_kitty_tracker.discovery.providers.github.NangoProxyTransport"
+        ),
     },
     "gitlab": {
         "workspace_routes": _gitlab_workspace_routes,
         "resource_routes": _gitlab_resource_routes,
         "make_workspace": _gitlab_workspace,
-        "transport_patch_target": "spec_kitty_tracker.discovery.providers.gitlab.NangoProxyTransport",
+        "transport_patch_target": (
+            "spec_kitty_tracker.discovery.providers.gitlab.NangoProxyTransport"
+        ),
     },
 }
 
@@ -276,9 +278,7 @@ def _make_context(provider: str) -> NangoConnectionContext:
 class TestWorkspaceContractConformance:
     """Validate workspace discovery contract across all providers."""
 
-    async def test_workspace_discovery_returns_valid_workspaces(
-        self, provider: str
-    ) -> None:
+    async def test_workspace_discovery_returns_valid_workspaces(self, provider: str) -> None:
         config = PROVIDER_CONFIG[provider]
         routes = config["workspace_routes"]()
         mock = RoutingMockTransport(routes)
@@ -291,9 +291,7 @@ class TestWorkspaceContractConformance:
         for ws in result.items:
             assert_valid_workspace(ws)
 
-    async def test_workspace_provider_context_serializable(
-        self, provider: str
-    ) -> None:
+    async def test_workspace_provider_context_serializable(self, provider: str) -> None:
         config = PROVIDER_CONFIG[provider]
         routes = config["workspace_routes"]()
         mock = RoutingMockTransport(routes)
@@ -305,9 +303,7 @@ class TestWorkspaceContractConformance:
         for ws in result.items:
             assert_workspace_context_serializable(ws)
 
-    async def test_workspace_normalized_keys_typed_when_present(
-        self, provider: str
-    ) -> None:
+    async def test_workspace_normalized_keys_typed_when_present(self, provider: str) -> None:
         """For each present normalized workspace key, value is str | None.
         Absent keys are contractually allowed and produce no assertion."""
         config = PROVIDER_CONFIG[provider]
@@ -322,9 +318,7 @@ class TestWorkspaceContractConformance:
         for ws in result.items:
             assert_workspace_normalized_keys_typed_when_present(ws)
 
-    async def test_workspace_canonical_ids_not_duplicated_in_metadata(
-        self, provider: str
-    ) -> None:
+    async def test_workspace_canonical_ids_not_duplicated_in_metadata(self, provider: str) -> None:
         """workspace.id must not equal provider_context['workspace_handle']
         when the latter is present. Skips silently when handle is absent."""
         config = PROVIDER_CONFIG[provider]
@@ -343,9 +337,7 @@ class TestWorkspaceContractConformance:
 class TestResourceContractConformance:
     """Validate resource discovery contract across all providers."""
 
-    async def test_resource_discovery_returns_valid_resources(
-        self, provider: str
-    ) -> None:
+    async def test_resource_discovery_returns_valid_resources(self, provider: str) -> None:
         config = PROVIDER_CONFIG[provider]
         routes = config["resource_routes"]()
         mock = RoutingMockTransport(routes)
@@ -359,9 +351,7 @@ class TestResourceContractConformance:
         for res in result.items:
             assert_valid_resource(res)
 
-    async def test_resource_metadata_serializable(
-        self, provider: str
-    ) -> None:
+    async def test_resource_metadata_serializable(self, provider: str) -> None:
         config = PROVIDER_CONFIG[provider]
         routes = config["resource_routes"]()
         mock = RoutingMockTransport(routes)
@@ -374,9 +364,7 @@ class TestResourceContractConformance:
         for res in result.items:
             assert_all_metadata_serializable(res)
 
-    async def test_resource_normalized_keys_typed_when_present(
-        self, provider: str
-    ) -> None:
+    async def test_resource_normalized_keys_typed_when_present(self, provider: str) -> None:
         """For each present normalized resource key, value is str | None.
         Absent keys are contractually allowed and produce no assertion."""
         config = PROVIDER_CONFIG[provider]
@@ -392,9 +380,7 @@ class TestResourceContractConformance:
         for res in result.items:
             assert_resource_normalized_keys_typed_when_present(res)
 
-    async def test_resource_canonical_ids_not_duplicated_in_metadata(
-        self, provider: str
-    ) -> None:
+    async def test_resource_canonical_ids_not_duplicated_in_metadata(self, provider: str) -> None:
         """resource.stable_ref must not equal routing_metadata['display_key']
         when the latter is present. Skips silently when display_key is absent."""
         config = PROVIDER_CONFIG[provider]
@@ -419,9 +405,7 @@ class TestResourceContractConformance:
 class TestDiscoveryResultShape:
     """Validate the DiscoveryResult envelope shape for all providers."""
 
-    async def test_workspace_result_is_discovery_result(
-        self, provider: str
-    ) -> None:
+    async def test_workspace_result_is_discovery_result(self, provider: str) -> None:
         config = PROVIDER_CONFIG[provider]
         routes = config["workspace_routes"]()
         mock = RoutingMockTransport(routes)
@@ -434,9 +418,7 @@ class TestDiscoveryResultShape:
         assert isinstance(result.items, list)
         assert isinstance(result.truncated, bool)
 
-    async def test_resource_result_is_discovery_result(
-        self, provider: str
-    ) -> None:
+    async def test_resource_result_is_discovery_result(self, provider: str) -> None:
         config = PROVIDER_CONFIG[provider]
         routes = config["resource_routes"]()
         mock = RoutingMockTransport(routes)
@@ -450,9 +432,7 @@ class TestDiscoveryResultShape:
         assert isinstance(result.items, list)
         assert isinstance(result.truncated, bool)
 
-    async def test_workspace_not_truncated_with_small_result(
-        self, provider: str
-    ) -> None:
+    async def test_workspace_not_truncated_with_small_result(self, provider: str) -> None:
         """When fewer results than page limit, truncated should be False."""
         config = PROVIDER_CONFIG[provider]
         routes = config["workspace_routes"]()
@@ -465,9 +445,7 @@ class TestDiscoveryResultShape:
         # Our mock data returns a small number of items, well below any page limit
         assert result.truncated is False
 
-    async def test_resource_not_truncated_with_small_result(
-        self, provider: str
-    ) -> None:
+    async def test_resource_not_truncated_with_small_result(self, provider: str) -> None:
         """When fewer results than page limit, truncated should be False."""
         config = PROVIDER_CONFIG[provider]
         routes = config["resource_routes"]()
@@ -492,16 +470,12 @@ class TestRegistryCompleteness:
     def test_all_providers_registered_for_workspaces(self) -> None:
         ws_providers = registered_workspace_providers()
         expected = {"linear", "jira", "github", "gitlab"}
-        assert ws_providers >= expected, (
-            f"Missing workspace providers: {expected - ws_providers}"
-        )
+        assert ws_providers >= expected, f"Missing workspace providers: {expected - ws_providers}"
 
     def test_all_providers_registered_for_resources(self) -> None:
         rs_providers = registered_resource_providers()
         expected = {"linear", "jira", "github", "gitlab"}
-        assert rs_providers >= expected, (
-            f"Missing resource providers: {expected - rs_providers}"
-        )
+        assert rs_providers >= expected, f"Missing resource providers: {expected - rs_providers}"
 
     def test_workspace_and_resource_providers_match(self) -> None:
         """Every workspace provider should also have a resource provider."""

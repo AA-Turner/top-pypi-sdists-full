@@ -43,16 +43,16 @@ Transformations = List[Transformation]
 
 
 class ImageAugmentationOptions(APIObject):
-    """A List of all supported Image Augmentation Transformations for a project.
+    """A list of all supported image augmentation transformations for a project.
     Includes additional information about minimum, maximum, and default values
     for a transformation.
 
     Attributes
     ----------
     name: str
-        The name of the augmentation list
+        The name of the augmentation list.
     project_id: str
-        The project containing the image data to be augmented
+        The project containing the image data to augment.
     min_transformation_probability: float
         The minimum allowed value for transformation probability.
     current_transformation_probability: float
@@ -60,13 +60,13 @@ class ImageAugmentationOptions(APIObject):
     max_transformation_probability: float
         The maximum allowed value for transformation probability.
     min_number_of_new_images: int
-         The minimum allowed number of new rows to add for each existing row
+        The minimum allowed number of new rows to add for each existing row.
     current_number_of_new_images: int
-         The default number of new rows to add for each existing row
+        The default number of new rows to add for each existing row.
     max_number_of_new_images: int
-         The maximum allowed number of new rows to add for each existing row
+        The maximum allowed number of new rows to add for each existing row.
     transformations: list[dict]
-        List of transformations to possibly apply to each image
+        A list of transformations to possibly apply to each image.
     """
 
     _get_path = "imageAugmentationOptions/{pid}"
@@ -123,16 +123,18 @@ class ImageAugmentationOptions(APIObject):
 
     @classmethod
     def get(cls, project_id: str) -> "ImageAugmentationOptions":
-        """
-        Returns a list of all supported transformations for the given
-        project
+        """Return a list of all supported transformations for the given project.
 
-        :param project_id: sting
-            The id of the project for which to return the list of supported transformations.
+        Parameters
+        ----------
+        project_id : str
+            The project ID.
 
-        :return:
-          ImageAugmentationOptions
-           A list containing all the supported transformations for the project.
+        Returns
+        -------
+        ImageAugmentationOptions
+            The image augmentation options for the project, including all supported
+            transformations.
         """
         path = cls._get_path.format(pid=project_id)
         server_data = cls._client.get(path)
@@ -140,30 +142,30 @@ class ImageAugmentationOptions(APIObject):
 
 
 class ImageAugmentationList(APIObject):
-    """A List of Image Augmentation Transformations
+    """A list of image augmentation transformations.
 
     Attributes
     ----------
     name: str
-        The name of the augmentation list
+        The name of the augmentation list.
     project_id: str
-        The project containing the image data to be augmented
+        The project containing the image data to augment.
     feature_name: Optional[str]
-        name of the feature that the augmentation list is associated with
+        The name of the feature that the augmentation list applies to.
     in_use: bool
         Whether this is the list that will passed in to every blueprint during blueprint generation
-        before autopilot
+        before autopilot.
     initial_list: bool
-        True if this is the list to be used during training to produce augmentations
+        True if this is the list to be used during training to produce augmentations.
     transformation_probability: float
         Probability that each transformation will be applied to an image.  Value should be
         between 0.01 - 1.0.
     number_of_new_images: int
-         Number of new rows to add for each existing row
+        The number of new rows to add for each existing row.
     transformations: List[Dict]
-        List of transformations to possibly apply to each image
+        A list of transformations to possibly apply to each image.
     samples_id: str
-        Id of last image augmentation sample generated for image augmentation list.
+        The ID of the last image augmentation sample generated for the image augmentation list.
     """
 
     _list_path = "imageAugmentationLists/"
@@ -251,9 +253,7 @@ class ImageAugmentationList(APIObject):
         transformations: Optional[Transformations] = None,
         samples_id: Optional[str] = None,
     ) -> "ImageAugmentationList":
-        """
-        create a new image augmentation list
-        """
+        """Create a new image augmentation list."""
         data = {
             "name": name,
             "project_id": project_id,
@@ -281,20 +281,20 @@ class ImageAugmentationList(APIObject):
 
     @classmethod
     def list(cls, project_id: str, feature_name: Optional[str] = None) -> List["ImageAugmentationList"]:
-        """
-        List Image Augmentation Lists present in a project.
+        """Return a list of image augmentation lists present in a project.
 
         Parameters
         ----------
         project_id : str
-            Project Id to retrieve augmentation lists for.
+            The project ID to retrieve augmentation lists for.
         feature_name : Optional[str]
-            If passed, the response will only include Image Augmentation Lists active for the
+            If passed, the response only includes image augmentation lists that are active for the
             provided feature name.
 
         Returns
         -------
         list[ImageAugmentationList]
+            A list of image augmentation lists for the project.
         """
         parameters = {"project_id": project_id}
         if feature_name is not None:
@@ -311,16 +311,15 @@ class ImageAugmentationList(APIObject):
         number_of_new_images: Optional[int] = None,
         transformations: Optional[Transformations] = None,
     ) -> "ImageAugmentationList":
-        """
-        Update one or multiple attributes of the Image Augmentation List in the DataRobot backend
-        as well on this object.
+        """Update the attributes of the image augmentation list in the DataRobot backend
+        and on this object.
 
         Parameters
         ----------
         name : Optional[str]
             New name of the feature list.
         feature_name : Optional[str]
-            The new feature name for which the Image Augmentation List is effective.
+            The new feature name that the image augmentation list applies to.
         initial_list : Optional[bool]
             New flag that indicates whether this list will be used during Autopilot to perform
             image augmentation.
@@ -359,13 +358,14 @@ class ImageAugmentationList(APIObject):
         return self
 
     def retrieve_samples(self) -> List["ImageAugmentationSample"]:
-        """
-        Lists already computed image augmentation sample for image augmentation list.
-        Returns samples only if they have been already computed. It does not initialize computation.
+        """Return the already computed image augmentation samples for the image augmentation list.
+        Return the samples only if they have already been computed. This method does not initialize
+        computation.
 
         Returns
         -------
-        List of class ImageAugmentationSample
+        list[ImageAugmentationSample]
+            A list of image augmentation sample objects.
         """
         return ImageAugmentationSample.list(auglist_id=self.id)
 
@@ -386,24 +386,23 @@ class ImageAugmentationList(APIObject):
 
 
 class ImageAugmentationSample(APIObject):
-    """
-    A preview of the type of images that augmentations will create during training.
+    """A preview of the type of images that augmentations will create during training.
 
     Attributes
     ----------
     sample_id : ObjectId
-        The id of the augmentation sample, used to group related images together
+        The ID of the augmentation sample, used to group related images together.
     image_id : ObjectId
-        A reference to the Image which can be used to retrieve the image binary
+        A reference to the image that you can use to retrieve the image binary.
     project_id : ObjectId
-        A reference to the project containing the image
+        A reference to the project containing the image.
     original_image_id : ObjectId
         A reference to the original image that generated this image in the case of an augmented
-        image.  If this is None it signifies this is an original image
+        image. If this is None, this is an original image.
     height : int
-        Image height in pixels
+        The image height in pixels.
     width : int
-        Image width in pixels
+        The image width in pixels.
     """
 
     _compute_path = "imageAugmentationSamples/"
@@ -453,11 +452,12 @@ class ImageAugmentationSample(APIObject):
         Parameters
         ----------
         auglist_id: str
-            ID for augmentation list to retrieve samples for
+            The ID for the augmentation list to retrieve samples for.
 
         Returns
         -------
-        List of class ImageAugmentationSample
+        list[ImageAugmentationSample]
+            A list of image augmentation sample objects.
         """
         path = cls._list_by_auglist_path.format(auglist_id=auglist_id)
 

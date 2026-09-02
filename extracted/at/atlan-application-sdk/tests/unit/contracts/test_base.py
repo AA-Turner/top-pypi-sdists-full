@@ -1,0 +1,825 @@
+"""Unit tests for application_sdk.contracts.base."""
+
+from typing import Annotated, Any, ClassVar
+from unittest.mock import patch
+
+import pytest
+from pydantic import ConfigDict, Field, ValidationError
+
+from application_sdk.contracts.base import (
+    ContractMetadata,
+    ContractValidationError,
+    HeartbeatDetails,
+    Input,
+    Output,
+    OutputStatus,
+    PayloadSafetyError,
+    Record,
+    SerializableEnum,
+    get_contract_fields,
+    has_default,
+    is_backwards_compatible,
+    validate_payload_safety,
+)
+from application_sdk.contracts.types import FileReference, MaxItems
+
+# =============================================================================
+# Input / Output subclassing
+# =============================================================================
+
+
+class TestInputSubclassing:
+    def test_input_can_be_subclassed_with_safe_types(self) -> None:
+        class MyInput(Input):
+            name: str
+            count: int = 0
+
+        obj = MyInput(name="test")
+        assert obj.name == "test"
+        assert obj.count == 0
+
+    def test_output_can_be_subclassed_with_safe_types(self) -> None:
+        class MyOutput(Output):
+            result: str
+            success: bool = True
+
+        obj = MyOutput(result="done")
+        assert obj.result == "done"
+        assert obj.success is True
+
+
+class TestOutputStatus:
+    """Standard status field on Output, BLDX-1244."""
+
+    def test_default_is_success(self) -> None:
+        # Additive-only requirement: existing connectors that don't set
+        # `status` must get `SUCCESS`, so nothing breaks.
+        class MyOutput(Output):
+            result: str
+
+        obj = MyOutput(result="done")
+        assert obj.status is OutputStatus.SUCCESS
+        assert obj.status == "success"  # StrEnum equality with raw string
+
+    def test_all_three_values_round_trip(self) -> None:
+        # Vocabulary defined in BLDX-1244 — success / partial_success / failure.
+        for value in (
+            OutputStatus.SUCCESS,
+            OutputStatus.PARTIAL_SUCCESS,
+            OutputStatus.FAILURE,
+        ):
+
+            class MyOutput(Output):
+                result: str
+
+            obj = MyOutput(result="x", status=value)
+            assert obj.status is value
+
+    def test_string_value_is_accepted(self) -> None:
+        # Temporal serialisation hands us back the enum as a string. Pydantic
+        # must coerce that back to the enum on deserialization.
+        class MyOutput(Output):
+            result: str
+
+        obj = MyOutput(result="x", status="partial_success")  # type: ignore[arg-type]
+        assert obj.status is OutputStatus.PARTIAL_SUCCESS
+
+    def test_invalid_value_rejected(self) -> None:
+        class MyOutput(Output):
+            result: str
+
+        with pytest.raises(ValidationError):
+            MyOutput(result="x", status="degraded")  # type: ignore[arg-type]
+
+    def test_json_serialises_as_lowercase_string(self) -> None:
+        # Consumers (notifications, retries) need a stable string token.
+        class MyOutput(Output):
+            result: str
+
+        obj = MyOutput(result="x", status=OutputStatus.PARTIAL_SUCCESS)
+        dumped = obj.model_dump_json()
+        assert '"status":"partial_success"' in dumped
+
+    def test_subclass_can_override_default_value(self) -> None:
+        # Connectors with always-partial semantics (rare, but valid) can pin
+        # a different default at the subclass level — Pydantic supports
+        # overriding a field's default without changing its type.
+        class AlwaysPartialOutput(Output):
+            result: str
+            status: OutputStatus = OutputStatus.PARTIAL_SUCCESS
+
+        assert AlwaysPartialOutput(result="x").status is OutputStatus.PARTIAL_SUCCESS
+
+    def test_subclass_overrides_status_type_to_str(self) -> None:
+        # Backward-compat: an existing subclass (e.g. ExecuteColumnBatchOutput
+        # in templates/contracts/incremental_sql.py) declared
+        # ``status: str = ""`` before this base field existed and uses
+        # domain-specific values like ``"not_found"`` that aren't part of
+        # the new enum vocabulary. Adding the typed base field must not
+        # break those callers — Pydantic resolves field type in
+        # most-derived-wins order, so the subclass declaration shadows
+        # the base and free-form strings keep working.
+        class DomainSpecificOutput(Output):
+            status: str = ""
+
+        # Empty default still works
+        obj = DomainSpecificOutput()
+        assert obj.status == ""
+        # Non-enum string value still works
+        obj = DomainSpecificOutput(status="not_found")  # type: ignore[arg-type]
+        assert obj.status == "not_found"
+
+    def test_input_safe_primitive_types(self) -> None:
+        class SafeInput(Input):
+            s: str
+            i: int
+            f: float
+            b: bool
+
+        obj = SafeInput(s="x", i=1, f=1.0, b=True)
+        assert obj.s == "x"
+
+    def test_input_safe_annotated_list(self) -> None:
+        class SafeInput(Input):
+            items: Annotated[list[str], MaxItems(100)] = Field(default_factory=list)
+
+        obj = SafeInput(items=["a", "b"])
+        assert obj.items == ["a", "b"]
+
+    def test_input_safe_annotated_dict(self) -> None:
+        class SafeInput(Input):
+            settings: Annotated[dict[str, str], MaxItems(50)] = Field(
+                default_factory=dict
+            )
+
+        obj = SafeInput(settings={"k": "v"})
+        assert obj.settings == {"k": "v"}
+
+    def test_input_safe_file_reference(self) -> None:
+        class SafeInput(Input):
+            file: FileReference | None = None
+
+        ref = FileReference(local_path="/tmp/data.jsonl")
+        obj = SafeInput(file=ref)
+        assert obj.file is not None
+        assert obj.file.local_path == "/tmp/data.jsonl"
+
+
+# =============================================================================
+# PayloadSafetyError raised at class definition time
+# =============================================================================
+
+
+class TestPayloadSafetyValidation:
+    def test_any_field_raises(self) -> None:
+        with pytest.raises(PayloadSafetyError) as exc_info:
+
+            class BadInput(Input):
+                data: Any
+
+        assert "data" in str(exc_info.value)
+
+    def test_bytes_field_raises(self) -> None:
+        with pytest.raises(PayloadSafetyError) as exc_info:
+
+            class BadInput(Input):
+                raw: bytes
+
+        assert "raw" in str(exc_info.value)
+
+    def test_unbounded_list_raises(self) -> None:
+        with pytest.raises(PayloadSafetyError) as exc_info:
+
+            class BadInput(Input):
+                items: list[dict]
+
+        assert "items" in str(exc_info.value)
+
+    def test_unbounded_dict_raises(self) -> None:
+        with pytest.raises(PayloadSafetyError) as exc_info:
+
+            class BadInput(Input):
+                mapping: dict[str, Any]
+
+        assert "mapping" in str(exc_info.value)
+
+    def test_output_any_field_raises(self) -> None:
+        with pytest.raises(PayloadSafetyError):
+
+            class BadOutput(Output):
+                data: Any
+
+    def test_output_bytes_field_raises(self) -> None:
+        with pytest.raises(PayloadSafetyError):
+
+            class BadOutput(Output):
+                content: bytes
+
+    def test_classvar_is_skipped_even_with_unbounded_inner_type(self) -> None:
+        # ClassVars are class-level constants, never serialized into the payload,
+        # so the scan must skip them even when the inner type (an unbounded dict)
+        # would be forbidden on a real field. Pins the get_origin(...) is ClassVar
+        # skip; this is exactly the shape ExtractionInput.preflight_credential_refs
+        # uses, which would otherwise raise at class-definition time.
+        class OkInput(Input):
+            preflight_credential_refs: ClassVar[dict[str, str]] = {}
+
+        assert OkInput.preflight_credential_refs == {}
+
+    def test_allow_unbounded_fields_bypasses_validation(self) -> None:
+        # Should NOT raise even with Any/bytes/unbounded list
+        class FlexInput(Input, allow_unbounded_fields=True):
+            data: Any
+            raw: bytes
+            items: list[dict]
+
+        obj = FlexInput(data="x", raw=b"y", items=[{}])
+        assert obj.data == "x"
+
+    def test_allow_unbounded_fields_output(self) -> None:
+        class FlexOutput(Output, allow_unbounded_fields=True):
+            data: Any
+
+        obj = FlexOutput(data=42)
+        assert obj.data == 42
+
+
+# =============================================================================
+# validate_payload_safety standalone
+# =============================================================================
+
+
+class TestValidatePayloadSafety:
+    def test_valid_class_passes(self) -> None:
+        class GoodContract:
+            name: str
+            value: int
+
+        # Should not raise
+        validate_payload_safety(GoodContract)
+
+    def test_any_field_forbidden(self) -> None:
+        class BadContract:
+            data: Any
+
+        with pytest.raises(PayloadSafetyError):
+            validate_payload_safety(BadContract)
+
+    def test_skip_fields_bypasses_check(self) -> None:
+        class Contract:
+            data: Any
+
+        # Explicitly skip the problematic field
+        validate_payload_safety(Contract, skip_fields={"data"})
+
+
+# =============================================================================
+# is_backwards_compatible
+# =============================================================================
+
+
+class TestIsBackwardsCompatible:
+    def test_identical_contracts_are_compatible(self) -> None:
+        class V1(Input):
+            name: str
+            count: int = 0
+
+        class V2(Input):
+            name: str
+            count: int = 0
+
+        ok, issues = is_backwards_compatible(V1, V2)
+        assert ok is True
+        assert issues == []
+
+    def test_new_field_with_default_is_compatible(self) -> None:
+        class V1(Input):
+            name: str
+
+        class V2(Input):
+            name: str
+            extra: str = "default"
+
+        ok, issues = is_backwards_compatible(V1, V2)
+        assert ok is True
+        assert issues == []
+
+    def test_new_field_with_empty_string_default_is_compatible(self) -> None:
+        class V1(Input):
+            name: str
+
+        class V2(Input):
+            name: str
+            required_new: str = ""  # empty string is a valid default
+
+        ok, issues = is_backwards_compatible(V1, V2)
+        assert ok is True
+
+    def test_added_required_field_is_incompatible(self) -> None:
+        class OldV(Input):
+            name: str
+
+        # Demonstrate that is_backwards_compatible catches missing defaults
+        # by inspecting the fields manually rather than class-definition-time error
+        class NewV(Input, allow_unbounded_fields=True):
+            name: str
+
+        # Manually verify has_default logic for required fields
+        assert has_default(OldV, "name") is False
+        assert has_default(NewV, "name") is False
+
+    def test_removed_field_is_incompatible(self) -> None:
+        class V1(Input):
+            name: str
+            old_field: str = ""
+
+        class V2(Input):
+            name: str
+            # old_field removed
+
+        ok, issues = is_backwards_compatible(V1, V2)
+        assert ok is False
+        assert any("old_field" in issue for issue in issues)
+
+    def test_type_change_is_incompatible(self) -> None:
+        class V1(Input):
+            count: int = 0
+
+        class V2(Input):
+            count: str = ""  # changed from int to str
+
+        ok, issues = is_backwards_compatible(V1, V2)
+        assert ok is False
+        assert any("count" in issue for issue in issues)
+
+    def test_non_contract_raises(self) -> None:
+        class NotAContract:
+            pass
+
+        class V1(Input):
+            name: str
+
+        with pytest.raises(ContractValidationError):
+            is_backwards_compatible(NotAContract, V1)
+
+
+# =============================================================================
+# SerializableEnum
+# =============================================================================
+
+
+class TestSerializableEnum:
+    def test_explicit_values(self) -> None:
+        class Status(SerializableEnum):
+            PENDING = "pending"
+            RUNNING = "running"
+            DONE = "done"
+
+        assert Status.PENDING == "pending"
+        assert Status.RUNNING == "running"
+        assert str(Status.DONE) == "done"
+
+    def test_auto_generates_lowercase(self) -> None:
+        from enum import auto
+
+        class Status(SerializableEnum):
+            PENDING = auto()
+            RUNNING = auto()
+            COMPLETED = auto()
+
+        assert Status.PENDING == "pending"
+        assert Status.RUNNING == "running"
+        assert Status.COMPLETED == "completed"
+
+    def test_is_json_serializable(self) -> None:
+        import json
+
+        class Status(SerializableEnum):
+            OK = "ok"
+            FAIL = "fail"
+
+        result = json.dumps({"status": Status.OK})
+        assert result == '{"status": "ok"}'
+
+
+# =============================================================================
+# HeartbeatDetails and Record subclassing
+# =============================================================================
+
+
+class TestHeartbeatDetails:
+    def test_can_be_subclassed(self) -> None:
+        class MyHeartbeat(HeartbeatDetails):
+            chunk_idx: int
+            loaded_count: int = 0
+
+        hb = MyHeartbeat(chunk_idx=5, loaded_count=100)
+        assert hb.chunk_idx == 5
+        assert hb.loaded_count == 100
+
+
+class TestRecord:
+    def test_can_be_subclassed(self) -> None:
+        class ProductRecord(Record):
+            name: str
+            price: float
+
+        rec = ProductRecord(id="prod-1", name="Widget", price=9.99)
+        assert rec.id == "prod-1"
+        assert rec.name == "Widget"
+
+    def test_requires_id_field(self) -> None:
+        class SimpleRecord(Record):
+            pass
+
+        # id is inherited from Record
+        rec = SimpleRecord(id="abc")
+        assert rec.id == "abc"
+
+
+# =============================================================================
+# config_hash
+# =============================================================================
+
+
+class TestConfigHash:
+    def test_produces_16_char_hex(self) -> None:
+        class MyInput(Input):
+            name: str
+            value: int = 0
+
+        obj = MyInput(name="test", value=42)
+        h = obj.config_hash()
+        assert len(h) == 16
+        assert all(c in "0123456789abcdef" for c in h)
+
+    def test_stable_across_calls(self) -> None:
+        class MyInput(Input):
+            name: str
+
+        obj = MyInput(name="stable")
+        assert obj.config_hash() == obj.config_hash()
+
+    def test_different_values_produce_different_hashes(self) -> None:
+        class MyInput(Input):
+            name: str
+
+        a = MyInput(name="foo")
+        b = MyInput(name="bar")
+        assert a.config_hash() != b.config_hash()
+
+    def test_default_values_excluded_from_hash(self) -> None:
+        class MyInput(Input):
+            name: str
+            extra: str = "default"
+
+        # Two objects that differ only in a field at its default value
+        a = MyInput(name="x")
+        b = MyInput(name="x", extra="default")
+        # Both should produce the same hash since extra is at its default
+        assert a.config_hash() == b.config_hash()
+
+    def test_extra_exclude_removes_fields(self) -> None:
+        class MyInput(Input):
+            name: str
+            run_id: str = ""
+
+        a = MyInput(name="x", run_id="run-001")
+        b = MyInput(name="x", run_id="run-002")
+        # Without exclusion, hashes differ
+        assert a.config_hash() != b.config_hash()
+        # With run_id excluded, hashes match
+        assert a.config_hash(extra_exclude={"run_id"}) == b.config_hash(
+            extra_exclude={"run_id"}
+        )
+
+
+# =============================================================================
+# get_contract_fields
+# =============================================================================
+
+
+class TestGetContractFields:
+    def test_returns_field_types(self) -> None:
+        class MyContract(Input):
+            name: str
+            count: int = 0
+
+        result = get_contract_fields(MyContract)
+        assert result["name"] is str
+        assert result["count"] is int
+
+    def test_non_contract_raises(self) -> None:
+        class NotDC:
+            pass
+
+        with pytest.raises(ContractValidationError):
+            get_contract_fields(NotDC)
+
+
+# =============================================================================
+# has_default
+# =============================================================================
+
+
+class TestHasDefault:
+    def test_field_with_default_value(self) -> None:
+        class MyContract(Input):
+            name: str
+            count: int = 42
+
+        assert has_default(MyContract, "count") is True
+
+    def test_field_without_default(self) -> None:
+        class MyContract(Input):
+            name: str
+
+        assert has_default(MyContract, "name") is False
+
+    def test_field_with_default_factory(self) -> None:
+        class MyContract(Input, allow_unbounded_fields=True):
+            items: list[str] = Field(default_factory=list)
+
+        assert has_default(MyContract, "items") is True
+
+    def test_missing_field_returns_false(self) -> None:
+        class MyContract(Input):
+            name: str
+
+        assert has_default(MyContract, "nonexistent") is False
+
+
+# =============================================================================
+# ContractMetadata
+# =============================================================================
+
+
+class TestContractMetadata:
+    def test_basic_construction(self) -> None:
+        class MyInput(Input):
+            name: str
+
+        meta = ContractMetadata(
+            name="my-input",
+            version="1.0.0",
+            cls=MyInput,
+            is_input=True,
+        )
+        assert meta.name == "my-input"
+        assert meta.version == "1.0.0"
+        assert meta.cls is MyInput
+        assert meta.is_input is True
+        assert meta.schema_hash is None
+        assert meta.deprecated is False
+
+    def test_is_frozen(self) -> None:
+        class MyInput(Input):
+            name: str
+
+        meta = ContractMetadata(
+            name="my-input",
+            version="1.0.0",
+            cls=MyInput,
+            is_input=True,
+        )
+        with pytest.raises((ValidationError, AttributeError, TypeError)):
+            meta.name = "other"  # type: ignore[misc]
+
+
+# =============================================================================
+# Unknown-key warning (ARUN-527)
+# =============================================================================
+
+
+@pytest.fixture(autouse=False)
+def _reset_unknown_keys_seen() -> Any:
+    """Isolate the class-level dedup set so tests don't leak into each other."""
+    original = Input._unknown_keys_seen.copy()
+    Input._unknown_keys_seen.clear()
+    try:
+        yield
+    finally:
+        Input._unknown_keys_seen.clear()
+        Input._unknown_keys_seen.update(original)
+
+
+class TestUnknownKeyWarning:
+    def test_kebab_case_extra_warns_with_snake_case_hint(
+        self, _reset_unknown_keys_seen: Any
+    ) -> None:
+        class ExtractionInput(Input):
+            credential_guid: str = ""
+            include_filter: str = "{}"
+
+        payload = {
+            "credential-guid": "abc-123",
+            "include-filter": '{"^qa$":[".*"]}',
+        }
+        with patch("application_sdk.contracts.base._logger") as mock_logger:
+            obj = ExtractionInput.model_validate(payload)
+
+        # Silent drop still happens — we only observe, not normalize.
+        assert obj.credential_guid == ""
+        assert obj.include_filter == "{}"
+
+        mock_logger.warning.assert_called_once()
+        call_args = mock_logger.warning.call_args[0]
+        msg = call_args[0] % call_args[1:]
+        assert "ExtractionInput" in msg
+        assert "credential-guid" in msg
+        assert "include-filter" in msg
+        assert "credential_guid" in msg
+        assert "include_filter" in msg
+
+    def test_arbitrary_extras_warn_without_kebab_hint(
+        self, _reset_unknown_keys_seen: Any
+    ) -> None:
+        class MyInput(Input):
+            name: str = ""
+
+        with patch("application_sdk.contracts.base._logger") as mock_logger:
+            MyInput.model_validate({"name": "ok", "stray_key": 1})
+
+        mock_logger.warning.assert_called_once()
+        call_args = mock_logger.warning.call_args[0]
+        msg = call_args[0] % call_args[1:]
+        assert "stray_key" in msg
+        assert "Kebab-case" not in msg
+
+    def test_no_warning_when_all_keys_known(
+        self, _reset_unknown_keys_seen: Any
+    ) -> None:
+        class MyInput(Input):
+            name: str = ""
+
+        with patch("application_sdk.contracts.base._logger") as mock_logger:
+            MyInput.model_validate({"name": "ok", "workflow_id": "wf-1"})
+
+        mock_logger.warning.assert_not_called()
+
+    def test_app_name_is_declared_and_survives_continue_as_new(
+        self, _reset_unknown_keys_seen: Any
+    ) -> None:
+        # CNCT-93: app_name is a declared field, so the toolkit-stamped
+        # inputs.args.app_name (1) does NOT trip the unknown-key drift warning
+        # that points authors back at the manifest, and (2) survives
+        # continue-as-new (model_dump preserves it) instead of being silently
+        # dropped mid-run.
+        class MyInput(Input):
+            name: str = ""
+
+        with patch("application_sdk.contracts.base._logger") as mock_logger:
+            obj = MyInput.model_validate({"name": "ok", "app_name": "powerbi-crawler"})
+
+        mock_logger.warning.assert_not_called()
+        assert obj.app_name == "powerbi-crawler"
+        # continue_with() re-serializes via model_dump — app_name must persist.
+        assert obj.model_dump()["app_name"] == "powerbi-crawler"
+
+    def test_app_name_excluded_from_config_hash(
+        self, _reset_unknown_keys_seen: Any
+    ) -> None:
+        # A telemetry-only label must not change an app's checkpoint identity.
+        class MyInput(Input):
+            name: str = ""
+
+        a = MyInput(name="x", app_name="powerbi-crawler")
+        b = MyInput(name="x", app_name="powerbi-miner")
+        assert a.config_hash() == b.config_hash()
+
+    def test_no_warning_when_extra_allow(self, _reset_unknown_keys_seen: Any) -> None:
+        class PermissiveInput(Input):
+            model_config = ConfigDict(extra="allow")
+
+            name: str = ""
+
+        with patch("application_sdk.contracts.base._logger") as mock_logger:
+            PermissiveInput.model_validate({"name": "ok", "anything": 1})
+
+        mock_logger.warning.assert_not_called()
+
+    def test_non_dict_input_does_not_crash(self, _reset_unknown_keys_seen: Any) -> None:
+        class MyInput(Input):
+            name: str = ""
+
+        # Passing an existing instance through model_validate should be a no-op
+        # for our validator (data is not a dict at that stage).
+        original = MyInput(name="x")
+        assert MyInput.model_validate(original).name == "x"
+
+    def test_same_extras_logged_once_per_process(
+        self, _reset_unknown_keys_seen: Any
+    ) -> None:
+        class MyInput(Input):
+            name: str = ""
+
+        with patch("application_sdk.contracts.base._logger") as mock_logger:
+            for _ in range(5):
+                MyInput.model_validate({"name": "ok", "stray": 1})
+
+        assert mock_logger.warning.call_count == 1
+
+    def test_different_extras_each_warn_once(
+        self, _reset_unknown_keys_seen: Any
+    ) -> None:
+        class MyInput(Input):
+            name: str = ""
+
+        with patch("application_sdk.contracts.base._logger") as mock_logger:
+            MyInput.model_validate({"name": "ok", "a": 1})
+            MyInput.model_validate({"name": "ok", "b": 2})
+
+        assert mock_logger.warning.call_count == 2
+
+
+# =============================================================================
+# AppRegistry.resolve_running_app_name / PublishInputMixin
+# =============================================================================
+
+
+class TestResolveRunningAppName:
+    """AppRegistry.resolve_running_app_name prefers explicit name > registry > APPLICATION_NAME."""
+
+    def test_prefer_returned_immediately(self) -> None:
+        from application_sdk.app.registry import AppRegistry
+
+        result = AppRegistry.resolve_running_app_name(prefer="explicit-name")
+        assert result == "explicit-name"
+
+    def test_returns_registry_name_when_single_app_registered(self) -> None:
+        from application_sdk.app.registry import AppRegistry
+
+        with patch(
+            "application_sdk.app.registry.AppRegistry.get_instance"
+        ) as mock_inst:
+            mock_inst.return_value.list_apps.return_value = ["my-connector"]
+            result = AppRegistry.resolve_running_app_name()
+
+        assert result == "my-connector"
+
+    def test_falls_back_to_application_name_when_registry_empty(self) -> None:
+        from application_sdk.app.registry import AppRegistry
+
+        with patch(
+            "application_sdk.app.registry.AppRegistry.get_instance"
+        ) as mock_inst:
+            mock_inst.return_value.list_apps.return_value = []
+            with patch("application_sdk.constants.APPLICATION_NAME", "env-app"):
+                result = AppRegistry.resolve_running_app_name()
+
+        assert result == "env-app"
+
+    def test_falls_back_when_multiple_apps_registered(self) -> None:
+        from application_sdk.app.registry import AppRegistry
+
+        with patch(
+            "application_sdk.app.registry.AppRegistry.get_instance"
+        ) as mock_inst:
+            mock_inst.return_value.list_apps.return_value = ["app-a", "app-b"]
+            with patch("application_sdk.constants.APPLICATION_NAME", "env-app"):
+                result = AppRegistry.resolve_running_app_name()
+
+        assert result == "env-app"
+
+
+class TestPublishInputMixinDerivation:
+    """PublishInputMixin auto-derives output_path using AppRegistry.resolve_running_app_name."""
+
+    def test_derive_uses_registry_name_not_env_var(self) -> None:
+        """Registry name wins over APPLICATION_NAME when auto-deriving output_path."""
+        from application_sdk.contracts.base import PublishInputMixin
+
+        mock_wf_info = patch(
+            "temporalio.workflow.info",
+            return_value=type(
+                "I", (), {"workflow_id": "wf-123", "run_id": "run-456"}
+            )(),
+        )
+        mock_registry = patch("application_sdk.app.registry.AppRegistry.get_instance")
+
+        with mock_wf_info, mock_registry as mr:
+            mr.return_value.list_apps.return_value = ["my-connector"]
+
+            class MyOutput(PublishInputMixin):
+                pass
+
+            obj = MyOutput()
+
+        assert "my-connector" in obj.output_path
+        assert "wf-123" in obj.output_path
+        assert "run-456" in obj.output_path
+        assert obj.transformed_data_prefix.endswith("/transformed")
+
+    def test_explicit_transformed_data_prefix_not_overridden(self) -> None:
+        """If transformed_data_prefix is already set, auto-derivation is skipped."""
+        from application_sdk.contracts.base import PublishInputMixin
+
+        class MyOutput(PublishInputMixin):
+            pass
+
+        obj = MyOutput(
+            output_path="artifacts/apps/x/workflows/wf/run",
+            transformed_data_prefix="artifacts/custom/path/transformed",
+        )
+
+        assert obj.transformed_data_prefix == "artifacts/custom/path/transformed"

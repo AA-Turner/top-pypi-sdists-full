@@ -1,0 +1,19 @@
+description: Benefits which confer eligibility to the household payment to means-tested
+  benefits.
+metadata:
+  economy: false
+  label: Qualifying benefits for support for means-tested households
+  propagate_metadata_to_children: true
+  reference:
+  - href: https://www.gov.uk/government/news/millions-of-most-vulnerable-households-will-receive-1200-of-help-with-cost-of-living
+    title: Cost-of-living support announcement | GOV.UK
+  unit: variable
+values:
+  2022-01-01:
+  - universal_credit
+  - pension_credit
+  - housing_benefit
+  - jsa_income
+  - income_support
+  - esa_income
+  - pension_credit

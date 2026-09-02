@@ -1,0 +1,241 @@
+name: SpecKit Issue Trigger
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch: { inputs: { issue_number: { description: 'Issue number to process (for manual testing)', required: true, type: number } } }
+
+permissions: { actions: write, issues: write, contents: read }
+
+concurrency:
+  group: speckit-trigger-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch-phase-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == vars.SPECKIT_TRIGGER_LABEL || github.event.label.name == 'speckit'
+    steps:
+      - name: Resolve Engine
+        id: engine
+        env: { SPECKIT_ENGINE_RAW: "${{ vars.SPECKIT_ENGINE || 'legacy' }}" }
+        run: raw="${SPECKIT_ENGINE_RAW}"; e="${raw,,}"; [[ "$e" == "cloud-agent" || "$e" == "legacy" ]] || echo "::warning::unsupported SPECKIT_ENGINE '${raw}'; using legacy"; [[ "$e" == "cloud-agent" ]] || e="legacy"; echo "value=$e" >> "$GITHUB_OUTPUT"
+
+      - name: Cloud Agent In-Flight Guard
+        id: cloud-inflight
+        if: steps.engine.outputs.value == 'cloud-agent'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SPECKIT_PR_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
+          script: |
+            const issueNumber = Number(context.issue?.number || context.payload.inputs?.issue_number || '${{ inputs.issue_number }}'); try {
+              const [labels, pulls] = await Promise.all([
+                github.paginate(github.rest.issues.listLabelsOnIssue, { owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, per_page: 100 }),
+                github.paginate(github.rest.pulls.list, { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 }),
+              ]);
+              const markerRegex = /<!--\s*speckit:agent-assigned schema_version=1 engine=cloud-agent issue=(\d+) phase=([123]) hierarchy=([^\s]+) correlation_id=([0-9a-fA-F-]+)\s*-->/;
+              const expectedBase = (phase, hierarchy) => (phase === 2 ? `speckit/${issueNumber}/phase-1-specify` : (phase === 3 && hierarchy !== 'task') ? `speckit/${issueNumber}/phase-2-clarify` : 'main');
+              const active = labels.some((label) => /^speckit:agent-assigned-phase-[123]$/.test(label.name || '')) || pulls.some((pr) => {
+                const markerMatch = pr.user?.login === 'copilot-swe-agent[bot]' ? (pr.body || '').match(markerRegex) : null;
+                return !!markerMatch && Number(markerMatch[1]) === issueNumber && pr.base?.ref === expectedBase(Number(markerMatch[2]), String(markerMatch[3] || '').toLowerCase());
+              });
+              core.setOutput('already', active ? 'true' : 'false'); if (active) core.info(`A Cloud Agent phase is already in flight for issue #${issueNumber}`);
+            } catch (e) { core.warning(`Cloud guard lookup failed; preserving tracking state: ${e?.message ?? String(e)}`); core.setOutput('already', 'true'); }
+
+      - name: Add Processing Label
+        if: steps.engine.outputs.value != 'cloud-agent' && steps.cloud-inflight.outputs.already != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue?.number || ${{ inputs.issue_number || 0 }};
+            if (!issueNumber) { core.warning('Could not resolve issue number; skipping speckit:processing label'); return; }
+            try { await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, labels: ['speckit:processing'] }); }
+            catch (error) { core.warning(`Failed to add speckit:processing label to issue #${issueNumber}: ${error.message}`); }
+
+      - name: Parent-First Check
+        id: parent-check
+        if: steps.cloud-inflight.outputs.already != 'true'
+        uses: actions/github-script@v7
+        env:
+          TRIGGER_LABEL: ${{ vars.SPECKIT_TRIGGER_LABEL || 'speckit' }}
+        with:
+          script: |
+            const issueNumber = parseInt(context.issue?.number || context.payload.inputs?.issue_number || ${{ inputs.issue_number || 0 }}, 10) || 0;
+            if (!issueNumber) { core.info('Could not resolve issue number — proceeding (fail-open)'); core.setOutput('proceed', 'true'); return; }
+            const repoFull = `${context.repo.owner}/${context.repo.repo}`;
+            const buildSpecPatterns = (num) => [new RegExp(`^specs/${num}-[^/]+/spec\\.md$`), new RegExp(`^specs/[^/]+/${num}/spec\\.md$`), new RegExp(`^specs/[^/]+/${num}-[^/]+/spec\\.md$`)];
+            const buildZeroPaddedPatterns = (num, paths) => { const match = paths.find((p) => p.split('/').slice(1, -1).some((segment) => /^0\d+(?:-|$)/.test(segment))); if (!match) return []; const numPart = match.split('/').slice(1, -1).find((segment) => /^0\d+(?:-|$)/.test(segment))?.match(/^(\d+)/)?.[1]; if (!numPart) return []; const padded = String(num).padStart(numPart.length, '0'); return padded === String(num) ? [] : buildSpecPatterns(padded); };
+            const matchesParent = (num, paths) => { const patterns = [...buildSpecPatterns(num), ...buildZeroPaddedPatterns(num, paths)]; return paths.some((p) => patterns.some((rx) => rx.test(p))); };
+            const failOpen = (message) => { core.warning(message); core.setOutput('proceed', 'true'); };
+            let parentNumber;
+            try {
+              const query = `query($owner: String!, $repo: String!, $childNumber: Int!) { repository(owner: $owner, name: $repo) { issue(number: $childNumber) { parent { number repository { nameWithOwner } } } } }`;
+              const parent = (await github.graphql(query, { owner: context.repo.owner, repo: context.repo.repo, childNumber: issueNumber })).repository.issue.parent;
+              if (!parent) { core.info('No parent issue found — proceeding'); core.setOutput('proceed', 'true'); return; }
+              if (parent.repository.nameWithOwner !== repoFull) { core.info(`Parent #${parent.number} is cross-repo — proceeding`); core.setOutput('proceed', 'true'); return; }
+              parentNumber = parent.number; core.info(`Same-repo parent detected: #${parentNumber}`);
+            } catch (e) { failOpen(`Parent detection failed (fail-open): ${e.message}`); return; }
+            let specFound = false; let useSearchFallback = false; let treePaths = [];
+            try {
+              const ref = await github.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: 'heads/main' });
+              const commit = await github.rest.git.getCommit({ owner: context.repo.owner, repo: context.repo.repo, commit_sha: ref.data.object.sha });
+              const rootTree = await github.rest.git.getTree({ owner: context.repo.owner, repo: context.repo.repo, tree_sha: commit.data.tree.sha });
+              const specsEntry = rootTree.data.tree.find(t => t.path === 'specs' && t.type === 'tree');
+              if (!specsEntry) core.info('No specs/ directory found — parent has no spec');
+              else {
+                const specsTree = await github.rest.git.getTree({ owner: context.repo.owner, repo: context.repo.repo, tree_sha: specsEntry.sha, recursive: '1' });
+                if (specsTree.data.truncated) { core.info('specs/ subtree truncated — falling back to Search API'); useSearchFallback = true; }
+                else {
+                  treePaths = specsTree.data.tree.filter(t => t.type === 'blob' && t.path.endsWith('/spec.md')).map(t => `specs/${t.path}`);
+                  specFound = matchesParent(parentNumber, treePaths);
+                }
+              }
+            } catch (e) { core.info(`Trees API issue: ${e.message} — trying Search API`); useSearchFallback = true; }
+            if (useSearchFallback) {
+              try {
+                const collectedPaths = [];
+                for (let page = 1; page <= 10 && !specFound; page++) {
+                  const result = await github.rest.search.code({ q: `filename:spec.md path:specs/ repo:${repoFull}`, per_page: 100, page });
+                  const searchPaths = result.data.items.map(i => i.path); collectedPaths.push(...searchPaths); specFound = matchesParent(parentNumber, collectedPaths);
+                  if (result.data.incomplete_results && !specFound) { failOpen('Search API returned incomplete_results — fail-open'); return; }
+                  if (searchPaths.length < 100) break;
+                  if (page === 10 && !specFound) { failOpen('Search API hit 1000-result cap — fail-open'); return; }
+                }
+              } catch (e) { failOpen(`Search API also failed (fail-open): ${e.message}`); return; }
+            }
+            if (specFound) { core.info(`Parent #${parentNumber} spec directory found — proceeding`); core.setOutput('proceed', 'true'); return; }
+            core.info(`Parent #${parentNumber} has no spec directory — blocking`); core.setOutput('proceed', 'false'); core.setOutput('parent_number', String(parentNumber));
+            if ('${{ vars.SPECKIT_COMMENT_ON_ISSUE }}' !== 'false') {
+              const body = ['✋ **SpecKit: Parent issue must be specked first**', '', `This issue (#${issueNumber}) is a sub-issue of #${parentNumber}, which has not been processed by SpecKit yet. Please add the \`speckit\` label to #${parentNumber} first and wait for it to complete before re-triggering this issue.`, '', '---', `_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`].join('\n');
+              try { await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, body }); } catch (e) { core.warning(`Failed to post rejection comment: ${e.message}`); }
+            }
+            const triggerLabel = context.payload.label?.name || process.env.TRIGGER_LABEL || 'speckit';
+            const removeLabel = async (name, kind) => { try { await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, name }); } catch (e) { if (e.status !== 404) core.warning(`Remove ${kind} label: ${e.message}`); } };
+            if (triggerLabel) await removeLabel(triggerLabel, 'trigger');
+            await removeLabel('speckit:processing', 'processing');
+            try { await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: 'speckit:blocked' }); }
+            catch (e) {
+              if (e.status === 404) { try { await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: 'speckit:blocked', color: 'd93f0b', description: 'Blocked: parent issue must be specked first' }); } catch (ce) { if (ce.status !== 422) core.warning(`Create speckit:blocked label: ${ce.message}`); } }
+              else core.warning(`Get speckit:blocked label: ${e.message}`);
+            }
+            try { await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, labels: ['speckit:blocked'] }); } catch (e) { core.warning(`Add speckit:blocked label: ${e.message}`); }
+
+      - name: Resolve Hierarchy Level
+        id: hierarchy
+        if: steps.parent-check.outputs.proceed == 'true' && steps.cloud-inflight.outputs.already != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.issue?.number || Number.parseInt('${{ inputs.issue_number }}' || '0', 10);
+            let level = 'unknown';
+            let ambiguous = false, canonicalMetadataFailed = false, resolvedSpecDir = '';
+            const normalizeHierarchyLevel = (value) => {
+              const normalized = String(value || '').trim().toLowerCase();
+              return ['epic', 'feature', 'task'].includes(normalized) ? normalized : '';
+            };
+            const hierarchyLevelPattern = /^level:[ \t]*(?:"([^"]*)"|'([^']*)'|([^#"'\n]*?))(?:[ \t]+#.*)?[ \t]*$/gm;
+            const rawLevelDeclPattern = /^level:/gm;
+            let authoritativeLevel = '', authoritativeConflict = false;
+            try {
+              const { data: issue } = await github.rest.issues.get({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber
+              });
+              const issueValues = [
+                ...(issue.labels || []).map(label => label.name),
+                issue.type?.name
+              ].filter(value => typeof value === 'string').map(value => value.trim().toLowerCase());
+              const nonEpicLevels = ['task', 'feature'].filter(l => issueValues.includes(l));
+              if (nonEpicLevels.length > 1) { core.warning(`Issue #${issueNumber} has conflicting authoritative levels: ${nonEpicLevels.join(', ')}; treating as unknown`); authoritativeConflict = true; }
+              authoritativeLevel = issueValues.includes('epic') ? 'epic' : nonEpicLevels.length === 1 ? nonEpicLevels[0] : '';
+
+              const ref = await github.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: 'heads/main' });
+              const commit = await github.rest.git.getCommit({ owner: context.repo.owner, repo: context.repo.repo, commit_sha: ref.data.object.sha });
+              const rootTree = await github.rest.git.getTree({ owner: context.repo.owner, repo: context.repo.repo, tree_sha: commit.data.tree.sha });
+              const specsEntry = rootTree.data.tree.find(t => t.path === 'specs' && t.type === 'tree');
+              if (specsEntry) {
+                const specsTree = await github.rest.git.getTree({ owner: context.repo.owner, repo: context.repo.repo, tree_sha: specsEntry.sha, recursive: '1' });
+                if (specsTree.data.truncated) { core.warning('specs/ tree listing was truncated while resolving hierarchy level; using unknown'); level = authoritativeLevel === 'epic' ? 'epic' : 'unknown'; } else {
+                  const candidates = specsTree.data.tree.filter(entry => {
+                    if (entry.type !== 'blob' || !entry.path.endsWith('/hierarchy.yml')) return false;
+                    const parts = entry.path.split('/');
+                    const dirName = parts[parts.length - 2];
+                    return dirName === String(issueNumber) || dirName.startsWith(`${issueNumber}-`);
+                  }).sort((a, b) => a.path.localeCompare(b.path));
+                  if (candidates.length > 1) { core.warning(`Multiple hierarchy.yml files found for issue #${issueNumber}; using unknown: ${candidates.map(entry => entry.path).join(', ')}`); ambiguous = true; } else if (candidates.length === 1) {
+                    resolvedSpecDir = candidates[0].path.replace(/\/hierarchy\.yml$/, '');
+                    const blob = await github.rest.git.getBlob({
+                      owner: context.repo.owner, repo: context.repo.repo, file_sha: candidates[0].sha
+                    });
+                    const content = Buffer.from(blob.data.content, 'base64').toString('utf-8');
+                    const matches = [...content.matchAll(hierarchyLevelPattern)];
+                    const rawLevelCount = content.match(rawLevelDeclPattern)?.length || 0;
+                    const canonicalLevel = matches.length === 1 ? normalizeHierarchyLevel(matches[0].slice(1).find(group => group !== undefined)) : '';
+                    if (rawLevelCount !== 1 || matches.length !== 1 || !canonicalLevel) {
+                      core.warning(`Hierarchy metadata for issue #${issueNumber} is missing, malformed, or duplicated; using unknown`);
+                      canonicalMetadataFailed = true;
+                    } else {
+                      level = canonicalLevel;
+                    }
+                  }
+                  if (authoritativeLevel === 'epic') {
+                    level = 'epic';
+                  } else if (authoritativeConflict) { level = 'unknown'; } else if (canonicalMetadataFailed) {
+                    // Malformed or duplicated hierarchy file; do not fall back to weaker sources (level stays 'unknown')
+                  } else if (!ambiguous && level !== 'unknown' && authoritativeLevel && level !== authoritativeLevel) {
+                    core.warning(`Issue #${issueNumber} hierarchy metadata conflicts with authoritative level; using unknown`);
+                    level = 'unknown';
+                  } else if (!ambiguous && level === 'unknown' && authoritativeLevel) {
+                    level = authoritativeLevel;
+                  }
+                }
+              } else if (authoritativeLevel) {
+                level = authoritativeLevel;
+              }
+            } catch (e) { core.warning(`Could not resolve hierarchy level; using unknown: ${e.message}`); if (authoritativeLevel === 'epic') { level = 'epic'; } }
+            core.setOutput('hierarchy_level', level);
+            core.setOutput('spec_dir', resolvedSpecDir);
+            core.info(`Hierarchy level: ${level}`);
+
+      - name: Dispatch Phase Progression
+        if: steps.parent-check.outputs.proceed == 'true' && steps.cloud-inflight.outputs.already != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          HIERARCHY_LEVEL: ${{ steps.hierarchy.outputs.hierarchy_level }}
+          SPEC_DIR: ${{ steps.hierarchy.outputs.spec_dir }}
+        run: |
+          if [[ -z "$ISSUE_NUMBER" || "$ISSUE_NUMBER" == "0" ]]; then
+            echo "::error::Could not determine issue number"
+            exit 1
+          fi
+          ENGINE="${{ steps.engine.outputs.value }}"
+          PHASE=1
+          if [[ "$ENGINE" == "cloud-agent" && "$HIERARCHY_LEVEL" == "task" ]]; then PHASE=3; fi
+          gh api \
+            --method POST \
+            "/repos/${{ github.repository }}/actions/workflows/speckit-phase-progression.yml/dispatches" \
+            -f ref=main \
+            -f "inputs[issue_number]=$ISSUE_NUMBER" \
+            -f "inputs[phase]=$PHASE" \
+            -f "inputs[hierarchy_level]=$HIERARCHY_LEVEL" \
+            -f "inputs[spec_dir]=$SPEC_DIR"
+
+      - name: Handle Failure (Comment + Label)
+        if: failure() && steps.parent-check.outputs.proceed != 'false'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER_INPUT: ${{ inputs.issue_number || '' }}
+          TRIGGER_LABEL: ${{ vars.SPECKIT_TRIGGER_LABEL || 'speckit' }}
+        with:
+          script: |
+            const dispatchIssueNumber = Number.parseInt(process.env.ISSUE_NUMBER_INPUT || '0', 10);
+            const issueNumber = context.payload.issue?.number || (Number.isFinite(dispatchIssueNumber) ? dispatchIssueNumber : 0);
+            if (!issueNumber) return;
+            const triggerLabel = process.env.TRIGGER_LABEL || 'speckit';
+            const retriggerLabelInstructions = triggerLabel === 'speckit' ? `3. You can re-trigger by removing the \`speckit:failed\` label and re-adding the \`speckit\` label, or use the **workflow_dispatch** trigger on the [SpecKit Phase Progression workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml)` : `3. You can re-trigger by removing the \`speckit:failed\` label and re-adding the \`${triggerLabel}\` label (legacy: \`speckit\`), or use the **workflow_dispatch** trigger on the [SpecKit Phase Progression workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/speckit-phase-progression.yml)`;
+            const body = `## ❌ SpecKit: Trigger Failed\n\nAn error occurred while dispatching the SpecKit workflow.\n\n**Workflow Run**: [View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n\n### Troubleshooting\n\n1. Check the workflow logs for detailed error messages\n2. Verify that the workflow has \`permissions: actions: write\`, that Actions are enabled in repository settings, and that the target workflow file name/path is correct\n${retriggerLabelInstructions}\n\n---\n_This comment was posted by the [SpecKit GitHub Action](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})._`;
+            const commentOnIssue = '${{ vars.SPECKIT_COMMENT_ON_ISSUE }}' !== 'false';
+            if (commentOnIssue) { try { await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, body }); } catch (e) { console.log('Could not post failure comment:', e.message); } }
+            try { await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, labels: ['speckit:failed'] }); } catch (e) { console.log('Could not add speckit:failed label:', e.message); }
+            try { await github.rest.issues.removeLabel({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, name: 'speckit:processing' }); } catch { /* Label may not exist */ }

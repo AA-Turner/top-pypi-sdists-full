@@ -425,6 +425,17 @@ class TestDocuments:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    def test_method_list_processing_with_all_params(self, client: Supermemory) -> None:
+        document = client.documents.list_processing(
+            container_tags="user_123,sm_project_default",
+            limit="50",
+            page="1",
+            view="all",
+        )
+        assert_matches_type(DocumentListProcessingResponse, document, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     def test_raw_response_list_processing(self, client: Supermemory) -> None:
         response = client.documents.with_raw_response.list_processing()
 
@@ -900,6 +911,17 @@ class TestAsyncDocuments:
     @parametrize
     async def test_method_list_processing(self, async_client: AsyncSupermemory) -> None:
         document = await async_client.documents.list_processing()
+        assert_matches_type(DocumentListProcessingResponse, document, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_list_processing_with_all_params(self, async_client: AsyncSupermemory) -> None:
+        document = await async_client.documents.list_processing(
+            container_tags="user_123,sm_project_default",
+            limit="50",
+            page="1",
+            view="all",
+        )
         assert_matches_type(DocumentListProcessingResponse, document, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")

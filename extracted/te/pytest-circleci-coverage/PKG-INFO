@@ -1,0 +1,58 @@
+Metadata-Version: 2.4
+Name: pytest_circleci_coverage
+Version: 0.2.247
+Summary:  Pytest plugin that works with pytest-cov to generate coverage data for CircleCI's Smarter Testing
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 4 - Beta
+Classifier: Topic :: Software Development :: Testing
+Requires-Dist: coverage>=7.10
+Requires-Dist: import-deps>=0.5.1
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/CircleCI-Public/smarter-testing-plugins
+Project-URL: Issues, https://github.com/CircleCI-Public/smarter-testing-plugins/issues
+Description-Content-Type: text/markdown
+
+# pytest-circleci-coverage
+
+A pytest plugin that works with pytest-cov to generate coverage data for CircleCI's Smarter Testing.
+
+## Usage
+
+Install the plugin via git.
+
+```shell
+python -m pip install pytest-circleci-coverage
+```
+
+Install [pytest-cov](https://pypi.org/project/pytest-cov/).
+
+Run pytest with coverage and the `--circleci-coverage` flag to generate coverage JSON.
+
+```shell
+pytest --cov --cov-context=test --circleci-coverage=coverage.json
+```
+
+## Development
+
+### Running tests
+
+Install the plugin locally in editable mode.
+
+```shell
+pip install --editable .
+```
+
+Run tests.
+
+```shell
+pytest
+```
+
+To generate the coverage.json, used in the CI integration test.
+
+```shell
+circleci testsuite "integration test" --local --analyze-tests="all" && cat coverage.json | jq --sort-keys > coveragetmp.json && mv coveragetmp.json coverage.json
+```

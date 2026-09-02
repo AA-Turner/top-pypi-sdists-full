@@ -25,15 +25,17 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.services.contract.v1 import contract_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_contract__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n_sentry_protos/billing/v1/services/contract/v1/endpoint_get_all_contracts_for_organization.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a<sentry_protos/billing/v1/services/contract/v1/contract.proto\"@\n%GetAllContractsForOrganizationRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\"t\n&GetAllContractsForOrganizationResponse\x12J\n\tcontracts\x18\x01 \x03(\x0b\x32\x37.sentry_protos.billing.v1.services.contract.v1.Contractb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n_sentry_protos/billing/v1/services/contract/v1/endpoint_get_all_contracts_for_organization.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a<sentry_protos/billing/v1/services/contract/v1/contract.proto\"@\n%GetAllContractsForOrganizationRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\"\x8e\x01\n&GetAllContractsForOrganizationResponse\x12J\n\tcontracts\x18\x01 \x03(\x0b\x32\x37.sentry_protos.billing.v1.services.contract.v1.Contract\x12\x18\n\x0c\x63ontract_ids\x18\x02 \x03(\x04\x42\x02\x18\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.endpoint_get_all_contracts_for_organization_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_GETALLCONTRACTSFORORGANIZATIONRESPONSE'].fields_by_name['contract_ids']._loaded_options = None
+  _globals['_GETALLCONTRACTSFORORGANIZATIONRESPONSE'].fields_by_name['contract_ids']._serialized_options = b'\030\001'
   _globals['_GETALLCONTRACTSFORORGANIZATIONREQUEST']._serialized_start=208
   _globals['_GETALLCONTRACTSFORORGANIZATIONREQUEST']._serialized_end=272
-  _globals['_GETALLCONTRACTSFORORGANIZATIONRESPONSE']._serialized_start=274
-  _globals['_GETALLCONTRACTSFORORGANIZATIONRESPONSE']._serialized_end=390
+  _globals['_GETALLCONTRACTSFORORGANIZATIONRESPONSE']._serialized_start=275
+  _globals['_GETALLCONTRACTSFORORGANIZATIONRESPONSE']._serialized_end=417
 # @@protoc_insertion_point(module_scope)

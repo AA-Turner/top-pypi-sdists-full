@@ -1,0 +1,326 @@
+from enum import Enum, IntEnum, auto, unique
+
+FW_URL = "https://updates.smlight.tech/services/api/slzb-06x-ota.php"
+
+MODE_LIST: dict[int, str] = {
+    0: "eth",
+    1: "wifi",
+    2: "usb",
+    3: "ppp",
+}
+
+PARAM_LIST: list[str] = [
+    "coordMode",
+    "zbRev",
+    "espRev",
+    "inetState",
+    "locale",
+    "newIpAvaiable",
+]
+
+
+@unique
+class Actions(Enum):
+    API_GET_PAGE = 0
+    API_GET_PARAM = 1
+    API_STARTWIFISCAN = 2
+    API_SEND_HEX = 3
+    API_CMD = 4
+    API_GET_LOG = 5
+    API_FLASH_ZB = 6
+    API_WIFICONNECTSTAT = 7
+    API_FLASH_ESP = 8
+    API_ZHUB = 9
+    API_DEV = 10
+    API_SCRIPT = 11
+    API_IR = 12
+    API_BUZZER = 13
+    API_FILEMANAGER = 14
+    API_BEAPP = 15
+    API_WRITE_RADIO_INFO = 16
+    API_SCRIPT_INTEGRATIONS = 17
+    API_AI = 18
+    API_AUDIO = 19
+
+
+@unique
+class Commands(Enum):
+    CMD_ZB_ROUTER_RECON = 0
+    CMD_ZB_RST = 1
+    CMD_ZB_BSL = 2
+    CMD_ESP_RES = 3
+    CMD_CLEAR_LOG = 4
+    CMD_ZB_ENERGY_SCAN = 5
+    CMD_ZB_LED_NETWORK = 6
+    CMD_ZB_LED_PERMIT = 7
+    CMD_ZB_LED_DISABLED = 8
+    CMD_HARD_RESET = 9
+    CMD_TEMP_CALIB = 10
+    CMD_ZB_IEEE_WRITE = 11
+    CMD_ZB_IEEE_READ_FACTORY = 12
+    CMD_WHTNW_MARK_READ = 13
+    CMD_ZB_IEEE_READ_CUR = 14
+
+
+@unique
+class Pages(IntEnum):
+    API2_PAGE_DASHBOARD = 0
+    API2_PAGE_MODE = 1
+    API2_PAGE_NETWORK = 2
+    API2_PAGE_ZHA_Z2M = 3
+    API2_PAGE_SECURITY = 4
+    API2_PAGE_VPN = 5
+    API2_PAGE_SETTINGS_GENERAL = 6
+    API2_PAGE_SETTINGS_OTA = 7
+    API2_PAGE_SETTINGS_LED = 8
+    API2_PAGE_SETTINGS_TIME = 9
+    API2_PAGE_SETTINGS_SYSTEM_LOG = 10
+    API2_PAGE_ABOUT = 11
+    API2_PAGE_FEEDBACK = 12
+    API2_PAGE_ZHUB_DEVICES = 13
+    API2_PAGE_ZHUB_DASHBOARD = 14
+    API2_PAGE_ZHUB_CONFIG = 15
+    API2_PAGE_SCRIPT = 16
+    API2_PAGE_ZHUB_MQTT = 17
+    API2_PAGE_DDNS = 18
+    API2_PAGE_USB = 19
+    API2_PAGE_LTE = 20
+    API2_PAGE_AMBILIGHT = 21
+    API2_PAGE_IR = 22
+    API2_PAGE_BUZZER = 23
+    API2_PAGE_MQTT_API = 24
+    API2_PAGE_APPS = 25
+    API2_PAGE_OBD = 26
+    API2_PAGE_SCRIPT_INTEGRATIONS = 27
+    API2_PAGE_OTBR = 28
+    API2_PAGE_AI_ASSISTANT = 29
+    API2_PAGE_ZHUB_BACKUP_RESTORE = 30
+    API2_PAGE_BACKUP_RESTORE = 31
+    API2_PAGE_BLE = 32
+
+
+Devices: dict[str, int] = {
+    "SLZB-06": 0,
+    "SLZB-06M": 1,
+    "SLZB-06Mg24": 2,
+    "SLZB-06p7": 3,
+    "SLZB-06p10": 4,
+    "SLZB-06p7V2": 5,
+    "SLZB-MR1": 6,
+    "SLZB-MR2": 10,
+    "SLZB-MR3": 11,
+    "SLZB-MRW10": 12,
+    "SLZB-06Mg26": 13,
+    "SLZB-MR4": 14,
+    "SLZB-MR1U": 15,
+    "SLZB-06U": 16,
+    "SLZB-06p7U": 17,
+    "SLZB-06p10U": 18,
+    "SLZB-06MU": 19,
+    "SLZB-06Mg24U": 20,
+    "SLZB-06Mg26U": 21,
+    "SLZB-MR2U": 22,
+    "SLZB-MR3U": 23,
+    "SLZB-MR4U": 24,
+    "SLZB-MRW10U": 25,
+    "SLZB-Ultima4": 26,
+    "SLZB-Ultima3": 27,
+    "SLZB-MR5U": 28,
+    "SMHUB-MG21": 65,
+    "SMHUB-CCP1": 66,
+    "SMHUB-MG24": 67,
+    "SMHUB-MG26": 68,
+    "SMHUB-CCP7": 69,
+    "SMHUB-CCP10": 70,
+    "SMHUB-ZG23": 71,
+    "SMHUB-MG301": 72,
+}
+
+
+class UDevices(Enum):
+    """
+    Represent devices based on ESP32-S3 core.
+
+    Only required if model id does not have "U" suffix. Model id should match "Devices" dict.
+    """
+
+    SLZB_Ultima4 = 26
+    SLZB_Ultima3 = 27
+
+
+PERIPHERAL_MODELS: tuple[str, ...] = ("Ultima",)
+
+# Map radio's for MRx/U devices
+MR_DEVICE_RADIO_MAP: dict[str, tuple[str, ...]] = {
+    "SLZB-MR1": ("SLZB-06M", "SLZB-06p7V2"),
+    "SLZB-MR2": ("SLZB-06M", "SLZB-06"),
+    "SLZB-MR3": ("SLZB-06Mg24", "SLZB-06p10"),
+    "SLZB-MR3U": ("SLZB-MR3U", "SLZB-06p10"),
+    "SLZB-MR4": ("SLZB-06Mg26", "SLZB-06p10"),
+    "SLZB-MR5U": ("SLZB-MR3U", "SLZB-MR3U"),
+    "SLZB-MRW10": ("SLZB-MRW10", "SLZB-06p10"),
+    "SLZB-MRW10U": ("SLZB-MRW10", "SLZB-06p10"),
+    "SLZB-06p7U": ("SLZB-06p7V2",),
+    "SLZB-Ultima3": ("SLZB-06Mg24", "SLZB-06p10"),
+    "SLZB-Ultima4": ("SLZB-06Mg26", "SLZB-06p10"),
+    "SMHUB-ZG23": ("SLZB-MRW10",),
+}
+
+
+ZB_TYPES: dict[int, str] = {
+    -1: "unknown",
+    0: "coordinator",
+    1: "router",
+    2: "thread",
+    4: "zhub",
+    5: "Zwave-EU",
+    6: "Zwave-US",
+    7: "Zwave-ANZ",
+    8: "otbr",
+}
+
+ZB_CHANNEL: dict[int, str] = {
+    -1: "unknown",
+    0: "stable",
+    1: "dev",
+    2: "custom",  # custom for 06M
+}
+
+
+class Events(Enum):
+    API2_WIFISCANSTATUS = 0
+    ESP_UPD_done = auto()
+    EVENT_INET_STATE = auto()
+    FW_UPD_done = auto()
+    LOG_STR = auto()
+    SAVE_PARAMS = auto()
+    ZB_FW_err = auto()
+    ZB_FW_info = auto()
+    ZB_FW_prgs = auto()
+    ZB_ENERGY_SCAN_DONE = auto()
+    WHTNW = auto()
+    REBOOT = auto()
+    IR_CODE = auto()
+    CATCH_ALL = 99
+
+
+class Settings(Enum):
+    DISABLE_LEDS = (Pages.API2_PAGE_SETTINGS_LED, "disableLeds")
+    NIGHT_MODE = (Pages.API2_PAGE_SETTINGS_LED, "nightMode")
+    ZB_AUTOUPDATE = (Pages.API2_PAGE_SETTINGS_OTA, "enabled")
+    ENABLE_VPN = (Pages.API2_PAGE_VPN, "enabled")
+
+
+class SettingsProp(Enum):
+    DISABLE_LEDS = "disable_leds"
+    NIGHT_MODE = "night_mode"
+    ZB_AUTOUPDATE = "auto_zigbee"
+    ENABLE_VPN = "vpn_enabled"
+
+
+class WifiStatus(Enum):
+    WL_NO_SHIELD = 255  # for compatibility with WiFi Shield library
+    WL_IDLE_STATUS = 0
+    WL_NO_SSID_AVAIL = 1
+    WL_SCAN_COMPLETED = 2
+    WL_CONNECTED = 3
+    WL_CONNECT_FAILED = 4
+    WL_CONNECTION_LOST = 5
+    WL_DISCONNECTED = 6
+
+
+class WifiMode(Enum):
+    WIFI_MODE_NULL = 0  # null mode
+    WIFI_MODE_STA = 1  # WiFi station mode
+    WIFI_MODE_AP = 2  # WiFi soft-AP mode
+    WIFI_MODE_APSTA = 3  # WiFi station + soft-AP mode
+    WIFI_MODE_MAX = 4
+
+
+class PppUSBState(IntEnum):
+    PPP_USB_STATE_IDLE = 0
+    PPP_USB_STATE_STARTING = 1
+    PPP_USB_STATE_CONNECTING = 2
+    PPP_USB_STATE_CONNECTED = 3
+    PPP_USB_STATE_ERROR = 4
+    PPP_USB_STATE_NO_SIGNAL = 5
+
+
+class RebootReasons(IntEnum):
+    ESP_RST_UNKNOWN = 0  # Reset reason can not be determined
+    ESP_RST_POWERON = 1  # Reset due to power-on event
+    ESP_RST_EXT = 2  # Reset by external pin (not applicable for ESP32)
+    ESP_RST_SW = 3  # Software reset via esp_restart
+    ESP_RST_PANIC = 4  # Software reset due to exception/panic
+    ESP_RST_INT_WDT = 5  # Reset (software or hardware) due to interrupt watchdog
+    ESP_RST_TASK_WDT = 6  # Reset due to task watchdog
+    ESP_RST_WDT = 7  # Reset due to other watchdogs
+    ESP_RST_DEEPSLEEP = 8  # Reset after exiting deep sleep mode
+    ESP_RST_BROWNOUT = 9  # Brownout reset (software or hardware)
+    ESP_RST_SDIO = 10  # Reset over SDIO
+
+
+class AmbiEffect(IntEnum):
+    WSULT_SOLID = 0
+    WSULT_OFF = 1
+    WSULT_BLUR = 2
+    WSULT_RAINBOW = 3
+    WSULT_BREATHING = 4
+    WSULT_COLOR_WIPE = 5
+    WSULT_COMET = 6
+    WSULT_FIRE = 7
+    WSULT_TWINKLE = 8
+    WSULT_POLICE = 9
+    WSULT_CHASE = 10
+    WSULT_COLOR_CYCLE = 11
+    WSULT_GRADIENT_SCROLL = 12
+    WSULT_STROBE = 13
+    WSULT_SYS_WARNING = 14
+    WSULT_SYS_ERROR = 15
+    WSULT_SYS_OK = 16
+    WSULT_SYS_INFO = 17
+
+
+AMBI_EFFECT_LIST: list[str] = [
+    "Solid",
+    "Off",
+    "Blur",
+    "Rainbow",
+    "Breathing",
+    "Color Wipe",
+    "Comet",
+    "Fire",
+    "Twinkle",
+    "Police",
+    "Chase",
+    "Color Cycle",
+    "Gradient Scroll",
+    "Strobe",
+    "System Warning",
+    "System Error",
+    "System OK",
+    "System Info",
+]
+
+
+class BleState(IntEnum):
+    BLE_STATE_IDLE = 0
+    BLE_STATE_STARTING = 1
+    BLE_STATE_STARTED = 2
+    BLE_STATE_ERROR = 3
+    BLE_STATE_STOPPING = 4
+    BLE_STATE_STOPPED = 5
+
+
+class BleProxyMode(IntEnum):
+    BLE_PROXY_MODE_PASSIVE = 0
+    BLE_PROXY_MODE_ACTIVE = 1
+
+
+class ProxyAction(IntEnum):
+    PING = 0
+    DISCONNECT = 1
+    ACK = 2
+    DATA = 3
+    SET_SCAN_MODE = 4
+    REQ_ACTIVE_WINDOW = 5

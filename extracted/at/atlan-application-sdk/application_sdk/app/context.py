@@ -1,0 +1,683 @@
+# conformance: ignore[L002] deliberate low-level loguru fallback for the workflow-safe logger's activity path; get_logger (the AtlanLoggerAdapter) would recurse here
+"""Execution context for Apps."""
+
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, TypeVar
+from uuid import uuid4
+
+# Low-level loguru import used only as the activity-context fallback below.
+from loguru import logger as _loguru_logger
+from temporalio import workflow as _workflow
+
+from application_sdk._runtime.offload import run_in_thread
+from application_sdk._runtime.progress import holding_progress
+from application_sdk.app.base_errors import (
+    SecretStoreNotConfiguredError,
+    StateStoreNotConfiguredError,
+)
+from application_sdk.constants import LOCAL_WORKFLOW_ID
+from application_sdk.contracts.base import HeartbeatDetails
+from application_sdk.credentials.resolver import CredentialResolver
+from application_sdk.observability.context import get_execution_context
+from application_sdk.observability.correlation import get_correlation_context
+
+if TYPE_CHECKING:
+    from obstore.store import ObjectStore
+
+    from application_sdk.credentials.ref import CredentialRef
+    from application_sdk.credentials.types import Credential
+    from application_sdk.execution.heartbeat import HeartbeatController
+    from application_sdk.infrastructure.secrets import SecretStore
+    from application_sdk.infrastructure.state import StateStore
+
+T = TypeVar("T")
+HT = TypeVar("HT", bound=HeartbeatDetails)
+
+
+def _utc_now() -> datetime:
+    """Return current UTC time (timezone-aware)."""
+    return datetime.now(UTC)
+
+
+def _is_in_workflow() -> bool:
+    """Check if we're in a Temporal workflow context.
+
+    Returns True only inside workflow code, False in activities or elsewhere.
+    Reads from the ExecutionContext ContextVar — no Temporal import needed.
+    """
+    return get_execution_context().execution_type == "workflow"
+
+
+def _is_atlan_logger(obj: Any) -> bool:
+    """Check if a logger object is our AtlanLoggerAdapter (supports arbitrary kwargs).
+
+    Uses duck-typing to avoid importing AtlanLoggerAdapter here — which could
+    trigger Temporal sandbox restrictions if called from workflow context.
+
+    Stdlib logging.Logger does NOT have these attributes; arbitrary kwargs passed
+    to it will raise TypeError ('unexpected keyword argument').
+    """
+    return hasattr(obj, "process") and hasattr(obj, "logger_name")
+
+
+class _WorkflowSafeLogger:
+    """A logger wrapper that works in both workflow and activity contexts.
+
+    In workflow context: Uses workflow.logger (deterministic).
+    In activity context: Uses loguru (activities run outside workflow event loop).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        app_name: str,
+        run_id: str,
+        correlation_id: str,
+    ) -> None:
+        self._name = name
+        self._context = {
+            "app_name": app_name,
+            "run_id": run_id,
+            "correlation_id": correlation_id,
+        }
+        self._structlog_logger: Any = None
+
+    def _get_structlog_logger(self) -> Any:
+        """Get or create the fallback logger (for activity/non-workflow use)."""
+        if self._structlog_logger is None:
+            self._structlog_logger = _loguru_logger.bind(**self._context)
+        return self._structlog_logger
+
+    def _log(self, level: str, message: str, *args: Any, **kwargs: Any) -> None:
+        """Log a message at the specified level.
+
+        Supports both printf-style positional args and keyword context:
+            self.logger.info("Processed %d records", count)
+            self.logger.info("Done", records=count)
+
+        Printf-style args are pre-formatted before being passed to loguru, which
+        uses {} formatting natively. This prevents silent data loss when %s-style
+        args are used (common in AI-generated code and stdlib-style logging).
+        """
+        # Pre-format printf-style args. Try %-substitution; fall through so {}
+        # style args are still handled by loguru.
+        if args:
+            try:
+                message = message % args
+                args = ()
+            # conformance: ignore[E002] %-substitution mismatch; loguru handles {}-style — logging adapter, would recurse
+            except (TypeError, ValueError):
+                pass
+
+        if _is_in_workflow():
+            wf_logger = _workflow.logger
+            log_method = getattr(wf_logger, level)
+
+            if _is_atlan_logger(wf_logger):
+                # AtlanLoggerAdapter: supports arbitrary kwargs natively via
+                # process() → bind(). Pass context + user kwargs as flat fields.
+                merged = {**self._context, **kwargs}
+                log_method(message, *args, **merged)
+            else:
+                # Stdlib logger fallback (e.g., Temporal's default workflow.logger
+                # before the events interceptor module has been imported).
+                # Stdlib Logger._log() only accepts exc_info/extra/stack_info/
+                # stacklevel — arbitrary kwargs cause TypeError. Pack them safely.
+                exc_info = kwargs.pop("exc_info", False)
+                extra = {**self._context, **kwargs}
+                if exc_info:
+                    log_method(message, *args, exc_info=exc_info, extra=extra)
+                else:
+                    log_method(message, *args, extra=extra)
+        else:
+            # In activity or elsewhere: use loguru.
+            # Dynamically fetch correlation_id from the v3 ContextVar — the
+            # value frozen in self._context may be stale (set before the
+            # CorrelationContextInterceptor ran) or empty.
+            if "correlation_id" not in kwargs:
+                try:
+                    v3_ctx = get_correlation_context()
+                    if v3_ctx and v3_ctx.correlation_id:
+                        kwargs = {**kwargs, "correlation_id": v3_ctx.correlation_id}
+                # conformance: ignore[E004] probe for optional correlation context; logged at debug with exc_info by structlog logger
+                except Exception:
+                    self._get_structlog_logger().debug(
+                        "Failed to resolve v3 correlation context for log enrichment",
+                        exc_info=True,
+                    )
+            logger = self._get_structlog_logger()
+            log_method = getattr(logger, level)
+            log_method(message, *args, **kwargs)
+
+    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Log a debug message."""
+        self._log("debug", message, *args, **kwargs)
+
+    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Log an info message."""
+        self._log("info", message, *args, **kwargs)
+
+    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Log a warning message."""
+        self._log("warning", message, *args, **kwargs)
+
+    def error(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Log an error message."""
+        self._log("error", message, *args, **kwargs)
+
+    def bind(self, **kwargs: Any) -> "_WorkflowSafeLogger":
+        """Create a new logger with additional context bound."""
+        new_logger = _WorkflowSafeLogger(
+            self._name,
+            self._context["app_name"],
+            self._context["run_id"],
+            self._context["correlation_id"],
+        )
+        new_logger._context = {**self._context, **kwargs}
+        return new_logger
+
+
+@dataclass
+class AppMetadata:
+    """Typed metadata for App execution context.
+
+    Provides structured metadata storage instead of arbitrary dict[str, Any].
+    """
+
+    tags: list[str] = field(default_factory=list)
+    """Tags for categorizing or filtering app executions."""
+
+    properties: dict[str, str] = field(default_factory=dict)
+    """String key-value properties for custom metadata."""
+
+
+@dataclass
+class AppContext:
+    """Execution context passed to Apps during execution.
+
+    Provides:
+    - Run identification (run_id, app_name, correlation_id)
+    - Access to infrastructure (state, secrets) via abstractions
+    - Observability hooks (logging, tracing)
+    - Cancellation checking
+
+    This context is created by the execution layer and passed to Apps.
+    Apps should not create contexts directly.
+    """
+
+    app_name: str
+    app_version: str
+    run_id: str = field(default_factory=lambda: str(uuid4()))
+    workflow_id: str = field(default=LOCAL_WORKFLOW_ID)
+    correlation_id: str = field(default="")
+    parent_run_id: str | None = None
+    started_at: datetime = field(default_factory=_utc_now)
+    metadata: AppMetadata = field(default_factory=AppMetadata)
+    execution_id_prefix: str = field(default="")
+
+    # These are set by the execution layer, not by users
+    _state_store: "StateStore | None" = field(default=None, repr=False)
+    _secret_store: "SecretStore | None" = field(default=None, repr=False)
+    _storage: "ObjectStore | None" = field(default=None, repr=False)
+    _upstream_storage: "ObjectStore | None" = field(default=None, repr=False)
+    _logger: Any = field(default=None, repr=False)
+    _cancelled: bool = field(default=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.workflow_id:
+            raise ValueError(
+                "AppContext.workflow_id must not be empty; "
+                "pass the Temporal workflow ID or 'local-no-temporal' for tests/local runs"
+            )
+        if not self.correlation_id:
+            self.correlation_id = str(self.run_id)
+
+    @property
+    def run_id_str(self) -> str:
+        """Run ID as string (alias for run_id, kept for compatibility)."""
+        return self.run_id
+
+    @property
+    def logger(self) -> Any:
+        """Get a logger bound to this app context.
+
+        The logger automatically includes app_name, run_id, and correlation_id
+        in all log messages.
+
+        This logger is safe to use in both Temporal workflows and local execution:
+        - In Temporal: Uses workflow.logger (deterministic, no OTel imports)
+        - Outside Temporal: Uses loguru with full OTel integration
+
+        Returns:
+            Bound logger instance that supports debug/info/warning/error methods.
+        """
+        if self._logger is None:
+            self._logger = _WorkflowSafeLogger(
+                name=f"app.{self.app_name}",
+                app_name=self.app_name,
+                run_id=self.run_id_str,
+                correlation_id=self.correlation_id,
+            )
+        return self._logger
+
+    def is_cancelled(self) -> bool:
+        """Check if execution has been cancelled.
+
+        Apps should check this periodically during long-running operations
+        and exit gracefully if True.
+        """
+        return self._cancelled
+
+    async def save_state(self, key: str, value: dict[str, Any]) -> None:
+        """Save state to the state store.
+
+        Args:
+            key: State key (will be namespaced to this app/run).
+            value: State data to save.
+
+        Raises:
+            StateStoreNotConfiguredError: If no state store is configured.
+        """
+        if self._state_store is None:
+            raise StateStoreNotConfiguredError()
+        namespaced_key = f"{self.app_name}:{self.run_id}:{key}"
+        await self._state_store.save(namespaced_key, value)
+
+    async def load_state(self, key: str) -> dict[str, Any] | None:
+        """Load state from the state store.
+
+        Args:
+            key: State key (will be namespaced to this app/run).
+
+        Returns:
+            The saved state or None if not found.
+
+        Raises:
+            StateStoreNotConfiguredError: If no state store is configured.
+        """
+        if self._state_store is None:
+            raise StateStoreNotConfiguredError()
+        namespaced_key = f"{self.app_name}:{self.run_id}:{key}"
+        return await self._state_store.load(namespaced_key)
+
+    async def get_secret(self, name: str) -> str:
+        """Get a secret by name from the secret store.
+
+        Args:
+            name: Secret name.
+
+        Returns:
+            The secret value.
+
+        Raises:
+            SecretStoreNotConfiguredError: If no secret store is configured.
+        """
+        if self._secret_store is None:
+            raise SecretStoreNotConfiguredError()
+        return await self._secret_store.get(name)
+
+    async def get_secret_optional(self, name: str) -> str | None:
+        """Get a secret by name, returning None if not found or not configured.
+
+        Args:
+            name: Secret name.
+
+        Returns:
+            The secret value, or None if not found or not configured.
+        """
+        if self._secret_store is None:
+            return None
+        return await self._secret_store.get_optional(name)
+
+    @property
+    def storage(self) -> "ObjectStore | None":
+        """Object store for this context, or ``None`` if not configured.
+
+        Use with the streaming storage API::
+
+            from application_sdk.storage import upload_file, download_file
+
+            sha256 = await upload_file("output/result.json", local_path, self.context.storage)
+            await download_file("input/data.parquet", local_path, self.context.storage)
+        """
+        return self._storage
+
+    @property
+    def upstream_storage(self) -> "ObjectStore | None":
+        """Upstream object store, or ``None`` if not configured.
+
+        Present only in SDR deployments where ``UPSTREAM_OBJECT_STORE_NAME`` is
+        bound to a separate Dapr component pointing at Atlan's bucket.  In
+        standard (non-SDR) deployments this is ``None`` and ``App.upload()``
+        falls back to ``storage`` (the deployment store).
+        """
+        return self._upstream_storage
+
+    def log_debug(self, message: str, **kwargs: Any) -> None:
+        """Log a debug message."""
+        self.logger.debug(message, **kwargs)
+
+    def log_info(self, message: str, **kwargs: Any) -> None:
+        """Log an info message."""
+        self.logger.info(message, **kwargs)
+
+    def log_warning(self, message: str, **kwargs: Any) -> None:
+        """Log a warning message."""
+        self.logger.warning(message, **kwargs)
+
+    async def resolve_credential(self, ref: "CredentialRef") -> "Credential":
+        """Resolve a CredentialRef to a typed Credential.
+
+        Args:
+            ref: The CredentialRef to resolve.
+
+        Returns:
+            A typed Credential instance.
+
+        Raises:
+            SecretStoreNotConfiguredError: If no secret store is configured.
+            CredentialNotFoundError: If the credential cannot be found.
+            CredentialParseError: If parsing fails.
+        """
+        if self._secret_store is None:
+            raise SecretStoreNotConfiguredError()
+        resolver = CredentialResolver(self._secret_store)
+        return await resolver.resolve(ref)
+
+    async def resolve_credential_raw(self, ref: "CredentialRef") -> dict[str, Any]:
+        """Resolve a CredentialRef to a raw dict (for legacy client compat).
+
+        Args:
+            ref: The CredentialRef to resolve.
+
+        Returns:
+            The raw credential data as a dict.
+
+        Raises:
+            SecretStoreNotConfiguredError: If no secret store is configured.
+        """
+        if self._secret_store is None:
+            raise SecretStoreNotConfiguredError()
+        resolver = CredentialResolver(self._secret_store)
+        return await resolver.resolve_raw(ref)
+
+    def log_error(self, message: str, **kwargs: Any) -> None:
+        """Log an error message."""
+        self.logger.error(message, **kwargs)
+
+
+@dataclass
+class ChildAppContext:
+    """Context for calling child Apps from within a parent App.
+
+    Created via AppContext.child() to maintain correlation.
+    """
+
+    parent: AppContext
+    child_app_name: str
+
+    @property
+    def correlation_id(self) -> str:
+        """Inherit correlation ID from parent."""
+        return self.parent.correlation_id
+
+    @property
+    def parent_run_id(self) -> str:
+        """Parent's run ID for tracing."""
+        return self.parent.run_id
+
+
+@dataclass
+class TaskExecutionContext:
+    """Execution context available during @task method execution.
+
+    Provides heartbeat support for long-running tasks:
+    - heartbeat(): Send manual heartbeats with progress details
+    - get_last_heartbeat_details(): Get last heartbeat for resume on retry
+    - run_in_thread(): Run blocking operations without breaking heartbeats
+    - holding_progress(): Vouch for one opaque call the SDK cannot see into,
+      so the stall watchdog does not read it as a stall
+
+    This context is only available inside @task methods, not in run().
+    Access via self.task_context in your task methods.
+
+    Example::
+
+        @task(timeout_seconds=3600)
+        async def process_large_dataset(self, input: ProcessInput) -> ProcessOutput:
+            # Resume from last heartbeat on retry
+            last = self.task_context.get_last_heartbeat_details()
+            start_index = last[0] if last else 0
+
+            for i, record in enumerate(records[start_index:], start=start_index):
+                await process_record(record)
+                if i % 100 == 0:
+                    self.task_context.heartbeat(i, len(records))
+
+            return ProcessOutput(processed_count=len(records))
+    """
+
+    app_context: AppContext
+    """The parent app's execution context."""
+
+    task_name: str
+    """Name of the task being executed."""
+
+    heartbeat_controller: "HeartbeatController"
+    """Controller for heartbeat operations."""
+
+    def heartbeat(self, *details: Any) -> None:
+        """Send a heartbeat with optional progress details.
+
+        Call this periodically during long-running operations to signal
+        the activity is still alive. Include progress information to
+        enable resuming from the last checkpoint on retry.
+
+        IMPORTANT: If heartbeating is disabled (heartbeat_timeout_seconds=None),
+        this is a no-op.
+
+        A manual beat also **marks progress** for the stall watchdog
+        (ADR-0018), under the label ``task.heartbeat``. That is the third of the
+        three progress mechanisms, and the one an author reaches for in a custom
+        loop the SDK cannot see into — a loop that beats every iteration needs no
+        hold.
+
+        Args:
+            *details: Serializable progress details (e.g., index, count).
+                These are stored by Temporal and available via
+                get_last_heartbeat_details() if the activity is retried.
+
+        Example::
+
+            for i, record in enumerate(records):
+                process(record)
+                if i % 100 == 0:
+                    self.task_context.heartbeat(i, len(records))
+        """
+        # Marked here rather than inside the controller for two reasons. It must
+        # count on a task with heartbeating disabled
+        # (``heartbeat_timeout_seconds=None``), where the controller is a no-op
+        # and the stall watchdog is the *only* thing bounding a wedged attempt.
+        # And it must be this call, never ``heartbeat_keepalive`` — the keepalive
+        # is unconditional, so treating it as progress would make every attempt
+        # permanently look like it was progressing.
+        from application_sdk.execution.progress import (  # noqa: PLC0415 — circular: execution/__init__.py loads _temporal which imports app.base
+            current_progress_tracker,
+        )
+
+        current_progress_tracker().mark_progress("task.heartbeat")
+        self.heartbeat_controller.heartbeat(*details)
+
+    def get_last_heartbeat_details(self) -> tuple[Any, ...]:
+        """Get details from last heartbeat (for resume on retry).
+
+        When an activity is retried after failure, this returns the
+        details from the last successful heartbeat. Use this to resume
+        processing from where you left off.
+
+        Returns:
+            Tuple of details from last heartbeat, or empty tuple if none.
+
+        Example::
+
+            last = self.task_context.get_last_heartbeat_details()
+            start_index = last[0] if last else 0
+            for i, record in enumerate(records[start_index:], start=start_index):
+                ...
+        """
+        return self.heartbeat_controller.get_last_heartbeat_details()
+
+    def get_heartbeat_details(self, cls: type[HT]) -> HT | None:
+        """Get last heartbeat details deserialized as a typed dataclass.
+
+        Prefer this over get_last_heartbeat_details() when using
+        HeartbeatDetails subclasses. It handles the dict->dataclass
+        reconstruction needed because Temporal deserializes heartbeat
+        payloads to plain dicts on retry.
+
+        Only known fields are passed to cls() — extra keys from a newer
+        heartbeat version are silently ignored, and missing keys fall back
+        to their dataclass defaults. This ensures forward and backward
+        compatibility as HeartbeatDetails subclasses evolve.
+
+        Args:
+            cls: HeartbeatDetails subclass to deserialize into.
+
+        Returns:
+            An instance of cls with values from the last heartbeat,
+            or None if no heartbeat was recorded.
+
+        Example::
+
+            last = self.task_context.get_heartbeat_details(LoadTypeHeartbeat)
+            start_chunk = last.chunk_idx if last else 0
+        """
+        raw = self.heartbeat_controller.get_last_heartbeat_details()
+        if not raw:
+            return None
+        detail = raw[0]
+        if isinstance(detail, cls):
+            # Local/test execution: NoopHeartbeatController returns the actual instance
+            return detail
+        if isinstance(detail, dict):
+            # Temporal deserializes heartbeat payloads to plain dicts on retry.
+            # Filter to known fields for forward/backward compatibility.
+            known = set(cls.model_fields)
+            return cls(**{k: v for k, v in detail.items() if k in known})
+        return None
+
+    async def run_in_thread(
+        self, func: Callable[..., T], *args: Any, **kwargs: Any
+    ) -> T:
+        """Last-resort escape hatch: run a blocking function in a thread pool.
+
+        .. warning::
+            **Use only when no async-native alternative exists.** Per ADR-0010,
+            the SDK is async-first. Reach for an async library before reaching
+            for this:
+
+            - HTTP → ``httpx`` / ``aiohttp`` (not ``requests``)
+            - AWS  → ``aioboto3`` / ``aiobotocore`` (not ``boto3``)
+            - Postgres → ``asyncpg`` (not ``psycopg2``)
+            - File I/O → ``aiofiles`` (not blocking ``open()``)
+
+            Many SDK helpers are also already async — ``self.context.storage``,
+            ``self.context.state``, credential resolution. Don't wrap them.
+
+        Only use this wrapper after confirming no async-native alternative
+        exists for the library you're calling. The wrapper exists to keep
+        the event loop responsive for auto-heartbeating; it is not a
+        substitute for using async libraries.
+
+        ContextVars (ObjectStore, logger context, correlation ID, infrastructure
+        handles) are propagated to the worker thread automatically.
+
+        The offload is automatically wrapped in an unbounded progress hold
+        (ADR-0018), so however long the blocking call takes, the stall watchdog
+        never accuses it of stalling. Nothing to do at the call site, and a
+        legitimately long blocking call behaves exactly as it did before the
+        watchdog existed. To bound it instead, wrap the offload in
+        :meth:`holding_progress` with the allowance you would actually let this
+        one call have — a wedged call is then caught at ``timeout`` plus the
+        no-progress budget rather than at the duration backstop::
+
+            async with self.task_context.holding_progress(
+                "full table scan", timeout=7200
+            ):
+                rows = await self.task_context.run_in_thread(cursor.execute, sql)
+
+        **CRITICAL: your blocking code MUST have its own timeout.** Python
+        threads cannot be forcibly killed; a hang here hangs the thread
+        forever.
+
+        Args:
+            func: Blocking function to run. MUST have internal timeout handling.
+            *args: Positional arguments for ``func``.
+            **kwargs: Keyword arguments for ``func``.
+
+        Returns:
+            Result of ``func(*args, **kwargs)``.
+
+        Example::
+
+            # WRONG — boto3 has aioboto3; use that instead.
+            # await self.task_context.run_in_thread(s3.put_object, ...)
+
+            # WRONG — requests has httpx; use that instead.
+            # await self.task_context.run_in_thread(requests.get, url, timeout=30)
+
+        See Also:
+            ``docs/adr/0010-async-first-blocking-code.md`` for full rationale.
+        """
+        return await run_in_thread(func, *args, **kwargs)
+
+    def holding_progress(
+        self, label: str, *, timeout: float | None
+    ) -> AbstractAsyncContextManager[None]:
+        """Vouch for one opaque operation for as long as you would let it run.
+
+        Pauses the ADR-0018 stall watchdog for the duration of a call the SDK
+        cannot see into, and records the completed call as progress on exit.
+        Covers both shapes of opaque work — an ``await`` against your own async
+        client, and a blocking call offloaded through :meth:`run_in_thread`::
+
+            # async: your own client, which the SDK cannot see into
+            async with self.task_context.holding_progress(
+                "snapshot metadata query", timeout=1800
+            ):
+                rows = await long_single_query(...)
+
+            # blocking: the same wrapper around the offload
+            async with self.task_context.holding_progress(
+                "full table scan", timeout=7200
+            ):
+                rows = await self.task_context.run_in_thread(cursor.execute, sql)
+
+        Expect to need this in almost every connector: streaming reads that
+        interleave fetch and write are already covered by the write side, but a
+        genuinely opaque *single* call — one large metadata query, one slow
+        list/export — emits nothing until it completes and would otherwise read
+        as a stall.
+
+        Args:
+            label: The call site being vouched for. Must identify a *site* —
+                never interpolate a query, a key, a credential or a customer
+                value into it.
+            timeout: How long you would let this one operation run before you
+                would rather it failed — **not** a prediction of how long it
+                takes. Keyword-only and required: the SDK never defaults this
+                number. ``timeout=None`` declares an unbounded hold, leaving the
+                duration backstop as the only bound. Err generous — too tight
+                kills a healthy run, and stall kills retry.
+
+        Returns:
+            An async context manager. Use it with ``async with``.
+
+        See Also:
+            ``docs/adr/0018-progress-aware-heartbeat.md`` → *Holds* and
+            *Choosing the allowance*.
+        """
+        return holding_progress(label, timeout=timeout)

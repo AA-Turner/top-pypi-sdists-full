@@ -1,0 +1,912 @@
+Metadata-Version: 2.1
+Name: dealcloud_sdk
+Version: 0.1.9
+Summary: DealCloud SDK is a wrapper around the DealCloud API, designed to assist clients and partners to build on top of our platform quickly and easily.
+License: Intapp License for Supplemental Software
+Author: Intapp
+Author-email: support@dealcloud.com
+Requires-Python: >=3.9,<3.15
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: pandas (>=2.1.1,<3.0.0)
+Requires-Dist: pydantic (>=2.4.2,<3.0.0)
+Requires-Dist: python-benedict[yaml] (>=0.33.0,<0.34.0)
+Requires-Dist: requests (>=2.31.0,<3.0.0)
+Requires-Dist: requests-futures (>=1.0.1,<2.0.0)
+Description-Content-Type: text/markdown
+
+<h1>dealcloud_sdk</h1>
+
+A wrapper around the DealCloud API, designed to assist users, clients and partners to build on top of our platform's API.
+
+# Contents
+1. [Installation](#installation)
+   1. [With pip](#pip)
+   2. [Locally](#build-and-install-locally)
+2. [Usage](#usage)
+   1. [Creating a client and authenticating](#creating-a-client-and-authenticating)
+   2. [Securely loading credentials](#securely-loading-credentials)
+      1. [Using Environment Variables](#using-environment-variables)
+      2. [Using JSON Config File](#using-json-config-file)
+      3. [Using YAML Config File](#using-yaml-config-file)
+   3. [Schema Querying](#schema-querying)
+      1. [Get Users](#get-users)
+      2. [Get Currencies](#get-currencies)
+      3. [Get Objects](#get-objects)
+      4. [Get Fields](#get-fields)
+      5. [Get Schema](#get-schema)
+   4. [Data Operations](#data-operations)
+      1. [List Configured Views](#list-configured-views)
+      2. [Read Data](#read-data)
+         1. [Reading Data from an Object](#reading-data-from-an-object)
+            1. [Resolving to Name or to ID](#resolving-to-name-or-to-id)
+            2. [Reading a Subset of Fields](#reading-a-subset-of-fields)
+         2. [Reading Data from a View](#reading-data-from-a-view) 
+            1. [Using a Filter When Reading View Data](#using-a-filter-when-reading-view-data) 
+      3. [Create, Update, Upsert Data](#create-update-and-upsert-data)
+         1. [Field Mapping](#field-mapping)
+         2. [Create Data](#create-data)
+         3. [Update Data](#update-data)
+         4. [Upsert Data](#upsert-data)
+         5. [Understanding Errors](#understanding-errors)
+      4. [Delete Data](#delete-data) 
+3. [Contacts and Support](#support)
+
+# Installation
+## pip
+Install using pip with:
+```bash
+pip install dealcloud-sdk
+```
+# Usage
+
+## Creating a client and authenticating
+`dealcloud_sdk`'s main entrypoint is the `DealCloud` class. When it is instantiated, the object is scoped to a given DealCloud environment, by passing the site URL and API credentials as arguments:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud(
+   site_url="client.dealcloud.com",
+   client_id="12345",
+   client_secret="your_client_secret",
+)
+```
+
+> [!WARNING]
+> Whilst suitable for local development, the above implementation is insecure if you keep code in online repositories such as GitHub. Please see the below examples for more secure implementations.  
+
+## Securely loading credentials
+### Using Environment Variables
+
+Where the environment variables contain the relevant values. These can be loaded from a .env file using the `python-dotenv` [PyPi package](https://pypi.org/project/python-dotenv/).
+
+The default environment variable names are, these can be overridden if desired:
+```
+DC_SDK_SITE_URL
+DC_SDK_CLIENT_ID
+DC_SDK_CLIENT_SECRET
+```
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud().from_env()
+```
+To override the default environment variable names:
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud().from_env(
+  site_url_env_name="OVERRIDDEN_SITE_KEY",
+  client_id_env_name="OVERRIDDEN_CLIENT_ID_KEY",
+  client_secret_env_name="OVERRIDDEN_CLIENT_SECRET_KEY",
+)
+```
+### Using JSON Config File
+Given a JSON file in the below format:
+```json
+{
+  "site_url": "client.dealcloud.com",
+  "client_id": 12345,
+  "client_secret": "your_client_secret"
+}
+```
+The DealCloud object can be created as below:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_json("path/to/json_config_file.json")
+```
+Similarly, if the credentials are stored as part of a larger JSON config file, a key path can be passed as the second argument, directing  `DealCloud` to the path of the credentials in the wider JSON. For example:
+```json
+{
+    "other": [1,2,3],
+    "creds":{
+        "dc":{
+          "site_url": "client.dealcloud.com",
+          "client_id": 12345,
+          "client_secret": "your_client_secret"
+        }
+    }
+}
+```
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_json("path/to/json_config_file.json", "creds.dc")
+```
+### Using YAML Config File
+Given a YAML file in the below format:
+```yaml
+site_url: "client.dealcloud.com"
+client_id: 12345
+client_secret: "your_client_secret"
+```
+The DealCloud object can be created as below:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+```
+Similarly, if the credentials are stored as part of a larger YAML config file, a key path can be passed as the second argument, directing  `DealCloud` to the path of the credentials in the wider YAML. For example:
+```yaml
+other:
+  - 1
+  - 2
+  - 3
+creds:
+  dc:
+    site_url: "client.dealcloud.com"
+    client_id: 12345
+    client_secret: "your_client_secret"
+```
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json", "creds.dc")
+```
+
+## Schema Querying
+The DealCloud API allows you to query the schema of a given site. The `DealCloud` class provides access to the schema endpoints through the following methods:
+> The schema models are defined using [Pydantic](https://pydantic.dev/), for clear validation, straightforward attribute access and IDE assistance.
+
+### Get Users
+
+`DealCloud.get_users()` will return all users in the site. Specifically, an array of `User` objects. The argument: `active_only` is a boolean that can be passed, if true, the function will only return active users.
+
+Example:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+users = dc.get_users()
+
+for user in users:
+    print(f"{user.name}: {user.email}")
+```
+Will output:
+```bash
+User 1: user1@email.com
+User 2: user2@email.com
+User 3: user3@email.com
+User 4: user4@email.com
+...etc
+```
+### Get Currencies
+`DealCloud.get_currencies()` will return the currency codes of all enabled currencies in the site.
+Example:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+currencies = dc.get_currencies()
+
+for ccy in currencies:
+    print(ccy)
+```
+Will output:
+```bash
+GBP
+USD
+EUR
+...etc
+```
+
+### Get Objects
+`DealCloud.get_object()` will return all configured objects in the site. Specifically, an array of `Object` objects.
+Example:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+objects = dc.get_objects()
+
+for obj in objects:
+    print(f"{obj.apiName}: {obj.pluralName}, {obj.singularName}")
+```
+Will output:
+```bash
+Company: Companies, Company
+Contact: Contacts, Contact
+CompanyAddress: Company Addresses, Company Address
+...etc
+```
+
+## Get Fields
+`DealCloud.get_fields()` provides the ability to return fields configured in the site. Specifically, an array of `Field` objects.
+
+There are three ways to query for fields:
+1. __All Fields__: call `DealCloud.get_fields()` with no arguments to return all fields.
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+fields = dc.get_fields()
+```
+`fields` will contain a list of `Field` objects containing all configured fields in the site.
+
+
+2. __All Fields for an Object__: call `DealCloud.get_fields(object_id="ObjectName")` with `object_id` set to the desired object api name, or object id, to return all fields configured for that object.
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+fields = dc.get_fields("Company")
+```
+`fields` will contain a list of `Field` objects, containing all fields configured in the "Company" object.
+
+
+3. __A Field by Field ID__: call `DealCloud.get_fields(field_id=1234)` with `field_id` set to the ID of the desired field.
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+field = dc.get_fields(field_id=1234)
+```
+`field` will contain a single `Field` object, describing the field with ID `1234`.
+
+### Get Schema
+`DealCloud.get_schema()` is a method that will return the full DealCloud schema in a single object.
+The method takes the argument: `key_type`, which describes which field will be used as keys in the nested object structure describing the schema. 
+
+The options are:
+- `api` - The API name
+- `display` - The display name
+- `id` - The object/field ID
+
+Usage Example:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+schema = dc.get_schema("api")
+```
+`schema` will contain the a `Schema` object with the API names as keys, as below: 
+
+`api` Example:
+```python
+{
+  "CompanyAPIName": {
+    "CompanyObjectMetaData": "...",
+    "CompanyObjectFields": {
+      "Field1APIName": {
+        "Field1MetaData": "..."
+      }
+    }
+  }
+}
+```
+`display` Example:
+```python
+{
+  "Company Display Name": {
+    "CompanyObjectMetaData": "...",
+    "CompanyObjectFields": {
+      "Field 1 Display Name": {
+        "Field1MetaData": "..."
+      }
+    }
+  }
+}
+```
+`id` Example:
+> Note the ID of the "Company" object is 12345 and the ID of the "Field 1" field is 123456 
+```python
+{
+  12345: {
+    "CompanyObjectMetaData": "...",
+    "CompanyObjectFields": {
+      123456: {
+        "Field1MetaData": "..."
+      }
+    }
+  }
+}
+```
+
+## Data Operations
+The `DealCloud` object provides methods to Create, Read, Update and Delete data in bulk. As its default behaviour, when working with site data, the library uses DataFrames with
+the [Pandas](https://pandas.pydata.org/) library, however the option is available for it to work with just python standard data types.
+
+### List Configured Views
+`DealCloud.list_configured_views()` returns a `Rows` object containing all configured views in the site.
+The argument `is_private` can be passed as a boolean, where if true, only private views to (including views shared with) the authenticated user will be returned.
+
+Example:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+views = dc.list_configured_views()
+```
+`views` will contain a summary of configured views.
+
+### Read Data
+`DealCloud.read_data()` allows users to read data from a DealCloud object into a `pandas.DataFrame` or a list of python dictionaries.
+> [!IMPORTANT] 
+> Only one of object_id or view_id can be populated
+        
+Arguments:
+
+- object_id `Union[int, str]`: the object to pull data from
+- view_id `Union[int, str]`: the view to pull data from
+- output `str`: `pandas` or `list`, decides the output format, `pandas` is default
+- resolve `str`: for pandas, where fields contain an object (choice, reference, user), resolve to the id or name
+- view_filter `list[dict]`: column queries to "supply value later" in views, see: https://api.docs.dealcloud.com/docs/data/rows/view_details
+- fields `list[str]`: if not `None`, return only fields in the list. 
+- query `str`: a DealCloud rows query string to request specific information, see: https://api.docs.dealcloud.com/docs/data/rows/query
+- include_nulls `bool`: if true, null columns will also be returned
+- column_headers `str`: specifies the value type of the return field keys/column names.
+  - `api` = Field API Name
+  - `name` = Field Display Name
+  - `id` = Field ID
+
+#### Reading Data from an Object
+Example:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+data = dc.read_data("Company")
+```
+`data` will be a `pandas.DataFrame` as below:
+
+| EntryId | CompanyName | CompanyType                                                                                            |
+|---------|-------------|--------------------------------------------------------------------------------------------------------|
+| 12345   | Company1    | [{'seqNumber': 3, 'isAutoPdf': False, 'id': 3197780, 'name': 'Limited Partner', 'entryListId': -6}]    |
+| 12346   | Company2    | [{'seqNumber': 1, 'isAutoPdf': False, 'id': 3197782, 'name': 'Operating Company', 'entryListId': -6}]  |
+| 12347   | Company3    | [{'seqNumber': 3, 'isAutoPdf': False, 'id': 3197780, 'name': 'Limited Partner', 'entryListId': -6}]    |
+
+To return a python `list` instead of a `pandas.DataFrame`:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+data = dc.read_data("Company", output="list")
+```
+`data` will be a `list` of `dict`s as below:
+```python
+[
+    {
+        'EntryId': 12345,
+        'CompanyName': 'Company1',
+        'CompanyType': [
+             {
+                'seqNumber': 3,
+                'isAutoPdf': False,
+                'id': 3197780,
+                'name': 'Limited Partner',
+                'entryListId': -6
+             }
+       ],
+    },
+    {
+      'EntryId': 12346,
+      'CompanyName': 'Company2',
+      'CompanyType': [
+         {
+            'seqNumber': 1,
+            'isAutoPdf': False,
+            'id': 3197782,
+            'name': 'Operating Company',
+            'entryListId': -6
+         }
+      ]
+    },
+    {
+       'EntryId': 12347,
+        'CompanyName': 'Company3',
+        'CompanyType': [
+           {
+                'seqNumber': 4,
+                'isAutoPdf': False,
+                'id': 3197779,
+                'name': 'Service Provider',
+                'entryListId': -6
+           }
+        ]
+    },
+ ]
+```
+
+##### Resolving to Name or to ID
+> [!NOTE]
+> The following methods only apply to where a `pandas.DataFrame` is returned.
+
+Choice, Reference and User fields appear as lists of dictionaries as seen in the [above example](#reading-data-from-an-object) by default.
+
+To resolve these fields to a more readable `name` value:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+data = dc.read_data("Company", resolve="name")
+```
+`data` will be a `pandas.DataFrame` as below:
+
+| EntryId | CompanyName | CompanyType        |
+|---------|-------------|--------------------|
+| 12345   | Company1    | Limited Partner    |
+| 12346   | Company2    | Operating Company  |
+| 12347   | Company3    | Limited Partner    |
+
+To resolve the fields to an `id` value:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+data = dc.read_data("Company", resolve="id")
+```
+`data` will be a `pandas.DataFrame` as below:
+
+| EntryId | CompanyName | CompanyType |
+|---------|-------------|-------------|
+| 12345   | Company1    | 3197780     |
+| 12346   | Company2    | 3197782     |
+| 12347   | Company3    | 3197780     |
+
+##### Reading a Subset of Fields
+To read a specific set of fields from an object, pass a list of DealCloud field API names to the argument `fields`:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+data = dc.read_data("Company", fields=["CompanyName"])
+```
+`data` will be a `pandas.DataFrame` as below:
+
+| EntryId | CompanyName |
+|---------|-------------|
+| 12345   | Company1    |
+| 12346   | Company2    |
+| 12347   | Company3    |
+
+##### Using Queries to Read Data
+A query can be passed to the DealCloud request for data to return more specific information, and reduce the volume of incoming data.
+To use a query, pass the query string to the `query` argument.
+The available query operations are below:
+
+| Name           | Query Operation |
+|----------------|-----------------|
+| Equals         | $eq             |
+| Contains       | $contains       |
+| Greater        | $gt             |
+| GreaterOrEqual | $gte            |
+| Less           | $lt             |
+| LessOrEquals   | $lte            |
+| StartsWith     | $startswith     |
+| In             | $in             |
+| Between        | $between        |
+| NotIn          | $nin            |
+| NotEqualTo     | $not            |
+| EndsWith       | $endswith       |
+| Or             | $or             |
+| And            | $and            |
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+dc.read_data("Company", query="{CompanyName: {$contains: \"1\"}}")
+```
+`data` will be a `pandas.DataFrame` as below:
+
+| EntryId | CompanyName | CompanyType |
+|---------|-------------|-------------|
+| 12345   | Company1    | 3197780     |
+
+Some other example query strings are below:
+Filter on excluding records with a specific reference value:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+dc.read_data("Company", query="{CoveragePerson: {$nin: [5785]}")
+```
+Filter using Or:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+dc.read_data("Company", query="{$or: [{CompanyName: \"DealCloud\"},{CompanyName: \"API Entry\"}]}")
+```
+
+#### Reading Data from a View
+To read data from a view with ID: `12345`
+
+Example:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+data = dc.read_data(view_id=12345)
+```
+Alternatively, if the view is named: "My Company View":
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+data = dc.read_data(view_id="My Company View")
+```
+
+`data` will be a `pandas.DataFrame` as below:
+
+| EntryId | CompanyName | CompanyType                                                                                            |
+|---------|-------------|--------------------------------------------------------------------------------------------------------|
+| 12345   | Company1    | [{'seqNumber': 3, 'isAutoPdf': False, 'id': 3197780, 'name': 'Limited Partner', 'entryListId': -6}]    |
+| 12346   | Company2    | [{'seqNumber': 1, 'isAutoPdf': False, 'id': 3197782, 'name': 'Operating Company', 'entryListId': -6}]  |
+| 12347   | Company3    | [{'seqNumber': 3, 'isAutoPdf': False, 'id': 3197780, 'name': 'Limited Partner', 'entryListId': -6}]    |
+
+##### Using a Filter When Reading View Data
+When reading data from a view, which has "Supply Value Later" filters configured, the filter values can be provided by passing them to the `view_filter` argument in a `list` of `dict`s. For more information on their format, please see the [API Documentation](https://api.docs.dealcloud.com/docs/data/rows/view_details).
+
+For Example, supplying a "CompanyType" filter value to filter for only "Limited Partner" companies:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+data = dc.read_data(
+   view_id = "My Company View",
+   view_filter = [
+      {
+         "column":"CompanyType",
+         "value": [3197780]
+      }
+   ]
+)
+```
+`data` will be a `pandas.DataFrame` as below:
+
+| EntryId | CompanyName | CompanyType                                                                                            |
+|---------|-------------|--------------------------------------------------------------------------------------------------------|
+| 12345   | Company1    | [{'seqNumber': 3, 'isAutoPdf': False, 'id': 3197780, 'name': 'Limited Partner', 'entryListId': -6}]    |
+| 12347   | Company3    | [{'seqNumber': 3, 'isAutoPdf': False, 'id': 3197780, 'name': 'Limited Partner', 'entryListId': -6}]    |
+
+
+### Create, Update and Upsert Data
+`DealCloud.insert_data()`, `DealCloud.update_data()`, `DealCloud.upsert_data()` are methods which provide the ability to create, update and upsert data respectively.
+These methods have the same argument pattern:
+
+Arguments:
+- object_api_name `str`: the object API name to write data to
+- data `Union[list[dict], pd.DataFrame]`: the data to be sent to DealCloud.
+- use_dealcloud_ids `bool`: Default is `True` If `True`, DealCloud EntryIds must be used to reference records and choice values. If `False`, use a column as a lookup, defined by the lookup_column argument.
+- lookup_column `str`: if `use_dealcloud_ids` is `False`, this defines the column to be used as a lookup.
+- output`str`: `list` or `pandas`, defines the output format returned from the function
+
+Returns:
+   `Union[list[dict], pd.DataFrame]`: the data returned from the data operation.
+
+> [!IMPORTANT]
+> When not using `use_dealcloud_ids`, for Reference fields, reference by record EntryId. For choice fields, use the choice value ID. For user fields, use the user ID (from `DealCloud.get_users()`). 
+> When using `use_dealcloud_ids`, for Reference fields, reference by the lookup column on the referenced object. For choice fields, use the choice field display name. For user fields, use the user email address.
+
+##### Field Mapping
+All columns passed to the create, update and upsert methods must match by _API Name_. If a column passed to the method does not exist in the site by API name, then a `KeyError` will be raised:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+to_send = [
+  {
+      "CompanyName": "Test Company 1",
+      "UnmappableColumn": "Foo",
+  }
+]
+responses = dc.insert_data("Company", to_send)
+```
+Will Return
+```bash
+Traceback...
+KeyError: "mapping error, could not map: ['UnmappableColumn']"
+```
+
+#### Create Data
+Example, to insert data into the "Company" object from a list:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+to_send = [
+  {
+      "CompanyName": "Test Company 1",
+      "CompanyType": 12345,
+      "BusinessDescription": "Here is a business description",
+      "Sector": 14321,
+  }
+]
+responses = dc.insert_data("Company", to_send)
+```
+If successful, `responses` will contain the below - note that `EntryId` is now included:
+```python
+[
+    {
+        "EntryId": 234567,
+        "CompanyName": "Test Company 1",
+        "CompanyType": 12345,
+        "BusinessDescription": "Here is a business description",
+        "Sector": 14321,
+    }
+]
+```
+Example, to insert data into the "Company" object from a CSV, using `pandas`:
+
+CSV File (`company.csv`):
+
+| CompanyName | CompanyType |
+|-------------|-------------|
+| Company1    | 3197780     |
+| Company2    | 3197782     |
+| Company3    | 3197780     |
+
+```python
+import pandas as pd
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+to_send = pd.read_csv("company.csv")
+responses = dc.insert_data("Company", to_send)
+```
+Example, to insert data into the "Company" object using "ExternalSystemID" as a lookup column:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+to_send = [
+  {
+      "CompanyName": "Test Company 1",
+      "CompanyType": "Operating Company",
+      "BusinessDescription": "Here is a business description",
+      "Sector": "612E9FF4-1D8C-41B7-B8ED-2D1C15240434",
+  }
+]
+
+responses = dc.insert_data(
+   object_api_name = "Company",
+   data = to_send,
+   use_dealcloud_ids = False,
+   lookup_column = "ExternalSystemID"
+)
+```
+#### Update Data
+To update existing site data, the process is similar, except objects must include `EntryId`, or a valid primary key by `lookup_column`.
+
+Example, to update data in the "Company" object from a list:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+to_send = [
+  {
+      "EntryId": 234567,
+      "BusinessDescription": "Here is an updated business description!",
+  }
+]
+responses = dc.insert_data("Company", to_send)
+```
+If successful, `responses` will contain the below:
+```python
+[
+    {
+        "EntryId": 234567,
+        "CompanyName": "Test Company 1",
+        "CompanyType": 12345,
+        "BusinessDescription": "Here is an updated business description!",
+        "Sector": 14321,
+    }
+]
+```
+Example, to update data in the "Company" object from a list, using the `lookup_column`, `ExternalSystemId`:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+to_send = [
+  {
+      "ExternalSystemId": "F628AFC8-532C-406C-BDE6-A782F03508D5",
+      "BusinessDescription": "Here is an updated business description!",
+  }
+]
+responses = dc.insert_data(
+   object_api_name = "Company",
+   data = to_send,
+   use_dealcloud_ids = False,
+   lookup_column = "ExternalSystemId"
+)
+```
+
+#### Upsert Data
+Upserting data is a method that combines insert and update. If a record exists and can be found by `EntryId` or a `lookup_column` then it will be updated, if not, it will be created new.
+
+Example, to upsert data in the "Company" object from a list:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+to_send = [
+   {
+    "EntryId": 234567,  
+    "CompanyName": "Test Company 1",
+    "CompanyType": 12345,
+    "BusinessDescription": "Here is an updated business description",
+    "Sector": 14321,
+   },
+   {
+    "CompanyName": "Test Company 2",
+    "CompanyType": 12345,
+    "BusinessDescription": "Here is a business description for a new company",
+    "Sector": 14321,
+   },
+]
+responses = dc.insert_data("Company", to_send)
+```
+If successful, `responses` will contain the below, note that the "Test Company 2" now has an `EntryId` as it has been created:
+```python
+[
+   {
+    "EntryId": 234567,  
+    "CompanyName": "Test Company 1",
+    "CompanyType": 12345,
+    "BusinessDescription": "Here is an updated business description",
+    "Sector": 14321,
+   },
+   {
+    "EntryId": 234568,
+    "CompanyName": "Test Company 2",
+    "CompanyType": 12345,
+    "BusinessDescription": "Here is a business description for a new company",
+    "Sector": 14321,
+   },
+]
+```
+#### Understanding Errors
+The data operation methods raise errors in a number of ways, when `use_dealcloud_ids` is `False`, errors are fed back from the API into the data returned from the function.
+Example, if the sector 12345 does not exist:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+to_send = [
+    {'CompanyName': 'TEST_UPDATED', "Sector": 12345}
+]
+responses = dc.insert_data("WJ_Company", to_send)
+```
+`responses` will contain.
+```python
+[{'EntryId': -1,
+  'CompanyName': 'TEST_UPDATED',
+  'Sector': None,
+  'Errors': [{'field': 'Sector',
+    'code': 5006,
+    'description': 'One or more referenced entries are not valid for this field.'}]}]
+```
+> [!NOTE]
+> In this case, the record has not been created in the site. When multiple records are trying to be made and any one fails in this way, none of the records in that group will be created. When a large volume of records are being created, `DealCloud` handles breaking the large volume of data into multiple pages. In this case, where there is an error on a record in a page, all of the records in that page will not be created/updated.
+
+When `use_dealcloud_ids` is `True`, and lookup values are used, the create/update/upsert methods are less prone to "failing" errors. This is because, when a value is being resolved through a `lookup_column`, a value that cannot be found will result in an error being logged to the configured logger. However, as the record progresses, the un-resolvable value will simply be blank. The logs appear as below:
+
+For choice fields:
+```bash
+ERROR: Choice mapping error on: {object}, {field}, could not find value: {value}
+```
+For reference fields:
+```bash
+ERROR: Reference mapping error on: {object}, {field}, could not find value: {value}
+```
+For user fields:
+```bash
+ERROR: User mapping error on: {object}, {field}, could not find value: {value}
+```
+
+When using `DealCloud.update_data()`, if an `EntryId` cannot be located, you will see the following error:
+```bash
+ERROR: Primary Key error on object: {object}, record found without 'EntryId' field.
+```
+
+### Delete Data
+`DealCloud.delete_data()` provides the ability to delete data from an object by the `EntryId`. To use it, simply pass the object api name to the `object_api_name` argument
+and a `list` of `EntryId`s to the `records` argument.
+
+Example to delete two records with the EntryIds `123451` and `12346`:
+
+```python
+from dealcloud_sdk import DealCloud
+
+dc = DealCloud.from_yaml("path/to/yaml_config_file.json")
+
+response = dc.delete_data(
+   object_api_name="Company",
+   records=[12345, 12346]
+)
+```
+`response` will contain:
+```python
+[
+   {'entryId': 12345, 'fieldId': 0, 'rowId': 4935650, 'isNoData': False},
+   {'entryId': 12346, 'fieldId': 0, 'rowId': 4935650, 'isNoData': False},
+]
+```
+# Support
+For any support, provide feedback or to report issues, please contact Intapp Support at support@dealcloud.com.

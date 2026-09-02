@@ -47,14 +47,21 @@ class OWASPAgenticCategory(StrEnum):
     # or impersonate other agents/users
     IDENTITY_PRIVILEGE_ABUSE = "agentic_asi03_identity_abuse"
 
-    # ASI04: Insecure Data Handling
-    # Agents mishandle sensitive data during processing,
-    # storage, or transmission
-    INSECURE_DATA_HANDLING = "agentic_asi04_data_handling"
+    # ASI04: Agentic Supply Chain Vulnerabilities (2026)
+    # Malicious/compromised tools, MCP descriptors, agent cards, packages, or
+    # prompt templates enter the agent's runtime-composed execution chain
+    AGENTIC_SUPPLY_CHAIN = "agentic_asi04_supply_chain"
 
-    # ASI05: Insecure Output Handling
-    # Agent outputs are consumed unsafely by downstream systems
-    # or other agents
+    # ASI05: Unexpected Code Execution (RCE) (2026)
+    # Prompt injection / tool misuse / unsafe eval escalates text into executed
+    # code (shell, deserialization, eval, tool chains) -> host/container compromise
+    UNEXPECTED_CODE_EXECUTION = "agentic_asi05_code_execution"
+
+    # --- 2025 draft categories, retained for back-compat (folded into the 2026
+    # ASI02/ASI04/ASI05 above). Existing findings/tags keep resolving. ---
+    # ASI04 (2025): Insecure Data Handling
+    INSECURE_DATA_HANDLING = "agentic_asi04_data_handling"
+    # ASI05 (2025): Insecure Output Handling
     INSECURE_OUTPUT_HANDLING = "agentic_asi05_output_handling"
 
     # ASI06: Memory Poisoning
@@ -81,6 +88,25 @@ class OWASPAgenticCategory(StrEnum):
     # Agents exhibit misalignment, concealment, or self-directed
     # action outside intended scope
     ROGUE_AGENTS = "agentic_asi10_rogue_agents"
+
+
+# The 2025 ASI04/ASI05 members retained as back-compat aliases (superseded by
+# AGENTIC_SUPPLY_CHAIN / UNEXPECTED_CODE_EXECUTION in the 2026 taxonomy). They stay in
+# the enum so existing findings/tags keep resolving, but they are NOT part of the
+# canonical Top 10 - excluded from the default suite run and the compliance matrix so
+# ASI04/ASI05 aren't double-counted.
+LEGACY_ALIAS_CATEGORIES: "frozenset[OWASPAgenticCategory]" = frozenset(
+    {
+        OWASPAgenticCategory.INSECURE_DATA_HANDLING,
+        OWASPAgenticCategory.INSECURE_OUTPUT_HANDLING,
+    }
+)
+
+# The canonical 2026 OWASP-ASI Top 10, in ASI01..ASI10 order (enum order minus the
+# legacy aliases). Single source of truth for "the ten categories".
+CANONICAL_AGENTIC_CATEGORIES: "tuple[OWASPAgenticCategory, ...]" = tuple(
+    category for category in OWASPAgenticCategory if category not in LEGACY_ALIAS_CATEGORIES
+)
 
 
 # Mapping to SDK capabilities for each OWASP Agentic category
@@ -155,6 +181,32 @@ OWASP_AGENTIC_CAPABILITY_MAP: dict[OWASPAgenticCategory, dict[str, list[str]]] =
         ],
         "rubrics": [],
     },
+    OWASPAgenticCategory.AGENTIC_SUPPLY_CHAIN: {
+        "attacks": [
+            "tap_attack",
+            "goat_attack",
+        ],
+        "scorers": [
+            "tool_description_poisoned",
+            "schema_poisoned",
+            "rug_pull_detected",
+            "skill_poisoning_detected",
+            "package_hallucination",
+        ],
+        "rubrics": [],
+    },
+    OWASPAgenticCategory.UNEXPECTED_CODE_EXECUTION: {
+        "attacks": [
+            "tap_attack",
+            "goat_attack",
+            "tmap_trajectory_attack",
+        ],
+        "scorers": [
+            "detect_unsafe_shell_content",
+            "package_hallucination",
+        ],
+        "rubrics": ["tool_selection_safety"],
+    },
     OWASPAgenticCategory.MEMORY_POISONING: {
         "attacks": [
             "crescendo_attack",
@@ -202,6 +254,7 @@ OWASP_AGENTIC_CAPABILITY_MAP: dict[OWASPAgenticCategory, dict[str, list[str]]] =
         "scorers": [
             "sycophancy_detected",
             "resilience_gap",
+            "human_trust_exploited",
         ],
         "rubrics": ["sycophancy"],
     },

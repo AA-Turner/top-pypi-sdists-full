@@ -1,0 +1,32 @@
+[project]
+name = "molmospaces_resources"
+version = "0.0.2"
+description = "Resource manager for MolmoSpaces"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{name = "Allen Institute for AI (Ai2)"}]
+requires-python = ">=3.10"
+dependencies = [
+    "datasets",
+    "filelock",
+    "huggingface_hub",
+    "lmdb~=1.7.5",
+    "requests",
+    "tqdm>=4.65.0",
+    "tyro",
+    "zstandard~=0.25.0",
+]
+
+[project.scripts]
+get-toyblocks-assets = "molmospaces_resources.scripts.toyblocks_downloader:auto_default"
+get-toyblocks-assets-usd = "molmospaces_resources.scripts.toyblocks_downloader:usd_default"
+get-toyblocks-assets-mjcf = "molmospaces_resources.scripts.toyblocks_downloader:mjcf_default"
+
+get-molmospaces-assets = "molmospaces_resources.scripts.molmospaces_downloader:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Repository = "https://github.com/allenai/molmospaces-resources"

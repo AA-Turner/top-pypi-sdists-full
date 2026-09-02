@@ -1,0 +1,530 @@
+Metadata-Version: 2.4
+Name: onnxocr-ppocrv5
+Version: 0.0.22
+Summary: ONNX-based OCR (PP-OCRv5) inference pipeline.
+Author-email: Your Name <your.email@example.com>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+        
+Project-URL: Homepage, https://github.com/ok-oldking/OnnxOCR
+Project-URL: Repository, https://github.com/ok-oldking/OnnxOCR
+Project-URL: Issues, https://github.com/ok-oldking/OnnxOCR/issues
+Keywords: ocr,onnx,ppocr,text detection,text recognition
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering :: Image Recognition
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyclipper
+Requires-Dist: shapely
+Requires-Dist: pillow
+Provides-Extra: onnx
+Requires-Dist: onnxruntime; extra == "onnx"
+Provides-Extra: openvino
+Requires-Dist: openvino; extra == "openvino"
+Provides-Extra: dev
+Requires-Dist: numpy; extra == "dev"
+Requires-Dist: opencv-python-headless; extra == "dev"
+Requires-Dist: onnxruntime; extra == "dev"
+Requires-Dist: openvino; extra == "dev"
+Requires-Dist: pytest>=7.0; extra == "dev"
+Provides-Extra: build
+Requires-Dist: build; extra == "build"
+Requires-Dist: twine; extra == "build"
+Dynamic: license-file
+
+# OnnxOCR PP-OCRv5
+
+ONNX-based PP-OCRv5 text detection and recognition with selectable ONNX
+Runtime and OpenVINO inference backends. This project is a fork of
+[jingsongliujing/OnnxOCR](https://github.com/jingsongliujing/OnnxOCR) and is
+published on PyPI as `onnxocr-ppocrv5`.
+
+The package includes the PP-OCRv5 detection, angle-classification, recognition,
+and character-dictionary assets. It performs inference only; training and model
+conversion are outside the scope of this package.
+
+For Chinese documentation, see [Readme_cn.md](Readme_cn.md).
+
+## Features
+
+- **Two inference backends:** run the same PP-OCRv5 pipeline with either ONNX
+  Runtime or OpenVINO.
+- **Intel NPU acceleration:** OpenVINO can use a compatible Intel NPU and falls
+  back to OpenVINO CPU when the NPU or its driver is unavailable.
+- **CPU inference:** ONNX Runtime CPU and OpenVINO CPU are both supported without
+  requiring specialized accelerator hardware.
+- **Complete OCR pipeline:** bundled models provide text detection, optional
+  angle classification, and text recognition.
+- **Purpose-specific installations:** separate `onnx`, `openvino`, `dev`, and
+  `build` profiles let users install only the backend or tooling they need.
+- **Optimized model caching:** optimized ONNX Runtime models and OpenVINO cache
+  data are reused across runs to reduce repeated initialization work.
+- **Annotated output:** detected boxes and recognized text can be rendered to an
+  output image with the included `sav2Img` helper.
+
+## Requirements
+
+- Python 3.8 or newer
+- One inference backend: ONNX Runtime or OpenVINO
+- An image represented as a NumPy array, normally loaded with OpenCV
+- OpenVINO NPU execution additionally requires compatible Intel NPU hardware
+  and drivers
+
+`pyclipper`, `shapely`, and Pillow are installed automatically. NumPy and OpenCV
+are intentionally not declared as mandatory package dependencies. This avoids
+forcing a particular NumPy version or OpenCV distribution on applications that
+already manage those packages. Install compatible NumPy and OpenCV packages for
+your environment before using OCR.
+
+The inference engines are separate optional dependency profiles so an
+installation does not need to carry both large runtimes.
+
+## Dependency profiles
+
+The package defines independent optional dependency profiles in
+`pyproject.toml`:
+
+| Profile | Installed packages | Intended use |
+| --- | --- | --- |
+| Base | `pyclipper`, `shapely`, Pillow | OCR preprocessing and post-processing |
+| `onnx` | `onnxruntime` | ONNX Runtime inference |
+| `openvino` | `openvino` | OpenVINO CPU or Intel NPU inference |
+| `dev` | NumPy, OpenCV headless, `onnxruntime`, `openvino`, `pytest` | Complete development and test environment for both backends |
+| `build` | `build`, `twine` | Building and validating release artifacts |
+
+The `dev` profile already includes both inference backends and all Python
+packages required by the test suite. Add `build` when the same environment also
+needs to create release artifacts:
+
+```bash
+python -m pip install -e ".[dev,build]"
+```
+
+NumPy and OpenCV remain application-managed for normal package installations.
+They are included unpinned in `dev` only, with headless OpenCV selected for
+consistent local and CI test environments.
+
+## Installation
+
+Upgrade pip first so it can resolve wheels for the selected Python version:
+
+```bash
+python -m pip install --upgrade pip
+```
+
+Install NumPy and one OpenCV distribution if the application does not already
+provide them. Headless OpenCV is appropriate for servers and containers:
+
+```bash
+python -m pip install numpy opencv-python-headless
+```
+
+Desktop applications may use `opencv-python`, while applications that need the
+additional OpenCV modules may use `opencv-contrib-python`. Avoid installing
+multiple OpenCV distributions in the same environment because they all provide
+the `cv2` module.
+
+### ONNX Runtime
+
+Install the `onnx` profile for CPU inference with ONNX Runtime:
+
+```bash
+python -m pip install "onnxocr-ppocrv5[onnx]"
+```
+
+Use `use_openvino=False` when constructing the OCR pipeline. This is also the
+current default, but setting it explicitly makes the chosen backend clear:
+
+```python
+import cv2
+
+from onnxocr.onnx_paddleocr import ONNXPaddleOcr
+
+image = cv2.imread("image.jpg")
+if image is None:
+    raise FileNotFoundError("image.jpg")
+
+ocr = ONNXPaddleOcr(
+    use_openvino=False,
+    use_angle_cls=False,
+)
+result = ocr.ocr(image)
+print(result)
+```
+
+### OpenVINO CPU
+
+Install the `openvino` profile:
+
+```bash
+python -m pip install "onnxocr-ppocrv5[openvino]"
+```
+
+Select OpenVINO and disable the NPU probe to run on CPU only:
+
+```python
+import cv2
+
+from onnxocr.onnx_paddleocr import ONNXPaddleOcr
+
+image = cv2.imread("image.jpg")
+if image is None:
+    raise FileNotFoundError("image.jpg")
+
+ocr = ONNXPaddleOcr(
+    use_openvino=True,
+    use_npu=False,
+    use_angle_cls=False,
+)
+result = ocr.ocr(image)
+print(result)
+```
+
+### OpenVINO NPU
+
+The same `openvino` profile supports Intel NPU execution. Enable the NPU probe
+with `use_npu=True`:
+
+```python
+ocr = ONNXPaddleOcr(
+    use_openvino=True,
+    use_npu=True,
+    use_angle_cls=True,
+)
+```
+
+The pipeline validates the NPU driver, initializes the NPU models, and runs an
+OCR smoke test against an OpenCV-generated `okscript` image. If NPU setup or
+the first inference fails, it reinitializes the complete pipeline with
+`use_npu=False`. The initialization completion log records the smoke-test or
+fallback result. Enabling angle classification loads the bundled classification
+model in addition to detection and recognition.
+
+### Install both backends
+
+Install both profiles when comparing backends or running the full CPU integration
+suite:
+
+```bash
+python -m pip install "onnxocr-ppocrv5[onnx,openvino]"
+```
+
+Installing `onnxocr-ppocrv5` without an extra installs the declared
+post-processing dependencies, but it cannot perform model inference until an
+inference backend, NumPy, and an OpenCV distribution are available.
+
+## Result format and saving an annotated image
+
+`ocr.ocr(image)` returns one result list for the input image. Each detected line
+contains its four-point polygon followed by `(text, confidence)`:
+
+```text
+[
+    [
+        [box_points, (recognized_text, confidence)],
+        ...
+    ]
+]
+```
+
+Use `sav2Img` to write a copy with boxes and recognized text:
+
+```python
+from onnxocr.onnx_paddleocr import sav2Img
+
+sav2Img(image, result, "ocr-result.jpg")
+```
+
+## Development
+
+Clone the repository, create a virtual environment, and install the project in
+editable mode with the development tools and the backend you need.
+
+PowerShell:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+Linux or macOS:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+This installs both supported inference backends and everything needed to run the
+test suite. The equivalent requirements-file command is:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+Add the independent `build` profile only when packaging distributions:
+
+```bash
+python -m pip install -e ".[dev,build]"
+```
+
+## Testing
+
+The default command runs only the fast unit tests. Integration tests are excluded
+by the configuration in `pyproject.toml`:
+
+```bash
+pytest
+```
+
+Run the CPU integration tests with the development profile:
+
+```bash
+python -m pip install -e ".[dev]"
+pytest -m "integration and not npu"
+```
+
+Run the hardware-specific OpenVINO NPU tests only on a configured NPU machine:
+
+```bash
+python -m pip install -e ".[dev]"
+pytest -m "integration and npu"
+```
+
+A skipped integration test normally means its backend is not installed. An NPU
+test can also fail or fall back to CPU when the required hardware or driver is
+unavailable.
+
+## Building distributions
+
+The `build` profile is independent of the inference backends because building a
+distribution does not run model inference. Install it, build both distribution
+formats, and validate their metadata:
+
+```bash
+python -m pip install -e ".[build]"
+python -m build
+python -m twine check dist/*
+```
+
+For development, tests, and packaging in one environment, combine the profiles:
+
+```bash
+python -m pip install -e ".[dev,build]"
+```
+
+The `onnx` and `openvino` extras are recorded in wheel metadata; neither backend
+is bundled inside the wheel.

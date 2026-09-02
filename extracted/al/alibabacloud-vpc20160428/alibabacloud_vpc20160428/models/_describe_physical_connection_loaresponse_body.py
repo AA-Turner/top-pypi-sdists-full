@@ -68,7 +68,7 @@ class DescribePhysicalConnectionLOAResponseBodyPhysicalConnectionLOAType(DaraMod
         self.company_localized_name = company_localized_name
         # The name of the organization that requires the Express Connect circuit deployment.
         self.company_name = company_name
-        # The time when the construction crew enters the site. The time is in the ISO 8601 standard in the YYYY-MM-DDThh:mm:ssZ format. The time is displayed in UTC.
+        # The time when the construction starts. The time is in the ISO 8601 standard in the YYYY-MM-DDThh:mm:ssZ format. The time is displayed in UTC.
         self.construction_time = construction_time
         # The LOA error code.
         self.description = description
@@ -80,11 +80,11 @@ class DescribePhysicalConnectionLOAResponseBodyPhysicalConnectionLOAType(DaraMod
         self.line_label = line_label
         # The contact information for line O&M.
         self.line_spcontact_info = line_spcontact_info
-        # The carrier. Valid values:
-        # - **China Telecom**
-        # - **China Unicom**
-        # - **China Mobile**
-        # - **China Other**
+        # The telecommunications service provider. Valid values:
+        # - **中国电信**
+        # - **中国联通**
+        # - **中国移动**
+        # - **中国其他**
         self.line_service_provider = line_service_provider
         # The type of the Express Connect circuit. Valid values:
         # 

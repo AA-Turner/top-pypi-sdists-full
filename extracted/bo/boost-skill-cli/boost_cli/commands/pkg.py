@@ -240,6 +240,7 @@ def _report_result(res: store.InstallResult, no_mcp: bool = False) -> None:
                 % projectlock.LOCK_DIRNAME)
         _warn_injection(res)
         _warn_secrets(res)
+        _offer_mcp(res, no_mcp=no_mcp)
         return
     out.ok("copied to %s" % _tilde(res.dest))
     if res.linked:
@@ -555,6 +556,11 @@ def cmd_uninstall(argv: list[str]) -> int:
         # have put it — a project skill never touches the canonical store.
         if info.get("scope") == scopes.SCOPE_PROJECT:
             out.ok("removed from %s" % _tilde(info.get("base", "this repo")))
+            unregistered = info.get("mcp_unregistered") or []
+            if unregistered:
+                from ..core import mcpdecl
+                out.ok("removed %s from %s"
+                       % (_plural(len(unregistered), "MCP server"), mcpdecl.SIDECAR))
         else:
             out.ok("removed %s" % _tilde(store.skill_store_dir(name)))
         removed += 1
@@ -1519,7 +1525,13 @@ def _snapshot_save(label: str | None) -> int:
                                   util.human_size(tar_path.stat().st_size)))
     others = _others_installed()
     if others:
-        out.warn("%s not captured — snapshots cover the skill store only" % others)
+        # The lock entry for these IS in the archive (the lock file is a
+        # child of store_dir()) -- what's not captured is the materialized
+        # file (CLAUDE.md block, rendered command) that lives outside the
+        # store, so a restore can only bring one back by re-materializing it
+        # from its tap, not by extracting it from this archive.
+        out.warn("%s tracked but not archived here — their CLAUDE.md/command "
+                "files live outside the skill store" % others)
     out.info("restore with `boost snapshot restore %s`" % snap_id)
     return 0
 
@@ -1569,6 +1581,14 @@ def _snapshot_restore(snap_id: str) -> int:
         out.info("cancelled")
         return 0
     paths.ensure_dirs()
+    # Rules/workflows installed after this snapshot was saved: their lock
+    # entries live in the same file the archive is about to replace, but
+    # their materializations (CLAUDE.md blocks, rendered commands) are
+    # outside the store and untouched by a restore. Capture them before the
+    # store is emptied so they can be added back — see
+    # store.restore_preserve_newer_lock_sections.
+    pre_rules = lockfile.installed_rules().copy()
+    pre_workflows = lockfile.installed_workflows().copy()
     # Read the whole archive BEFORE touching the store, so a corrupt
     # snapshot can never leave us with an emptied environment.
     try:
@@ -1596,14 +1616,28 @@ def _snapshot_restore(snap_id: str) -> int:
             # store (never fetched from a remote), so this legacy-interpreter
             # fallback restores a locally-trusted tar.
             tf.extractall(str(root), members=members)  # noqa: S202
-    for action in store.sync_apply(store.sync_plan()):
+    kept = store.restore_preserve_newer_lock_sections(pre_rules, pre_workflows)
+    actions = store.sync_apply(store.sync_plan())
+    for action in actions:
         out.ok(action)
     journal.log("snapshot-restore", snap_id)
     out.ok("restored %s (%s)" % (snap_id,
                                  _plural(len(lockfile.installed()), "skill")))
+    rematerialized = sum(1 for a in actions if a.startswith("re-materialized "))
+    kept_n = len(kept["rules"]) + len(kept["workflows"])
     others = _others_installed()
     if others:
-        out.warn("%s untouched — snapshots cover the skill store only" % others)
+        msg = "%s untouched — snapshots cover the skill store only" % others
+        extra = []
+        if kept_n:
+            extra.append("%s installed after this snapshot kept as-is"
+                         % _plural(kept_n, "entry"))
+        if rematerialized:
+            extra.append("%s re-materialized from its tap"
+                         % _plural(rematerialized, "entry"))
+        if extra:
+            msg += " (%s)" % "; ".join(extra)
+        out.warn(msg)
     return 0
 
 
@@ -1733,8 +1767,12 @@ def cmd_adapt(argv: list[str]) -> int:
     # A skill that declares subagents projects to a runnable multi-agent
     # workflow (a CrewAI Crew / LangGraph StateGraph) when the target supports
     # one; flat skills — and multi-agent targets without a crew path — keep the
-    # single-Agent render.
-    subagents = adapters.discover_subagents(skill_md.parent)
+    # single-Agent render. Subagent discovery only applies to a SKILL.md-rooted
+    # skill: a flat `agents/<name>.md` workflow's "directory" is the registry's
+    # shared agents/ folder, and every sibling workflow living in it is not a
+    # subagent of this one.
+    subagents = (adapters.discover_subagents(skill_md.parent, own_file=skill_md)
+                 if skill_md.name == "SKILL.md" else [])
     crew_size = 0
     if subagents and adapters.supports_multi(args.to):
         primary = adapters.AgentSpec(display, description, body,

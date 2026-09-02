@@ -1,0 +1,43 @@
+import os
+import codecs
+from setuptools import setup, find_packages
+
+here = os.path.abspath(os.path.dirname(__file__))
+with codecs.open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
+        README = f.read()
+
+setup(
+    name="sops",
+    py_modules=['sops'],
+    version="1.18",
+    author="Julien Vehent",
+    author_email="jvehent@mozilla.com",
+    description="Secrets OPerationS (sops) is an editor of encrypted files",
+    license="MPL",
+    keywords="mozilla secret credential encryption aws kms",
+    url="https://github.com/mozilla/sops",
+    packages=find_packages(),
+    zip_safe=True,
+    long_description=README,
+    install_requires=[
+        'ruamel.yaml>=0.11.7,<0.12.0 ; python_version=="2.6"',
+        'ruamel.yaml>=0.11.7 ; python_version>"2.6"',
+        'boto3>=1.1.3',
+        # pycparser is a transitive dependency of cryptography. 2.18 is the
+        # last release with Python 2.6 support
+        'pycparser==2.18 ; python_version=="2.6"',
+        'cryptography>=1.4',
+        'setuptools>=18.8.1',
+        'ordereddict>=1.1',
+        'simplejson>=3.8'],
+    classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    ],
+    entry_points={
+        'console_scripts': [
+            'sops = sops:main'
+        ]
+    }
+)

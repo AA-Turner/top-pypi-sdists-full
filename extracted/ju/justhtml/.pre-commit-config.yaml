@@ -1,0 +1,45 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.dat$'
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-toml
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.7
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v2.3.10
+    hooks:
+      - id: biome-check
+        files: "\\.(cjs|mjs|js|jsx)$"
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        args: [--config-file=pyproject.toml]
+        files: ^src/justhtml/
+
+  - repo: local
+    hooks:
+      - id: tests-coverage
+        name: Tests & Coverage
+        entry: bash -c 'coverage run run_tests.py --no-write-summary && coverage report'
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: parser-differential
+        name: Parser Differential
+        entry: bash -c 'PYTHONPATH=src python benchmarks/html5lib_engine_diff.py --fail-under-rate 1.0 --fail-on-current-exceptions'
+        language: system
+        pass_filenames: false
+        always_run: true

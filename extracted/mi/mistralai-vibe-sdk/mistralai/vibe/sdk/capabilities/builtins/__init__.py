@@ -47,7 +47,13 @@ if TYPE_CHECKING:
         WebSearchSource,
         web_search,
     )
-    from .write_file_tool import WriteFileArgs, WriteFileResult, write_file
+    from .write_file_tool import (
+        WRITE_FILE_ANNOTATION_KEY,
+        WriteFileAnnotations,
+        WriteFileArgs,
+        WriteFileResult,
+        write_file,
+    )
 
 __all__ = [
     "Answer",
@@ -86,7 +92,9 @@ __all__ = [
     "WebSearchResult",
     "WebSearchSource",
     "WriteFileArgs",
+    "WriteFileAnnotations",
     "WriteFileResult",
+    "WRITE_FILE_ANNOTATION_KEY",
     "ask_user_question",
     "bash",
     "grep",
@@ -140,7 +148,9 @@ _LAZY_EXPORTS = {
     "WebSearchResult": "mistralai.vibe.sdk.capabilities.builtins.web_search",
     "WebSearchSource": "mistralai.vibe.sdk.capabilities.builtins.web_search",
     "WriteFileArgs": "mistralai.vibe.sdk.capabilities.builtins.write_file_tool",
+    "WriteFileAnnotations": "mistralai.vibe.sdk.capabilities.builtins.write_file_tool",
     "WriteFileResult": "mistralai.vibe.sdk.capabilities.builtins.write_file_tool",
+    "WRITE_FILE_ANNOTATION_KEY": "mistralai.vibe.sdk.capabilities.builtins.write_file_tool",
     "ask_user_question": "mistralai.vibe.sdk.capabilities.builtins.ask_user_question_tool",
     "bash": "mistralai.vibe.sdk.capabilities.builtins.bash_tool",
     "grep": "mistralai.vibe.sdk.capabilities.builtins.grep_tool",

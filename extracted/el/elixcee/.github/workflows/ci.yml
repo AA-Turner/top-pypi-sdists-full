@@ -1,0 +1,455 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/check-versions.sh
+
+  # compat/oracle-excel-com/mechanical_check.py's own self-test (--self-test) -- a
+  # checker that can't fail is worthless (see the module's own docstring), so this is
+  # the calibration every real-fixture check in this file depends on, yet had no CI
+  # signal at all before this job existed despite growing substantially across the
+  # 0.9.0-A and 0.10.0-A/B rounds (structural round-trip, formula preservation,
+  # SOURCE_REFERENCE_LOSS, INLINE_ELEMENT_LOSS, INTERNAL_HYPERLINK_LOSS). Pure Python
+  # stdlib (zipfile, xml.etree, no third-party packages, no elixcee binary, no Node) --
+  # builds its own synthetic fixtures in-memory and runs in well under a second, so this
+  # is deliberately its own minimal job rather than folded into `compat-vba` (which
+  # needs a release Rust build first) or `node-js` (which needs npm).
+  mechanical-check-self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: mechanical_check.py --self-test
+        working-directory: compat/oracle-excel-com
+        run: python3 mechanical_check.py --self-test
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      # Explicit so pyo3's build script always finds a real interpreter
+      # from this job's own PATH — never an inherited/ambient $PYO3_PYTHON
+      # or $VIRTUAL_ENV from whatever happened to run before it.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Export PYO3_PYTHON
+        run: echo "PYO3_PYTHON=$(python3 -c 'import sys; print(sys.executable)')" >> "$GITHUB_ENV"
+
+      - name: cargo test --workspace
+        run: cargo test --workspace
+
+      - name: cargo build --release --workspace
+        run: cargo build --release --workspace
+
+      # --lib, not the full crate: the "python" feature enables pyo3's
+      # extension-module (no libpython linked in, by design — see
+      # pyproject.toml/maturin), which can fail to *link* the `elixcee`
+      # binary target even though the library itself is fine. --lib checks
+      # what maturin actually builds.
+      - name: cargo check --features python --lib
+        run: cargo check --features python --lib
+
+      # elixcee-types only, matching the standing policy that root crate's
+      # pre-existing clippy warnings aren't a release blocker (tracked
+      # separately in tasks/todo.md) — this crate is held to -D warnings
+      # because it started clean and should stay that way.
+      - name: cargo clippy -p elixcee-types
+        run: cargo clippy -p elixcee-types --all-targets -- -D warnings
+
+  # Format/lint/doc checks that were, until now, only ever run by hand — and only
+  # sometimes: `test`'s own clippy step is scoped to `-p elixcee-types --all-targets`
+  # deliberately (the root crate's pre-existing clippy warnings weren't a release
+  # blocker, tracked separately in tasks/todo.md), which meant NEITHER `cargo fmt
+  # --check` NOR any clippy/doc pass over the root crate's own `--all-targets` (test/
+  # bench/example code, invisible to a bare `--lib` check) NOR `cargo doc` had any CI
+  # signal at all. All four gaps found real, fixable issues the first time each was
+  # actually run: 8 clippy::approx_constant false positives in test code (arbitrary
+  # `3.14` literals unrelated to π, silenced narrowly per test function — see
+  # CHANGELOG.md/tasks/todo.md), and 3 rustdoc::invalid_html_tags warnings (bare
+  # `<label>`/`Vec<Variant>`/`Vec<bool>` in doc comments, misparsed as literal HTML).
+  # No `--all-features`/`continue-on-error`/broad `#[allow]` shortcuts — every check
+  # here runs both without and with the `python` feature, at the same `-D warnings`
+  # strictness `test`'s own `elixcee-types` clippy step already uses.
+  rust-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      # Same reasoning as the `test` job's identical block: an explicit, job-local
+      # interpreter so pyo3's build script never picks up an inherited/ambient
+      # $PYO3_PYTHON or $VIRTUAL_ENV.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Export PYO3_PYTHON
+        run: echo "PYO3_PYTHON=$(python3 -c 'import sys; print(sys.executable)')" >> "$GITHUB_ENV"
+
+      - name: cargo fmt --all --check
+        run: cargo fmt --all --check
+
+      - name: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo clippy --workspace --all-targets --features python -- -D warnings
+        run: cargo clippy --workspace --all-targets --features python -- -D warnings
+
+      # --document-private-items: most of this codebase's own doc comments are on
+      # private items (it's an application, not primarily a public library), so the
+      # default public-only doc build would miss most of what rustdoc actually
+      # parses here.
+      - name: cargo doc --workspace --no-deps --features python --document-private-items
+        run: cargo doc --workspace --no-deps --features python --document-private-items
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
+      # `cargo audit` (RustSec advisory-db scan of Cargo.lock) had no CI signal at all
+      # before this — the first-ever local run found 3 real advisories (crossbeam-epoch,
+      # and two HIGH-severity quick-xml DoS advisories via the calamine dev-dependency),
+      # all fixed; see CHANGELOG.md. Installed via `cargo install --locked`, not a
+      # marketplace Action, matching this job's own wasm-pack/cargo-fuzz precedent of
+      # pinning an exact tool version rather than trusting an Action's own resolution.
+      # No ignore-list: Cargo.lock is clean as of this commit, so a bare `cargo audit`
+      # is the plain, unqualified check — add an `audit.toml` ignore entry only if a
+      # future advisory genuinely has no upgrade path and is accepted as a known risk.
+      - name: install cargo-audit
+        run: cargo install cargo-audit --version 0.22.1 --locked
+
+      - name: cargo audit
+        run: cargo audit
+
+      # Keep the dependency policy in deny.toml executable in CI as well as in
+      # the offline local gate. The version is pinned so a toolchain update does
+      # not silently change license/source interpretation.
+      - name: install cargo-deny
+        run: cargo install cargo-deny --version 0.19.9 --locked
+
+      - name: cargo deny
+        run: cargo deny check
+
+  # @elixcee/xlsx (packages/xlsx) and its differential-testing harness
+  # (compat/) — previously not wired into CI at all despite every one of
+  # these commands already working locally (verified live before adding
+  # this job, not assumed from what CHANGELOG.md claims). Node 20/22: two
+  # current LTS-track versions within packages/xlsx's own declared
+  # "engines": ">=18" range, not a literally-stated support matrix (no
+  # such matrix exists elsewhere in this project — chosen here, not
+  # copied from a pre-existing policy). Neither packages/xlsx nor compat
+  # needs a Rust/WASM build step first: the WASM artifact packages/xlsx
+  # ships is committed/vendored, not built on the fly (see
+  # crates/elixcee-wasm/build.sh's own doc comment).
+  node-js:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: packages/xlsx — npm ci
+        working-directory: packages/xlsx
+        run: npm ci
+
+      - name: packages/xlsx — typecheck (with DOM lib)
+        working-directory: packages/xlsx
+        run: npm run typecheck
+
+      - name: packages/xlsx — typecheck (no DOM lib, public types only)
+        working-directory: packages/xlsx
+        run: npm run typecheck:no-dom
+
+      # Asserts what `npm pack` would actually publish (required files
+      # present, nothing forbidden or unexpected) — didn't exist at all
+      # before this round; a manual dry-run was clean but nothing asserted
+      # it in CI. See scripts/audit-pack-contents.mjs's own header comment.
+      - name: packages/xlsx — audit npm pack contents
+        working-directory: packages/xlsx
+        run: npm run audit:pack
+
+      # The step above only inspects `npm pack --dry-run`'s file LIST. This one packs a
+      # real .tgz, `npm install`s it into a throwaway package under the runner's tmpdir
+      # (outside the checkout, so no parent node_modules can satisfy the import), and
+      # exercises CJS/ESM/TypeScript/browser-condition/read() entirely from inside that
+      # install — asserting the resolved paths land in the throwaway node_modules, which is
+      # what distinguishes this from every other test here (all of which reach the package
+      # by relative path into packages/xlsx/src). It also logs the packed tarball size.
+      # Needs network: `npm install` of the tarball fetches its `ssf` runtime dependency.
+      # Lives in this job rather than `wasm` because it exercises the committed artifact and
+      # benefits from running on both Node versions in the matrix.
+      - name: packages/xlsx — packed-tarball consumer smoke (real npm install from a .tgz)
+        working-directory: packages/xlsx
+        run: npm run pack:consumer
+
+      - name: compat — npm ci
+        working-directory: compat
+        run: npm ci
+
+      # Each of these installs the real xlsx@0.18.5 as its own oracle and
+      # compares packages/xlsx's actual output against it — see each
+      # script's own file for what "MATCH" means in that domain. All four
+      # already exit non-zero on any UNCLASSIFIED/BUG result; nothing
+      # extra needed here to make this job fail correctly.
+      # classify.mjs/normalize.mjs's own self-checks — already a package script, but never
+      # wired into CI. They pin the exact contents of the UNSUPPORTED/SECURITY/SAFETY
+      # divergence registries, which is what forces a disclosed divergence to be stated
+      # explicitly when added and removed when fixed; without this step that guard only
+      # fires for whoever happens to run it locally.
+      - name: compat — classifier/normalizer self-checks
+        working-directory: compat
+        run: npm run classifier:self-check
+
+      - name: compat — utils.* differential (512 MATCH + 14 disclosed divergences expected)
+        working-directory: compat
+        run: npm run differential:utils
+
+      - name: compat — SSF number-format conformance (1831/1831 expected)
+        working-directory: compat
+        run: npm run differential:ssf-format
+
+      # read: 21 MATCH, readFile/readFileSync: 13 MATCH. The xml:space="preserve"
+      # reader.rs defect this suite used to disclose here (3 cases across both apis) is
+      # fixed; see CHANGELOG.md's "src/reader.rs's xml:space=preserve whitespace defect".
+      # read's count grew by one for the t="e" error-cell case (Known gaps item 14 fix).
+      - name: compat — XLSX.read()/readFile() differential (34/34 MATCH expected)
+        working-directory: compat
+        run: npm run differential:read
+
+      - name: compat — export metadata differential (36/36 expected)
+        working-directory: compat
+        run: npm run differential:metadata
+
+      # 36 MATCH (all supported write()/writeFile()/writeFileSync() shapes) + 1 disclosed
+      # UNSUPPORTED (bookType:'ods' — see classify.mjs's UNSUPPORTED_ALLOWLIST). Was written
+      # and passing locally alongside the write() feature itself but not wired into CI until
+      # now — see CHANGELOG.md.
+      - name: compat — XLSX.write()/writeFile()/writeFileSync() differential (36 MATCH + 1 disclosed UNSUPPORTED expected)
+        working-directory: compat
+        run: npm run differential:write
+
+  # Builds crates/elixcee-wasm fresh (both wasm-pack targets), then verifies the result
+  # actually works as a consumer would use it — the node-js job above only ever exercises
+  # the already-vendored/committed copy under packages/xlsx/src/internal/wasm/, never a
+  # from-scratch wasm-pack build, so a build-breaking change there had no CI signal until
+  # this job. Separate from both `test` (no Node) and `node-js` (no Rust) since this one
+  # needs both toolchains in the same job to build-then-consume in one place.
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+
+      # Real wasm32 target, not the host target `rust-quality`'s workspace-wide clippy
+      # already covers — a lint that only fires (or only stays silent) under wasm32's
+      # own cfg/feature resolution wouldn't be caught by that job at all. Placed here
+      # rather than in `rust-quality` specifically to reuse this job's own already-set-up
+      # wasm32 toolchain instead of a second, separate one.
+      - name: cargo clippy -p elixcee-wasm --target wasm32-unknown-unknown -- -D warnings
+        run: cargo clippy -p elixcee-wasm --target wasm32-unknown-unknown -- -D warnings
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Pinned and installed via cargo itself (not a third-party Action) so this job's
+      # wasm-pack version is exactly what's declared here, not whatever a marketplace
+      # Action happens to resolve today.
+      - name: install wasm-pack
+        run: cargo install wasm-pack --version 0.13.1 --locked
+
+      # Builds BOTH `wasm-pack --target nodejs` and `--target web`, then vendors the
+      # result into packages/xlsx/src/internal/wasm/ — see build.sh's own header comment.
+      # A failure here means one of the two wasm-pack builds itself failed.
+      - name: build crates/elixcee-wasm (nodejs + web targets)
+        working-directory: crates/elixcee-wasm
+        run: bash build.sh
+
+      - name: packages/xlsx — npm ci
+        working-directory: packages/xlsx
+        run: npm ci
+
+      # Node sync read() against the fresh nodejs-target build; the browser export
+      # condition actually resolving and running (not just resolving); TWO esbuild bundles
+      # (CJS and ESM output, as distinct steps) each calling XLSX.read() from inside the
+      # bundle with no .wasm file copied next to it; the WASM artifact's current size,
+      # recorded to this job's own log (not gated against any threshold — no baseline
+      # exists yet to compare against). The ESM bundle step used to be impossible: the
+      # wasm-pack-generated Node loader resolved its .wasm via __dirname, which is
+      # bundle-output-relative and absent entirely from ESM output. build.sh now runs
+      # crates/elixcee-wasm/build-node-inline.mjs, which inlines the .wasm bytes as base64
+      # into the loader (the same technique build-browser-inline.mjs already used for the
+      # browser build), so no consumer copy step is required for either format. See
+      # wasm-smoke.mjs's own header comment.
+      - name: packages/xlsx — WASM bridge smoke test (Node read / browser condition / CJS+ESM bundles / size)
+        working-directory: packages/xlsx
+        run: npm run wasm:smoke
+
+      # Vendored loaders carry the compiled .wasm bytes inlined as base64 (see build.sh) --
+      # uploading them directly avoids a separate decode step and lets a reviewer pull down
+      # this exact run's build to diff against another. Retention kept short: this is a
+      # size-observation aid, not a release artifact.
+      - name: upload WASM bridge build
+        uses: actions/upload-artifact@v4
+        with:
+          name: elixcee-wasm-bridge
+          path: packages/xlsx/src/internal/wasm/
+          retention-days: 14
+
+      # Diagnostic, deliberately not `set -e`-fatal: prints exactly what browser the runner
+      # image actually provides, so the browser step below failing to find one is
+      # immediately explainable from this job's own log rather than needing a guess about
+      # the image contents.
+      - name: report available browsers on the runner
+        run: |
+          echo "CHROME_PATH=${CHROME_PATH:-<unset>}"
+          echo "CHROME_BIN=${CHROME_BIN:-<unset>}"
+          which google-chrome google-chrome-stable chromium chromium-browser || true
+          google-chrome --version || true
+
+      # The actual-browser check. Distinct from wasm:smoke's step 2 in exactly one way that
+      # matters: step 2 runs `node --conditions=browser`, which is Node simulating the
+      # browser export condition and proves nothing about a browser; this launches a real
+      # headless Chrome process against a bundle served over real HTTP and reads the result
+      # back out of the browser's own DOM. It logs the resolved executable path and Chrome's
+      # version, so "a browser really ran" is auditable from this log rather than asserted.
+      # Uses no browser-driver dependency at all (Chrome's own --dump-dom) — see
+      # browser-smoke.mjs's header for why that was chosen over playwright-core/
+      # puppeteer-core/chrome-remote-interface. Safari is not covered and is not claimed.
+      - name: packages/xlsx — real headless Chrome smoke test
+        working-directory: packages/xlsx
+        run: npm run browser:smoke
+
+  # compat/corpus/ (581 scenarios) and compat/vba-semantics/ (386 cases) — previously not
+  # wired into CI at all (see compat/README.md's own "CI" section, which explicitly called
+  # this out before this job existed) because both need a release build of the elixcee CLI
+  # binary first, which the `node-js` job above deliberately doesn't do. Separate job
+  # rather than folded into `node-js`, matching `wasm`'s precedent of needing both
+  # toolchains in the same place. `scenarios.json`/`expected-outcomes.json` (corpus) and
+  # `cases.json` (vba-semantics) are committed, generated-deterministically inputs — no
+  # regeneration step needed here, only for whoever edits the generator scripts themselves
+  # (see each suite's own README). Both gate scripts already set a non-zero exit code on
+  # UNEXPLAINED/MISMATCH (corpus) or BUG/UNCLASSIFIED (vba-semantics) — verified live
+  # before adding this job (corpus: 0/0 across 581; vba-semantics: 0/0 across 386, 14
+  # disclosed non-gating KNOWN_LIMITATION as of a later round — see CHANGELOG.md), nothing
+  # extra needed to make this job fail correctly.
+  compat-vba:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: cargo build --release --bin elixcee
+        run: cargo build --release --bin elixcee
+
+      - name: compat — npm ci
+        working-directory: compat
+        run: npm ci
+
+      - name: compat/corpus — run 581 scenarios against the elixcee CLI binary
+        working-directory: compat
+        run: npm run corpus:run
+
+      - name: compat/corpus — classify outcomes (0 UNEXPLAINED, 0 MISMATCH expected)
+        working-directory: compat
+        run: npm run corpus:outcomes
+
+      - name: compat/vba-semantics — run 386 cases against the elixcee CLI binary
+        working-directory: compat
+        run: npm run semantics:run
+
+      - name: compat/vba-semantics — report (0 BUG, 0 UNCLASSIFIED expected)
+        working-directory: compat
+        run: npm run semantics:report
+
+  # fuzz/ (4 libFuzzer targets: fuzz_formula_eval, fuzz_formula_parser, fuzz_vba_parser,
+  # fuzz_xlsx_reader) had no CI signal at all before this job existed — fuzz/Cargo.lock
+  # had gone stale since the elixcee v0.1.2 release with nothing to catch it. The first
+  # time these targets were run this session, one of them
+  # (fuzz_vba_parser) found a real panic within 30 seconds: an integer literal too wide
+  # for i64 crashed the tokenizer via an unguarded .unwrap() on a real, non-adversarial
+  # parse path — see CHANGELOG.md/tasks/todo.md. That result alone is the justification
+  # for wiring this in, not a hypothetical. Runs each target for a short, fixed time
+  # budget rather than to convergence, matching this job's role as a fast regression
+  # smoke check, not a fuzzing campaign — cargo fuzz run's own exit code (non-zero on any
+  # crash) is what fails this job, no extra handling needed. Deliberately doesn't persist
+  # a corpus across runs (each run starts from libFuzzer's own generated seed corpus,
+  # discarded when the job ends) — a persisted, cross-run corpus would find deeper bugs
+  # over time but means deciding where that corpus lives and how it's curated, which is a
+  # real design question left for later, not assumed here.
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # cargo-fuzz needs nightly (it passes -Z sanitizer flags to rustc, stable rejects
+      # those outright) — this action makes nightly the default toolchain for the rest of
+      # this job, unlike a bare `rustup toolchain install nightly` alongside a `stable`
+      # default, which still requires every invocation below to say `cargo +nightly`.
+      - uses: dtolnay/rust-toolchain@nightly
+
+      # Version-pinned and installed via cargo itself, matching the wasm job's own
+      # `cargo install wasm-pack --version 0.13.1 --locked` precedent — this job's
+      # cargo-fuzz version is exactly what's declared here, not whatever a marketplace
+      # Action happens to resolve today. Deliberately NOT --locked, unlike that wasm-pack
+      # precedent: cargo-fuzz 0.13.1's own published Cargo.lock pins rustix 0.36.5, which
+      # uses an internal rustc_attrs-gated attribute current nightly rejects outright
+      # ("cannot find attribute `rustc_layout_scalar_valid_range_start`") — reproduced and
+      # confirmed in a real ubuntu/nightly Docker container, not assumed from the error
+      # text alone. Omitting --locked lets Cargo re-resolve rustix's version against the
+      # current registry instead of that stale bundled lockfile, which resolved cleanly in
+      # the same container. The tool version itself (0.13.1) stays pinned either way.
+      - name: install cargo-fuzz
+        run: cargo install cargo-fuzz --version 0.13.1
+
+      # 30s per target — the same budget that found the fuzz_vba_parser crash above on
+      # this job's very first real run, kept here as a fast regression smoke check
+      # (~2 minutes total for all four), not a from-scratch fuzzing campaign.
+      - name: fuzz_formula_eval (30s)
+        run: cargo fuzz run fuzz_formula_eval -- -max_total_time=30
+
+      - name: fuzz_formula_parser (30s)
+        run: cargo fuzz run fuzz_formula_parser -- -max_total_time=30
+
+      - name: fuzz_vba_parser (30s)
+        run: cargo fuzz run fuzz_vba_parser -- -max_total_time=30
+
+      - name: fuzz_xlsx_reader (30s)
+        run: cargo fuzz run fuzz_xlsx_reader -- -max_total_time=30

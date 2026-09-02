@@ -56,17 +56,17 @@ class ExternalConfusionChart(APIObject):
     Attributes
     ----------
     dataset_id: str
-        ID of the external dataset with target
+        ID of the external dataset with target.
     model_id: str
-        ID of the model this confusion chart represents
+        ID of the model this confusion chart represents.
     raw_data : dict
-        All of the raw data for the Confusion Chart
+        All of the raw data for the Confusion Chart.
     confusion_matrix : list of list
-        The NxN confusion matrix
+        The NxN confusion matrix.
     classes : list
-        The names of each of the classes
+        The names of each of the classes.
     class_metrics : list of dicts
-        List of dicts with schema described as ``ClassMetrics`` above.
+        A list of dicts with schema described as ``ClassMetrics`` above.
 
     """
 
@@ -94,16 +94,15 @@ class ExternalConfusionChart(APIObject):
         Parameters
         ----------
         project_id: str
-            ID of the project
+            ID of the project.
         model_id: str
-            ID of the model to retrieve a chart from
+            ID of the model to retrieve a chart from.
         dataset_id: Optional[str]
-            If specified, only confusion chart for this dataset will be retrieved
+            If specified, only the confusion chart for this dataset is retrieved.
         offset: Optional[int]
-            This many results will be skipped, default: 0
+            This many results will be skipped, default: 0.
         limit: Optional[int]
-            At most this many results are returned, default: 100, max 1000.
-            To return all results, specify 0
+            At most this many results are returned, default: 100, max 1000. To return all results, specify 0.
 
         Returns
         -------
@@ -126,11 +125,11 @@ class ExternalConfusionChart(APIObject):
         Parameters
         ----------
         project_id: str
-            Project ID
+            Project ID.
         model_id: str
-            Model ID
+            Model ID.
         dataset_id: str
-            External dataset ID with target
+            External dataset ID with target.
 
         Returns
         -------

@@ -17,6 +17,7 @@ import pytest
 import traitlets
 from traitlets.config import Config
 
+from jupyterhub.roles import get_default_roles
 from jupyterhub.scopes import get_scopes_for
 
 from .. import orm
@@ -54,6 +55,7 @@ def test_show_config(tmpdir):
     assert config["JupyterHub"]["log_level"] == 10
 
 
+@pytest.mark.db
 def test_token_app():
     cmd = [sys.executable, '-m', 'jupyterhub', 'token']
     out = check_output(cmd + ['--help-all']).decode('utf8', 'replace')
@@ -119,6 +121,7 @@ def test_generate_config():
     assert 'Authenticator.allowed_users' in cfg_text
 
 
+@pytest.mark.db
 async def test_init_tokens(request):
     with TemporaryDirectory() as td:
         db_file = os.path.join(td, 'jupyterhub.sqlite')
@@ -236,6 +239,7 @@ def test_cookie_secret_string():
     assert app.cookie_secret == binascii.a2b_hex('abc123')
 
 
+@pytest.mark.db
 async def test_load_groups(tmpdir, request):
     to_load = {
         'blue': {
@@ -289,8 +293,10 @@ def persist_db(tmpdir):
 
 
 @pytest.fixture
-def new_hub(request, tmpdir, persist_db):
+async def new_hub(request, tmpdir, persist_db):
     """Fixture to launch a new hub for testing"""
+
+    apps = []
 
     async def new_hub(**kwargs):
         ssl_enabled = getattr(request.module, "ssl_enabled", False)
@@ -299,14 +305,17 @@ def new_hub(request, tmpdir, persist_db):
         app = MockHub(test_clean_db=False, **kwargs)
         app.config.ConfigurableHTTPProxy.should_start = False
         app.config.ConfigurableHTTPProxy.auth_token = 'unused'
-        request.addfinalizer(app.stop)
+        apps.append(app)
         await app.initialize([])
 
         return app
 
-    return new_hub
+    yield new_hub
+    for app in apps:
+        await app.stop()
 
 
+@pytest.mark.db
 async def test_resume_spawners(tmpdir, request, new_hub):
     app = await new_hub(allow_named_servers=True)
     db = app.db
@@ -316,12 +325,13 @@ async def test_resume_spawners(tmpdir, request, new_hub):
     await user.spawn()
     proc = user.spawner.proc
     assert proc is not None
+    user._new_orm_spawner('stopped', 'stopped')
     stopped_spawner = user.spawners['stopped']
     assert sorted(user.spawners) == ['', 'stopped']
 
     # stop the Hub without cleaning up servers
     app.cleanup_servers = False
-    app.stop()
+    await app.stop()
 
     # proc is still running
     assert proc.poll() is None
@@ -339,7 +349,7 @@ async def test_resume_spawners(tmpdir, request, new_hub):
 
     # stop the Hub without cleaning up servers
     app.cleanup_servers = False
-    app.stop()
+    await app.stop()
 
     # stop the server while the Hub is down. BAMF!
     proc.terminate()
@@ -459,6 +469,7 @@ def test_launch_instance(request, argv, sys_argv):
         assert hub.argv == argv
 
 
+@pytest.mark.db
 async def test_user_creation(tmpdir, request):
     allowed_users = {"in-allowed", "in-group-in-allowed", "in-role-in-allowed"}
     groups = {
@@ -499,13 +510,70 @@ async def test_user_creation(tmpdir, request):
     }
 
 
+@pytest.mark.db
+@pytest.mark.parametrize(
+    "extra_user_scopes, user_scopes, expected_warn",
+    [
+        pytest.param({"access:services"}, None, None, id="extra_user_scopes only"),
+        pytest.param(
+            None,
+            {"access:servers!user"},
+            "does not include 'self'",
+            id="user_role only",
+        ),
+        pytest.param(
+            {"access:services"},
+            {"access:servers!user"},
+            [
+                "will be ignored",
+                "extra_user_scopes={'",
+            ],
+            id="both set",
+        ),
+    ],
+)
+async def test_extra_user_scopes(caplog, extra_user_scopes, user_scopes, expected_warn):
+    roles = []
+    if user_scopes:
+        roles.append(
+            {
+                "name": "user",
+                "scopes": user_scopes,
+            }
+        )
+    cfg = Config()
+    cfg.JupyterHub.load_roles = roles
+    if extra_user_scopes:
+        cfg.JupyterHub.extra_user_scopes = extra_user_scopes
+
+    default_roles = {role['name']: role for role in get_default_roles()}
+    default_scopes = default_roles["user"]["scopes"]
+    hub = MockHub(config=cfg, log=logging.getLogger())
+    hub.init_db()
+    caplog.clear()
+    await hub.init_role_creation()
+    if user_scopes:
+        expected_scopes = user_scopes
+    else:
+        expected_scopes = set(default_scopes) | set(extra_user_scopes or [])
+    user_role = orm.Role.find(hub.db, "user")
+    assert set(user_role.scopes) == set(expected_scopes)
+    if expected_warn:
+        logged = "\n".join([f"{rec.levelname}:{rec.message}" for rec in caplog.records])
+        if not isinstance(expected_warn, list):
+            expected_warn = [expected_warn]
+        for message in expected_warn:
+            assert message in logged
+
+
+@pytest.mark.db
 async def test_recreate_service_from_database(
     request, new_hub, service_name, service_data
 ):
     # create a hub and add a service (not from config)
     app = await new_hub()
     app.service_from_spec(service_data, from_config=False)
-    app.stop()
+    await app.stop()
 
     # new hub, should load service from db
     app = await new_hub()
@@ -538,6 +606,7 @@ async def test_recreate_service_from_database(
     assert service_name not in app._service_map
 
 
+@pytest.mark.db
 async def test_revoke_blocked_users(username, groupname, new_hub):
     config = Config()
     config.Authenticator.admin_users = {username}
@@ -565,7 +634,7 @@ async def test_revoke_blocked_users(username, groupname, new_hub):
     token = user.new_api_token()
     orm_token = orm.APIToken.find(app.db, token)
     app.cleanup_servers = False
-    app.stop()
+    await app.stop()
 
     # before state
     assert await spawner.poll() is None
@@ -606,4 +675,4 @@ async def test_revoke_blocked_users(username, groupname, new_hub):
     # (sanity check) didn't lose other user
     kept_user = app2.users[kept_username]
     assert 'user' in [r.name for r in kept_user.roles]
-    app2.stop()
+    await app2.stop()

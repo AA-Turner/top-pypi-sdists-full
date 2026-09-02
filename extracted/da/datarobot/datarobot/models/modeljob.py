@@ -72,30 +72,30 @@ def wait_for_async_model_creation(project_id: str, model_job_id: str, max_wait: 
 
 
 class ModelJob(AbstractSpecificJob):
-    """Tracks asynchronous work being done within a project
+    """Tracks asynchronous work being done within a project.
 
     Attributes
     ----------
     id : int
-        the ID of the job
+        The ID of the job.
     project_id : str
-        the ID of the project the job belongs to
+        The ID of the project the job belongs to.
     status : str
-        the status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``
+        The status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``.
     job_type : str
-        what kind of work the job is doing - will be 'model' for modeling jobs
+        What kind of work the job is doing - will be 'model' for modeling jobs.
     is_blocked : bool
-        if true, the job is blocked (cannot be executed) until its dependencies are resolved
+        If true, the job is blocked (cannot be executed) until its dependencies are resolved.
     sample_pct : float
-        the percentage of the project's dataset used in this modeling job
+        The percentage of the project's dataset used in this modeling job.
     model_type : str
-        the model this job builds (e.g., 'Nystroem Kernel SVM Regressor')
+        The model this job builds (e.g., 'Nystroem Kernel SVM Regressor').
     processes : List[str]
-        the processes used by the model
+        The processes used by the model.
     featurelist_id : str
-        the ID of the featurelist used in this modeling job
+        The ID of the featurelist used in this modeling job.
     blueprint : Blueprint
-        the blueprint used in this modeling job
+        The blueprint used in this modeling job.
     """
 
     _extra_fields = frozenset(["sample_pct", "model_type", "processes", "featurelist_id"])
@@ -137,12 +137,12 @@ class ModelJob(AbstractSpecificJob):
         Parameters
         ----------
         job: Job
-            A generic job representing a ModelJob
+            A generic job representing a ModelJob.
 
         Returns
         -------
         model_job: ModelJob
-            A fully populated ModelJob with all the details of the job
+            A fully populated ModelJob with all the details of the job.
 
         Raises
         ------
@@ -162,14 +162,14 @@ class ModelJob(AbstractSpecificJob):
         Parameters
         ----------
         project_id : str
-            The identifier of the project the model belongs to
+            The identifier of the project the model belongs to.
         model_job_id : str
-            The identifier of the model_job
+            The identifier of the ``model_job``.
 
         Returns
         -------
         model_job : ModelJob
-            The pending ModelJob
+            The pending ModelJob.
 
         Raises
         ------
@@ -177,7 +177,7 @@ class ModelJob(AbstractSpecificJob):
             If the job being queried already finished, and the server is
             re-routing to the finished model.
         AsyncFailureError
-            Querying this resource gave a status code other than 200 or 303
+            Querying this resource gave a status code other than 200 or 303.
         """
         return super().get(project_id, model_job_id)
 
@@ -193,22 +193,22 @@ class ModelJob(AbstractSpecificJob):
         Parameters
         ----------
         project_id : str
-            The identifier of the project the model belongs to
+            The identifier of the project the model belongs to.
         model_job_id : str
-            The identifier of the model_job
+            The identifier of the ``model_job``.
 
         Returns
         -------
         model : Model
-            The finished model
+            The finished model.
 
         Raises
         ------
         JobNotFinished
-            If the job has not finished yet
+            If the job has not finished yet.
         AsyncFailureError
-            Querying the model_job in question gave a status code other than 200 or
-            303
+            Querying the ``model_job`` in question gave a status code other than 200 or
+            303.
         """
         # Note: Don't need this in 3.0. (Use `Job.get_result` method instead.)
         from . import Model  # pylint: disable=import-outside-toplevel,cyclic-import

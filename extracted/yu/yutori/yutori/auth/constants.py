@@ -1,0 +1,44 @@
+"""Constants for Yutori authentication and configuration."""
+
+from __future__ import annotations
+
+import os
+
+from ..config import DEFAULT_BASE_URL, sanitize_base_url
+
+# Clerk OAuth configuration
+DEFAULT_CLERK_INSTANCE_URL = "https://clerk.yutori.com"
+DEFAULT_CLERK_CONSENT_URL = "https://accounts.yutori.com/oauth-consent"
+DEFAULT_AUTH_SIGN_IN_URL = "https://platform.yutori.com/sign-in"
+
+CLERK_INSTANCE_URL = os.environ.get("CLERK_INSTANCE_URL", DEFAULT_CLERK_INSTANCE_URL)
+CLERK_CLIENT_ID = os.environ.get("CLERK_CLIENT_ID", "TGiyfoPbG01Sakpe")
+CLERK_CONSENT_URL = os.environ.get("CLERK_CONSENT_URL")
+AUTH_SIGN_IN_URL = os.environ.get("AUTH_SIGN_IN_URL")
+
+# Callback server — bind to 127.0.0.1 (avoids IPv4/IPv6 mismatch),
+# but use localhost in redirect URI (must match Clerk's registered URL).
+CALLBACK_HOST = "127.0.0.1"
+REDIRECT_PORT = 54320
+REDIRECT_URI = f"http://localhost:{REDIRECT_PORT}/callback"
+AUTH_TIMEOUT_SECONDS = 300
+
+# Credential storage
+CONFIG_DIR = ".yutori"
+CONFIG_FILE = "config.json"
+
+# Error messages
+ERROR_AUTH_TIMEOUT = "Login timed out. Please try again."
+ERROR_STATE_MISMATCH = "Security validation failed (state mismatch). Please try again."
+ERROR_AUTH_FAILED = "Authentication failed"
+
+
+# Overridable so a non-production auth stack stays self-consistent: without
+# this, overriding the Clerk URLs above would still mint keys against the
+# production API.
+AUTH_API_BASE_URL = sanitize_base_url(os.environ.get("YUTORI_API_BASE_URL", DEFAULT_BASE_URL))
+
+
+def build_auth_api_url(path: str) -> str:
+    """Build API URL for auth endpoints (key generation after OAuth)."""
+    return f"{AUTH_API_BASE_URL}{path}"

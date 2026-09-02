@@ -1,9 +1,11 @@
+import json
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 
 from pydantic import BaseModel
 
 LINE_BREAK = re.compile(r"\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]")
+MAX_PREVIEW_BYTES = 64_000
 
 
 class LinePreview(BaseModel):
@@ -17,6 +19,28 @@ class ReplacementResult(BaseModel):
     content: str
     previews: list[LinePreview]
     lines_changed: int
+
+
+def preview_fits(blocks: Sequence[BaseModel]) -> bool:
+    payload = [block.model_dump(mode="json") for block in blocks]
+    serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    return len(serialized.encode("utf-8")) <= MAX_PREVIEW_BYTES
+
+
+def preview_file_change(original: str, updated: str) -> list[LinePreview]:
+    """Describe the changed logical lines between two complete file contents."""
+    if original == updated:
+        return []
+    if not original:
+        return [
+            LinePreview(
+                old_start_line=1,
+                new_start_line=1,
+                old_lines=[],
+                new_lines=updated.splitlines(keepends=True),
+            )
+        ]
+    return replace_with_preview(original, original, updated, 1).previews
 
 
 def replace_with_preview(
@@ -164,9 +188,11 @@ def _line_windows(
     for span_start, span_end in spans:
         if (
             span_start == span_end == len(content)
-            and next_break is not None
-            and next_break.end() == len(content)
-            and (not content or content[-1] != "\r")
+            and any(
+                match.end() == len(content)
+                for match in LINE_BREAK.finditer(content, max(0, len(content) - 2))
+            )
+            and content[-1] != "\r"
         ):
             yield len(content), len(content)
             continue

@@ -12,6 +12,7 @@ import collections.abc
 import dataclasses
 import datetime as datetime_module
 import difflib
+import dis
 import hashlib
 import importlib
 import inspect
@@ -1847,14 +1848,12 @@ def get_closure_vars_including_comprehensions(fn: Callable[..., Any]):
     """
     Returns globals captured by the function or by any inner functions scopes from list comprehensions.
     """
-    closure = inspect.getclosurevars(fn)
-
     # __globals__["__builtins__"] is either a dict or a module
     builtins_ns = fn.__globals__.get("__builtins__", builtins.__dict__)
     if isinstance(builtins_ns, ModuleType):
         builtins_ns = builtins_ns.__dict__
-    captured_globals = dict(closure.globals)
-    captured_builtins = dict(closure.builtins)
+    captured_globals: dict[str, object] = {}
+    captured_builtins: dict[str, object] = {}
 
     _visited: "set[types.CodeType]" = set()
 
@@ -1862,18 +1861,24 @@ def get_closure_vars_including_comprehensions(fn: Callable[..., Any]):
         if code in _visited:
             return
         _visited.add(code)
-        for name in code.co_names:
-            if name not in captured_globals and name in fn.__globals__:
-                captured_globals[name] = fn.__globals__[name]
-            elif name not in captured_builtins and name in builtins_ns:
-                captured_builtins[name] = builtins_ns[name]
+
+        for instruction in dis.get_instructions(code):
+            if instruction.opname == "LOAD_GLOBAL":
+                name = instruction.argval
+                if name in captured_globals or name in captured_builtins:
+                    continue
+                if name in fn.__globals__:
+                    captured_globals[name] = fn.__globals__[name]
+                elif name in builtins_ns:
+                    captured_builtins[name] = builtins_ns[name]
+            elif instruction.opname == "LOAD_CONST" and type(instruction.argval) is types.CodeType:
+                _visit_code(instruction.argval)
+
         for const in code.co_consts:
             if type(const) is types.CodeType:
                 _visit_code(const)
 
-    for const in fn.__code__.co_consts:
-        if type(const) is types.CodeType:
-            _visit_code(const)
+    _visit_code(fn.__code__)
 
     return ClosureCapturedValues(
         globals=captured_globals,
@@ -1924,6 +1929,12 @@ def _capture_referenced_module_function_members(
         fn=fn,
         module_globals=module_globals,
     ).items():
+        try:
+            parse_common_module(module_value)
+            continue
+        except ValueError:
+            pass
+
         try:
             member_value = getattr(module_value, member_name)
         except AttributeError:

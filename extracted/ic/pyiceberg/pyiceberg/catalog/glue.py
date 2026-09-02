@@ -16,6 +16,7 @@
 #  under the License.
 
 
+import logging
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -26,6 +27,7 @@ from typing import (
 
 import boto3
 from botocore.config import Config
+from typing_extensions import override
 
 from pyiceberg.catalog import (
     BOTOCORE_SESSION,
@@ -48,10 +50,10 @@ from pyiceberg.exceptions import (
     NoSuchTableError,
     TableAlreadyExistsError,
 )
-from pyiceberg.io import AWS_ACCESS_KEY_ID, AWS_PROFILE_NAME, AWS_REGION, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN
+from pyiceberg.io import AWS_ACCESS_KEY_ID, AWS_PROFILE_NAME, AWS_REGION, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, FileIO
 from pyiceberg.partitioning import UNPARTITIONED_PARTITION_SPEC, PartitionSpec
 from pyiceberg.schema import Schema, SchemaVisitor, visit
-from pyiceberg.serializers import FromInputFile
+from pyiceberg.serializers import FromInputFile, ToOutputFile
 from pyiceberg.table import (
     CommitTableResponse,
     Table,
@@ -85,6 +87,8 @@ from pyiceberg.types import (
     UUIDType,
 )
 from pyiceberg.utils.properties import get_first_property_value, property_as_bool
+from pyiceberg.view import View
+from pyiceberg.view.metadata import ViewVersion
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -120,6 +124,8 @@ ICEBERG_FIELD_ID = "iceberg.field.id"
 ICEBERG_FIELD_OPTIONAL = "iceberg.field.optional"
 ICEBERG_FIELD_CURRENT = "iceberg.field.current"
 
+logger = logging.getLogger(__name__)
+
 GLUE_PROFILE_NAME = "glue.profile-name"
 GLUE_REGION = "glue.region"
 GLUE_ACCESS_KEY_ID = "glue.access-key-id"
@@ -127,6 +133,7 @@ GLUE_SECRET_ACCESS_KEY = "glue.secret-access-key"
 GLUE_SESSION_TOKEN = "glue.session-token"
 GLUE_MAX_RETRIES = "glue.max-retries"
 GLUE_RETRY_MODE = "glue.retry-mode"
+GLUE_CONNECTION_S3_TABLES = "aws:s3tables"
 
 MAX_RETRIES = 10
 STANDARD_RETRY_MODE = "standard"
@@ -417,6 +424,122 @@ class GlueCatalog(MetastoreCatalog):
         except self.glue.exceptions.EntityNotFoundException as e:
             raise NoSuchTableError(f"Table does not exist: {database_name}.{table_name}") from e
 
+    def _is_s3tables_database(self, database_name: str) -> bool:
+        """Check if a Glue database is federated with S3 Tables.
+
+        S3 Tables databases have a FederatedDatabase property with
+        ConnectionType set to aws:s3tables.
+
+        Args:
+            database_name: The name of the Glue database.
+
+        Returns:
+            True if the database is an S3 Tables federated database.
+        """
+        try:
+            database_response = self.glue.get_database(Name=database_name)
+        except self.glue.exceptions.EntityNotFoundException:
+            return False
+        database = database_response["Database"]
+        federated = database.get("FederatedDatabase", {})
+        return federated.get("ConnectionType", "") == GLUE_CONNECTION_S3_TABLES
+
+    @staticmethod
+    def _write_metadata_no_exist_check(metadata: TableMetadata, io: FileIO, metadata_path: str) -> None:
+        ToOutputFile.table_metadata(metadata, io.new_output(metadata_path), overwrite=True)
+
+    def _create_table_s3tables(
+        self,
+        identifier: str | Identifier,
+        schema: Union[Schema, "pa.Schema"],
+        location: str | None,
+        partition_spec: PartitionSpec,
+        sort_order: SortOrder,
+        properties: Properties,
+    ) -> Table:
+        """Create an Iceberg table in an S3 Tables federated database.
+
+        S3 Tables manages storage internally, so the table location is not known until the
+        table is created in the service. This method:
+          1. Creates a minimal table entry in Glue (format=ICEBERG), which causes S3 Tables
+             to allocate storage.
+          2. Retrieves the managed storage location via GetTable.
+          3. Writes Iceberg metadata to that location.
+          4. Updates the Glue table entry with the metadata pointer.
+
+        On failure, the table created in step 1 is deleted.
+        """
+        database_name, table_name = self.identifier_to_database_and_table(identifier)
+
+        if location is not None:
+            raise ValueError(
+                f"Cannot specify a location for S3 Tables table {database_name}.{table_name}. "
+                "S3 Tables manages the storage location automatically."
+            )
+
+        # Create a minimal table in Glue so S3 Tables allocates storage.
+        self._create_glue_table(
+            database_name=database_name,
+            table_name=table_name,
+            table_input={
+                "Name": table_name,
+                "Parameters": {"format": "ICEBERG"},
+            },
+        )
+
+        try:
+            # Retrieve the managed storage location.
+            glue_table = self._get_glue_table(database_name=database_name, table_name=table_name)
+            storage_descriptor = glue_table.get("StorageDescriptor", {})
+            managed_location = storage_descriptor.get("Location")
+            if not managed_location:
+                raise ValueError(f"S3 Tables did not assign a storage location for {database_name}.{table_name}")
+
+            # Build the Iceberg metadata targeting the managed location.
+            staged_table = self._create_staged_table(
+                identifier=identifier,
+                schema=schema,
+                location=managed_location,
+                partition_spec=partition_spec,
+                sort_order=sort_order,
+                properties=properties,
+            )
+
+            # Write metadata and update the Glue table with the metadata pointer.
+            # Skip the exist check before writing; S3 Tables doesn't support ListObjectsV2.
+            self._write_metadata_no_exist_check(staged_table.metadata, staged_table.io, staged_table.metadata_location)
+            table_input = _construct_table_input(table_name, staged_table.metadata_location, properties, staged_table.metadata)
+            version_id = glue_table.get("VersionId")
+            if not version_id:
+                raise CommitFailedException(
+                    f"Cannot commit {database_name}.{table_name} because Glue table version id is missing"
+                )
+            self._update_glue_table(
+                database_name=database_name,
+                table_name=table_name,
+                table_input=table_input,
+                version_id=version_id,
+            )
+        except Exception:
+            # Clean up the table created in step 1.
+            try:
+                self.glue.delete_table(DatabaseName=database_name, Name=table_name)
+            except Exception:
+                logger.warning(
+                    f"Failed to clean up S3 Tables table {database_name}.{table_name}",
+                    exc_info=logger.isEnabledFor(logging.DEBUG),
+                )
+            raise
+
+        return Table(
+            identifier=self.identifier_to_tuple(identifier),
+            metadata=staged_table.metadata,
+            metadata_location=staged_table.metadata_location,
+            io=self._load_file_io(staged_table.metadata.properties, staged_table.metadata_location),
+            catalog=self,
+        )
+
+    @override
     def create_table(
         self,
         identifier: str | Identifier,
@@ -433,6 +556,7 @@ class GlueCatalog(MetastoreCatalog):
             identifier: Table identifier.
             schema: Table's schema.
             location: Location for the table. Optional Argument.
+                Must not be set for S3 Tables, which manage their own storage.
             partition_spec: PartitionSpec for the table.
             sort_order: SortOrder for the table.
             properties: Table properties that can be a string based dictionary.
@@ -442,9 +566,22 @@ class GlueCatalog(MetastoreCatalog):
 
         Raises:
             AlreadyExistsError: If a table with the name already exists.
-            ValueError: If the identifier is invalid, or no path is given to store metadata.
+            ValueError: If the identifier is invalid, no path is given to store metadata,
+                or a location is specified for an S3 Tables table.
 
         """
+        database_name, table_name = self.identifier_to_database_and_table(identifier)
+
+        if self._is_s3tables_database(database_name):
+            return self._create_table_s3tables(
+                identifier=identifier,
+                schema=schema,
+                location=location,
+                partition_spec=partition_spec,
+                sort_order=sort_order,
+                properties=properties,
+            )
+
         staged_table = self._create_staged_table(
             identifier=identifier,
             schema=schema,
@@ -453,20 +590,27 @@ class GlueCatalog(MetastoreCatalog):
             sort_order=sort_order,
             properties=properties,
         )
-        database_name, table_name = self.identifier_to_database_and_table(identifier)
 
         self._write_metadata(staged_table.metadata, staged_table.io, staged_table.metadata_location)
         table_input = _construct_table_input(table_name, staged_table.metadata_location, properties, staged_table.metadata)
         self._create_glue_table(database_name=database_name, table_name=table_name, table_input=table_input)
 
-        return self.load_table(identifier=identifier)
+        return Table(
+            identifier=self.identifier_to_tuple(identifier),
+            metadata=staged_table.metadata,
+            metadata_location=staged_table.metadata_location,
+            io=self._load_file_io(staged_table.metadata.properties, staged_table.metadata_location),
+            catalog=self,
+        )
 
-    def register_table(self, identifier: str | Identifier, metadata_location: str) -> Table:
+    @override
+    def register_table(self, identifier: str | Identifier, metadata_location: str, overwrite: bool = False) -> Table:
         """Register a new table using existing metadata.
 
         Args:
             identifier (Union[str, Identifier]): Table identifier for the table
             metadata_location (str): The location to the metadata
+            overwrite (bool): Whether to overwrite the existing table, default False
 
         Returns:
             Table: The newly registered table
@@ -474,6 +618,9 @@ class GlueCatalog(MetastoreCatalog):
         Raises:
             TableAlreadyExistsError: If the table already exists
         """
+        if overwrite:
+            raise NotImplementedError("`overwrite` isn't supported")
+
         database_name, table_name = self.identifier_to_database_and_table(identifier)
         properties = EMPTY_DICT
         io = self._load_file_io(location=metadata_location)
@@ -483,6 +630,7 @@ class GlueCatalog(MetastoreCatalog):
         self._create_glue_table(database_name=database_name, table_name=table_name, table_input=table_input)
         return self.load_table(identifier=identifier)
 
+    @override
     def commit_table(
         self, table: Table, requirements: tuple[TableRequirement, ...], updates: tuple[TableUpdate, ...]
     ) -> CommitTableResponse:
@@ -519,7 +667,11 @@ class GlueCatalog(MetastoreCatalog):
         if current_table and updated_staged_table.metadata == current_table.metadata:
             # no changes, do nothing
             return CommitTableResponse(metadata=current_table.metadata, metadata_location=current_table.metadata_location)
-        self._write_metadata(
+        # S3 Tables managed storage doesn't support ListObjectsV2, so skip the exist check.
+        write_metadata = (
+            self._write_metadata_no_exist_check if self._is_s3tables_database(database_name) else self._write_metadata
+        )
+        write_metadata(
             metadata=updated_staged_table.metadata,
             io=updated_staged_table.io,
             metadata_path=updated_staged_table.metadata_location,
@@ -562,6 +714,7 @@ class GlueCatalog(MetastoreCatalog):
             metadata=updated_staged_table.metadata, metadata_location=updated_staged_table.metadata_location
         )
 
+    @override
     def load_table(self, identifier: str | Identifier) -> Table:
         """Load the table's metadata and returns the table instance.
 
@@ -581,6 +734,7 @@ class GlueCatalog(MetastoreCatalog):
 
         return self._convert_glue_to_iceberg(self._get_glue_table(database_name=database_name, table_name=table_name))
 
+    @override
     def drop_table(self, identifier: str | Identifier) -> None:
         """Drop a table.
 
@@ -596,6 +750,7 @@ class GlueCatalog(MetastoreCatalog):
         except self.glue.exceptions.EntityNotFoundException as e:
             raise NoSuchTableError(f"Table does not exist: {database_name}.{table_name}") from e
 
+    @override
     def rename_table(self, from_identifier: str | Identifier, to_identifier: str | Identifier) -> Table:
         """Rename a fully classified table name.
 
@@ -656,6 +811,7 @@ class GlueCatalog(MetastoreCatalog):
 
         return self.load_table(to_identifier)
 
+    @override
     def create_namespace(self, namespace: str | Identifier, properties: Properties = EMPTY_DICT) -> None:
         """Create a namespace in the catalog.
 
@@ -673,6 +829,7 @@ class GlueCatalog(MetastoreCatalog):
         except self.glue.exceptions.AlreadyExistsException as e:
             raise NamespaceAlreadyExistsError(f"Database {database_name} already exists") from e
 
+    @override
     def drop_namespace(self, namespace: str | Identifier) -> None:
         """Drop a namespace.
 
@@ -702,6 +859,7 @@ class GlueCatalog(MetastoreCatalog):
                 )
         self.glue.delete_database(Name=database_name)
 
+    @override
     def list_tables(self, namespace: str | Identifier) -> list[Identifier]:
         """List Iceberg tables under the given namespace in the catalog.
 
@@ -733,6 +891,7 @@ class GlueCatalog(MetastoreCatalog):
             raise NoSuchNamespaceError(f"Database does not exist: {database_name}") from e
         return [(database_name, table["Name"]) for table in table_list if self.__is_iceberg_table(table)]
 
+    @override
     def list_namespaces(self, namespace: str | Identifier = ()) -> list[Identifier]:
         """List namespaces from the given namespace. If not given, list top-level namespaces from the catalog.
 
@@ -755,6 +914,7 @@ class GlueCatalog(MetastoreCatalog):
 
         return [self.identifier_to_tuple(database["Name"]) for database in database_list]
 
+    @override
     def load_namespace_properties(self, namespace: str | Identifier) -> Properties:
         """Get properties for a namespace.
 
@@ -785,6 +945,7 @@ class GlueCatalog(MetastoreCatalog):
 
         return properties
 
+    @override
     def update_namespace_properties(
         self, namespace: str | Identifier, removals: set[str] | None = None, updates: Properties = EMPTY_DICT
     ) -> PropertiesUpdateSummary:
@@ -809,13 +970,35 @@ class GlueCatalog(MetastoreCatalog):
 
         return properties_update_summary
 
+    @override
+    def create_view(
+        self,
+        identifier: str | Identifier,
+        schema: Union[Schema, "pa.Schema"],
+        view_version: ViewVersion,
+        location: str | None = None,
+        properties: Properties = EMPTY_DICT,
+    ) -> View:
+        raise NotImplementedError
+
+    @override
     def list_views(self, namespace: str | Identifier) -> list[Identifier]:
         raise NotImplementedError
 
+    @override
+    def register_view(self, identifier: str | Identifier, metadata_location: str) -> View:
+        raise NotImplementedError
+
+    @override
     def drop_view(self, identifier: str | Identifier) -> None:
         raise NotImplementedError
 
+    @override
     def view_exists(self, identifier: str | Identifier) -> bool:
+        raise NotImplementedError
+
+    @override
+    def load_view(self, identifier: str | Identifier) -> View:
         raise NotImplementedError
 
     @staticmethod

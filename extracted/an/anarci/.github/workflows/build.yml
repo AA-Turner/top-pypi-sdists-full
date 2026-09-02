@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  build:
+    if: ${{ !endsWith(github.triggering_actor, '[bot]') && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: build_pipeline/environment.yml
+          generate-run-shell: true
+          cache-environment: true
+
+      - run: build_pipeline/RUN_pipeline.sh
+        shell: micromamba-shell {0}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
+
+      - uses: astral-sh/setup-uv@v7
+
+      - run: uv build --no-sources --clear --no-create-gitignore
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: dist
+          path: dist/

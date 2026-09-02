@@ -1,0 +1,195 @@
+"""Payload management utilities for Navigator agent loops.
+
+When using the API in an agentic loop, the message history grows with each
+step because every tool response includes a new screenshot. These utilities
+help keep the total payload under the API's size limit by selectively removing
+old screenshots while preserving recent context.
+
+Adapted from Yutori's earlier browser-agent tooling.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Callable
+from copy import deepcopy
+from typing import Any
+
+DEFAULT_MAX_REQUEST_BYTES = 9_500_000
+DEFAULT_KEEP_RECENT_SCREENSHOTS = 6
+
+
+def estimate_messages_size_bytes(messages: list[dict[str, Any]]) -> int:
+    """Estimate the JSON-serialized byte size of a messages list."""
+    return len(json.dumps(messages, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+
+
+def message_has_image(message: dict[str, Any]) -> bool:
+    """Return True if *message* contains at least one ``image_url`` content block."""
+    return _count_images(message) > 0
+
+
+def _count_images(message: dict[str, Any]) -> int:
+    """Return the number of ``image_url`` content blocks in *message*."""
+    content = message.get("content")
+    if not isinstance(content, list):
+        return 0
+    return sum(1 for part in content if isinstance(part, dict) and part.get("type") == "image_url")
+
+
+def _strip_one_image(message: dict[str, Any]) -> bool:
+    """Remove the first ``image_url`` block from *message* in place.
+
+    If removing the image leaves the message with no text content, a
+    placeholder text block is inserted so the message remains valid.
+
+    Returns True if an image was removed.
+    """
+    content = message.get("content")
+    if not isinstance(content, list):
+        return False
+
+    removed = False
+    new_content: list[dict[str, Any]] = []
+    for part in content:
+        if not removed and isinstance(part, dict) and part.get("type") == "image_url":
+            removed = True
+            continue
+        new_content.append(part)
+
+    if not removed:
+        return False
+
+    has_text = any(isinstance(p, dict) and p.get("type") == "text" for p in new_content)
+    if not has_text:
+        new_content.append({"type": "text", "text": "Screenshot omitted to stay under request size limit."})
+
+    message["content"] = new_content
+    return True
+
+
+def _strip_until_fits(
+    messages: list[dict[str, Any]],
+    image_indices: list[int],
+    *,
+    skip: Callable[[int], bool],
+    max_bytes: int,
+    starting_size: int,
+) -> tuple[int, int]:
+    """Strip images in place until *messages* fit within *max_bytes*.
+
+    Iterates ``image_indices`` and calls :func:`_strip_one_image` for each
+    index where ``skip(idx)`` is False, stopping as soon as the payload is
+    within budget. Returns the updated ``(size_bytes, images_removed)``.
+    """
+    size_bytes = starting_size
+    removed = 0
+    for idx in image_indices:
+        if size_bytes <= max_bytes:
+            break
+        if skip(idx):
+            continue
+        # Drain every image in this message: each of the two strip phases
+        # visits a message once, so without the inner loop a message holding
+        # several screenshots would lose at most one image per phase and
+        # could leave the payload over budget.
+        while size_bytes > max_bytes and _strip_one_image(messages[idx]):
+            removed += 1
+            size_bytes = estimate_messages_size_bytes(messages)
+    return size_bytes, removed
+
+
+def trim_images_to_fit(
+    messages: list[dict[str, Any]],
+    *,
+    max_bytes: int = DEFAULT_MAX_REQUEST_BYTES,
+    keep_recent: int = DEFAULT_KEEP_RECENT_SCREENSHOTS,
+) -> tuple[int, int]:
+    """Remove old screenshots from *messages* until the payload fits within *max_bytes*.
+
+    The most recent *keep_recent* image-bearing messages are protected while
+    removing older screenshots suffices; if the payload is still over the
+    limit, protected screenshots are removed too, oldest first — only the
+    very last screenshot is always kept. If the payload is already within
+    limits, no changes are made.
+
+    Args:
+        messages: The mutable messages list (modified in place).
+        max_bytes: Target maximum payload size in bytes.
+        keep_recent: Number of recent screenshots to protect from removal.
+
+    Returns:
+        A ``(current_size_bytes, images_removed)`` tuple.
+    """
+    size_bytes = estimate_messages_size_bytes(messages)
+    if size_bytes <= max_bytes:
+        return size_bytes, 0
+
+    image_indices = [i for i, msg in enumerate(messages) if message_has_image(msg)]
+    if not image_indices:
+        return size_bytes, 0
+
+    keep_recent = max(1, keep_recent)
+    protected = set(image_indices[-keep_recent:])
+
+    # Phase 1: remove old images outside the protected window
+    size_bytes, removed = _strip_until_fits(
+        messages,
+        image_indices,
+        skip=lambda idx: idx in protected,
+        max_bytes=max_bytes,
+        starting_size=size_bytes,
+    )
+
+    # Phase 2: if still over limit, remove from protected set (except the latest)
+    last_idx = image_indices[-1]
+    if size_bytes > max_bytes:
+        size_bytes, extra_removed = _strip_until_fits(
+            messages,
+            image_indices,
+            skip=lambda idx: idx == last_idx,
+            max_bytes=max_bytes,
+            starting_size=size_bytes,
+        )
+        removed += extra_removed
+
+    # Phase 3: still over budget — drain extra images from the last message
+    # too. The "very last screenshot is always kept" guarantee protects one
+    # screenshot, not every image that happens to share its message
+    # (_strip_one_image removes the first image, so the final one survives).
+    last_message = messages[last_idx]
+    while size_bytes > max_bytes and _count_images(last_message) > 1:
+        _strip_one_image(last_message)
+        removed += 1
+        size_bytes = estimate_messages_size_bytes(messages)
+
+    return size_bytes, removed
+
+
+def trimmed_messages_to_fit(
+    messages: list[dict[str, Any]],
+    *,
+    max_bytes: int = DEFAULT_MAX_REQUEST_BYTES,
+    keep_recent: int = DEFAULT_KEEP_RECENT_SCREENSHOTS,
+) -> tuple[list[dict[str, Any]], int, int]:
+    """Return a trimmed copy of *messages* without mutating the caller's list.
+
+    This is the safer helper for higher-level SDK utilities that should not
+    modify agent-loop state in place.
+
+    Args:
+        messages: The original messages list.
+        max_bytes: Target maximum payload size in bytes.
+        keep_recent: Number of recent screenshots to protect from removal.
+
+    Returns:
+        A ``(trimmed_messages, current_size_bytes, images_removed)`` tuple.
+    """
+
+    trimmed_messages = deepcopy(messages)
+    size_bytes, removed = trim_images_to_fit(
+        trimmed_messages,
+        max_bytes=max_bytes,
+        keep_recent=keep_recent,
+    )
+    return trimmed_messages, size_bytes, removed

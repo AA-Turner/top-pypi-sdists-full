@@ -27,14 +27,15 @@ import weakref
 assert sysconfig.get_config_var("Py_GIL_DISABLED")
 
 from bitarray import bitarray, decodetree, frozenbitarray
-from bitarray.util import _ssqi  # type: ignore
 from bitarray.util import (
     any_and, ba2base, ba2hex, base2ba, byteswap,
     canonical_decode, correspond_all, count_and, count_n,
     count_or, count_xor, deserialize, hex2ba, parity,
+    rl_encode, rl_decode,
     sc_decode, sc_encode, serialize, subset,
     vl_decode, vl_encode, xor_indices,
 )
+from bitarray._util import ssqi  # type: ignore
 
 ROUNDS = int(os.environ.get("BITARRAY_TD_ROUNDS", "100"))
 NBITS = int(os.environ.get("BITARRAY_TD_NBITS", str(1 << 15)))
@@ -156,6 +157,7 @@ class FreeThreadedStressTests(unittest.TestCase):
         def reader():
             codecs = (
                 (serialize, deserialize),
+                (rl_encode, rl_decode),
                 (sc_encode, sc_decode),
                 (vl_encode, vl_decode),
             )
@@ -264,6 +266,7 @@ class FreeThreadedStressTests(unittest.TestCase):
                 lambda: a.buffer_info(),
                 lambda: serialize(a),
                 lambda: sc_encode(a),
+                lambda: rl_encode(a),
                 lambda: vl_encode(a),
             )
             for i in range(ROUNDS * 3):
@@ -670,8 +673,8 @@ class FreeThreadedStressTests(unittest.TestCase):
                 self.assertIn(ba2base(2, a), (base_zero, base_one))
                 self.assertIn(parity(a), (0, 1))
                 self.assertIsInstance(xor_indices(a), int)
-                self.assertIsInstance(_ssqi(a), int)
-                self.assertIsInstance(_ssqi(a, 2), int)
+                self.assertIsInstance(ssqi(a), int)
+                self.assertIsInstance(ssqi(a, 2), int)
                 self.assertEqual(count_n(a, 0), 0)
                 self.yield_periodically(i)
 

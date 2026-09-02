@@ -1,0 +1,88 @@
+Metadata-Version: 2.4
+Name: arcade-ai
+Version: 2.3.0
+Summary: DEPRECATED — This package has been renamed to arcade-mcp. Please uninstall arcade-ai and install arcade-mcp instead.
+Project-URL: Homepage, https://docs.arcade.dev
+Project-URL: Repository, https://github.com/ArcadeAI/arcade-ai
+Project-URL: Bug Tracker, https://github.com/ArcadeAI/arcade-ai/issues
+Author-email: Arcade <dev@arcade.dev>
+License: MIT License
+        
+        Copyright (c) 2025, Arcade AI
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Classifier: Development Status :: 7 - Inactive
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
+Requires-Dist: arcade-mcp>=1.12.0
+Description-Content-Type: text/markdown
+
+# arcade-ai — DEPRECATED
+
+> **This package is deprecated.**
+> Please use [`arcade-mcp`](https://pypi.org/project/arcade-mcp/) instead.
+
+---
+
+## Migration
+
+Pick the section that matches how you installed `arcade-ai`:
+
+**pip**
+```bash
+pip uninstall arcade-ai
+pip install arcade-mcp
+```
+
+**uv (global tool)**
+```bash
+uv tool uninstall arcade-ai
+uv tool install arcade-mcp
+```
+
+**uv (project dependency)**
+```bash
+uv remove arcade-ai
+uv add arcade-mcp
+```
+
+The `arcade` CLI command and all functionality remain exactly the same — only the PyPI package name changed.
+
+## Why was it renamed?
+
+The package was renamed from `arcade-ai` to `arcade-mcp` to better reflect its purpose as the CLI and tooling layer for the [Arcade MCP](https://docs.arcade.dev) platform.
+
+## What does this version do?
+
+This release (`2.3.0`) is a **tombstone** — it has no real code. It installs `arcade-mcp` as a dependency so your environment continues to work, but you should migrate as soon as possible.
+
+The `arcade-ai` package will not receive any further feature updates or bug fixes.
+
+## Links
+
+- Docs: https://docs.arcade.dev
+- New package: https://pypi.org/project/arcade-mcp/
+- GitHub: https://github.com/ArcadeAI/arcade-mcp

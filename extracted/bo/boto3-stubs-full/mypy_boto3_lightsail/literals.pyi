@@ -108,10 +108,12 @@ __all__ = (
     "OriginIpAddressTypeEnumType",
     "OriginProtocolPolicyEnumType",
     "PaginatorName",
+    "PartnerStatusType",
     "PortAccessTypeType",
     "PortInfoSourceTypeType",
     "PortStateType",
     "PricingUnitType",
+    "ProfileTypeType",
     "R53HostedZoneDeletionStateCodeType",
     "RecordStateType",
     "RegionName",
@@ -127,6 +129,7 @@ __all__ = (
     "SetupStatusType",
     "StatusType",
     "StatusTypeType",
+    "TierNameType",
     "TreatMissingDataType",
     "ViewerMinimumTlsProtocolVersionEnumType",
 )
@@ -335,6 +338,7 @@ MetricNameType = Literal[
     "DatabaseConnections",
     "DiskQueueDepth",
     "FreeStorageSpace",
+    "FreeableMemory",
     "HTTPCode_Instance_2XX_Count",
     "HTTPCode_Instance_3XX_Count",
     "HTTPCode_Instance_4XX_Count",
@@ -352,6 +356,7 @@ MetricNameType = Literal[
     "StatusCheckFailed",
     "StatusCheckFailed_Instance",
     "StatusCheckFailed_System",
+    "SwapUsage",
     "UnhealthyHostCount",
 ]
 MetricStatisticType = Literal["Average", "Maximum", "Minimum", "SampleCount", "Sum"]
@@ -442,6 +447,7 @@ OperationTypeType = Literal[
     "EnableAddOn",
     "GetAlarms",
     "GetContactMethods",
+    "GetProfile",
     "OpenInstancePublicPorts",
     "PutAlarm",
     "PutInstancePublicPorts",
@@ -474,10 +480,12 @@ OperationTypeType = Literal[
 ]
 OriginIpAddressTypeEnumType = Literal["dualstack", "ipv4", "ipv6"]
 OriginProtocolPolicyEnumType = Literal["http-only", "https-only"]
+PartnerStatusType = Literal["Active", "Suspended"]
 PortAccessTypeType = Literal["Private", "Public"]
 PortInfoSourceTypeType = Literal["CLOSED", "DEFAULT", "INSTANCE", "NONE"]
 PortStateType = Literal["closed", "open"]
 PricingUnitType = Literal["Bundles", "GB", "GB-Mo", "Hrs", "Queries"]
+ProfileTypeType = Literal["LightsailPartner", "Lightsailor"]
 R53HostedZoneDeletionStateCodeType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
 RecordStateType = Literal["Failed", "Started", "Succeeded"]
 RegionNameType = Literal[
@@ -508,8 +516,10 @@ RelationalDatabaseMetricNameType = Literal[
     "DatabaseConnections",
     "DiskQueueDepth",
     "FreeStorageSpace",
+    "FreeableMemory",
     "NetworkReceiveThroughput",
     "NetworkTransmitThroughput",
+    "SwapUsage",
 ]
 RelationalDatabasePasswordVersionType = Literal["CURRENT", "PENDING", "PREVIOUS"]
 RenewalStatusType = Literal["Failed", "PendingAutoRenewal", "PendingValidation", "Success"]
@@ -550,6 +560,7 @@ StatusType = Literal[
     "stopping",
 ]
 StatusTypeType = Literal["Active", "Inactive"]
+TierNameType = Literal["Accelerate", "Essential", "Growth", "Premier"]
 TreatMissingDataType = Literal["breaching", "ignore", "missing", "notBreaching"]
 ViewerMinimumTlsProtocolVersionEnumType = Literal[
     "TLSv1.1_2016", "TLSv1.2_2018", "TLSv1.2_2019", "TLSv1.2_2021"

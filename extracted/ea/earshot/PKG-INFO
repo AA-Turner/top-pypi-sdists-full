@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: earshot
+Version: 1.2.2
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Multimedia :: Sound/Audio :: Analysis
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Dist: numpy
+Summary: Ridiculously fast & accurate voice activity detection
+Keywords: vad,voice-activity-detection,audio,speech
+Author-email: Carson M <carson@pyke.io>
+License-Expression: MIT OR Apache-2.0
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Documentation, https://github.com/pykeio/earshot/tree/main/bindings/py
+Project-URL: Repository, https://github.com/pykeio/earshot
+
+# Earshot
+Ridiculously fast & accurate voice activity detection.
+

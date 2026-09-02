@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: protobuf-py
-Version: 0.3.0
+Version: 0.4.0
 Summary: Idiomatic Protocol Buffers for Python.
 Keywords: protobuf
 License-Expression: Apache-2.0
@@ -19,7 +19,8 @@ Classifier: Programming Language :: Python :: Free Threading
 Classifier: Topic :: File Formats
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Dist: protobuf-py-ext==0.3.0 ; (platform_machine == 'arm64' and platform_python_implementation == 'CPython' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (platform_machine == 'x86_64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (platform_machine == 'AMD64' and platform_python_implementation == 'CPython' and sys_platform == 'win32') or (platform_machine == 'ARM64' and platform_python_implementation == 'CPython' and sys_platform == 'win32')
+Requires-Dist: protobuf-py-ext==0.4.0 ; (platform_machine == 'arm64' and platform_python_implementation == 'CPython' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (platform_machine == 'x86_64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (platform_machine == 'AMD64' and platform_python_implementation == 'CPython' and sys_platform == 'win32') or (platform_machine == 'ARM64' and platform_python_implementation == 'CPython' and sys_platform == 'win32')
+Requires-Dist: typing-extensions>=4.13.0
 Requires-Python: >=3.10
 Project-URL: Documentation, https://protobufpy.com/
 Project-URL: Homepage, https://github.com/bufbuild/protobuf-py
@@ -41,7 +42,7 @@ Description-Content-Type: text/markdown
 `protobuf-py` is an **ergonomic and modern Protobuf library** for Python.
 
 Well-typed, generated code you can read. High-performance encoder/decoder written in Rust. 100% conformance. <br />
-Zero dependencies or tooling required.
+Zero third-party dependencies or tooling required.
 
 [Getting started](https://protobufpy.com/getting-started/installation/) •
 [Examples](https://github.com/bufbuild/protobuf-py/tree/main/examples/protobuf) •

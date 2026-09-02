@@ -1,0 +1,11 @@
+publishers:
+  - discard-old-build:
+      day-to-Keep: 1
+      num-to-keep: 2
+      min-log-fileSize: 3
+      max-log-fileSize: 4
+      interval-days-to-keep: 5
+      interval-num-to-keep: 6
+      keep-last-builds: true
+      hold-max-builds: true
+      regexp: "ERROR:*"

@@ -231,6 +231,11 @@ impl<'a> StreamBuilder<'a> {
     }
 
     /// Set the timeout in milliseconds for each recovery attempt.
+    ///
+    /// For streams authenticated with [`oauth`](Self::oauth), this also caps a
+    /// proactive OAuth token refresh at half this value, but only when the cached
+    /// token has more life left than that cap, so a stalled endpoint falls back
+    /// before the attempt deadline. Very near expiry the refresh runs unbounded.
     pub fn recovery_timeout_ms(mut self, ms: u64) -> Self {
         self.grpc_config.recovery_timeout_ms = ms;
         #[cfg(feature = "arrow-flight")]
@@ -280,14 +285,14 @@ impl<'a> StreamBuilder<'a> {
         self
     }
 
-    /// Set the maximum number of in-flight requests (gRPC streams only).
+    /// Set the maximum number of in-flight requests (JSON and Protocol Buffer streams only).
     pub fn max_inflight_requests(mut self, n: usize) -> Self {
         self.grpc_config.max_inflight_requests = n;
         self
     }
 
     /// Set the maximum total encoded record byte size allowed per ingest call
-    /// (gRPC JSON/proto streams only).
+    /// (JSON and Protocol Buffer streams only).
     ///
     /// This is the sum of all record bytes passed to a single ingest call.
     /// Calls exceeding this limit fail fast with
@@ -313,7 +318,7 @@ impl<'a> StreamBuilder<'a> {
         self
     }
 
-    /// Set the acknowledgment callback (gRPC streams only).
+    /// Set the acknowledgment callback (JSON and Protocol Buffer streams only).
     ///
     /// `build_arrow()` rejects this option with
     /// [`ZerobusError::InvalidArgument`] because Arrow Flight streams do not
@@ -323,7 +328,7 @@ impl<'a> StreamBuilder<'a> {
         self
     }
 
-    /// Set the maximum wait time for callbacks after stream close (gRPC streams only).
+    /// Set the maximum wait time for callbacks after stream close (JSON and Protocol Buffer streams only).
     pub fn callback_max_wait_time_ms(mut self, ms: Option<u64>) -> Self {
         self.grpc_config.callback_max_wait_time_ms = ms;
         self
@@ -387,20 +392,32 @@ impl<'a> StreamBuilder<'a> {
         Ok(())
     }
 
-    /// Resolve the headers provider from the stored auth config.
+    /// Resolve the headers provider from the stored auth config. For OAuth, a
+    /// proactive token refresh is bounded by half the stream's recovery timeout.
     fn resolve_headers_provider(&self) -> ZerobusResult<Arc<dyn HeadersProvider>> {
         match self.auth.as_ref() {
             Some(AuthConfig::OAuth {
                 client_id,
                 client_secret,
-            }) => Ok(Arc::new(OAuthHeadersProvider::with_cache(
-                client_id.clone(),
-                client_secret.clone(),
-                self.table_name.clone(),
-                self.sdk.workspace_id.clone(),
-                self.sdk.unity_catalog_url.clone(),
-                Arc::clone(&self.sdk.token_cache),
-            ))),
+            }) => {
+                // Give a proactive refresh half the recovery timeout so a stalled
+                // refresh falls back to the cached token before the setup deadline
+                // cancels the request. Both recovery-timeout setters write the gRPC
+                // and Arrow configs in lockstep, so grpc_config is a valid single
+                // source even for an Arrow stream; revisit if a per-transport
+                // recovery timeout is ever added.
+                let refresh_timeout =
+                    std::time::Duration::from_millis(self.grpc_config.recovery_timeout_ms) / 2;
+                Ok(Arc::new(OAuthHeadersProvider::with_cache(
+                    client_id.clone(),
+                    client_secret.clone(),
+                    self.table_name.clone(),
+                    self.sdk.workspace_id.clone(),
+                    self.sdk.unity_catalog_url.clone(),
+                    Arc::clone(&self.sdk.token_cache),
+                    Some(refresh_timeout),
+                )))
+            }
             Some(AuthConfig::HeadersProvider(p)) => Ok(Arc::clone(p)),
             #[cfg(feature = "testing")]
             Some(AuthConfig::NoAuth) => Ok(Arc::new(NoAuthHeadersProvider)),
@@ -408,7 +425,7 @@ impl<'a> StreamBuilder<'a> {
         }
     }
 
-    /// Build and open a gRPC ingestion stream (JSON or compiled protobuf).
+    /// Build and open a JSON or Protocol Buffer stream.
     ///
     /// Returns an error if table name, authentication, or format has not been set,
     /// or if an Arrow format was selected (use `build_arrow()` instead).
@@ -496,7 +513,7 @@ impl<'a> StreamBuilder<'a> {
             ));
         }
 
-        // `max_ingest_payload_bytes` only applies to gRPC streams; warn if the
+        // `max_ingest_payload_bytes` only applies to JSON and Protocol Buffer streams; warn if the
         // user changed it from the default before building an Arrow stream.
         if self.grpc_config.max_ingest_payload_bytes
             != StreamConfigurationOptions::default().max_ingest_payload_bytes

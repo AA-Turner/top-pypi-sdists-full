@@ -1,0 +1,100 @@
+name: Workflow Integration Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    name: Detect Workflow Changes
+    runs-on: ubuntu-latest
+    outputs:
+      workflow_files: ${{ steps.filter.outputs.workflow_files }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            workflow_files:
+              - 'agentic_devtools/cli/workflows/**'
+              - 'tests/workflows/**'
+              - 'tests/fixtures/**'
+              - 'agentic_devtools/prompts/**'
+              - 'agentic_devtools/state.py'
+              - 'agentic_devtools/background_tasks.py'
+              - '.github/scripts/speckit-trigger/**'
+              - 'agentic_devtools/hierarchy/**'
+              - 'agentic_devtools/cli/hierarchy/**'
+              - 'agentic_devtools/cli/speckit/hierarchy.py'
+              - 'agentic_devtools/cli/speckit/hierarchy_detector.py'
+              - 'pyproject.toml'
+              - '.github/workflows/**'
+
+  workflow-tests:
+    name: Workflow Tests
+    needs: changes
+    runs-on: ubuntu-latest
+    if: needs.changes.outputs.workflow_files == 'true' || github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run workflow integration tests
+        run: |
+          pytest tests/workflows/ -v --override-ini="addopts="
+
+      - name: Run Speckit agent fallback JS tests
+        run: |
+          node .github/scripts/speckit-trigger/tests/test_agent_fallback.js
+          node .github/scripts/speckit-trigger/tests/test_extract_phase_info.js
+
+      - name: Run Speckit artifact gate shell regression tests
+        run: |
+          bash .github/scripts/speckit-trigger/test_artifact_verification.sh
+
+  workflow-tests-skipped:
+    name: Workflow Tests (Skipped — No Workflow Changes)
+    needs: changes
+    runs-on: ubuntu-latest
+    if: needs.changes.outputs.workflow_files != 'true' && github.event_name != 'push'
+    steps:
+      - name: Skip workflow tests
+        run: echo "No workflow-related files changed — skipping workflow integration tests."
+
+  workflow-tests-gate:
+    name: Workflow Tests ✅
+    needs: [workflow-tests, workflow-tests-skipped]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check downstream workflow test results
+        run: |
+          set -e
+          if [[ "${{ needs.workflow-tests.result }}" == "failure" || \
+                "${{ needs.workflow-tests-skipped.result }}" == "failure" ]]; then
+            echo "One or more workflow test jobs failed"
+            exit 1
+          fi
+          echo "All workflow test jobs passed or were skipped"

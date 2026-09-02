@@ -124,7 +124,7 @@ if TYPE_CHECKING:
         enabled : bool
             Is ``True`` if predictions by forecast date is enabled for this deployment.
             To update this setting, see
-            :meth:`~datarobot.models.Deployment.update_predictions_by_forecast_date_settings`
+            :meth:`~datarobot.models.Deployment.update_predictions_by_forecast_date_settings`.
 
         column_name : str
             The column name in prediction datasets to be used as forecast date.
@@ -143,8 +143,8 @@ if TYPE_CHECKING:
         ----------
         enabled : bool
             If target prediction_warning is enabled for this deployment. To create or update
-            existing ''prediction_warning'' settings, see
-            :meth:`~datarobot.models.Deployment.update_prediction_warning_settings`
+            existing ``prediction_warning`` settings, see
+            :meth:`~datarobot.models.Deployment.update_prediction_warning_settings`.
 
         custom_boundaries : dict or None
             If None default boundaries for a model are used. Otherwise has following keys:
@@ -161,12 +161,12 @@ if TYPE_CHECKING:
         target_drift : Settings
             If target drift tracking is enabled for this deployment. To create or update
             existing ``target_drift`` settings, see
-            :meth:`~datarobot.models.Deployment.update_drift_tracking_settings`
+            :meth:`~datarobot.models.Deployment.update_drift_tracking_settings`.
 
         feature_drift : Settings
             If feature drift tracking is enabled for this deployment. To create or update
             existing ``feature_drift`` settings, see
-            :meth:`~datarobot.models.Deployment.update_drift_tracking_settings`
+            :meth:`~datarobot.models.Deployment.update_drift_tracking_settings`.
 
         """
 
@@ -182,11 +182,11 @@ if TYPE_CHECKING:
         enabled : bool
             Set to ``True`` if segment analysis is enabled for this deployment. To update
             existing setting, see
-            :meth:`~datarobot.models.Deployment.update_segment_analysis_settings`
+            :meth:`~datarobot.models.Deployment.update_segment_analysis_settings`.
 
         attributes : list
             To create or update existing segment analysis attributes, see
-            :meth:`~datarobot.models.Deployment.update_segment_analysis_settings`
+            :meth:`~datarobot.models.Deployment.update_segment_analysis_settings`.
         """
 
         attributes: List[str]
@@ -198,8 +198,8 @@ if TYPE_CHECKING:
         ----------
         enabled : bool
           Is ``True`` if challenger models is enabled for this deployment. To update
-          existing ''challenger_models'' settings, see
-          :meth:`~datarobot.models.Deployment.update_challenger_models_settings`
+          existing ``challenger_models`` settings, see
+          :meth:`~datarobot.models.Deployment.update_challenger_models_settings`.
         """
 
     class PredictionIntervalsSettings(Settings):
@@ -208,9 +208,9 @@ if TYPE_CHECKING:
         Attributes
         ----------
         enabled : bool
-            Whether prediction intervals are enabled for this deployment
+            Whether prediction intervals are enabled for this deployment.
         percentiles : list[int]
-            List of enabled prediction intervals' sizes for this deployment. Currently we only
+            A list of enabled prediction intervals' sizes for this deployment. Currently we only
             support one percentile at a time.
         """
 
@@ -245,7 +245,7 @@ if TYPE_CHECKING:
         enabled : bool
             If challenger replay is enabled. To update
             existing ``challenger_replay`` settings, see
-            :meth:`~datarobot.models.Deployment.update_challenger_replay_settings`
+            :meth:`~datarobot.models.Deployment.update_challenger_replay_settings`.
         schedule : Schedule
             The recurring schedule for the challenger replay job.
         """
@@ -332,46 +332,46 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
     Attributes
     ----------
     id : str
-        the ID of the deployment
+        The ID of the deployment.
     label : str
-        the label of the deployment
+        The label of the deployment.
     description : str
-        the description of the deployment
+        The description of the deployment.
     status : str
-        (New in version v2.29) deployment status
+        (New in version v2.29) Deployment status.
     default_prediction_server : dict
         Information about the default prediction server for the deployment.
-        Accepts the following keys: **id** (``str``) — Prediction server ID;
-        **url** (``Optional[str]``) — Prediction server URL; **datarobot-key**
+        Accepts the following keys: ``id`` (``str``) — Prediction server ID;
+        ``url`` (``Optional[str]``) — Prediction server URL; ``datarobot-key``
         (``str``) — Corresponds to the ``PredictionServer`` ``snake_cased``
         ``datarobot_key`` parameter that allows you to verify and access the
         prediction server.
     importance : Optional[str]
-        deployment importance
+        Deployment importance.
     model : dict
-        information on the model of the deployment
+        Information on the model of the deployment.
     model_package : dict
-        (New in version v3.4) information on the model package of the deployment
+        (New in version v3.4) Information on the model package of the deployment.
     prediction_usage : dict
-        information on the prediction usage of the deployment
+        Information on the prediction usage of the deployment.
     permissions : list
-        (New in version v2.18) user's permissions on the deployment
+        (New in version v2.18) User's permissions on the deployment.
     service_health : dict
-        information on the service health of the deployment
+        Information on the service health of the deployment.
     model_health : dict
-        information on the model health of the deployment
+        Information on the model health of the deployment.
     accuracy_health : dict
-        information on the accuracy health of the deployment
+        Information on the accuracy health of the deployment.
     fairness_health : dict
-        information on the fairness health of a deployment
+        Information on the fairness health of a deployment.
     governance : dict
-        information on approval and change requests of a deployment
+        Information on approval and change requests of a deployment.
     owners : dict
-        information on the owners of a deployment
+        Information on the owners of a deployment.
     prediction_environment : dict
-        information on the prediction environment of a deployment
+        Information on the prediction environment of a deployment.
     creator : dict
-        information about the creator of a deployment
+        Information about the creator of a deployment.
     tags : list[dict[str,str]]
         Information about the deployment's tags.
     """
@@ -505,19 +505,19 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            id of the DataRobot model to deploy
+            The ID of the DataRobot model to deploy.
         label : str
-            a human-readable label of the deployment
+            A human-readable label of the deployment.
         description : Optional[str]
-            a human-readable description of the deployment
+            A human-readable description of the deployment.
         default_prediction_server_id : Optional[str]
-            an identifier of a prediction server to be used as the default prediction server
+            An identifier of a prediction server to be used as the default prediction server.
         importance : Optional[str]
-            deployment importance
+            Deployment importance.
         prediction_threshold : Optional[float]
-            threshold used for binary classification in predictions
+            Threshold used for binary classification in predictions.
         status : Optional[str]
-            deployment status
+            Deployment status.
         max_wait: Optional[int]
             Seconds to wait for successful resolution of a deployment creation job.
             Deployment supports making predictions only after a deployment creating job
@@ -526,7 +526,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Returns
         -------
         deployment : Deployment
-            The created deployment
+            The created deployment.
 
         Examples
         --------
@@ -580,19 +580,19 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            id of the Leaderboard to deploy
+            The ID of the Leaderboard to deploy.
         label : str
-            a human-readable label of the deployment
+            A human-readable label of the deployment.
         description : Optional[str]
-            a human-readable description of the deployment
+            A human-readable description of the deployment.
         default_prediction_server_id : Optional[str]
-            an identifier of a prediction server to be used as the default prediction server
+            An identifier of a prediction server to be used as the default prediction server.
         importance : Optional[str]
-            deployment importance
+            Deployment importance.
         prediction_threshold : Optional[float]
-            threshold used for binary classification in predictions
+            Threshold used for binary classification in predictions.
         status : Optional[str]
-            deployment status
+            Deployment status.
         max_wait : Optional[int]
             The amount of seconds to wait for successful resolution of a deployment creation job.
             Deployment supports making predictions only after a deployment creating job
@@ -601,7 +601,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Returns
         -------
         deployment : Deployment
-            The created deployment
+            The created deployment.
 
         Examples
         --------
@@ -698,7 +698,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         ----------
         custom_model_version_id : str
             The ID of the DataRobot custom model version to deploy.
-            The version must have a base_environment_id.
+            The version must have a `base_environment_id`.
         label : str
             A label of the deployment.
         description : Optional[str]
@@ -717,7 +717,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Returns
         -------
         deployment : Deployment
-            The created deployment
+            The created deployment.
         """
 
         return cls._create_from_custom_model_entity(
@@ -754,8 +754,8 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         description : Optional[str]
             A human readable description of the deployment.
         default_prediction_server_id : Optional[str]
-            an identifier of a prediction server to be used as the default prediction server
-            When working with prediction environments, default prediction server Id should not be provided
+            An identifier of a prediction server to be used as the default prediction server
+            When working with prediction environments, default prediction server ID should not be provided.
         prediction_environment_id : Optional[str]
             An identifier of a prediction environment to be used for model deployment.
         importance : Optional[str]
@@ -763,8 +763,8 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         user_provided_id : Optional[str]
             A user-provided unique ID associated with a deployment definition in a remote git repository.
         additional_metadata : list[dict], optional
-            List of key/value dictionaries with additional metadata. For example,
-            [{"key": "Department", "value": "Engineering"}, {"key": "Location", "value": "Boston"}]
+            A list of key/value dictionaries with additional metadata. For example,
+            [{"key": "Department", "value": "Engineering"}, {"key": "Location", "value": "Boston"}].
         max_wait : Optional[int]
             The amount of seconds to wait for successful resolution of a deployment creation job.
             Deployment supports making predictions only after a deployment creating job
@@ -773,7 +773,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Returns
         -------
         deployment : Deployment
-            The created deployment
+            The created deployment.
         """
 
         deployment_payload: Dict[str, Any] = {
@@ -812,14 +812,14 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         offset: Optional[int] = 0,
         limit: Optional[int] = 0,
     ) -> List[TDeployment]:
-        """List all deployments a user can view.
+        """Returns a list of all deployments a user can view.
 
         .. versionadded:: v2.17
 
         Parameters
         ----------
         order_by : Optional[str]
-            (New in version v2.18) the order to sort the deployment list by, defaults to `label`
+            (New in version v2.18) The order to sort the deployment list by, defaults to `label`.
 
             Allowed attributes to sort by are:
 
@@ -835,11 +835,11 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
             For health related sorting, ascending means failing, warning, passing, unknown.
         search : Optional[str]
-            (New in version v2.18) case insensitive search against deployment's
+            (New in version v2.18) Case insensitive search against deployment's
             label and description.
         filters : Optional[datarobot.models.deployment.DeploymentListFilters]
-            (New in version v2.20) an object containing all filters that you'd like to apply to the
-            resulting list of deployments. See
+            (New in version v2.20) An object containing all filters that you'd like to apply to the
+            resulting list of deployments. See.
             :class:`~datarobot.models.deployment.DeploymentListFilters` for details on usage.
         offset: Optional[int]
             The starting offset of the results. The default is 0.
@@ -850,7 +850,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Returns
         -------
         deployments : list
-            a list of deployments the user can view
+            A list of deployments the user can view.
 
         Examples
         --------
@@ -895,19 +895,19 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
     @classmethod
     def get(cls: Type[TDeployment], deployment_id: str) -> TDeployment:
-        """Get information about a deployment.
+        """Returns the information about a deployment.
 
         .. versionadded:: v2.17
 
         Parameters
         ----------
         deployment_id : str
-            the ID of the deployment
+            The ID of the deployment.
 
         Returns
         -------
         deployment : Deployment
-            the queried deployment
+            The queried deployment.
 
         Examples
         --------
@@ -933,7 +933,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         upload_read_timeout: Optional[int] = None,
     ) -> pd.DataFrame:
         """
-        A convenience method for making predictions with csv file or pandas DataFrame
+        A convenience method for making predictions with a CSV file or pandas DataFrame
         using a batch prediction job.
 
         For advanced usage, use :class:`datarobot.models.BatchPredictionJob` directly.
@@ -1000,7 +1000,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Returns
         -------
         url : str
-            Deployment's overview URI
+            Deployment's overview URI.
         """
         return f"{self._client.domain}/{self._path}{self.id}/overview"
 
@@ -1036,7 +1036,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
     def delete(self) -> None:
         """
-        Delete this deployment.
+        Deletes the deployment.
 
         .. versionadded:: v2.17
         """
@@ -1053,7 +1053,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         max_wait : Optional[int]
-            The maximum time to wait for deployment activation to complete before erroring
+            The maximum time to wait for deployment activation to complete before erroring.
 
         """
         self._change_status("active", max_wait=max_wait)
@@ -1067,7 +1067,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         max_wait : Optional[int]
-            The maximum time to wait for deployment deactivation to complete before erroring
+            The maximum time to wait for deployment deactivation to complete before erroring.
         """
         self._change_status("inactive", max_wait=max_wait)
 
@@ -1113,19 +1113,19 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         new_model_id : Optional[str]
-            The id of the new model to use. If replacing the deployment's model with a
+            The ID of the new model to use. If replacing the deployment's model with a
             CustomInferenceModel, a specific CustomModelVersion ID must be used.
-            If None, new_registered_model_version_id must be specified.
+            If None, `new_registered_model_version_id` must be specified.
         reason : MODEL_REPLACEMENT_REASON
             The reason for the model replacement. Must be one of 'ACCURACY', 'DATA_DRIFT', 'ERRORS',
             'SCHEDULED_REFRESH', 'SCORING_SPEED', or 'OTHER'. This value will be stored in the model
-            history to keep track of why a model was replaced
+            history to keep track of why a model was replaced.
         max_wait : Optional[int]
-            (new in version 2.22) The maximum time to wait for
-            model replacement job to complete before erroring
+            (New in version 2.22) The maximum time to wait for
+            model replacement job to complete before erroring.
         new_registered_model_version_id : Optional[str]
-            (new in version 3.4) The registered model version (model package) ID of the new model to use. Must be
-            passed if new_model_id is None.
+            (New in version 3.4) The registered model version (model package) ID of the new model to use. Must be
+            passed if `new_model_id` is None.
 
         Examples
         --------
@@ -1201,10 +1201,10 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         reason : MODEL_REPLACEMENT_REASON
             The reason for the model replacement. Must be one of 'ACCURACY', 'DATA_DRIFT', 'ERRORS',
             'SCHEDULED_REFRESH', 'SCORING_SPEED', or 'OTHER'. This value will be stored in the model
-            history to keep track of why a model was replaced
+            history to keep track of why a model was replaced.
         max_wait : Optional[int]
             The maximum time to wait for
-            model replacement job to complete before erroring
+            model replacement job to complete before erroring.
 
         Examples
         --------
@@ -1262,21 +1262,21 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         new_model_id : Optional[str]
-            the ID of the new model to validate
+            The ID of the new model to validate.
         new_registered_model_version_id : Optional[str]
-            (new in version 3.4) The registered model version (model package) ID of the new model to use.
+            (New in version 3.4) The registered model version (model package) ID of the new model to use.
 
         Returns
         -------
         status : str
-            status of the validation, will be one of 'passing', 'warning' or 'failing'.
+            Status of the validation, will be one of 'passing', 'warning' or 'failing'.
             If the status is passing or warning, use :meth:`~datarobot.models.Deployment.replace_model` to
             perform a model replacement. If the status is failing, refer to ``checks`` for more
             detail on why the new model cannot be used as a replacement.
         message : str
-            message for the validation result
+            Message for the validation result.
         checks : dict
-            explain why the new model can or cannot replace the deployment's current model
+            Explain why the new model can or cannot replace the deployment's current model.
         """
 
         if new_model_id is None and new_registered_model_version_id is None:
@@ -1329,7 +1329,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Returns
         -------
         features: list
-            a list of `feature` dict
+            A list of `feature` dict.
 
         Examples
         --------
@@ -1358,26 +1358,26 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         data: list or pandas.DataFrame
-        batch_size: the max number of actuals in each request
+            The actuals data to submit.
+        batch_size: int
+            The maximum number of actuals in each request.
 
         If `data` is a list, each item should be a dict-like object with the following keys and
         values; if `data` is a pandas.DataFrame, it should contain the following columns:
 
-        - association_id: str, a unique identifier used with a prediction,
-            max length 128 characters
-        - actual_value: str or int or float, the actual value of a prediction;
-            should be numeric for deployments with regression models or
-            string for deployments with classification model
-        - was_acted_on: Optional[bool], indicates if the prediction was acted on in a way that
-            could have affected the actual outcome
-        - timestamp: datetime or string in RFC3339 format, optional. If the datetime provided
-            does not have a timezone, we assume it is UTC.
+        - ``association_id`` (str): A unique identifier used with a prediction. The maximum length is 128 characters.
+        - ``actual_value`` (str, int, or float): The actual value of a prediction. The value should be numeric for
+        regression deployments or a string for classification deployments.
+        - ``was_acted_on`` (Optional[bool]): Indicates whether the prediction was acted on in a way that could have
+        affected the actual outcome.
+        - ``timestamp`` (datetime or string): Datetime in RFC3339 format. Optional. If the datetime provided does not
+        have a timezone, UTC is assumed.
 
         Raises
         ------
         ValueError
-            if input data is not a list of dict-like objects or a pandas.DataFrame
-            if input data is empty
+            If the input data is not a list of dict-like objects or a pandas.DataFrame.
+            If the input data is empty.
 
         Examples
         --------
@@ -1452,7 +1452,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             The ID of the source dataset.
         dataset_version_id: Optional[str]
             The ID of the dataset version to apply the query to. If not specified, the
-            latest version associated with dataset_id is used.
+            latest version associated with `dataset_id` is used.
         association_id_column: str,
             The name of the column that contains a unique identifier used with a prediction.
         actual_value_column: str,
@@ -1471,9 +1471,9 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Raises
         ------
         ValueError
-            if dataset_id not provided
-            if actual_value_column not provided
-            if association_id_column not provided
+            If ``dataset_id`` is not provided.
+            If ``actual_value_column`` is not provided.
+            If ``association_id_column`` is not provided.
 
         Examples
         --------
@@ -1539,7 +1539,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         forecast_date_format: Optional[str] = None,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
-        """Update predictions by forecast date settings of this deployment.
+        """Updates the predictions by forecast date settings of this deployment.
 
         .. versionadded:: v2.27
 
@@ -1570,21 +1570,21 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         enable_predictions_by_forecast_date : bool
-            set to ``True`` if predictions by forecast date is to be turned on or set to ''False''
-            if predictions by forecast date is to be turned off.
+            When set to ``True``, predictions by forecast date are turned on. When set to ``False``,
+            predictions by forecast date are turned off.
 
         forecast_date_column_name: string, optional
             The column name in prediction datasets to be used as forecast date.
-            If ''enable_predictions_by_forecast_date'' is set to ''False'',
+            If ``enable_predictions_by_forecast_date`` is set to ``False``,
             then the parameter will be ignored.
 
         forecast_date_format: string, optional
             The datetime format of the forecast date column in prediction datasets.
-            If ''enable_predictions_by_forecast_date'' is set to ''False'',
+            If ``enable_predictions_by_forecast_date`` is set to ``False``,
             then the parameter will be ignored.
 
         max_wait : Optional[int]
-            seconds to wait for successful
+            Seconds to wait for successful.
         """
 
         payload: Dict[str, Dict[str, Union[None, bool, str]]] = defaultdict(dict)
@@ -1623,7 +1623,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         challenger_models_enabled: bool,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
-        """Update challenger models settings of this deployment.
+        """Updates the challenger models settings of this deployment.
 
         .. versionadded:: v2.27
 
@@ -1634,10 +1634,10 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         challenger_models_enabled : bool
-            set to ``True`` if challenger models is to be turned on or set to ''False'' if
-            challenger models is to be turned off
+            When set to ``True``, challenger models are turned on. When set to ``False``,
+            challenger models are turned off.
         max_wait : Optional[int]
-            seconds to wait for successful resolution
+            Seconds to wait for successful resolution.
         """
 
         payload: Dict[str, Dict[str, bool]] = defaultdict(dict)
@@ -1667,7 +1667,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         segment_analysis_attributes: Optional[List[str]] = None,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
-        """Update segment analysis settings of this deployment.
+        """Updates the segment analysis settings of this deployment.
 
         .. versionadded:: v2.27
 
@@ -1678,14 +1678,14 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         segment_analysis_enabled : bool
-            set to ``True`` if segment analysis is to be turned on or set to ''False'' if
-            segment analysis is to be turned off
+            When set to ``True``, segment analysis is turned on. When set to ``False``,
+            segment analysis is turned off.
 
         segment_analysis_attributes: Optional[List]
             A list of strings that gives the segment attributes selected for tracking.
 
         max_wait : Optional[int]
-            seconds to wait for successful resolution
+            Seconds to wait for successful resolution.
         """
 
         payload: Dict[str, Dict[str, Union[bool, List[str]]]] = defaultdict(dict)
@@ -1718,7 +1718,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         preferable_target_value: Union[bool, int, str],
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
-        """Update bias and fairness settings of this deployment.
+        """Updates the bias and fairness settings of this deployment.
 
         ..versionadded:: v3.2.0
 
@@ -1738,7 +1738,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         fairness_threshold : float
             Threshold value of the fairness metric. Cannot be less than 0 or greater than 1.
         max_wait : Optional[int]
-            seconds to wait for successful resolution
+            Seconds to wait for successful resolution.
         """
         url = f"{self._path}/{self.id}/settings/"
         payload = {
@@ -1768,7 +1768,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         return cast("ChallengerReplaySettings", response_json)
 
     def update_challenger_replay_settings(self, enabled: bool, schedule: Optional[Schedule] = None) -> None:
-        """Update challenger replay settings of this deployment.
+        """Updates the challenger replay settings of this deployment.
 
         .. versionadded:: v3.4
 
@@ -1810,7 +1810,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         feature_drift_enabled: Optional[bool] = None,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
-        """Update drift tracking settings of this deployment.
+        """Updates the drift tracking settings of this deployment.
 
         .. versionadded:: v2.17
 
@@ -1821,11 +1821,11 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         target_drift_enabled : Optional[bool]
-            if target drift tracking is to be turned on
+            If target drift tracking is to be turned on.
         feature_drift_enabled : Optional[bool]
-            if feature drift tracking is to be turned on
+            If feature drift tracking is to be turned on.
         max_wait : Optional[int]
-            seconds to wait for successful resolution
+            Seconds to wait for successful resolution.
         """
 
         payload: Dict[str, Dict[str, bool]] = defaultdict(dict)
@@ -1860,19 +1860,19 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         required_in_prediction_requests: Optional[bool] = None,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
-        """Update association ID setting for this deployment.
+        """Updates the association ID setting for this deployment.
 
         .. versionadded:: v2.19
 
         Parameters
         ----------
         column_names : list[string], optional
-            name of the columns to be used as association ID,
-            currently only support a list of one string
+            Name of the columns to be used as association ID,
+            currently only support a list of one string.
         required_in_prediction_requests : Optional[bool]
-            whether the association ID column is required in prediction requests
+            Whether the association ID column is required in prediction requests.
         max_wait : Optional[int]
-            seconds to wait for successful resolution
+            Seconds to wait for successful resolution.
         """
 
         payload: Dict[str, Dict[str, Union[bool, List[str]]]] = defaultdict(dict)
@@ -1895,11 +1895,11 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
         Returns
         -------
-        predictions_data_collection_settings : dict in the following format:
-            - enabled (`bool`)
-                If predictions data collection is enabled for this deployment. To update
-                existing ''predictions_data_collection'' settings, see
-                :meth:`~datarobot.models.Deployment.update_predictions_data_collection_settings`
+        predictions_data_collection_settings : dict
+            Dictionary with an ``enabled`` key (``bool``) indicating whether predictions data
+            collection is enabled for this deployment. To update existing
+            ``predictions_data_collection`` settings, see
+            :meth:`~datarobot.models.Deployment.update_predictions_data_collection_settings`.
 
         See Also
         --------
@@ -1912,7 +1912,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         return cast(Dict[str, bool], response_json.get("predictions_data_collection"))
 
     def update_predictions_data_collection_settings(self, enabled: bool, max_wait: int = DEFAULT_MAX_WAIT) -> None:
-        """Update predictions data collection settings of this deployment.
+        """Updates the predictions data collection settings of this deployment.
 
         .. versionadded:: v2.21
 
@@ -1923,9 +1923,9 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         enabled: bool
-            if predictions data collection is to be turned on
+            If predictions data collection is to be turned on.
         max_wait : Optional[int]
-            seconds to wait for successful resolution
+            Seconds to wait for successful resolution.
         """
         payload = {"predictionsDataCollection": {"enabled": enabled}}
 
@@ -1956,7 +1956,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         upper_boundary: Optional[float] = None,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
-        """Update prediction warning settings of this deployment.
+        """Updates the prediction warning settings of this deployment.
 
         .. versionadded:: v2.19
 
@@ -1967,11 +1967,11 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         use_default_boundaries : Optional[bool]
             If default boundaries of the model should be used for the deployment.
         upper_boundary : Optional[float]
-            All predictions greater than provided value will be considered anomalous
+            All predictions greater than provided value will be considered anomalous.
         lower_boundary : Optional[float]
-            All predictions less than provided value will be considered anomalous
+            All predictions less than provided value will be considered anomalous.
         max_wait : Optional[int]
-            seconds to wait for successful resolution
+            Seconds to wait for successful resolution.
         """
 
         payload: Dict[str, Dict[str, Union[None, bool, Dict[str, Optional[float]]]]] = defaultdict(dict)
@@ -2012,7 +2012,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         enabled: bool = True,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
-        """Update prediction intervals settings for this deployment.
+        """Updates the prediction intervals settings for this deployment.
 
         .. versionadded:: v2.19
 
@@ -2033,18 +2033,18 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             Whether to enable showing prediction intervals in the results of predictions requested
             using this deployment.
         max_wait : Optional[int]
-            seconds to wait for successful resolution
+            Seconds to wait for successful resolution.
 
         Raises
         ------
         AssertionError
-            If ``percentiles`` is in an invalid format
+            If ``percentiles`` is in an invalid format.
         AsyncFailureError
-            If any of the responses from the server are unexpected
+            If any of the responses from the server are unexpected.
         AsyncProcessUnsuccessfulError
             If the prediction intervals calculation job has failed or has been cancelled.
         AsyncTimeoutError
-            If the prediction intervals calculation job did not resolve in time
+            If the prediction intervals calculation job did not resolve in time.
         """
         if percentiles:
             # Ensure percentiles is list[int] with length 1
@@ -2093,7 +2093,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         predictions_timeliness: Optional[Dict[str, Any]] = None,
         actuals_timeliness: Optional[Dict[str, Any]] = None,
     ) -> HealthSettings:
-        """Update health settings of this deployment.
+        """Updates the health settings of this deployment.
 
         .. versionadded:: v3.4
 
@@ -2164,26 +2164,26 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : Optional[str]
-            the ID of the model
+            The ID of the model.
         start_time : datetime, optional
-            start of the time period
+            Start of the time period.
         end_time : datetime, optional
-            end of the time period
+            End of the time period.
         execution_time_quantile : Optional[float]
-            quantile for `executionTime`, defaults to 0.5
+            Quantile for `executionTime`, defaults to 0.5.
         response_time_quantile : Optional[float]
-            quantile for `responseTime`, defaults to 0.5
+            Quantile for `responseTime`, defaults to 0.5.
         slow_requests_threshold : Optional[float]
-            threshold for `slowRequests`, defaults to 1000
+            Threshold for `slowRequests`, defaults to 1000.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         service_stats : ServiceStats
-            the queried service stats metrics information
+            The queried service stats metrics information.
         """
 
         if not self.id:
@@ -2220,28 +2220,28 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         metric : SERVICE_STAT_METRIC, optional
-            the service stat metric to retrieve
+            The service stat metric to retrieve.
         model_id : Optional[str | List[str]]
-            the ID of the model
+            The ID of the model.
         start_time : datetime, optional
-            start of the time period
+            Start of the time period.
         end_time : datetime, optional
-            end of the time period
+            End of the time period.
         bucket_size : Optional[str]
-            time duration of a bucket, in ISO 8601 time duration format
+            Time duration of a bucket, in ISO 8601 time duration format.
         quantile : Optional[float]
-            quantile for 'executionTime' or 'responseTime', ignored when querying other metrics
+            Quantile for ``executionTime`` or ``responseTime``, ignored when querying other metrics.
         threshold : Optional[int]
-            threshold for 'slowQueries', ignored when querying other metrics
+            Threshold for ``slowQueries``, ignored when querying other metrics.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         service_stats_over_time : ServiceStatsOverTime
-            the queried service stats metric over time information
+            The queried service stats metric over time information.
         """
 
         if not self.id:
@@ -2276,22 +2276,22 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         metric : str
-            (New in version v2.22) metric used to calculate the drift score
+            (New in version v2.22) Metric used to calculate the drift score.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         target_drift : TargetDrift
-            the queried target drift information
+            The queried target drift information.
         """
 
         if not self.id:
@@ -2323,24 +2323,24 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         metric : str
             (New in version v2.22) The metric used to calculate the drift score. Allowed
             values include `psi`, `kl_divergence`, `dissimilarity`, `hellinger`, and
             `js_divergence`.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         feature_drift_data : [FeatureDrift]
-            the queried feature drift information
+            The queried feature drift information.
         """
 
         if not self.id:
@@ -2374,27 +2374,27 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_ids : list[str]
-            ID of models to retrieve prediction stats
+            The IDs of models to retrieve prediction stats for.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         bucket_size : BUCKET_SIZE
-            time duration of each bucket
+            Time duration of each bucket.
         target_classes : list[str]
-            class names of target, only for deployments with multiclass target
+            Class names of target, only for deployments with multiclass target.
         include_percentiles : bool
-            if the returned data includes percentiles,
-            only for a deployment with a binary and regression target
+            If the returned data includes percentiles,
+            only for a deployment with a binary and regression target.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         predictions_over_time : PredictionsOverTime
-            the queried predictions over time information
+            The queried predictions over time information.
 
         Examples
         --------
@@ -2444,27 +2444,27 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : Optional[str | List[str]]
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         target_classes : list[str], optional
-            Optional list of target class strings
+            An optional list of target class strings.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
         metric : str
-            (New in Version v3.9) the metric value to retrieve,
-            must be provided when querying for multiple models
+            (New in version v3.9) The metric value to retrieve,
+            must be provided when querying for multiple models.
         baseline_model_id : str
-            (New in Version v3.9) the ID of the baseline model when calculating percentage change
+            (New in version v3.9) The ID of the baseline model when calculating percentage change.
 
         Returns
         -------
         accuracy : Accuracy
-            the queried accuracy metrics information
+            The queried accuracy metrics information.
         """
         # For a brief time, we accidentally used the kwargs "start" and "end". We add this logic
         # here to retain backwards compatibility with these legacy kwargs.
@@ -2504,26 +2504,26 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         metric : ACCURACY_METRIC
-            the accuracy metric to retrieve
+            The accuracy metric to retrieve.
         model_id : Optional[str | List[str]]
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         bucket_size : str
-            time duration of a bucket, in ISO 8601 time duration format
+            Time duration of a bucket, in ISO 8601 time duration format.
         target_classes : list[str], optional
-            Optional list of target class strings
+            An optional list of target class strings.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
         accuracy_over_time : AccuracyOverTime
-            the queried accuracy metric over time information
+            The queried accuracy metric over time information.
         """
 
         if not self.id:
@@ -2568,9 +2568,9 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         target_classes : list[str]
             Class names of target, only for deployments with a multiclass target.
         segment_attribute : Optional[str]
-            (New in Version v3.6) the segment attribute
+            (New in version v3.6) The segment attribute.
         segment_value : Optional[str]
-            (New in Version v3.6) the segment value
+            (New in version v3.6) The segment value.
 
         Returns
         -------
@@ -2620,22 +2620,22 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         bucket_size : str
-            time duration of a bucket, in ISO 8601 time duration format
+            Time duration of a bucket, in ISO 8601 time duration format.
         protected_feature : str
-            name of protected feature
+            Name of protected feature.
         fairness_metric : str
             A consolidation of the fairness metrics by the use case.
 
         Returns
         -------
         fairness_scores_over_time : FairnessScoresOverTime
-            the queried fairness score over time information
+            The queried fairness score over time information.
         """
         if not self.id:
             raise ValueError("Deployment ID is required to get fairness score.")
@@ -2662,9 +2662,9 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         secondary_dataset_config_id: str
-            Id of the secondary dataset config
+            The ID of the secondary dataset config.
         credential_ids: list or None
-            List of DatasetsCredentials used by the secondary datasets
+            A list of DatasetsCredentials used by the secondary datasets.
 
         Examples
         --------
@@ -2692,7 +2692,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Returns
         -------
         secondary_dataset_config : SecondaryDatasetConfigurations
-            Id of the secondary dataset config
+            The ID of the secondary dataset config.
 
         Examples
         --------
@@ -2725,23 +2725,23 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         actuals_present : bool
-            filters predictions results to only those
-            who have actuals present or with missing actuals
+            Filters predictions results to only those
+            who have actuals present or with missing actuals.
         offset : int
-            this many results will be skipped
+            This many results will be skipped.
         limit : int
-            at most this many results are returned
+            At most this many results are returned.
 
         Returns
         -------
         prediction_results: list[dict]
-            a list of prediction results
+            A list of prediction results.
 
         Examples
         --------
@@ -2774,27 +2774,27 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         offset: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> None:
-        """Download prediction results of the deployment as a CSV file.
+        """Downloads the prediction results of the deployment as a CSV file.
 
         .. versionadded:: v2.24
 
         Parameters
         ----------
         filepath : str
-            path of the csv file
+            Path of the CSV file.
         model_id : str
-            the ID of the model
+            The ID of the model.
         start_time : datetime
-            start of the time period
+            Start of the time period.
         end_time : datetime
-            end of the time period
+            End of the time period.
         actuals_present : bool
-            filters predictions results to only those
-            who have actuals present or with missing actuals
+            Filters predictions results to only those
+            who have actuals present or with missing actuals.
         offset : int
-            this many results will be skipped
+            This many results will be skipped.
         limit : int
-            at most this many results are returned
+            At most this many results are returned.
 
         Examples
         --------
@@ -2841,19 +2841,19 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         filepath : str
-            path of the scoring code file
+            Path of the scoring code file.
         source_code : bool
-            whether source code or binary of the scoring code will be retrieved
+            Whether source code or binary of the scoring code will be retrieved.
         include_agent : bool
-            whether the scoring code retrieved will include tracking agent
+            Whether the scoring code retrieved will include tracking agent.
         include_prediction_explanations : bool
-            whether the scoring code retrieved will include prediction explanations
+            Whether the scoring code retrieved will include prediction explanations.
         include_prediction_intervals : bool
-            whether the scoring code retrieved will support prediction intervals
+            Whether the scoring code retrieved will support prediction intervals.
         max_wait: Optional[int]
             Seconds to wait for successful resolution of a deployment creation job.
             Deployment supports making predictions only after a deployment creating job
-            has successfully finished
+            has successfully finished.
 
         Examples
         --------
@@ -2936,18 +2936,18 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         end_time: Optional[datetime] = None,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> None:
-        """Delete deployment monitoring data.
+        """Deletes the deployment monitoring data.
 
         Parameters
         ----------
         model_id : str
-            id of the model to delete monitoring data
+            The ID of the model to delete monitoring data for.
         start_time : datetime, optional
-            start of the time period to delete monitoring data
+            Start of the time period to delete monitoring data.
         end_time : datetime, optional
-            end of the time period to delete monitoring data
+            End of the time period to delete monitoring data.
         max_wait : Optional[int]
-            seconds to wait for successful resolution
+            Seconds to wait for successful resolution.
         """
 
         def timezone_aware(dt: datetime) -> datetime:
@@ -3089,7 +3089,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         return cast(Dict[str, Any], response.json())
 
     def upload_agent_card(self, agent_card: Dict[str, Any]) -> Dict[str, Any]:
-        """Upload or replace the agent card for this deployment.
+        """Uploads the agent card for this deployment or replaces an existing card.
 
         This is only available for external deployments.
 
@@ -3270,17 +3270,17 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         actual_pattern: Optional[str]
             The keywords to search in an actual value for a text generation target.
         order_by: Optional[str]
-            The field to sort by (e.g., associationId, timestamp, or customMetrics). Use a leading '-'
-            to indicate descending order. When ordering by a custom-metric, must also specify 'order_metric'.
-            The default is None, which equates to '-timestamp'.
+            The field to sort by (e.g., `associationId`, timestamp, or `customMetrics`). Use a leading '-'
+            to indicate descending order. When ordering by a custom metric, must also specify ``order_metric``.
+            The default is None, which equates to ``-timestamp``.
         order_metric: Optional[str]
-            When 'order_by' is a custom-metric, this specifies the custom-metric name or ID to use for ordering.
+            When ``order_by`` is a custom metric, this specifies the custom metric name or ID to use for ordering.
             The default is None.
         filter_metric: Optional[str]
-            Specifies the metric name or ID to use for matching. Must also use 'filter_value' to specify
+            Specifies the metric name or ID to use for matching. Must also use ``filter_value`` to specify
             the value that must be matched. The default is None.
         filter_value: Optional[str]
-            Specifies the value associated with 'filter_metric' that must be matched. The default
+            Specifies the value associated with ``filter_metric`` that must be matched. The default
             is None.
         offset: Optional[int]
             The starting offset of the results. The default is 0.
@@ -3441,7 +3441,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
     def get_accuracy_metrics_settings(self) -> List[ACCURACY_METRIC]:
         """
-        Get accuracy metrics settings for this deployment.
+        Returns the accuracy metrics settings for this deployment.
 
         Returns
         -------
@@ -3465,7 +3465,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
     def update_accuracy_metrics_settings(self, accuracy_metrics: List[ACCURACY_METRIC]) -> List[ACCURACY_METRIC]:
         """
-        Update accuracy metrics settings for this deployment.
+        Updates the accuracy metrics settings for this deployment.
 
         Parameters
         ----------
@@ -3525,7 +3525,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         dataset_id: Optional[str | object] = MISSING_PARAM,
         prediction_environment_id: Optional[str | object] = MISSING_PARAM,
     ) -> None:
-        """Update retraining settings of this deployment.
+        """Updates the retraining settings of this deployment.
 
         .. versionadded:: v2.29
 
@@ -3663,13 +3663,13 @@ class DeploymentListFilters:
         for allowed values. Supports comma-separated lists. Note that Approval Workflows must
         be enabled for your account to use this filter, otherwise the API will return a 403.
     tag_keys : List[str]
-        List of tag keys to filter for. If multiple values are specified, deployments with tags
+        A list of tag keys to filter for. If multiple values are specified, deployments with tags
         that match any of the values will be returned. Supports comma-separated lists.
     tag_values : List[str]
-        List of tag values to filter for. If multiple values are specified, deployments with tags
+        A list of tag values to filter for. If multiple values are specified, deployments with tags
         that match any of the values will be returned. Supports comma-separated lists.
     is_a2a_agent : bool
-        If specified, filters deployments based on whether they are A2A agents."
+        If specified, filters deployments based on whether they are A2A agents.
 
     Examples
     --------
@@ -3762,9 +3762,9 @@ class DeploymentListFilters:
         if self.importance:
             query_args["importance"] = self._list_to_comma_separated_string(self.importance)
         if self.tag_keys:
-            query_args["tagKeys"] = self._list_to_comma_separated_string(self.tag_keys)
+            query_args["tagKeys"] = self.tag_keys
         if self.tag_values:
-            query_args["tagValues"] = self._list_to_comma_separated_string(self.tag_values)
+            query_args["tagValues"] = self.tag_values
         if self.is_a2a_agent is not None:
             query_args["isA2AAgent"] = str(self.is_a2a_agent).lower()
 

@@ -34,7 +34,7 @@ class FeatureAssociationFeaturelists(APIObject):
     Attributes
     ----------
     project_id : str
-        Id of the project that contains the requested associations.
+        ID of the project that contains the requested associations.
     featurelists : list fo dict
         The featurelists with the `featurelist_id`, `title` and the `has_fam` flag.
     """
@@ -64,12 +64,12 @@ class FeatureAssociationFeaturelists(APIObject):
     @classmethod
     def get(cls, project_id: str) -> FeatureAssociationFeaturelists:
         """
-        Get featurelists with feature association status for each.
+        Get the featurelists with feature association status for each.
 
         Parameters
         ----------
         project_id : str
-             Id of the project of interest.
+            ID of the project of interest.
 
         Returns
         -------

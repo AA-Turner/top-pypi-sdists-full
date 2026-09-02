@@ -18,6 +18,7 @@ discovery-contract.md §5.2 for the full conformance obligations.
 from __future__ import annotations
 
 import pytest
+from discovery_helpers import load_provider_fixture
 
 from spec_kitty_tracker import (
     DiscoveredResource,
@@ -30,9 +31,6 @@ from spec_kitty_tracker.discovery._validation import (
     validate_resource_result,
     validate_workspace_result,
 )
-
-from discovery_helpers import load_provider_fixture
-
 
 ALL_PROVIDERS = ["linear", "jira", "github", "gitlab"]
 
@@ -76,49 +74,33 @@ class TestWorkspaceContractErrors:
     """Verify DiscoveryContractError raises with correct attribution
     for each provider's malformed workspace fixtures."""
 
-    def test_provider_context_not_dict_raises_ws_006(
-        self, provider: str
-    ) -> None:
-        fixture = load_provider_fixture(
-            provider, "malformed/workspace_provider_context_not_dict"
-        )
+    def test_provider_context_not_dict_raises_ws_006(self, provider: str) -> None:
+        fixture = load_provider_fixture(provider, "malformed/workspace_provider_context_not_dict")
         bad_ctx = fixture["_inject_provider_context"]
         ws = _make_workspace(provider, bad_ctx)
-        result: DiscoveryResult[DiscoveredWorkspace] = DiscoveryResult(
-            items=[ws], truncated=False
-        )
+        result: DiscoveryResult[DiscoveredWorkspace] = DiscoveryResult(items=[ws], truncated=False)
 
         with pytest.raises(DiscoveryContractError) as exc_info:
             validate_workspace_result(result)
 
         exc = exc_info.value
-        assert exc.reason == "WS-006", (
-            f"{provider}: expected reason WS-006, got {exc.reason!r}"
-        )
+        assert exc.reason == "WS-006", f"{provider}: expected reason WS-006, got {exc.reason!r}"
         assert exc.kind == "workspace"
         assert exc.provider == provider
         assert "provider_context" in (exc.field_path or "")
         assert isinstance(exc, SpecKittyTrackerError)
 
-    def test_workspace_handle_wrong_type_raises_ws_008(
-        self, provider: str
-    ) -> None:
-        fixture = load_provider_fixture(
-            provider, "malformed/workspace_handle_wrong_type"
-        )
+    def test_workspace_handle_wrong_type_raises_ws_008(self, provider: str) -> None:
+        fixture = load_provider_fixture(provider, "malformed/workspace_handle_wrong_type")
         bad_ctx = fixture["_inject_provider_context"]
         ws = _make_workspace(provider, bad_ctx)
-        result: DiscoveryResult[DiscoveredWorkspace] = DiscoveryResult(
-            items=[ws], truncated=False
-        )
+        result: DiscoveryResult[DiscoveredWorkspace] = DiscoveryResult(items=[ws], truncated=False)
 
         with pytest.raises(DiscoveryContractError) as exc_info:
             validate_workspace_result(result)
 
         exc = exc_info.value
-        assert exc.reason == "WS-008", (
-            f"{provider}: expected reason WS-008, got {exc.reason!r}"
-        )
+        assert exc.reason == "WS-008", f"{provider}: expected reason WS-008, got {exc.reason!r}"
         assert exc.kind == "workspace"
         assert exc.provider == provider
         assert "workspace_handle" in (exc.field_path or "")
@@ -135,49 +117,33 @@ class TestResourceContractErrors:
     """Verify DiscoveryContractError raises with correct attribution
     for each provider's malformed resource fixtures."""
 
-    def test_routing_metadata_not_dict_raises_rs_009(
-        self, provider: str
-    ) -> None:
-        fixture = load_provider_fixture(
-            provider, "malformed/resource_routing_metadata_not_dict"
-        )
+    def test_routing_metadata_not_dict_raises_rs_009(self, provider: str) -> None:
+        fixture = load_provider_fixture(provider, "malformed/resource_routing_metadata_not_dict")
         bad_rm = fixture["_inject_routing_metadata"]
         res = _make_resource(provider, bad_rm)
-        result: DiscoveryResult[DiscoveredResource] = DiscoveryResult(
-            items=[res], truncated=False
-        )
+        result: DiscoveryResult[DiscoveredResource] = DiscoveryResult(items=[res], truncated=False)
 
         with pytest.raises(DiscoveryContractError) as exc_info:
             validate_resource_result(result)
 
         exc = exc_info.value
-        assert exc.reason == "RS-009", (
-            f"{provider}: expected reason RS-009, got {exc.reason!r}"
-        )
+        assert exc.reason == "RS-009", f"{provider}: expected reason RS-009, got {exc.reason!r}"
         assert exc.kind == "resource"
         assert exc.provider == provider
         assert "routing_metadata" in (exc.field_path or "")
         assert isinstance(exc, SpecKittyTrackerError)
 
-    def test_display_key_wrong_type_raises_rs_011(
-        self, provider: str
-    ) -> None:
-        fixture = load_provider_fixture(
-            provider, "malformed/resource_display_key_wrong_type"
-        )
+    def test_display_key_wrong_type_raises_rs_011(self, provider: str) -> None:
+        fixture = load_provider_fixture(provider, "malformed/resource_display_key_wrong_type")
         bad_rm = fixture["_inject_routing_metadata"]
         res = _make_resource(provider, bad_rm)
-        result: DiscoveryResult[DiscoveredResource] = DiscoveryResult(
-            items=[res], truncated=False
-        )
+        result: DiscoveryResult[DiscoveredResource] = DiscoveryResult(items=[res], truncated=False)
 
         with pytest.raises(DiscoveryContractError) as exc_info:
             validate_resource_result(result)
 
         exc = exc_info.value
-        assert exc.reason == "RS-011", (
-            f"{provider}: expected reason RS-011, got {exc.reason!r}"
-        )
+        assert exc.reason == "RS-011", f"{provider}: expected reason RS-011, got {exc.reason!r}"
         assert exc.kind == "resource"
         assert exc.provider == provider
         assert "display_key" in (exc.field_path or "")

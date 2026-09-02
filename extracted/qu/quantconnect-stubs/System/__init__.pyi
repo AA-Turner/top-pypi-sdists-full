@@ -11023,32 +11023,12 @@ class Attribute(System.Object, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def get_custom_attribute(element: System.Reflection.Assembly, attribute_type: typing.Type) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
     def get_custom_attribute(element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> System.Attribute:
         ...
 
     @staticmethod
     @overload
     def get_custom_attribute(element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.Module, attribute_type: typing.Type) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
         ...
 
     @staticmethod
@@ -11063,32 +11043,22 @@ class Attribute(System.Object, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def get_custom_attributes(element: System.Reflection.Assembly) -> typing.List[System.Attribute]:
+    def get_custom_attribute(element: System.Reflection.Module, attribute_type: typing.Type) -> System.Attribute:
         ...
 
     @staticmethod
     @overload
-    def get_custom_attributes(element: System.Reflection.Assembly, inherit: bool) -> typing.List[System.Attribute]:
+    def get_custom_attribute(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
         ...
 
     @staticmethod
     @overload
-    def get_custom_attributes(element: System.Reflection.Assembly, attribute_type: typing.Type) -> typing.List[System.Attribute]:
+    def get_custom_attribute(element: System.Reflection.Assembly, attribute_type: typing.Type) -> System.Attribute:
         ...
 
     @staticmethod
     @overload
-    def get_custom_attributes(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo, inherit: bool) -> typing.List[System.Attribute]:
+    def get_custom_attribute(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
         ...
 
     @staticmethod
@@ -11103,32 +11073,17 @@ class Attribute(System.Object, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def get_custom_attributes(element: System.Reflection.Module) -> typing.List[System.Attribute]:
+    def get_custom_attributes(element: System.Reflection.MemberInfo) -> typing.List[System.Attribute]:
         ...
 
     @staticmethod
     @overload
-    def get_custom_attributes(element: System.Reflection.Module, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Module, attribute_type: typing.Type) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
+    def get_custom_attributes(element: System.Reflection.MemberInfo, inherit: bool) -> typing.List[System.Attribute]:
         ...
 
     @staticmethod
     @overload
     def get_custom_attributes(element: System.Reflection.ParameterInfo) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.ParameterInfo, inherit: bool) -> typing.List[System.Attribute]:
         ...
 
     @staticmethod
@@ -11141,20 +11096,55 @@ class Attribute(System.Object, metaclass=abc.ABCMeta):
     def get_custom_attributes(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
         ...
 
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.ParameterInfo, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Module, attribute_type: typing.Type) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Module) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Module, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Assembly, attribute_type: typing.Type) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Assembly) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Assembly, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
     def get_hash_code(self) -> int:
         ...
 
     def is_default_attribute(self) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.Assembly, attribute_type: typing.Type) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> bool:
         ...
 
     @staticmethod
@@ -11169,6 +11159,16 @@ class Attribute(System.Object, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
+    def is_defined(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_defined(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> bool:
+        ...
+
+    @staticmethod
+    @overload
     def is_defined(element: System.Reflection.Module, attribute_type: typing.Type) -> bool:
         ...
 
@@ -11179,12 +11179,12 @@ class Attribute(System.Object, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def is_defined(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> bool:
+    def is_defined(element: System.Reflection.Assembly, attribute_type: typing.Type) -> bool:
         ...
 
     @staticmethod
     @overload
-    def is_defined(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> bool:
+    def is_defined(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> bool:
         ...
 
     def match(self, obj: typing.Any) -> bool:

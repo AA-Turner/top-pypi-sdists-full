@@ -4,7 +4,7 @@ from typing import Any, AsyncIterator, Dict, Iterator, Optional, Union
 import grpc
 from grpc import aio
 
-from .._types import OMIT, Omit
+from .._types import OMIT, Omit, is_given
 from ..exceptions import map_rpc_error
 from . import (
     DEFAULT_TIMEOUT_SECONDS,
@@ -22,10 +22,10 @@ def _build_answer_request(
     query: str,
     api_key: Optional[str],
     include_content: bool,
-    scope: Union[str, Omit],
-    model: Union[str, Omit],
-    response_format: Union[Dict[str, Any], Omit],
-    system_prompt: Union[str, Omit],
+    scope: Union[str, None, Omit],
+    model: Union[str, None, Omit],
+    response_format: Union[Dict[str, Any], None, Omit],
+    system_prompt: Union[str, None, Omit],
 ) -> AnswerRequest:
     """Build an AnswerRequest, leaving scope, model, response_format, and system_prompt
     unset when passed as OMIT.
@@ -68,20 +68,16 @@ def _build_answer_request(
         "include_content": include_content,
     }
 
-    if not isinstance(scope, Omit):
+    if is_given(scope) and scope is not None:
         fields["scope"] = scope
 
-    if not isinstance(model, Omit):
+    if is_given(model) and model is not None:
         fields["model"] = model
 
-    if not isinstance(response_format, Omit) and response_format is not None:
+    if is_given(response_format) and response_format is not None:
         fields["response_format"] = json.dumps(response_format)
 
-    if (
-        not isinstance(system_prompt, Omit)
-        and system_prompt is not None
-        and system_prompt.strip()
-    ):
+    if is_given(system_prompt) and system_prompt is not None and system_prompt.strip():
         fields["system_prompt"] = system_prompt
 
     return AnswerRequest(**fields)
@@ -92,10 +88,10 @@ def _build_answer_stream_request(
     query: str,
     api_key: Optional[str],
     include_content: bool,
-    scope: Union[str, Omit],
-    model: Union[str, Omit],
-    response_format: Union[Dict[str, Any], Omit],
-    system_prompt: Union[str, Omit],
+    scope: Union[str, None, Omit],
+    model: Union[str, None, Omit],
+    response_format: Union[Dict[str, Any], None, Omit],
+    system_prompt: Union[str, None, Omit],
 ) -> AnswerStreamRequest:
     """Build an AnswerStreamRequest, leaving scope, model, response_format, and system_prompt
     unset when passed as OMIT.
@@ -142,20 +138,16 @@ def _build_answer_stream_request(
         "include_content": include_content,
     }
 
-    if not isinstance(scope, Omit):
+    if is_given(scope) and scope is not None:
         fields["scope"] = scope
 
-    if not isinstance(model, Omit):
+    if is_given(model) and model is not None:
         fields["model"] = model
 
-    if not isinstance(response_format, Omit) and response_format is not None:
+    if is_given(response_format) and response_format is not None:
         fields["response_format"] = json.dumps(response_format)
 
-    if (
-        not isinstance(system_prompt, Omit)
-        and system_prompt is not None
-        and system_prompt.strip()
-    ):
+    if is_given(system_prompt) and system_prompt is not None and system_prompt.strip():
         fields["system_prompt"] = system_prompt
 
     return AnswerStreamRequest(**fields)
@@ -182,10 +174,10 @@ class AnswerService:
         query: str,
         *,
         include_content: bool = False,
-        scope: Union[str, Omit] = OMIT,
-        model: Union[str, Omit] = OMIT,
-        response_format: Union[Dict[str, Any], Omit] = OMIT,
-        system_prompt: Union[str, Omit] = OMIT,
+        scope: Union[str, None, Omit] = OMIT,
+        model: Union[str, None, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], None, Omit] = OMIT,
+        system_prompt: Union[str, None, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query.
 
@@ -255,10 +247,10 @@ class AnswerService:
         query: str,
         *,
         include_content: bool = False,
-        scope: Union[str, Omit] = OMIT,
-        model: Union[str, Omit] = OMIT,
-        response_format: Union[Dict[str, Any], Omit] = OMIT,
-        system_prompt: Union[str, Omit] = OMIT,
+        scope: Union[str, None, Omit] = OMIT,
+        model: Union[str, None, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], None, Omit] = OMIT,
+        system_prompt: Union[str, None, Omit] = OMIT,
     ) -> Iterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -353,10 +345,10 @@ class AsyncAnswerService:
         query: str,
         *,
         include_content: bool = False,
-        scope: Union[str, Omit] = OMIT,
-        model: Union[str, Omit] = OMIT,
-        response_format: Union[Dict[str, Any], Omit] = OMIT,
-        system_prompt: Union[str, Omit] = OMIT,
+        scope: Union[str, None, Omit] = OMIT,
+        model: Union[str, None, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], None, Omit] = OMIT,
+        system_prompt: Union[str, None, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query.
 
@@ -426,10 +418,10 @@ class AsyncAnswerService:
         query: str,
         *,
         include_content: bool = False,
-        scope: Union[str, Omit] = OMIT,
-        model: Union[str, Omit] = OMIT,
-        response_format: Union[Dict[str, Any], Omit] = OMIT,
-        system_prompt: Union[str, Omit] = OMIT,
+        scope: Union[str, None, Omit] = OMIT,
+        model: Union[str, None, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], None, Omit] = OMIT,
+        system_prompt: Union[str, None, Omit] = OMIT,
     ) -> AsyncIterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 

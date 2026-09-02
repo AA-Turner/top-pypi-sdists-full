@@ -1,0 +1,117 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastapi-debug-toolbar"
+description = "A debug toolbar for FastAPI."
+readme = "README.md"
+license = "BSD-3-Clause"
+requires-python = ">=3.8"
+dynamic = ["version"]
+authors = [
+  { name = "Dani", email = "dani@domake.io" }
+]
+keywords = ["fastapi", "debug", "profiling"]
+
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Development Status :: 2 - Pre-Alpha",
+    "Framework :: AnyIO",
+    "Framework :: FastAPI",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Utilities",
+]
+
+dependencies = [
+    "fastapi >=0.106.0",
+    "anyio >=3.0.0",
+    "Jinja2 >=2.9",
+    "pydantic >=2.0",
+    "pydantic-extra-types >=2.0.0",
+    "pydantic-settings >=2.0.0",
+    "pyinstrument >=3.0.0",
+    "sqlparse >=0.2.0",
+]
+
+[project.urls]
+homepage = "https://github.com/mongkok/fastapi-debug-toolbar"
+repository = "https://github.com/mongkok/fastapi-debug-toolbar"
+documentation = "https://fastapi-debug-toolbar.domake.io"
+changelog = "https://fastapi-debug-toolbar.domake.io/changelog/"
+
+[project.optional-dependencies]
+test = [
+    "bandit",
+    "coverage",
+    "httpx",
+    "itsdangerous",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "python-multipart",
+    "ruff",
+    "SQLAlchemy",
+    "tortoise-orm",
+]
+
+doc = [
+    "mkdocs",
+    "mkdocs-material",
+    "markdown-include",
+    "mkdocstrings[python]",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["debug_toolbar"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["debug_toolbar"]
+
+[tool.hatch.version]
+path = "debug_toolbar/__init__.py"
+
+[[tool.mypy.overrides]]
+module = ["sqlparse"]
+ignore_missing_imports = true
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]
+
+[tool.bandit]
+skips = ["B101"]
+
+[tool.pytest.ini_options]
+addopts = ["--strict-config", "--strict-markers"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source_pkgs = ["debug_toolbar", "tests"]

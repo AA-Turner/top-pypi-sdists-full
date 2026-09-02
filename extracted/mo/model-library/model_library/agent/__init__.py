@@ -1,0 +1,112 @@
+from typing import TYPE_CHECKING, Any
+
+from model_library.agent.agent import Agent, AgentResult, AgentStopReason
+from model_library.agent.conductor import (
+    ConductorAgent,
+    ConductorConfig,
+    ConductorResult,
+    ConductorStopReason,
+    ConversationMessage,
+)
+from model_library.agent.config import (
+    AgentConfig,
+    DEFAULT_COMPACTION_PROMPT,
+    DEFAULT_SUMMARY_PREFIX,
+    HistoryCompaction,
+    TimeLimit,
+    TimeMessageHook,
+    ToolFilterHook,
+    TurnLimit,
+    TurnMessageHook,
+    truncate_oldest,
+)
+from model_library.agent.history_compaction import (
+    CompactionHook,
+    apply_compaction,
+    estimate_next_input_tokens,
+    llm_summary_compactor,
+    resolve_threshold_tokens,
+)
+from model_library.agent.hooks import (
+    AgentHooks,
+    BeforeQueryHook,
+    DetermineAnswerHook,
+    OnToolResultHook,
+    ShouldStopHook,
+    TurnResult,
+    default_before_query,
+    default_compaction_hook,
+    default_determine_answer,
+    default_on_tool_result,
+    default_should_stop,
+)
+from model_library.agent.metadata import (
+    AgentTurn,
+    CompactionSummary,
+    ErrorTurn,
+    SerializableException,
+    ToolCallRecord,
+    ToolCallSummary,
+    TurnSummary,
+)
+from model_library.agent.tool import NativeWebSearch, Tool, ToolOutput
+
+if TYPE_CHECKING:
+    from model_library.atif import ATIFTrajectory
+
+
+def __getattr__(name: str) -> Any:
+    if name == "ATIFTrajectory":
+        from model_library.atif import ATIFTrajectory
+
+        return ATIFTrajectory
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = [
+    "Agent",
+    "ATIFTrajectory",
+    "AgentConfig",
+    "ConductorAgent",
+    "ConductorConfig",
+    "ConductorResult",
+    "ConductorStopReason",
+    "ConversationMessage",
+    "DEFAULT_COMPACTION_PROMPT",
+    "DEFAULT_SUMMARY_PREFIX",
+    "AgentResult",
+    "AgentStopReason",
+    "AgentHooks",
+    "AgentTurn",
+    "apply_compaction",
+    "BeforeQueryHook",
+    "CompactionHook",
+    "CompactionSummary",
+    "DetermineAnswerHook",
+    "default_before_query",
+    "default_compaction_hook",
+    "default_determine_answer",
+    "default_on_tool_result",
+    "default_should_stop",
+    "ErrorTurn",
+    "estimate_next_input_tokens",
+    "HistoryCompaction",
+    "llm_summary_compactor",
+    "resolve_threshold_tokens",
+    "SerializableException",
+    "NativeWebSearch",
+    "Tool",
+    "ToolCallRecord",
+    "ToolCallSummary",
+    "TurnSummary",
+    "OnToolResultHook",
+    "ShouldStopHook",
+    "ToolOutput",
+    "TimeLimit",
+    "TimeMessageHook",
+    "ToolFilterHook",
+    "TurnLimit",
+    "TurnMessageHook",
+    "TurnResult",
+    "truncate_oldest",
+]

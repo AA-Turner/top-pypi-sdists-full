@@ -62,7 +62,8 @@ class V2ClusterUpdateParams(object):
         'ignition_endpoint': 'IgnitionEndpoint',
         'tags': 'str',
         'control_plane_count': 'int',
-        'load_balancer': 'LoadBalancer'
+        'load_balancer': 'LoadBalancer',
+        'os_stream': 'str'
     }
 
     attribute_map = {
@@ -97,10 +98,11 @@ class V2ClusterUpdateParams(object):
         'ignition_endpoint': 'ignition_endpoint',
         'tags': 'tags',
         'control_plane_count': 'control_plane_count',
-        'load_balancer': 'load_balancer'
+        'load_balancer': 'load_balancer',
+        'os_stream': 'os_stream'
     }
 
-    def __init__(self, name=None, base_dns_domain=None, cluster_network_cidr=None, platform=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, ingress_vips=None, api_vip_dns_name=None, machine_network_cidr=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=None, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=None, additional_ntp_source=None, ntp_sources=None, olm_operators=None, operator_bundles=None, hyperthreading=None, network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None):  # noqa: E501
+    def __init__(self, name=None, base_dns_domain=None, cluster_network_cidr=None, platform=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, ingress_vips=None, api_vip_dns_name=None, machine_network_cidr=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=None, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=None, additional_ntp_source=None, ntp_sources=None, olm_operators=None, operator_bundles=None, hyperthreading=None, network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None, os_stream=None):  # noqa: E501
         """V2ClusterUpdateParams - a model defined in Swagger"""  # noqa: E501
 
         self._name = None
@@ -135,6 +137,7 @@ class V2ClusterUpdateParams(object):
         self._tags = None
         self._control_plane_count = None
         self._load_balancer = None
+        self._os_stream = None
         self.discriminator = None
 
         if name is not None:
@@ -201,6 +204,8 @@ class V2ClusterUpdateParams(object):
             self.control_plane_count = control_plane_count
         if load_balancer is not None:
             self.load_balancer = load_balancer
+        if os_stream is not None:
+            self.os_stream = os_stream
 
     @property
     def name(self):
@@ -953,6 +958,29 @@ class V2ClusterUpdateParams(object):
         """
 
         self._load_balancer = load_balancer
+
+    @property
+    def os_stream(self):
+        """Gets the os_stream of this V2ClusterUpdateParams.  # noqa: E501
+
+        The OS stream to use for this cluster (e.g. rhel-9, rhel-10). If unset, the default OS stream for the OpenShift version is used.  # noqa: E501
+
+        :return: The os_stream of this V2ClusterUpdateParams.  # noqa: E501
+        :rtype: str
+        """
+        return self._os_stream
+
+    @os_stream.setter
+    def os_stream(self, os_stream):
+        """Sets the os_stream of this V2ClusterUpdateParams.
+
+        The OS stream to use for this cluster (e.g. rhel-9, rhel-10). If unset, the default OS stream for the OpenShift version is used.  # noqa: E501
+
+        :param os_stream: The os_stream of this V2ClusterUpdateParams.  # noqa: E501
+        :type: str
+        """
+
+        self._os_stream = os_stream
 
     def to_dict(self):
         """Returns the model properties as a dict"""

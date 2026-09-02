@@ -27,9 +27,7 @@ def _require_keys(connector_params: dict[str, JSONValue], *keys: str) -> None:
     """
     missing = [k for k in keys if k not in connector_params]
     if missing:
-        raise ConnectorConfigError(
-            f"Missing required connector_params keys: {missing}"
-        )
+        raise ConnectorConfigError(f"Missing required connector_params keys: {missing}")
 
 
 def connector_params_to_hosted_params(
@@ -70,9 +68,7 @@ def connector_params_to_hosted_params(
         _require_keys(connector_params, "project_id")
         return GitLabHostedParams(
             project_id=str(connector_params["project_id"]),
-            base_url=str(
-                connector_params.get("base_url", "https://gitlab.com/api/v4")
-            ),
+            base_url=str(connector_params.get("base_url", "https://gitlab.com/api/v4")),
         )
 
     raise ConnectorConfigError(f"Unsupported hosted provider: {provider!r}")

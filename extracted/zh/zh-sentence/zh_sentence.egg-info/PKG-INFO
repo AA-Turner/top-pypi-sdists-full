@@ -1,0 +1,39 @@
+Metadata-Version: 2.1
+Name: zh-sentence
+Version: 0.0.5
+Summary: Light-weight sentence tokenizer for Chinese languages.
+Home-page: https://github.com/Rairye/zh-sentence
+Author: Rairye
+License: apache-2.0
+Download-URL: https://github.com/Rairye/zh-sentence/archive/refs/tags/v0.0.5.tar.gz
+Keywords: Chinese,Sentence,Tokenizer
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.1
+Classifier: Programming Language :: Python :: 3.2
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+
+A light-weight sentence tokenizer for Chinese languages.
+
+Sample Code:
+
+from zh_sentence.tokenizer import tokenize
+
+paragraph_str = "你好吗？你快乐吗？"
+
+sentence_list = tokenize(paragraph_str)
+
+for sentence in sentence_list:
+	print(sentence)
+
+

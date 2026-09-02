@@ -31,6 +31,31 @@ def test_activate_totp_with_incorrect_code(auth_client, reauthentication_bypass)
     }
 
 
+def test_activate_totp_rate_limit(
+    auth_client, reauthentication_bypass, settings, enable_cache
+):
+    settings.ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 1
+    with reauthentication_bypass():
+        auth_client.get(reverse("mfa_activate_totp"))
+        for i in range(2):
+            is_locked = i >= 1
+            resp = auth_client.post(
+                reverse("mfa_activate_totp"),
+                {
+                    "code": "wrong",
+                },
+            )
+            assert resp.context["form"].errors == {
+                "code": [
+                    (
+                        "Be patient, you are sending too many requests."
+                        if is_locked
+                        else "Incorrect code."
+                    )
+                ]
+            }
+
+
 @pytest.mark.parametrize("email_verified", [False])
 @pytest.mark.parametrize("method", ["get", "post"])
 def test_activate_totp_with_unverified_email(

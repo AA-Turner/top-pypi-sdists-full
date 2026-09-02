@@ -9,6 +9,7 @@ Set CWSANDBOX_BASE_URL and CWSANDBOX_API_KEY environment variables before runnin
 """
 
 import asyncio
+import os
 import time
 import uuid
 from unittest.mock import patch
@@ -18,11 +19,13 @@ import pytest
 from grpc.aio import UnaryStreamCall
 
 from cwsandbox import (
+    DataPlaneMode,
     NetworkOptions,
     PlacementMode,
     ResourceOptions,
     Sandbox,
     SandboxDefaults,
+    ScratchVolumeOptions,
     Service,
     ServiceVisibility,
     Session,
@@ -45,6 +48,33 @@ def test_sandbox_lifecycle(sandbox_defaults: SandboxDefaults) -> None:
 
         assert result.returncode == 0
         assert result.stdout.strip() == "hello"
+
+
+def test_direct_data_plane(sandbox_defaults: SandboxDefaults) -> None:
+    """Opt-in end-to-end coverage for strict direct mTLS data operations."""
+    if os.environ.get("CWSANDBOX_TEST_DIRECT_DATA_PLANE") != "1":
+        pytest.skip("set CWSANDBOX_TEST_DIRECT_DATA_PLANE=1 to require direct connectivity")
+
+    defaults = sandbox_defaults.with_overrides(data_plane_mode=DataPlaneMode.DIRECT)
+    with Sandbox.run(
+        "/bin/sh",
+        "-c",
+        'echo "direct-log"; trap "exit 0" TERM INT; sleep infinity & wait',
+        defaults=defaults,
+    ) as sandbox:
+        sandbox.wait()
+
+        result = sandbox.exec(["printf", "%s", "direct-exec"]).result()
+        assert result.stdout == "direct-exec"
+
+        sandbox.write_file("/tmp/direct-data-plane", b"direct-file").result()
+        assert sandbox.read_file("/tmp/direct-data-plane").result() == b"direct-file"
+
+        payload = bytes(range(256)) * 4096
+        sandbox.write_file("/tmp/direct-data-plane-stream", payload).result()
+        assert b"".join(sandbox.read_file_streaming("/tmp/direct-data-plane-stream")) == payload
+
+        assert any("direct-log" in line for line in sandbox.stream_logs())
 
 
 def test_wait_until_complete_latency_guard(sandbox_defaults: SandboxDefaults) -> None:
@@ -554,6 +584,72 @@ def test_sandbox_environment_variables(sandbox_defaults: SandboxDefaults) -> Non
             assert lines[1] == "debug"
             # Task-specific environment variables are added
             assert lines[2] == "resnet50"
+
+
+def _required_runtime_class(sandbox_defaults: SandboxDefaults) -> str:
+    """Runtime class the live fleet is required to admit.
+
+    ``CWSANDBOX_TEST_RUNTIME_CLASS`` wins. Otherwise an unpinned create's
+    ``effective_runtime_class`` is the pin. Empty echo fails the environment.
+    """
+    pinned = os.environ.get("CWSANDBOX_TEST_RUNTIME_CLASS", "").strip()
+    if pinned:
+        return pinned
+    with Sandbox.run("sleep", "infinity", defaults=sandbox_defaults) as sandbox:
+        sandbox.wait()
+        admitted = sandbox.effective_runtime_class
+    assert admitted, (
+        "Fleet did not echo an effective_runtime_class; "
+        "set CWSANDBOX_TEST_RUNTIME_CLASS to a policy-admitted class"
+    )
+    return admitted
+
+
+def test_sandbox_working_dir(sandbox_defaults: SandboxDefaults) -> None:
+    """Create-time working_dir is the process cwd."""
+    with Sandbox.run(
+        "sleep",
+        "infinity",
+        defaults=sandbox_defaults,
+        working_dir="/tmp",
+    ) as sandbox:
+        sandbox.wait()
+        result = sandbox.exec(["pwd"]).result()
+        assert result.returncode == 0
+        assert result.stdout.strip() == "/tmp"
+
+
+def test_sandbox_scratch_volume(sandbox_defaults: SandboxDefaults) -> None:
+    """Scratch EmptyDir is mounted and writable."""
+    with Sandbox.run(
+        "sleep",
+        "infinity",
+        defaults=sandbox_defaults,
+        volumes=[
+            ScratchVolumeOptions(name="scratch", mount_path="/data", size="1Gi"),
+        ],
+    ) as sandbox:
+        sandbox.wait()
+        written = sandbox.exec(
+            ["sh", "-c", "printf 'scratch-ok' > /data/probe && cat /data/probe"]
+        ).result()
+        assert written.returncode == 0
+        assert written.stdout.strip() == "scratch-ok"
+        assert sandbox.read_file("/data/probe").result() == b"scratch-ok"
+
+
+def test_sandbox_runtime_class(sandbox_defaults: SandboxDefaults) -> None:
+    """Create-time runtime_class is echoed as effective_runtime_class."""
+    runtime_class = _required_runtime_class(sandbox_defaults)
+    with Sandbox.run(
+        "sleep",
+        "infinity",
+        defaults=sandbox_defaults,
+        runtime_class=runtime_class,
+    ) as sandbox:
+        sandbox.wait()
+        assert sandbox.status == SandboxStatus.RUNNING
+        assert sandbox.effective_runtime_class == runtime_class
 
 
 def test_function_environment_variables(sandbox_defaults: SandboxDefaults) -> None:

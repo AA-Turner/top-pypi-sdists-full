@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: panther_core
+Version: 0.16.2
+Summary: Panther core library
+Home-page: https://github.com/panther-labs/panther_core
+Download-URL: https://github.com/panther-labs/panther_core/archive/refs/tags/v0.16.2.tar.gz
+Author: Panther Labs Inc
+Author-email: pypi@runpanther.io
+License: AGPL-3.0
+Keywords: Security,CLI
+Classifier: Topic :: Security
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+License-File: LICENSE.txt
+Requires-Dist: jsonpath-ng
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

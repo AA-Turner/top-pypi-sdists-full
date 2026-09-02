@@ -1,0 +1,110 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "pre-commit>=3.7.1",
+  "pyright>=1.1.383",
+  "pytest>=8.3.4",
+  "ruff>=0.4.8",
+  "types-requests>=2.32.0.20241016",
+  "werkzeug>=3.1.3",
+]
+
+[project]
+name = "dbnomics"
+version = "1.2.7"
+description = "DBnomics Python client"
+authors = [{ name = "Christophe Benz", email = "christophe.benz@nomics.world" }]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+  "Operating System :: OS Independent",
+]
+dependencies = ["pandas>=2.2.3", "requests>=2.32.3", "tenacity>=9.0.0"]
+
+[project.urls]
+"Homepage" = "https://git.nomics.world/dbnomics/dbnomics-python-client"
+"Bug Tracker" = "https://git.nomics.world/dbnomics/dbnomics-python-client/-/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dbnomics"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.pyright]
+include = ["src"]
+typeCheckingMode = "strict"
+
+[tool.ruff]
+line-length = 120
+preview = true
+src = ["src"]
+unsafe-fixes = true
+
+[tool.ruff.lint]
+exclude = [
+  "__pycache__",
+  ".cache",
+  ".eggs",
+  ".git",
+  ".mypy_cache",
+  ".pytest_cache",
+  ".venv",
+  "*.egg-info",
+  "build",
+  "dist",
+]
+explicit-preview-rules = true
+ignore = [
+  "ANN401",
+  "BLE001",
+  "COM",
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D103",
+  "D104",
+  "D105",
+  "D106",
+  "D107",
+  "D203",
+  "D213",
+  "ISC001",
+  "N818",
+  "PD",
+  "PGH003",
+  "S101",
+
+  # To be removed when source code will be refactored:
+  "ANN001",
+  "ANN201",
+  "ANN202",
+  "ERA001",
+]
+select = ["ALL", "RUF022"]
+unfixable = ["COM", "ERA", "F841"]
+
+# [tool.ruff.lint.flake8-builtins]
+# builtins-ignorelist = ["id", "open", "type"]
+
+# [tool.ruff.lint.mccabe]
+# max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F403"]
+"local/dev*.py" = [
+  "T201", # allow print
+]
+"typings/**/*.pyi" = ["F403"]
+
+# [tool.ruff.lint.pylint]
+# max-args = 5
+# max-branches = 12
+# max-statements = 50

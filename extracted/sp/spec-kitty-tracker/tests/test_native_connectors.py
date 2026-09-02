@@ -17,7 +17,6 @@ from spec_kitty_tracker import (
     LinkType,
 )
 
-
 Matcher = Callable[[Sequence[str]], bool]
 
 
@@ -197,9 +196,7 @@ async def test_fp_connector_list_get_create_and_update() -> None:
     assert page.items[0].ref.id == "FP-abcd"
     assert page.items[0].status == CanonicalStatus.TODO
 
-    issue = await connector.get_issue(
-        ExternalRef(system="fp", workspace="demo", id="FP-abcd")
-    )
+    issue = await connector.get_issue(ExternalRef(system="fp", workspace="demo", id="FP-abcd"))
     assert issue.title == "Build auth flow"
     assert issue.body == "Issue context for FP-abcd"
 

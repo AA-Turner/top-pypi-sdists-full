@@ -11,8 +11,8 @@ in a backward-incompatible way without a separate migration mission.
 
 import warnings
 
-from spec_kitty_tracker.discovery.types import DiscoveredResource, DiscoveryResult
 from spec_kitty_tracker.discovery import discover_resources
+from spec_kitty_tracker.discovery.types import DiscoveredResource, DiscoveryResult
 
 warnings.warn(
     "spec_kitty_tracker.resource_discovery is deprecated. "

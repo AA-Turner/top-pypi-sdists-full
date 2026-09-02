@@ -7,6 +7,7 @@ from .client import AsyncSeltzClient, SeltzClient
 from .exceptions import SeltzConfigurationError
 from .services import AnswerResponse, AnswerStreamResponse, SearchResponse
 from .services.answer_service import AnswerService, AsyncAnswerService
+from .services.monitor_service import AsyncMonitorService, MonitorService
 from .services.search_service import AsyncSearchService, SearchService
 
 
@@ -52,8 +53,14 @@ class Seltz:
             endpoint=endpoint, api_key=api_key, insecure=insecure
         )
 
-        self._search = SearchService(self._client.channel, self._client.api_key)
-        self._answer = AnswerService(self._client.channel, self._client.api_key)
+        self._search = SearchService(self._client.channel, api_key)
+        self._answer = AnswerService(self._client.channel, api_key)
+        self._monitor = MonitorService(self._client.channel, api_key)
+
+    @property
+    def monitor(self) -> MonitorService:
+        """Monitor CRUD, run history and the two record cursors."""
+        return self._monitor
 
     def search(
         self,
@@ -322,8 +329,14 @@ class AsyncSeltz:
             endpoint=endpoint, api_key=api_key, insecure=insecure
         )
 
-        self._search = AsyncSearchService(self._client.channel, self._client.api_key)
-        self._answer = AsyncAnswerService(self._client.channel, self._client.api_key)
+        self._search = AsyncSearchService(self._client.channel, api_key)
+        self._answer = AsyncAnswerService(self._client.channel, api_key)
+        self._monitor = AsyncMonitorService(self._client.channel, api_key)
+
+    @property
+    def monitor(self) -> AsyncMonitorService:
+        """Monitor CRUD, run history and the two record cursors."""
+        return self._monitor
 
     async def search(
         self,

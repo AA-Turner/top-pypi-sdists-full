@@ -1,0 +1,67 @@
+[project]
+name = "weaviate-agents"
+version = "1.8.0"
+description = "The official sub-package for the Weaviate Agents project."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "httpx-sse>=0.4.0",
+    "rich>=13.9.4",
+    "weaviate-client>=4.11.0",
+]
+
+
+[build-system]
+requires = [
+    "setuptools >= 65",
+    "setuptools_scm[toml] >6.2",
+    "wheel >= 0.38.1",
+]
+build-backend = 'setuptools.build_meta'
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "pre-commit>=4.1.0",
+    "pytest-cov>=6.0.0",
+    "pytest>=8.3.4",
+    "ruff>=0.9.6",
+    "tomli>=2.2.1",
+    "pytest-asyncio>=0.26.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]  # Search in current directory
+exclude = [
+    "bash*",
+    "tests*",
+    "docs*",
+    "scripts*",
+]
+
+[tool.setuptools]
+license-files = []
+
+[tool.ruff]
+lint.select = ["E", "F", "I", "D"]
+lint.ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D107", "E501"]
+exclude = [
+    "tests",
+    "docs",
+    "scripts",
+    "bash",
+    ".venv",
+    ".git",
+    "__pycache__",
+]
+
+# D100: Missing docstring in a public module
+# D101: Missing docstring in a public class
+# D102: Missing docstring in a public method
+# D103: Missing docstring in a public function
+# D104: Missing docstring in a public package
+# D105: Missing docstring in a magic method
+# D107: Missing docstring in an __init__ method
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

@@ -1,0 +1,30 @@
+[package]
+name = "rust-sugiyama"
+
+# rebased on v0.4.0
+version = { workspace = true }
+edition = { workspace = true }
+license = "MIT"
+authors = ["paddison"]
+description = "Implementation of Sugiyama's algorithm to calculate coordinates of a directed graph"
+readme = "README.md"
+homepage = "https://github.com/paddison/rust-sugiyama"
+repository = "https://github.com/paddison/rust-sugiyama"
+keywords = ["graph", "graph-display", "directed-graph"]
+
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(coverage,coverage_nightly)',
+] }
+
+
+[dependencies]
+log = { workspace = true }
+petgraph = { workspace = true }
+
+
+[dev-dependencies]
+env_logger = "*"
+rand = { workspace = true }
+svg = { workspace = true }
